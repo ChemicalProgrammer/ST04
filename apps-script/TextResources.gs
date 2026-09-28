@@ -299,6 +299,7 @@ var ST_TEXT_RESOURCES = {
   "settings.discard_unsaved_settings": "Discard unsaved settings?",
   "settings.api_key_saved_for_your_google_account": "API key saved for your Google account.",
   "settings.no_api_key_configured": "No API key configured.",
+  "sheetimport.machine_type": "Machine type (review or change)",
   "sheetimport.source_row_errors": "Skipped because source cells contain errors. Review the fields below and choose an import target.",
   "settings.api_key_mask": "************",
   "settings.enter_api_key": "Enter your API key",

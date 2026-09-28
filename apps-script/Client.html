@@ -1622,6 +1622,15 @@ function summarizeGeometrySources(sources, assumptions) {
     function showError(error) {
       var message = (error.code || 'ERROR') + ': ' + (error.message || __ST_TEXT__('client.the_request_failed'));
       var target = document.getElementById('status'); target.className = 'status error'; target.textContent = message;
+      if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){
+        var list=document.createElement('ul');
+        error.details.forEach(function(detail){
+          var path=String(detail.path||''),match=path.match(/equipment\[(\d+)\]/);
+          var unit=match&&state.activeCase?.equipment?.[Number(match[1])];
+          var item=document.createElement('li');item.textContent=(unit?unit.name+' · ':'')+path+': '+String(detail.reason||'');list.appendChild(item);
+        });
+        target.appendChild(list);
+      }
       document.documentElement.classList.remove('restoring-session');
       if(!state.bootstrap)toggle('auth-panel',true);
       document.getElementById('auth-status').textContent = message;

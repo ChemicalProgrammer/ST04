@@ -347,3 +347,29 @@ test('UI: Sheet preview keeps pitch warnings selectable and shows them beside th
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: preview machine type override preserves names and reaches the imported simulation',async()=>{
+ const h=await setup({empty:true});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
+  const section=h.d.querySelector('[data-source-index="0"]'),select=section.querySelector('.sheet-machine-type');
+  assert(select);const originalName=section.querySelector('[data-field="name"]').closest('tr').textContent;
+  select.value='SLEEVER';select.dispatchEvent(new h.w.Event('change'));
+  assert.equal(h.d.querySelector('[data-source-index="0"] .sheet-machine-type').value,'SLEEVER');
+  assert.equal(h.d.querySelector('[data-source-index="0"] [data-field="name"]').closest('tr').textContent,originalName);
+  await h.click('#sheet-import-ack');await h.click('#sheet-import-apply');
+  assert.equal(h.d.querySelector('.equipment-type').value,'SLEEVER');
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: invalid physical inputs expose equipment and validation details',async()=>{
+ const h=await setup();try{
+  const original=h.api.getCase;
+  h.api.getCase=id=>{const record=original(id);for(const units of [record.equipment,record.simulations[0].equipment])units[1].nominalRatePerSecond=0;return record;};
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('#run-simulation');
+  await waitFor(()=>h.d.querySelector('#status li'));
+  assert.match(h.d.getElementById('status').textContent,/nominalRatePerSecond/);
+  assert.match(h.d.getElementById('status').textContent,/greater than zero/);
+ }finally{h.dom.window.close();}
+});

@@ -35,6 +35,14 @@ window.STSheetImport=function(state,actions){
       var label=node('label',__ST_TEXT__('sheetimport.import_into')),select=document.createElement('select');select.className='sheet-target';select.setAttribute('aria-label',__ST_TEXT__('sheetimport.import_target_for_row')+record.row);
       [['skip',__ST_TEXT__('sheetimport.skip_this_equipment')],['new',__ST_TEXT__('sheetimport.add_as_new_equipment')]].concat(snapshot.equipment.map(function(e){return [e.id,__ST_TEXT__('sheetimport.update_2')+e.name+' ('+e.id+')'];})).forEach(function(option){select.add(new Option(option[1],option[0]));});select.value=record.target;
       select.onchange=function(){record.target=select.value;merge.defaults(data,record,snapshot.equipment);render();var next=host.querySelector('[data-source-index="'+record.index+'"]');next.open=true;next.querySelector('select').focus();};label.appendChild(select);section.appendChild(label);section.appendChild(node('p',record.reason));
+      if(unit.type!=='CONVEYOR'){
+        var typeLabel=node('label',__ST_TEXT__('sheetimport.machine_type')),typeSelect=document.createElement('select');
+        typeSelect.className='sheet-machine-type';typeSelect.setAttribute('aria-label',__ST_TEXT__('sheetimport.machine_type')+' '+unit.name);
+        ['CUSTOM','BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','PACEMAKER'].forEach(function(type){typeSelect.add(new Option(type.replace(/_/g,' '),type));});
+        typeSelect.value=unit.type;typeSelect.disabled=record.target==='skip';
+        typeSelect.onchange=function(){unit.type=typeSelect.value;record.selected.type=true;render();host.querySelector('[data-source-index="'+record.index+'"]').open=true;};
+        typeLabel.appendChild(typeSelect);section.appendChild(typeLabel);
+      }
       var table=header();merge.fields.forEach(function(f){var before=current?f.read(current):null,after=merge.incomingValue(data,record,f),errors=merge.errorsFor(data,f.col,record.row);choice(table.body,f.col+record.row+' · '+f.label,before,after,record.target!=='skip'&&record.selected[f.id],record.target==='skip'||errors.length>0,!merge.equal(before,after),function(v){record.selected[f.id]=v;},f,errors.concat(merge.errorsFor({errors:data.warnings||[]},f.col,record.row)));});
       var scroll=document.createElement('div');scroll.className='table-scroll';scroll.appendChild(table.table);section.appendChild(scroll);host.appendChild(section);
     });

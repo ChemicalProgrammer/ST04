@@ -1,3 +1,20 @@
+// Conservative name recognition for worksheets whose category is simply Machine.
+function inferSheetMachineType_(name) {
+  var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
+  var patterns=[
+    ['BLOWMOLDER',/\bBLOW\s*MO[UL]+DER\b/],
+    ['DEPUCKER',/\bDE\s*PUCKER\b/],
+    ['PUCKER',/\bPUCKER\b/],
+    ['FILLER',/\bFILLER\b/],
+    ['SLEEVER',/\bSLEEVER\b/],
+    ['CASE_PACKER',/\bCASE\s*PACKER\b/],
+    ['PALLETIZER',/\bPALLETI[ZS]ER\b/],
+    ['BLOWER',/\bBLOWER\b/]
+  ];
+  if(patterns[1][1].test(text))return 'DEPUCKER';
+  var matches=patterns.filter(function(item){return item[1].test(text);});
+  return matches.length===1?matches[0][0]:'CUSTOM';
+}
 // Fixed plant worksheet contract. Reads only; never writes to the source Sheet.
 // Column and metadata mappings live here so a layout change is localized.
 function sheetImportColumns_() {
@@ -103,7 +120,12 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
     if(row.every(missing))return;
     var rawType=missing(row[0])?'':String(row[0]).trim(),type=aliases[rawType.toUpperCase().replace(/[\s_-]+/g,'')];
     if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pacemaker, Pucker, Filler, De-pucker, Sleever, Case packer, Palletizer or Other.');
-    var name=missing(row[1])?'':String(row[1]).trim();if(!name)issue(errors,'B'+rowNumber,'Equipment name is required.');
+    var name=missing(row[1])?'':String(row[1]).trim();
+    if(rawType.toUpperCase()==='MACHINE'){
+      type=inferSheetMachineType_(name);
+      issue(warnings,'A'+rowNumber,type==='CUSTOM'?'Machine name could not be classified uniquely. Review the machine type in Preview or Line setup.':'Machine type inferred from B'+rowNumber+': '+type+'. Review before applying.');
+    }
+    if(!name)issue(errors,'B'+rowNumber,'Equipment name is required.');
     var flag=missing(row[2])?'N':String(row[2]).trim().toUpperCase();if(!['Y','N'].includes(flag))issue(errors,'C'+rowNumber,'Use Y, N or NA.');
     var values={type:rawType,name:name,critical:missing(row[2])?null:flag};
     columns.slice(3).forEach(function(def,index){var col=index+3;values[def[1]]=numeric(row[col],def[0]+rowNumber,[16,17,18,22].indexOf(col)>=0?(formats[offset]||[])[col]:null);});

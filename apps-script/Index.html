@@ -4278,6 +4278,14 @@ window.STSheetImport=function(state,actions){
       var label=node('label',"Import into "),select=document.createElement('select');select.className='sheet-target';select.setAttribute('aria-label',"Import target for row "+record.row);
       [['skip',"Skip this equipment"],['new',"Add as new equipment"]].concat(snapshot.equipment.map(function(e){return [e.id,"Update: "+e.name+' ('+e.id+')'];})).forEach(function(option){select.add(new Option(option[1],option[0]));});select.value=record.target;
       select.onchange=function(){record.target=select.value;merge.defaults(data,record,snapshot.equipment);render();var next=host.querySelector('[data-source-index="'+record.index+'"]');next.open=true;next.querySelector('select').focus();};label.appendChild(select);section.appendChild(label);section.appendChild(node('p',record.reason));
+      if(unit.type!=='CONVEYOR'){
+        var typeLabel=node('label',"Machine type (review or change)"),typeSelect=document.createElement('select');
+        typeSelect.className='sheet-machine-type';typeSelect.setAttribute('aria-label',"Machine type (review or change)"+' '+unit.name);
+        ['CUSTOM','BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','PACEMAKER'].forEach(function(type){typeSelect.add(new Option(type.replace(/_/g,' '),type));});
+        typeSelect.value=unit.type;typeSelect.disabled=record.target==='skip';
+        typeSelect.onchange=function(){unit.type=typeSelect.value;record.selected.type=true;render();host.querySelector('[data-source-index="'+record.index+'"]').open=true;};
+        typeLabel.appendChild(typeSelect);section.appendChild(typeLabel);
+      }
       var table=header();merge.fields.forEach(function(f){var before=current?f.read(current):null,after=merge.incomingValue(data,record,f),errors=merge.errorsFor(data,f.col,record.row);choice(table.body,f.col+record.row+' · '+f.label,before,after,record.target!=='skip'&&record.selected[f.id],record.target==='skip'||errors.length>0,!merge.equal(before,after),function(v){record.selected[f.id]=v;},f,errors.concat(merge.errorsFor({errors:data.warnings||[]},f.col,record.row)));});
       var scroll=document.createElement('div');scroll.className='table-scroll';scroll.appendChild(table.table);section.appendChild(scroll);host.appendChild(section);
     });
@@ -5926,6 +5934,15 @@ function summarizeGeometrySources(sources, assumptions) {
     function showError(error) {
       var message = (error.code || 'ERROR') + ': ' + (error.message || "The request failed.");
       var target = document.getElementById('status'); target.className = 'status error'; target.textContent = message;
+      if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){
+        var list=document.createElement('ul');
+        error.details.forEach(function(detail){
+          var path=String(detail.path||''),match=path.match(/equipment\[(\d+)\]/);
+          var unit=match&&state.activeCase?.equipment?.[Number(match[1])];
+          var item=document.createElement('li');item.textContent=(unit?unit.name+' · ':'')+path+': '+String(detail.reason||'');list.appendChild(item);
+        });
+        target.appendChild(list);
+      }
       document.documentElement.classList.remove('restoring-session');
       if(!state.bootstrap)toggle('auth-panel',true);
       document.getElementById('auth-status').textContent = message;

@@ -108,3 +108,16 @@ test('small discharge pitch is retained and selectable as draft with physical wa
  const run=simulateLine({case:{equipment:plain(result.equipment)},run:{durationSeconds:60,tickSeconds:1,seed:1}});
  assert.equal(run.ok,false,'Draft import must not bypass physical simulation validation');
 });
+
+test('Machine category recognizes worksheet names while preserving custom names and explicit types',()=>{
+ const r=runtime(),f=fixture();
+ const names={'Blowmolder':'BLOWMOLDER','Blow mouldER 1':'BLOWMOLDER','Pucker':'PUCKER','Filler/Capper':'FILLER','De-Pucker':'DEPUCKER','Sleever':'SLEEVER','Case Packer':'CASE_PACKER','Palletizer':'PALLETIZER','Custom Station':'CUSTOM','Pucker and Filler':'CUSTOM'};
+ for(const [name,type] of Object.entries(names)){
+  f.rows[0][0]='Machine';f.rows[0][1]=name;
+  const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);
+  assert.equal(out.equipment[0].type,type,name);assert.equal(out.equipment[0].name,name);
+  assert.equal(out.equipment[0].processData.machineType,type);assert(out.warnings.some(w=>w.cell==='A10'));
+ }
+ f.rows[0][0]='Sleever';f.rows[0][1]='Filler/Capper';
+ assert.equal(r.parseEquipmentSheet_(f.metadata,f.rows,f.formats).equipment[0].type,'SLEEVER');
+});
