@@ -408,6 +408,7 @@ var ST_TEXT_RESOURCES = {
   "sheetimport.metadata_changes": " metadata changes",
   "sheetimport.existing_results_will_be_cleared_run_again": " · Existing results will be cleared; run again.",
   "sheetimport.physical_model_review_drafts_can_be_saved": "Physical model review (drafts can be saved)",
+  "sheetimport.check_pitch_geometry": "Check package length {K}, upstream discharge pitch {L} and conveyor speed factor {Q} in the Sheet or Line setup. These values produce a negative calculated gap; review the actual package orientation and spacing.",
   "sheetimport.import": "Import ",
   "sheetimport.unavailable": "Unavailable",
   "sheetimport.unchanged": "Unchanged",

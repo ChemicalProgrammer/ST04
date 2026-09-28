@@ -1625,9 +1625,7 @@ function summarizeGeometrySources(sources, assumptions) {
       if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){
         var list=document.createElement('ul');
         error.details.forEach(function(detail){
-          var path=String(detail.path||''),match=path.match(/equipment\[(\d+)\]/);
-          var unit=match&&state.activeCase?.equipment?.[Number(match[1])];
-          var item=document.createElement('li');item.textContent=(unit?unit.name+' · ':'')+path+': '+String(detail.reason||'');list.appendChild(item);
+          var item=document.createElement('li');item.textContent=STSheetImportMerge.physicalIssue(detail,state.activeCase?.equipment);list.appendChild(item);
         });
         target.appendChild(list);
       }

@@ -344,6 +344,9 @@ test('UI: Sheet preview keeps pitch warnings selectable and shows them beside th
   assert.equal(section.querySelector('select').value,'new');assert(pitch.checked);assert(!pitch.disabled);
   assert.match(pitch.closest('tr').textContent,/88.9/);assert.match(pitch.closest('tr').textContent,/smaller than package length/);
   assert.match(h.d.getElementById('sheet-import-preview').textContent,/5.5/);
+  const review=h.d.getElementById('sheet-import-model-review');
+  assert(review.open,'A draft that cannot run must show the review');
+  assert.match(review.textContent,/Blowmolder discharge conveyor/);assert.match(review.textContent,/K11/);assert.match(review.textContent,/L11/);assert.match(review.textContent,/Q11/);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -371,5 +374,6 @@ test('UI: invalid physical inputs expose equipment and validation details',async
   await waitFor(()=>h.d.querySelector('#status li'));
   assert.match(h.d.getElementById('status').textContent,/nominalRatePerSecond/);
   assert.match(h.d.getElementById('status').textContent,/greater than zero/);
+  assert.match(h.d.getElementById('status').textContent,/Blowmolder discharge conveyor/);
  }finally{h.dom.window.close();}
 });

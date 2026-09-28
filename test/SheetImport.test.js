@@ -104,9 +104,14 @@ test('small discharge pitch is retained and selectable as draft with physical wa
  assert(plan.records.every(record=>record.target==='new'));assert(plan.records[1].selected.pitch);
  const result=merge.build(out,plan,[],{});assert.equal(result.errors.length,0);assert.equal(result.added,3);
  assert.equal(result.equipment[1].processData.upstream.dischargePitchMm,88.9);
+ assert.equal(result.equipment[1].characteristics.sourceSheetRow,11);
  assert.equal(result.sourceImport.metadata.containerSizeOz,5.5);
  const run=simulateLine({case:{equipment:plain(result.equipment)},run:{durationSeconds:60,tickSeconds:1,seed:1}});
  assert.equal(run.ok,false,'Draft import must not bypass physical simulation validation');
+ assert(run.error.details.some(detail=>detail.path.includes('equipment[1]')&&detail.path.endsWith('.gapMm')),JSON.stringify(run.error.details));
+ const gap=run.error.details.find(detail=>detail.path.includes('equipment[1]')&&detail.path.endsWith('.gapMm'));
+ const explanation=merge.physicalIssue(gap,result.equipment);
+ assert.match(explanation,/Conveyor B/);assert.match(explanation,/K11/);assert.match(explanation,/L11/);assert.match(explanation,/Q11/);
 });
 
 test('Machine category recognizes worksheet names while preserving custom names and explicit types',()=>{

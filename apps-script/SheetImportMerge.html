@@ -62,7 +62,7 @@ window.STSheetImportMerge=(function(){
       if(!isNew&&used.has(record.target)){issues.push(__ST_TEXT__('sheetimportmerge.two_sheet_rows_target_the_same_equipment_skip_one_or_choose_another_target'));return;}if(!isNew)used.add(record.target);
       var currentUnit=equipment.find(function(e){return e.id===record.target;});
       if(!isNew&&!currentUnit){issues.push(__ST_TEXT__('sheetimportmerge.target_equipment_no_longer_exists_preview_again'));return;}
-      var unit=isNew?{id:incoming.id,type:'CUSTOM',name:'',nominalRatePerSecond:null,initialMode:'AUTO',characteristics:{},noiseProfile:{},processData:{}}:copy(currentUnit);
+      var unit=isNew?{id:incoming.id,type:'CUSTOM',name:'',nominalRatePerSecond:null,initialMode:'AUTO',characteristics:{sourceSheetRow:record.row},noiseProfile:{},processData:{}}:copy(currentUnit);
       if(isNew){var suffix=2,base=unit.id;while(equipment.some(function(e){return e.id===unit.id;}))unit.id=base+'-'+suffix++;}
       var applied=[];
       selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+__ST_TEXT__('sheetimportmerge.fix_this_cell_or_deselect_the_field'));return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value});});
@@ -83,6 +83,14 @@ window.STSheetImportMerge=(function(){
     return {equipment:equipment,sourceImport:sourceImport,errors:issues,added:added,updated:updated,metadataChanges:metadataChanges.length,equipmentChanged:added+updated>0,hasChanges:effective};
   }
   function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
-  return {fields:fields,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue};
+  function physicalIssue(detail,equipment){
+    var path=String(detail?.path||''),match=path.match(/equipment\[(\d+)\]/);
+    var unit=match&&equipment?.[Number(match[1])];
+    var row=unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
+    var context=unit?unit.name+(row?' · '+__ST_TEXT__('sheetimport.row')+row:'')+' · ':'';
+    var hint=path.endsWith('.gapMm')&&row?' '+__ST_TEXT__('sheetimport.check_pitch_geometry').replace('{K}','K'+row).replace('{L}','L'+row).replace('{Q}','Q'+row):'';
+    return context+path+': '+String(detail?.reason||'')+hint;
+  }
+  return {fields:fields,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
 })();
 </script>

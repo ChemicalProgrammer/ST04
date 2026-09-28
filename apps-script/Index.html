@@ -4217,7 +4217,7 @@ window.STSheetImportMerge=(function(){
       if(!isNew&&used.has(record.target)){issues.push("Two Sheet rows target the same equipment. Skip one or choose another target.");return;}if(!isNew)used.add(record.target);
       var currentUnit=equipment.find(function(e){return e.id===record.target;});
       if(!isNew&&!currentUnit){issues.push("Target equipment no longer exists. Preview again.");return;}
-      var unit=isNew?{id:incoming.id,type:'CUSTOM',name:'',nominalRatePerSecond:null,initialMode:'AUTO',characteristics:{},noiseProfile:{},processData:{}}:copy(currentUnit);
+      var unit=isNew?{id:incoming.id,type:'CUSTOM',name:'',nominalRatePerSecond:null,initialMode:'AUTO',characteristics:{sourceSheetRow:record.row},noiseProfile:{},processData:{}}:copy(currentUnit);
       if(isNew){var suffix=2,base=unit.id;while(equipment.some(function(e){return e.id===unit.id;}))unit.id=base+'-'+suffix++;}
       var applied=[];
       selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+": fix this cell or deselect the field.");return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value});});
@@ -4238,7 +4238,15 @@ window.STSheetImportMerge=(function(){
     return {equipment:equipment,sourceImport:sourceImport,errors:issues,added:added,updated:updated,metadataChanges:metadataChanges.length,equipmentChanged:added+updated>0,hasChanges:effective};
   }
   function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
-  return {fields:fields,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue};
+  function physicalIssue(detail,equipment){
+    var path=String(detail?.path||''),match=path.match(/equipment\[(\d+)\]/);
+    var unit=match&&equipment?.[Number(match[1])];
+    var row=unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
+    var context=unit?unit.name+(row?' · '+"Row "+row:'')+' · ':'';
+    var hint=path.endsWith('.gapMm')&&row?' '+"Check package length {K}, upstream discharge pitch {L} and conveyor speed factor {Q} in the Sheet or Line setup. These values produce a negative calculated gap; review the actual package orientation and spacing.".replace('{K}','K'+row).replace('{L}','L'+row).replace('{Q}','Q'+row):'';
+    return context+path+': '+String(detail?.reason||'')+hint;
+  }
+  return {fields:fields,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
 })();
 </script>
     <script>
@@ -4255,7 +4263,7 @@ window.STSheetImport=function(state,actions){
     if(!preview||!plan)return;var result=merge.build(preview,plan,snapshot.equipment,snapshot.sourceImport);
     el('sheet-import-summary').textContent=result.added+" to add · "+result.updated+" to update · "+result.metadataChanges+" metadata changes"+(result.equipmentChanged?" · Existing results will be cleared; run again.":'');
     el('sheet-import-error').textContent=result.errors.join('\n');
-    var review=el('sheet-import-model-review');if(review){review.textContent='';var validation=window.SimulatorEngine.validateSimulationInput({case:{equipment:result.equipment},run:{durationSeconds:1,tickSeconds:1,seed:1}});review.classList.toggle('hidden',validation.ok);if(!validation.ok){review.appendChild(node('summary',"Physical model review (drafts can be saved)"));review.appendChild(node('pre',JSON.stringify(validation.error.details,null,2)));}}
+    var review=el('sheet-import-model-review');if(review){review.textContent='';var validation=window.SimulatorEngine.validateSimulationInput({case:{equipment:result.equipment},run:{durationSeconds:1,tickSeconds:1,seed:1}});review.classList.toggle('hidden',validation.ok);if(!validation.ok){review.open=true;review.appendChild(node('summary',"Physical model review (drafts can be saved)"+' · '+validation.error.details.length));var list=document.createElement('ul');validation.error.details.forEach(function(detail){list.appendChild(node('li',merge.physicalIssue(detail,result.equipment)));});review.appendChild(list);}}
     el('sheet-import-apply').disabled=!result.hasChanges||result.errors.length>0||!el('sheet-import-ack').checked;
   }
   function header(){var table=document.createElement('table');table.innerHTML='<thead><tr><th>Import</th><th>Field</th><th>Current</th><th>Sheet</th><th>Status</th></tr></thead>';var body=document.createElement('tbody');table.appendChild(body);return {table:table,body:body};}
@@ -5937,9 +5945,7 @@ function summarizeGeometrySources(sources, assumptions) {
       if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){
         var list=document.createElement('ul');
         error.details.forEach(function(detail){
-          var path=String(detail.path||''),match=path.match(/equipment\[(\d+)\]/);
-          var unit=match&&state.activeCase?.equipment?.[Number(match[1])];
-          var item=document.createElement('li');item.textContent=(unit?unit.name+' · ':'')+path+': '+String(detail.reason||'');list.appendChild(item);
+          var item=document.createElement('li');item.textContent=STSheetImportMerge.physicalIssue(detail,state.activeCase?.equipment);list.appendChild(item);
         });
         target.appendChild(list);
       }
