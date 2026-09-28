@@ -377,3 +377,37 @@ test('UI: invalid physical inputs expose equipment and validation details',async
   assert.match(h.d.getElementById('status').textContent,/Blowmolder discharge conveyor/);
  }finally{h.dom.window.close();}
 });
+
+test('UI: negative-gap proposals require acceptance, support undo and cancel, and retain source provenance',async()=>{
+ const h=await setup({empty:true});try{
+  const original=h.api.previewSheetImport;
+  h.api.previewSheetImport=()=>{
+   const data=original(),unit=data.equipment[1];
+   unit.processData.upstream.packageLengthMm=110;unit.processData.upstream.dischargePitchMm=88.9;
+   unit.processData.accumulation.conveyorSpeedFactorPercent=0;
+   unit.processData.speedAndSensors.conveyorSpeedFactorVsDischargeVelocityPercent=0;
+   data.sourceRows=[{row:11,values:{conveyorSpeedFactorVsDischargeVelocityPercent:0}}];
+   return data;
+  };
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  async function preview(){await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');}
+  await preview();
+  const panel=()=>h.d.querySelector('[data-correction-row="11"]');
+  assert(panel(),JSON.stringify(h.errors)+' '+h.d.getElementById('sheet-import-error').textContent);assert.match(panel().textContent,/-21.1/);assert.match(panel().textContent,/23.74/);
+  assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
+  await h.click('#sheet-import-ack');await h.click('.correction-accept');
+  assert(!h.d.getElementById('sheet-import-ack').checked);
+  assert.match(panel().textContent,/Accepted for preview/);
+  await h.click('.correction-undo');assert(h.d.querySelector('.correction-accept'));
+  await h.click('.correction-accept');await h.click('#sheet-import-cancel');
+  assert.equal(h.storedCases()[0].simulations[0].equipment.length,0);
+  await preview();assert(h.d.querySelector('.correction-accept'));assert(!h.d.querySelector('.correction-undo'));
+  await h.click('.correction-accept');await h.click('#sheet-import-ack');await h.click('#sheet-import-apply');
+  const record=JSON.parse(h.d.getElementById('case-json-preview').value),unit=record.equipment[1];
+  assert.equal(unit.processData.accumulation.conveyorSpeedFactorPercent,23.74);
+  const source=record.simulations[0].sourceImport;
+  assert.equal(source.rows[0].values.conveyorSpeedFactorVsDischargeVelocityPercent,0);
+  assert.equal(source.lastApplied.equipment[1].fields.find(f=>f.field==='speedFactor').adjustment.value,23.74);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

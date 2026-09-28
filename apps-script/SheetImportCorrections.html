@@ -1,0 +1,52 @@
+<script>
+window.STSheetCorrections=(function(){
+  function suggest(unit){
+    if(unit?.type!=='CONVEYOR')return null;
+    var length=unit.processData?.upstream?.packageLengthMm,pitch=unit.processData?.upstream?.dischargePitchMm;
+    var factor=unit.processData?.accumulation?.conveyorSpeedFactorPercent??unit.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
+    if(![length,pitch,factor].every(function(v){return typeof v==='number'&&Number.isFinite(v);})||length<=0||pitch<=0||factor<0)return null;
+    var gap=pitch*(1+factor/100)-length;
+    if(gap>=0)return null;
+    var proposed=Math.ceil((length/pitch-1)*10000)/100;
+    // Round upward so the displayed percentage cannot retain a negative gap.
+    if(pitch*(1+proposed/100)<length)proposed+=0.01;
+    return {length:length,pitch:pitch,factor:factor,gap:gap,proposed:Number(proposed.toFixed(2))};
+  }
+  function text(template,values){
+    return template.replace(/\{(\w+)\}/g,function(_,k){return values[k]??'';});
+  }
+  function number(value){return Number(value.toFixed(4)).toString();}
+  function node(tag,value){var n=document.createElement(tag);n.textContent=value;return n;}
+  function render(host,preview,plan,result,changed){
+    plan.records.forEach(function(record){
+      if(record.target==='skip')return;
+      var imported=result.sourceImport.lastApplied.equipment.find(function(item){return item.row===record.row;});
+      var unit=imported&&result.equipment.find(function(item){return item.id===imported.equipmentId;});
+      var suggestion=suggest(unit),accepted=record.adjustments?.speedFactor;
+      if(!suggestion&&!accepted)return;
+      var panel=document.createElement('section');panel.className='sheet-correction';panel.dataset.correctionRow=record.row;
+      panel.appendChild(node('h4',(unit?.name||preview.equipment[record.index].name)+' · '+__ST_TEXT__('sheetimport.correction_title')));
+      if(accepted){
+        panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_accepted'),{cell:'Q'+record.row,before:accepted.sourceValue,after:accepted.value})));
+        var undo=node('button',__ST_TEXT__('sheetimport.correction_undo'));undo.type='button';undo.className='ghost correction-undo';
+        undo.onclick=function(){record.selected.speedFactor=accepted.selectedBefore;delete record.adjustments.speedFactor;changed(record.row);};panel.appendChild(undo);
+      }else{
+        var values={K:'K'+record.row,L:'L'+record.row,Q:'Q'+record.row,length:number(suggestion.length),pitch:number(suggestion.pitch),factor:number(suggestion.factor),gap:number(suggestion.gap),proposed:number(suggestion.proposed)};
+        panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_calculation'),values)));
+        panel.appendChild(node('p',__ST_TEXT__('sheetimport.correction_explanation')));
+        panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_proposal'),values)));
+        var accept=node('button',text(__ST_TEXT__('sheetimport.correction_accept'),values));accept.type='button';accept.className='secondary correction-accept';
+        accept.onclick=function(){
+          record.adjustments=record.adjustments||{};
+          var field=STSheetImportMerge.fields.find(function(f){return f.id==='speedFactor';});
+          record.adjustments.speedFactor={sourceValue:field.read(preview.equipment[record.index]),value:suggestion.proposed,selectedBefore:record.selected.speedFactor,reason:'NON_NEGATIVE_PRODUCT_GAP',basis:{packageLengthMm:suggestion.length,dischargePitchMm:suggestion.pitch,conveyorSpeedFactorPercent:suggestion.factor},acceptedAt:new Date().toISOString()};
+          record.selected.speedFactor=true;changed(record.row);
+        };
+        panel.appendChild(accept);
+      }
+      host.appendChild(panel);
+    });
+  }
+  return {suggest:suggest,render:render};
+})();
+</script>

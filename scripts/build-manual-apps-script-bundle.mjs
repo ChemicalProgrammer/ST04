@@ -52,6 +52,7 @@ const htmlIncludes = [
   ['EquipmentDrag', 'EquipmentDrag.html'],
   ['SheetImportStyles', 'SheetImportStyles.html'],
   ['SheetImportMerge', 'SheetImportMerge.html'],
+  ['SheetImportCorrections', 'SheetImportCorrections.html'],
   ['SheetImport', 'SheetImport.html'],
   ['Client', 'Client.html']
 ];

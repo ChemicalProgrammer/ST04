@@ -789,6 +789,9 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 #sheet-import-preview .sheet-target { margin:var(--space-3) 0; }
 #sheet-import-preview details table { min-width:var(--size-500); }
 #sheet-import-preview details { overflow-x:auto; }
+.sheet-correction { margin-top:var(--space-3); padding:var(--space-3); border:var(--border-width) solid var(--line); border-left:var(--state-border-width) solid var(--warning); border-radius:var(--radius-md); }
+.sheet-correction h4 { margin:0; font-size:var(--font-body); }
+.sheet-correction p { margin:var(--space-2) 0; }
 </style>
     <script>
 // Browser preferences only. Google identity is ALWAYS verified by the server.
@@ -4185,7 +4188,7 @@ window.STSheetImportMerge=(function(){
   ['residual','ramp','speedFactor','blocked','clear','insurance'].forEach(function(id){var f=fields.find(function(f){return f.id===id;});f.read=function(e){return e.type==='CONVEYOR'?(get(e,f.paths[1])??get(e,f.paths[0])):get(e,f.paths[0]);};});
   var metadataFields=[['site','Site'],['packagingLine',"Packaging line"],['formatName',"Format name"],['containerSizeOz',"Container size (oz)"],['bottlesPerCase',"Bottles per case"],['dateOfAnalysis',"Date of analysis"],['by','By']];
   function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){var m=String(e.cell).match(/^([A-W])(\d+)(?::([A-W])(\d*)?)?$/);if(!m)return false;return row>=Number(m[2])&&row<=Number(m[4]||m[2])&&col>=m[1]&&col<=(m[3]||m[1]);});}
-  function incomingValue(preview,record,f){var raw=(preview.sourceRows||[]).find(function(r){return r.row===record.row;});if(f.id==='critical'&&raw?.values?.critical===null)return null;return f.read(preview.equipment[record.index]);}
+  function incomingValue(preview,record,f){if(record.adjustments?.[f.id])return record.adjustments[f.id].value;var raw=(preview.sourceRows||[]).find(function(r){return r.row===record.row;});if(f.id==='critical'&&raw?.values?.critical===null)return null;return f.read(preview.equipment[record.index]);}
   function defaults(preview,record,equipment){var current=equipment.find(function(e){return e.id===record.target;}),incoming=preview.equipment[record.index];record.selected={};fields.forEach(function(f){var v=incomingValue(preview,record,f);record.selected[f.id]=!errorsFor(preview,f.col,record.row).length&&(!current||v!=null&&!equal(f.read(current),v));});return record;}
   function create(preview,current,sourceImport){
     var bindings=(sourceImport?.bindings||[]).slice(),sourceKey=key(preview.source);
@@ -4220,7 +4223,7 @@ window.STSheetImportMerge=(function(){
       var unit=isNew?{id:incoming.id,type:'CUSTOM',name:'',nominalRatePerSecond:null,initialMode:'AUTO',characteristics:{sourceSheetRow:record.row},noiseProfile:{},processData:{}}:copy(currentUnit);
       if(isNew){var suffix=2,base=unit.id;while(equipment.some(function(e){return e.id===unit.id;}))unit.id=base+'-'+suffix++;}
       var applied=[];
-      selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+": fix this cell or deselect the field.");return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value});});
+      selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+": fix this cell or deselect the field.");return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value,adjustment:record.adjustments?.[f.id]?copy(record.adjustments[f.id]):undefined});});
       var reliability=selected.some(function(f){return ['mtbf','mttr'].includes(f.id);});
       if(reliability){var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+": MTBF and MTTR must both be positive or both NA. Adjust the field selection.");}
       if(isNew||record.selected.type||record.selected.critical){unit.processData.role=unit.type==='CONVEYOR'?'CONVEYOR':unit.type==='PACEMAKER'?'PACEMAKER':unit.characteristics.criticalMachine?'CRITICAL_MACHINE':'MACHINE';unit.processData.machineType=unit.type;}
@@ -4250,6 +4253,58 @@ window.STSheetImportMerge=(function(){
 })();
 </script>
     <script>
+window.STSheetCorrections=(function(){
+  function suggest(unit){
+    if(unit?.type!=='CONVEYOR')return null;
+    var length=unit.processData?.upstream?.packageLengthMm,pitch=unit.processData?.upstream?.dischargePitchMm;
+    var factor=unit.processData?.accumulation?.conveyorSpeedFactorPercent??unit.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
+    if(![length,pitch,factor].every(function(v){return typeof v==='number'&&Number.isFinite(v);})||length<=0||pitch<=0||factor<0)return null;
+    var gap=pitch*(1+factor/100)-length;
+    if(gap>=0)return null;
+    var proposed=Math.ceil((length/pitch-1)*10000)/100;
+    // Round upward so the displayed percentage cannot retain a negative gap.
+    if(pitch*(1+proposed/100)<length)proposed+=0.01;
+    return {length:length,pitch:pitch,factor:factor,gap:gap,proposed:Number(proposed.toFixed(2))};
+  }
+  function text(template,values){
+    return template.replace(/\{(\w+)\}/g,function(_,k){return values[k]??'';});
+  }
+  function number(value){return Number(value.toFixed(4)).toString();}
+  function node(tag,value){var n=document.createElement(tag);n.textContent=value;return n;}
+  function render(host,preview,plan,result,changed){
+    plan.records.forEach(function(record){
+      if(record.target==='skip')return;
+      var imported=result.sourceImport.lastApplied.equipment.find(function(item){return item.row===record.row;});
+      var unit=imported&&result.equipment.find(function(item){return item.id===imported.equipmentId;});
+      var suggestion=suggest(unit),accepted=record.adjustments?.speedFactor;
+      if(!suggestion&&!accepted)return;
+      var panel=document.createElement('section');panel.className='sheet-correction';panel.dataset.correctionRow=record.row;
+      panel.appendChild(node('h4',(unit?.name||preview.equipment[record.index].name)+' · '+"Review a proposed adjustment"));
+      if(accepted){
+        panel.appendChild(node('p',text("Accepted for preview: {cell} changes from {before}% in the Sheet to {after}%. It will be imported only if this field is selected when you apply changes. Google Sheets is unchanged.",{cell:'Q'+record.row,before:accepted.sourceValue,after:accepted.value})));
+        var undo=node('button',"Undo adjustment");undo.type='button';undo.className='ghost correction-undo';
+        undo.onclick=function(){record.selected.speedFactor=accepted.selectedBefore;delete record.adjustments.speedFactor;changed(record.row);};panel.appendChild(undo);
+      }else{
+        var values={K:'K'+record.row,L:'L'+record.row,Q:'Q'+record.row,length:number(suggestion.length),pitch:number(suggestion.pitch),factor:number(suggestion.factor),gap:number(suggestion.gap),proposed:number(suggestion.proposed)};
+        panel.appendChild(node('p',text("{L} × (1 + {Q}/100) − {K} = {pitch} × (1 + {factor}/100) − {length} = {gap} mm.",values)));
+        panel.appendChild(node('p',"The calculated pitch is smaller than the package length, creating a negative gap in this model. Check that package length is measured along the direction of travel and discharge pitch is measured center to center. If those measurements are wrong, correct the Sheet and preview again."));
+        panel.appendChild(node('p',text("With K and L fixed, a conveyor speed factor of {proposed}% is the rounded mathematical minimum to avoid a negative gap. This is a simulation proposal, not a verified plant setting or an optimized speed. Accept only if that speed change is feasible for the equipment. Other physical checks still apply.",values)));
+        var accept=node('button',text("Accept proposed {Q}: {proposed}%",values));accept.type='button';accept.className='secondary correction-accept';
+        accept.onclick=function(){
+          record.adjustments=record.adjustments||{};
+          var field=STSheetImportMerge.fields.find(function(f){return f.id==='speedFactor';});
+          record.adjustments.speedFactor={sourceValue:field.read(preview.equipment[record.index]),value:suggestion.proposed,selectedBefore:record.selected.speedFactor,reason:'NON_NEGATIVE_PRODUCT_GAP',basis:{packageLengthMm:suggestion.length,dischargePitchMm:suggestion.pitch,conveyorSpeedFactorPercent:suggestion.factor},acceptedAt:new Date().toISOString()};
+          record.selected.speedFactor=true;changed(record.row);
+        };
+        panel.appendChild(accept);
+      }
+      host.appendChild(panel);
+    });
+  }
+  return {suggest:suggest,render:render};
+})();
+</script>
+    <script>
 window.STSheetImport=function(state,actions){
   var preview=null,plan=null,snapshot=null,sequence=0,context=null,lastFocus;
   var merge=STSheetImportMerge;
@@ -4264,9 +4319,10 @@ window.STSheetImport=function(state,actions){
     el('sheet-import-summary').textContent=result.added+" to add · "+result.updated+" to update · "+result.metadataChanges+" metadata changes"+(result.equipmentChanged?" · Existing results will be cleared; run again.":'');
     el('sheet-import-error').textContent=result.errors.join('\n');
     var review=el('sheet-import-model-review');if(review){review.textContent='';var validation=window.SimulatorEngine.validateSimulationInput({case:{equipment:result.equipment},run:{durationSeconds:1,tickSeconds:1,seed:1}});review.classList.toggle('hidden',validation.ok);if(!validation.ok){review.open=true;review.appendChild(node('summary',"Physical model review (drafts can be saved)"+' · '+validation.error.details.length));var list=document.createElement('ul');validation.error.details.forEach(function(detail){list.appendChild(node('li',merge.physicalIssue(detail,result.equipment)));});review.appendChild(list);}}
+    var corrections=el('sheet-import-corrections');if(corrections){corrections.textContent='';STSheetCorrections.render(corrections,preview,plan,result,function(row){el('sheet-import-ack').checked=false;render();el('sheet-import-corrections').querySelector('[data-correction-row="'+row+'"] button')?.focus();});}
     el('sheet-import-apply').disabled=!result.hasChanges||result.errors.length>0||!el('sheet-import-ack').checked;
   }
-  function header(){var table=document.createElement('table');table.innerHTML='<thead><tr><th>Import</th><th>Field</th><th>Current</th><th>Sheet</th><th>Status</th></tr></thead>';var body=document.createElement('tbody');table.appendChild(body);return {table:table,body:body};}
+  function header(){var table=document.createElement('table');table.innerHTML='<thead><tr><th>Import</th><th>Field</th><th>Current</th><th>'+"Sheet / reviewed value"+'</th><th>Status</th></tr></thead>';var body=document.createElement('tbody');table.appendChild(body);return {table:table,body:body};}
   function choice(body,label,before,after,selected,disabled,changed,callback,field,issues){
     var row=document.createElement('tr');if(changed)row.className='sheet-field-changed';
     var cell=document.createElement('td'),input=document.createElement('input');input.type='checkbox';input.checked=selected;input.disabled=disabled;input.setAttribute('aria-label',"Import "+label);input.dataset.field=field?.id||'';input.onchange=function(){callback(input.checked);refresh();};cell.appendChild(input);row.appendChild(cell);
@@ -4299,6 +4355,7 @@ window.STSheetImport=function(state,actions){
     });
     [["Source errors — affected fields are unavailable",data.errors||[]],["Source warnings",data.warnings||[]]].forEach(function(group){if(!group[1].length)return;var d=document.createElement('details');d.appendChild(node('summary',group[0]+' ('+group[1].length+')'));var list=document.createElement('ul');group[1].forEach(function(item){list.appendChild(node('li',item.cell+': '+item.message));});d.appendChild(list);host.appendChild(d);});
     var detail=document.createElement('details');detail.appendChild(node('summary',"Mapping and model assumptions"));var list=document.createElement('ul');data.notes.forEach(function(text){list.appendChild(node('li',text));});detail.appendChild(list);host.appendChild(detail);
+    var corrections=document.createElement('div');corrections.id='sheet-import-corrections';host.appendChild(corrections);
     var review=document.createElement('details');review.id='sheet-import-model-review';host.appendChild(review);
     refresh();
   }
