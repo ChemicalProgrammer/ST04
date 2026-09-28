@@ -327,3 +327,23 @@ test('UI: failed Gemini requests stop progress without a pending response',async
   assert.match(h.d.getElementById('gemini-error').textContent,/could not be reached/);
  }finally{h.dom.window.close();}
 });
+
+test('UI: Sheet preview keeps pitch warnings selectable and shows them beside the field',async()=>{
+ const h=await setup({empty:true});try{
+  const original=h.api.previewSheetImport;
+  h.api.previewSheetImport=()=>{
+   const data=original();data.metadata.containerSizeOz=5.5;
+   const conveyor=data.equipment.find(e=>e.type==='CONVEYOR');
+   conveyor.processData.upstream.packageLengthMm=110;conveyor.processData.upstream.dischargePitchMm=88.9;
+   data.warnings=[{cell:'L11',message:'Discharge pitch is smaller than package length (K11). Verify before simulation.'}];
+   return data;
+  };
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
+  const section=h.d.querySelector('[data-source-index="1"]'),pitch=section.querySelector('[data-field="pitch"]');
+  assert.equal(section.querySelector('select').value,'new');assert(pitch.checked);assert(!pitch.disabled);
+  assert.match(pitch.closest('tr').textContent,/88.9/);assert.match(pitch.closest('tr').textContent,/smaller than package length/);
+  assert.match(h.d.getElementById('sheet-import-preview').textContent,/5.5/);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

@@ -4200,8 +4200,9 @@ window.STSheetImportMerge=(function(){
       var renamed=bindings.some(function(b){return b.sourceKey===sourceKey&&b.row===row&&name(b.sourceName)!==incomingName;});
       var target=ambiguous?'skip':candidates.size===1?Array.from(candidates)[0]:renamed?'skip':'new';
       // Invalid source rows require explicit selection of a target and valid fields.
-      if((preview.errors||[]).some(function(e){return fields.some(function(f){return errorsFor(preview,f.col,row).includes(e);});}))target='skip';
-      return defaults(preview,{index:index,row:row,target:target,reason:ambiguous?"Ambiguous name: choose the equipment to update.":renamed&&!candidates.size?"Name changed at this source row: choose an existing equipment or add new.":target==='new'?"New equipment — appended to the line.":"Matched by a unique name or previous import.",selected:{}},current);
+      var rowErrors=(preview.errors||[]).filter(function(e){return fields.some(function(f){return errorsFor(preview,f.col,row).includes(e);});});
+      if(rowErrors.length)target='skip';
+      return defaults(preview,{index:index,row:row,target:target,reason:rowErrors.length?"Skipped because source cells contain errors. Review the fields below and choose an import target."+' '+rowErrors.map(function(e){return e.cell+': '+e.message;}).join(' '):ambiguous?"Ambiguous name: choose the equipment to update.":renamed&&!candidates.size?"Name changed at this source row: choose an existing equipment or add new.":target==='new'?"New equipment — appended to the line.":"Matched by a unique name or previous import.",selected:{}},current);
     });
     var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,'C',i+1).length&&preview.metadata[f[0]]!=null&&!equal(sourceImport?.metadata?.[f[0]],preview.metadata[f[0]]);});
     return {records:records,metadata:metadata,bindings:bindings};
@@ -4258,10 +4259,10 @@ window.STSheetImport=function(state,actions){
     el('sheet-import-apply').disabled=!result.hasChanges||result.errors.length>0||!el('sheet-import-ack').checked;
   }
   function header(){var table=document.createElement('table');table.innerHTML='<thead><tr><th>Import</th><th>Field</th><th>Current</th><th>Sheet</th><th>Status</th></tr></thead>';var body=document.createElement('tbody');table.appendChild(body);return {table:table,body:body};}
-  function choice(body,label,before,after,selected,disabled,changed,callback,field){
+  function choice(body,label,before,after,selected,disabled,changed,callback,field,issues){
     var row=document.createElement('tr');if(changed)row.className='sheet-field-changed';
     var cell=document.createElement('td'),input=document.createElement('input');input.type='checkbox';input.checked=selected;input.disabled=disabled;input.setAttribute('aria-label',"Import "+label);input.dataset.field=field?.id||'';input.onchange=function(){callback(input.checked);refresh();};cell.appendChild(input);row.appendChild(cell);
-    [label,merge.display(before,field),merge.display(after,field),disabled?"Unavailable":!changed?"Unchanged":after==null?"Clear to NA (optional)":"Changed"].forEach(function(text){row.appendChild(node('td',text));});body.appendChild(row);
+    [label,merge.display(before,field),merge.display(after,field),disabled?"Unavailable":!changed?"Unchanged":after==null?"Clear to NA (optional)":"Changed"].forEach(function(text){row.appendChild(node('td',text));});if(issues&&issues.length){var detail=node('p',issues.map(function(e){return e.cell+': '+e.message;}).join(' '));detail.className='chart-note';row.lastChild.appendChild(detail);}body.appendChild(row);
   }
   function render(){
     var data=preview,host=el('sheet-import-preview');host.textContent='';
@@ -4270,14 +4271,14 @@ window.STSheetImport=function(state,actions){
     var toolbar=document.createElement('div');toolbar.className='button-row';
     [["Select differences",function(){plan.records.forEach(function(r){merge.defaults(data,r,snapshot.equipment);});merge.metadataFields.forEach(function(f,i){plan.metadata[f[0]]=!merge.errorsFor(data,'C',i+1).length&&data.metadata[f[0]]!=null&&!merge.equal(snapshot.sourceImport?.metadata?.[f[0]],data.metadata[f[0]]);});render();}],["Deselect all fields",function(){plan.records.forEach(function(r){Object.keys(r.selected).forEach(function(k){r.selected[k]=false;});});Object.keys(plan.metadata).forEach(function(k){plan.metadata[k]=false;});render();}]].forEach(function(item){var b=node('button',item[0]);b.type='button';b.className='secondary';b.onclick=item[1];toolbar.appendChild(b);});host.appendChild(toolbar);
     var meta=document.createElement('details');meta.open=!snapshot.equipment.length;meta.appendChild(node('summary',"Case/format information — select metadata to update"));
-    var mt=header();merge.metadataFields.forEach(function(f,i){var before=snapshot.sourceImport?.metadata?.[f[0]],after=data.metadata[f[0]];choice(mt.body,'C'+(i+1)+' · '+f[1],before,after,plan.metadata[f[0]],Boolean(merge.errorsFor(data,'C',i+1).length),!merge.equal(before,after),function(v){plan.metadata[f[0]]=v;});});meta.appendChild(mt.table);host.appendChild(meta);
+    var mt=header();merge.metadataFields.forEach(function(f,i){var before=snapshot.sourceImport?.metadata?.[f[0]],after=data.metadata[f[0]];choice(mt.body,'C'+(i+1)+' · '+f[1],before,after,plan.metadata[f[0]],Boolean(merge.errorsFor(data,'C',i+1).length),!merge.equal(before,after),function(v){plan.metadata[f[0]]=v;},null,merge.errorsFor(data,'C',i+1));});meta.appendChild(mt.table);host.appendChild(meta);
     plan.records.forEach(function(record){
       var unit=data.equipment[record.index],current=snapshot.equipment.find(function(e){return e.id===record.target;}),section=document.createElement('details');section.className='sheet-equipment-choice';section.dataset.sourceIndex=record.index;
       section.appendChild(node('summary',"Row "+record.row+' · '+unit.name+' · '+(record.target==='skip'?'Skipped':record.target==='new'?"Add equipment":"Update "+current.name)));
       var label=node('label',"Import into "),select=document.createElement('select');select.className='sheet-target';select.setAttribute('aria-label',"Import target for row "+record.row);
       [['skip',"Skip this equipment"],['new',"Add as new equipment"]].concat(snapshot.equipment.map(function(e){return [e.id,"Update: "+e.name+' ('+e.id+')'];})).forEach(function(option){select.add(new Option(option[1],option[0]));});select.value=record.target;
       select.onchange=function(){record.target=select.value;merge.defaults(data,record,snapshot.equipment);render();var next=host.querySelector('[data-source-index="'+record.index+'"]');next.open=true;next.querySelector('select').focus();};label.appendChild(select);section.appendChild(label);section.appendChild(node('p',record.reason));
-      var table=header();merge.fields.forEach(function(f){var before=current?f.read(current):null,after=merge.incomingValue(data,record,f),errors=merge.errorsFor(data,f.col,record.row);choice(table.body,f.col+record.row+' · '+f.label,before,after,record.target!=='skip'&&record.selected[f.id],record.target==='skip'||errors.length>0,!merge.equal(before,after),function(v){record.selected[f.id]=v;},f);});
+      var table=header();merge.fields.forEach(function(f){var before=current?f.read(current):null,after=merge.incomingValue(data,record,f),errors=merge.errorsFor(data,f.col,record.row);choice(table.body,f.col+record.row+' · '+f.label,before,after,record.target!=='skip'&&record.selected[f.id],record.target==='skip'||errors.length>0,!merge.equal(before,after),function(v){record.selected[f.id]=v;},f,errors.concat(merge.errorsFor({errors:data.warnings||[]},f.col,record.row)));});
       var scroll=document.createElement('div');scroll.className='table-scroll';scroll.appendChild(table.table);section.appendChild(scroll);host.appendChild(section);
     });
     [["Source errors — affected fields are unavailable",data.errors||[]],["Source warnings",data.warnings||[]]].forEach(function(group){if(!group[1].length)return;var d=document.createElement('details');d.appendChild(node('summary',group[0]+' ('+group[1].length+')'));var list=document.createElement('ul');group[1].forEach(function(item){list.appendChild(node('li',item.cell+': '+item.message));});d.appendChild(list);host.appendChild(d);});

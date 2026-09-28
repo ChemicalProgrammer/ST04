@@ -45,8 +45,9 @@ window.STSheetImportMerge=(function(){
       var renamed=bindings.some(function(b){return b.sourceKey===sourceKey&&b.row===row&&name(b.sourceName)!==incomingName;});
       var target=ambiguous?'skip':candidates.size===1?Array.from(candidates)[0]:renamed?'skip':'new';
       // Invalid source rows require explicit selection of a target and valid fields.
-      if((preview.errors||[]).some(function(e){return fields.some(function(f){return errorsFor(preview,f.col,row).includes(e);});}))target='skip';
-      return defaults(preview,{index:index,row:row,target:target,reason:ambiguous?__ST_TEXT__('sheetimportmerge.ambiguous_name_choose_the_equipment_to_update'):renamed&&!candidates.size?__ST_TEXT__('sheetimportmerge.name_changed_at_this_source_row_choose_an_existing_equipment_or_add_new'):target==='new'?__ST_TEXT__('sheetimportmerge.new_equipment_appended_to_the_line'):__ST_TEXT__('sheetimportmerge.matched_by_a_unique_name_or_previous_import'),selected:{}},current);
+      var rowErrors=(preview.errors||[]).filter(function(e){return fields.some(function(f){return errorsFor(preview,f.col,row).includes(e);});});
+      if(rowErrors.length)target='skip';
+      return defaults(preview,{index:index,row:row,target:target,reason:rowErrors.length?__ST_TEXT__('sheetimport.source_row_errors')+' '+rowErrors.map(function(e){return e.cell+': '+e.message;}).join(' '):ambiguous?__ST_TEXT__('sheetimportmerge.ambiguous_name_choose_the_equipment_to_update'):renamed&&!candidates.size?__ST_TEXT__('sheetimportmerge.name_changed_at_this_source_row_choose_an_existing_equipment_or_add_new'):target==='new'?__ST_TEXT__('sheetimportmerge.new_equipment_appended_to_the_line'):__ST_TEXT__('sheetimportmerge.matched_by_a_unique_name_or_previous_import'),selected:{}},current);
     });
     var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,'C',i+1).length&&preview.metadata[f[0]]!=null&&!equal(sourceImport?.metadata?.[f[0]],preview.metadata[f[0]]);});
     return {records:records,metadata:metadata,bindings:bindings};

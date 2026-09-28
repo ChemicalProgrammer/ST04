@@ -41,3 +41,12 @@ test('invalid cells can be excluded while valid fields update; IDs never collide
  const current=[equipment('source','Filler')],data=preview([equipment('source','New',200)]);data.errors=[{cell:'D10:E10',message:'Invalid reliability'}];const plan=merge.create(data,current,{});assert.equal(plan.records[0].target,'skip');plan.records[0].target='source';merge.defaults(data,plan.records[0],current);const out=merge.build(data,plan,current,{});assert.equal(out.errors.length,0);assert.equal(out.equipment[0].name,'New');assert.equal(out.equipment[0].noiseProfile.reliability.mtbfMinutes,100);
  data.errors=[];const add=merge.create(data,current,{});const result=merge.build(data,add,current,{});assert.equal(result.equipment.length,2);assert.notEqual(result.equipment[0].id,result.equipment[1].id);
 });
+
+test('automatically skipped source errors explain the exact field rather than claiming a match',()=>{
+ const data=preview([equipment('sheet-row-10','Machine')]);
+ data.errors=[{cell:'F10',message:'Machine maximum speed must be greater than zero.'}];
+ const plan=merge.create(data,[],{});
+ assert.equal(plan.records[0].target,'skip');
+ assert.match(plan.records[0].reason,/F10: Machine maximum speed/);
+ assert(!plan.records[0].reason.includes('Matched'));
+});

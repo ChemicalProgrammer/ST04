@@ -305,6 +305,7 @@ var ST_TEXT_RESOURCES = {
   "settings.discard_unsaved_settings": "Discard unsaved settings?",
   "settings.api_key_saved_for_your_google_account": "API key saved for your Google account.",
   "settings.no_api_key_configured": "No API key configured.",
+  "sheetimport.source_row_errors": "Skipped because source cells contain errors. Review the fields below and choose an import target.",
   "settings.api_key_mask": "************",
   "settings.enter_api_key": "Enter your API key",
   "assistant.service_unavailable": "Gemini is temporarily unavailable (HTTP {status}). Please try again shortly.",
@@ -2760,10 +2761,10 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
     return number;
   }
   var metadata={},metaFields=['site','packagingLine','formatName','containerSizeOz','bottlesPerCase','dateOfAnalysis','by'];
-  metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=(i===3||i===4)?numeric(v,'C'+(i+1)):missing(v)?null:String(v).trim();});
+  metaFields.forEach(function(key,i){var v=metadataCells[i];if(i===3&&typeof v==='string')v=v.trim().replace(/\s*(?:fl\.?\s*)?oz\.?$/i,'').trim();metadata[key]=(i===3||i===4)?numeric(v,'C'+(i+1)):missing(v)?null:String(v).trim();});
   ['containerSizeOz','bottlesPerCase'].forEach(function(key){if(metadata[key]!==null&&metadata[key]<=0)issue(errors,key==='containerSizeOz'?'C4':'C5','Must be greater than zero when provided.');});
   if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,'C5','Bottles per case must be a whole number.');
-  var aliases={BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
+  var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
   rows.forEach(function(row,offset){
     var rowNumber=offset+10;
     if(row.every(missing))return;
@@ -2791,7 +2792,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
       unit.processData.accumulation={blockedTimeDelaySeconds:values.blockedTimeDelaySeconds,clearTimeDelaySeconds:values.clearTimeDelaySeconds,insuranceFactorUnits:values.insuranceFactorUnits,bottlesDischargedAtStop:values.bottlesDischargedAtStop,downstreamRampUpSeconds:values.rampUpTimeSeconds};
       if(values.lactMm===null||values.lpPrimeMm===null||values.packageLengthMm===null||values.dischargePitchMm===null||values.conveyorSpeedFactorVsDischargeVelocityPercent===null)issue(warnings,'G'+rowNumber+':Q'+rowNumber,'Incomplete conveyor inputs. Complete geometry and discharge speed factor in Line setup before running.');
       if(values.lactMm!==null&&values.lpPrimeMm!==null&&values.lpPrimeMm>=values.lactMm)issue(errors,'H'+rowNumber,'Prime zone must be shorter than total conveyor length.');
-      if(values.dischargePitchMm!==null&&values.packageLengthMm!==null&&values.dischargePitchMm<values.packageLengthMm)issue(errors,'L'+rowNumber,'Discharge pitch must be at least the package length.');
+      if(values.dischargePitchMm!==null&&values.packageLengthMm!==null&&values.dischargePitchMm<values.packageLengthMm)issue(warnings,'L'+rowNumber,'Discharge pitch is smaller than package length (K'+rowNumber+'). Imported unchanged as draft data. Verify package orientation, dimensions and pitch before simulation; physical model validation still applies.');
     }
     equipment.push(unit);sourceRows.push({row:rowNumber,values:values});
   });

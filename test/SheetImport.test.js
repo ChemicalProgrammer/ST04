@@ -80,3 +80,31 @@ test('RPC preserves Google errors and identifies the responding importer',()=>{
  r.previewSheetImport_=()=>{throw Error('Failed while reading cells');};
  assert.match(r.previewSheetImport({}).error.message,/SHEET_READ_FAILED.*Failed while reading cells/);
 });
+
+test('container size accepts explicit ounces without accepting unrelated units',()=>{
+ const r=runtime(),f=fixture();
+ for(const value of [5.5,'5.5 oz',' 5.5 OZ ','5.5 fl oz']){
+  f.metadata[3]=value;const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);
+  assert.equal(out.metadata.containerSizeOz,5.5);assert(!out.errors.some(e=>e.cell==='C4'));
+ }
+ f.metadata[3]='5.5 ml';assert(r.parseEquipmentSheet_(f.metadata,f.rows,f.formats).errors.some(e=>e.cell==='C4'));
+});
+
+test('small discharge pitch is retained and selectable as draft with physical warning',()=>{
+ const r=runtime(),f=fixture();f.metadata[3]='5.5 oz';
+ f.rows[0][0]='Machine';f.rows[2][0]='Machine';f.rows[1][10]=110;f.rows[1][11]=88.9;
+ const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);
+ assert.equal(out.equipment.length,3);assert.equal(out.canImport,true);
+ assert.equal(out.equipment[1].processData.upstream.dischargePitchMm,88.9);
+ assert(out.warnings.some(e=>e.cell==='L11'&&e.message.includes('K11')));
+ r.window={};vm.runInContext(fs.readFileSync('apps-script/TextResources.gs','utf8'),r);
+ vm.runInContext(fs.readFileSync('apps-script/SheetImportMerge.html','utf8').replace(/<\/?script>/g,''),r);
+ out.source={spreadsheetId:'fixture',sheetId:0};
+ const merge=r.window.STSheetImportMerge,plan=merge.create(out,[],{});
+ assert(plan.records.every(record=>record.target==='new'));assert(plan.records[1].selected.pitch);
+ const result=merge.build(out,plan,[],{});assert.equal(result.errors.length,0);assert.equal(result.added,3);
+ assert.equal(result.equipment[1].processData.upstream.dischargePitchMm,88.9);
+ assert.equal(result.sourceImport.metadata.containerSizeOz,5.5);
+ const run=simulateLine({case:{equipment:plain(result.equipment)},run:{durationSeconds:60,tickSeconds:1,seed:1}});
+ assert.equal(run.ok,false,'Draft import must not bypass physical simulation validation');
+});
