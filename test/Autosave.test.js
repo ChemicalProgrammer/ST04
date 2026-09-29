@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
-function setup(){
+function setup(clock){
  const sent=[],statuses=[];let value='first',revision=1;
- const ctx={window:{},setTimeout,clearTimeout,__ST_TEXT__:x=>x};vm.createContext(ctx);vm.runInContext(fs.readFileSync('apps-script/Autosave.html','utf8').replace(/<\/?script>/g,''),ctx);
+ const ctx={window:{},setTimeout,clearTimeout,__ST_TEXT__:x=>x,...clock};vm.createContext(ctx);vm.runInContext(fs.readFileSync('apps-script/Autosave.html','utf8').replace(/<\/?script>/g,''),ctx);
  const queue=ctx.window.STAutosave({capture:()=>({value,expectedRevision:revision}),send:(payload,done)=>sent.push({payload,done}),accept:s=>{revision=s.revision;},status:(s,e)=>statuses.push({s,e})});
  return {queue,sent,statuses,edit:v=>{value=v;queue.change();},revision:()=>revision};
 }
@@ -17,4 +17,36 @@ test('autosave retains failed edits and retries transient errors',async()=>{
 test('autosave never silently retries a conflicting revision',async()=>{
  const h=setup();h.edit('local');const failed=h.queue.flush();h.sent[0].done({ok:false,error:{code:'CASE_CONFLICT',message:'conflict'}});await assert.rejects(failed,/conflict/);
  h.edit('more local edits');await assert.rejects(h.queue.flush(),/conflict/);assert.equal(h.sent.length,1);assert(h.queue.pending());h.queue.reset();
+});
+
+function clock(){
+ let now=0,id=0;const timers=new Map();
+ return {Date:{now:()=>now},setTimeout:(fn,ms)=>{timers.set(++id,{fn,at:now+ms});return id;},clearTimeout:id=>timers.delete(id),
+ advance(ms){const end=now+ms;while(true){const next=[...timers].sort((a,b)=>a[1].at-b[1].at)[0];if(!next||next[1].at>end)break;now=next[1].at;timers.delete(next[0]);next[1].fn();}now=end;}};
+}
+test('background save waits for idle and captures only the latest draft',()=>{
+ const c=clock(),h=setup(c);c.advance(20000);assert.equal(h.sent.length,0);
+ h.edit('a');c.advance(1000);h.edit('b');c.advance(1499);assert.equal(h.sent.length,0);
+ c.advance(1);assert.equal(h.sent.length,1);assert.equal(h.sent[0].payload.value,'b');
+ h.sent[0].done({ok:true,data:{revision:2}});c.advance(20000);assert.equal(h.sent.length,1);
+});
+test('continuous editing saves at the maximum wait without concurrent requests',()=>{
+ const c=clock(),h=setup(c);h.edit('0');for(let i=1;i<10;i++){c.advance(1000);h.edit(String(i));}
+ c.advance(1000);assert.equal(h.sent.length,1);assert.equal(h.sent[0].payload.value,'9');
+ h.edit('in flight');c.advance(20000);assert.equal(h.sent.length,1);
+ h.sent[0].done({ok:true,data:{revision:2}});c.advance(0);assert.equal(h.sent.length,2);
+ assert.equal(h.sent[1].payload.expectedRevision,2);h.sent[1].done({ok:true,data:{revision:3}});
+});
+test('edits during a quick background request remain coalesced until idle',()=>{
+ const c=clock(),h=setup(c);h.edit('first');c.advance(1500);h.edit('second');c.advance(100);
+ h.sent[0].done({ok:true,data:{revision:2}});assert.equal(h.sent.length,1);
+ c.advance(1399);assert.equal(h.sent.length,1);c.advance(1);assert.equal(h.sent.length,2);
+ h.sent[1].done({ok:true,data:{revision:3}});
+});
+test('reset ignores stale responses and rejects outstanding flushes',async()=>{
+ const c=clock(),h=setup(c);h.edit('old');const flushed=h.queue.flush();
+ const rejected=assert.rejects(flushed,/autosave.reset/);h.queue.reset();await rejected;
+ h.edit('new');c.advance(1500);h.sent[0].done({ok:true,data:{revision:99}});
+ assert.equal(h.revision(),1);assert(h.queue.pending());
+ h.sent[1].done({ok:true,data:{revision:2}});assert(!h.queue.pending());
 });

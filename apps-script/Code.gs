@@ -113,6 +113,7 @@ var ST_TEXT_RESOURCES = {
   "assistant.progress_seconds": "s elapsed",
   "autosave.invalid": "Complete the required fields and correct invalid JSON before this change can be saved.",
   "autosave.saved": "Saved",
+  "autosave.reset": "The editing session changed before saving completed.",
   "autosave.pending": "Changes pending",
   "autosave.saving": "Saving…",
   "autosave.error": "Not saved",

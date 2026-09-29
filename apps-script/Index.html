@@ -3782,36 +3782,52 @@ window.STDialog = (function() {
 })();
 </script>
     <script>
-// Serial writes preserve edits made while a previous revision is in flight.
+// The editor is the in-memory draft; Drive receives serialized, coalesced revisions.
 window.STAutosave = function(options) {
   var version = 0, saved = 0, sending = false, timer, failure = null, waiters = [];
+  var firstEdit = null, lastEdit = null, immediateDue = false, epoch = 0;
+  var idleMs = options.idleMs == null ? 1500 : options.idleMs;
+  var maxWaitMs = options.maxWaitMs == null ? 10000 : options.maxWaitMs;
   function notify() { options.status(failure ? 'error' : sending ? 'saving' : version > saved ? 'pending' : 'saved', failure); }
   function settle(error) { var pending = waiters.splice(0); pending.forEach(function(w) { error ? w.reject(error) : w.resolve(); }); }
+  function schedule() {
+    clearTimeout(timer);
+    if (sending || failure || version === saved) return;
+    var due = immediateDue ? Date.now() : Math.min(lastEdit + idleMs, firstEdit + maxWaitMs);
+    timer = setTimeout(write, Math.max(0, due - Date.now()));
+  }
   function write() {
     clearTimeout(timer);
     if (sending) return;
     if (version === saved) { settle(); notify(); return; }
-    var payload, ticket = version;
+    var payload, ticket = version, requestEpoch = epoch;
     try { payload = options.capture(); if (!payload) throw new Error("Complete the required fields and correct invalid JSON before this change can be saved."); }
     catch (error) { failure = error; notify(); settle(error); return; }
-    sending = true; failure = null; notify();
-    options.send(payload, function(response) {
+    sending = true; failure = null; firstEdit = null; lastEdit = null; immediateDue = false; notify();
+    function complete(response) {
+      if (requestEpoch !== epoch) return;
       sending = false;
       if (!response.ok) {
         failure = Object.assign(new Error(response.error.message), {code: response.error.code});
+        // Keep the draft. Ambiguous failures must not blindly overwrite a revision.
         notify(); settle(failure); return;
       }
       saved = ticket;
-      // Accept server metadata only; the editor may already contain newer edits.
+      // Accept metadata only: the editor may already contain newer edits.
       options.accept(response.data);
-      if (version > saved) write(); else { notify(); settle(); }
-    });
+      if (version > saved && waiters.length) write();
+      else { notify(); if (version > saved) schedule(); else settle(); }
+    }
+    try { options.send(payload, complete); }
+    catch (error) { complete({ok:false,error:{code:error.code || 'NETWORK_ERROR',message:error.message}}); }
   }
   function change(immediate) {
-    version++; clearTimeout(timer);
+    version++;
+    if (firstEdit === null) firstEdit = Date.now();
+    lastEdit = Date.now(); immediateDue = immediateDue || !!immediate;
     // A conflict requires an explicit reload, never a blind overwrite.
     if (failure && failure.code === 'CASE_CONFLICT') { notify(); return; }
-    failure = null; notify(); timer = setTimeout(write, immediate ? 0 : 450);
+    failure = null; notify(); schedule();
   }
   function flush() {
     return new Promise(function(resolve, reject) {
@@ -3820,7 +3836,12 @@ window.STAutosave = function(options) {
     });
   }
   return {change:change,flush:flush,retry:flush,pending:function(){return sending || version > saved;},
-    reset:function(){clearTimeout(timer);version=0;saved=0;failure=null;notify();}};
+    reset:function(){
+      clearTimeout(timer); epoch++; sending=false; version=0; saved=0; failure=null;
+      firstEdit=null; lastEdit=null; immediateDue=false;
+      if(waiters.length)settle(new Error("The editing session changed before saving completed."));
+      notify();
+    }};
 };
 </script>
     <script>
