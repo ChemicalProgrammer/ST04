@@ -1751,7 +1751,28 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
-  resolved.definition.accumulatedPitchMm = format.accumulatedPitchMm ?? resolved.definition.productPitchMm;
+  const definition = resolved.definition;
+  if (format.movingGapMm !== undefined) {
+    definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
+    definition.gapMm = format.movingGapMm;
+    resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
+  }
+  definition.accumulatedPitchMm = format.accumulatedPitchMm ??
+    (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
+  resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
+  if (definition.engineering) {
+    // Runtime geometry may override worksheet speed/spacing. Preserve the
+    // worksheet audit separately rather than presenting it as the active model.
+    definition.engineering.runtimeGeometry = {
+      speedMode: format.speedMode || 'AUTO',
+      conveyorSpeedMmPerSecond: definition.conveyorSpeedMmPerSecond,
+      movingPitchMm: definition.productPitchMm,
+      accumulatedPitchMm: definition.accumulatedPitchMm,
+      transferCapacityPerSecond: definition.conveyorSpeedMmPerSecond / definition.productPitchMm,
+      capacityUnits: Math.floor(definition.usableLengthMm / definition.accumulatedPitchMm)
+    };
+  }
   return resolved;
 }
 
@@ -2087,6 +2108,9 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
     return;
   }
 
+  if (accumulation.speedMode !== undefined && !['AUTO', 'MANUAL'].includes(accumulation.speedMode)) details.push(invalid(path + '.processData.accumulation.speedMode', 'must be AUTO or MANUAL'));
+  validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
+  validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);
 }
@@ -2116,8 +2140,8 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path, 'requires effective product pitch, or product length plus gap'));
   }
 
-  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0))) {
-    details.push(invalid(path + '.accumulatedPitchMm', 'must be positive and at least the product length'));
+  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0) || zone.accumulatedPitchMm > (zone.productPitchMm ?? zone.productLengthMm + zone.gapMm))) {
+    details.push(invalid(path + '.accumulatedPitchMm', 'must be between product length and moving pitch'));
   }
   const pitch = hasExplicitPitch ? zone.productPitchMm : hasLengthAndGap ? zone.productLengthMm + zone.gapMm : null;
   if (positiveNumber(zone.usableLengthMm) && positiveNumber(pitch) && Math.floor(zone.usableLengthMm / pitch) < 1) {
@@ -2390,7 +2414,8 @@ function createEquipmentRuntime(model, random) {
     partialStarvationLossSeconds: 0,
     partialBlockingLossSeconds: 0,
     waitingForPrimeSeconds: 0,
-    backupStopSeconds: 0
+    backupStopSeconds: 0,
+    stateSeconds: {}
   };
 }
 
@@ -2548,6 +2573,9 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     advanceAccumulationZones(runtime);
     processLineFromDownstream(runtime);
     recordZoneStatistics(runtime);
+    runtime.equipment.forEach((item) => {
+      item.stateSeconds[item.availabilityState] = (item.stateSeconds[item.availabilityState] || 0) + runtime.run.tickSeconds;
+    });
     advanceEquipmentControlTimers(runtime);
     runtime.virtualSecond += runtime.run.tickSeconds;
     addSampleIfDue(runtime);
@@ -2592,7 +2620,7 @@ function initializeInitialMaterialStates(runtime) {
 function advanceAccumulationZones(runtime) {
   runtime.zones.forEach((zone) => {
     const owner = getEquipment(runtime, zone.ownerEquipmentId);
-    const conveyorStopped = zone.physicalModelEnabled && owner && !isAvailable(owner);
+    const conveyorStopped = zone.physicalModelEnabled && owner && (!isAvailable(owner) || isStartDelayed(owner));
     if (conveyorStopped) {
       zone.transit.forEach((packet) => {
         delayTransitPacket(packet, runtime.run.tickSeconds);
@@ -2601,26 +2629,53 @@ function advanceAccumulationZones(runtime) {
       return;
     }
 
+    // A moving head packet awaiting this tick's discharge is not a stationary
+    // queue. Subtract the discharge the downstream can accept before locating
+    // the tail; otherwise equal-rate flow falsely compresses on every tick.
+    const downstream = getEquipment(runtime, zone.downstreamControlEquipmentId);
+    const downstreamIndex = runtime.equipment.indexOf(downstream);
+    const canDischarge = downstream && isAvailable(downstream) && !requiresPrime(downstream) && !activeBackupControl(downstream);
+    const plannedDischarge = canDischarge ? Math.min(getRequestedFlow(downstream, runtime.run.tickSeconds),
+      getDownstreamSpace(runtime, downstreamIndex), zone.conveyorSpeedMmPerSecond / zone.accumulatedPitchMm * runtime.run.tickSeconds) : 0;
+    let stationaryQueueUnits = Math.max(0, zone.waitingUnits - plannedDischarge);
     const remainingTransit = [];
+    const endSecond = runtime.virtualSecond + runtime.run.tickSeconds;
     zone.transit.forEach((packet) => {
-      if (!packet.backupDetected && zone.hasBackupSensor && packet.backupAtVirtualSecond <= runtime.virtualSecond) {
-        packet.backupDetected = true;
-        recordNormalPhotoeyePass(runtime, zone, 'backup', packet.units);
-      }
-      if (!packet.primeDetected && zone.hasPrimeSensor && packet.primeAtVirtualSecond <= runtime.virtualSecond) {
-        packet.primeDetected = true;
-        recordNormalPhotoeyePass(runtime, zone, 'prime', packet.units);
-        triggerPrimeSensor(runtime, zone);
-      }
-      if (packet.arrivesAtVirtualSecond <= runtime.virtualSecond) {
-        zone.waitingUnits += packet.units;
-      } else {
-        remainingTransit.push(packet);
-      }
+      const queueTailMm = Math.max(0, zone.usableLengthMm - stationaryQueueUnits * zone.accumulatedPitchMm);
+      const queueArrival = stationaryQueueUnits > 1e-9
+        ? packet.arrivesAtVirtualSecond - (zone.usableLengthMm - queueTailMm) / zone.conveyorSpeedMmPerSecond
+        : packet.arrivesAtVirtualSecond;
+      const arrivedFraction = Math.max(packet.arrivedFraction,
+        fractionPassed(endSecond, queueArrival, packet.entryDurationSeconds));
+      // Each packet represents uniform flow during its entry tick. Split a
+      // crossing packet instead of rounding its whole travel to the next tick.
+      // This prevents discretization from becoming a fictitious bottleneck.
+      ['backup', 'prime'].forEach((sensor) => {
+        if (!zone[sensor === 'backup' ? 'hasBackupSensor' : 'hasPrimeSensor']) return;
+        const position = zone[sensor + 'SensorPositionMm'];
+        if (position > queueTailMm && stationaryQueueUnits > 1e-9) return;
+        const fraction = fractionPassed(endSecond, packet[sensor + 'AtVirtualSecond'], packet.entryDurationSeconds);
+        const previous = packet[sensor + 'PassedFraction'] || 0;
+        if (fraction > previous) {
+          recordNormalPhotoeyePass(runtime, zone, sensor, (fraction - previous) * packet.initialUnits);
+          packet[sensor + 'PassedFraction'] = fraction;
+          if (sensor === 'prime') triggerPrimeSensor(runtime, zone);
+        }
+      });
+      const arrivals = Math.min(packet.units, Math.max(0, arrivedFraction - packet.arrivedFraction) * packet.initialUnits);
+      zone.waitingUnits += arrivals;
+      packet.units = Math.max(0, packet.units - arrivals);
+      packet.arrivedFraction = arrivedFraction;
+      stationaryQueueUnits = Math.max(0, zone.waitingUnits - plannedDischarge);
+      if (packet.units > 1e-9) remainingTransit.push(packet);
     });
     zone.transit = remainingTransit;
     updateZonePhotoeyes(runtime, zone);
   });
+}
+
+function fractionPassed(second, start, duration) {
+  return Math.max(0, Math.min(1, (second - start) / duration));
 }
 
 function delayTransitPacket(packet, tickSeconds) {
@@ -2637,6 +2692,7 @@ function updateZonePhotoeyes(runtime, zone) {
 function updatePrimeSensorSignal(runtime, zone) {
   if (!zone.hasPrimeSensor) return;
   const queueCoversPrime = zone.waitingUnits >= zone.primeTriggerWaitingUnits;
+  if (queueCoversPrime) triggerPrimeSensor(runtime, zone);
   zone.primeSignalState = queueCoversPrime
     ? 'BLOCKED'
     : isNormalPulseActive(zone.primePulseUntilVirtualSecond, runtime.virtualSecond)
@@ -2722,6 +2778,8 @@ function updateBackupSensor(runtime, zone) {
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
       thresholdUnits: round(zone.backupTriggerWaitingUnits)
     });
     return;
@@ -2759,6 +2817,8 @@ function updateBackupSensor(runtime, zone) {
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
       restartThresholdUnits: round(zone.backupRestartWaitingUnits)
     });
     return;
@@ -2942,7 +3002,8 @@ function processEquipment(runtime, index) {
 
   const incomingZone = runtime.zones[index - 1];
   const inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
-    incomingZone.physicalModelEnabled ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.productPitchMm * tickSeconds : Infinity);
+    incomingZone.physicalModelEnabled ? (isTransportAvailable(getEquipment(runtime, incomingZone.ownerEquipmentId))
+      ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity);
   const downstreamSpace = getDownstreamSpace(runtime, index);
   const flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge);
@@ -3090,6 +3151,9 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
     } else {
       zone.transit.push({
         units: accepted,
+        initialUnits: accepted,
+        entryDurationSeconds: runtime.run.tickSeconds,
+        arrivedFraction: 0,
         backupDetected: false,
         backupAtVirtualSecond: zone.hasBackupSensor
           ? runtime.virtualSecond + zone.backupSensorPositionMm / zone.conveyorSpeedMmPerSecond
@@ -3118,7 +3182,7 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
 }
 
 function recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge) {
-  if (control) equipment.backupStopSeconds += tickSeconds;
+  if (control && flow <= 0) equipment.backupStopSeconds += tickSeconds;
 
   if (flow > 0) {
     equipment.runningSeconds += tickSeconds;
@@ -3185,6 +3249,10 @@ function recordUnavailable(equipment, tickSeconds) {
     equipment.stoppedSeconds += tickSeconds;
     equipment.availabilityState = 'STOPPED';
   }
+}
+
+function isTransportAvailable(equipment) {
+  return equipment && isAvailable(equipment) && !isStartDelayed(equipment);
 }
 
 function isAvailable(equipment) {
@@ -3278,6 +3346,8 @@ function createZoneSample(zone) {
     },
     inventoryUnits: round(inventoryUnits),
     waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
     inTransitUnits: round(sum(zone.transit.map((packet) => packet.units))),
     capacityUnits: round(zone.capacityUnits),
     fillPercent: zone.capacityUnits > 0 ? round(inventoryUnits / zone.capacityUnits * 100) : 0,
@@ -3323,7 +3393,7 @@ function createResult(runtime) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.11.1',
+    engineVersion: '0.12.0',
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
     summary: createSummary(runtime),
@@ -3341,6 +3411,14 @@ function createSummary(runtime) {
   const lineEffectiveness = createLineEffectiveness(runtime);
   return {
     outputCount: round(runtime.outputCount),
+    materialBalance: {
+      inputUnits: round(runtime.equipment[0]?.outputCount || 0),
+      outputUnits: round(runtime.outputCount),
+      inventoryUnits: round(sum(runtime.zones.map(getZoneInventory))),
+      overflowUnits: round(sum(runtime.zones.map(zone => zone.overflowUnits))),
+      residualUnits: round((runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
+        sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
+    },
     averageOutputRatePerSecond: round(runtime.outputCount / runtime.run.durationSeconds),
     totalBlockedSeconds: round(sum(runtime.equipment.map((item) => item.blockedSeconds))),
     totalStarvedSeconds: round(sum(runtime.equipment.map((item) => item.starvedSeconds))),
@@ -3364,7 +3442,10 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
     outputCount: round(equipment.outputCount),
+    stateSeconds: Object.fromEntries(Object.entries(equipment.stateSeconds).map(([state, seconds]) => [state, round(seconds)])),
     runningSeconds: round(equipment.runningSeconds),
+    productiveEquivalentSeconds: round(equipment.outputCount / equipment.nominalRatePerSecond),
+    processingCapacityPercent: round(100 * equipment.outputCount / (equipment.nominalRatePerSecond * durationSeconds)),
     pausedSeconds: round(equipment.pausedSeconds),
     stoppedSeconds: round(equipment.stoppedSeconds),
     failureSeconds: round(equipment.failureSeconds),
@@ -3446,6 +3527,10 @@ function createZoneMetrics(zone, durationSeconds) {
     upstreamControlEquipmentId: zone.upstreamControlEquipmentId,
     downstreamControlEquipmentId: zone.downstreamControlEquipmentId,
     capacityUnits: round(zone.capacityUnits),
+    movingPitchMm: zone.productPitchMm,
+    accumulatedPitchMm: zone.accumulatedPitchMm,
+    conveyorSpeedMmPerSecond: zone.conveyorSpeedMmPerSecond,
+    transferCapacityPerSecond: zone.conveyorSpeedMmPerSecond / zone.productPitchMm,
     modelOrigin: zone.modelOrigin,
     geometrySources: zone.geometrySources,
     finalInventoryUnits: round(getZoneInventory(zone)),
@@ -4199,7 +4284,7 @@ window.STReports=(function(){
 // Presentation-only aggregation; all physical results are supplied by the engine.
 window.STResults=(function(){
   function number(value,digits){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:digits===undefined?1:digits}):'—';}
-  function downtime(result){return Object.values(result.equipmentMetrics||{}).reduce(function(n,m){return n+(m.pausedSeconds||0)+(m.stoppedSeconds||0)+(m.failureSeconds||0)+(m.microStopSeconds||0)+(m.emergencyStopSeconds||0);},0)/60;}
+  function downtime(result){return Object.values(result.equipmentMetrics||{}).reduce(function(n,m){return n+(m.pausedSeconds||0)+(m.stoppedSeconds||0);},0)/60;}
   function metrics(result){var s=result.summary;return [
     ["Global OEE",s.lineOeePercent,'%',false],["Throughput",s.outputCount/result.durationSeconds*60,' '+(result.unitOfFlow||'units')+'/min',false],["Production",s.outputCount,' '+(result.unitOfFlow||'units'),false],
     ["Equipment downtime",downtime(result)," min",true],["Starving",s.totalStarvedSeconds/60," min",true],["Blocking",s.totalBlockedSeconds/60," min",true],["Failure time",s.totalFailureSeconds/60," min",true]
@@ -4215,13 +4300,15 @@ window.STResults=(function(){
     if(result.batch)document.getElementById('results-meta').textContent+=' · '+"Charts, equipment details and What-If evidence use round 1. Replication averages are shown separately above.";
     var target=document.getElementById('results-kpis');target.textContent='';
     metrics(result).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?" primary-kpi":'');var label=document.createElement('span'),value=document.createElement('strong');label.textContent=item[0];value.textContent=number(item[1])+item[2];card.append(label,value);target.appendChild(card);});
-    document.getElementById('results-reference').textContent="OEE reference: "+(result.summary.lineOeePacemakerName||'not available')+". Quality assumes 100% (no reject model). Loss and downtime totals are equipment-minutes; simultaneous losses are not line downtime.";
+    document.getElementById('results-reference').textContent="OEE reference: "+(result.summary.lineOeePacemakerName||'not available')+". Quality assumes 100% (no reject model). Loss and downtime totals are equipment-minutes; simultaneous losses are not line downtime."+' '+"Starved and blocked columns count stopped flow. Partial losses are equivalent lost capacity during ticks with positive flow; they are not additional stopped time."+' '+"Productive capacity is output / (nominal rate × full duration). It can be compared with processing utilization in a deterministic cycle model; stateSeconds contains the separate elapsed fluid-model states.";
     window.STLinePerformance.render(result,activeCase.equipment||[]);
     var rows=(activeCase.equipment||[]).map(function(e){return {model:e,metric:(result.equipmentMetrics||{})[e.id]||{}};});
     var worst=rows.filter(function(r){return r.model.type!=='CONVEYOR';}).sort(function(a,b){return (b.metric.starvedSeconds||0)+(b.metric.blockedSeconds||0)+(b.metric.failureSeconds||0)-(a.metric.starvedSeconds||0)-(a.metric.blockedSeconds||0)-(a.metric.failureSeconds||0);})[0];
     document.getElementById('results-insight').textContent=worst?"Investigate "+worst.model.name+": highest combined starving, blocking and failure time among machines. This is a loss indicator, not proof of the line bottleneck.":'';
     var table=document.createElement('table'); table.innerHTML=("<thead><tr><th>" + "Equipment" + "</th><th>" + "Type" + "</th><th class=\"numeric\">" + "OEE" + "</th><th class=\"numeric\">" + "Produced / processed" + "</th><th class=\"numeric\">" + "Starved · min" + "</th><th class=\"numeric\">" + "Blocked · min" + "</th><th class=\"numeric\">" + "Failure · min" + "</th><th class=\"numeric\">" + "Failures" + "</th></tr></thead>");
-    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>1)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
+    var head=table.querySelector('thead tr');
+    ["Partial input loss (equiv. min)","Partial output loss (equiv. min)","Productive capacity · %"].forEach(function(label){var th=document.createElement('th');th.className='numeric';th.textContent=label;head.appendChild(th);});
+    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0),number((m.partialStarvationLossSeconds||0)/60),number((m.partialBlockingLossSeconds||0)/60),number(m.processingCapacityPercent)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>1)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
     document.getElementById('export-results').onclick=function(){var blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='simulation-results.json';a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);};
   }
   function compare(target,a,b){
@@ -4832,7 +4919,7 @@ window.STEquipmentInspector=(function(){
   }
   function init(current,dirty){
     state=current;
-    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent="Step "+(Number(selected.dataset.index)+1)+' · '+fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+' · '+(Number(fields.querySelector('.equipment-rate').value))+" BPM";dirty(event);}});});
+    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent="Step "+(Number(selected.dataset.index)+1)+' · '+fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+(fields.querySelector('.equipment-type').value==='CONVEYOR'?'':' · '+Number(fields.querySelector('.equipment-rate').value)+" BPM");dirty(event);}});});
     el('json-help-close').onclick=function(){el('json-help-dialog').close();};
     el('json-help-dialog').addEventListener('close',function(){helpOrigin?.focus();});
     el('json-help-copy').onclick=async function(){
@@ -4870,7 +4957,7 @@ window.STEquipmentInspector=(function(){
     var type=card._fields.querySelector('.equipment-type').value,example;
     if(control.classList.contains('equipment-characteristics'))example={criticalMachine:true};
     else if(control.classList.contains('equipment-noise-profile'))example={reliability:{mtbfMinutes:35,mttrMinutes:2}};
-    else if(type==='CONVEYOR')example={geometry:{lactMm:10000,lpPrimeMm:1000},upstream:{packageLengthMm:100,dischargePitchMm:120},accumulation:{conveyorSpeedFactorPercent:10,backupSensorPositionMm:1000,dischargeRunoutLengthMm:0,rejectRunoutLengthMm:0,blockedTimeDelaySeconds:1,clearTimeDelaySeconds:1,insuranceFactorUnits:2,upstreamStopResponseSeconds:1,bottlesDischargedAtStop:2,downstreamRampUpSeconds:2}};
+    else if(type==='CONVEYOR')example={geometry:{lactMm:10000,lpPrimeMm:1000},upstream:{packageLengthMm:100,dischargePitchMm:120},accumulation:{speedMode:"AUTO",conveyorSpeedMmPerSecond:300,movingGapMm:20,accumulatedGapMm:0,conveyorSpeedFactorPercent:10,backupSensorPositionMm:1000,dischargeRunoutLengthMm:0,rejectRunoutLengthMm:0,blockedTimeDelaySeconds:1,clearTimeDelaySeconds:1,insuranceFactorUnits:2,upstreamStopResponseSeconds:1,bottlesDischargedAtStop:2,downstreamRampUpSeconds:2}};
     else example={equipment:{maximumSpeedBpm:300},upstream:{startupTimeSeconds:2},downstream:{infeedPitchMm:120,rampUpTimeSeconds:2}};
     helpOrigin=origin;el('json-help-title').textContent=control.closest('label').firstChild.textContent.trim();
     el('json-help-code').value=JSON.stringify(example,null,2);el('json-copy-status').textContent='';
@@ -4880,6 +4967,7 @@ window.STEquipmentInspector=(function(){
   }
   var descriptions={
     criticalMachine:"Boolean: marks this equipment as critical for the line analysis.",mtbfMinutes:"Mean operating time between failures, in minutes. A positive plant input used to sample failure intervals with the run seed.",mttrMinutes:"Mean repair time, in minutes. The current engine uses this as a fixed repair duration. Keep the measured baseline value.",maximumSpeedBpm:"Configured maximum machine speed, in units per minute; used by engineering analysis. It does not replace the nominal rate field.",startupTimeSeconds:"Machine startup time, in seconds, used by the physical line calculations.",infeedPitchMm:"Center-to-center package pitch at the downstream machine infeed, in millimeters.",rampUpTimeSeconds:"Ramp-up duration including the Prime delay, in seconds, used by the conveyor engineering calculations.",
+    speedMode:"Automatic speed uses upstream discharge velocity and the speed factor. Manual speed uses the physical mm/s value below.",conveyorSpeedMmPerSecond:"Physical belt velocity. It controls travel time and transfer capacity; the nominal conveyor BPM field is not an independent limit.",movingGapMm:"Clear distance between moving packages. Leave blank to derive spacing from the discharge pitch and automatic speed factor. Moving pitch is product length plus this gap.",accumulatedGapMm:"Clear distance between queued packages; default 0 mm means touching packages. It determines accumulated capacity and queue sensor thresholds. Must not exceed moving gap.",
     lactMm:"Total installed conveyor length, measured from the upstream discharge toward the downstream infeed.",lpPrimeMm:"Reserved downstream length between the Prime photocell and the downstream machine infeed.",packageLengthMm:"Physical package length in the direction of travel. It determines the photoeye occupied time.",dischargePitchMm:"Centre-to-centre distance between packages leaving the upstream machine.",conveyorSpeedFactorPercent:"Belt-speed increase relative to upstream package discharge velocity. It changes package spacing and population.",backupSensorPositionMm:"Installed Back-up photocell position, measured from the upstream discharge. A sustained blocked signal requests the upstream stop.",dischargeRunoutLengthMm:"Length that must be cleared after the upstream discharge before a stop fully takes effect.",rejectRunoutLengthMm:"Additional reject/runout length that must be cleared during an upstream stop.",blockedTimeDelaySeconds:"Continuous Back-up blocked time required before the simulator requests the upstream stop. Normal package pulses do not count.",clearTimeDelaySeconds:"Continuous Back-up clear time required before the simulator releases the upstream stop. Normal product gaps reset this timer.",insuranceFactorUnits:"Extra package margin reserved in the required overflow calculation. It is a design margin, not randomly created material.",upstreamStopResponseSeconds:"Delay from the upstream stop request until its discharge response is complete.",bottlesDischargedAtStop:"Packages that can still leave the upstream machine after the stop request.",downstreamRampUpSeconds:"Time for the downstream machine to ramp after Prime authorizes its start."
   };
   return {init:init,select:select,release:release,restore:restore,sync:sync,decorate:decorate,hide:function(){opened=false;},show:function(){if(selected)opened=true;},available:function(){return !!selected&&state?.uiView==='editor';},name:function(){return selected?selected._fields.querySelector('.equipment-name').value:'';}};
@@ -5554,6 +5642,7 @@ async function openCase(caseId) {
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
       Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
       card.appendChild(fields); card._fields = fields;
+      addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
       updateFormatZoneVisibility(card);
@@ -5570,13 +5659,33 @@ async function openCase(caseId) {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);
       });
-      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input')).forEach(function(input) {
+      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input, .format-zone-grid select')).forEach(function(input) {
         input.addEventListener('input', function() {
           state.isDirty = true;
           renderFormatZonePreview(card);
         });
+        input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(card); });
       });
       return card;
+    }
+
+    function addConveyorPhysicsInputs(card) {
+      var grid = equipmentField(card, '.format-zone-grid');
+      [
+        ['speed-mode',"Belt speed mode","Automatic speed uses upstream discharge velocity and the speed factor. Manual speed uses the physical mm/s value below.",'select'],
+        ['belt-speed',"Belt speed (mm/s)","Physical belt velocity. It controls travel time and transfer capacity; the nominal conveyor BPM field is not an independent limit.",'number'],
+        ['moving-gap',"Moving gap (mm, blank = automatic)","Clear distance between moving packages. Leave blank to derive spacing from the discharge pitch and automatic speed factor. Moving pitch is product length plus this gap.",'number'],
+        ['accumulated-gap',"Accumulated gap (mm)","Clear distance between queued packages; default 0 mm means touching packages. It determines accumulated capacity and queue sensor thresholds. Must not exceed moving gap.",'number']
+      ].forEach(function(spec) {
+        var label = document.createElement('label'); label.textContent = spec[1]; label.title = spec[2];
+        var control = document.createElement(spec[3] === 'select' ? 'select' : 'input');
+        control.className = 'format-zone-' + spec[0];
+        if (spec[3] === 'select') [['AUTO',"Automatic (speed factor)"],['MANUAL',"Manual belt speed"]].forEach(function(option) {
+          var item = document.createElement('option'); item.value = option[0]; item.textContent = option[1]; control.appendChild(item);
+        });
+        else { control.type = 'number'; control.min = '0'; control.step = 'any'; }
+        label.appendChild(control); grid.appendChild(label);
+      });
     }
 
     function applyConceptTooltips(card) {
@@ -5621,6 +5730,10 @@ function populateFormatZoneInputs(card, equipment) {
         lpPrime: geometry.lpPrimeMm,
         packageLength: upstream.packageLengthMm,
         dischargePitch: upstream.dischargePitchMm,
+        speedMode: formatZone.speedMode || 'AUTO',
+        beltSpeed: formatZone.conveyorSpeedMmPerSecond,
+        movingGap: formatZone.movingGapMm,
+        accumulatedGap: firstDefinedValue(formatZone.accumulatedGapMm, formatZone.accumulatedPitchMm !== undefined ? formatZone.accumulatedPitchMm - firstDefinedValue(upstream.packageLengthMm, formatZone.productLengthMm) : 0),
         speedFactor: firstDefinedValue(formatZone.conveyorSpeedFactorPercent, equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent),
         backup: formatZone.backupSensorPositionMm,
         dischargeRunout: formatZone.dischargeRunoutLengthMm,
@@ -5641,6 +5754,9 @@ function populateFormatZoneInputs(card, equipment) {
 function updateFormatZoneVisibility(card) {
       var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
       equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
+      equipmentField(card, '.equipment-rate').readOnly = isConveyor;
+      equipmentField(card, '.equipment-rate').closest('label').classList.toggle('hidden', isConveyor);
+      if (isConveyor) equipmentField(card, '.equipment-rate').title = "Physical belt velocity. It controls travel time and transfer capacity; the nominal conveyor BPM field is not an independent limit.";
     }
 
     function renderFormatZonePreview(card) {
@@ -5652,6 +5768,9 @@ function updateFormatZoneVisibility(card) {
       }
 
       var values = readFormatZoneInputs(card);
+      var manual = values.speedMode === 'MANUAL';
+      equipmentField(card, '.format-zone-belt-speed').disabled = !manual;
+      equipmentField(card, '.format-zone-speed-factor').disabled = manual;
       var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
       var index = Number(card.dataset.index);
       var upstreamMachine = state.activeCase?.equipment?.[index - 1];
@@ -5682,17 +5801,19 @@ function updateFormatZoneVisibility(card) {
         upstreamStartupTimeSeconds: upstreamMachine.processData?.upstream?.startupTimeSeconds
       });
       var derived = calculation.calculated;
-      if (!(derived.conveyorCapacityUnits >= 1)) {
-        target.textContent = "Required: L_act, L_p, package length, upstream discharge pitch, upstream BPM, and conveyor speed factor.";
+      var beltSpeed = manual ? values.conveyorSpeedMmPerSecond : derived.conveyorSpeedMmPerSecond;
+      var movingPitch = values.movingGapMm !== undefined ? values.packageLengthMm + values.movingGapMm : derived.effectiveProductPitchMm;
+      var packedPitch = values.packageLengthMm + (values.accumulatedGapMm ?? 0);
+      if (!(beltSpeed > 0 && movingPitch >= packedPitch && packedPitch > 0 && values.lactMm >= movingPitch)) {
+        target.textContent = "Enter a positive belt speed and package length, a conveyor long enough for one moving pitch, and an accumulated gap no greater than the moving gap.";
         return;
       }
-      target.textContent = "Calculated: " + formatNumber(derived.conveyorSpeedMmPerSecond) + " mm/s · " +
-        formatNumber(derived.effectiveProductPitchMm) + " mm pitch · " + formatNumber(derived.conveyorCapacityUnits) +
-        " units · Prime " + formatNumber(derived.primeSensorPositionMm) + " mm · required Back-up ≥ " +
-        formatNumber(derived.recommendedBackupSensorPositionMm) + " mm · L_rec " +
-        formatNumber(derived.recoveryLengthMm) + " mm · normal photoeye pulse " +
-        formatSeconds(derived.packagePassSensorSeconds) + " · normal clear gap " +
-        formatSeconds(derived.sensorClearGapSeconds) + ' (' + calculation.audit.status + ').';
+      {
+        target.textContent = "Belt speed (mm/s)" + ': ' + formatNumber(beltSpeed) + ' · ' +
+          "Transfer capacity" + ': ' + formatNumber(60 * beltSpeed / movingPitch) + ' BPM · ' +
+          "Accumulated capacity" + ': ' + formatNumber(Math.floor(values.lactMm / packedPitch)) + ' · ' +
+          "Free travel" + ': ' + formatSeconds(values.lactMm / beltSpeed) + '. ' + "Worksheet audit uses automatic design assumptions. Runtime speed, spacing and capacity are shown separately.";
+      }
     }
 
 function readFormatZoneInputs(card) {
@@ -5702,6 +5823,10 @@ function readFormatZoneInputs(card) {
         packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
         dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
         conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
+        speedMode: equipmentField(card, '.format-zone-speed-mode').value || 'AUTO',
+        conveyorSpeedMmPerSecond: numericInputValue(equipmentField(card, '.format-zone-belt-speed')),
+        movingGapMm: numericInputValue(equipmentField(card, '.format-zone-moving-gap')),
+        accumulatedGapMm: numericInputValue(equipmentField(card, '.format-zone-accumulated-gap')),
         backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
         dischargeRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-discharge-runout')),
         rejectRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-reject-runout')),
@@ -5730,6 +5855,10 @@ function readFormatZoneInputs(card) {
       });
       result.accumulation = Object.assign({}, result.accumulation || {}, {
         conveyorSpeedFactorPercent: values.conveyorSpeedFactorPercent,
+        speedMode: values.speedMode,
+        conveyorSpeedMmPerSecond: values.conveyorSpeedMmPerSecond,
+        movingGapMm: values.movingGapMm,
+        accumulatedGapMm: values.accumulatedGapMm,
         backupSensorPositionMm: values.backupSensorPositionMm,
         dischargeRunoutLengthMm: values.dischargeRunoutLengthMm,
         rejectRunoutLengthMm: values.rejectRunoutLengthMm,
@@ -5743,7 +5872,7 @@ function readFormatZoneInputs(card) {
       Object.keys(result.accumulation).forEach(function(key) {
         if (result.accumulation[key] === undefined) delete result.accumulation[key];
       });
-      ['usableLengthMm', 'productLengthMm', 'gapMm', 'productPitchMm', 'conveyorSpeedMmPerSecond', 'primeSensorPositionMm', 'backupRestartPositionMm'].forEach(function(key) {
+      ['usableLengthMm', 'productLengthMm', 'gapMm', 'productPitchMm', 'accumulatedPitchMm', 'primeSensorPositionMm', 'backupRestartPositionMm'].forEach(function(key) {
         delete result.accumulation[key];
       });
       return result;
@@ -6615,14 +6744,14 @@ function renderRawJson() {
       panel.querySelector('.zone-prime').textContent = formatPrimeSensorReading(zone.prime);
       panel.querySelector('.zone-backup').textContent = formatBackupSensorReading(zone.backup);
       panel.querySelector('.zone-geometry').textContent = geometry.usableLengthMm && geometry.productPitchMm
-        ? formatNumber(geometry.usableLengthMm) + " mm / " + formatNumber(geometry.productPitchMm) + " mm"
+        ? formatNumber(geometry.usableLengthMm) + " mm / " + formatNumber(geometry.productPitchMm) + " mm" + ' · ' + "Accumulated pitch" + ': ' + formatNumber(geometry.accumulatedPitchMm ?? geometry.productPitchMm) + " mm"
         : "Not available";
       panel.querySelector('.zone-travel').textContent = geometry.travelSeconds > 0
         ? formatNumber(geometry.travelSeconds) + ' s'
         : '—';
       panel.querySelector('.zone-sensor-timing').textContent = formatSensorTiming(geometry);
       panel.querySelector('.zone-overflow').textContent = formatNumber(zone.overflowUnits);
-      panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + " · Capacity: floor(length / pitch) = " +
+      panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + " · Accumulated capacity = floor(length / accumulated pitch): " +
         formatNumber(zone.capacityUnits) + " units · Controls upstream: " + zone.upstreamControlEquipmentId +
         " · Starts downstream: " + zone.downstreamControlEquipmentId;
       panel.querySelector('.zone-assumptions').textContent = summarizeGeometrySources(zone.geometrySources, zone.formatAssumptions);

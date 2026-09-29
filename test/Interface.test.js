@@ -495,3 +495,26 @@ test('UI: BPM edits convert once and survive reload independently of the flow un
   assert.equal(h.d.querySelector('#equipment-inspector .equipment-rate').value,'345.5');assert.equal(h.d.getElementById('unit-of-flow').value,'cases');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: conveyor speed and spacing controls survive autosave and reopening and drive the engine',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  h.d.querySelectorAll('.equipment-card')[1].click();
+  const field=name=>h.d.querySelector('#equipment-inspector .format-zone-'+name);
+  assert(field('belt-speed').disabled);
+  field('speed-mode').value='MANUAL';field('speed-mode').dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert(!field('belt-speed').disabled);assert(field('speed-factor').disabled);
+  for(const [name,value] of [['belt-speed','500'],['moving-gap','20'],['accumulated-gap','0']]){field(name).value=value;field(name).dispatchEvent(new h.w.Event('input',{bubbles:true}));}
+  assert.match(h.d.querySelector('#equipment-inspector .format-zone-preview').textContent,/500/);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');h.d.querySelectorAll('.equipment-card')[1].click();
+  assert.equal(field('speed-mode').value,'MANUAL');assert.equal(field('belt-speed').value,'500');assert.equal(field('moving-gap').value,'20');
+  const saved=h.storedCases()[0].simulations[0].equipment;
+  const belt=saved[1];assert.equal(belt.processData.accumulation.conveyorSpeedMmPerSecond,500);
+  assert.equal(belt.processData.accumulation.movingGapMm,20);assert.equal(belt.processData.accumulation.accumulatedGapMm,0);
+  const response=h.w.SimulatorEngine.simulateLine({case:{id:'saved',unitOfFlow:'bottles',equipment:saved},run:{durationSeconds:20,tickSeconds:0.25,sampleEverySeconds:1,seed:42}});
+  assert.equal(response.ok,true,JSON.stringify(response.error));
+  const geometry=response.result.samples[0].accumulationZones[0].geometry;
+  assert.equal(geometry.conveyorSpeedMmPerSecond,500);assert.equal(geometry.productPitchMm,belt.processData.upstream.packageLengthMm+20);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

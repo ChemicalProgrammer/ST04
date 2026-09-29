@@ -162,7 +162,8 @@ test('derives capacity and travel from mandatory geometry', () => {
 
   assert.equal(response.ok, true);
   assert.equal(zone.modelOrigin, 'FORMAT_GEOMETRY');
-  assert.equal(zone.capacityUnits, 10);
+  assert.equal(zone.capacityUnits, 12);
+  assert.equal(zone.geometry.accumulatedPitchMm, 8);
   assert.equal(zone.geometry.productPitchMm, 10);
   assert.equal(zone.geometry.travelSeconds, 1);
   assert.equal(zone.upstreamControlEquipmentId, 'source');

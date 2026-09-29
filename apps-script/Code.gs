@@ -6,6 +6,29 @@
 // -----------------------------------------------------------------------------
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "conveyor.invalid_geometry":"Enter a positive belt speed and package length, a conveyor long enough for one moving pitch, and an accumulated gap no greater than the moving gap.",
+  "conveyor.moving_pitch":"Moving pitch",
+  "conveyor.packed_pitch":"Accumulated pitch",
+  "conveyor.capacity_formula":" · Accumulated capacity = floor(length / accumulated pitch): ",
+  "results.productive_capacity":"Productive capacity · %",
+  "results.productive_note":"Productive capacity is output / (nominal rate × full duration). It can be compared with processing utilization in a deterministic cycle model; stateSeconds contains the separate elapsed fluid-model states.",
+  "conveyor.speed_mode":"Belt speed mode",
+  "conveyor.auto":"Automatic (speed factor)",
+  "conveyor.manual":"Manual belt speed",
+  "conveyor.belt_speed":"Belt speed (mm/s)",
+  "conveyor.moving_gap":"Moving gap (mm, blank = automatic)",
+  "conveyor.accumulated_gap":"Accumulated gap (mm)",
+  "conveyor.help_speed_mode":"Automatic speed uses upstream discharge velocity and the speed factor. Manual speed uses the physical mm/s value below.",
+  "conveyor.help_belt_speed":"Physical belt velocity. It controls travel time and transfer capacity; the nominal conveyor BPM field is not an independent limit.",
+  "conveyor.help_moving_gap":"Clear distance between moving packages. Leave blank to derive spacing from the discharge pitch and automatic speed factor. Moving pitch is product length plus this gap.",
+  "conveyor.help_accumulated_gap":"Clear distance between queued packages; default 0 mm means touching packages. It determines accumulated capacity and queue sensor thresholds. Must not exceed moving gap.",
+  "conveyor.transfer_capacity":"Transfer capacity",
+  "conveyor.packed_capacity":"Accumulated capacity",
+  "conveyor.free_travel":"Free travel",
+  "conveyor.audit_note":"Worksheet audit uses automatic design assumptions. Runtime speed, spacing and capacity are shown separately.",
+  "results.partial_starvation":"Partial input loss (equiv. min)",
+  "results.partial_blocking":"Partial output loss (equiv. min)",
+  "results.partial_note":"Starved and blocked columns count stopped flow. Partial losses are equivalent lost capacity during ticks with positive flow; they are not additional stopped time.",
   "client.nominal_rate_bpm":"Nominal speed (BPM)",
   "filter.label":"Filter line equipment",
   "filter.equipment":"Equipment",
@@ -1928,7 +1951,28 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
-  resolved.definition.accumulatedPitchMm = format.accumulatedPitchMm ?? resolved.definition.productPitchMm;
+  const definition = resolved.definition;
+  if (format.movingGapMm !== undefined) {
+    definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
+    definition.gapMm = format.movingGapMm;
+    resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
+  }
+  definition.accumulatedPitchMm = format.accumulatedPitchMm ??
+    (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
+  resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
+  if (definition.engineering) {
+    // Runtime geometry may override worksheet speed/spacing. Preserve the
+    // worksheet audit separately rather than presenting it as the active model.
+    definition.engineering.runtimeGeometry = {
+      speedMode: format.speedMode || 'AUTO',
+      conveyorSpeedMmPerSecond: definition.conveyorSpeedMmPerSecond,
+      movingPitchMm: definition.productPitchMm,
+      accumulatedPitchMm: definition.accumulatedPitchMm,
+      transferCapacityPerSecond: definition.conveyorSpeedMmPerSecond / definition.productPitchMm,
+      capacityUnits: Math.floor(definition.usableLengthMm / definition.accumulatedPitchMm)
+    };
+  }
   return resolved;
 }
 
@@ -2263,6 +2307,9 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
     return;
   }
 
+  if (accumulation.speedMode !== undefined && !['AUTO', 'MANUAL'].includes(accumulation.speedMode)) details.push(invalid(path + '.processData.accumulation.speedMode', 'must be AUTO or MANUAL'));
+  validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
+  validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);
 }
@@ -2292,8 +2339,8 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path, 'requires effective product pitch, or product length plus gap'));
   }
 
-  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0))) {
-    details.push(invalid(path + '.accumulatedPitchMm', 'must be positive and at least the product length'));
+  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0) || zone.accumulatedPitchMm > (zone.productPitchMm ?? zone.productLengthMm + zone.gapMm))) {
+    details.push(invalid(path + '.accumulatedPitchMm', 'must be between product length and moving pitch'));
   }
   const pitch = hasExplicitPitch ? zone.productPitchMm : hasLengthAndGap ? zone.productLengthMm + zone.gapMm : null;
   if (positiveNumber(zone.usableLengthMm) && positiveNumber(pitch) && Math.floor(zone.usableLengthMm / pitch) < 1) {

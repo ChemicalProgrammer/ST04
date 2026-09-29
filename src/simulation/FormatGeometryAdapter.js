@@ -53,7 +53,28 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
-  resolved.definition.accumulatedPitchMm = format.accumulatedPitchMm ?? resolved.definition.productPitchMm;
+  const definition = resolved.definition;
+  if (format.movingGapMm !== undefined) {
+    definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
+    definition.gapMm = format.movingGapMm;
+    resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
+  }
+  definition.accumulatedPitchMm = format.accumulatedPitchMm ??
+    (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
+  resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
+  if (definition.engineering) {
+    // Runtime geometry may override worksheet speed/spacing. Preserve the
+    // worksheet audit separately rather than presenting it as the active model.
+    definition.engineering.runtimeGeometry = {
+      speedMode: format.speedMode || 'AUTO',
+      conveyorSpeedMmPerSecond: definition.conveyorSpeedMmPerSecond,
+      movingPitchMm: definition.productPitchMm,
+      accumulatedPitchMm: definition.accumulatedPitchMm,
+      transferCapacityPerSecond: definition.conveyorSpeedMmPerSecond / definition.productPitchMm,
+      capacityUnits: Math.floor(definition.usableLengthMm / definition.accumulatedPitchMm)
+    };
+  }
   return resolved;
 }
 

@@ -321,6 +321,24 @@
         "downstreamRampUpSeconds": {
           "type": "number",
           "minimum": 0
+        },
+        "speedMode": {
+          "enum": [
+            "AUTO",
+            "MANUAL"
+          ]
+        },
+        "movingGapMm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "accumulatedGapMm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "accumulatedPitchMm": {
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       },
       "anyOf": [

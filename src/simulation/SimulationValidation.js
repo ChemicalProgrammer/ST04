@@ -95,6 +95,9 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
     return;
   }
 
+  if (accumulation.speedMode !== undefined && !['AUTO', 'MANUAL'].includes(accumulation.speedMode)) details.push(invalid(path + '.processData.accumulation.speedMode', 'must be AUTO or MANUAL'));
+  validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
+  validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);
 }
@@ -124,8 +127,8 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path, 'requires effective product pitch, or product length plus gap'));
   }
 
-  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0))) {
-    details.push(invalid(path + '.accumulatedPitchMm', 'must be positive and at least the product length'));
+  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0) || zone.accumulatedPitchMm > (zone.productPitchMm ?? zone.productLengthMm + zone.gapMm))) {
+    details.push(invalid(path + '.accumulatedPitchMm', 'must be between product length and moving pitch'));
   }
   const pitch = hasExplicitPitch ? zone.productPitchMm : hasLengthAndGap ? zone.productLengthMm + zone.gapMm : null;
   if (positiveNumber(zone.usableLengthMm) && positiveNumber(pitch) && Math.floor(zone.usableLengthMm / pitch) < 1) {

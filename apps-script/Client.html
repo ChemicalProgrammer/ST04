@@ -448,6 +448,7 @@ async function openCase(caseId) {
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
       Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
       card.appendChild(fields); card._fields = fields;
+      addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
       updateFormatZoneVisibility(card);
@@ -464,13 +465,33 @@ async function openCase(caseId) {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);
       });
-      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input')).forEach(function(input) {
+      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input, .format-zone-grid select')).forEach(function(input) {
         input.addEventListener('input', function() {
           state.isDirty = true;
           renderFormatZonePreview(card);
         });
+        input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(card); });
       });
       return card;
+    }
+
+    function addConveyorPhysicsInputs(card) {
+      var grid = equipmentField(card, '.format-zone-grid');
+      [
+        ['speed-mode',__ST_TEXT__('conveyor.speed_mode'),__ST_TEXT__('conveyor.help_speed_mode'),'select'],
+        ['belt-speed',__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
+        ['moving-gap',__ST_TEXT__('conveyor.moving_gap'),__ST_TEXT__('conveyor.help_moving_gap'),'number'],
+        ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number']
+      ].forEach(function(spec) {
+        var label = document.createElement('label'); label.textContent = spec[1]; label.title = spec[2];
+        var control = document.createElement(spec[3] === 'select' ? 'select' : 'input');
+        control.className = 'format-zone-' + spec[0];
+        if (spec[3] === 'select') [['AUTO',__ST_TEXT__('conveyor.auto')],['MANUAL',__ST_TEXT__('conveyor.manual')]].forEach(function(option) {
+          var item = document.createElement('option'); item.value = option[0]; item.textContent = option[1]; control.appendChild(item);
+        });
+        else { control.type = 'number'; control.min = '0'; control.step = 'any'; }
+        label.appendChild(control); grid.appendChild(label);
+      });
     }
 
     function applyConceptTooltips(card) {
@@ -515,6 +536,10 @@ function populateFormatZoneInputs(card, equipment) {
         lpPrime: geometry.lpPrimeMm,
         packageLength: upstream.packageLengthMm,
         dischargePitch: upstream.dischargePitchMm,
+        speedMode: formatZone.speedMode || 'AUTO',
+        beltSpeed: formatZone.conveyorSpeedMmPerSecond,
+        movingGap: formatZone.movingGapMm,
+        accumulatedGap: firstDefinedValue(formatZone.accumulatedGapMm, formatZone.accumulatedPitchMm !== undefined ? formatZone.accumulatedPitchMm - firstDefinedValue(upstream.packageLengthMm, formatZone.productLengthMm) : 0),
         speedFactor: firstDefinedValue(formatZone.conveyorSpeedFactorPercent, equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent),
         backup: formatZone.backupSensorPositionMm,
         dischargeRunout: formatZone.dischargeRunoutLengthMm,
@@ -535,6 +560,9 @@ function populateFormatZoneInputs(card, equipment) {
 function updateFormatZoneVisibility(card) {
       var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
       equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
+      equipmentField(card, '.equipment-rate').readOnly = isConveyor;
+      equipmentField(card, '.equipment-rate').closest('label').classList.toggle('hidden', isConveyor);
+      if (isConveyor) equipmentField(card, '.equipment-rate').title = __ST_TEXT__('conveyor.help_belt_speed');
     }
 
     function renderFormatZonePreview(card) {
@@ -546,6 +574,9 @@ function updateFormatZoneVisibility(card) {
       }
 
       var values = readFormatZoneInputs(card);
+      var manual = values.speedMode === 'MANUAL';
+      equipmentField(card, '.format-zone-belt-speed').disabled = !manual;
+      equipmentField(card, '.format-zone-speed-factor').disabled = manual;
       var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
       var index = Number(card.dataset.index);
       var upstreamMachine = state.activeCase?.equipment?.[index - 1];
@@ -576,17 +607,19 @@ function updateFormatZoneVisibility(card) {
         upstreamStartupTimeSeconds: upstreamMachine.processData?.upstream?.startupTimeSeconds
       });
       var derived = calculation.calculated;
-      if (!(derived.conveyorCapacityUnits >= 1)) {
-        target.textContent = __ST_TEXT__('client.required_l_act_l_p_package_length_upstream_discharge_pitch_upstream_bpm_and');
+      var beltSpeed = manual ? values.conveyorSpeedMmPerSecond : derived.conveyorSpeedMmPerSecond;
+      var movingPitch = values.movingGapMm !== undefined ? values.packageLengthMm + values.movingGapMm : derived.effectiveProductPitchMm;
+      var packedPitch = values.packageLengthMm + (values.accumulatedGapMm ?? 0);
+      if (!(beltSpeed > 0 && movingPitch >= packedPitch && packedPitch > 0 && values.lactMm >= movingPitch)) {
+        target.textContent = __ST_TEXT__('conveyor.invalid_geometry');
         return;
       }
-      target.textContent = __ST_TEXT__('client.calculated') + formatNumber(derived.conveyorSpeedMmPerSecond) + __ST_TEXT__('client.mm_s') +
-        formatNumber(derived.effectiveProductPitchMm) + __ST_TEXT__('client.mm_pitch') + formatNumber(derived.conveyorCapacityUnits) +
-        __ST_TEXT__('client.units_prime') + formatNumber(derived.primeSensorPositionMm) + __ST_TEXT__('client.mm_required_back_up') +
-        formatNumber(derived.recommendedBackupSensorPositionMm) + __ST_TEXT__('client.mm_l_rec') +
-        formatNumber(derived.recoveryLengthMm) + __ST_TEXT__('client.mm_normal_photoeye_pulse') +
-        formatSeconds(derived.packagePassSensorSeconds) + __ST_TEXT__('client.normal_clear_gap') +
-        formatSeconds(derived.sensorClearGapSeconds) + ' (' + calculation.audit.status + ').';
+      {
+        target.textContent = __ST_TEXT__('conveyor.belt_speed') + ': ' + formatNumber(beltSpeed) + ' · ' +
+          __ST_TEXT__('conveyor.transfer_capacity') + ': ' + formatNumber(60 * beltSpeed / movingPitch) + ' BPM · ' +
+          __ST_TEXT__('conveyor.packed_capacity') + ': ' + formatNumber(Math.floor(values.lactMm / packedPitch)) + ' · ' +
+          __ST_TEXT__('conveyor.free_travel') + ': ' + formatSeconds(values.lactMm / beltSpeed) + '. ' + __ST_TEXT__('conveyor.audit_note');
+      }
     }
 
 function readFormatZoneInputs(card) {
@@ -596,6 +629,10 @@ function readFormatZoneInputs(card) {
         packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
         dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
         conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
+        speedMode: equipmentField(card, '.format-zone-speed-mode').value || 'AUTO',
+        conveyorSpeedMmPerSecond: numericInputValue(equipmentField(card, '.format-zone-belt-speed')),
+        movingGapMm: numericInputValue(equipmentField(card, '.format-zone-moving-gap')),
+        accumulatedGapMm: numericInputValue(equipmentField(card, '.format-zone-accumulated-gap')),
         backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
         dischargeRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-discharge-runout')),
         rejectRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-reject-runout')),
@@ -624,6 +661,10 @@ function readFormatZoneInputs(card) {
       });
       result.accumulation = Object.assign({}, result.accumulation || {}, {
         conveyorSpeedFactorPercent: values.conveyorSpeedFactorPercent,
+        speedMode: values.speedMode,
+        conveyorSpeedMmPerSecond: values.conveyorSpeedMmPerSecond,
+        movingGapMm: values.movingGapMm,
+        accumulatedGapMm: values.accumulatedGapMm,
         backupSensorPositionMm: values.backupSensorPositionMm,
         dischargeRunoutLengthMm: values.dischargeRunoutLengthMm,
         rejectRunoutLengthMm: values.rejectRunoutLengthMm,
@@ -637,7 +678,7 @@ function readFormatZoneInputs(card) {
       Object.keys(result.accumulation).forEach(function(key) {
         if (result.accumulation[key] === undefined) delete result.accumulation[key];
       });
-      ['usableLengthMm', 'productLengthMm', 'gapMm', 'productPitchMm', 'conveyorSpeedMmPerSecond', 'primeSensorPositionMm', 'backupRestartPositionMm'].forEach(function(key) {
+      ['usableLengthMm', 'productLengthMm', 'gapMm', 'productPitchMm', 'accumulatedPitchMm', 'primeSensorPositionMm', 'backupRestartPositionMm'].forEach(function(key) {
         delete result.accumulation[key];
       });
       return result;
@@ -1509,14 +1550,14 @@ function renderRawJson() {
       panel.querySelector('.zone-prime').textContent = formatPrimeSensorReading(zone.prime);
       panel.querySelector('.zone-backup').textContent = formatBackupSensorReading(zone.backup);
       panel.querySelector('.zone-geometry').textContent = geometry.usableLengthMm && geometry.productPitchMm
-        ? formatNumber(geometry.usableLengthMm) + __ST_TEXT__('client.mm_3') + formatNumber(geometry.productPitchMm) + __ST_TEXT__('client.mm_2')
+        ? formatNumber(geometry.usableLengthMm) + __ST_TEXT__('client.mm_3') + formatNumber(geometry.productPitchMm) + __ST_TEXT__('client.mm_2') + ' · ' + __ST_TEXT__('conveyor.packed_pitch') + ': ' + formatNumber(geometry.accumulatedPitchMm ?? geometry.productPitchMm) + __ST_TEXT__('client.mm_2')
         : __ST_TEXT__('client.not_available');
       panel.querySelector('.zone-travel').textContent = geometry.travelSeconds > 0
         ? formatNumber(geometry.travelSeconds) + ' s'
         : '—';
       panel.querySelector('.zone-sensor-timing').textContent = formatSensorTiming(geometry);
       panel.querySelector('.zone-overflow').textContent = formatNumber(zone.overflowUnits);
-      panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + __ST_TEXT__('client.capacity_floor_length_pitch') +
+      panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + __ST_TEXT__('conveyor.capacity_formula') +
         formatNumber(zone.capacityUnits) + __ST_TEXT__('client.units_controls_upstream') + zone.upstreamControlEquipmentId +
         __ST_TEXT__('client.starts_downstream') + zone.downstreamControlEquipmentId;
       panel.querySelector('.zone-assumptions').textContent = summarizeGeometrySources(zone.geometrySources, zone.formatAssumptions);
