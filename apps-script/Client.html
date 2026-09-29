@@ -773,7 +773,15 @@ function createBlankEquipment() {
 
 function renderRawJson() {
       var preview = document.getElementById('case-json-preview');
-      if (state.activeCase) preview.value = JSON.stringify(state.activeCase, null, 2);
+      if (state.activeCase) {
+        function configuration() {
+          var editor=collectCaseEditor(),run=readRunConfiguration();
+          if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid'));
+          return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run}));
+        }
+        preview.value=JSON.stringify(state.activeCase,null,2);
+        STReports.bindConfiguration(configuration);
+      }
     }
 
     function renderRunWorkspace() {
@@ -1166,11 +1174,15 @@ function renderRawJson() {
         setPlaybackStatus('Completed');
         return;
       }
+      var started=performance.now(),delay=playbackDelayMilliseconds();
+      var rate=Number(document.getElementById('run-playback-rate').value||1);
+      var virtualStart=samples[state.run.sampleIndex].virtualSecond;
       state.run.timer = window.setTimeout(function() {
         if (!state.run.playing) return;
-        state.run.sampleIndex += 1;
+        var target=virtualStart+(performance.now()-started)*rate/1000;
+        state.run.sampleIndex=Math.min(samples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(samples,target)));
         schedulePlaybackStep();
-      }, playbackDelayMilliseconds());
+      }, delay);
     }
 
     function playbackDelayMilliseconds() {

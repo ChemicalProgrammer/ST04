@@ -59,7 +59,7 @@
         <div class="breadcrumb"><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
         <span id="user-email" class="user-chip"></span>
         <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost" data-icon="settings"><?= __ST_TEXT__('shell.settings') ?></button><button id="cases-sign-out" class="ghost" data-icon="logout"><?= __ST_TEXT__('view.sign_out') ?></button></div>
-        <button id="toggle-gemini" class="secondary hidden" data-icon="chat" aria-controls="gemini-panel" aria-expanded="false"><?= __ST_TEXT__('assistant.gemini') ?></button>
+        <button id="toggle-gemini" class="secondary hidden" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"><?= __ST_TEXT__('assistant.gemini') ?></button>
         <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button></span>
       </header>
       <div class="workspace-content">
@@ -125,6 +125,8 @@
 
         <details class="raw-viewer">
           <summary><?= __ST_TEXT__('view.raw_json_preview') ?></summary>
+          <p class="chart-note"><?= __ST_TEXT__('exports.setup_note') ?></p>
+          <div class="button-row"><button id="export-setup-json" type="button" class="secondary" data-icon="download"><?= __ST_TEXT__('exports.setup_json') ?></button><button id="export-setup-html" type="button" class="secondary"><?= __ST_TEXT__('exports.html') ?></button><button id="export-setup-pdf" type="button" class="secondary"><?= __ST_TEXT__('exports.pdf') ?></button></div>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
       </section>
@@ -148,7 +150,7 @@
             <label><?= __ST_TEXT__('view.virtual_duration_safety_ceiling_s') ?><input id="run-duration" type="number" min="1" step="1" value="300"></label>
             <label><?= __ST_TEXT__('view.display_sample_interval_s') ?><input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
-            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option></select></label>
+            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
           </div>
 
           <details class="notice model-boundary"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>

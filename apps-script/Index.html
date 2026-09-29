@@ -614,6 +614,11 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .api-key-control input { min-width:0; margin:0; }
 .api-key-control button { width:var(--control-height); height:var(--control-height); margin:0; padding:0; }
 #gemini-key-status { margin:var(--space-2) 0 0; }
+
+.gemini-settings > .chart-note:first-of-type { margin:0 0 var(--space-4); }
+.gemini-settings > label { display:block; margin:var(--space-4) 0 var(--space-2); }
+.gemini-settings > input { margin:0; }
+.gemini-settings #gemini-key-status { margin:var(--space-3) 0 0; }
 </style>
     <style>
 .result-kpis { display: grid; grid-template-columns: repeat(auto-fit,minmax(var(--size-150),1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
@@ -646,7 +651,15 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .run-config { background: var(--surface-soft); border: var(--border-width) solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); margin: var(--space-4) 0; }
 .run-config > summary { font-weight: var(--weight-medium); }
 .model-boundary { background: var(--surface); color: var(--muted); margin: var(--space-3) 0; } .model-boundary p { margin: var(--space-2) 0 0; }
-.simulation-analysis { background: var(--surface); border: 0; padding: 0; }
+.simulation-analysis { background: transparent; border: 0; padding: 0; }
+.simulation-analysis-heading { margin-bottom:var(--space-4); }
+.simulation-analysis > .export-menu { margin:0 0 var(--space-4); }
+.simulation-analysis > .export-menu > div { left:0; right:auto; }
+.scenario-grid .analysis-recommendation { padding:var(--space-4); background:var(--surface); }
+.scenario-changes { padding-left:0; }
+.analysis-checks { background:transparent; }
+.scenario-grid, .simulation-analysis-heading { overflow-wrap:anywhere; }
+
 #comparison-panel { border: 0; padding: var(--space-5) 0 0; }
 .comparison-section { margin-bottom: var(--space-3); } .comparison-row { overflow-wrap: anywhere; }
 .comparison-row span { min-width: 0; } .comparison-changed { border-left-width: var(--state-border-width); }
@@ -1111,7 +1124,7 @@ window.STPreferences = (function() {
         <div class="breadcrumb"><span id="breadcrumb-case">Workspace</span><span>/</span><span id="breadcrumb-view">Cases</span></div>
         <span id="user-email" class="user-chip"></span>
         <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost" data-icon="settings">Settings</button><button id="cases-sign-out" class="ghost" data-icon="logout">Sign out</button></div>
-        <button id="toggle-gemini" class="secondary hidden" data-icon="chat" aria-controls="gemini-panel" aria-expanded="false">Gemini</button>
+        <button id="toggle-gemini" class="secondary hidden" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false">Gemini</button>
         <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="Retry" title="Retry"></button></span>
       </header>
       <div class="workspace-content">
@@ -1176,7 +1189,9 @@ window.STPreferences = (function() {
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
-          <summary>Raw JSON preview</summary>
+          <summary>Configuration preview and export</summary>
+          <p class="chart-note">The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.</p>
+          <div class="button-row"><button id="export-setup-json" type="button" class="secondary" data-icon="download">Configuration JSON</button><button id="export-setup-html" type="button" class="secondary">HTML report</button><button id="export-setup-pdf" type="button" class="secondary">PDF / Print</button></div>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
       </section>
@@ -1200,7 +1215,7 @@ window.STPreferences = (function() {
             <label>Virtual duration / safety ceiling (s)<input id="run-duration" type="number" min="1" step="1" value="300"></label>
             <label>Display sample interval (s)<input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
             <label>Random seed<input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
-            <label>Playback speed (virtual / real)<select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option></select></label>
+            <label>Playback speed (virtual / real)<select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
           </div>
 
           <details class="notice model-boundary"><summary>Model assumptions &amp; timing</summary><p>
@@ -3588,7 +3603,7 @@ window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:sc
 // Original line icons: one 24-unit grid, currentColor, uniform stroke.
 window.STIcons = (function() {
   var paths = {
-    grip:'M8 5h1m6 0h1M8 12h1m6 0h1M8 19h1m6 0h1', chat:'M3 4h18v13H9l-6 4ZM7 8h10M7 12h7', send:'m3 3 18 9-18 9 4-9Zm4 9h14', logout:'M10 4H3v16h7m5-13 5 5-5 5m-8-5h13',
+    gemini:'M12 2C12 8 8 12 2 12C8 12 12 16 12 22C12 16 16 12 22 12C16 12 12 8 12 2Z', grip:'M8 5h1m6 0h1M8 12h1m6 0h1M8 19h1m6 0h1', chat:'M3 4h18v13H9l-6 4ZM7 8h10M7 12h7', send:'m3 3 18 9-18 9 4-9Zm4 9h14', logout:'M10 4H3v16h7m5-13 5 5-5 5m-8-5h13',
     up:'M12 20V4m-6 6 6-6 6 6', down:'M12 4v16m-6-6 6 6 6-6', folder:'M3 7V5h6l2 2h10v13H3Z', play:'m8 5 12 7-12 7Z', chart:'M4 4v16h17M8 16v-4m5 4V8m5 8V5',
     flask:'M9 3h6m-5 0v7L4 20h16l-6-10V3M8 14h8', settings:'M20.00 12.00L21.91 13.31L21.66 14.59L21.24 15.83L20.66 17.00L18.35 16.87L17.66 17.66L18.09 19.93L17.00 20.66L15.83 21.24L14.59 21.66L13.04 19.93L12.00 20.00L10.69 21.91L9.41 21.66L8.17 21.24L7.00 20.66L7.13 18.35L6.34 17.66L4.07 18.09L3.34 17.00L2.76 15.83L2.34 14.59L4.07 13.04L4.00 12.00L2.09 10.69L2.34 9.41L2.76 8.17L3.34 7.00L5.65 7.13L6.34 6.34L5.91 4.07L7.00 3.34L8.17 2.76L9.41 2.34L10.96 4.07L12.00 4.00L13.31 2.09L14.59 2.34L15.83 2.76L17.00 3.34L16.87 5.65L17.66 6.34L19.93 5.91L20.66 7.00L21.24 8.17L21.66 9.41L19.93 10.96Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
     back:'M20 12H4m6-6-6 6 6 6', plus:'M12 5v14M5 12h14', edit:'m4 16 12-12 4 4L8 20H4Zm10-10 4 4',
@@ -3923,9 +3938,25 @@ window.STReports=(function(){
   }
   function pdf(html){var win=window.open('','_blank');if(!win){STDialog.open({message:"Allow pop-ups for this app, then export again. In the print dialog, select Save as PDF. You can also export the HTML report and print it from your browser."});return;}win.document.open();win.document.write(html);win.document.close();win.focus();win.setTimeout(function(){win.print();},250);}
   function bind(id,enabled,action){var button=document.getElementById(id);if(!button)return;button.disabled=!enabled;button.onclick=function(){button.closest('details')?.removeAttribute('open');try{action();}catch(error){STDialog.open({message:error.message});}};}
+  function configuration(activeCase,simulation){
+    return {schema:'st-line-configuration-v1',case:{id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow,metadata:activeCase.metadata||{}},simulation:{id:simulation?.id,name:simulation?.name,dynamicConfig:simulation?.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},equipment:simulation?.equipment||activeCase.equipment||[]}};
+  }
+  function configurationHtml(data){
+    var body='<p>'+escape("The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.")+'</p>';
+    body+=table(["Parameter","Value"],scalars(data.case));
+    body+=table(["Parameter","Value"],scalars({simulation:data.simulation.name,dynamicConfig:data.simulation.dynamicConfig,engineConfig:data.simulation.engineConfig}));
+    data.simulation.equipment.forEach(function(e){body+='<section><h2>'+escape(e.name)+'</h2>'+table(["Parameter","Value"],scalars(e))+'</section>';});
+    body+='<h2>'+escape("Configuration JSON")+'</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(JSON.stringify(data,null,2))+'</pre>';
+    return documentHtml("Line configuration",body);
+  }
+  function bindConfiguration(read){
+    bind('export-setup-json',true,function(){download(JSON.stringify(read(),null,2),'line-configuration.json','application/json');});
+    bind('export-setup-html',true,function(){download(configurationHtml(read()),'line-configuration.html','text/html');});
+    bind('export-setup-pdf',true,function(){pdf(configurationHtml(read()));});
+  }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {configuration:configuration,configurationHtml:configurationHtml,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
     <script>
@@ -4437,7 +4468,7 @@ window.STAssistant = function(state,actions) {
     el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
     el('gemini-title').textContent=editing?"Equipment":"Gemini";
     el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
-    el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg(visible&&!editing?'collapseRight':'expandRight'));
+    el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
     el('gemini-notice').textContent=pending?"Gemini is analyzing the case…":!configured?"Add your Gemini API key in Settings to ask questions.":state.isDirty?"Pending edits will be saved before sending your question.":"Context uses the selected simulation, aggregate results and physical design checks.";
@@ -5580,7 +5611,15 @@ function createBlankEquipment() {
 
 function renderRawJson() {
       var preview = document.getElementById('case-json-preview');
-      if (state.activeCase) preview.value = JSON.stringify(state.activeCase, null, 2);
+      if (state.activeCase) {
+        function configuration() {
+          var editor=collectCaseEditor(),run=readRunConfiguration();
+          if(!editor||!run)throw Error("Correct the invalid configuration fields before exporting.");
+          return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run}));
+        }
+        preview.value=JSON.stringify(state.activeCase,null,2);
+        STReports.bindConfiguration(configuration);
+      }
     }
 
     function renderRunWorkspace() {
@@ -5973,11 +6012,15 @@ function renderRawJson() {
         setPlaybackStatus('Completed');
         return;
       }
+      var started=performance.now(),delay=playbackDelayMilliseconds();
+      var rate=Number(document.getElementById('run-playback-rate').value||1);
+      var virtualStart=samples[state.run.sampleIndex].virtualSecond;
       state.run.timer = window.setTimeout(function() {
         if (!state.run.playing) return;
-        state.run.sampleIndex += 1;
+        var target=virtualStart+(performance.now()-started)*rate/1000;
+        state.run.sampleIndex=Math.min(samples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(samples,target)));
         schedulePlaybackStep();
-      }, playbackDelayMilliseconds());
+      }, delay);
     }
 
     function playbackDelayMilliseconds() {

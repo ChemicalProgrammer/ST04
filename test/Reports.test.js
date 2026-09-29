@@ -45,3 +45,16 @@ test('theme dictionary alone controls palette entries, fallback and both modes',
   assert(!w.document.querySelector('[data-accent="violet"]'));w.document.querySelector('[data-accent="custom"]').click();assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#123456');w.STPreferences.setTheme('dark');assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#aabbcc');
  }finally{w.close();}
 });
+
+test('configuration exports retain all selected inputs and exclude other runs and results',()=>{
+ const h=setup();try{
+  h.sim.results=h.result;h.sim.dynamicConfig.commands=[{equipmentId:'a',action:'STOP',atSeconds:15}];
+  h.sim.equipment[0].characteristics={custom:[1,2,3]};h.c.simulations=[h.sim,{id:'unselected'}];
+  const data=h.w.STReports.configuration(h.c,h.sim),json=JSON.stringify(data);
+  assert.equal(data.simulation.equipment.length,13);assert.equal(data.simulation.dynamicConfig.commands.length,1);
+  assert(json.includes('[1,2,3]'));assert(!json.includes('unselected'));assert(!json.includes('raw-not-for-export'));
+  h.sim.equipment[0].name='<script>unsafe</script>';const html=h.w.STReports.configurationHtml(data),doc=new JSDOM(html);
+  assert.equal(doc.window.document.querySelectorAll('script').length,0);
+  assert.deepEqual(JSON.parse(doc.window.document.querySelector('pre').textContent),JSON.parse(JSON.stringify(data)));doc.window.close();
+ }finally{h.dom.window.close();}
+});

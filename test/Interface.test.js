@@ -137,7 +137,7 @@ test('UI: automatic edits survive reload and simulation rename/delete uses reusa
   await h.click('#delete-simulation');await h.click('.message-dialog button:first-child');assert.equal(h.storedCases()[0].simulations.length,2);
   await h.click('#delete-simulation');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases()[0].simulations.length===1);
   await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.querySelector('.equipment-name').value,'Automatically saved equipment');
-  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['0.5','1','2','5','10','20','50']);assert.deepEqual(h.errors,[]);
+  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['0.5','1','2','5','10','20','50','100','200','500','1000']);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: local and Gemini chat buttons clone only validated changes into persistent scenarios',async()=>{

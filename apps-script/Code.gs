@@ -6,6 +6,10 @@
 // -----------------------------------------------------------------------------
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "exports.setup_note": "The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.",
+  "exports.setup_json": "Configuration JSON",
+  "exports.setup_title": "Line configuration",
+  "exports.setup_invalid": "Correct the invalid configuration fields before exporting.",
   "exports.accumulation": "Conveyor accumulation and sensors",
   "inspector.select": "Select equipment",
   "exports.menu": "Export",
@@ -593,7 +597,7 @@ var ST_TEXT_RESOURCES = {
   "view.equipment_sequence": "Equipment sequence",
   "view.order_defines_material_flow_use_alternating_machine_conveyor_machine_steps_": "Order defines material flow. Use alternating machine → conveyor → machine steps; every conveyor requires physical geometry.",
   "view.import_sheet": "Import Sheet",
-  "view.raw_json_preview": "Raw JSON preview",
+  "view.raw_json_preview": "Configuration preview and export",
   "view.run_workspace": "RUN WORKSPACE",
   "view.dynamic_simulation": "Dynamic simulation",
   "view.select_a_saved_case_to_run_it": "Select a saved Case to run it.",
@@ -912,7 +916,7 @@ function normalizeUserSettings_(settings) {
 
   var playbackRate = Number(settings.preferredPlaybackRate || 1);
   if(playbackRate===1.5)playbackRate=2;
-  if (![0.5,1,2,5,10,20,50].includes(playbackRate)) {
+  if (![0.5,1,2,5,10,20,50,100,200,500,1000].includes(playbackRate)) {
     throw createSimulatorError_('INVALID_USER_SETTINGS', 'Choose a supported playback speed.');
   }
 
@@ -1126,7 +1130,7 @@ function normalizeSimulations_(simulations, fallbackEquipment, fallbackConfig) {
       name: typeof simulation.name === 'string' && simulation.name ? simulation.name.slice(0, 120) : 'Simulation ' + simulationLetter_(index),
       equipment: simulationEquipment,
       dynamicConfig: normalizeObject_(simulation.dynamicConfig),
-      playbackRate: [0.5,1,2,5,10,20,50].includes(Number(simulation.playbackRate))?Number(simulation.playbackRate):1,
+      playbackRate: [0.5,1,2,5,10,20,50,100,200,500,1000].includes(Number(simulation.playbackRate))?Number(simulation.playbackRate):1,
       results: normalizeObject_(simulation.results),
       scenario: normalizeObject_(simulation.scenario),
       sourceImport: normalizeObject_(simulation.sourceImport),

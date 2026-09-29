@@ -29,7 +29,15 @@
 .run-config { background: var(--surface-soft); border: var(--border-width) solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); margin: var(--space-4) 0; }
 .run-config > summary { font-weight: var(--weight-medium); }
 .model-boundary { background: var(--surface); color: var(--muted); margin: var(--space-3) 0; } .model-boundary p { margin: var(--space-2) 0 0; }
-.simulation-analysis { background: var(--surface); border: 0; padding: 0; }
+.simulation-analysis { background: transparent; border: 0; padding: 0; }
+.simulation-analysis-heading { margin-bottom:var(--space-4); }
+.simulation-analysis > .export-menu { margin:0 0 var(--space-4); }
+.simulation-analysis > .export-menu > div { left:0; right:auto; }
+.scenario-grid .analysis-recommendation { padding:var(--space-4); background:var(--surface); }
+.scenario-changes { padding-left:0; }
+.analysis-checks { background:transparent; }
+.scenario-grid, .simulation-analysis-heading { overflow-wrap:anywhere; }
+
 #comparison-panel { border: 0; padding: var(--space-5) 0 0; }
 .comparison-section { margin-bottom: var(--space-3); } .comparison-row { overflow-wrap: anywhere; }
 .comparison-row span { min-width: 0; } .comparison-changed { border-left-width: var(--state-border-width); }
