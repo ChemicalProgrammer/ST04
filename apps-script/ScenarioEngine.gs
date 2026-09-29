@@ -340,9 +340,17 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const format = owner.processData?.accumulation || {};
   const upstreamControl = findNearestNonConveyor(equipment, ownerIndex - 1, -1);
   const downstreamControl = findNearestNonConveyor(equipment, ownerIndex + 1, 1);
-  return hasFlowPilotInputs(owner, format)
+  const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
+  if (format.speedMode === 'MANUAL') {
+    resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
+    resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
+    resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
+  }
+  resolved.definition.accumulatedPitchMm = format.accumulatedPitchMm ?? resolved.definition.productPitchMm;
+  return resolved;
 }
 
 function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl) {
@@ -705,6 +713,9 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path, 'requires effective product pitch, or product length plus gap'));
   }
 
+  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0))) {
+    details.push(invalid(path + '.accumulatedPitchMm', 'must be positive and at least the product length'));
+  }
   const pitch = hasExplicitPitch ? zone.productPitchMm : hasLengthAndGap ? zone.productLengthMm + zone.gapMm : null;
   if (positiveNumber(zone.usableLengthMm) && positiveNumber(pitch) && Math.floor(zone.usableLengthMm / pitch) < 1) {
     details.push(invalid(path, 'usableLengthMm must hold at least one product pitch'));

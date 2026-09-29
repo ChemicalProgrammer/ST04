@@ -44,9 +44,17 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const format = owner.processData?.accumulation || {};
   const upstreamControl = findNearestNonConveyor(equipment, ownerIndex - 1, -1);
   const downstreamControl = findNearestNonConveyor(equipment, ownerIndex + 1, 1);
-  return hasFlowPilotInputs(owner, format)
+  const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
+  if (format.speedMode === 'MANUAL') {
+    resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
+    resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
+    resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
+  }
+  resolved.definition.accumulatedPitchMm = format.accumulatedPitchMm ?? resolved.definition.productPitchMm;
+  return resolved;
 }
 
 function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl) {
