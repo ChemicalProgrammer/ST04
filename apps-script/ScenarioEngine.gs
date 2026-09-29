@@ -340,9 +340,38 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const format = owner.processData?.accumulation || {};
   const upstreamControl = findNearestNonConveyor(equipment, ownerIndex - 1, -1);
   const downstreamControl = findNearestNonConveyor(equipment, ownerIndex + 1, 1);
-  return hasFlowPilotInputs(owner, format)
+  const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
+  if (format.speedMode === 'MANUAL') {
+    resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
+    resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
+    resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
+  }
+  const definition = resolved.definition;
+  if (format.movingGapMm !== undefined) {
+    definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
+    definition.gapMm = format.movingGapMm;
+    resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
+    for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
+  }
+  definition.accumulatedPitchMm = format.accumulatedPitchMm ??
+    (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
+  resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
+  if (definition.engineering) {
+    // Runtime geometry may override worksheet speed/spacing. Preserve the
+    // worksheet audit separately rather than presenting it as the active model.
+    definition.engineering.runtimeGeometry = {
+      speedMode: format.speedMode || 'AUTO',
+      conveyorSpeedMmPerSecond: definition.conveyorSpeedMmPerSecond,
+      movingPitchMm: definition.productPitchMm,
+      accumulatedPitchMm: definition.accumulatedPitchMm,
+      transferCapacityPerSecond: definition.conveyorSpeedMmPerSecond / definition.productPitchMm,
+      capacityUnits: Math.floor(definition.usableLengthMm / definition.accumulatedPitchMm)
+    };
+  }
+  return resolved;
 }
 
 function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl) {
@@ -676,6 +705,9 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
     return;
   }
 
+  if (accumulation.speedMode !== undefined && !['AUTO', 'MANUAL'].includes(accumulation.speedMode)) details.push(invalid(path + '.processData.accumulation.speedMode', 'must be AUTO or MANUAL'));
+  validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
+  validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);
 }
@@ -705,6 +737,9 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path, 'requires effective product pitch, or product length plus gap'));
   }
 
+  if (zone.accumulatedPitchMm !== undefined && (!positiveNumber(zone.accumulatedPitchMm) || zone.accumulatedPitchMm < (zone.productLengthMm || 0) || zone.accumulatedPitchMm > (zone.productPitchMm ?? zone.productLengthMm + zone.gapMm))) {
+    details.push(invalid(path + '.accumulatedPitchMm', 'must be between product length and moving pitch'));
+  }
   const pitch = hasExplicitPitch ? zone.productPitchMm : hasLengthAndGap ? zone.productLengthMm + zone.gapMm : null;
   if (positiveNumber(zone.usableLengthMm) && positiveNumber(pitch) && Math.floor(zone.usableLengthMm / pitch) < 1) {
     details.push(invalid(path, 'usableLengthMm must hold at least one product pitch'));

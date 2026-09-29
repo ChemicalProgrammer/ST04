@@ -64,6 +64,10 @@ function createRuntime(input) {
 
   equipment.forEach((equipment, index) => {
     const incomingZone = zones.find((zone) => zone.downstreamControlEquipmentId === equipment.id && zone.hasPrimeSensor);
+    const outgoingZone = zones[index];
+    if ((equipment.type === 'CONVEYOR' || equipment.processData?.role === 'CONVEYOR') && outgoingZone?.physicalModelEnabled) {
+      equipment.nominalRatePerSecond = outgoingZone.conveyorSpeedMmPerSecond / outgoingZone.productPitchMm;
+    }
     equipment.primeStartAuthorized = index === 0 || !incomingZone;
     equipment.startupDelaySeconds = resolveStartupDelaySeconds(equipment);
     equipment.restartRampUpSeconds = resolveRestartRampUpSeconds(equipment);
@@ -120,8 +124,11 @@ function createEquipmentRuntime(model, random) {
     stoppedSeconds: 0,
     starvedSeconds: 0,
     blockedSeconds: 0,
+    partialStarvationLossSeconds: 0,
+    partialBlockingLossSeconds: 0,
     waitingForPrimeSeconds: 0,
-    backupStopSeconds: 0
+    backupStopSeconds: 0,
+    stateSeconds: {}
   };
 }
 
@@ -152,6 +159,7 @@ function createAccumulationZoneRuntime(owner, downstreamModel, allEquipment, own
     capacityUnits,
     usableLengthMm: physical?.usableLengthMm || null,
     productPitchMm: physical?.productPitchMm || null,
+    accumulatedPitchMm: physical?.accumulatedPitchMm || null,
     productLengthMm: physical?.productLengthMm || null,
     gapMm: physical?.gapMm || null,
     conveyorSpeedMmPerSecond: physical?.conveyorSpeedMmPerSecond || null,
@@ -213,7 +221,8 @@ function createHandoffCapacityUnits(owner, downstreamModel, tickSeconds) {
 function normalizePhysicalZone(definition) {
   const productPitchMm = definition.productPitchMm || ((definition.productLengthMm || 0) + (definition.gapMm || 0));
   const usableLengthMm = definition.usableLengthMm;
-  const capacityUnits = Math.floor(usableLengthMm / productPitchMm);
+  const accumulatedPitchMm = definition.accumulatedPitchMm ?? productPitchMm;
+  const capacityUnits = Math.floor(usableLengthMm / accumulatedPitchMm);
   const conveyorSpeedMmPerSecond = definition.conveyorSpeedMmPerSecond;
   const productLengthMm = definition.productLengthMm ?? null;
   const gapMm = definition.gapMm ?? (isFiniteNumber(productLengthMm) ? productPitchMm - productLengthMm : null);
@@ -226,6 +235,7 @@ function normalizePhysicalZone(definition) {
     engineering: definition.engineering || null,
     usableLengthMm,
     productPitchMm,
+    accumulatedPitchMm,
     productLengthMm,
     gapMm,
     conveyorSpeedMmPerSecond,
@@ -247,16 +257,16 @@ function normalizePhysicalZone(definition) {
     primeSensorPositionMm: hasPrimeSensor ? definition.primeSensorPositionMm : null,
     primeTravelSeconds: hasPrimeSensor ? definition.primeSensorPositionMm / conveyorSpeedMmPerSecond : null,
     primeTriggerWaitingUnits: hasPrimeSensor
-      ? Math.max(1, Math.ceil((usableLengthMm - definition.primeSensorPositionMm) / productPitchMm))
+      ? Math.max(1, Math.ceil((usableLengthMm - definition.primeSensorPositionMm) / accumulatedPitchMm))
       : null,
     hasBackupSensor,
     backupSensorPositionMm: hasBackupSensor ? definition.backupSensorPositionMm : null,
     backupRestartPositionMm,
     backupTriggerWaitingUnits: hasBackupSensor
-      ? Math.max(1, Math.ceil((usableLengthMm - definition.backupSensorPositionMm) / productPitchMm))
+      ? Math.max(1, Math.ceil((usableLengthMm - definition.backupSensorPositionMm) / accumulatedPitchMm))
       : null,
     backupRestartWaitingUnits: hasBackupSensor
-      ? Math.max(0, Math.floor((usableLengthMm - backupRestartPositionMm) / productPitchMm))
+      ? Math.max(0, Math.floor((usableLengthMm - backupRestartPositionMm) / accumulatedPitchMm))
       : null,
     blockedTimeDelaySeconds: definition.blockedTimeDelaySeconds || 0,
     clearTimeDelaySeconds: definition.clearTimeDelaySeconds || 0,
@@ -276,6 +286,9 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     advanceAccumulationZones(runtime);
     processLineFromDownstream(runtime);
     recordZoneStatistics(runtime);
+    runtime.equipment.forEach((item) => {
+      item.stateSeconds[item.availabilityState] = (item.stateSeconds[item.availabilityState] || 0) + runtime.run.tickSeconds;
+    });
     advanceEquipmentControlTimers(runtime);
     runtime.virtualSecond += runtime.run.tickSeconds;
     addSampleIfDue(runtime);
@@ -320,7 +333,7 @@ function initializeInitialMaterialStates(runtime) {
 function advanceAccumulationZones(runtime) {
   runtime.zones.forEach((zone) => {
     const owner = getEquipment(runtime, zone.ownerEquipmentId);
-    const conveyorStopped = zone.physicalModelEnabled && owner && !isAvailable(owner);
+    const conveyorStopped = zone.physicalModelEnabled && owner && (!isAvailable(owner) || isStartDelayed(owner));
     if (conveyorStopped) {
       zone.transit.forEach((packet) => {
         delayTransitPacket(packet, runtime.run.tickSeconds);
@@ -329,26 +342,53 @@ function advanceAccumulationZones(runtime) {
       return;
     }
 
+    // A moving head packet awaiting this tick's discharge is not a stationary
+    // queue. Subtract the discharge the downstream can accept before locating
+    // the tail; otherwise equal-rate flow falsely compresses on every tick.
+    const downstream = getEquipment(runtime, zone.downstreamControlEquipmentId);
+    const downstreamIndex = runtime.equipment.indexOf(downstream);
+    const canDischarge = downstream && isAvailable(downstream) && !requiresPrime(downstream) && !activeBackupControl(downstream);
+    const plannedDischarge = canDischarge ? Math.min(getRequestedFlow(downstream, runtime.run.tickSeconds),
+      getDownstreamSpace(runtime, downstreamIndex), zone.conveyorSpeedMmPerSecond / zone.accumulatedPitchMm * runtime.run.tickSeconds) : 0;
+    let stationaryQueueUnits = Math.max(0, zone.waitingUnits - plannedDischarge);
     const remainingTransit = [];
+    const endSecond = runtime.virtualSecond + runtime.run.tickSeconds;
     zone.transit.forEach((packet) => {
-      if (!packet.backupDetected && zone.hasBackupSensor && packet.backupAtVirtualSecond <= runtime.virtualSecond) {
-        packet.backupDetected = true;
-        recordNormalPhotoeyePass(runtime, zone, 'backup', packet.units);
-      }
-      if (!packet.primeDetected && zone.hasPrimeSensor && packet.primeAtVirtualSecond <= runtime.virtualSecond) {
-        packet.primeDetected = true;
-        recordNormalPhotoeyePass(runtime, zone, 'prime', packet.units);
-        triggerPrimeSensor(runtime, zone);
-      }
-      if (packet.arrivesAtVirtualSecond <= runtime.virtualSecond) {
-        zone.waitingUnits += packet.units;
-      } else {
-        remainingTransit.push(packet);
-      }
+      const queueTailMm = Math.max(0, zone.usableLengthMm - stationaryQueueUnits * zone.accumulatedPitchMm);
+      const queueArrival = stationaryQueueUnits > 1e-9
+        ? packet.arrivesAtVirtualSecond - (zone.usableLengthMm - queueTailMm) / zone.conveyorSpeedMmPerSecond
+        : packet.arrivesAtVirtualSecond;
+      const arrivedFraction = Math.max(packet.arrivedFraction,
+        fractionPassed(endSecond, queueArrival, packet.entryDurationSeconds));
+      // Each packet represents uniform flow during its entry tick. Split a
+      // crossing packet instead of rounding its whole travel to the next tick.
+      // This prevents discretization from becoming a fictitious bottleneck.
+      ['backup', 'prime'].forEach((sensor) => {
+        if (!zone[sensor === 'backup' ? 'hasBackupSensor' : 'hasPrimeSensor']) return;
+        const position = zone[sensor + 'SensorPositionMm'];
+        if (position > queueTailMm && stationaryQueueUnits > 1e-9) return;
+        const fraction = fractionPassed(endSecond, packet[sensor + 'AtVirtualSecond'], packet.entryDurationSeconds);
+        const previous = packet[sensor + 'PassedFraction'] || 0;
+        if (fraction > previous) {
+          recordNormalPhotoeyePass(runtime, zone, sensor, (fraction - previous) * packet.initialUnits);
+          packet[sensor + 'PassedFraction'] = fraction;
+          if (sensor === 'prime') triggerPrimeSensor(runtime, zone);
+        }
+      });
+      const arrivals = Math.min(packet.units, Math.max(0, arrivedFraction - packet.arrivedFraction) * packet.initialUnits);
+      zone.waitingUnits += arrivals;
+      packet.units = Math.max(0, packet.units - arrivals);
+      packet.arrivedFraction = arrivedFraction;
+      stationaryQueueUnits = Math.max(0, zone.waitingUnits - plannedDischarge);
+      if (packet.units > 1e-9) remainingTransit.push(packet);
     });
     zone.transit = remainingTransit;
     updateZonePhotoeyes(runtime, zone);
   });
+}
+
+function fractionPassed(second, start, duration) {
+  return Math.max(0, Math.min(1, (second - start) / duration));
 }
 
 function delayTransitPacket(packet, tickSeconds) {
@@ -365,6 +405,7 @@ function updateZonePhotoeyes(runtime, zone) {
 function updatePrimeSensorSignal(runtime, zone) {
   if (!zone.hasPrimeSensor) return;
   const queueCoversPrime = zone.waitingUnits >= zone.primeTriggerWaitingUnits;
+  if (queueCoversPrime) triggerPrimeSensor(runtime, zone);
   zone.primeSignalState = queueCoversPrime
     ? 'BLOCKED'
     : isNormalPulseActive(zone.primePulseUntilVirtualSecond, runtime.virtualSecond)
@@ -450,6 +491,8 @@ function updateBackupSensor(runtime, zone) {
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
       thresholdUnits: round(zone.backupTriggerWaitingUnits)
     });
     return;
@@ -487,6 +530,8 @@ function updateBackupSensor(runtime, zone) {
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
       restartThresholdUnits: round(zone.backupRestartWaitingUnits)
     });
     return;
@@ -668,7 +713,10 @@ function processEquipment(runtime, index) {
     return;
   }
 
-  const inputAvailable = index === 0 ? requestedFlow : runtime.zones[index - 1].waitingUnits;
+  const incomingZone = runtime.zones[index - 1];
+  const inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
+    incomingZone.physicalModelEnabled ? (isTransportAvailable(getEquipment(runtime, incomingZone.ownerEquipmentId))
+      ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity);
   const downstreamSpace = getDownstreamSpace(runtime, index);
   const flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge);
@@ -784,7 +832,7 @@ function safeNonNegativeDivide(numerator, denominator) {
 function getDownstreamSpace(runtime, index) {
   if (index === runtime.equipment.length - 1) return Number.POSITIVE_INFINITY;
   const zone = runtime.zones[index];
-  return Math.max(0, zone.capacityUnits - getZoneInventory(zone));
+  return getZoneEntrySpace(zone);
 }
 
 function moveFlow(runtime, index, flow, allowOverflow) {
@@ -799,7 +847,7 @@ function moveFlow(runtime, index, flow, allowOverflow) {
 }
 
 function addFlowToZone(runtime, zone, flow, allowOverflow) {
-  const availableSpace = Math.max(0, zone.capacityUnits - getZoneInventory(zone));
+  const availableSpace = getZoneEntrySpace(zone);
   const accepted = Math.min(flow, availableSpace);
   const overflow = allowOverflow ? Math.max(0, flow - accepted) : 0;
 
@@ -816,6 +864,9 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
     } else {
       zone.transit.push({
         units: accepted,
+        initialUnits: accepted,
+        entryDurationSeconds: runtime.run.tickSeconds,
+        arrivedFraction: 0,
         backupDetected: false,
         backupAtVirtualSecond: zone.hasBackupSensor
           ? runtime.virtualSecond + zone.backupSensorPositionMm / zone.conveyorSpeedMmPerSecond
@@ -844,7 +895,7 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
 }
 
 function recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge) {
-  if (control) equipment.backupStopSeconds += tickSeconds;
+  if (control && flow <= 0) equipment.backupStopSeconds += tickSeconds;
 
   if (flow > 0) {
     equipment.runningSeconds += tickSeconds;
@@ -884,9 +935,9 @@ function recordMaterialState(equipment, requestedFlow, inputAvailable, downstrea
 function recordPartialConstraintLoss(equipment, requestedFlow, inputAvailable, downstreamSpace, tickSeconds) {
   if (requestedFlow <= 0) return;
   if (inputAvailable < requestedFlow && inputAvailable <= downstreamSpace) {
-    equipment.starvedSeconds += (1 - inputAvailable / requestedFlow) * tickSeconds;
+    equipment.partialStarvationLossSeconds += (1 - inputAvailable / requestedFlow) * tickSeconds;
   } else if (downstreamSpace < requestedFlow) {
-    equipment.blockedSeconds += (1 - downstreamSpace / requestedFlow) * tickSeconds;
+    equipment.partialBlockingLossSeconds += (1 - downstreamSpace / requestedFlow) * tickSeconds;
   }
 }
 
@@ -913,6 +964,10 @@ function recordUnavailable(equipment, tickSeconds) {
   }
 }
 
+function isTransportAvailable(equipment) {
+  return equipment && isAvailable(equipment) && !isStartDelayed(equipment);
+}
+
 function isAvailable(equipment) {
   return !equipment.emergencyStopLatched && isOperationalMode(equipment) &&
     equipment.microStopRemainingSeconds <= 0 && equipment.failureRemainingSeconds <= 0;
@@ -928,6 +983,12 @@ function activeBackupControl(equipment) {
 
 function getEquipment(runtime, equipmentId) {
   return runtime.equipment.find((equipment) => equipment.id === equipmentId);
+}
+
+function getZoneEntrySpace(zone) {
+  if (!zone.physicalModelEnabled) return Math.max(0, zone.capacityUnits - getZoneInventory(zone));
+  const occupiedLength = zone.waitingUnits * zone.accumulatedPitchMm + sum(zone.transit.map(packet => packet.units)) * zone.productPitchMm;
+  return Math.max(0, Math.min(zone.capacityUnits - getZoneInventory(zone), (zone.usableLengthMm - occupiedLength) / zone.productPitchMm));
 }
 
 function getZoneInventory(zone) {
@@ -958,6 +1019,8 @@ function addSample(runtime) {
         actualRatePerSecond: round(item.actualRatePerSecond),
         starvedSeconds: round(item.starvedSeconds),
         blockedSeconds: round(item.blockedSeconds),
+        partialStarvationLossSeconds: round(item.partialStarvationLossSeconds),
+        partialBlockingLossSeconds: round(item.partialBlockingLossSeconds),
         failureSeconds: round(item.failureSeconds),
         emergencyStopSeconds: round(item.emergencyStopSeconds),
         waitingForPrimeSeconds: round(item.waitingForPrimeSeconds),
@@ -983,6 +1046,8 @@ function createZoneSample(zone) {
     geometry: {
       usableLengthMm: zone.usableLengthMm,
       productPitchMm: zone.productPitchMm,
+      accumulatedPitchMm: zone.accumulatedPitchMm,
+      transferCapacityPerSecond: zone.conveyorSpeedMmPerSecond / zone.productPitchMm,
       productLengthMm: zone.productLengthMm,
       gapMm: zone.gapMm,
       conveyorSpeedMmPerSecond: zone.conveyorSpeedMmPerSecond,
@@ -990,10 +1055,12 @@ function createZoneSample(zone) {
       packagePassSensorSeconds: zone.packagePassSensorSeconds,
       sensorClearGapSeconds: zone.sensorClearGapSeconds,
       sensorCycleSeconds: zone.sensorCycleSeconds,
-      capacityFormula: zone.physicalModelEnabled ? 'floor(usableLengthMm / productPitchMm)' : null
+      capacityFormula: zone.physicalModelEnabled ? 'floor(usableLengthMm / accumulatedPitchMm)' : null
     },
     inventoryUnits: round(inventoryUnits),
     waitingUnits: round(zone.waitingUnits),
+    queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
+    queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
     inTransitUnits: round(sum(zone.transit.map((packet) => packet.units))),
     capacityUnits: round(zone.capacityUnits),
     fillPercent: zone.capacityUnits > 0 ? round(inventoryUnits / zone.capacityUnits * 100) : 0,
@@ -1039,7 +1106,7 @@ function createResult(runtime) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.11.0',
+    engineVersion: '0.12.0',
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
     summary: createSummary(runtime),
@@ -1057,9 +1124,19 @@ function createSummary(runtime) {
   const lineEffectiveness = createLineEffectiveness(runtime);
   return {
     outputCount: round(runtime.outputCount),
+    materialBalance: {
+      inputUnits: round(runtime.equipment[0]?.outputCount || 0),
+      outputUnits: round(runtime.outputCount),
+      inventoryUnits: round(sum(runtime.zones.map(getZoneInventory))),
+      overflowUnits: round(sum(runtime.zones.map(zone => zone.overflowUnits))),
+      residualUnits: round((runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
+        sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
+    },
     averageOutputRatePerSecond: round(runtime.outputCount / runtime.run.durationSeconds),
     totalBlockedSeconds: round(sum(runtime.equipment.map((item) => item.blockedSeconds))),
     totalStarvedSeconds: round(sum(runtime.equipment.map((item) => item.starvedSeconds))),
+    totalPartialStarvationLossSeconds: round(sum(runtime.equipment.map((item) => item.partialStarvationLossSeconds))),
+    totalPartialBlockingLossSeconds: round(sum(runtime.equipment.map((item) => item.partialBlockingLossSeconds))),
     totalFailureSeconds: round(sum(runtime.equipment.map((item) => item.failureSeconds))),
     totalEmergencyStopSeconds: round(sum(runtime.equipment.map((item) => item.emergencyStopSeconds))),
     totalBackupStopSeconds: round(sum(runtime.equipment.map((item) => item.backupStopSeconds))),
@@ -1078,7 +1155,10 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
     outputCount: round(equipment.outputCount),
+    stateSeconds: Object.fromEntries(Object.entries(equipment.stateSeconds).map(([state, seconds]) => [state, round(seconds)])),
     runningSeconds: round(equipment.runningSeconds),
+    productiveEquivalentSeconds: round(equipment.outputCount / equipment.nominalRatePerSecond),
+    processingCapacityPercent: round(100 * equipment.outputCount / (equipment.nominalRatePerSecond * durationSeconds)),
     pausedSeconds: round(equipment.pausedSeconds),
     stoppedSeconds: round(equipment.stoppedSeconds),
     failureSeconds: round(equipment.failureSeconds),
@@ -1087,6 +1167,8 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     emergencyStopSeconds: round(equipment.emergencyStopSeconds),
     starvedSeconds: round(equipment.starvedSeconds),
     blockedSeconds: round(equipment.blockedSeconds),
+    partialStarvationLossSeconds: round(equipment.partialStarvationLossSeconds),
+    partialBlockingLossSeconds: round(equipment.partialBlockingLossSeconds),
     waitingForPrimeSeconds: round(equipment.waitingForPrimeSeconds),
     backupStopSeconds: round(equipment.backupStopSeconds),
     availability: round(effectiveness.availability),
@@ -1158,6 +1240,10 @@ function createZoneMetrics(zone, durationSeconds) {
     upstreamControlEquipmentId: zone.upstreamControlEquipmentId,
     downstreamControlEquipmentId: zone.downstreamControlEquipmentId,
     capacityUnits: round(zone.capacityUnits),
+    movingPitchMm: zone.productPitchMm,
+    accumulatedPitchMm: zone.accumulatedPitchMm,
+    conveyorSpeedMmPerSecond: zone.conveyorSpeedMmPerSecond,
+    transferCapacityPerSecond: zone.conveyorSpeedMmPerSecond / zone.productPitchMm,
     modelOrigin: zone.modelOrigin,
     geometrySources: zone.geometrySources,
     finalInventoryUnits: round(getZoneInventory(zone)),

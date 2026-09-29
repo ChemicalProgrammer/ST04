@@ -124,7 +124,8 @@ test('uses the FlowPilot fields as the physical conveyor model instead of direct
   assert.equal(response.ok, true);
   const zone = response.result.accumulationZoneMetrics['conveyor--physical-zone'];
   assert.equal(zone.modelOrigin, 'FLOWPILOT_ENGINEERING');
-  assert.equal(zone.capacityUnits, 224);
+  assert.equal(zone.capacityUnits, 303);
+  assert.equal(zone.accumulatedPitchMm, 66);
   assert.equal(zone.engineering.audit.status, 'PASS');
   closeTo(zone.engineering.calculated.conveyorSpeedMmPerSecond, 624.75);
   assert.ok(response.result.events.some((event) => event.type === 'PRIME_SENSOR_TRIGGERED'));
