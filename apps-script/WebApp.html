@@ -240,13 +240,18 @@
       </section>
       </div>
       <aside id="gemini-panel" class="gemini-panel hidden" aria-labelledby="gemini-title">
-        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="<?= __ST_TEXT__('view.resize_gemini_panel') ?>" tabindex="0" title="<?= __ST_TEXT__('view.drag_to_resize_use_left_and_right_arrows') ?>"></div><header class="gemini-heading"><div><h2 id="gemini-title"><?= __ST_TEXT__('assistant.gemini') ?></h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="<?= __ST_TEXT__('view.collapse_gemini_panel') ?>" title="<?= __ST_TEXT__('view.collapse_gemini_panel') ?>"></button></header>
+        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="<?= __ST_TEXT__('inspector.resize') ?>" tabindex="0" title="<?= __ST_TEXT__('view.drag_to_resize_use_left_and_right_arrows') ?>"></div><header class="gemini-heading"><div><h2 id="gemini-title"><?= __ST_TEXT__('assistant.gemini') ?></h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="<?= __ST_TEXT__('inspector.collapse') ?>" title="<?= __ST_TEXT__('inspector.collapse') ?>"></button></header>
+        <div class="inspector-tabs" role="group" aria-label="<?= __ST_TEXT__('inspector.views') ?>"><button id="panel-equipment-tab" type="button" class="ghost" data-icon="edit"><?= __ST_TEXT__('inspector.equipment') ?></button><button id="panel-chat-tab" type="button" class="ghost" data-icon="chat"><?= __ST_TEXT__('assistant.gemini') ?></button></div>
+        <section id="equipment-inspector" class="hidden" aria-label="<?= __ST_TEXT__('inspector.equipment') ?>"></section>
+        <div id="gemini-chat-view">
         <p id="gemini-notice" class="gemini-notice"><?= __ST_TEXT__('view.ask_about_the_saved_case_equipment_and_simulation_results') ?></p>
         <ol id="gemini-progress" class="gemini-progress hidden" role="status" aria-live="polite"></ol>
         <div id="gemini-messages" class="gemini-messages" role="log" aria-label="<?= __ST_TEXT__('view.case_conversation') ?>" aria-live="polite"></div>
         <form id="gemini-form" class="gemini-composer"><label class="sr-only" for="gemini-question"><?= __ST_TEXT__('view.question_for_gemini') ?></label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="<?= __ST_TEXT__('view.ask_about_this_case') ?>" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="ghost icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('view.clear_case_conversation') ?>" title="<?= __ST_TEXT__('view.clear_case_conversation') ?>"></button><button id="send-gemini" type="submit" data-icon="send"><?= __ST_TEXT__('view.send') ?></button></div><p id="gemini-error" class="chart-note" role="alert"></p><p class="chart-note"><?= __ST_TEXT__('view.sending_shares_this_saved_case_with_google_gemini_conversations_clear_when_') ?></p></form>
+        </div>
       </aside>
     </main>
+    <dialog id="json-help-dialog" aria-labelledby="json-help-title"><header class="dialog-heading"><h2 id="json-help-title"></h2><button id="json-help-close" type="button" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('inspector.close') ?>"></button></header><div class="dialog-body"><p><?= __ST_TEXT__('inspector.example_note') ?></p><textarea id="json-help-code" readonly spellcheck="false" aria-label="<?= __ST_TEXT__('inspector.example') ?>"></textarea><dl id="json-help-fields"></dl></div><footer class="dialog-actions"><span id="json-copy-status" role="status"></span><button id="json-help-copy" type="button" data-icon="copy"><?= __ST_TEXT__('inspector.copy') ?></button></footer></dialog>
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title"><?= __ST_TEXT__('shell.settings') ?></h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('view.close_settings') ?>" title="<?= __ST_TEXT__('view.close_settings_esc') ?>"></button></header>
       <div class="dialog-body">
@@ -288,6 +293,7 @@
     <?!= include_('Comparison'); ?>
     <?!= include_('Assistant'); ?>
     <?!= include_('EquipmentDrag'); ?>
+    <?!= include_('EquipmentInspector'); ?>
     <?!= include_('SheetImportMerge'); ?>
     <?!= include_('SheetImportCorrections'); ?>
     <?!= include_('SheetImport'); ?>

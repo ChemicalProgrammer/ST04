@@ -1,0 +1,84 @@
+<script>
+window.STEquipmentInspector=(function(){
+  var state,selected=null,opened=false,context='',helpOrigin=null,helpSequence=0;
+  function el(id){return document.getElementById(id);}
+  function key(){return (state?.activeCase?.id||'')+':'+(state?.activeSimulationId||'');}
+  function release(){
+    var selection=selected?{id:selected._fields.querySelector('.equipment-id').value,opened:opened,context:context}:null;
+    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');selected.querySelector('.toggle-step').setAttribute('aria-expanded','false');}
+    selected=null;return selection;
+  }
+  function restore(selection){
+    if(!selection||selection.context!==key()){opened=false;return;}
+    var card=Array.from(document.querySelectorAll('#equipment-list .equipment-card')).find(function(c){return c.dataset.equipmentId===selection.id;});
+    if(card){select(card,false);opened=selection.opened;}else opened=false;
+  }
+  function select(card,focus){
+    release();selected=card;context=key();opened=true;
+    if(!card._helpReady){decorate(card);card._helpReady=true;}
+    el('equipment-inspector').appendChild(card._fields);card.classList.add('equipment-selected');
+    card.querySelector('.toggle-step').setAttribute('aria-expanded','true');
+    window.dispatchEvent(new Event('st:inspector'));
+    if(focus!==false)el('equipment-inspector').querySelector('input,select,textarea')?.focus();
+  }
+  function sync(){
+    if(context!==key()){release();opened=false;el('equipment-inspector').textContent='';}
+    var visible=Boolean(opened&&selected&&state.activeCase&&state.uiView==='editor');
+    selected?.querySelector('.toggle-step').setAttribute('aria-expanded',String(visible));
+    return visible;
+  }
+  function init(current,dirty){
+    state=current;
+    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent=__ST_TEXT__('client.step')+(Number(selected.dataset.index)+1)+' · '+fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+' · '+(Number(fields.querySelector('.equipment-rate').value)*60)+__ST_TEXT__('client.bpm');dirty(event);}});});
+    el('json-help-close').onclick=function(){el('json-help-dialog').close();};
+    el('json-help-dialog').addEventListener('close',function(){helpOrigin?.focus();});
+    el('json-help-copy').onclick=async function(){
+      try{await navigator.clipboard.writeText(el('json-help-code').value);el('json-copy-status').textContent=__ST_TEXT__('inspector.copied');}
+      catch(_){el('json-help-code').focus();el('json-help-code').select();el('json-copy-status').textContent=__ST_TEXT__('inspector.copy_manual');}
+    };
+  }
+  function help(control,text){
+    var label=control.closest('label');label.title=text;
+    var details=document.createElement('details');details.className='parameter-help';
+    var summary=document.createElement('summary');summary.innerHTML=STIcons.svg('info');summary.setAttribute('aria-label',__ST_TEXT__('inspector.parameter_help'));
+    var message=document.createElement('p');message.id='parameter-help-'+(++helpSequence);message.textContent=text;message.setAttribute('role','tooltip');
+    control.setAttribute('aria-describedby',message.id);details.append(summary,message);label.appendChild(details);
+  }
+  var basic={
+    'equipment-id':__ST_TEXT__('inspector.help_id'),
+    'equipment-name':__ST_TEXT__('inspector.help_name'),
+    'equipment-type':__ST_TEXT__('inspector.help_type'),
+    'equipment-rate':__ST_TEXT__('inspector.help_rate'),
+    'equipment-mode':__ST_TEXT__('inspector.help_mode'),
+    'equipment-characteristics':__ST_TEXT__('inspector.help_characteristics'),
+    'equipment-noise-profile':__ST_TEXT__('inspector.help_noise'),
+    'equipment-process-data':__ST_TEXT__('inspector.help_process')
+  };
+  function decorate(card){
+    card._fields.querySelectorAll('input,select,textarea').forEach(function(control){
+      help(control,basic[control.className]||control.closest('label').title);
+      if(control.tagName==='TEXTAREA'){
+        var button=document.createElement('button');button.type='button';button.className='ghost json-example';button.textContent=__ST_TEXT__('inspector.example');
+        button.onclick=function(){showExample(control,card,button);};control.closest('label').appendChild(button);
+      }
+    });
+  }
+  function showExample(control,card,origin){
+    var type=card._fields.querySelector('.equipment-type').value,example;
+    if(control.classList.contains('equipment-characteristics'))example={criticalMachine:true};
+    else if(control.classList.contains('equipment-noise-profile'))example={reliability:{mtbfMinutes:35,mttrMinutes:2}};
+    else if(type==='CONVEYOR')example={geometry:{lactMm:10000,lpPrimeMm:1000},upstream:{packageLengthMm:100,dischargePitchMm:120},accumulation:{conveyorSpeedFactorPercent:10,backupSensorPositionMm:1000,dischargeRunoutLengthMm:0,rejectRunoutLengthMm:0,blockedTimeDelaySeconds:1,clearTimeDelaySeconds:1,insuranceFactorUnits:2,upstreamStopResponseSeconds:1,bottlesDischargedAtStop:2,downstreamRampUpSeconds:2}};
+    else example={equipment:{maximumSpeedBpm:300},upstream:{startupTimeSeconds:2},downstream:{infeedPitchMm:120,rampUpTimeSeconds:2}};
+    helpOrigin=origin;el('json-help-title').textContent=control.closest('label').firstChild.textContent.trim();
+    el('json-help-code').value=JSON.stringify(example,null,2);el('json-copy-status').textContent='';
+    var list=el('json-help-fields');list.textContent='';
+    function explain(value,prefix){Object.entries(value).forEach(function(pair){var path=prefix?prefix+'.'+pair[0]:pair[0];if(typeof pair[1]==='object'){explain(pair[1],path);return;}var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=path;dd.textContent=descriptions[pair[0]];list.append(dt,dd);});}
+    explain(example,'');el('json-help-dialog').showModal();el('json-help-close').focus();
+  }
+  var descriptions={
+    criticalMachine:__ST_TEXT__('inspector.json_critical'),mtbfMinutes:__ST_TEXT__('inspector.json_mtbf'),mttrMinutes:__ST_TEXT__('inspector.json_mttr'),maximumSpeedBpm:__ST_TEXT__('inspector.json_max_speed'),startupTimeSeconds:__ST_TEXT__('inspector.json_startup'),infeedPitchMm:__ST_TEXT__('inspector.json_infeed'),rampUpTimeSeconds:__ST_TEXT__('inspector.json_ramp'),
+    lactMm:__ST_TEXT__('client.total_installed_conveyor_length_measured_from_the_upstream_discharge_toward'),lpPrimeMm:__ST_TEXT__('client.reserved_downstream_length_between_the_prime_photocell_and_the_downstream_m'),packageLengthMm:__ST_TEXT__('client.physical_package_length_in_the_direction_of_travel_it_determines_the_photoe'),dischargePitchMm:__ST_TEXT__('client.centre_to_centre_distance_between_packages_leaving_the_upstream_machine'),conveyorSpeedFactorPercent:__ST_TEXT__('client.belt_speed_increase_relative_to_upstream_package_discharge_velocity_it_chan'),backupSensorPositionMm:__ST_TEXT__('client.installed_back_up_photocell_position_measured_from_the_upstream_discharge_a'),dischargeRunoutLengthMm:__ST_TEXT__('client.length_that_must_be_cleared_after_the_upstream_discharge_before_a_stop_full'),rejectRunoutLengthMm:__ST_TEXT__('client.additional_reject_runout_length_that_must_be_cleared_during_an_upstream_sto'),blockedTimeDelaySeconds:__ST_TEXT__('client.continuous_back_up_blocked_time_required_before_the_simulator_requests_the_'),clearTimeDelaySeconds:__ST_TEXT__('client.continuous_back_up_clear_time_required_before_the_simulator_releases_the_up'),insuranceFactorUnits:__ST_TEXT__('client.extra_package_margin_reserved_in_the_required_overflow_calculation_it_is_a_'),upstreamStopResponseSeconds:__ST_TEXT__('client.delay_from_the_upstream_stop_request_until_its_discharge_response_is_comple'),bottlesDischargedAtStop:__ST_TEXT__('client.packages_that_can_still_leave_the_upstream_machine_after_the_stop_request'),downstreamRampUpSeconds:__ST_TEXT__('client.time_for_the_downstream_machine_to_ramp_after_prime_authorizes_its_start')
+  };
+  return {init:init,select:select,release:release,restore:restore,sync:sync,decorate:decorate,hide:function(){opened=false;},show:function(){if(selected)opened=true;},available:function(){return !!selected&&state?.uiView==='editor';},name:function(){return selected?selected._fields.querySelector('.equipment-name').value:'';}};
+})();
+</script>

@@ -33,4 +33,28 @@
 .equipment-dragging { opacity:.65; }
 .equipment-drop-target { outline:var(--focus-width) solid var(--accent); background:var(--accent-soft); }
 .equipment-card { transition:background var(--duration-fast), opacity var(--duration-fast); }
+
+.equipment-card .equipment-fields { display:none; }
+.equipment-selected { border-color:var(--accent); background:var(--accent-soft); }
+#equipment-inspector { flex:1; min-height:0; overflow:auto; padding:var(--space-1); }
+#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { grid-template-columns:minmax(0,1fr); }
+#equipment-inspector label { position:relative; padding-right:var(--space-5); }
+#equipment-inspector .format-zone-setup { background:transparent; padding:var(--space-3) 0; border:0; border-top:var(--border-width) solid var(--line); }
+#equipment-inspector textarea,#json-help-code { font-family:var(--font-mono); }
+.parameter-help { position:absolute; right:0; top:0; font-weight:var(--weight-regular); }
+.parameter-help summary { cursor:help; color:var(--muted); list-style:none; }
+.parameter-help p { display:none; position:absolute; right:0; top:var(--space-4); width:min(var(--size-260),70vw); padding:var(--space-3); background:var(--surface); color:var(--ink); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); z-index:var(--z-overlay); box-shadow:var(--shadow-dialog); font-size:var(--font-secondary); }
+.parameter-help:hover p,.parameter-help:focus-within p,.parameter-help[open] p { display:block; }
+.json-example { justify-self:start; font-size:var(--font-secondary); }
+#json-help-dialog { width:min(var(--size-760),90vw); }
+#json-help-code { min-height:var(--size-260); }
+#json-help-fields dt { font-family:var(--font-mono); font-weight:var(--weight-medium); overflow-wrap:anywhere; }
+#json-help-fields dd { margin:var(--space-1) 0 var(--space-3); color:var(--muted); }
+.inspector-tabs { display:flex; flex-shrink:0; gap:var(--space-2); border-bottom:var(--border-width) solid var(--line); padding-bottom:var(--space-2); }
+.inspector-tabs [aria-pressed=true] { background:var(--accent-soft); color:var(--accent); }
+#gemini-chat-view { display:flex; flex-direction:column; flex:1; min-height:0; gap:var(--space-3); }
+
+.equipment-sorting { transition:transform var(--duration-normal) var(--ease); will-change:transform; }
+.equipment-dragging { position:relative; z-index:var(--z-header); transition:none; cursor:grabbing; box-shadow:var(--shadow-dialog); }
+@media(prefers-reduced-motion:reduce) { .equipment-sorting { transition:none; } }
 </style>

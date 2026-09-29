@@ -52,7 +52,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({},{get:()=>()=>{}});
-  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args)});}catch(e){failure(e);}},0);})});}
+  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);w.setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args)});}catch(e){failure(e);}},0);})});}
   w.google={script:{run:runner()}};
  }});
  await new Promise(r=>dom.window.addEventListener('load',r));await settle();
@@ -261,7 +261,7 @@ test('UI: empty simulation imports all selected equipment without creating anoth
  const h=await setup({empty:true});try{
  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
  h.d.getElementById('sheet-import-ack').checked=true;h.d.getElementById('sheet-import-ack').dispatchEvent(new h.w.Event('change'));await h.click('#sheet-import-apply');
- const record=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(record.simulations.length,1);assert.equal(record.equipment.length,3);assert.equal(record.simulations[0].sourceImport.metadata.site,'Synthetic site');assert.deepEqual(h.errors,[]);
+ const record=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(record.simulations.length,1);assert.equal(record.equipment.length,3);assert.equal(record.simulations[0].sourceImport.metadata.site,'Synthetic site');await waitFor(()=>h.storedCases()[0].equipment.length===3);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: invalid source fields are unavailable and cancel leaves equipment intact',async()=>{
@@ -409,5 +409,46 @@ test('UI: negative-gap proposals require acceptance, support undo and cancel, an
   assert.equal(source.rows[0].values.conveyorSpeedFactorVsDischargeVelocityPercent,0);
   assert.equal(source.lastApplied.equipment[1].fields.find(f=>f.field==='speedFactor').adjustment.value,23.74);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: shared equipment inspector preserves drafts, saves the selected equipment and keeps Gemini history',async()=>{
+ const h=await setup();try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const cards=Array.from(h.d.querySelectorAll('#equipment-list .equipment-card'));
+  await h.click('.toggle-step');assert(h.visible('equipment-inspector'));assert(!h.visible('gemini-chat-view'));
+  assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  const pane=h.d.getElementById('equipment-inspector');
+  for(const field of pane.querySelectorAll('input,select,textarea'))assert(h.d.getElementById(field.getAttribute('aria-describedby'))?.textContent);
+  const name=pane.querySelector('.equipment-name');name.value='Edited in inspector';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[0].name==='Edited in inspector');
+  const json=pane.querySelector('.equipment-noise-profile'),original=json.value;json.value='{';json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  cards[1].querySelector('.toggle-step').click();assert.equal(pane.querySelector('.equipment-type').value,'CONVEYOR');
+  cards[0].querySelector('.toggle-step').click();assert.equal(pane.querySelector('.equipment-noise-profile').value,'{');
+  json.value=original;json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#panel-chat-tab');assert(h.visible('gemini-chat-view'));assert(!h.visible('equipment-inspector'));
+  h.d.getElementById('gemini-question').value='Check this line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case.'));
+  await h.click('#panel-equipment-tab');assert.equal(pane.querySelector('.equipment-name').value,'Edited in inspector');
+  await h.click('#panel-chat-tab');assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
+  await h.click('#panel-equipment-tab');await h.click('#equipment-inspector .json-example');
+  assert(h.d.getElementById('json-help-dialog').open);assert.deepEqual(JSON.parse(h.d.getElementById('json-help-code').value),{criticalMachine:true});
+  assert(h.d.getElementById('json-help-fields').textContent.includes('criticalMachine'));await h.click('#json-help-copy');assert.match(h.d.getElementById('json-copy-status').textContent,/Ctrl|Copied/);
+  await h.click('#json-help-close');await h.click('.sidebar [data-view="simulation"]');assert(!h.visible('equipment-inspector'));
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: pointer sorting previews neighboring positions before release and Escape cancels without saving',async()=>{
+ const h=await setup();try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const list=()=>Array.from(h.d.querySelectorAll('#equipment-list .equipment-card')),before=list().map(c=>c.dataset.equipmentId);
+  list().forEach((c,i)=>{c.getBoundingClientRect=()=>({top:100+i*80,height:60});});
+  const handle=list()[0].querySelector('.equipment-drag');let captured=false;handle.setPointerCapture=()=>{captured=true;};handle.hasPointerCapture=()=>captured;handle.releasePointerCapture=()=>{captured=false;};
+  const event=(y)=>({button:0,clientY:y,pointerId:1,preventDefault(){}});
+  handle.onpointerdown(event(130));handle.onpointermove(event(290));
+  assert.match(list()[1].style.transform,/-/);assert.match(list()[2].style.transform,/-/);assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  h.w.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Escape'}));assert(list().every(c=>c.style.transform===''));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);
+  handle.onpointerdown(event(130));handle.onpointermove(event(290));handle.onpointerup(event(290));
+  assert.equal(list()[2].dataset.equipmentId,before[0]);await waitFor(()=>h.storedCases()[0].equipment[2].id===before[0]);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

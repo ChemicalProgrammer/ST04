@@ -44,6 +44,7 @@
 
     document.addEventListener('DOMContentLoaded', function() {
       bindEvents();
+      STEquipmentInspector.init(state,markCaseDirty);
       assistant.init();
       sheetImport.init();
       shell.init();
@@ -362,6 +363,7 @@ async function openCase(caseId) {
       state.activeCase.equipment.push(createBlankEquipment());
       state.isDirty = true;
       renderEquipment();
+      STEquipmentInspector.select(document.querySelector('#equipment-list .equipment-card:last-child'));
       invalidateActiveResult();autosave.change(true);
       renderRunWorkspace();
     }
@@ -403,6 +405,7 @@ async function openCase(caseId) {
     }
 
     function renderEquipment() {
+      var selection = STEquipmentInspector.release();
       var target = document.getElementById('equipment-list');
       target.textContent = '';
       state.activeCase.equipment.forEach(function(equipment, index) {
@@ -411,42 +414,52 @@ async function openCase(caseId) {
       if (!state.activeCase.equipment.length) {
         target.innerHTML = ("<p class=\"empty\">" + __ST_HTML_TEXT__('client.this_draft_has_no_equipment_add_at_least_two_units_before_simulation_2') + "</p>");
       }
+      STEquipmentInspector.restore(selection);
+      assistant.sync();
       renderRawJson();
     }
+
+    function equipmentField(card, selector) { return card.querySelector(selector) || card._fields?.querySelector(selector); }
+    function equipmentFields(card, selector) { return card.contains(card._fields) ? card.querySelectorAll(selector) : Array.from(card.querySelectorAll(selector)).concat(Array.from(card._fields?.querySelectorAll(selector)||[])); }
 
     function createEquipmentCard(equipment, index) {
       var card = document.createElement('article');
       card.className = 'equipment-card';
       card.dataset.index = String(index);
       card.innerHTML = ("<div class=\"equipment-header\"><strong></strong><div class=\"button-row\"><button class=\"equipment-drag ghost icon-button\" type=\"button\" aria-label=\"" + __ST_HTML_TEXT__('client.reorder_equipment') + "\" title=\"" + __ST_HTML_TEXT__('client.drag_to_reorder_use_arrow_up_or_down_on_this_handle') + "\"></button><button class=\"remove-equipment danger\" type=\"button\">" + __ST_HTML_TEXT__('client.remove') + "</button></div></div><div class=\"equipment-grid\"><label>" + __ST_HTML_TEXT__('client.equipment_id') + "<input class=\"equipment-id\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.type') + "<select class=\"equipment-type\"><option value=\"BLOWER\">" + __ST_HTML_TEXT__('client.blower') + "</option><option value=\"BLOWMOLDER\">" + __ST_HTML_TEXT__('client.blowmolder') + "</option><option value=\"CONVEYOR\">" + __ST_HTML_TEXT__('client.conveyor') + "</option><option value=\"PACEMAKER\">" + __ST_HTML_TEXT__('client.pacemaker') + "</option><option value=\"PUCKER\">" + __ST_HTML_TEXT__('client.pucker') + "</option><option value=\"FILLER\">" + __ST_HTML_TEXT__('client.filler') + "</option><option value=\"DEPUCKER\">" + __ST_HTML_TEXT__('client.de_pucker') + "</option><option value=\"SLEEVER\">" + __ST_HTML_TEXT__('client.sleever') + "</option><option value=\"CASE_PACKER\">" + __ST_HTML_TEXT__('client.case_packer') + "</option><option value=\"PALLETIZER\">" + __ST_HTML_TEXT__('client.palletizer') + "</option><option value=\"CUSTOM\">" + __ST_HTML_TEXT__('client.other_custom') + "</option></select></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.name') + "<input class=\"equipment-name\"></label><label>" + __ST_HTML_TEXT__('client.nominal_rate_sec') + "<input class=\"equipment-rate\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.initial_mode') + "<select class=\"equipment-mode\"><option value=\"AUTO\">" + __ST_HTML_TEXT__('client.automatic') + "</option><option value=\"MANUAL\">" + __ST_HTML_TEXT__('client.manual') + "</option><option value=\"PAUSE\">" + __ST_HTML_TEXT__('client.paused') + "</option><option value=\"STOP\">" + __ST_HTML_TEXT__('client.stopped') + "</option></select></label></div><section class=\"format-zone-setup\"><div class=\"format-zone-heading\"><div><strong>" + __ST_HTML_TEXT__('client.flowpilot_conveyor_design') + "</strong><p>" + __ST_HTML_TEXT__('client.required_for_every_conveyor_geometry_is_always_active_the_engine_derives_co') + "</p></div></div><div class=\"format-zone-grid\"><label>" + __ST_HTML_TEXT__('client.installed_length_l_act_mm') + "<input class=\"format-zone-lact\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.prime_reserve_l_p_mm') + "<input class=\"format-zone-lp-prime\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.package_length_mm') + "<input class=\"format-zone-package-length\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_discharge_pitch_mm') + "<input class=\"format-zone-discharge-pitch\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.conveyor_speed_factor') + "<input class=\"format-zone-speed-factor\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.installed_back_up_position_mm') + "<input class=\"format-zone-backup\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.discharge_runout_mm') + "<input class=\"format-zone-discharge-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.reject_runout_mm') + "<input class=\"format-zone-reject-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.blocked_time_delay_s') + "<input class=\"format-zone-blocked-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.clear_time_delay_s') + "<input class=\"format-zone-clear-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.insurance_factor_units') + "<input class=\"format-zone-insurance\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_stop_response_s') + "<input class=\"format-zone-stop-response\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.bottles_discharged_at_stop') + "<input class=\"format-zone-residual\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.downstream_ramp_up_s') + "<input class=\"format-zone-downstream-ramp\" type=\"number\" min=\"0\" step=\"any\"></label></div><p class=\"format-zone-preview\"></p></section><details class=\"equipment-json-details\"><summary>" + __ST_HTML_TEXT__('client.advanced_json_fields') + "</summary><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.characteristics_json_optional') + "<textarea class=\"equipment-characteristics\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.noise_profile_json_optional') + "<textarea class=\"equipment-noise-profile\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.advanced_process_format_json_optional') + "<textarea class=\"equipment-process-data\" spellcheck=\"false\"></textarea></label></details>");
-      card.querySelector('strong').textContent = __ST_TEXT__('client.step') + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
-      var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');card.querySelector('.equipment-json-details summary').after(jsonNote);
-      card.querySelector('.equipment-id').value = equipment.id || '';
-      card.querySelector('.equipment-type').value = equipment.type || 'CUSTOM';
-      card.querySelector('.equipment-name').value = equipment.name || '';
-      card.querySelector('.equipment-rate').value = equipment.nominalRatePerSecond === undefined ? '' : equipment.nominalRatePerSecond;
-      card.querySelector('.equipment-mode').value = equipment.initialMode || 'AUTO';
-      card.querySelector('.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
-      card.querySelector('.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
-      card.querySelector('.equipment-process-data').value = JSON.stringify(equipment.processData || {}, null, 2);
+      equipmentField(card, 'strong').textContent = __ST_TEXT__('client.step') + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
+      var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
+      equipmentField(card, '.equipment-id').value = equipment.id || '';
+      equipmentField(card, '.equipment-type').value = equipment.type || 'CUSTOM';
+      equipmentField(card, '.equipment-name').value = equipment.name || '';
+      equipmentField(card, '.equipment-rate').value = equipment.nominalRatePerSecond === undefined ? '' : equipment.nominalRatePerSecond;
+      equipmentField(card, '.equipment-mode').value = equipment.initialMode || 'AUTO';
+      equipmentField(card, '.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
+      equipmentField(card, '.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
+      equipmentField(card, '.equipment-process-data').value = JSON.stringify(equipment.processData || {}, null, 2);
 
+      card.dataset.equipmentId = equipment.id;
+      var fields = document.createElement('div'); fields.className = 'equipment-fields';
+      Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
+      card.appendChild(fields); card._fields = fields;
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
       updateFormatZoneVisibility(card);
       renderFormatZonePreview(card);
 
       STEquipmentDrag.bind(card,index,moveEquipment);
-      var remove=card.querySelector('.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title=__ST_TEXT__('client.delete_equipment');remove.setAttribute('aria-label',__ST_TEXT__('client.delete_equipment'));
-      card.querySelector('.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
+      var remove=equipmentField(card, '.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title=__ST_TEXT__('client.delete_equipment');remove.setAttribute('aria-label',__ST_TEXT__('client.delete_equipment'));
+      equipmentField(card, '.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
       var collapse = document.createElement('button');
       collapse.type = 'button'; collapse.className = 'toggle-step secondary'; collapse.innerHTML = STIcons.svg('edit'); collapse.classList.add('icon-button');collapse.title=__ST_TEXT__('client.edit_equipment');collapse.setAttribute('aria-label',__ST_TEXT__('client.edit_equipment')); collapse.setAttribute('aria-expanded','false');
-      collapse.addEventListener('click', function() { card.classList.toggle('equipment-card-expanded'); collapse.title=card.classList.contains('equipment-card-expanded')?__ST_TEXT__('client.collapse_details'):__ST_TEXT__('client.edit_equipment');collapse.setAttribute('aria-label',collapse.title); collapse.setAttribute('aria-expanded',String(card.classList.contains('equipment-card-expanded'))); });
-      card.querySelector('.equipment-header .button-row').prepend(collapse);
-      card.querySelector('.equipment-type').addEventListener('change', function() {
+      collapse.addEventListener('click', function() { STEquipmentInspector.select(card); });
+      card.addEventListener('click', function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
+      equipmentField(card, '.equipment-header .button-row').prepend(collapse);
+      equipmentField(card, '.equipment-type').addEventListener('change', function() {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);
       });
-      Array.prototype.slice.call(card.querySelectorAll('.format-zone-grid input')).forEach(function(input) {
+      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input')).forEach(function(input) {
         input.addEventListener('input', function() {
           state.isDirty = true;
           renderFormatZonePreview(card);
@@ -473,7 +486,7 @@ async function openCase(caseId) {
         ['.format-zone-downstream-ramp', __ST_TEXT__('client.time_for_the_downstream_machine_to_ramp_after_prime_authorizes_its_start')]
       ];
       concepts.forEach(function(entry) {
-        var input = card.querySelector(entry[0]);
+        var input = equipmentField(card, entry[0]);
         if (input && input.closest('label')) input.closest('label').title = entry[1];
       });
       setFormatFieldLabel(card, '.format-zone-blocked-delay', __ST_TEXT__('client.back_up_blocked_delay_s'));
@@ -481,7 +494,7 @@ async function openCase(caseId) {
     }
 
     function setFormatFieldLabel(card, selector, labelText) {
-      var input = card.querySelector(selector);
+      var input = equipmentField(card, selector);
       var label = input && input.closest('label');
       if (label && label.firstChild && label.firstChild.nodeType === Node.TEXT_NODE) {
         label.firstChild.nodeValue = labelText;
@@ -509,26 +522,26 @@ function populateFormatZoneInputs(card, equipment) {
         downstreamRamp: formatZone.downstreamRampUpSeconds
       };
       Object.keys(values).forEach(function(key) {
-        var input = card.querySelector('.format-zone-' + kebabCase(key));
+        var input = equipmentField(card, '.format-zone-' + kebabCase(key));
         if (input) input.value = values[key] === undefined || values[key] === null ? '' : values[key];
       });
     }
 
 function updateFormatZoneVisibility(card) {
-      var isConveyor = card.querySelector('.equipment-type').value === 'CONVEYOR';
-      card.querySelector('.format-zone-setup').classList.toggle('hidden', !isConveyor);
+      var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
+      equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
     }
 
     function renderFormatZonePreview(card) {
-      var target = card.querySelector('.format-zone-preview');
+      var target = equipmentField(card, '.format-zone-preview');
       if (!target) return;
-      if (card.querySelector('.equipment-type').value !== 'CONVEYOR') {
+      if (equipmentField(card, '.equipment-type').value !== 'CONVEYOR') {
         target.textContent = '';
         return;
       }
 
       var values = readFormatZoneInputs(card);
-      var processData = parseJsonForPreview(card.querySelector('.equipment-process-data').value);
+      var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
       var index = Number(card.dataset.index);
       var upstreamMachine = state.activeCase?.equipment?.[index - 1];
       var downstreamMachine = state.activeCase?.equipment?.[index + 1];
@@ -573,20 +586,20 @@ function updateFormatZoneVisibility(card) {
 
 function readFormatZoneInputs(card) {
       return {
-        lactMm: numericInputValue(card.querySelector('.format-zone-lact')),
-        lpPrimeMm: numericInputValue(card.querySelector('.format-zone-lp-prime')),
-        packageLengthMm: numericInputValue(card.querySelector('.format-zone-package-length')),
-        dischargePitchMm: numericInputValue(card.querySelector('.format-zone-discharge-pitch')),
-        conveyorSpeedFactorPercent: numericInputValue(card.querySelector('.format-zone-speed-factor')),
-        backupSensorPositionMm: numericInputValue(card.querySelector('.format-zone-backup')),
-        dischargeRunoutLengthMm: numericInputValue(card.querySelector('.format-zone-discharge-runout')),
-        rejectRunoutLengthMm: numericInputValue(card.querySelector('.format-zone-reject-runout')),
-        blockedTimeDelaySeconds: numericInputValue(card.querySelector('.format-zone-blocked-delay')),
-        clearTimeDelaySeconds: numericInputValue(card.querySelector('.format-zone-clear-delay')),
-        insuranceFactorUnits: numericInputValue(card.querySelector('.format-zone-insurance')),
-        upstreamStopResponseSeconds: numericInputValue(card.querySelector('.format-zone-stop-response')),
-        bottlesDischargedAtStop: numericInputValue(card.querySelector('.format-zone-residual')),
-        downstreamRampUpSeconds: numericInputValue(card.querySelector('.format-zone-downstream-ramp'))
+        lactMm: numericInputValue(equipmentField(card, '.format-zone-lact')),
+        lpPrimeMm: numericInputValue(equipmentField(card, '.format-zone-lp-prime')),
+        packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
+        dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
+        conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
+        backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
+        dischargeRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-discharge-runout')),
+        rejectRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-reject-runout')),
+        blockedTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-blocked-delay')),
+        clearTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-clear-delay')),
+        insuranceFactorUnits: numericInputValue(equipmentField(card, '.format-zone-insurance')),
+        upstreamStopResponseSeconds: numericInputValue(equipmentField(card, '.format-zone-stop-response')),
+        bottlesDischargedAtStop: numericInputValue(equipmentField(card, '.format-zone-residual')),
+        downstreamRampUpSeconds: numericInputValue(equipmentField(card, '.format-zone-downstream-ramp'))
       };
     }
 
@@ -704,24 +717,24 @@ function numericInputValue(input) {
       var equipment = [];
       for (var index = 0; index < cards.length; index += 1) {
         var card = cards[index];
-        var characteristics = parseJsonObject(card.querySelector('.equipment-characteristics').value, 'Characteristics', index + 1);
+        var characteristics = parseJsonObject(equipmentField(card, '.equipment-characteristics').value, 'Characteristics', index + 1);
         if (characteristics === null) return false;
-        var noiseProfile = parseJsonObject(card.querySelector('.equipment-noise-profile').value, __ST_TEXT__('client.noise_profile'), index + 1);
+        var noiseProfile = parseJsonObject(equipmentField(card, '.equipment-noise-profile').value, __ST_TEXT__('client.noise_profile'), index + 1);
         if (noiseProfile === null) return false;
-        var processData = parseJsonObject(card.querySelector('.equipment-process-data').value, __ST_TEXT__('client.process_format_data'), index + 1);
+        var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, __ST_TEXT__('client.process_format_data'), index + 1);
         if (processData === null) return false;
-        var type = card.querySelector('.equipment-type').value;
+        var type = equipmentField(card, '.equipment-type').value;
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
         } else {
           delete processData.accumulation;
         }
         equipment.push({
-          id: card.querySelector('.equipment-id').value.trim(),
+          id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
-          name: card.querySelector('.equipment-name').value.trim(),
-          nominalRatePerSecond: Number(card.querySelector('.equipment-rate').value),
-          initialMode: card.querySelector('.equipment-mode').value,
+          name: equipmentField(card, '.equipment-name').value.trim(),
+          nominalRatePerSecond: Number(equipmentField(card, '.equipment-rate').value),
+          initialMode: equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,
           noiseProfile: noiseProfile,
           processData: processData

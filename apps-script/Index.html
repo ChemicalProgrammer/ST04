@@ -384,6 +384,30 @@ select { appearance:none; padding-right:var(--space-8); background-image:url("da
 .equipment-dragging { opacity:.65; }
 .equipment-drop-target { outline:var(--focus-width) solid var(--accent); background:var(--accent-soft); }
 .equipment-card { transition:background var(--duration-fast), opacity var(--duration-fast); }
+
+.equipment-card .equipment-fields { display:none; }
+.equipment-selected { border-color:var(--accent); background:var(--accent-soft); }
+#equipment-inspector { flex:1; min-height:0; overflow:auto; padding:var(--space-1); }
+#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { grid-template-columns:minmax(0,1fr); }
+#equipment-inspector label { position:relative; padding-right:var(--space-5); }
+#equipment-inspector .format-zone-setup { background:transparent; padding:var(--space-3) 0; border:0; border-top:var(--border-width) solid var(--line); }
+#equipment-inspector textarea,#json-help-code { font-family:var(--font-mono); }
+.parameter-help { position:absolute; right:0; top:0; font-weight:var(--weight-regular); }
+.parameter-help summary { cursor:help; color:var(--muted); list-style:none; }
+.parameter-help p { display:none; position:absolute; right:0; top:var(--space-4); width:min(var(--size-260),70vw); padding:var(--space-3); background:var(--surface); color:var(--ink); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); z-index:var(--z-overlay); box-shadow:var(--shadow-dialog); font-size:var(--font-secondary); }
+.parameter-help:hover p,.parameter-help:focus-within p,.parameter-help[open] p { display:block; }
+.json-example { justify-self:start; font-size:var(--font-secondary); }
+#json-help-dialog { width:min(var(--size-760),90vw); }
+#json-help-code { min-height:var(--size-260); }
+#json-help-fields dt { font-family:var(--font-mono); font-weight:var(--weight-medium); overflow-wrap:anywhere; }
+#json-help-fields dd { margin:var(--space-1) 0 var(--space-3); color:var(--muted); }
+.inspector-tabs { display:flex; flex-shrink:0; gap:var(--space-2); border-bottom:var(--border-width) solid var(--line); padding-bottom:var(--space-2); }
+.inspector-tabs [aria-pressed=true] { background:var(--accent-soft); color:var(--accent); }
+#gemini-chat-view { display:flex; flex-direction:column; flex:1; min-height:0; gap:var(--space-3); }
+
+.equipment-sorting { transition:transform var(--duration-normal) var(--ease); will-change:transform; }
+.equipment-dragging { position:relative; z-index:var(--z-header); transition:none; cursor:grabbing; box-shadow:var(--shadow-dialog); }
+@media(prefers-reduced-motion:reduce) { .equipment-sorting { transition:none; } }
 </style>
     <style>
   .run-config { margin-top: var(--size-20); }
@@ -1053,13 +1077,18 @@ window.STPreferences = (function() {
       </section>
       </div>
       <aside id="gemini-panel" class="gemini-panel hidden" aria-labelledby="gemini-title">
-        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="Resize Gemini panel" tabindex="0" title="Drag to resize; use Left and Right arrows"></div><header class="gemini-heading"><div><h2 id="gemini-title">Gemini</h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="Collapse Gemini panel" title="Collapse Gemini panel"></button></header>
+        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="Resize right panel" tabindex="0" title="Drag to resize; use Left and Right arrows"></div><header class="gemini-heading"><div><h2 id="gemini-title">Gemini</h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="Collapse right panel" title="Collapse right panel"></button></header>
+        <div class="inspector-tabs" role="group" aria-label="Right panel views"><button id="panel-equipment-tab" type="button" class="ghost" data-icon="edit">Equipment</button><button id="panel-chat-tab" type="button" class="ghost" data-icon="chat">Gemini</button></div>
+        <section id="equipment-inspector" class="hidden" aria-label="Equipment"></section>
+        <div id="gemini-chat-view">
         <p id="gemini-notice" class="gemini-notice">Ask about the saved case, equipment and simulation results.</p>
         <ol id="gemini-progress" class="gemini-progress hidden" role="status" aria-live="polite"></ol>
         <div id="gemini-messages" class="gemini-messages" role="log" aria-label="Case conversation" aria-live="polite"></div>
         <form id="gemini-form" class="gemini-composer"><label class="sr-only" for="gemini-question">Question for Gemini</label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="Ask about this case…" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="ghost icon-button" data-icon="trash" aria-label="Clear case conversation" title="Clear case conversation"></button><button id="send-gemini" type="submit" data-icon="send">Send</button></div><p id="gemini-error" class="chart-note" role="alert"></p><p class="chart-note">Sending shares a compact analysis with Google Gemini. Conversations reset when changing simulation or case.</p></form>
+        </div>
       </aside>
     </main>
+    <dialog id="json-help-dialog" aria-labelledby="json-help-title"><header class="dialog-heading"><h2 id="json-help-title"></h2><button id="json-help-close" type="button" class="ghost icon-button" data-icon="x" aria-label="Close"></button></header><div class="dialog-body"><p>Illustrative values only. Replace them with verified equipment data. Copying does not change your equipment. Merge only the fields you need: replacing a whole object can remove existing data. For conveyors, the visible geometry controls take precedence over the same JSON fields.</p><textarea id="json-help-code" readonly spellcheck="false" aria-label="JSON example and field guide"></textarea><dl id="json-help-fields"></dl></div><footer class="dialog-actions"><span id="json-copy-status" role="status"></span><button id="json-help-copy" type="button" data-icon="copy">Copy example</button></footer></dialog>
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title">Settings</h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="Close settings" title="Close settings (Esc)"></button></header>
       <div class="dialog-body">
@@ -4091,9 +4120,14 @@ window.STAssistant = function(state,actions) {
   function sync(){
     var active=state.activeCase;
     if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=[];pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
-    var visible=Boolean(active&&opened);
+    var editing=STEquipmentInspector.sync();
+    var visible=Boolean(active&&(opened||editing));
+    el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
+    el('panel-equipment-tab').disabled=!STEquipmentInspector.available();
+    el('panel-equipment-tab').setAttribute('aria-pressed',String(editing));el('panel-chat-tab').setAttribute('aria-pressed',String(!editing));
+    el('gemini-title').textContent=editing?"Equipment":"Gemini";
     el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible));
-    el('gemini-context').textContent=active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
+    el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
     el('gemini-notice').textContent=pending?"Gemini is analyzing the case…":!configured?"Add your Gemini API key in Settings to ask questions.":state.isDirty?"Pending edits will be saved before sending your question.":"Context uses the selected simulation, aggregate results and physical design checks.";
     el('send-gemini').disabled=pending||!configured||!active;el('send-gemini').setAttribute('aria-busy',String(pending));
@@ -4107,9 +4141,12 @@ window.STAssistant = function(state,actions) {
     resize.onpointerdown=function(e){if(e.button!==0)return;e.preventDefault();resize.setPointerCapture(e.pointerId);resize.onpointermove=function(ev){width(window.innerWidth-ev.clientX);};function finish(){resize.onpointermove=null;window.dispatchEvent(new Event('resize'));}resize.onpointerup=finish;resize.onpointercancel=finish;resize.onlostpointercapture=finish;};
     window.addEventListener('resize',function(){width(Number(STPreferences.read('assistant-width'))||360);});
 
-    el('toggle-gemini').onclick=function(){opened=!opened;sync();if(opened)el('gemini-question').focus();window.dispatchEvent(new Event('resize'));};
-    el('close-gemini').onclick=function(){opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
+    el('toggle-gemini').onclick=function(){var wasEditing=STEquipmentInspector.sync();STEquipmentInspector.hide();opened=wasEditing||!opened;sync();if(opened)el('gemini-question').focus();window.dispatchEvent(new Event('resize'));};
+    el('close-gemini').onclick=function(){STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
+    window.addEventListener('st:inspector',function(){sync();window.dispatchEvent(new Event('resize'));});
+    el('panel-equipment-tab').onclick=function(){STEquipmentInspector.show();sync();};
+    el('panel-chat-tab').onclick=function(){STEquipmentInspector.hide();opened=true;sync();el('gemini-question').focus();};
     el('clear-gemini').onclick=function(){progress('idle');messages=[];render();el('gemini-error').textContent='';};
     el('gemini-form').onsubmit=async function(e){
       e.preventDefault();sync();if(el('send-gemini').disabled)return;
@@ -4131,21 +4168,115 @@ window.STAssistant = function(state,actions) {
     <script>
 window.STEquipmentDrag=(function(){
  function cards(){return Array.from(document.querySelectorAll('#equipment-list .equipment-card'));}
- function positions(){var map={};cards().forEach(function(c){map[c.querySelector('.equipment-id').value]=c.getBoundingClientRect().top;});return map;}
- function animate(before,index){cards().forEach(function(c){var y=before[c.querySelector('.equipment-id').value];if(Number.isFinite(y)&&c.animate&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches)c.animate([{transform:'translateY('+(y-c.getBoundingClientRect().top)+'px)'},{transform:'translateY(0)'}],{duration:180,easing:'ease-out'});});cards()[index]?.querySelector('.equipment-drag').focus();}
+ function positions(){var map={};cards().forEach(function(c){map[c.dataset.equipmentId]=c.getBoundingClientRect().top;});return map;}
+ function animate(before,index){cards().forEach(function(c){var y=before[c.dataset.equipmentId];if(Number.isFinite(y)&&c.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)c.animate([{transform:'translateY('+(y-c.getBoundingClientRect().top)+'px)'},{transform:'translateY(0)'}],{duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'});});cards()[index]?.querySelector('.equipment-drag').focus();}
  function bind(card,index,move){
   var handle=card.querySelector('.equipment-drag');handle.innerHTML=STIcons.svg('grip');
   handle.onkeydown=function(e){if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();move(index,e.key==='ArrowUp'?-1:1);}};
   handle.onpointerdown=function(e){
-   if(e.button!==0)return;e.preventDefault();handle.setPointerCapture(e.pointerId);var target=index,start=e.clientY;
-   card.classList.add('equipment-dragging');
-   function clear(){cards().forEach(function(c){c.classList.remove('equipment-drop-target','equipment-dragging');});handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;}
-   handle.onpointermove=function(ev){if(Math.abs(ev.clientY-start)<5)return;var all=cards();target=all.reduce(function(best,c,i){var r=c.getBoundingClientRect();return Math.abs(ev.clientY-(r.top+r.height/2))<best.distance?{index:i,distance:Math.abs(ev.clientY-(r.top+r.height/2))}:best;},{index:index,distance:Infinity}).index;all.forEach(function(c,i){c.classList.toggle('equipment-drop-target',i===target&&i!==index);});if(ev.clientY<60)window.scrollBy(0,-18);else if(ev.clientY>window.innerHeight-60)window.scrollBy(0,18);};
-   handle.onpointerup=function(ev){clear();if(handle.hasPointerCapture(ev.pointerId))handle.releasePointerCapture(ev.pointerId);if(target!==index)move(index,target-index);};
-   handle.onpointercancel=clear;handle.onlostpointercapture=clear;
+   if(e.button!==0)return;e.preventDefault();handle.setPointerCapture(e.pointerId);
+   var all=cards(),rects=all.map(function(c){return c.getBoundingClientRect();}),target=index,start=e.clientY,lastY=start,startScroll=window.scrollY,frame=null,moved=false;
+   var gap=parseFloat(getComputedStyle(card.parentElement).rowGap)||0,stride=rects[index].height+gap;
+   card.classList.add('equipment-dragging');all.forEach(function(c){c.classList.add('equipment-sorting');});
+   function preview(){
+    var shift=window.scrollY-startScroll,center=rects[index].top+rects[index].height/2+lastY-start+shift;
+    target=rects.reduce(function(best,r,i){var distance=Math.abs(center-(r.top+r.height/2));return distance<best.distance?{index:i,distance:distance}:best;},{index:index,distance:Infinity}).index;
+    all.forEach(function(c,i){var y=i===index?lastY-start+shift:i>index&&i<=target?-stride:i<index&&i>=target?stride:0;c.style.transform='translateY('+y+'px)';});
+   }
+   function scroll(){if(!moved)return;var edge=60;if(lastY<edge)window.scrollBy(0,-12);else if(lastY>window.innerHeight-edge)window.scrollBy(0,12);preview();frame=requestAnimationFrame(scroll);}
+   function clear(){cancelAnimationFrame(frame);all.forEach(function(c){c.classList.remove('equipment-sorting','equipment-dragging');c.style.transform='';});handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;window.removeEventListener('keydown',cancel);}
+   function cancel(ev){if(ev.type==='keydown'&&ev.key!=='Escape')return;clear();if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);}
+   window.addEventListener('keydown',cancel);
+   handle.onpointermove=function(ev){lastY=ev.clientY;if(!moved&&Math.abs(lastY-start)<5)return;if(!moved){moved=true;frame=requestAnimationFrame(scroll);}preview();};
+   handle.onpointerup=function(ev){clear();if(handle.hasPointerCapture(ev.pointerId))handle.releasePointerCapture(ev.pointerId);if(moved&&target!==index)move(index,target-index);};
+   handle.onpointercancel=cancel;handle.onlostpointercapture=cancel;
   };
  }
  return {bind:bind,positions:positions,animate:animate};
+})();
+</script>
+    <script>
+window.STEquipmentInspector=(function(){
+  var state,selected=null,opened=false,context='',helpOrigin=null,helpSequence=0;
+  function el(id){return document.getElementById(id);}
+  function key(){return (state?.activeCase?.id||'')+':'+(state?.activeSimulationId||'');}
+  function release(){
+    var selection=selected?{id:selected._fields.querySelector('.equipment-id').value,opened:opened,context:context}:null;
+    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');selected.querySelector('.toggle-step').setAttribute('aria-expanded','false');}
+    selected=null;return selection;
+  }
+  function restore(selection){
+    if(!selection||selection.context!==key()){opened=false;return;}
+    var card=Array.from(document.querySelectorAll('#equipment-list .equipment-card')).find(function(c){return c.dataset.equipmentId===selection.id;});
+    if(card){select(card,false);opened=selection.opened;}else opened=false;
+  }
+  function select(card,focus){
+    release();selected=card;context=key();opened=true;
+    if(!card._helpReady){decorate(card);card._helpReady=true;}
+    el('equipment-inspector').appendChild(card._fields);card.classList.add('equipment-selected');
+    card.querySelector('.toggle-step').setAttribute('aria-expanded','true');
+    window.dispatchEvent(new Event('st:inspector'));
+    if(focus!==false)el('equipment-inspector').querySelector('input,select,textarea')?.focus();
+  }
+  function sync(){
+    if(context!==key()){release();opened=false;el('equipment-inspector').textContent='';}
+    var visible=Boolean(opened&&selected&&state.activeCase&&state.uiView==='editor');
+    selected?.querySelector('.toggle-step').setAttribute('aria-expanded',String(visible));
+    return visible;
+  }
+  function init(current,dirty){
+    state=current;
+    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent="Step "+(Number(selected.dataset.index)+1)+' · '+fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+' · '+(Number(fields.querySelector('.equipment-rate').value)*60)+" BPM";dirty(event);}});});
+    el('json-help-close').onclick=function(){el('json-help-dialog').close();};
+    el('json-help-dialog').addEventListener('close',function(){helpOrigin?.focus();});
+    el('json-help-copy').onclick=async function(){
+      try{await navigator.clipboard.writeText(el('json-help-code').value);el('json-copy-status').textContent="Copied";}
+      catch(_){el('json-help-code').focus();el('json-help-code').select();el('json-copy-status').textContent="Select the example and press Ctrl/Cmd+C.";}
+    };
+  }
+  function help(control,text){
+    var label=control.closest('label');label.title=text;
+    var details=document.createElement('details');details.className='parameter-help';
+    var summary=document.createElement('summary');summary.innerHTML=STIcons.svg('info');summary.setAttribute('aria-label',"Parameter help");
+    var message=document.createElement('p');message.id='parameter-help-'+(++helpSequence);message.textContent=text;message.setAttribute('role','tooltip');
+    control.setAttribute('aria-describedby',message.id);details.append(summary,message);label.appendChild(details);
+  }
+  var basic={
+    'equipment-id':"Unique equipment identifier used by commands and saved results. Keep it stable and unique within the simulation.",
+    'equipment-name':"Equipment name displayed in the line, results and comparisons.",
+    'equipment-type':"Equipment category. Conveyor enables the physical belt and sensor settings; other categories represent processing machines.",
+    'equipment-rate':"Nominal production rate in flow units per second. Multiply by 60 for units per minute. Conveyor belt velocity is calculated separately from its geometry and speed factor.",
+    'equipment-mode':"Initial operating mode: AUTO follows line controls; MANUAL uses manual operation; PAUSE and STOP start the equipment paused or stopped.",
+    'equipment-characteristics':"Optional equipment attributes as a JSON object. Use the example guide for supported fields; an empty object is allowed.",
+    'equipment-noise-profile':"Failure model inputs as a JSON object. Reliability requires both positive MTBF and MTTR in minutes. Use measured plant values; an empty object adds no reliability profile.",
+    'equipment-process-data':"Structured process and engineering inputs. Visible conveyor controls take precedence over their JSON equivalents. Sheets import also fills these fields. See the example guide before editing."
+  };
+  function decorate(card){
+    card._fields.querySelectorAll('input,select,textarea').forEach(function(control){
+      help(control,basic[control.className]||control.closest('label').title);
+      if(control.tagName==='TEXTAREA'){
+        var button=document.createElement('button');button.type='button';button.className='ghost json-example';button.textContent="JSON example and field guide";
+        button.onclick=function(){showExample(control,card,button);};control.closest('label').appendChild(button);
+      }
+    });
+  }
+  function showExample(control,card,origin){
+    var type=card._fields.querySelector('.equipment-type').value,example;
+    if(control.classList.contains('equipment-characteristics'))example={criticalMachine:true};
+    else if(control.classList.contains('equipment-noise-profile'))example={reliability:{mtbfMinutes:35,mttrMinutes:2}};
+    else if(type==='CONVEYOR')example={geometry:{lactMm:10000,lpPrimeMm:1000},upstream:{packageLengthMm:100,dischargePitchMm:120},accumulation:{conveyorSpeedFactorPercent:10,backupSensorPositionMm:1000,dischargeRunoutLengthMm:0,rejectRunoutLengthMm:0,blockedTimeDelaySeconds:1,clearTimeDelaySeconds:1,insuranceFactorUnits:2,upstreamStopResponseSeconds:1,bottlesDischargedAtStop:2,downstreamRampUpSeconds:2}};
+    else example={equipment:{maximumSpeedBpm:300},upstream:{startupTimeSeconds:2},downstream:{infeedPitchMm:120,rampUpTimeSeconds:2}};
+    helpOrigin=origin;el('json-help-title').textContent=control.closest('label').firstChild.textContent.trim();
+    el('json-help-code').value=JSON.stringify(example,null,2);el('json-copy-status').textContent='';
+    var list=el('json-help-fields');list.textContent='';
+    function explain(value,prefix){Object.entries(value).forEach(function(pair){var path=prefix?prefix+'.'+pair[0]:pair[0];if(typeof pair[1]==='object'){explain(pair[1],path);return;}var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=path;dd.textContent=descriptions[pair[0]];list.append(dt,dd);});}
+    explain(example,'');el('json-help-dialog').showModal();el('json-help-close').focus();
+  }
+  var descriptions={
+    criticalMachine:"Boolean: marks this equipment as critical for the line analysis.",mtbfMinutes:"Mean operating time between failures, in minutes. A positive plant input used to sample failure intervals with the run seed.",mttrMinutes:"Mean repair time, in minutes. The current engine uses this as a fixed repair duration. Keep the measured baseline value.",maximumSpeedBpm:"Configured maximum machine speed, in units per minute; used by engineering analysis. It does not replace the nominal rate field.",startupTimeSeconds:"Machine startup time, in seconds, used by the physical line calculations.",infeedPitchMm:"Center-to-center package pitch at the downstream machine infeed, in millimeters.",rampUpTimeSeconds:"Ramp-up duration including the Prime delay, in seconds, used by the conveyor engineering calculations.",
+    lactMm:"Total installed conveyor length, measured from the upstream discharge toward the downstream infeed.",lpPrimeMm:"Reserved downstream length between the Prime photocell and the downstream machine infeed.",packageLengthMm:"Physical package length in the direction of travel. It determines the photoeye occupied time.",dischargePitchMm:"Centre-to-centre distance between packages leaving the upstream machine.",conveyorSpeedFactorPercent:"Belt-speed increase relative to upstream package discharge velocity. It changes package spacing and population.",backupSensorPositionMm:"Installed Back-up photocell position, measured from the upstream discharge. A sustained blocked signal requests the upstream stop.",dischargeRunoutLengthMm:"Length that must be cleared after the upstream discharge before a stop fully takes effect.",rejectRunoutLengthMm:"Additional reject/runout length that must be cleared during an upstream stop.",blockedTimeDelaySeconds:"Continuous Back-up blocked time required before the simulator requests the upstream stop. Normal package pulses do not count.",clearTimeDelaySeconds:"Continuous Back-up clear time required before the simulator releases the upstream stop. Normal product gaps reset this timer.",insuranceFactorUnits:"Extra package margin reserved in the required overflow calculation. It is a design margin, not randomly created material.",upstreamStopResponseSeconds:"Delay from the upstream stop request until its discharge response is complete.",bottlesDischargedAtStop:"Packages that can still leave the upstream machine after the stop request.",downstreamRampUpSeconds:"Time for the downstream machine to ramp after Prime authorizes its start."
+  };
+  return {init:init,select:select,release:release,restore:restore,sync:sync,decorate:decorate,hide:function(){opened=false;},show:function(){if(selected)opened=true;},available:function(){return !!selected&&state?.uiView==='editor';},name:function(){return selected?selected._fields.querySelector('.equipment-name').value:'';}};
 })();
 </script>
     <script>
@@ -4413,6 +4544,7 @@ window.STSheetImport=function(state,actions){
 
     document.addEventListener('DOMContentLoaded', function() {
       bindEvents();
+      STEquipmentInspector.init(state,markCaseDirty);
       assistant.init();
       sheetImport.init();
       shell.init();
@@ -4731,6 +4863,7 @@ async function openCase(caseId) {
       state.activeCase.equipment.push(createBlankEquipment());
       state.isDirty = true;
       renderEquipment();
+      STEquipmentInspector.select(document.querySelector('#equipment-list .equipment-card:last-child'));
       invalidateActiveResult();autosave.change(true);
       renderRunWorkspace();
     }
@@ -4772,6 +4905,7 @@ async function openCase(caseId) {
     }
 
     function renderEquipment() {
+      var selection = STEquipmentInspector.release();
       var target = document.getElementById('equipment-list');
       target.textContent = '';
       state.activeCase.equipment.forEach(function(equipment, index) {
@@ -4780,42 +4914,52 @@ async function openCase(caseId) {
       if (!state.activeCase.equipment.length) {
         target.innerHTML = ("<p class=\"empty\">" + "This draft has no equipment. Add at least two units before simulation." + "</p>");
       }
+      STEquipmentInspector.restore(selection);
+      assistant.sync();
       renderRawJson();
     }
+
+    function equipmentField(card, selector) { return card.querySelector(selector) || card._fields?.querySelector(selector); }
+    function equipmentFields(card, selector) { return card.contains(card._fields) ? card.querySelectorAll(selector) : Array.from(card.querySelectorAll(selector)).concat(Array.from(card._fields?.querySelectorAll(selector)||[])); }
 
     function createEquipmentCard(equipment, index) {
       var card = document.createElement('article');
       card.className = 'equipment-card';
       card.dataset.index = String(index);
       card.innerHTML = ("<div class=\"equipment-header\"><strong></strong><div class=\"button-row\"><button class=\"equipment-drag ghost icon-button\" type=\"button\" aria-label=\"" + "Reorder equipment" + "\" title=\"" + "Drag to reorder; use Arrow Up or Down on this handle" + "\"></button><button class=\"remove-equipment danger\" type=\"button\">" + "Remove" + "</button></div></div><div class=\"equipment-grid\"><label>" + "Equipment ID" + "<input class=\"equipment-id\"></label><label>" + "Type" + "<select class=\"equipment-type\"><option value=\"BLOWER\">" + "Blower" + "</option><option value=\"BLOWMOLDER\">" + "Blowmolder" + "</option><option value=\"CONVEYOR\">" + "Conveyor" + "</option><option value=\"PACEMAKER\">" + "Pacemaker" + "</option><option value=\"PUCKER\">" + "Pucker" + "</option><option value=\"FILLER\">" + "Filler" + "</option><option value=\"DEPUCKER\">" + "De-pucker" + "</option><option value=\"SLEEVER\">" + "Sleever" + "</option><option value=\"CASE_PACKER\">" + "Case packer" + "</option><option value=\"PALLETIZER\">" + "Palletizer" + "</option><option value=\"CUSTOM\">" + "Other / custom" + "</option></select></label><label>" + "Name" + "<input class=\"equipment-name\"></label><label>" + "Nominal rate / sec" + "<input class=\"equipment-rate\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Initial mode" + "<select class=\"equipment-mode\"><option value=\"AUTO\">" + "Automatic" + "</option><option value=\"MANUAL\">" + "Manual" + "</option><option value=\"PAUSE\">" + "Paused" + "</option><option value=\"STOP\">" + "Stopped" + "</option></select></label></div><section class=\"format-zone-setup\"><div class=\"format-zone-heading\"><div><strong>" + "FlowPilot conveyor design" + "</strong><p>" + "Required for every conveyor. Geometry is always active: the engine derives conveyor velocity, pitch, capacity, Prime, Back-up margin, recovery, and audit from these named inputs." + "</p></div></div><div class=\"format-zone-grid\"><label>" + "Installed length L_act (mm)" + "<input class=\"format-zone-lact\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Prime reserve L_p (mm)" + "<input class=\"format-zone-lp-prime\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Package length (mm)" + "<input class=\"format-zone-package-length\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Upstream discharge pitch (mm)" + "<input class=\"format-zone-discharge-pitch\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Conveyor speed factor (%)" + "<input class=\"format-zone-speed-factor\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Installed Back-up position (mm)" + "<input class=\"format-zone-backup\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Discharge runout (mm)" + "<input class=\"format-zone-discharge-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Reject runout (mm)" + "<input class=\"format-zone-reject-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Blocked time delay (s)" + "<input class=\"format-zone-blocked-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Clear time delay (s)" + "<input class=\"format-zone-clear-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Insurance factor (units)" + "<input class=\"format-zone-insurance\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Upstream stop response (s)" + "<input class=\"format-zone-stop-response\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Bottles discharged at stop" + "<input class=\"format-zone-residual\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + "Downstream ramp-up (s)" + "<input class=\"format-zone-downstream-ramp\" type=\"number\" min=\"0\" step=\"any\"></label></div><p class=\"format-zone-preview\"></p></section><details class=\"equipment-json-details\"><summary>" + "Advanced JSON fields" + "</summary><label class=\"characteristics-label\">" + "Characteristics JSON (optional)" + "<textarea class=\"equipment-characteristics\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + "Noise profile JSON (optional)" + "<textarea class=\"equipment-noise-profile\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + "Advanced process format JSON (optional)" + "<textarea class=\"equipment-process-data\" spellcheck=\"false\"></textarea></label></details>");
-      card.querySelector('strong').textContent = "Step " + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + " BPM";
-      var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent="Advanced engine configuration. These values are populated by the forms and Sheet import. Most users do not need to edit JSON. Invalid JSON is not saved; correct it to resume automatic saving. Conveyor geometry controls take precedence over the corresponding JSON fields.";card.querySelector('.equipment-json-details summary').after(jsonNote);
-      card.querySelector('.equipment-id').value = equipment.id || '';
-      card.querySelector('.equipment-type').value = equipment.type || 'CUSTOM';
-      card.querySelector('.equipment-name').value = equipment.name || '';
-      card.querySelector('.equipment-rate').value = equipment.nominalRatePerSecond === undefined ? '' : equipment.nominalRatePerSecond;
-      card.querySelector('.equipment-mode').value = equipment.initialMode || 'AUTO';
-      card.querySelector('.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
-      card.querySelector('.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
-      card.querySelector('.equipment-process-data').value = JSON.stringify(equipment.processData || {}, null, 2);
+      equipmentField(card, 'strong').textContent = "Step " + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + " BPM";
+      var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent="Advanced engine configuration. These values are populated by the forms and Sheet import. Most users do not need to edit JSON. Invalid JSON is not saved; correct it to resume automatic saving. Conveyor geometry controls take precedence over the corresponding JSON fields.";equipmentField(card, '.equipment-json-details summary').after(jsonNote);
+      equipmentField(card, '.equipment-id').value = equipment.id || '';
+      equipmentField(card, '.equipment-type').value = equipment.type || 'CUSTOM';
+      equipmentField(card, '.equipment-name').value = equipment.name || '';
+      equipmentField(card, '.equipment-rate').value = equipment.nominalRatePerSecond === undefined ? '' : equipment.nominalRatePerSecond;
+      equipmentField(card, '.equipment-mode').value = equipment.initialMode || 'AUTO';
+      equipmentField(card, '.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
+      equipmentField(card, '.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
+      equipmentField(card, '.equipment-process-data').value = JSON.stringify(equipment.processData || {}, null, 2);
 
+      card.dataset.equipmentId = equipment.id;
+      var fields = document.createElement('div'); fields.className = 'equipment-fields';
+      Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
+      card.appendChild(fields); card._fields = fields;
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
       updateFormatZoneVisibility(card);
       renderFormatZonePreview(card);
 
       STEquipmentDrag.bind(card,index,moveEquipment);
-      var remove=card.querySelector('.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title="Delete equipment";remove.setAttribute('aria-label',"Delete equipment");
-      card.querySelector('.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
+      var remove=equipmentField(card, '.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title="Delete equipment";remove.setAttribute('aria-label',"Delete equipment");
+      equipmentField(card, '.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
       var collapse = document.createElement('button');
       collapse.type = 'button'; collapse.className = 'toggle-step secondary'; collapse.innerHTML = STIcons.svg('edit'); collapse.classList.add('icon-button');collapse.title="Edit equipment";collapse.setAttribute('aria-label',"Edit equipment"); collapse.setAttribute('aria-expanded','false');
-      collapse.addEventListener('click', function() { card.classList.toggle('equipment-card-expanded'); collapse.title=card.classList.contains('equipment-card-expanded')?"Collapse details":"Edit equipment";collapse.setAttribute('aria-label',collapse.title); collapse.setAttribute('aria-expanded',String(card.classList.contains('equipment-card-expanded'))); });
-      card.querySelector('.equipment-header .button-row').prepend(collapse);
-      card.querySelector('.equipment-type').addEventListener('change', function() {
+      collapse.addEventListener('click', function() { STEquipmentInspector.select(card); });
+      card.addEventListener('click', function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
+      equipmentField(card, '.equipment-header .button-row').prepend(collapse);
+      equipmentField(card, '.equipment-type').addEventListener('change', function() {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);
       });
-      Array.prototype.slice.call(card.querySelectorAll('.format-zone-grid input')).forEach(function(input) {
+      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input')).forEach(function(input) {
         input.addEventListener('input', function() {
           state.isDirty = true;
           renderFormatZonePreview(card);
@@ -4842,7 +4986,7 @@ async function openCase(caseId) {
         ['.format-zone-downstream-ramp', "Time for the downstream machine to ramp after Prime authorizes its start."]
       ];
       concepts.forEach(function(entry) {
-        var input = card.querySelector(entry[0]);
+        var input = equipmentField(card, entry[0]);
         if (input && input.closest('label')) input.closest('label').title = entry[1];
       });
       setFormatFieldLabel(card, '.format-zone-blocked-delay', "Back-up blocked delay (s)");
@@ -4850,7 +4994,7 @@ async function openCase(caseId) {
     }
 
     function setFormatFieldLabel(card, selector, labelText) {
-      var input = card.querySelector(selector);
+      var input = equipmentField(card, selector);
       var label = input && input.closest('label');
       if (label && label.firstChild && label.firstChild.nodeType === Node.TEXT_NODE) {
         label.firstChild.nodeValue = labelText;
@@ -4878,26 +5022,26 @@ function populateFormatZoneInputs(card, equipment) {
         downstreamRamp: formatZone.downstreamRampUpSeconds
       };
       Object.keys(values).forEach(function(key) {
-        var input = card.querySelector('.format-zone-' + kebabCase(key));
+        var input = equipmentField(card, '.format-zone-' + kebabCase(key));
         if (input) input.value = values[key] === undefined || values[key] === null ? '' : values[key];
       });
     }
 
 function updateFormatZoneVisibility(card) {
-      var isConveyor = card.querySelector('.equipment-type').value === 'CONVEYOR';
-      card.querySelector('.format-zone-setup').classList.toggle('hidden', !isConveyor);
+      var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
+      equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
     }
 
     function renderFormatZonePreview(card) {
-      var target = card.querySelector('.format-zone-preview');
+      var target = equipmentField(card, '.format-zone-preview');
       if (!target) return;
-      if (card.querySelector('.equipment-type').value !== 'CONVEYOR') {
+      if (equipmentField(card, '.equipment-type').value !== 'CONVEYOR') {
         target.textContent = '';
         return;
       }
 
       var values = readFormatZoneInputs(card);
-      var processData = parseJsonForPreview(card.querySelector('.equipment-process-data').value);
+      var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
       var index = Number(card.dataset.index);
       var upstreamMachine = state.activeCase?.equipment?.[index - 1];
       var downstreamMachine = state.activeCase?.equipment?.[index + 1];
@@ -4942,20 +5086,20 @@ function updateFormatZoneVisibility(card) {
 
 function readFormatZoneInputs(card) {
       return {
-        lactMm: numericInputValue(card.querySelector('.format-zone-lact')),
-        lpPrimeMm: numericInputValue(card.querySelector('.format-zone-lp-prime')),
-        packageLengthMm: numericInputValue(card.querySelector('.format-zone-package-length')),
-        dischargePitchMm: numericInputValue(card.querySelector('.format-zone-discharge-pitch')),
-        conveyorSpeedFactorPercent: numericInputValue(card.querySelector('.format-zone-speed-factor')),
-        backupSensorPositionMm: numericInputValue(card.querySelector('.format-zone-backup')),
-        dischargeRunoutLengthMm: numericInputValue(card.querySelector('.format-zone-discharge-runout')),
-        rejectRunoutLengthMm: numericInputValue(card.querySelector('.format-zone-reject-runout')),
-        blockedTimeDelaySeconds: numericInputValue(card.querySelector('.format-zone-blocked-delay')),
-        clearTimeDelaySeconds: numericInputValue(card.querySelector('.format-zone-clear-delay')),
-        insuranceFactorUnits: numericInputValue(card.querySelector('.format-zone-insurance')),
-        upstreamStopResponseSeconds: numericInputValue(card.querySelector('.format-zone-stop-response')),
-        bottlesDischargedAtStop: numericInputValue(card.querySelector('.format-zone-residual')),
-        downstreamRampUpSeconds: numericInputValue(card.querySelector('.format-zone-downstream-ramp'))
+        lactMm: numericInputValue(equipmentField(card, '.format-zone-lact')),
+        lpPrimeMm: numericInputValue(equipmentField(card, '.format-zone-lp-prime')),
+        packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
+        dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
+        conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
+        backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
+        dischargeRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-discharge-runout')),
+        rejectRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-reject-runout')),
+        blockedTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-blocked-delay')),
+        clearTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-clear-delay')),
+        insuranceFactorUnits: numericInputValue(equipmentField(card, '.format-zone-insurance')),
+        upstreamStopResponseSeconds: numericInputValue(equipmentField(card, '.format-zone-stop-response')),
+        bottlesDischargedAtStop: numericInputValue(equipmentField(card, '.format-zone-residual')),
+        downstreamRampUpSeconds: numericInputValue(equipmentField(card, '.format-zone-downstream-ramp'))
       };
     }
 
@@ -5073,24 +5217,24 @@ function numericInputValue(input) {
       var equipment = [];
       for (var index = 0; index < cards.length; index += 1) {
         var card = cards[index];
-        var characteristics = parseJsonObject(card.querySelector('.equipment-characteristics').value, 'Characteristics', index + 1);
+        var characteristics = parseJsonObject(equipmentField(card, '.equipment-characteristics').value, 'Characteristics', index + 1);
         if (characteristics === null) return false;
-        var noiseProfile = parseJsonObject(card.querySelector('.equipment-noise-profile').value, "Noise profile", index + 1);
+        var noiseProfile = parseJsonObject(equipmentField(card, '.equipment-noise-profile').value, "Noise profile", index + 1);
         if (noiseProfile === null) return false;
-        var processData = parseJsonObject(card.querySelector('.equipment-process-data').value, "Process format data", index + 1);
+        var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, "Process format data", index + 1);
         if (processData === null) return false;
-        var type = card.querySelector('.equipment-type').value;
+        var type = equipmentField(card, '.equipment-type').value;
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
         } else {
           delete processData.accumulation;
         }
         equipment.push({
-          id: card.querySelector('.equipment-id').value.trim(),
+          id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
-          name: card.querySelector('.equipment-name').value.trim(),
-          nominalRatePerSecond: Number(card.querySelector('.equipment-rate').value),
-          initialMode: card.querySelector('.equipment-mode').value,
+          name: equipmentField(card, '.equipment-name').value.trim(),
+          nominalRatePerSecond: Number(equipmentField(card, '.equipment-rate').value),
+          initialMode: equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,
           noiseProfile: noiseProfile,
           processData: processData
