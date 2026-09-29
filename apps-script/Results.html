@@ -7,9 +7,10 @@ window.STResults=(function(){
     [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+(result.unitOfFlow||'units')+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+(result.unitOfFlow||'units'),false],
     [__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
-  function render(result,activeCase){
+  function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary);
     document.getElementById('results-empty').classList.toggle('hidden',ready);document.getElementById('results-body').classList.toggle('hidden',!ready);document.getElementById('export-results').disabled=!ready;
+    STReports.bindResults(result,activeCase,simulation);
     if(!ready){document.getElementById('results-meta').textContent=__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
     var target=document.getElementById('results-kpis');target.textContent='';

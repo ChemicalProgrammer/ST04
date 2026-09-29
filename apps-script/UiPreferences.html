@@ -10,12 +10,13 @@ window.STPreferences = (function() {
   if (read('remember') === 'yes') document.documentElement.classList.add('restoring-session');
   var media = window.matchMedia('(prefers-color-scheme: dark)');
   var theme = read('theme') || 'light';
-  var colors=['violet','blue','teal','green','amber','rose','red','coral','orange','copper','gold','olive','lime','forest','mint','aqua','cyan','sky','cobalt','indigo','purple','plum','magenta','pink','slate'];
-  function setAccent(value){if(!colors.includes(value))value='violet';document.documentElement.dataset.accent=value;write('accent',value);document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});window.dispatchEvent(new Event('st:theme'));}
+  var colors=Object.keys(STThemeResources.palettes);
+  function setAccent(value){if(!colors.includes(value))value=colors.includes(STThemeResources.defaultAccent)?STThemeResources.defaultAccent:colors[0];document.documentElement.dataset.accent=value;write('accent',value);applyAccent();document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});window.dispatchEvent(new Event('st:theme'));}
   setAccent(read('accent'));
+  function applyAccent(){var p=STThemeResources.palettes[document.documentElement.dataset.accent];if(!p)return;var c=p[document.documentElement.dataset.theme==='dark'?'dark':'light'],style=document.documentElement.style;Object.entries({'--accent':c.accent,'--accent-hover':c.accent,'--accent-soft':c.soft,'--selected':c.soft,'--selected-text':c.accent,'--on-accent':c.onAccent}).forEach(function(pair){style.setProperty(pair[0],pair[1]);});}
   function apply() {
     document.documentElement.dataset.theme = theme === 'auto' ? (media.matches ? 'dark' : 'light') : theme;
-    window.dispatchEvent(new Event('st:theme'));
+    applyAccent();window.dispatchEvent(new Event('st:theme'));
   }
   function setTheme(value) {
     theme = ['auto', 'light', 'dark'].indexOf(value) >= 0 ? value : 'auto';
@@ -26,7 +27,7 @@ window.STPreferences = (function() {
   apply();
   document.addEventListener('DOMContentLoaded', function() {
     var palette=document.getElementById('accent-palette');
-    colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;b.title=color;b.setAttribute('aria-label',color+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));
+    colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;b.title=color;b.style.background=STThemeResources.palettes[color].light.accent;b.style.color=STThemeResources.palettes[color].light.onAccent;b.setAttribute('aria-label',color+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));
     document.querySelectorAll('[data-theme-picker]').forEach(function(select) {
       select.value = theme;
       select.addEventListener('change', function() { setTheme(select.value); });

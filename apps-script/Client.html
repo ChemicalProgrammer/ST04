@@ -450,11 +450,10 @@ async function openCase(caseId) {
       STEquipmentDrag.bind(card,index,moveEquipment);
       var remove=equipmentField(card, '.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title=__ST_TEXT__('client.delete_equipment');remove.setAttribute('aria-label',__ST_TEXT__('client.delete_equipment'));
       equipmentField(card, '.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
-      var collapse = document.createElement('button');
-      collapse.type = 'button'; collapse.className = 'toggle-step secondary'; collapse.innerHTML = STIcons.svg('edit'); collapse.classList.add('icon-button');collapse.title=__ST_TEXT__('client.edit_equipment');collapse.setAttribute('aria-label',__ST_TEXT__('client.edit_equipment')); collapse.setAttribute('aria-expanded','false');
-      collapse.addEventListener('click', function() { STEquipmentInspector.select(card); });
-      card.addEventListener('click', function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
-      equipmentField(card, '.equipment-header .button-row').prepend(collapse);
+      card.tabIndex=0;
+      card.setAttribute('aria-label',__ST_TEXT__('inspector.select')+' '+equipment.name);
+      card.addEventListener('click',function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
+      card.addEventListener('keydown',function(event){if(event.target===card&&(event.key==='Enter'||event.key===' ')){event.preventDefault();STEquipmentInspector.select(card);}});
       equipmentField(card, '.equipment-type').addEventListener('change', function() {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);

@@ -16,6 +16,7 @@
     <?!= include_('DashboardStyles'); ?>
     <?!= include_('AssistantStyles'); ?>
     <?!= include_('SheetImportStyles'); ?>
+    <?!= include_('ThemeResources'); ?>
     <?!= include_('UiPreferences'); ?>
   </head>
   <body>
@@ -187,7 +188,7 @@
       </section>
 
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
-        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><button id="export-results" class="secondary" data-icon="download" disabled><?= __ST_TEXT__('view.export_json') ?></button></div>
+        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-results" class="ghost" disabled><?= __ST_TEXT__('exports.full_json') ?></button><button id="export-ai" class="ghost" disabled><?= __ST_TEXT__('exports.ai_json') ?></button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
         <div id="results-body" class="hidden"><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
         <h3><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
@@ -226,6 +227,7 @@
                 <p><?= __ST_TEXT__('view.the_recommendation_combines_this_run_s_losses_with_the_physical_conveyor_au') ?></p>
               </div>
             </div>
+            <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
             <div id="simulation-analysis-content" class="simulation-analysis-content"></div>
           </section>
       </section>
@@ -240,8 +242,7 @@
       </section>
       </div>
       <aside id="gemini-panel" class="gemini-panel hidden" aria-labelledby="gemini-title">
-        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="<?= __ST_TEXT__('inspector.resize') ?>" tabindex="0" title="<?= __ST_TEXT__('view.drag_to_resize_use_left_and_right_arrows') ?>"></div><header class="gemini-heading"><div><h2 id="gemini-title"><?= __ST_TEXT__('assistant.gemini') ?></h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="<?= __ST_TEXT__('inspector.collapse') ?>" title="<?= __ST_TEXT__('inspector.collapse') ?>"></button></header>
-        <div class="inspector-tabs" role="group" aria-label="<?= __ST_TEXT__('inspector.views') ?>"><button id="panel-equipment-tab" type="button" class="ghost" data-icon="edit"><?= __ST_TEXT__('inspector.equipment') ?></button><button id="panel-chat-tab" type="button" class="ghost" data-icon="chat"><?= __ST_TEXT__('assistant.gemini') ?></button></div>
+        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="<?= __ST_TEXT__('inspector.resize') ?>" tabindex="0" title="<?= __ST_TEXT__('view.drag_to_resize_use_left_and_right_arrows') ?>"></div><header class="gemini-heading"><div><h2 id="gemini-title"><?= __ST_TEXT__('assistant.gemini') ?></h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="collapseRight" aria-label="<?= __ST_TEXT__('inspector.collapse') ?>" title="<?= __ST_TEXT__('inspector.collapse') ?>"></button></header>
         <section id="equipment-inspector" class="hidden" aria-label="<?= __ST_TEXT__('inspector.equipment') ?>"></section>
         <div id="gemini-chat-view">
         <p id="gemini-notice" class="gemini-notice"><?= __ST_TEXT__('view.ask_about_the_saved_case_equipment_and_simulation_results') ?></p>
@@ -286,6 +287,8 @@
     <?!= include_('WhatIf'); ?>
     <?!= include_('Settings'); ?>
     <?!= include_('CaseGallery'); ?>
+    <?!= include_('ReportStyles'); ?>
+    <?!= include_('Reports'); ?>
     <?!= include_('Results'); ?>
     <?!= include_('LinePerformance'); ?>
     <?!= include_('Shell'); ?>

@@ -21,7 +21,7 @@ window.STShell = function(state,actions) {
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-public-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
-    if(view==='results') STResults.render(state.run.result,state.activeCase);
+    if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
   }
   function toast(message) {var el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.add('hidden');},4000);}

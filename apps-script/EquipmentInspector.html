@@ -5,7 +5,7 @@ window.STEquipmentInspector=(function(){
   function key(){return (state?.activeCase?.id||'')+':'+(state?.activeSimulationId||'');}
   function release(){
     var selection=selected?{id:selected._fields.querySelector('.equipment-id').value,opened:opened,context:context}:null;
-    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');selected.querySelector('.toggle-step').setAttribute('aria-expanded','false');}
+    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');}
     selected=null;return selection;
   }
   function restore(selection){
@@ -17,14 +17,12 @@ window.STEquipmentInspector=(function(){
     release();selected=card;context=key();opened=true;
     if(!card._helpReady){decorate(card);card._helpReady=true;}
     el('equipment-inspector').appendChild(card._fields);card.classList.add('equipment-selected');
-    card.querySelector('.toggle-step').setAttribute('aria-expanded','true');
     window.dispatchEvent(new Event('st:inspector'));
     if(focus!==false)el('equipment-inspector').querySelector('input,select,textarea')?.focus();
   }
   function sync(){
     if(context!==key()){release();opened=false;el('equipment-inspector').textContent='';}
     var visible=Boolean(opened&&selected&&state.activeCase&&state.uiView==='editor');
-    selected?.querySelector('.toggle-step').setAttribute('aria-expanded',String(visible));
     return visible;
   }
   function init(current,dirty){

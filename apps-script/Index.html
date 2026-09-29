@@ -142,82 +142,7 @@
 /* Canvas layout resources (unitless values are CSS pixels). */
 :root { --chart-pad-left: 46; --chart-pad-right: 16; --chart-pad-top: 22; --chart-pad-bottom: 32; --chart-label-top: 13; --chart-label-offset: 16; --chart-label-gap: 8; --chart-label-x: 38; --chart-time-label-width: 70; --chart-axis-stroke: 1; --chart-series-stroke: 1.8; --chart-spark-x: 2; --chart-spark-y: 4; }
 :root { --state-border-width:5px; --assistant-width:360px; --accent-swatch:28px; --on-swatch:#ffffff; }
-:root[data-theme="light"][data-accent="violet"] { --accent:#5656c9; --accent-hover:#5656c9; --accent-soft:#ededfc; --selected:#ededfc; --selected-text:#5656c9; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="violet"] { --accent:#a6a4ff; --accent-hover:#a6a4ff; --accent-soft:#2b2947; --selected:#2b2947; --selected-text:#a6a4ff; --on-accent:#16171b; }
-:root { --swatch-violet:#5656c9; }
-:root[data-theme="light"][data-accent="blue"] { --accent:#2563a9; --accent-hover:#2563a9; --accent-soft:#eaf2fc; --selected:#eaf2fc; --selected-text:#2563a9; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="blue"] { --accent:#8bb9f0; --accent-hover:#8bb9f0; --accent-soft:#223149; --selected:#223149; --selected-text:#8bb9f0; --on-accent:#16171b; }
-:root { --swatch-blue:#2563a9; }
-:root[data-theme="light"][data-accent="teal"] { --accent:#14766d; --accent-hover:#14766d; --accent-soft:#e6f5f1; --selected:#e6f5f1; --selected-text:#14766d; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="teal"] { --accent:#7bd4c8; --accent-hover:#7bd4c8; --accent-soft:#203b37; --selected:#203b37; --selected-text:#7bd4c8; --on-accent:#16171b; }
-:root { --swatch-teal:#14766d; }
-:root[data-theme="light"][data-accent="green"] { --accent:#287447; --accent-hover:#287447; --accent-soft:#eaf5ee; --selected:#eaf5ee; --selected-text:#287447; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="green"] { --accent:#8dd5a6; --accent-hover:#8dd5a6; --accent-soft:#20372c; --selected:#20372c; --selected-text:#8dd5a6; --on-accent:#16171b; }
-:root { --swatch-green:#287447; }
-:root[data-theme="light"][data-accent="amber"] { --accent:#875900; --accent-hover:#875900; --accent-soft:#fff5df; --selected:#fff5df; --selected-text:#875900; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="amber"] { --accent:#e7bd6a; --accent-hover:#e7bd6a; --accent-soft:#3a3020; --selected:#3a3020; --selected-text:#e7bd6a; --on-accent:#16171b; }
-:root { --swatch-amber:#875900; }
-:root[data-theme="light"][data-accent="rose"] { --accent:#ad355f; --accent-hover:#ad355f; --accent-soft:#fcecf2; --selected:#fcecf2; --selected-text:#ad355f; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="rose"] { --accent:#ef9aba; --accent-hover:#ef9aba; --accent-soft:#3e2531; --selected:#3e2531; --selected-text:#ef9aba; --on-accent:#16171b; }
-:root { --swatch-rose:#ad355f; }
 
-:root[data-theme="light"][data-accent="red"] { --accent:#832121; --accent-hover:#832121; --accent-soft:#faebeb; --selected:#faebeb; --selected-text:#832121; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="red"] { --accent:#e79d9d; --accent-hover:#e79d9d; --accent-soft:#362121; --selected:#362121; --selected-text:#e79d9d; --on-accent:#16171b; }
-:root { --swatch-red:#832121; }
-:root[data-theme="light"][data-accent="coral"] { --accent:#833421; --accent-hover:#833421; --accent-soft:#faeeeb; --selected:#faeeeb; --selected-text:#833421; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="coral"] { --accent:#e7ac9d; --accent-hover:#e7ac9d; --accent-soft:#362521; --selected:#362521; --selected-text:#e7ac9d; --on-accent:#16171b; }
-:root { --swatch-coral:#833421; }
-:root[data-theme="light"][data-accent="orange"] { --accent:#834821; --accent-hover:#834821; --accent-soft:#faf1eb; --selected:#faf1eb; --selected-text:#834821; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="orange"] { --accent:#e7ba9d; --accent-hover:#e7ba9d; --accent-soft:#362921; --selected:#362921; --selected-text:#e7ba9d; --on-accent:#16171b; }
-:root { --swatch-orange:#834821; }
-:root[data-theme="light"][data-accent="copper"] { --accent:#835221; --accent-hover:#835221; --accent-soft:#faf2eb; --selected:#faf2eb; --selected-text:#835221; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="copper"] { --accent:#e7c29d; --accent-hover:#e7c29d; --accent-soft:#362b21; --selected:#362b21; --selected-text:#e7c29d; --on-accent:#16171b; }
-:root { --swatch-copper:#835221; }
-:root[data-theme="light"][data-accent="gold"] { --accent:#836a21; --accent-hover:#836a21; --accent-soft:#faf6eb; --selected:#faf6eb; --selected-text:#836a21; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="gold"] { --accent:#e7d49d; --accent-hover:#e7d49d; --accent-soft:#363121; --selected:#363121; --selected-text:#e7d49d; --on-accent:#16171b; }
-:root { --swatch-gold:#836a21; }
-:root[data-theme="light"][data-accent="olive"] { --accent:#7a8321; --accent-hover:#7a8321; --accent-soft:#f9faeb; --selected:#f9faeb; --selected-text:#7a8321; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="olive"] { --accent:#e0e79d; --accent-hover:#e0e79d; --accent-soft:#343621; --selected:#343621; --selected-text:#e0e79d; --on-accent:#16171b; }
-:root { --swatch-olive:#7a8321; }
-:root[data-theme="light"][data-accent="lime"] { --accent:#5a8321; --accent-hover:#5a8321; --accent-soft:#f4faeb; --selected:#f4faeb; --selected-text:#5a8321; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="lime"] { --accent:#c8e79d; --accent-hover:#c8e79d; --accent-soft:#2d3621; --selected:#2d3621; --selected-text:#c8e79d; --on-accent:#16171b; }
-:root { --swatch-lime:#5a8321; }
-:root[data-theme="light"][data-accent="forest"] { --accent:#218341; --accent-hover:#218341; --accent-soft:#ebfaf0; --selected:#ebfaf0; --selected-text:#218341; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="forest"] { --accent:#9de7b6; --accent-hover:#9de7b6; --accent-soft:#213628; --selected:#213628; --selected-text:#9de7b6; --on-accent:#16171b; }
-:root { --swatch-forest:#218341; }
-:root[data-theme="light"][data-accent="mint"] { --accent:#218362; --accent-hover:#218362; --accent-soft:#ebfaf5; --selected:#ebfaf5; --selected-text:#218362; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="mint"] { --accent:#9de7ce; --accent-hover:#9de7ce; --accent-soft:#21362f; --selected:#21362f; --selected-text:#9de7ce; --on-accent:#16171b; }
-:root { --swatch-mint:#218362; }
-:root[data-theme="light"][data-accent="aqua"] { --accent:#21837a; --accent-hover:#21837a; --accent-soft:#ebfaf9; --selected:#ebfaf9; --selected-text:#21837a; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="aqua"] { --accent:#9de7e0; --accent-hover:#9de7e0; --accent-soft:#213634; --selected:#213634; --selected-text:#9de7e0; --on-accent:#16171b; }
-:root { --swatch-aqua:#21837a; }
-:root[data-theme="light"][data-accent="cyan"] { --accent:#217283; --accent-hover:#217283; --accent-soft:#ebf7fa; --selected:#ebf7fa; --selected-text:#217283; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="cyan"] { --accent:#9ddae7; --accent-hover:#9ddae7; --accent-soft:#213236; --selected:#213236; --selected-text:#9ddae7; --on-accent:#16171b; }
-:root { --swatch-cyan:#217283; }
-:root[data-theme="light"][data-accent="sky"] { --accent:#215a83; --accent-hover:#215a83; --accent-soft:#ebf4fa; --selected:#ebf4fa; --selected-text:#215a83; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="sky"] { --accent:#9dc8e7; --accent-hover:#9dc8e7; --accent-soft:#212d36; --selected:#212d36; --selected-text:#9dc8e7; --on-accent:#16171b; }
-:root { --swatch-sky:#215a83; }
-:root[data-theme="light"][data-accent="cobalt"] { --accent:#214183; --accent-hover:#214183; --accent-soft:#ebf0fa; --selected:#ebf0fa; --selected-text:#214183; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="cobalt"] { --accent:#9db6e7; --accent-hover:#9db6e7; --accent-soft:#212836; --selected:#212836; --selected-text:#9db6e7; --on-accent:#16171b; }
-:root { --swatch-cobalt:#214183; }
-:root[data-theme="light"][data-accent="indigo"] { --accent:#212183; --accent-hover:#212183; --accent-soft:#ebebfa; --selected:#ebebfa; --selected-text:#212183; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="indigo"] { --accent:#9d9de7; --accent-hover:#9d9de7; --accent-soft:#212136; --selected:#212136; --selected-text:#9d9de7; --on-accent:#16171b; }
-:root { --swatch-indigo:#212183; }
-:root[data-theme="light"][data-accent="purple"] { --accent:#522183; --accent-hover:#522183; --accent-soft:#f2ebfa; --selected:#f2ebfa; --selected-text:#522183; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="purple"] { --accent:#c29de7; --accent-hover:#c29de7; --accent-soft:#2b2136; --selected:#2b2136; --selected-text:#c29de7; --on-accent:#16171b; }
-:root { --swatch-purple:#522183; }
-:root[data-theme="light"][data-accent="plum"] { --accent:#6a2183; --accent-hover:#6a2183; --accent-soft:#f6ebfa; --selected:#f6ebfa; --selected-text:#6a2183; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="plum"] { --accent:#d49de7; --accent-hover:#d49de7; --accent-soft:#312136; --selected:#312136; --selected-text:#d49de7; --on-accent:#16171b; }
-:root { --swatch-plum:#6a2183; }
-:root[data-theme="light"][data-accent="magenta"] { --accent:#83217a; --accent-hover:#83217a; --accent-soft:#faebf9; --selected:#faebf9; --selected-text:#83217a; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="magenta"] { --accent:#e79de0; --accent-hover:#e79de0; --accent-soft:#362134; --selected:#362134; --selected-text:#e79de0; --on-accent:#16171b; }
-:root { --swatch-magenta:#83217a; }
-:root[data-theme="light"][data-accent="pink"] { --accent:#83215a; --accent-hover:#83215a; --accent-soft:#faebf4; --selected:#faebf4; --selected-text:#83215a; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="pink"] { --accent:#e79dc8; --accent-hover:#e79dc8; --accent-soft:#36212d; --selected:#36212d; --selected-text:#e79dc8; --on-accent:#16171b; }
-:root { --swatch-pink:#83215a; }
-:root[data-theme="light"][data-accent="slate"] { --accent:#434f60; --accent-hover:#434f60; --accent-soft:#f0f2f5; --selected:#f0f2f5; --selected-text:#434f60; --on-accent:#ffffff; }
-:root[data-theme="dark"][data-accent="slate"] { --accent:#b7c0cd; --accent-hover:#b7c0cd; --accent-soft:#212a36; --selected:#212a36; --selected-text:#b7c0cd; --on-accent:#16171b; }
-:root { --swatch-slate:#434f60; }
 </style>
     <!-- DejaVu Sans subset. Embedded; no network request.
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
@@ -323,31 +248,6 @@ select { appearance:none; padding-right:var(--space-8); background-image:url("da
 .accent-choice { width:var(--accent-swatch); height:var(--accent-swatch); min-height:0; padding:0; border-radius:var(--radius-pill); color:var(--on-accent); }
 .accent-choice svg { visibility:hidden; } .accent-choice[aria-pressed=true] svg { visibility:visible; }
 .gemini-settings { border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-4); min-width:0; }
-.accent-choice[data-accent=violet] { background:var(--swatch-violet); color:var(--on-swatch); }
-.accent-choice[data-accent=blue] { background:var(--swatch-blue); color:var(--on-swatch); }
-.accent-choice[data-accent=teal] { background:var(--swatch-teal); color:var(--on-swatch); }
-.accent-choice[data-accent=green] { background:var(--swatch-green); color:var(--on-swatch); }
-.accent-choice[data-accent=amber] { background:var(--swatch-amber); color:var(--on-swatch); }
-.accent-choice[data-accent=rose] { background:var(--swatch-rose); color:var(--on-swatch); }
-.accent-choice[data-accent=red] { background:var(--swatch-red); color:var(--on-swatch); }
-.accent-choice[data-accent=coral] { background:var(--swatch-coral); color:var(--on-swatch); }
-.accent-choice[data-accent=orange] { background:var(--swatch-orange); color:var(--on-swatch); }
-.accent-choice[data-accent=copper] { background:var(--swatch-copper); color:var(--on-swatch); }
-.accent-choice[data-accent=gold] { background:var(--swatch-gold); color:var(--on-swatch); }
-.accent-choice[data-accent=olive] { background:var(--swatch-olive); color:var(--on-swatch); }
-.accent-choice[data-accent=lime] { background:var(--swatch-lime); color:var(--on-swatch); }
-.accent-choice[data-accent=forest] { background:var(--swatch-forest); color:var(--on-swatch); }
-.accent-choice[data-accent=mint] { background:var(--swatch-mint); color:var(--on-swatch); }
-.accent-choice[data-accent=aqua] { background:var(--swatch-aqua); color:var(--on-swatch); }
-.accent-choice[data-accent=cyan] { background:var(--swatch-cyan); color:var(--on-swatch); }
-.accent-choice[data-accent=sky] { background:var(--swatch-sky); color:var(--on-swatch); }
-.accent-choice[data-accent=cobalt] { background:var(--swatch-cobalt); color:var(--on-swatch); }
-.accent-choice[data-accent=indigo] { background:var(--swatch-indigo); color:var(--on-swatch); }
-.accent-choice[data-accent=purple] { background:var(--swatch-purple); color:var(--on-swatch); }
-.accent-choice[data-accent=plum] { background:var(--swatch-plum); color:var(--on-swatch); }
-.accent-choice[data-accent=magenta] { background:var(--swatch-magenta); color:var(--on-swatch); }
-.accent-choice[data-accent=pink] { background:var(--swatch-pink); color:var(--on-swatch); }
-.accent-choice[data-accent=slate] { background:var(--swatch-slate); color:var(--on-swatch); }
 </style>
     <style>
   .field-grid, .equipment-grid { display: grid; gap: var(--size-12); grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -401,13 +301,13 @@ select { appearance:none; padding-right:var(--space-8); background-image:url("da
 #json-help-code { min-height:var(--size-260); }
 #json-help-fields dt { font-family:var(--font-mono); font-weight:var(--weight-medium); overflow-wrap:anywhere; }
 #json-help-fields dd { margin:var(--space-1) 0 var(--space-3); color:var(--muted); }
-.inspector-tabs { display:flex; flex-shrink:0; gap:var(--space-2); border-bottom:var(--border-width) solid var(--line); padding-bottom:var(--space-2); }
-.inspector-tabs [aria-pressed=true] { background:var(--accent-soft); color:var(--accent); }
 #gemini-chat-view { display:flex; flex-direction:column; flex:1; min-height:0; gap:var(--space-3); }
 
 .equipment-sorting { transition:transform var(--duration-normal) var(--ease); will-change:transform; }
 .equipment-dragging { position:relative; z-index:var(--z-header); transition:none; cursor:grabbing; box-shadow:var(--shadow-dialog); }
 @media(prefers-reduced-motion:reduce) { .equipment-sorting { transition:none; } }
+.equipment-card { cursor:pointer; }
+.equipment-card:focus-visible { outline:var(--focus-width) solid var(--accent); outline-offset:var(--space-1); }
 </style>
     <style>
   .run-config { margin-top: var(--size-20); }
@@ -587,6 +487,13 @@ select { appearance:none; padding-right:var(--space-8); background-image:url("da
   .analysis-capex[data-tier="ZERO"] { color: var(--capex-zero); background: var(--capex-zero-bg); }
   .analysis-capex[data-tier="MEDIUM"] { color: var(--capex-medium); background: var(--capex-medium-bg); }
   .analysis-capex[data-tier="HIGH"] { color: var(--capex-high); background: var(--capex-high-bg); }
+
+.export-menu { display:inline-block; position:relative; margin-bottom:var(--space-3); }
+.export-menu summary { cursor:pointer; display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); font-weight:var(--weight-medium); }
+.export-menu>div { position:absolute; right:0; min-width:var(--size-220); padding:var(--space-2); display:grid; gap:var(--space-1); background:var(--surface); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); z-index:var(--z-overlay); box-shadow:var(--shadow-dialog); }
+.export-menu button { text-align:left; justify-content:flex-start; }
+.scenario-change { margin:var(--space-3) 0; padding-bottom:var(--space-3); border-bottom:var(--border-width) solid var(--line); }
+.scenario-change code { overflow-wrap:anywhere; font-size:var(--font-caption); }
 </style>
     <style>
 .app-shell { width: 100%; min-height: 100vh; padding: 0; }
@@ -818,6 +725,314 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .sheet-correction p { margin:var(--space-2) 0; }
 </style>
     <script>
+// Add or remove an entry here to update Settings and both theme variants.
+window.STThemeResources = {
+  "defaultAccent": "violet",
+  "palettes": {
+    "violet": {
+      "light": {
+        "accent": "#5656c9",
+        "soft": "#ededfc",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#a6a4ff",
+        "soft": "#2b2947",
+        "onAccent": "#16171b"
+      }
+    },
+    "blue": {
+      "light": {
+        "accent": "#2563a9",
+        "soft": "#eaf2fc",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#8bb9f0",
+        "soft": "#223149",
+        "onAccent": "#16171b"
+      }
+    },
+    "teal": {
+      "light": {
+        "accent": "#14766d",
+        "soft": "#e6f5f1",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#7bd4c8",
+        "soft": "#203b37",
+        "onAccent": "#16171b"
+      }
+    },
+    "green": {
+      "light": {
+        "accent": "#287447",
+        "soft": "#eaf5ee",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#8dd5a6",
+        "soft": "#20372c",
+        "onAccent": "#16171b"
+      }
+    },
+    "amber": {
+      "light": {
+        "accent": "#875900",
+        "soft": "#fff5df",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e7bd6a",
+        "soft": "#3a3020",
+        "onAccent": "#16171b"
+      }
+    },
+    "rose": {
+      "light": {
+        "accent": "#ad355f",
+        "soft": "#fcecf2",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#ef9aba",
+        "soft": "#3e2531",
+        "onAccent": "#16171b"
+      }
+    },
+    "red": {
+      "light": {
+        "accent": "#832121",
+        "soft": "#faebeb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e79d9d",
+        "soft": "#362121",
+        "onAccent": "#16171b"
+      }
+    },
+    "coral": {
+      "light": {
+        "accent": "#833421",
+        "soft": "#faeeeb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e7ac9d",
+        "soft": "#362521",
+        "onAccent": "#16171b"
+      }
+    },
+    "orange": {
+      "light": {
+        "accent": "#834821",
+        "soft": "#faf1eb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e7ba9d",
+        "soft": "#362921",
+        "onAccent": "#16171b"
+      }
+    },
+    "copper": {
+      "light": {
+        "accent": "#835221",
+        "soft": "#faf2eb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e7c29d",
+        "soft": "#362b21",
+        "onAccent": "#16171b"
+      }
+    },
+    "gold": {
+      "light": {
+        "accent": "#836a21",
+        "soft": "#faf6eb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e7d49d",
+        "soft": "#363121",
+        "onAccent": "#16171b"
+      }
+    },
+    "olive": {
+      "light": {
+        "accent": "#7a8321",
+        "soft": "#f9faeb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e0e79d",
+        "soft": "#343621",
+        "onAccent": "#16171b"
+      }
+    },
+    "lime": {
+      "light": {
+        "accent": "#5a8321",
+        "soft": "#f4faeb",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#c8e79d",
+        "soft": "#2d3621",
+        "onAccent": "#16171b"
+      }
+    },
+    "forest": {
+      "light": {
+        "accent": "#218341",
+        "soft": "#ebfaf0",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9de7b6",
+        "soft": "#213628",
+        "onAccent": "#16171b"
+      }
+    },
+    "mint": {
+      "light": {
+        "accent": "#218362",
+        "soft": "#ebfaf5",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9de7ce",
+        "soft": "#21362f",
+        "onAccent": "#16171b"
+      }
+    },
+    "aqua": {
+      "light": {
+        "accent": "#21837a",
+        "soft": "#ebfaf9",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9de7e0",
+        "soft": "#213634",
+        "onAccent": "#16171b"
+      }
+    },
+    "cyan": {
+      "light": {
+        "accent": "#217283",
+        "soft": "#ebf7fa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9ddae7",
+        "soft": "#213236",
+        "onAccent": "#16171b"
+      }
+    },
+    "sky": {
+      "light": {
+        "accent": "#215a83",
+        "soft": "#ebf4fa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9dc8e7",
+        "soft": "#212d36",
+        "onAccent": "#16171b"
+      }
+    },
+    "cobalt": {
+      "light": {
+        "accent": "#214183",
+        "soft": "#ebf0fa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9db6e7",
+        "soft": "#212836",
+        "onAccent": "#16171b"
+      }
+    },
+    "indigo": {
+      "light": {
+        "accent": "#212183",
+        "soft": "#ebebfa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#9d9de7",
+        "soft": "#212136",
+        "onAccent": "#16171b"
+      }
+    },
+    "purple": {
+      "light": {
+        "accent": "#522183",
+        "soft": "#f2ebfa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#c29de7",
+        "soft": "#2b2136",
+        "onAccent": "#16171b"
+      }
+    },
+    "plum": {
+      "light": {
+        "accent": "#6a2183",
+        "soft": "#f6ebfa",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#d49de7",
+        "soft": "#312136",
+        "onAccent": "#16171b"
+      }
+    },
+    "magenta": {
+      "light": {
+        "accent": "#83217a",
+        "soft": "#faebf9",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e79de0",
+        "soft": "#362134",
+        "onAccent": "#16171b"
+      }
+    },
+    "pink": {
+      "light": {
+        "accent": "#83215a",
+        "soft": "#faebf4",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#e79dc8",
+        "soft": "#36212d",
+        "onAccent": "#16171b"
+      }
+    },
+    "slate": {
+      "light": {
+        "accent": "#434f60",
+        "soft": "#f0f2f5",
+        "onAccent": "#ffffff"
+      },
+      "dark": {
+        "accent": "#b7c0cd",
+        "soft": "#212a36",
+        "onAccent": "#16171b"
+      }
+    }
+  }
+};
+</script>
+    <script>
 // Browser preferences only. Google identity is ALWAYS verified by the server.
 window.STPreferences = (function() {
   var key = 'st.ui.v1.';
@@ -829,12 +1044,13 @@ window.STPreferences = (function() {
   if (read('remember') === 'yes') document.documentElement.classList.add('restoring-session');
   var media = window.matchMedia('(prefers-color-scheme: dark)');
   var theme = read('theme') || 'light';
-  var colors=['violet','blue','teal','green','amber','rose','red','coral','orange','copper','gold','olive','lime','forest','mint','aqua','cyan','sky','cobalt','indigo','purple','plum','magenta','pink','slate'];
-  function setAccent(value){if(!colors.includes(value))value='violet';document.documentElement.dataset.accent=value;write('accent',value);document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});window.dispatchEvent(new Event('st:theme'));}
+  var colors=Object.keys(STThemeResources.palettes);
+  function setAccent(value){if(!colors.includes(value))value=colors.includes(STThemeResources.defaultAccent)?STThemeResources.defaultAccent:colors[0];document.documentElement.dataset.accent=value;write('accent',value);applyAccent();document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});window.dispatchEvent(new Event('st:theme'));}
   setAccent(read('accent'));
+  function applyAccent(){var p=STThemeResources.palettes[document.documentElement.dataset.accent];if(!p)return;var c=p[document.documentElement.dataset.theme==='dark'?'dark':'light'],style=document.documentElement.style;Object.entries({'--accent':c.accent,'--accent-hover':c.accent,'--accent-soft':c.soft,'--selected':c.soft,'--selected-text':c.accent,'--on-accent':c.onAccent}).forEach(function(pair){style.setProperty(pair[0],pair[1]);});}
   function apply() {
     document.documentElement.dataset.theme = theme === 'auto' ? (media.matches ? 'dark' : 'light') : theme;
-    window.dispatchEvent(new Event('st:theme'));
+    applyAccent();window.dispatchEvent(new Event('st:theme'));
   }
   function setTheme(value) {
     theme = ['auto', 'light', 'dark'].indexOf(value) >= 0 ? value : 'auto';
@@ -845,7 +1061,7 @@ window.STPreferences = (function() {
   apply();
   document.addEventListener('DOMContentLoaded', function() {
     var palette=document.getElementById('accent-palette');
-    colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;b.title=color;b.setAttribute('aria-label',color+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));
+    colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;b.title=color;b.style.background=STThemeResources.palettes[color].light.accent;b.style.color=STThemeResources.palettes[color].light.onAccent;b.setAttribute('aria-label',color+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));
     document.querySelectorAll('[data-theme-picker]').forEach(function(select) {
       select.value = theme;
       select.addEventListener('change', function() { setTheme(select.value); });
@@ -1024,7 +1240,7 @@ window.STPreferences = (function() {
       </section>
 
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
-        <div class="section-heading"><div><p class="eyebrow">PERFORMANCE</p><h2 id="results-title">Run results</h2><p id="results-meta">Complete a simulation to inspect the results.</p></div><button id="export-results" class="secondary" data-icon="download" disabled>Export JSON</button></div>
+        <div class="section-heading"><div><p class="eyebrow">PERFORMANCE</p><h2 id="results-title">Run results</h2><p id="results-meta">Complete a simulation to inspect the results.</p></div><details class="export-menu"><summary data-icon="download">Export</summary><div><button id="export-results" class="ghost" disabled>Full results · JSON</button><button id="export-ai" class="ghost" disabled>AI context · compact JSON</button><button id="export-results-html" class="ghost" disabled>HTML report</button><button id="export-results-pdf" class="ghost" disabled>PDF / Print</button></div></details></div>
         <div id="results-empty" class="empty"><h3>No results yet</h3><p>Run this simulation to inspect production, losses and equipment performance.</p><button data-view="simulation" data-icon="play">Go to simulation</button></div>
         <div id="results-body" class="hidden"><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
         <h3>Equipment comparison</h3><div id="results-table" class="table-scroll"></div>
@@ -1063,6 +1279,7 @@ window.STPreferences = (function() {
                 <p>Review zero, medium and high CAPEX options. Evidence labels distinguish static design inputs from dynamic run results. Each action creates a separate simulation.</p>
               </div>
             </div>
+            <details class="export-menu"><summary data-icon="download">Export</summary><div><button id="export-whatif-html" class="ghost" disabled>HTML report</button><button id="export-whatif-pdf" class="ghost" disabled>PDF / Print</button></div></details>
             <div id="simulation-analysis-content" class="simulation-analysis-content"></div>
           </section>
       </section>
@@ -1077,8 +1294,7 @@ window.STPreferences = (function() {
       </section>
       </div>
       <aside id="gemini-panel" class="gemini-panel hidden" aria-labelledby="gemini-title">
-        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="Resize right panel" tabindex="0" title="Drag to resize; use Left and Right arrows"></div><header class="gemini-heading"><div><h2 id="gemini-title">Gemini</h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="chevron" aria-label="Collapse right panel" title="Collapse right panel"></button></header>
-        <div class="inspector-tabs" role="group" aria-label="Right panel views"><button id="panel-equipment-tab" type="button" class="ghost" data-icon="edit">Equipment</button><button id="panel-chat-tab" type="button" class="ghost" data-icon="chat">Gemini</button></div>
+        <div id="gemini-resize" role="separator" aria-orientation="vertical" aria-label="Resize right panel" tabindex="0" title="Drag to resize; use Left and Right arrows"></div><header class="gemini-heading"><div><h2 id="gemini-title">Gemini</h2><span id="gemini-context" class="chart-note"></span></div><button id="close-gemini" class="ghost icon-button" data-icon="collapseRight" aria-label="Collapse right panel" title="Collapse right panel"></button></header>
         <section id="equipment-inspector" class="hidden" aria-label="Equipment"></section>
         <div id="gemini-chat-view">
         <p id="gemini-notice" class="gemini-notice">Ask about the saved case, equipment and simulation results.</p>
@@ -3382,6 +3598,7 @@ window.STIcons = (function() {
     pause:'M8 4v16M16 4v16', stop:'M5 5h14v14H5Z', refresh:'M20 8a8 8 0 1 0 0 8m0-13v5h-5',
     info:'M12 11v6m0-10v1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0', warning:'m12 3 10 18H2ZM12 9v5m0 3v1',
     check:'m5 12 4 4L19 6', x:'m6 6 12 12M6 18 18 6', collapse:'M3 4h18v16H3Zm5 0v16m8-12-4 4 4 4', expand:'M3 4h18v16H3Zm5 0v16m4-12 4 4-4 4',
+    collapseRight:'M3 4h18v16H3Zm13 0v16m-8-12 4 4-4 4', expandRight:'M3 4h18v16H3Zm13 0v16m-4-12-4 4 4 4',
     lock:'M6 10h12v11H6Zm3 0V6a3 3 0 0 1 6 0v4', command:'M9 7v10a3 3 0 1 1-3-3h12a3 3 0 1 1-3 3V7a3 3 0 1 1 3 3H6a3 3 0 1 1 3-3',
     list:'M8 6h13M8 12h13M8 18h13M3 6h1m-1 6h1m-1 6h1', grid:'M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z',
     save:'M4 3h13l4 4v14H3V3Zm3 0v6h9V3M7 21v-8h10v8', chevron:'m9 5 7 7-7 7', sun:'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1'
@@ -3495,14 +3712,14 @@ window.STAutosave = function(options) {
 window.STWhatIf = (function() {
   function node(tag,text,className){var element=document.createElement(tag);element.textContent=text||'';if(className)element.className=className;return element;}
   function label(key){return window.STScenarioText[key]||key;}
-  function card(project,create){
+  function card(project,create,equipment){
     var item=node('article','','analysis-recommendation');
     item.append(node('span',label(project.tier),'analysis-capex'),node('span',label(project.basis),'badge'),node('h4',project.title||label(project.titleKey)));
     item.querySelector('.analysis-capex').dataset.tier=project.tier;
     if(project.equipmentName)item.appendChild(node('p',project.equipmentName));
     if(project.description)item.appendChild(node('p',project.description));
-    var changes=node('ul','','scenario-changes');
-    project.changes.forEach(function(change){changes.appendChild(node('li',change.equipmentId+' · '+change.path+': '+(change.before??'—')+' → '+change.after+' '+(change.unit||'')));});item.appendChild(changes);
+    var changes=node('div','','scenario-changes');
+    project.changes.forEach(function(change){var info=changeInfo(change,equipment),row=node('section','','scenario-change');row.append(node('strong',info.equipment+' · '+info.parameter),node('p',"Current"+': '+info.before+' → '+"Proposed"+': '+info.after),node('p',info.explanation,'chart-note'));var path=node('details');path.append(node('summary',"Technical field"),node('code',change.path));row.append(path);changes.append(row);});item.appendChild(changes);
     if(project.evidence){var evidence=node('details','','analysis-checks');evidence.appendChild(node('summary',"Evidence"));var list=node('ul');Object.entries(project.evidence).forEach(function(pair){if(pair[1]!==null)list.appendChild(node('li',label(pair[0])+': '+(typeof pair[1]==='number'?Number(pair[1].toFixed(3)):pair[1])));});evidence.appendChild(list);item.appendChild(evidence);}
     item.appendChild(node('p',"Expected direction is a hypothesis. Numerical OEE, throughput and loss improvements require a new run and comparison.",'chart-note'));
     if(project.canApply){var button=node('button',"Create scenario");button.type='button';button.insertAdjacentHTML('afterbegin',STIcons.svg('plus'));button.onclick=function(){create(project,button);};item.appendChild(button);}
@@ -3511,12 +3728,30 @@ window.STWhatIf = (function() {
   }
   function render(simulation,target,create){
     var plan=STScenarios.plan(simulation);target.textContent='';var grid=node('div','','scenario-grid');
-    plan.projects.forEach(function(p){grid.appendChild(card(p,create));});target.appendChild(grid);
+    var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment));});target.appendChild(grid);
+    if(!proposals.length)target.appendChild(node('p',"No supported changes were found with the available evidence. Review the engineering checks or run the simulation to add dynamic evidence.",'empty'));
+    STReports.bindWhatIf(simulation,plan,proposals);
     var checks=node('details','','analysis-checks');checks.appendChild(node('summary',"Design checks and missing inputs"));
     checks.appendChild(node('p',"These checks implement the supplied design brief where inputs exist; they do not certify handbook compliance. CAPEX levels describe intervention scale, not a cost estimate or financial return. Buffer coverage uses the adjacent upstream machine's MTTR for microstops up to 4 minutes. Unmodeled turn losses, filled-container diameter and PLC desired-state behavior are not assumed.",'chart-note'));
     var list=node('ul');plan.checks.forEach(function(check){list.appendChild(node('li',(check.equipmentId?check.equipmentId+' · ':'')+label(check.rule)+': '+label(check.status)+(check.coverage!=null?' ('+check.coverage.toFixed(2)+'× MTTR)':'')));});checks.appendChild(list);target.appendChild(checks);
   }
-  return {render:render,card:card};
+  function visibleProjects(plan){return plan.projects.filter(function(p){return p.changes?.length&&p.disabledReason!=='SCENARIO_INSUFFICIENT_EVIDENCE';});}
+  function changeInfo(change,equipment){
+    var field=fields[change.path],unit=change.unit||field?.[2]||'',equipmentName=(equipment||[]).find(function(e){return e.id===change.equipmentId;})?.name||change.equipmentId;
+    function value(v){return (v==null?"Not configured":String(v))+(unit?' '+unit:'');}
+    return {equipment:equipmentName,parameter:field?.[0]||change.path,before:value(change.before),after:value(change.after),explanation:field?.[1]||"Review this field in the equipment configuration before creating the scenario."};
+  }
+  var fields={
+    'processData.accumulation.conveyorSpeedFactorPercent':["Conveyor speed factor (%)","In Line Setup, select this conveyor and change Conveyor speed factor (%). This changes belt velocity relative to upstream discharge and therefore package spacing. Verify the drive can achieve the proposed setting.",'%'],
+    'processData.accumulation.blockedTimeDelaySeconds':["Back-up blocked delay (s)","In Line Setup, change Back-up blocked delay. This controls how long the sensor must remain blocked before requesting an upstream stop; the setting is checked against normal package pulse duration.",'s'],
+    'processData.accumulation.clearTimeDelaySeconds':["Back-up clear delay (s)","In Line Setup, change Back-up clear delay. This controls how long the sensor must remain clear before releasing the upstream stop; review it against normal inter-package gaps.",'s'],
+    'processData.accumulation.backupSensorPositionMm':["Installed Back-up position (mm)","In Line Setup, change Installed Back-up position. The distance is measured from the upstream discharge. This represents relocating the sensor to reserve the required overflow length.",'mm'],
+    'processData.geometry.lactMm':["Installed length L_act (mm)","In Line Setup, change Installed length (L_act). This represents a physical conveyor length change to support accumulation and recovery; verify layout space and feasibility.",'mm'],
+    'processData.geometry.lpPrimeMm':["Prime reserve L_p (mm)","In Line Setup, change Prime reserve (L_p). Review the corresponding sensor location and downstream startup requirement before applying the value.",'mm'],
+    'processData.accumulation.downstreamRampUpSeconds':["Downstream ramp-up (s)","In Line Setup, change Downstream ramp-up time. Confirm the machine and its controls can reach full speed within this proposed time.",'s'],
+    'processData.upstream.startupTimeSeconds':["Startup time (s)","In the equipment process JSON, change upstream.startupTimeSeconds. Confirm the actual control sequence can support the proposed startup time.",'s']
+  };
+  return {render:render,card:card,visibleProjects:visibleProjects,changeInfo:changeInfo};
 })();
 window.STScenarioText = {
   ZERO:"Zero CAPEX",MEDIUM:"Medium CAPEX / OPEX",HIGH:"High CAPEX",
@@ -3617,6 +3852,82 @@ window.STCaseGallery = (function() {
   return {render:render};
 })();
 </script>
+    <template id="report-style-template">
+:root { color-scheme:light; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
+body { font:var(--report-body)/1.5 var(--report-font); color:var(--report-ink); margin:0; background:white; }
+main { max-width:1100px; margin:auto; padding:24px; }
+h1 { font-size:var(--report-title); } h2 { font-size:var(--report-section); } h3 { font-size:var(--report-card); }
+p,summary { color:var(--report-muted); } section { margin:24px 0; }
+figure { margin:12px 0; break-inside:avoid; } figure img,figure svg { width:100%; height:auto; } figcaption { padding:8px 0; font-weight:600; }
+table { width:100%; border-collapse:collapse; margin:var(--report-space) 0; table-layout:fixed; }
+th,td { border-bottom:1px solid var(--report-line); padding:8px; text-align:left; overflow-wrap:anywhere; vertical-align:top; }
+th { background:var(--report-surface); } thead { display:table-header-group; } tr { break-inside:avoid; }
+h1,h2,h3,summary { break-after:avoid; }
+@page { size:A4 landscape; margin:12mm; }
+@media print { main { padding:0; max-width:none; } body { print-color-adjust:exact; } }
+</template>
+    <script>
+window.STReports=(function(){
+  var characterBudget=64000;
+  function escape(value){return String(value??'—').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function compact(value,depth){
+    if(value===null||typeof value==='boolean')return value;
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value==='string')return value.slice(0,180);
+    if(!value||Array.isArray(value)||depth<0)return undefined;
+    var out={};Object.keys(value).slice(0,48).forEach(function(k){if(['replay','events','samples','sourceImport','rows','commands','__proto__','constructor','prototype'].includes(k))return;var next=compact(value[k],depth-1);if(next!==undefined)out[k]=next;});return out;
+  }
+  function analysis(result,activeCase,simulation){
+    simulation=simulation||{equipment:activeCase.equipment,dynamicConfig:{}};
+    var equipment=simulation.equipment||activeCase.equipment||[],audit=STScenarios.audit?STScenarios.audit(simulation):[],plan=STScenarios.plan(Object.assign({},simulation,{equipment:equipment,results:result}));
+    var data={schema:'st-analysis-v1',engineVersion:result.engineVersion,case:compact({id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow},1),simulation:compact({id:simulation.id,name:simulation.name,seed:result.seed,durationSeconds:result.durationSeconds,tickSeconds:simulation.dynamicConfig?.tickSeconds,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow},1),summary:compact(result.summary,1),throughputPerMinute:result.durationSeconds>0?result.summary.outputCount/result.durationSeconds*60:null,equipment:[],proposals:[],coverage:{characterBudget:characterBudget,totalEquipment:equipment.length,includedEquipment:0,omittedEquipment:0,omittedProposals:0,replayIncluded:false,eventsIncluded:false,commandsIncluded:false,commandCount:simulation.dynamicConfig?.commands?.length||0},limitations:["Aggregates and selected inputs only; replay, event logs, command schedules and raw imports are excluded. Coverage reports omissions. Time metrics are seconds unless their field name states otherwise; nominal rates are units per second. Throughput is final output divided by full duration, multiplied by 60. Equipment loss totals may overlap in clock time and are not line downtime. Quality is assumed 100%; scenarios are untested proposals, not guaranteed gains. MTBF/MTTR are fixed plant inputs. The character limit is not a guarantee of compatibility with every model context window."]};
+    data.equipment=equipment.slice(0,500).map(function(e){var a=audit.find(function(x){return x.equipmentId===e.id;});return {id:String(e.id).slice(0,120),name:String(e.name).slice(0,120),type:e.type,nominalRatePerSecond:e.nominalRatePerSecond,initialMode:e.initialMode,criticalMachine:e.characteristics?.criticalMachine,processData:compact(e.processData,2),noiseProfile:compact(e.noiseProfile,2),metrics:compact(result.equipmentMetrics?.[e.id],1),accumulation:compact(Object.values(result.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),2),engineering:a?compact(a.engineering,2):undefined,checks:(a?.engineering?.audit?.goals||[]).map(function(g){return {id:g.id,status:g.status};})};});
+    var proposals=STWhatIf.visibleProjects(plan);data.proposals=proposals.map(function(p){return {title:p.title||STScenarioText[p.titleKey]||p.kind,tier:p.tier,basis:p.basis,equipmentId:p.equipmentId,changes:p.changes.map(function(c){return compact(c,0);}),evidence:compact(p.evidence,1)};});
+    function json(){data.coverage.includedEquipment=data.equipment.length;data.coverage.omittedEquipment=equipment.length-data.equipment.length;data.coverage.omittedProposals=proposals.length-data.proposals.length;return JSON.stringify(data);}
+    var text=json();while(text.length>characterBudget&&data.proposals.length){data.proposals.pop();text=json();}while(text.length>characterBudget&&data.equipment.length){data.equipment.pop();text=json();}
+    if(text.length>characterBudget)throw Error("The compact export exceeds the configured character budget.");
+    return text;
+  }
+  function download(text,name,type){var url=URL.createObjectURL(new Blob([text],{type:type})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+  function table(headers,rows){return '<table><thead><tr>'+headers.map(function(h){return '<th>'+escape(h)+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(row){return '<tr>'+row.map(function(c){return '<td>'+escape(c)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';}
+  function human(key){return key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' ');}
+  function value(v){return typeof v==='number'?Number(v.toFixed(4)):typeof v==='object'?JSON.stringify(v):v;}
+  function scalars(object,prefix){var rows=[];Object.entries(object||{}).forEach(function(pair){var path=prefix?prefix+'.'+pair[0]:pair[0];if(pair[1]&&typeof pair[1]==='object'&&!Array.isArray(pair[1]))rows=rows.concat(scalars(pair[1],path));else if(!Array.isArray(pair[1]))rows.push([human(path),value(pair[1])]);});return rows;}
+  function documentHtml(title,body){var css=document.getElementById('report-style-template').content.textContent;return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+'</style></head><body><main><h1>'+escape(title)+'</h1>'+body+'</main></body></html>';}
+  function chartsHtml(){
+    var surface=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(),html='';
+    [['simulation-chart',"Cumulative production"],['equipment-speed-chart',"Actual speed by equipment"]].forEach(function(pair){var canvas=document.getElementById(pair[0]);if(!canvas)return;try{var image=canvas.toDataURL('image/png');if(image&&image!=='data:,')html+='<figure><figcaption>'+escape(pair[1])+'</figcaption><img style="background:'+escape(surface)+'" src="'+image+'" alt="'+escape(pair[1])+'"></figure>';}catch(_){} });
+    var original=document.querySelector('#vgraph-plot svg');
+    if(original){var svg=original.cloneNode(true),from=[original].concat(Array.from(original.querySelectorAll('*'))),to=[svg].concat(Array.from(svg.querySelectorAll('*')));from.forEach(function(node,i){var style=getComputedStyle(node);['fill','stroke','stroke-width','font-size','font-family'].forEach(function(name){to[i].style.setProperty(name,style.getPropertyValue(name));});});html+='<figure style="background:'+escape(surface)+'">'+svg.outerHTML+'</figure>';}
+    return html;
+  }
+  function resultsHtml(result,activeCase,simulation){
+    var units=result.unitOfFlow||activeCase.unitOfFlow||'units';
+    var body='<p>'+escape(activeCase.name)+' · '+escape(simulation?.name||'')+'</p>';
+    body+=table(["Metric","Value"],[["Duration (seconds)",result.durationSeconds],["Random seed",result.seed],["Flow units",units],["Throughput"+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
+    body+='<p>'+escape("Throughput uses final equipment output over the complete run. Metric names specify seconds, counts, rates or percentages. Loss totals sum equipment time and can overlap; they are not elapsed line downtime. Quality is assumed 100%. The report includes configuration for interpretation, not replay or individual events.")+'</p>';
+    body+=chartsHtml();
+    body+='<h2>'+escape("Equipment results")+'</h2>';
+    (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){body+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table(["Metric","Value"],scalars(result.equipmentMetrics?.[e.id]||{}));body+='<details open><summary>'+escape("Configuration used for interpretation")+'</summary>'+table(["Parameter","Value"],scalars({nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</details></section>';});
+    Object.entries(result.accumulationZoneMetrics||{}).forEach(function(pair){body+='<section><h2>'+escape("Conveyor accumulation and sensors")+' · '+escape(pair[0])+'</h2>'+table(["Parameter","Value"],scalars(pair[1]))+'</section>';});
+    return documentHtml("Simulation results",body);
+  }
+  function whatIfHtml(simulation,plan){
+    var body='<p>'+escape(simulation.name)+'</p><p>'+escape("Expected direction is a hypothesis. Numerical OEE, throughput and loss improvements require a new run and comparison.")+'</p>';
+    STWhatIf.visibleProjects(plan).forEach(function(p){body+='<section><h2>'+escape(p.title||STScenarioText[p.titleKey]||p.kind)+'</h2><p>'+escape(STScenarioText[p.tier]||p.tier)+' · '+escape(STScenarioText[p.basis]||p.basis)+'</p><p>'+escape(p.description||'')+'</p>';
+      body+=table(["Equipment","Parameter","Current","Proposed","How to apply / purpose"],p.changes.map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
+      body+='<h3>'+escape("Evidence")+'</h3>'+table(["Parameter","Value"],scalars(p.evidence))+'</section>';
+    });
+    body+='<h2>'+escape("Design checks and missing inputs")+'</h2>'+table(["Equipment","Engineering check","Status"],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
+    return documentHtml("What-If proposals",body);
+  }
+  function pdf(html){var win=window.open('','_blank');if(!win){STDialog.open({message:"Allow pop-ups for this app, then export again. In the print dialog, select Save as PDF. You can also export the HTML report and print it from your browser."});return;}win.document.open();win.document.write(html);win.document.close();win.focus();win.setTimeout(function(){win.print();},250);}
+  function bind(id,enabled,action){var button=document.getElementById(id);if(!button)return;button.disabled=!enabled;button.onclick=function(){button.closest('details')?.removeAttribute('open');try{action();}catch(error){STDialog.open({message:error.message});}};}
+  function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
+  function bindWhatIf(simulation,plan,projects){bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
+  return {analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+})();
+</script>
     <script>
 // Presentation-only aggregation; all physical results are supplied by the engine.
 window.STResults=(function(){
@@ -3626,9 +3937,10 @@ window.STResults=(function(){
     ["Global OEE",s.lineOeePercent,'%',false],["Throughput",s.outputCount/result.durationSeconds*60,' '+(result.unitOfFlow||'units')+'/min',false],["Production",s.outputCount,' '+(result.unitOfFlow||'units'),false],
     ["Equipment downtime",downtime(result)," min",true],["Starving",s.totalStarvedSeconds/60," min",true],["Blocking",s.totalBlockedSeconds/60," min",true],["Failure time",s.totalFailureSeconds/60," min",true]
   ];}
-  function render(result,activeCase){
+  function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary);
     document.getElementById('results-empty').classList.toggle('hidden',ready);document.getElementById('results-body').classList.toggle('hidden',!ready);document.getElementById('export-results').disabled=!ready;
+    STReports.bindResults(result,activeCase,simulation);
     if(!ready){document.getElementById('results-meta').textContent="Complete a simulation to inspect the results.";return;}
     document.getElementById('results-meta').textContent=activeCase.name+" · Full run · "+result.durationSeconds+" s · Seed "+result.seed;
     var target=document.getElementById('results-kpis');target.textContent='';
@@ -3744,7 +4056,7 @@ window.STShell = function(state,actions) {
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-public-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
-    if(view==='results') STResults.render(state.run.result,state.activeCase);
+    if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
   }
   function toast(message) {var el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.add('hidden');},4000);}
@@ -4113,7 +4425,7 @@ window.STAssistant = function(state,actions) {
   }
   function render(){
     el('gemini-messages').textContent='';
-    messages.forEach(function(m){var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;var label=document.createElement('strong');label.textContent=m.role==='user'?'You':"Gemini";p.appendChild(label);p.appendChild(document.createTextNode(m.text));el('gemini-messages').appendChild(p);(m.proposals||[]).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario));});if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent="Compact context:"+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+" equipment included. Replay samples, event logs and raw Sheet rows excluded."+(m.historyOmitted?" Older messages omitted: "+m.historyOmitted:'');el('gemini-messages').appendChild(note);}});
+    messages.forEach(function(m){var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;var label=document.createElement('strong');label.textContent=m.role==='user'?'You':"Gemini";p.appendChild(label);p.appendChild(document.createTextNode(m.text));el('gemini-messages').appendChild(p);(m.proposals||[]).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment));});if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent="Compact context:"+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+" equipment included. Replay samples, event logs and raw Sheet rows excluded."+(m.historyOmitted?" Older messages omitted: "+m.historyOmitted:'');el('gemini-messages').appendChild(note);}});
     el('gemini-messages').scrollTop=el('gemini-messages').scrollHeight;
   }
   function reset(){progress('idle');sequence++;messages=[];pending=false;caseId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
@@ -4123,10 +4435,9 @@ window.STAssistant = function(state,actions) {
     var editing=STEquipmentInspector.sync();
     var visible=Boolean(active&&(opened||editing));
     el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
-    el('panel-equipment-tab').disabled=!STEquipmentInspector.available();
-    el('panel-equipment-tab').setAttribute('aria-pressed',String(editing));el('panel-chat-tab').setAttribute('aria-pressed',String(!editing));
     el('gemini-title').textContent=editing?"Equipment":"Gemini";
-    el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible));
+    el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
+    el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg(visible&&!editing?'collapseRight':'expandRight'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
     el('gemini-notice').textContent=pending?"Gemini is analyzing the case…":!configured?"Add your Gemini API key in Settings to ask questions.":state.isDirty?"Pending edits will be saved before sending your question.":"Context uses the selected simulation, aggregate results and physical design checks.";
@@ -4145,8 +4456,6 @@ window.STAssistant = function(state,actions) {
     el('close-gemini').onclick=function(){STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();window.dispatchEvent(new Event('resize'));});
-    el('panel-equipment-tab').onclick=function(){STEquipmentInspector.show();sync();};
-    el('panel-chat-tab').onclick=function(){STEquipmentInspector.hide();opened=true;sync();el('gemini-question').focus();};
     el('clear-gemini').onclick=function(){progress('idle');messages=[];render();el('gemini-error').textContent='';};
     el('gemini-form').onsubmit=async function(e){
       e.preventDefault();sync();if(el('send-gemini').disabled)return;
@@ -4202,7 +4511,7 @@ window.STEquipmentInspector=(function(){
   function key(){return (state?.activeCase?.id||'')+':'+(state?.activeSimulationId||'');}
   function release(){
     var selection=selected?{id:selected._fields.querySelector('.equipment-id').value,opened:opened,context:context}:null;
-    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');selected.querySelector('.toggle-step').setAttribute('aria-expanded','false');}
+    if(selected){selected.appendChild(selected._fields);selected.classList.remove('equipment-selected');}
     selected=null;return selection;
   }
   function restore(selection){
@@ -4214,14 +4523,12 @@ window.STEquipmentInspector=(function(){
     release();selected=card;context=key();opened=true;
     if(!card._helpReady){decorate(card);card._helpReady=true;}
     el('equipment-inspector').appendChild(card._fields);card.classList.add('equipment-selected');
-    card.querySelector('.toggle-step').setAttribute('aria-expanded','true');
     window.dispatchEvent(new Event('st:inspector'));
     if(focus!==false)el('equipment-inspector').querySelector('input,select,textarea')?.focus();
   }
   function sync(){
     if(context!==key()){release();opened=false;el('equipment-inspector').textContent='';}
     var visible=Boolean(opened&&selected&&state.activeCase&&state.uiView==='editor');
-    selected?.querySelector('.toggle-step').setAttribute('aria-expanded',String(visible));
     return visible;
   }
   function init(current,dirty){
@@ -4950,11 +5257,10 @@ async function openCase(caseId) {
       STEquipmentDrag.bind(card,index,moveEquipment);
       var remove=equipmentField(card, '.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title="Delete equipment";remove.setAttribute('aria-label',"Delete equipment");
       equipmentField(card, '.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
-      var collapse = document.createElement('button');
-      collapse.type = 'button'; collapse.className = 'toggle-step secondary'; collapse.innerHTML = STIcons.svg('edit'); collapse.classList.add('icon-button');collapse.title="Edit equipment";collapse.setAttribute('aria-label',"Edit equipment"); collapse.setAttribute('aria-expanded','false');
-      collapse.addEventListener('click', function() { STEquipmentInspector.select(card); });
-      card.addEventListener('click', function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
-      equipmentField(card, '.equipment-header .button-row').prepend(collapse);
+      card.tabIndex=0;
+      card.setAttribute('aria-label',"Select equipment"+' '+equipment.name);
+      card.addEventListener('click',function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
+      card.addEventListener('keydown',function(event){if(event.target===card&&(event.key==='Enter'||event.key===' ')){event.preventDefault();STEquipmentInspector.select(card);}});
       equipmentField(card, '.equipment-type').addEventListener('change', function() {
         updateFormatZoneVisibility(card);
         renderFormatZonePreview(card);

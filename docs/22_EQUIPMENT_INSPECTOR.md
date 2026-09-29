@@ -1,8 +1,10 @@
 # Shared equipment inspector
 
-Line Setup uses compact equipment cards. Select a card or its Edit button to edit
+Line Setup uses compact equipment cards. Select a card to edit
 that equipment in the resizable right panel. Equipment and Gemini share this area;
-only one view is visible. Switching views retains the conversation and equipment
+only one view is visible. Click the Gemini toolbar button for chat, or an equipment
+card for configuration; there are no panel tabs or separate Edit buttons. Switching
+views retains the conversation and equipment
 drafts. Selecting equipment performs no save. Edits use the existing autosave and
 validation flow; incomplete JSON remains a draft and is not saved.
 

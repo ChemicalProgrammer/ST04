@@ -18,7 +18,7 @@ window.STAssistant = function(state,actions) {
   }
   function render(){
     el('gemini-messages').textContent='';
-    messages.forEach(function(m){var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');p.appendChild(label);p.appendChild(document.createTextNode(m.text));el('gemini-messages').appendChild(p);(m.proposals||[]).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario));});if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent=__ST_TEXT__('assistant.compact_context')+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+__ST_TEXT__('assistant.equipment_included')+(m.historyOmitted?__ST_TEXT__('assistant.history_omitted')+m.historyOmitted:'');el('gemini-messages').appendChild(note);}});
+    messages.forEach(function(m){var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');p.appendChild(label);p.appendChild(document.createTextNode(m.text));el('gemini-messages').appendChild(p);(m.proposals||[]).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment));});if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent=__ST_TEXT__('assistant.compact_context')+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+__ST_TEXT__('assistant.equipment_included')+(m.historyOmitted?__ST_TEXT__('assistant.history_omitted')+m.historyOmitted:'');el('gemini-messages').appendChild(note);}});
     el('gemini-messages').scrollTop=el('gemini-messages').scrollHeight;
   }
   function reset(){progress('idle');sequence++;messages=[];pending=false;caseId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
@@ -28,10 +28,9 @@ window.STAssistant = function(state,actions) {
     var editing=STEquipmentInspector.sync();
     var visible=Boolean(active&&(opened||editing));
     el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
-    el('panel-equipment-tab').disabled=!STEquipmentInspector.available();
-    el('panel-equipment-tab').setAttribute('aria-pressed',String(editing));el('panel-chat-tab').setAttribute('aria-pressed',String(!editing));
     el('gemini-title').textContent=editing?__ST_TEXT__('inspector.equipment'):__ST_TEXT__('assistant.gemini');
-    el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible));
+    el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
+    el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg(visible&&!editing?'collapseRight':'expandRight'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
     el('gemini-notice').textContent=pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?__ST_TEXT__('assistant.save_your_changes_before_asking_about_this_case'):__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
@@ -50,8 +49,6 @@ window.STAssistant = function(state,actions) {
     el('close-gemini').onclick=function(){STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();window.dispatchEvent(new Event('resize'));});
-    el('panel-equipment-tab').onclick=function(){STEquipmentInspector.show();sync();};
-    el('panel-chat-tab').onclick=function(){STEquipmentInspector.hide();opened=true;sync();el('gemini-question').focus();};
     el('clear-gemini').onclick=function(){progress('idle');messages=[];render();el('gemini-error').textContent='';};
     el('gemini-form').onsubmit=async function(e){
       e.preventDefault();sync();if(el('send-gemini').disabled)return;

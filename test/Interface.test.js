@@ -99,7 +99,7 @@ test('UI: run, edit, clone, compare, and delete retain the existing engine workf
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');assert(h.visible('run-panel'));assert(!h.visible('editor-panel'));
   await h.click('.sidebar [data-view="editor"]');assert(h.visible('editor-panel'));assert.equal(h.d.querySelectorAll('.equipment-card').length,13);
-  await h.click('.toggle-step');assert.equal(h.d.querySelector('.toggle-step').getAttribute('aria-expanded'),'true');
+  await h.click('.equipment-card');assert(h.d.querySelector('.equipment-card').classList.contains('equipment-selected'));
   await h.click('.sidebar [data-view="simulation"]');h.d.getElementById('run-duration').value='60';await h.click('#run-simulation');await settle();await h.click('#pause-simulation');
   assert.equal(h.d.querySelectorAll('.live-equipment-card').length,13,h.d.getElementById('status').textContent+' '+JSON.stringify(h.errors));await h.click('.loss-toggle');assert(h.d.querySelector('.live-equipment-card').classList.contains('show-losses'));
   await h.click('.sidebar [data-view="results"]');assert(h.visible('results-panel'));assert.equal(h.d.querySelectorAll('#results-table tbody tr').length,13);
@@ -149,7 +149,7 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
     source.simulations.push(copy);const saved=h.api.saveCase({...source,expectedRevision:source.revision});return {case:saved,simulationId:copy.id};
   };
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  assert.equal(h.d.querySelectorAll('.scenario-grid>article').length,3);assert.match(h.d.querySelector('.scenario-grid').textContent,/Static inputs only/);
+  assert.equal(h.d.querySelectorAll('.scenario-grid>article').length,h.w.STWhatIf.visibleProjects(h.w.STScenarios.plan(h.storedCases()[0].simulations[0])).length);assert(!h.d.querySelector('.scenario-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-grid').textContent,/Static inputs only/);
   await h.click('.scenario-grid button');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   assert(!h.storedCases()[0].simulations[0].results);assert.equal(h.storedCases()[0].simulations[1].results,null);
   h.api.askGemini=request=>{
@@ -197,7 +197,7 @@ test('UI: invalid JSON remains visible and blocks closing until corrected; faile
  const failed=await setup({remember:true,fail:true});try{assert(failed.visible('auth-panel'));assert(!failed.d.documentElement.classList.contains('restoring-session'));}finally{failed.dom.window.close();}
 });
 test('styles have valid selectors and all custom properties are defined',()=>{
- const html=read('Index.html'),css=[...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m=>m[1]).join('\n');const ast=postcss.parse(css),defined=new Set(),used=new Set();
+ const html=read('Index.html'),parsed=new JSDOM(html),css=Array.from(parsed.window.document.querySelectorAll('style')).map(el=>el.textContent).join('\n');parsed.window.close();const ast=postcss.parse(css),defined=new Set(),used=new Set();
  ast.walkRules(rule=>{selectorParser().astSync(rule.selector);assert.doesNotMatch(rule.selector,/:\s+(?:hover|not|active|disabled)/);});
  ast.walkDecls(decl=>{if(decl.prop.startsWith('--'))defined.add(decl.prop);for(const m of decl.value.matchAll(/var\((--[\w-]+)/g))used.add(m[1]);});
  assert.deepEqual([...used].filter(name=>!defined.has(name)),[]);
@@ -232,7 +232,7 @@ test('UI: compact editor reorders equipment with keyboard and preserves values',
  const ids=()=>Array.from(h.d.querySelectorAll('.equipment-id')).map(x=>x.value);const before=ids();
  h.d.querySelector('.equipment-drag').dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
  assert.equal(ids()[1],before[0]);assert.equal(ids()[0],before[1]);assert.equal(h.d.querySelectorAll('.move-up,.move-down').length,0);
- assert.equal(h.d.querySelector('.remove-equipment').textContent,'');assert.equal(h.d.querySelector('.toggle-step').textContent,'');
+ assert.equal(h.d.querySelector('.remove-equipment').textContent,'');assert(!h.d.querySelector('.toggle-step'));
  await h.click('#open-settings');assert.equal(h.d.querySelectorAll('.accent-choice').length,25);assert(!h.d.getElementById('settings-save'));assert(!h.d.querySelector('.dialog-body #settings-cancel'));
  await h.click('#settings-cancel');assert(!h.d.getElementById('status').textContent.includes('Loading console'));
  await h.click('#toggle-gemini');const grip=h.d.getElementById('gemini-resize');const initial=Number(grip.getAttribute('aria-valuenow'));grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert(Number(grip.getAttribute('aria-valuenow'))>initial);
@@ -416,21 +416,21 @@ test('UI: shared equipment inspector preserves drafts, saves the selected equipm
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
   const cards=Array.from(h.d.querySelectorAll('#equipment-list .equipment-card'));
-  await h.click('.toggle-step');assert(h.visible('equipment-inspector'));assert(!h.visible('gemini-chat-view'));
+  await h.click('.equipment-card');assert(h.visible('equipment-inspector'));assert(!h.visible('gemini-chat-view'));
   assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
   const pane=h.d.getElementById('equipment-inspector');
   for(const field of pane.querySelectorAll('input,select,textarea'))assert(h.d.getElementById(field.getAttribute('aria-describedby'))?.textContent);
   const name=pane.querySelector('.equipment-name');name.value='Edited in inspector';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await waitFor(()=>h.storedCases()[0].equipment[0].name==='Edited in inspector');
   const json=pane.querySelector('.equipment-noise-profile'),original=json.value;json.value='{';json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
-  cards[1].querySelector('.toggle-step').click();assert.equal(pane.querySelector('.equipment-type').value,'CONVEYOR');
-  cards[0].querySelector('.toggle-step').click();assert.equal(pane.querySelector('.equipment-noise-profile').value,'{');
+  cards[1].click();assert.equal(pane.querySelector('.equipment-type').value,'CONVEYOR');
+  cards[0].click();assert.equal(pane.querySelector('.equipment-noise-profile').value,'{');
   json.value=original;json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
-  await h.click('#panel-chat-tab');assert(h.visible('gemini-chat-view'));assert(!h.visible('equipment-inspector'));
+  await h.click('#toggle-gemini');assert(h.visible('gemini-chat-view'));assert(!h.visible('equipment-inspector'));
   h.d.getElementById('gemini-question').value='Check this line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case.'));
-  await h.click('#panel-equipment-tab');assert.equal(pane.querySelector('.equipment-name').value,'Edited in inspector');
-  await h.click('#panel-chat-tab');assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
-  await h.click('#panel-equipment-tab');await h.click('#equipment-inspector .json-example');
+  cards[0].click();assert.equal(pane.querySelector('.equipment-name').value,'Edited in inspector');
+  await h.click('#toggle-gemini');assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
+  cards[0].click();await h.click('#equipment-inspector .json-example');
   assert(h.d.getElementById('json-help-dialog').open);assert.deepEqual(JSON.parse(h.d.getElementById('json-help-code').value),{criticalMachine:true});
   assert(h.d.getElementById('json-help-fields').textContent.includes('criticalMachine'));await h.click('#json-help-copy');assert.match(h.d.getElementById('json-copy-status').textContent,/Ctrl|Copied/);
   await h.click('#json-help-close');await h.click('.sidebar [data-view="simulation"]');assert(!h.visible('equipment-inspector'));

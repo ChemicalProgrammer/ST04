@@ -1,0 +1,14 @@
+<template id="report-style-template">
+:root { color-scheme:light; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
+body { font:var(--report-body)/1.5 var(--report-font); color:var(--report-ink); margin:0; background:white; }
+main { max-width:1100px; margin:auto; padding:24px; }
+h1 { font-size:var(--report-title); } h2 { font-size:var(--report-section); } h3 { font-size:var(--report-card); }
+p,summary { color:var(--report-muted); } section { margin:24px 0; }
+figure { margin:12px 0; break-inside:avoid; } figure img,figure svg { width:100%; height:auto; } figcaption { padding:8px 0; font-weight:600; }
+table { width:100%; border-collapse:collapse; margin:var(--report-space) 0; table-layout:fixed; }
+th,td { border-bottom:1px solid var(--report-line); padding:8px; text-align:left; overflow-wrap:anywhere; vertical-align:top; }
+th { background:var(--report-surface); } thead { display:table-header-group; } tr { break-inside:avoid; }
+h1,h2,h3,summary { break-after:avoid; }
+@page { size:A4 landscape; margin:12mm; }
+@media print { main { padding:0; max-width:none; } body { print-color-adjust:exact; } }
+</template>

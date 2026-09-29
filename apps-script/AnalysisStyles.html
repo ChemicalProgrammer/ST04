@@ -70,4 +70,11 @@
   .analysis-capex[data-tier="ZERO"] { color: var(--capex-zero); background: var(--capex-zero-bg); }
   .analysis-capex[data-tier="MEDIUM"] { color: var(--capex-medium); background: var(--capex-medium-bg); }
   .analysis-capex[data-tier="HIGH"] { color: var(--capex-high); background: var(--capex-high-bg); }
+
+.export-menu { display:inline-block; position:relative; margin-bottom:var(--space-3); }
+.export-menu summary { cursor:pointer; display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); font-weight:var(--weight-medium); }
+.export-menu>div { position:absolute; right:0; min-width:var(--size-220); padding:var(--space-2); display:grid; gap:var(--space-1); background:var(--surface); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); z-index:var(--z-overlay); box-shadow:var(--shadow-dialog); }
+.export-menu button { text-align:left; justify-content:flex-start; }
+.scenario-change { margin:var(--space-3) 0; padding-bottom:var(--space-3); border-bottom:var(--border-width) solid var(--line); }
+.scenario-change code { overflow-wrap:anywhere; font-size:var(--font-caption); }
 </style>
