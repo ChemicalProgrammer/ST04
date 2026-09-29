@@ -7,11 +7,15 @@ test('static design produces three explicit categories without inventing dynamic
  const project=plan.projects.find(p=>p.canApply);assert(project);const copy=applyScenarioChanges(sim,project.changes);assert.equal(copy.dynamicConfig.seed,17);assert.equal(copy.results,null);assert.notDeepEqual(copy.equipment,sim.equipment);
  assert(plan.checks.some(c=>c.rule==='TURN_TRAP_AND_FILLED_DIAMETER'&&c.status==='NOT_EVALUATED'));
 });
-test('maintenance scenarios affect evidenced microstop targets only and distinguish hybrid evidence',()=>{
+test('plant reliability is fixed in local and custom scenarios',()=>{
  const sim=fixture();sim.equipment[0].noiseProfile.reliability={mtbfMinutes:8,mttrMinutes:2};sim.results={summary:{},equipmentMetrics:{[sim.equipment[0].id]:{failureSeconds:45,availabilityPercent:80}},durationSeconds:60};
- const p=planScenarios(sim).projects.find(p=>p.tier==='MEDIUM');assert(p.canApply);assert.equal(p.basis,'HYBRID');assert.equal(new Set(p.changes.map(c=>c.equipmentId)).size,1);
- const copy=applyScenarioChanges(sim,p.changes);assert.equal(copy.equipment[0].noiseProfile.reliability.mtbfMinutes,9.6);assert.equal(copy.equipment[0].noiseProfile.reliability.mttrMinutes,1.7);assert.equal(sim.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
- sim.equipment[0].noiseProfile.reliability.mttrMinutes=20;assert(!planScenarios(sim).candidates.some(p=>p.kind==='RELIABILITY'&&p.equipmentId===sim.equipment[0].id));
+ const plan=planScenarios(sim),p=plan.projects.find(p=>p.tier==='MEDIUM');assert.equal(p.canApply,false);assert.equal(p.disabledReason,'SCENARIO_INSUFFICIENT_EVIDENCE');
+ assert(!plan.candidates.some(candidate=>candidate.changes.some(change=>change.path.startsWith('noiseProfile.reliability.'))));
+ for(const path of ['noiseProfile.reliability.mtbfMinutes','noiseProfile.reliability.mttrMinutes']){
+  const before=path.endsWith('mtbfMinutes')?8:2;
+  assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:sim.equipment[0].id,path,before,after:before*1.2}]),/SCENARIO_INVALID_FIELD/);
+ }
+ assert.equal(sim.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
 });
 test('unsafe, stale and unrelated mutations cannot become scenario buttons',()=>{
  const sim=fixture(),p=planScenarios(sim).projects.find(p=>p.canApply),change=p.changes[0];

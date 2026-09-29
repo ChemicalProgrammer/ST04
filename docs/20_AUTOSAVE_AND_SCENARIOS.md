@@ -47,14 +47,14 @@ insufficient. Categories are not guaranteed cost estimates:
 | Category | Candidate | Evidence |
 |---|---|---|
 | Zero CAPEX | Infeed speed factor or sensor debounce derived from geometry | Static |
-| Medium CAPEX / OPEX | Explicit maintenance sensitivity: MTBF ×1.20, MTTR ×0.85 | Static availability; hybrid when run losses exist |
+| Medium CAPEX / OPEX | No supported automatic intervention with the current inputs; shown as insufficient evidence | None |
 | High CAPEX | Calculated accumulation/recovery length and Back-up position | Static geometry; hybrid when zone losses exist |
 
-Maintenance changes affect only qualifying machines and use the supplied brief's
-microstop screening limit of four minutes. Long repairs are flagged for separate
-review rather than absorbed by arbitrary buffer growth. Static availability uses
-MTBF/(MTBF+MTTR); dynamic failure and availability counters can provide additional
-evidence. Conveyor changes never implicitly improve equipment reliability.
+Measured MTBF and MTTR remain fixed inputs to the failure model and are excluded
+from both local and Gemini scenario changes. The microstop screening limit is four
+minutes; longer repairs are flagged for separate review rather than absorbed by
+arbitrary buffer growth. A medium CAPEX intervention needs supported, editable
+engineering inputs before the planner can propose one.
 
 The planner checks recovery, overflow reserve, installed Back-up, pulse/gap debounce,
 the engine's 5% infeed margin and an upstream MTTR accumulation coverage screen.

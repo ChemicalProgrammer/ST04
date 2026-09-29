@@ -11,7 +11,7 @@ window.STWhatIf = (function() {
     var changes=node('ul','','scenario-changes');
     project.changes.forEach(function(change){changes.appendChild(node('li',change.equipmentId+' · '+change.path+': '+(change.before??'—')+' → '+change.after+' '+(change.unit||'')));});item.appendChild(changes);
     if(project.evidence){var evidence=node('details','','analysis-checks');evidence.appendChild(node('summary',__ST_TEXT__('scenario.evidence')));var list=node('ul');Object.entries(project.evidence).forEach(function(pair){if(pair[1]!==null)list.appendChild(node('li',label(pair[0])+': '+(typeof pair[1]==='number'?Number(pair[1].toFixed(3)):pair[1])));});evidence.appendChild(list);item.appendChild(evidence);}
-    item.appendChild(node('p',project.kind==='RELIABILITY'?__ST_TEXT__('scenario.maintenance_note'):__ST_TEXT__('scenario.unverified'),'chart-note'));
+    item.appendChild(node('p',__ST_TEXT__('scenario.unverified'),'chart-note'));
     if(project.canApply){var button=node('button',__ST_TEXT__('scenario.create'));button.type='button';button.insertAdjacentHTML('afterbegin',STIcons.svg('plus'));button.onclick=function(){create(project,button);};item.appendChild(button);}
     else item.appendChild(node('p',label(project.disabledReason),'chart-note'));
     return item;
@@ -29,13 +29,13 @@ window.STScenarioText = {
   ZERO:__ST_TEXT__('scenario.zero'),MEDIUM:__ST_TEXT__('scenario.medium'),HIGH:__ST_TEXT__('scenario.high'),
   STATIC:__ST_TEXT__('scenario.static'),DYNAMIC:__ST_TEXT__('scenario.dynamic'),HYBRID:__ST_TEXT__('scenario.hybrid'),
   'scenario.speed_balance':__ST_TEXT__('scenario.speed_balance'),'scenario.sensor_debounce':__ST_TEXT__('scenario.sensor_debounce'),
-  'scenario.buffer_recovery':__ST_TEXT__('scenario.buffer_recovery'),'scenario.reliability':__ST_TEXT__('scenario.reliability'),'scenario.no_proposal':__ST_TEXT__('scenario.no_proposal'),
+  'scenario.buffer_recovery':__ST_TEXT__('scenario.buffer_recovery'),'scenario.no_proposal':__ST_TEXT__('scenario.no_proposal'),
   SCENARIO_INSUFFICIENT_EVIDENCE:__ST_TEXT__('scenario.insufficient'),SCENARIO_INVALID_PHYSICS:__ST_TEXT__('scenario.invalid_physics'),SCENARIO_AUDIT_REGRESSION:__ST_TEXT__('scenario.regression'),
   TURN_TRAP_AND_FILLED_DIAMETER:__ST_TEXT__('scenario.turn_diameter'),PACEMAKER_DESIRED_STATE_AND_V_GRAPH:__ST_TEXT__('scenario.desired_state'),
   ACCUMULATION_1_TO_2_MTTR:__ST_TEXT__('scenario.coverage'),MAJOR_FAILURE_OUTSIDE_MICROSTOP_BUFFER_TARGET:__ST_TEXT__('scenario.major_failure'),
   NOT_EVALUATED:__ST_TEXT__('scenario.not_evaluated'),REVIEW:__ST_TEXT__('scenario.review'),
   pulseSeconds:__ST_TEXT__('scenario.pulse'),gapSeconds:__ST_TEXT__('scenario.gap'),recoveryLengthMm:__ST_TEXT__('scenario.recovery'),requiredOverflowMm:__ST_TEXT__('scenario.overflow'),addedLengthMm:__ST_TEXT__('scenario.added_length'),
   coverage:__ST_TEXT__('scenario.coverage'),failureSeconds:__ST_TEXT__('scenario.failure'),intrinsicAvailabilityPercent:__ST_TEXT__('scenario.availability'),recommendedSpeedMmPerSecond:__ST_TEXT__('scenario.speed'),
-  overflowUnits:__ST_TEXT__('scenario.overflow_units'),mtbfFactor:__ST_TEXT__('scenario.mtbf_factor'),mttrFactor:__ST_TEXT__('scenario.mttr_factor')
+  overflowUnits:__ST_TEXT__('scenario.overflow_units')
 };
 </script>

@@ -3,7 +3,7 @@ import { resolveAccumulationZoneDefinition } from '../simulation/FormatGeometryA
 import { validateSimulationInput } from '../simulation/SimulationValidation.js';
 
 // Scenario policy is separate from the unchanged simulation mathematics.
-export const SCENARIO_POLICY = Object.freeze({microstopLimitMinutes:4,availabilityThreshold:85,failureThresholdSeconds:30,mtbfFactor:1.20,mttrFactor:0.85,maxChanges:64});
+export const SCENARIO_POLICY = Object.freeze({microstopLimitMinutes:4,maxChanges:64});
 export const SCENARIO_FIELDS = Object.freeze({
   'processData.accumulation.conveyorSpeedFactorPercent':[0,1000,'%'],
   'processData.accumulation.blockedTimeDelaySeconds':[0,3600,'s'],
@@ -12,9 +12,7 @@ export const SCENARIO_FIELDS = Object.freeze({
   'processData.geometry.lactMm':[1,1000000,'mm'],
   'processData.geometry.lpPrimeMm':[0,1000000,'mm'],
   'processData.accumulation.downstreamRampUpSeconds':[0,3600,'s'],
-  'processData.upstream.startupTimeSeconds':[0,3600,'s'],
-  'noiseProfile.reliability.mtbfMinutes':[0.001,10000000,'min'],
-  'noiseProfile.reliability.mttrMinutes':[0.001,10000000,'min']
+  'processData.upstream.startupTimeSeconds':[0,3600,'s']
 });
 function scenarioCopy(value){return JSON.parse(JSON.stringify(value));}
 function scenarioGet(e,path){return path.split('.').reduce((value,key)=>value?.[key],e);}
@@ -58,7 +56,6 @@ export function applyScenarioChanges(simulation,changes){
     const unit=copy.equipment.find(e=>e.id===change.equipmentId),key=change.equipmentId+':'+change.path;
     if(!unit||!rule||seen.has(key)||typeof change.after!=='number'||!Number.isFinite(change.after)||change.after<rule[0]||change.after>rule[1])throw new Error('SCENARIO_INVALID_FIELD');
     if(!Object.hasOwn(change,'before')||(scenarioGet(unit,change.path)??null)!==change.before)throw new Error('SCENARIO_STALE');
-    if(change.path.includes('reliability')&&(!(unit.noiseProfile?.reliability?.mtbfMinutes>0)||!(unit.noiseProfile?.reliability?.mttrMinutes>0)))throw new Error('SCENARIO_MISSING_RELIABILITY');
     if((change.path.includes('accumulation')||change.path.includes('geometry'))&&unit.type!=='CONVEYOR')throw new Error('SCENARIO_INVALID_FIELD');
     seen.add(key);scenarioSet(unit,change.path,change.after);
   });
@@ -129,11 +126,6 @@ export function planScenarios(simulation){
   });
   (simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR').forEach(e=>{
     const r=e.noiseProfile?.reliability;if(!(r?.mtbfMinutes>0&&r?.mttrMinutes>0))return;
-    const availability=100*r.mtbfMinutes/(r.mtbfMinutes+r.mttrMinutes),metrics=result?.equipmentMetrics?.[e.id];
-    const triggered=availability<SCENARIO_POLICY.availabilityThreshold||(metrics?.failureSeconds>SCENARIO_POLICY.failureThresholdSeconds)||(metrics?.availabilityPercent<SCENARIO_POLICY.availabilityThreshold);
-    if(triggered&&r.mttrMinutes<=SCENARIO_POLICY.microstopLimitMinutes){
-      add('RELIABILITY','MEDIUM',e,[scenarioChange(e,'noiseProfile.reliability.mtbfMinutes',Number((r.mtbfMinutes*SCENARIO_POLICY.mtbfFactor).toFixed(6))),scenarioChange(e,'noiseProfile.reliability.mttrMinutes',Number((r.mttrMinutes*SCENARIO_POLICY.mttrFactor).toFixed(6)))],{intrinsicAvailabilityPercent:availability,failureSeconds:metrics?.failureSeconds??null,mtbfFactor:SCENARIO_POLICY.mtbfFactor,mttrFactor:SCENARIO_POLICY.mttrFactor},52+(metrics?.failureSeconds||0)/Math.max(1,result?.durationSeconds||1),metrics?'HYBRID':'STATIC');
-    }
     if(r.mttrMinutes>SCENARIO_POLICY.microstopLimitMinutes)checks.push({equipmentId:e.id,rule:'MAJOR_FAILURE_OUTSIDE_MICROSTOP_BUFFER_TARGET',status:'REVIEW'});
   });
   checks.push({rule:'PACEMAKER_DESIRED_STATE_AND_V_GRAPH',status:'NOT_EVALUATED'});
