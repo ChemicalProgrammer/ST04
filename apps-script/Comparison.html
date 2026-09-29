@@ -6,6 +6,11 @@ window.STComparison=function(state,isFiniteNumber){
       var target = document.getElementById('case-comparison-content'); target.textContent = '';
       if (!a || !b || a.id === b.id) { target.textContent = __ST_TEXT__('comparison.select_two_different_simulations'); return; }
       appendComparisonContext(target, a, b);
+      if(a.results?.batch||b.results?.batch){
+        var note=document.createElement('p');note.className='notice';note.textContent=__ST_TEXT__('batch.compare_note');target.appendChild(note);
+        appendComparisonSection(target,__ST_TEXT__('batch.title'),a.results?.batch?.statistics||{},b.results?.batch?.statistics||{});
+        appendComparisonSection(target,__ST_TEXT__('batch.rounds'),{rounds:a.results?.batch?.rounds||1,seeds:a.results?.batch?.rows.map(function(r){return r.seed;})||[a.results?.seed]},{rounds:b.results?.batch?.rounds||1,seeds:b.results?.batch?.rows.map(function(r){return r.seed;})||[b.results?.seed]});
+      }
       STResults.compare(target,a,b);
       appendChangedInputs(target,a,b);
       appendComparisonSection(target, __ST_TEXT__('comparison.scenario_provenance'), a.scenario || {}, b.scenario || {});

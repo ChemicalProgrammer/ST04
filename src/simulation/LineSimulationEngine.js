@@ -14,6 +14,43 @@ export function simulateLine(input) {
   return { ok: true, result: createResult(runtime) };
 }
 
+// Same tick operations as a single run, yielding between chunks for UI cancellation.
+export async function simulateLineAsync(input, options = {}) {
+  const validation = validateSimulationInput(input);
+  if (!validation.ok) return validation;
+  if(input.run.shiftSeconds!==undefined&&(!Number.isFinite(input.run.shiftSeconds)||input.run.shiftSeconds<=0||input.run.shiftSeconds%input.run.tickSeconds!==0))throw new Error('INVALID_SHIFT_DURATION');
+  const runtime = createRuntime(input);
+  let omittedEvents = 0;
+  const push = runtime.events.push.bind(runtime.events);
+  runtime.events.push = (...items) => {
+    if (options.detail && runtime.events.length < 2000) return push(...items);
+    omittedEvents += items.length; return runtime.events.length;
+  };
+  applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
+  const shifts = []; let previous = {outputCount:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
+  const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
+  let nextShift = shiftSeconds;
+  while (runtime.virtualSecond < input.run.durationSeconds) {
+    if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
+    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * 1000, nextShift, input.run.durationSeconds);
+    executeTicks(runtime, until);
+    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
+      const summary = createSummary(runtime);
+      const duration = Math.min(shiftSeconds, runtime.virtualSecond - shifts.length * shiftSeconds);
+      const output = summary.outputCount - previous.outputCount;
+      shifts.push({shift:shifts.length+1,durationSeconds:duration,outputCount:output,throughputPerMinute:output/duration*60,
+        lineOeePercent:summary.lineOeePacemakerRatePerSecond>0?Math.min(100,100*output/(summary.lineOeePacemakerRatePerSecond*duration)):0,
+        starvedSeconds:summary.totalStarvedSeconds-previous.totalStarvedSeconds,blockedSeconds:summary.totalBlockedSeconds-previous.totalBlockedSeconds,failureSeconds:summary.totalFailureSeconds-previous.totalFailureSeconds});
+      previous=summary; nextShift+=shiftSeconds;
+    }
+    options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
+  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage={omittedEvents};
+  return {ok:true,result};
+}
+
 function createRuntime(input) {
   const random = createSeededRandom(input.run.seed);
   const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, random));
@@ -231,8 +268,8 @@ function normalizePhysicalZone(definition) {
   };
 }
 
-function executeTicks(runtime) {
-  while (runtime.virtualSecond < runtime.run.durationSeconds) {
+function executeTicks(runtime, until = runtime.run.durationSeconds) {
+  while (runtime.virtualSecond < until) {
     applyDueCommands(runtime);
     updateReliabilityFailures(runtime);
     updateMicroStops(runtime);

@@ -37,7 +37,14 @@
 .equipment-card .equipment-fields { display:none; }
 .equipment-selected { border-color:var(--accent); background:var(--accent-soft); }
 #equipment-inspector { flex:1; min-height:0; overflow:auto; padding:var(--space-1); }
-#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { grid-template-columns:minmax(0,1fr); }
+#equipment-inspector { container-type:inline-size; }
+#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { gap:var(--space-3); grid-template-columns:repeat(auto-fit,minmax(min(100%,max(var(--equipment-field-width),calc((100% - 2 * var(--space-3)) / 3))),1fr)); }
+#equipment-inspector .equipment-fields { min-width:0; }
+#batch-progress { width:100%; accent-color:var(--accent); }
+#batch-results { margin-bottom:var(--space-5); overflow:auto; }
+#batch-results .report-table { overflow:auto; }
+#batch-results table { min-width:var(--size-500); }
+
 #equipment-inspector label { position:relative; padding-right:var(--space-5); }
 #equipment-inspector .format-zone-setup { background:transparent; padding:var(--space-3) 0; border:0; border-top:var(--border-width) solid var(--line); }
 #equipment-inspector textarea,#json-help-code { font-family:var(--font-mono); }

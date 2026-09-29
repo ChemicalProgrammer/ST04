@@ -452,3 +452,17 @@ test('UI: pointer sorting previews neighboring positions before release and Esca
   assert.equal(list()[2].dataset.equipmentId,before[0]);await waitFor(()=>h.storedCases()[0].equipment[2].id===before[0]);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: shift replications save compact results, reopen and expose statistics separately',async()=>{
+ const h=await setup({realScenarioServer:true});try{
+  await h.click('#sign-in-button');await h.click('.open-case');
+  const mode=h.d.getElementById('duration-mode');mode.value='SHIFTS';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  for(const [id,value] of [['run-shift-hours','0.25'],['run-shift-count','2'],['run-rounds','2']]){const el=h.d.getElementById(id);el.value=value;el.dispatchEvent(new h.w.Event('input',{bubbles:true}));}
+  await h.click('#run-simulation');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);
+  await h.click('#pause-simulation');await h.click('.sidebar [data-view="results"]');
+  assert(h.visible('batch-results'));assert.match(h.d.getElementById('batch-results').textContent,/Standard deviation/);
+  const saved=h.storedCases()[0].simulations[0];assert.equal(saved.results.durationSeconds,1800);assert.equal(saved.results.batch.rows[0].shifts.length,2);assert(!saved.results.replay.batch);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="results"]');
+  assert(h.visible('batch-results'));assert.equal(h.d.getElementById('run-rounds').value,'2');assert.equal(h.d.getElementById('run-shift-count').value,'2');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

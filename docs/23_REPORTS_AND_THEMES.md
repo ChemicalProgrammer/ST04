@@ -57,3 +57,5 @@ standalone report styling. `TextResources.gs` contains report/UI explanations.
 Tests cover data size/omissions, HTML escaping, PDF handoff, direct panel selection,
 scenario filtering and palette additions/removals. Final PDF pagination and visual
 appearance depend on the browser and should be reviewed after deployment.
+
+The document shell and per-export section order now live in `ReportTemplates.html`, `ReportResultsTemplate.html`, `ReportWhatifTemplate.html` and `ReportConfigurationTemplate.html`. Exports snapshot the active light/dark theme and primary accent. See `25_SHIFTS_REPLICATIONS_AND_REPORT_LAYOUTS.md` for named slots and replication report behavior.

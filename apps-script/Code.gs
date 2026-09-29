@@ -6,6 +6,28 @@
 // -----------------------------------------------------------------------------
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "batch.compare_note":"Replication statistics are compared separately. The standard result comparison below uses round 1. Compare batch means only with matching duration, round count and seed lists.",
+  "batch.evidence":"These proposals use round 1 as dynamic evidence. Replication averages are available in Results; proposed gains remain unverified.",
+  "batch.controls":"For replicated runs, add equipment commands under scheduled events and run the whole batch again.",
+  "batch.round":"Round",
+  "batch.shift":"Shift",
+  "batch.shifts":"Consecutive shifts",
+  "batch.hours":"Hours per shift",
+  "batch.shift_count":"Shifts per round",
+  "batch.rounds":"Rounds (1–50)",
+  "batch.title":"Replication results",
+  "batch.note":"Each round starts from the same inputs with a distinct recorded seed. Shifts are continuous; inventory and failures carry across shift boundaries. Summaries describe model variability, not measured plant performance. Only round 1 retains a reduced replay (at most 121 frames); its event log is capped at 2,000 entries.",
+  "batch.invalid":"Choose 1–50 whole rounds, 1–3 shifts and 0.25–24 hours per shift in quarter-hour increments.",
+  "batch.cancelled":"Run cancelled. Previous results were kept; incomplete rounds were not saved.",
+  "batch.mean":"Mean",
+  "batch.sd":"Standard deviation",
+  "batch.range":"Minimum – maximum",
+  "batch.by_shift":"Round and shift details",
+  "batch.representative":"Charts, equipment details and What-If evidence use round 1. Replication averages are shown separately above.",
+  "reports.brand":"Engineering workspace",
+  "reports.subtitle":"Simulation inputs, evidence and analysis",
+  "reports.footer":"Generated from the selected simulation",
+
   "exports.setup_note": "The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.",
   "exports.setup_json": "Configuration JSON",
   "exports.setup_title": "Line configuration",
@@ -2625,6 +2647,7 @@ function buildGeminiContext_(caseData,simulationId) {
   var result=simulation.results?.summary?simulation.results:null;
   var audits=STScenarioEngine_.audit(simulation),plan=STScenarioEngine_.plan(simulation);
   var context={version:'analysis-context-v2',case:{id:caseData.id,name:String(caseData.name||'').slice(0,160),unitOfFlow:caseData.unitOfFlow,revision:caseData.revision},selectedSimulation:{id:simulation.id,name:simulation.name,dynamicConfig:compactValues_(simulation.dynamicConfig,1),hasResults:!!result,summary:compactValues_(result?.summary,1),seed:result?.seed,durationSeconds:result?.durationSeconds,equipment:[]},otherSimulations:[],localProposals:plan.projects.map(function(p){return {tier:p.tier,kind:p.kind,basis:p.basis,canApply:p.canApply,changes:p.changes,evidence:p.evidence};}),coverage:{totalEquipment:simulation.equipment.length,includedEquipment:0,omittedEquipment:0,otherSimulationsOmitted:0,replayIncluded:false,eventsIncluded:false,sourceSheetRowsIncluded:false,commandsIncluded:false,commandCount:simulation.dynamicConfig?.commands?.length||0,details:'Full-run aggregates and selected physical inputs only. Raw replay, event logs, raw imports, command schedule and other simulations equipment are excluded. Engineering rules without inputs are not evaluated.'},limitations:plan.checks.filter(function(c){return c.status==='NOT_EVALUATED';}).slice(0,30)};
+  if(result?.batch)context.selectedSimulation.replications={rounds:result.batch.rounds,baseSeed:result.batch.baseSeed,statistics:compactValues_(result.batch.statistics,2),evidenceRound:1,note:'Equipment metrics and local proposals use round 1; replication averages are separate.'};
   context.selectedSimulation.equipment=simulation.equipment.slice(0,GEMINI_CONTEXT_BUDGET_.maxEquipment).map(function(e){
     var audit=audits.find(function(a){return a.equipmentId===e.id;});
     return {id:e.id,name:String(e.name).slice(0,120),type:e.type,nominalRatePerSecond:e.nominalRatePerSecond,initialMode:e.initialMode,processData:compactValues_(e.processData,2),noiseProfile:compactValues_(e.noiseProfile,2),metrics:compactValues_(result?.equipmentMetrics?.[e.id],1),engineering:audit?{input:compactValues_(audit.engineering?.input,0),calculated:compactValues_(audit.engineering?.calculated,0),goals:(audit.engineering?.audit?.goals||[]).map(function(g){return {id:g.id,status:g.status};})}:null};

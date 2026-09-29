@@ -88,9 +88,10 @@
       document.getElementById('pause-simulation').addEventListener('click', pausePlayback);
       document.getElementById('reset-playback').addEventListener('click', resetPlayback);
       document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
-      ['run-duration','run-sample-interval','run-seed'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
+      ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
       document.getElementById('duration-mode').addEventListener('change', function(event) {
         state.run.durationMode = event.target.value;
+        syncDurationControls();
         markCaseDirty();
       });
     }
@@ -893,6 +894,7 @@ function renderRawJson() {
       applyScenarioRunInputs(simulation.dynamicConfig);
       document.getElementById('run-playback-rate').value=String(simulation.playbackRate||1);
       state.run.result = simulation.results?.replay ? cloneJson(simulation.results.replay) : null;
+      if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.isDirty = autosave.pending() || hadUnsavedChanges;
       renderEditor();
       if (state.run.result) {
@@ -911,8 +913,10 @@ function renderRawJson() {
       var replaySamples = samples.filter(function(sample, index) { return index % stride === 0 || index === samples.length - 1; });
       return {
         seed: run.seed,
+        durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         completedAt: new Date().toISOString(),
+        batch: result.batch?cloneJson(result.batch):undefined,shifts:result.shifts,
         summary: cloneJson(result.summary),
         equipmentMetrics: cloneJson(result.equipmentMetrics),
         accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
@@ -921,6 +925,7 @@ function renderRawJson() {
           seed: result.seed, durationSeconds: result.durationSeconds,
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
+          shifts:result.shifts,detailCoverage:result.detailCoverage,
           samples: cloneJson(replaySamples), events: cloneJson(result.events || [])
         }
       };
@@ -986,8 +991,18 @@ function renderRawJson() {
       }catch(error){showError({message:error.message});}finally{document.getElementById('application').inert=false;if(button?.isConnected)button.disabled=false;}
     }
 
+    function syncDurationControls(){
+      var shifts=document.getElementById('duration-mode').value==='SHIFTS';
+      document.getElementById('run-duration').disabled=shifts;
+      ['run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).closest('label').classList.toggle('hidden',!shifts);});
+    }
     function applyScenarioRunInputs(run) {
       if (!run) return;
+      document.getElementById('duration-mode').value=run.durationMode||'FIXED';
+      document.getElementById('run-shift-hours').value=run.shiftHours||8;
+      document.getElementById('run-shift-count').value=run.shiftCount||1;
+      document.getElementById('run-rounds').value=run.rounds||1;
+      syncDurationControls();
       document.getElementById('run-duration').value = run.durationSeconds ?? document.getElementById('run-duration').defaultValue;
       document.getElementById('run-sample-interval').value = run.sampleEverySeconds ?? document.getElementById('run-sample-interval').defaultValue;
       document.getElementById('run-seed').value = run.seed ?? document.getElementById('run-seed').defaultValue;
@@ -1044,13 +1059,26 @@ function renderRawJson() {
       return row;
     }
 
-    function runSimulation() {
+    async function runSimulation() {
       if (state.isDirty && !collectCaseEditor()) return;
       var run = readRunConfiguration();
       if (!run) return;
       activePersistentSimulation().dynamicConfig=cloneJson(run);
       state.run.configuration = copyRunConfiguration(run);
-      if (!calculateSimulation(run, 0)) return;
+      if(run.rounds>1||run.durationMode==='SHIFTS') {
+        var dialog=document.getElementById('batch-dialog'),cancelled=false;
+        document.getElementById('batch-cancel').onclick=function(){cancelled=true;};
+        dialog.oncancel=function(event){event.preventDefault();cancelled=true;};
+        document.getElementById('batch-progress').value=0;dialog.showModal();
+        stopPlaybackTimer();
+        try {
+          var response=await SimulatorEngine.simulateBatch({case:cloneJson(state.activeCase),run:run},{cancelled:function(){return cancelled;},progress:function(value,round,total){document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=round+' / '+total+' · '+Math.round(value*100)+'%';}});
+          if(!response.ok){showError(response.error);return;}
+          state.run.result=response.result;state.run.sampleIndex=0;toggle('simulation-results',true);
+          document.getElementById('simulation-json-preview').value=JSON.stringify(response.result,null,2);shell.sync();renderPlaybackFrame();
+        } catch(error){if(error.message==='BATCH_CANCELLED')setStatus(__ST_TEXT__('batch.cancelled'));else showError({message:error.message});return;}
+        finally{dialog.close();}
+      } else if (!calculateSimulation(run, 0)) return;
       var tab = activePersistentSimulation();
       if (tab) {
         tab.run = cloneJson(run);
@@ -1070,11 +1098,16 @@ function renderRawJson() {
       var durationSeconds = Number(document.getElementById('run-duration').value);
       var sampleEverySeconds = Number(document.getElementById('run-sample-interval').value);
       var seed = Number(document.getElementById('run-seed').value);
+      var durationMode=document.getElementById('duration-mode').value;
+      var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=Number(document.getElementById('run-rounds').value);
+      if(!Number.isInteger(rounds)||rounds<1||rounds>50||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||![1,2,3].includes(shiftCount))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
+      if(durationMode==='SHIFTS'){durationSeconds=shiftHours*3600*shiftCount;document.getElementById('run-duration').value=durationSeconds;}
       if (!(durationSeconds > 0) || !(sampleEverySeconds > 0) || !Number.isInteger(seed)) {
         showError({ code: 'INVALID_RUN_CONFIGURATION', message: __ST_TEXT__('client.duration_sample_interval_and_integer_seed_are_required') });
         return null;
       }
       return {
+        durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
         sampleEverySeconds: sampleEverySeconds,
@@ -1091,6 +1124,7 @@ function renderRawJson() {
 
     function copyRunConfiguration(run) {
       return {
+        durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         tickSeconds: run.tickSeconds,
         sampleEverySeconds: run.sampleEverySeconds,
@@ -1102,6 +1136,7 @@ function renderRawJson() {
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
+        durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,
         tickSeconds: configuration.tickSeconds,
         sampleEverySeconds: configuration.sampleEverySeconds,
@@ -1558,6 +1593,7 @@ function summarizeGeometrySources(sources, assumptions) {
     function updateLiveEquipmentControl(button) {
       var sample = state.run.result && state.run.result.samples[state.run.sampleIndex];
       var isAtRunEnd = !sample || sample.virtualSecond >= state.run.result.durationSeconds;
+      if(state.run.result?.batch){button.disabled=true;button.title=__ST_TEXT__('batch.controls');return;}
       button.disabled = isAtRunEnd;
       button.title = (button.dataset.actionLabel || '') + ' — ' + (isAtRunEnd
         ? __ST_TEXT__('client.reset_playback_to_an_earlier_virtual_time_before_applying_a_scenario_contro')
@@ -1566,6 +1602,7 @@ function summarizeGeometrySources(sources, assumptions) {
 
     function applyLiveScenarioControl(equipmentId, action) {
       if (!state.run.result) return;
+      if(state.run.result.batch)return setStatus(__ST_TEXT__('batch.controls'));
       var sample = state.run.result.samples[state.run.sampleIndex];
       if (!sample || sample.virtualSecond >= state.run.result.durationSeconds) {
         return setStatus(__ST_TEXT__('client.reset_playback_to_an_earlier_virtual_time_before_applying_a_scenario_contro'));

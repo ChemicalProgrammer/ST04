@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
 const read=f=>fs.readFileSync('apps-script/'+f,'utf8');
 function setup(){
- const dom=new JSDOM(read('ReportStyles.html')+'<button id="export-results-pdf"></button><button id="export-whatif-pdf"></button>',{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
+ const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+'<button id="export-results-pdf"></button><button id="export-whatif-pdf"></button>',{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  w.eval(read('TextResources.gs'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
  for(const file of ['SimulationEngine.html','WhatIf.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
  w.eval(read('PublicDemoCaseFactory.gs'));const c=w.createPublicDemoCaseRequest_();c.name='Synthetic line';
@@ -56,5 +56,15 @@ test('configuration exports retain all selected inputs and exclude other runs an
   h.sim.equipment[0].name='<script>unsafe</script>';const html=h.w.STReports.configurationHtml(data),doc=new JSDOM(html);
   assert.equal(doc.window.document.querySelectorAll('script').length,0);
   assert.deepEqual(JSON.parse(doc.window.document.querySelector('pre').textContent),JSON.parse(JSON.stringify(data)));doc.window.close();
+ }finally{h.dom.window.close();}
+});
+
+test('report layouts inherit dark theme and primary accent and can be edited independently',()=>{
+ const h=setup();try{
+  h.w.document.documentElement.dataset.theme='dark';h.w.document.documentElement.style.setProperty('--accent','#abcdef');h.w.document.documentElement.style.setProperty('--page','#121212');
+  h.w.document.getElementById('report-configuration-template').content.querySelector('article').setAttribute('data-custom-layout','yes');
+  const html=h.w.STReports.configurationHtml(h.w.STReports.configuration(h.c,h.sim));
+  assert(html.includes('--report-accent:#abcdef'));assert(html.includes('--report-page:#121212'));assert(html.includes('color-scheme:dark'));assert(html.includes('data-custom-layout="yes"'));
+  assert(!h.w.STReports.resultsHtml(h.result,h.c,h.sim).includes('data-custom-layout'));
  }finally{h.dom.window.close();}
 });

@@ -9,6 +9,7 @@ const sourceFiles = [
   'src/simulation/FormatGeometryAdapter.js',
   'src/simulation/SimulationValidation.js',
   'src/simulation/LineSimulationEngine.js',
+  'src/simulation/SimulationBatch.js',
   'src/analysis/LinePerformanceAnalysis.js',
   'src/analysis/ScenarioPlanner.js'
 ];
@@ -28,6 +29,8 @@ ${source}
 
 window.SimulatorEngine = {
   simulateLine: simulateLine,
+  simulateBatch: simulateBatch,
+  simulateLineAsync: simulateLineAsync,
   validateSimulationInput: validateSimulationInput,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance

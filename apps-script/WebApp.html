@@ -146,10 +146,13 @@
         <div id="run-not-ready" class="notice hidden"><?= __ST_TEXT__('view.save_a_valid_physical_line_before_running_machine_conveyor_machine_with_geo') ?></div>
         <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
-            <label><?= __ST_TEXT__('view.duration_mode') ?><select id="duration-mode"><option value="FIXED"><?= __ST_TEXT__('view.fixed_virtual_duration') ?></option><option value="INDEFINITE"><?= __ST_TEXT__('view.indefinite_safety_ceiling') ?></option></select></label>
+            <label><?= __ST_TEXT__('view.duration_mode') ?><select id="duration-mode"><option value="FIXED"><?= __ST_TEXT__('view.fixed_virtual_duration') ?></option><option value="SHIFTS"><?= __ST_TEXT__('batch.shifts') ?></option><option value="INDEFINITE"><?= __ST_TEXT__('view.indefinite_safety_ceiling') ?></option></select></label>
             <label><?= __ST_TEXT__('view.virtual_duration_safety_ceiling_s') ?><input id="run-duration" type="number" min="1" step="1" value="300"></label>
             <label><?= __ST_TEXT__('view.display_sample_interval_s') ?><input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
+            <label><?= __ST_TEXT__('batch.hours') ?><input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
+            <label><?= __ST_TEXT__('batch.shift_count') ?><select id="run-shift-count"><option>1</option><option>2</option><option>3</option></select></label>
+            <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="50" step="1" value="1"></label>
             <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
           </div>
 
@@ -192,7 +195,7 @@
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
         <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-results" class="ghost" disabled><?= __ST_TEXT__('exports.full_json') ?></button><button id="export-ai" class="ghost" disabled><?= __ST_TEXT__('exports.ai_json') ?></button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
-        <div id="results-body" class="hidden"><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
+        <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
         <h3><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
@@ -280,6 +283,7 @@
       </div>
       <footer class="dialog-actions"><span id="sheet-import-summary" role="status"></span><label class="remember"><input id="sheet-import-ack" type="checkbox"><?= __ST_TEXT__('view.i_reviewed_the_mapping_assumptions_and_warnings') ?></label><button id="sheet-import-cancel" class="ghost" type="button"><?= __ST_TEXT__('view.cancel') ?></button><button id="sheet-import-apply" data-icon="check" type="button" disabled><?= __ST_TEXT__('view.apply_selected_changes') ?></button></footer>
     </dialog>
+    <dialog id="batch-dialog" aria-labelledby="batch-title"><header class="dialog-heading"><h2 id="batch-title"><?= __ST_TEXT__('batch.title') ?></h2></header><div class="dialog-body"><p><?= __ST_TEXT__('batch.note') ?></p><progress id="batch-progress" max="1" value="0"></progress><p id="batch-status" role="status" aria-live="polite"></p></div><footer class="dialog-actions"><button id="batch-cancel" type="button"><?= __ST_TEXT__('view.cancel') ?></button></footer></dialog>
     <dialog id="command-dialog" aria-label="<?= __ST_TEXT__('view.command_palette') ?>"><input id="command-search" class="command-search" type="search" placeholder="<?= __ST_TEXT__('view.search_commands') ?>" aria-label="<?= __ST_TEXT__('view.search_commands_2') ?>"><div id="command-list" class="command-list"></div></dialog>
     <div id="toast" class="hidden" role="status"></div>
     <?!= include_('SimulationEngine'); ?>
@@ -290,6 +294,10 @@
     <?!= include_('Settings'); ?>
     <?!= include_('CaseGallery'); ?>
     <?!= include_('ReportStyles'); ?>
+    <?!= include_('ReportTemplates'); ?>
+    <?!= include_('ReportResultsTemplate'); ?>
+    <?!= include_('ReportWhatifTemplate'); ?>
+    <?!= include_('ReportConfigurationTemplate'); ?>
     <?!= include_('Reports'); ?>
     <?!= include_('Results'); ?>
     <?!= include_('LinePerformance'); ?>

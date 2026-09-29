@@ -17,7 +17,7 @@ window.STWhatIf = (function() {
     return item;
   }
   function render(simulation,target,create){
-    var plan=STScenarios.plan(simulation);target.textContent='';var grid=node('div','','scenario-grid');
+    var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
     var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment));});target.appendChild(grid);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);

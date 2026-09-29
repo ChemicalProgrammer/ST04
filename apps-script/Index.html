@@ -8,6 +8,7 @@
     <style>
 :root {
   color-scheme: light;
+  --equipment-field-width:210px;
   --vgraph-height: 260px; --vgraph-min-width: 580px;
   --capex-zero: var(--success); --capex-zero-bg: var(--success-soft);
   --capex-medium: var(--info); --capex-medium-bg: var(--info-soft);
@@ -288,7 +289,14 @@ select { appearance:none; padding-right:var(--space-8); background-image:url("da
 .equipment-card .equipment-fields { display:none; }
 .equipment-selected { border-color:var(--accent); background:var(--accent-soft); }
 #equipment-inspector { flex:1; min-height:0; overflow:auto; padding:var(--space-1); }
-#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { grid-template-columns:minmax(0,1fr); }
+#equipment-inspector { container-type:inline-size; }
+#equipment-inspector .equipment-grid,#equipment-inspector .format-zone-grid { gap:var(--space-3); grid-template-columns:repeat(auto-fit,minmax(min(100%,max(var(--equipment-field-width),calc((100% - 2 * var(--space-3)) / 3))),1fr)); }
+#equipment-inspector .equipment-fields { min-width:0; }
+#batch-progress { width:100%; accent-color:var(--accent); }
+#batch-results { margin-bottom:var(--space-5); overflow:auto; }
+#batch-results .report-table { overflow:auto; }
+#batch-results table { min-width:var(--size-500); }
+
 #equipment-inspector label { position:relative; padding-right:var(--space-5); }
 #equipment-inspector .format-zone-setup { background:transparent; padding:var(--space-3) 0; border:0; border-top:var(--border-width) solid var(--line); }
 #equipment-inspector textarea,#json-help-code { font-family:var(--font-mono); }
@@ -1211,10 +1219,13 @@ window.STPreferences = (function() {
         <div id="run-not-ready" class="notice hidden">Configure a valid physical line before running: machine → conveyor → machine, with geometry on every conveyor. Changes save automatically.</div>
         <details id="run-config" class="run-config" open><summary>Run configuration &amp; scheduled events</summary>
           <div class="field-grid run-fields">
-            <label>Duration mode<select id="duration-mode"><option value="FIXED">Fixed virtual duration</option><option value="INDEFINITE">Indefinite (safety ceiling)</option></select></label>
+            <label>Duration mode<select id="duration-mode"><option value="FIXED">Fixed virtual duration</option><option value="SHIFTS">Consecutive shifts</option><option value="INDEFINITE">Indefinite (safety ceiling)</option></select></label>
             <label>Virtual duration / safety ceiling (s)<input id="run-duration" type="number" min="1" step="1" value="300"></label>
             <label>Display sample interval (s)<input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
             <label>Random seed<input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
+            <label>Hours per shift<input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
+            <label>Shifts per round<select id="run-shift-count"><option>1</option><option>2</option><option>3</option></select></label>
+            <label>Rounds (1–50)<input id="run-rounds" type="number" min="1" max="50" step="1" value="1"></label>
             <label>Playback speed (virtual / real)<select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
           </div>
 
@@ -1257,7 +1268,7 @@ window.STPreferences = (function() {
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
         <div class="section-heading"><div><p class="eyebrow">PERFORMANCE</p><h2 id="results-title">Run results</h2><p id="results-meta">Complete a simulation to inspect the results.</p></div><details class="export-menu"><summary data-icon="download">Export</summary><div><button id="export-results" class="ghost" disabled>Full results · JSON</button><button id="export-ai" class="ghost" disabled>AI context · compact JSON</button><button id="export-results-html" class="ghost" disabled>HTML report</button><button id="export-results-pdf" class="ghost" disabled>PDF / Print</button></div></details></div>
         <div id="results-empty" class="empty"><h3>No results yet</h3><p>Run this simulation to inspect production, losses and equipment performance.</p><button data-view="simulation" data-icon="play">Go to simulation</button></div>
-        <div id="results-body" class="hidden"><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
+        <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
         <h3>Equipment comparison</h3><div id="results-table" class="table-scroll"></div>
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title">Line speed profile · V-Graph</h3><p id="vgraph-context" class="chart-note"></p></div></div>
@@ -1345,6 +1356,7 @@ window.STPreferences = (function() {
       </div>
       <footer class="dialog-actions"><span id="sheet-import-summary" role="status"></span><label class="remember"><input id="sheet-import-ack" type="checkbox">I reviewed the mapping, assumptions and warnings.</label><button id="sheet-import-cancel" class="ghost" type="button">Cancel</button><button id="sheet-import-apply" data-icon="check" type="button" disabled>Apply selected changes</button></footer>
     </dialog>
+    <dialog id="batch-dialog" aria-labelledby="batch-title"><header class="dialog-heading"><h2 id="batch-title">Replication results</h2></header><div class="dialog-body"><p>Each round starts from the same inputs with a distinct recorded seed. Shifts are continuous; inventory and failures carry across shift boundaries. Summaries describe model variability, not measured plant performance. Only round 1 retains a reduced replay (at most 121 frames); its event log is capped at 2,000 entries.</p><progress id="batch-progress" max="1" value="0"></progress><p id="batch-status" role="status" aria-live="polite"></p></div><footer class="dialog-actions"><button id="batch-cancel" type="button">Cancel</button></footer></dialog>
     <dialog id="command-dialog" aria-label="Command palette"><input id="command-search" class="command-search" type="search" placeholder="Search commands…" aria-label="Search commands"><div id="command-list" class="command-list"></div></dialog>
     <div id="toast" class="hidden" role="status"></div>
     <script>
@@ -2240,6 +2252,43 @@ function simulateLine(input) {
   return { ok: true, result: createResult(runtime) };
 }
 
+// Same tick operations as a single run, yielding between chunks for UI cancellation.
+async function simulateLineAsync(input, options = {}) {
+  const validation = validateSimulationInput(input);
+  if (!validation.ok) return validation;
+  if(input.run.shiftSeconds!==undefined&&(!Number.isFinite(input.run.shiftSeconds)||input.run.shiftSeconds<=0||input.run.shiftSeconds%input.run.tickSeconds!==0))throw new Error('INVALID_SHIFT_DURATION');
+  const runtime = createRuntime(input);
+  let omittedEvents = 0;
+  const push = runtime.events.push.bind(runtime.events);
+  runtime.events.push = (...items) => {
+    if (options.detail && runtime.events.length < 2000) return push(...items);
+    omittedEvents += items.length; return runtime.events.length;
+  };
+  applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
+  const shifts = []; let previous = {outputCount:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
+  const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
+  let nextShift = shiftSeconds;
+  while (runtime.virtualSecond < input.run.durationSeconds) {
+    if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
+    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * 1000, nextShift, input.run.durationSeconds);
+    executeTicks(runtime, until);
+    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
+      const summary = createSummary(runtime);
+      const duration = Math.min(shiftSeconds, runtime.virtualSecond - shifts.length * shiftSeconds);
+      const output = summary.outputCount - previous.outputCount;
+      shifts.push({shift:shifts.length+1,durationSeconds:duration,outputCount:output,throughputPerMinute:output/duration*60,
+        lineOeePercent:summary.lineOeePacemakerRatePerSecond>0?Math.min(100,100*output/(summary.lineOeePacemakerRatePerSecond*duration)):0,
+        starvedSeconds:summary.totalStarvedSeconds-previous.totalStarvedSeconds,blockedSeconds:summary.totalBlockedSeconds-previous.totalBlockedSeconds,failureSeconds:summary.totalFailureSeconds-previous.totalFailureSeconds});
+      previous=summary; nextShift+=shiftSeconds;
+    }
+    options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
+  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage={omittedEvents};
+  return {ok:true,result};
+}
+
 function createRuntime(input) {
   const random = createSeededRandom(input.run.seed);
   const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, random));
@@ -2457,8 +2506,8 @@ function normalizePhysicalZone(definition) {
   };
 }
 
-function executeTicks(runtime) {
-  while (runtime.virtualSecond < runtime.run.durationSeconds) {
+function executeTicks(runtime, until = runtime.run.durationSeconds) {
+  while (runtime.virtualSecond < until) {
     applyDueCommands(runtime);
     updateReliabilityFailures(runtime);
     updateMicroStops(runtime);
@@ -3400,6 +3449,41 @@ function round(value) {
 }
 
 
+
+function summarizeReplications(values) {
+  const n=values.length,mean=values.reduce((a,b)=>a+b,0)/n;
+  const standardDeviation=n>1?Math.sqrt(values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1)):null;
+  return {n,mean,standardDeviation,min:Math.min(...values),max:Math.max(...values)};
+}
+async function simulateBatch(input, options={}) {
+  const count=input.run.rounds||1;
+  if(!Number.isInteger(count)||count<1||count>50)throw new Error('INVALID_BATCH_ROUNDS');
+  const baseSeed=input.run.seed>>>0,rows=[];let representative;
+  for(let index=0;index<count;index++) {
+    const run={...input.run,seed:(baseSeed+index)>>>0};
+    run.sampleEverySeconds=index===0?Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds):run.durationSeconds;
+    const response=await simulateLineAsync({case:input.case,run},{detail:index===0,cancelled:options.cancelled,progress:f=>options.progress?.((index+f)/count,index+1,count)});
+    if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
+    if(!response.ok)return response;
+    const result=response.result;
+    rows.push({round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts});
+    if(index===0)representative=result;
+  }
+  const statistics={};
+  for(const key of Object.keys(rows[0].summary)) {
+    if(typeof rows[0].summary[key]==='number')statistics[key]=summarizeReplications(rows.map(r=>r.summary[key]));
+  }
+  statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/input.run.durationSeconds*60));
+  const equipmentStatistics={};
+  for(const [id,metrics] of Object.entries(rows[0].equipmentMetrics)) {
+    equipmentStatistics[id]={};
+    for(const key of Object.keys(metrics))if(typeof metrics[key]==='number')equipmentStatistics[id][key]=summarizeReplications(rows.map(r=>r.equipmentMetrics[id][key]));
+  }
+  representative.batch={schema:'st-replications-v1',rounds:count,baseSeed,representativeRound:1,durationSeconds:input.run.durationSeconds,shiftSeconds:input.run.shiftSeconds||null,statistics,equipmentStatistics,rows};
+  return {ok:true,result:representative};
+}
+
+
 /** Design-speed profile and observed flow, without changing the simulation engine. */
 function analyzeLinePerformance(equipment, result) {
   const machines = (equipment || []).filter(item => item.type !== 'CONVEYOR' && item.processData?.role !== 'CONVEYOR');
@@ -3592,6 +3676,8 @@ function planScenarios(simulation){
 
 window.SimulatorEngine = {
   simulateLine: simulateLine,
+  simulateBatch: simulateBatch,
+  simulateLineAsync: simulateLineAsync,
   validateSimulationInput: validateSimulationInput,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance
@@ -3742,7 +3828,7 @@ window.STWhatIf = (function() {
     return item;
   }
   function render(simulation,target,create){
-    var plan=STScenarios.plan(simulation);target.textContent='';var grid=node('div','','scenario-grid');
+    var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',"These proposals use round 1 as dynamic evidence. Replication averages are available in Results; proposed gains remain unverified.",'notice'));var grid=node('div','','scenario-grid');
     var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment));});target.appendChild(grid);
     if(!proposals.length)target.appendChild(node('p',"No supported changes were found with the available evidence. Review the engineering checks or run the simulation to add dynamic evidence.",'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
@@ -3868,8 +3954,8 @@ window.STCaseGallery = (function() {
 })();
 </script>
     <template id="report-style-template">
-:root { color-scheme:light; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
-body { font:var(--report-body)/1.5 var(--report-font); color:var(--report-ink); margin:0; background:white; }
+:root { color-scheme:light; --report-page:#f7f8fa; --report-card-bg:#ffffff; --report-accent:#5656c9; --report-accent-soft:#ededfc; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
+body { font:var(--report-body)/1.5 var(--report-font); color:var(--report-ink); margin:0; background:var(--report-page); }
 main { max-width:1100px; margin:auto; padding:24px; }
 h1 { font-size:var(--report-title); } h2 { font-size:var(--report-section); } h3 { font-size:var(--report-card); }
 p,summary { color:var(--report-muted); } section { margin:24px 0; }
@@ -3880,6 +3966,63 @@ th { background:var(--report-surface); } thead { display:table-header-group; } t
 h1,h2,h3,summary { break-after:avoid; }
 @page { size:A4 landscape; margin:12mm; }
 @media print { main { padding:0; max-width:none; } body { print-color-adjust:exact; } }
+
+.report-cover { border-top:6px solid var(--report-accent); padding:28px; background:var(--report-card-bg); border-radius:12px; margin-bottom:24px; }
+.report-brand { color:var(--report-accent); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.report-cover h1 { margin:12px 0 6px; }
+.report-content { background:var(--report-card-bg); border:1px solid var(--report-line); border-radius:12px; padding:24px; }
+.report-content h2 { border-left:4px solid var(--report-accent); padding-left:12px; margin-top:28px; }
+.report-table { margin:16px 0; border:1px solid var(--report-line); border-radius:8px; overflow:hidden; }
+.report-table table { margin:0; }
+th { background:var(--report-accent-soft); color:var(--report-ink); }
+tbody tr:nth-child(even) { background:var(--report-surface); }
+.report-footer { padding:16px 0; color:var(--report-muted); font-size:10px; border-top:1px solid var(--report-line); margin-top:24px; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--report-surface); border:1px solid var(--report-line); padding:16px; border-radius:8px; font-size:10px; }
+@media print { .report-cover,.report-content { border-radius:0; } .report-content { padding:12px; } .report-table { overflow:visible; } }
+</template>
+    <!-- Edit these templates to change the exported document layout. Dynamic content is escaped by Reports. -->
+<template id="report-document-template">
+  <main class="report-document">
+    <header class="report-cover"><span class="report-brand" data-report="brand"></span><h1 data-report="title"></h1><p data-report="subtitle"></p></header>
+    <div class="report-content" data-report="body"></div>
+    <footer class="report-footer" data-report="footer"></footer>
+  </main>
+</template>
+
+
+
+<template id="report-table-template"><div class="report-table"><table><thead></thead><tbody></tbody></table></div></template>
+    <template id="report-results-template">
+  <article class="report-results">
+    <p class="report-context" data-report="context"></p>
+    <section data-report="overview"></section>
+    <p data-report="limitations"></p>
+    <section data-report="batch"></section>
+    <p data-report="representative"></p>
+    <section class="report-charts" data-report="charts"></section>
+    <h2 data-report-text="exports.equipment_results"></h2>
+    <div data-report="equipment"></div>
+    <div data-report="zones"></div>
+  </article>
+</template>
+    <template id="report-whatif-template">
+  <article class="report-whatif">
+    <p class="report-context" data-report="context"></p>
+    <p data-report-text="scenario.unverified"></p>
+    <div class="report-proposals" data-report="proposals"></div>
+    <h2 data-report-text="scenario.design_checks"></h2>
+    <section data-report="checks"></section>
+  </article>
+</template>
+    <template id="report-configuration-template">
+  <article class="report-configuration">
+    <p data-report-text="exports.setup_note"></p>
+    <section data-report="metadata"></section>
+    <section data-report="settings"></section>
+    <div data-report="equipment"></div>
+    <h2 data-report-text="exports.setup_json"></h2>
+    <pre data-report="json"></pre>
+  </article>
 </template>
     <script>
 window.STReports=(function(){
@@ -3896,6 +4039,7 @@ window.STReports=(function(){
     simulation=simulation||{equipment:activeCase.equipment,dynamicConfig:{}};
     var equipment=simulation.equipment||activeCase.equipment||[],audit=STScenarios.audit?STScenarios.audit(simulation):[],plan=STScenarios.plan(Object.assign({},simulation,{equipment:equipment,results:result}));
     var data={schema:'st-analysis-v1',engineVersion:result.engineVersion,case:compact({id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow},1),simulation:compact({id:simulation.id,name:simulation.name,seed:result.seed,durationSeconds:result.durationSeconds,tickSeconds:simulation.dynamicConfig?.tickSeconds,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow},1),summary:compact(result.summary,1),throughputPerMinute:result.durationSeconds>0?result.summary.outputCount/result.durationSeconds*60:null,equipment:[],proposals:[],coverage:{characterBudget:characterBudget,totalEquipment:equipment.length,includedEquipment:0,omittedEquipment:0,omittedProposals:0,replayIncluded:false,eventsIncluded:false,commandsIncluded:false,commandCount:simulation.dynamicConfig?.commands?.length||0},limitations:["Aggregates and selected inputs only; replay, event logs, command schedules and raw imports are excluded. Coverage reports omissions. Time metrics are seconds unless their field name states otherwise; nominal rates are units per second. Throughput is final output divided by full duration, multiplied by 60. Equipment loss totals may overlap in clock time and are not line downtime. Quality is assumed 100%; scenarios are untested proposals, not guaranteed gains. MTBF/MTTR are fixed plant inputs. The character limit is not a guarantee of compatibility with every model context window."]};
+    if(result.batch)data.batch={rounds:result.batch.rounds,baseSeed:result.batch.baseSeed,durationSeconds:result.batch.durationSeconds,statistics:result.batch.statistics,representativeRound:1};
     data.equipment=equipment.slice(0,500).map(function(e){var a=audit.find(function(x){return x.equipmentId===e.id;});return {id:String(e.id).slice(0,120),name:String(e.name).slice(0,120),type:e.type,nominalRatePerSecond:e.nominalRatePerSecond,initialMode:e.initialMode,criticalMachine:e.characteristics?.criticalMachine,processData:compact(e.processData,2),noiseProfile:compact(e.noiseProfile,2),metrics:compact(result.equipmentMetrics?.[e.id],1),accumulation:compact(Object.values(result.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),2),engineering:a?compact(a.engineering,2):undefined,checks:(a?.engineering?.audit?.goals||[]).map(function(g){return {id:g.id,status:g.status};})};});
     var proposals=STWhatIf.visibleProjects(plan);data.proposals=proposals.map(function(p){return {title:p.title||STScenarioText[p.titleKey]||p.kind,tier:p.tier,basis:p.basis,equipmentId:p.equipmentId,changes:p.changes.map(function(c){return compact(c,0);}),evidence:compact(p.evidence,1)};});
     function json(){data.coverage.includedEquipment=data.equipment.length;data.coverage.omittedEquipment=equipment.length-data.equipment.length;data.coverage.omittedProposals=proposals.length-data.proposals.length;return JSON.stringify(data);}
@@ -3904,11 +4048,31 @@ window.STReports=(function(){
     return text;
   }
   function download(text,name,type){var url=URL.createObjectURL(new Blob([text],{type:type})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
-  function table(headers,rows){return '<table><thead><tr>'+headers.map(function(h){return '<th>'+escape(h)+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(row){return '<tr>'+row.map(function(c){return '<td>'+escape(c)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';}
+  function table(headers,rows){
+    var fragment=document.getElementById('report-table-template').content.cloneNode(true);
+    var tr=document.createElement('tr');headers.forEach(function(h){var th=document.createElement('th');th.textContent=h;tr.append(th);});fragment.querySelector('thead').append(tr);
+    rows.forEach(function(row){var tr=document.createElement('tr');row.forEach(function(c){var td=document.createElement('td');td.textContent=c??'—';tr.append(td);});fragment.querySelector('tbody').append(tr);});
+    var container=document.createElement('div');container.append(fragment);return container.innerHTML;
+  }
   function human(key){return key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' ');}
-  function value(v){return typeof v==='number'?Number(v.toFixed(4)):typeof v==='object'?JSON.stringify(v):v;}
+  function value(v){if(v==null)return '—';return typeof v==='number'?Number(v.toFixed(4)):typeof v==='object'?JSON.stringify(v):v;}
   function scalars(object,prefix){var rows=[];Object.entries(object||{}).forEach(function(pair){var path=prefix?prefix+'.'+pair[0]:pair[0];if(pair[1]&&typeof pair[1]==='object'&&!Array.isArray(pair[1]))rows=rows.concat(scalars(pair[1],path));else if(!Array.isArray(pair[1]))rows.push([human(path),value(pair[1])]);});return rows;}
-  function documentHtml(title,body){var css=document.getElementById('report-style-template').content.textContent;return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+'</style></head><body><main><h1>'+escape(title)+'</h1>'+body+'</main></body></html>';}
+  function documentHtml(title,slots,kind){
+    var css=document.getElementById('report-style-template').content.textContent;
+    var style=getComputedStyle(document.documentElement),theme=document.documentElement.dataset.theme||'light';
+    var tokens={'--report-ink':'--ink','--report-muted':'--muted','--report-line':'--line','--report-surface':'--surface-soft','--report-page':'--page','--report-card-bg':'--surface','--report-accent':'--accent','--report-accent-soft':'--accent-soft'};
+    var palette=':root{color-scheme:'+ (theme==='dark'?'dark':'light')+';';Object.entries(tokens).forEach(function(pair){var value=style.getPropertyValue(pair[1]).trim();if(value&&/^[#(),.%\s\w-]+$/.test(value))palette+=pair[0]+':'+value+';';});palette+='}';
+    var root=document.getElementById('report-document-template').content.cloneNode(true);
+    root.querySelector('[data-report="brand"]').textContent="Engineering workspace";root.querySelector('[data-report="title"]').textContent=title;
+    root.querySelector('[data-report="subtitle"]').textContent="Simulation inputs, evidence and analysis";root.querySelector('[data-report="footer"]').textContent="Generated from the selected simulation"+' · '+new Date().toISOString();
+    var section=document.getElementById('report-'+(kind||'results')+'-template').content.cloneNode(true);Object.entries(slots).forEach(function(pair){var slot=section.querySelector('[data-report="'+pair[0]+'"]');if(slot)slot.innerHTML=pair[1];});section.querySelectorAll('[data-report-text]').forEach(function(node){node.textContent=__ST_TEXT__(node.dataset.reportText);});root.querySelector('[data-report="body"]').append(section);
+    var container=document.createElement('div');container.append(root);
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+palette+'</style></head><body>'+container.innerHTML+'</body></html>';
+  }
+  function batchHtml(batch){
+    if(!batch)return '';
+    return '<h2>'+escape("Replication results")+'</h2><p>'+escape("Each round starts from the same inputs with a distinct recorded seed. Shifts are continuous; inventory and failures carry across shift boundaries. Summaries describe model variability, not measured plant performance. Only round 1 retains a reduced replay (at most 121 frames); its event log is capped at 2,000 entries.")+'</p>'+table(["Parameter","Mean","Standard deviation","Minimum – maximum"],Object.entries(batch.statistics).map(function(pair){var m=pair[1];return [human(pair[0]),value(m.mean),value(m.standardDeviation),value(m.min)+' – '+value(m.max)];}))+'<h3>'+escape("Round and shift details")+'</h3>'+table(["Round","Random seed","Shift","Production","Throughput"+' / min',"OEE"+' %',"Starving"+' (s)',"Blocking"+' (s)',"Failure time"+' (s)'],batch.rows.flatMap(function(r){return r.shifts.map(function(s){return [r.round,r.seed,s.shift,value(s.outputCount),value(s.throughputPerMinute),value(s.lineOeePercent),value(s.starvedSeconds),value(s.blockedSeconds),value(s.failureSeconds)];});}));
+  }
   function chartsHtml(){
     var surface=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(),html='';
     [['simulation-chart',"Cumulative production"],['equipment-speed-chart',"Actual speed by equipment"]].forEach(function(pair){var canvas=document.getElementById(pair[0]);if(!canvas)return;try{var image=canvas.toDataURL('image/png');if(image&&image!=='data:,')html+='<figure><figcaption>'+escape(pair[1])+'</figcaption><img style="background:'+escape(surface)+'" src="'+image+'" alt="'+escape(pair[1])+'"></figure>';}catch(_){} });
@@ -3918,23 +4082,20 @@ window.STReports=(function(){
   }
   function resultsHtml(result,activeCase,simulation){
     var units=result.unitOfFlow||activeCase.unitOfFlow||'units';
-    var body='<p>'+escape(activeCase.name)+' · '+escape(simulation?.name||'')+'</p>';
-    body+=table(["Metric","Value"],[["Duration (seconds)",result.durationSeconds],["Random seed",result.seed],["Flow units",units],["Throughput"+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
-    body+='<p>'+escape("Throughput uses final equipment output over the complete run. Metric names specify seconds, counts, rates or percentages. Loss totals sum equipment time and can overlap; they are not elapsed line downtime. Quality is assumed 100%. The report includes configuration for interpretation, not replay or individual events.")+'</p>';
-    body+=chartsHtml();
-    body+='<h2>'+escape("Equipment results")+'</h2>';
-    (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){body+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table(["Metric","Value"],scalars(result.equipmentMetrics?.[e.id]||{}));body+='<details open><summary>'+escape("Configuration used for interpretation")+'</summary>'+table(["Parameter","Value"],scalars({nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</details></section>';});
-    Object.entries(result.accumulationZoneMetrics||{}).forEach(function(pair){body+='<section><h2>'+escape("Conveyor accumulation and sensors")+' · '+escape(pair[0])+'</h2>'+table(["Parameter","Value"],scalars(pair[1]))+'</section>';});
-    return documentHtml("Simulation results",body);
+    var slots={context:escape(activeCase.name)+' · '+escape(simulation?.name||''),limitations:escape("Throughput uses final equipment output over the complete run. Metric names specify seconds, counts, rates or percentages. Loss totals sum equipment time and can overlap; they are not elapsed line downtime. Quality is assumed 100%. The report includes configuration for interpretation, not replay or individual events."),batch:batchHtml(result.batch),representative:result.batch?escape("Charts, equipment details and What-If evidence use round 1. Replication averages are shown separately above."):'',charts:chartsHtml(),equipment:'',zones:''};
+    slots.overview=table(["Metric","Value"],[["Duration (seconds)",result.durationSeconds],["Random seed",result.seed],["Flow units",units],["Throughput"+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
+    (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){slots.equipment+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table(["Metric","Value"],scalars(result.equipmentMetrics?.[e.id]||{}))+table(["Parameter","Value"],scalars({nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</section>';});
+    Object.entries(result.accumulationZoneMetrics||{}).forEach(function(pair){slots.zones+='<section><h2>'+escape("Conveyor accumulation and sensors")+' · '+escape(pair[0])+'</h2>'+table(["Parameter","Value"],scalars(pair[1]))+'</section>';});
+    return documentHtml("Simulation results",slots);
   }
   function whatIfHtml(simulation,plan){
-    var body='<p>'+escape(simulation.name)+'</p><p>'+escape("Expected direction is a hypothesis. Numerical OEE, throughput and loss improvements require a new run and comparison.")+'</p>';
+    var body='';
     STWhatIf.visibleProjects(plan).forEach(function(p){body+='<section><h2>'+escape(p.title||STScenarioText[p.titleKey]||p.kind)+'</h2><p>'+escape(STScenarioText[p.tier]||p.tier)+' · '+escape(STScenarioText[p.basis]||p.basis)+'</p><p>'+escape(p.description||'')+'</p>';
       body+=table(["Equipment","Parameter","Current","Proposed","How to apply / purpose"],p.changes.map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
       body+='<h3>'+escape("Evidence")+'</h3>'+table(["Parameter","Value"],scalars(p.evidence))+'</section>';
     });
-    body+='<h2>'+escape("Design checks and missing inputs")+'</h2>'+table(["Equipment","Engineering check","Status"],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
-    return documentHtml("What-If proposals",body);
+    var checks=table(["Equipment","Engineering check","Status"],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
+    return documentHtml("What-If proposals",{context:escape(simulation.name),proposals:body,checks:checks},'whatif');
   }
   function pdf(html){var win=window.open('','_blank');if(!win){STDialog.open({message:"Allow pop-ups for this app, then export again. In the print dialog, select Save as PDF. You can also export the HTML report and print it from your browser."});return;}win.document.open();win.document.write(html);win.document.close();win.focus();win.setTimeout(function(){win.print();},250);}
   function bind(id,enabled,action){var button=document.getElementById(id);if(!button)return;button.disabled=!enabled;button.onclick=function(){button.closest('details')?.removeAttribute('open');try{action();}catch(error){STDialog.open({message:error.message});}};}
@@ -3942,12 +4103,9 @@ window.STReports=(function(){
     return {schema:'st-line-configuration-v1',case:{id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow,metadata:activeCase.metadata||{}},simulation:{id:simulation?.id,name:simulation?.name,dynamicConfig:simulation?.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},equipment:simulation?.equipment||activeCase.equipment||[]}};
   }
   function configurationHtml(data){
-    var body='<p>'+escape("The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.")+'</p>';
-    body+=table(["Parameter","Value"],scalars(data.case));
-    body+=table(["Parameter","Value"],scalars({simulation:data.simulation.name,dynamicConfig:data.simulation.dynamicConfig,engineConfig:data.simulation.engineConfig}));
-    data.simulation.equipment.forEach(function(e){body+='<section><h2>'+escape(e.name)+'</h2>'+table(["Parameter","Value"],scalars(e))+'</section>';});
-    body+='<h2>'+escape("Configuration JSON")+'</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(JSON.stringify(data,null,2))+'</pre>';
-    return documentHtml("Line configuration",body);
+    var slots={metadata:table(["Parameter","Value"],scalars(data.case)),settings:table(["Parameter","Value"],scalars({simulation:data.simulation.name,dynamicConfig:data.simulation.dynamicConfig,engineConfig:data.simulation.engineConfig})),equipment:'',json:escape(JSON.stringify(data,null,2))};
+    data.simulation.equipment.forEach(function(e){slots.equipment+='<section><h2>'+escape(e.name)+'</h2>'+table(["Parameter","Value"],scalars(e))+'</section>';});
+    return documentHtml("Line configuration",slots,'configuration');
   }
   function bindConfiguration(read){
     bind('export-setup-json',true,function(){download(JSON.stringify(read(),null,2),'line-configuration.json','application/json');});
@@ -3956,7 +4114,7 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {configuration:configuration,configurationHtml:configurationHtml,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
     <script>
@@ -3970,10 +4128,13 @@ window.STResults=(function(){
   ];}
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary);
+    var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
+
     document.getElementById('results-empty').classList.toggle('hidden',ready);document.getElementById('results-body').classList.toggle('hidden',!ready);document.getElementById('export-results').disabled=!ready;
     STReports.bindResults(result,activeCase,simulation);
     if(!ready){document.getElementById('results-meta').textContent="Complete a simulation to inspect the results.";return;}
     document.getElementById('results-meta').textContent=activeCase.name+" · Full run · "+result.durationSeconds+" s · Seed "+result.seed;
+    if(result.batch)document.getElementById('results-meta').textContent+=' · '+"Charts, equipment details and What-If evidence use round 1. Replication averages are shown separately above.";
     var target=document.getElementById('results-kpis');target.textContent='';
     metrics(result).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?" primary-kpi":'');var label=document.createElement('span'),value=document.createElement('strong');label.textContent=item[0];value.textContent=number(item[1])+item[2];card.append(label,value);target.appendChild(card);});
     document.getElementById('results-reference').textContent="OEE reference: "+(result.summary.lineOeePacemakerName||'not available')+". Quality assumes 100% (no reject model). Loss and downtime totals are equipment-minutes; simultaneous losses are not line downtime.";
@@ -4328,6 +4489,11 @@ window.STComparison=function(state,isFiniteNumber){
       var target = document.getElementById('case-comparison-content'); target.textContent = '';
       if (!a || !b || a.id === b.id) { target.textContent = "Select two different simulations."; return; }
       appendComparisonContext(target, a, b);
+      if(a.results?.batch||b.results?.batch){
+        var note=document.createElement('p');note.className='notice';note.textContent="Replication statistics are compared separately. The standard result comparison below uses round 1. Compare batch means only with matching duration, round count and seed lists.";target.appendChild(note);
+        appendComparisonSection(target,"Replication results",a.results?.batch?.statistics||{},b.results?.batch?.statistics||{});
+        appendComparisonSection(target,"Rounds (1–50)",{rounds:a.results?.batch?.rounds||1,seeds:a.results?.batch?.rows.map(function(r){return r.seed;})||[a.results?.seed]},{rounds:b.results?.batch?.rounds||1,seeds:b.results?.batch?.rows.map(function(r){return r.seed;})||[b.results?.seed]});
+      }
       STResults.compare(target,a,b);
       appendChangedInputs(target,a,b);
       appendComparisonSection(target, "Scenario provenance", a.scenario || {}, b.scenario || {});
@@ -4477,11 +4643,11 @@ window.STAssistant = function(state,actions) {
   }
   function init(){
     var resize=el('gemini-resize');
-    function width(value){var max=Math.max(360,Math.min(window.innerWidth-60,window.innerWidth*.65));var next=Math.round(Math.max(360,Math.min(max,value)));document.documentElement.style.setProperty('--assistant-width',next+'px');resize.setAttribute('aria-valuemin','360');resize.setAttribute('aria-valuemax',String(Math.round(max)));resize.setAttribute('aria-valuenow',String(next));STPreferences.write('assistant-width',String(next));return next;}
-    width(Number(STPreferences.read('assistant-width'))||360);
+    function width(value){var max=Math.max(360,Math.min(window.innerWidth-60,window.innerWidth*.8));var next=Math.round(Math.max(360,Math.min(max,value)));document.documentElement.style.setProperty('--assistant-width',next+'px');resize.setAttribute('aria-valuemin','360');resize.setAttribute('aria-valuemax',String(Math.round(max)));resize.setAttribute('aria-valuenow',String(next));STPreferences.write(STEquipmentInspector.sync()?'inspector-width':'assistant-width',String(next));return next;}
+    width(Number(STPreferences.read(STEquipmentInspector.sync()?'inspector-width':'assistant-width'))||(STEquipmentInspector.sync()?760:360));
     resize.onkeydown=function(e){if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();width(Number(resize.getAttribute('aria-valuenow'))+(e.key==='ArrowLeft'?24:-24));window.dispatchEvent(new Event('resize'));}};
     resize.onpointerdown=function(e){if(e.button!==0)return;e.preventDefault();resize.setPointerCapture(e.pointerId);resize.onpointermove=function(ev){width(window.innerWidth-ev.clientX);};function finish(){resize.onpointermove=null;window.dispatchEvent(new Event('resize'));}resize.onpointerup=finish;resize.onpointercancel=finish;resize.onlostpointercapture=finish;};
-    window.addEventListener('resize',function(){width(Number(STPreferences.read('assistant-width'))||360);});
+    window.addEventListener('resize',function(){width(Number(STPreferences.read(STEquipmentInspector.sync()?'inspector-width':'assistant-width'))||(STEquipmentInspector.sync()?760:360));});
 
     el('toggle-gemini').onclick=function(){var wasEditing=STEquipmentInspector.sync();STEquipmentInspector.hide();opened=wasEditing||!opened;sync();if(opened)el('gemini-question').focus();window.dispatchEvent(new Event('resize'));};
     el('close-gemini').onclick=function(){STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
@@ -4926,9 +5092,10 @@ window.STSheetImport=function(state,actions){
       document.getElementById('pause-simulation').addEventListener('click', pausePlayback);
       document.getElementById('reset-playback').addEventListener('click', resetPlayback);
       document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
-      ['run-duration','run-sample-interval','run-seed'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
+      ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
       document.getElementById('duration-mode').addEventListener('change', function(event) {
         state.run.durationMode = event.target.value;
+        syncDurationControls();
         markCaseDirty();
       });
     }
@@ -5731,6 +5898,7 @@ function renderRawJson() {
       applyScenarioRunInputs(simulation.dynamicConfig);
       document.getElementById('run-playback-rate').value=String(simulation.playbackRate||1);
       state.run.result = simulation.results?.replay ? cloneJson(simulation.results.replay) : null;
+      if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.isDirty = autosave.pending() || hadUnsavedChanges;
       renderEditor();
       if (state.run.result) {
@@ -5749,8 +5917,10 @@ function renderRawJson() {
       var replaySamples = samples.filter(function(sample, index) { return index % stride === 0 || index === samples.length - 1; });
       return {
         seed: run.seed,
+        durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         completedAt: new Date().toISOString(),
+        batch: result.batch?cloneJson(result.batch):undefined,shifts:result.shifts,
         summary: cloneJson(result.summary),
         equipmentMetrics: cloneJson(result.equipmentMetrics),
         accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
@@ -5759,6 +5929,7 @@ function renderRawJson() {
           seed: result.seed, durationSeconds: result.durationSeconds,
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
+          shifts:result.shifts,detailCoverage:result.detailCoverage,
           samples: cloneJson(replaySamples), events: cloneJson(result.events || [])
         }
       };
@@ -5824,8 +5995,18 @@ function renderRawJson() {
       }catch(error){showError({message:error.message});}finally{document.getElementById('application').inert=false;if(button?.isConnected)button.disabled=false;}
     }
 
+    function syncDurationControls(){
+      var shifts=document.getElementById('duration-mode').value==='SHIFTS';
+      document.getElementById('run-duration').disabled=shifts;
+      ['run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).closest('label').classList.toggle('hidden',!shifts);});
+    }
     function applyScenarioRunInputs(run) {
       if (!run) return;
+      document.getElementById('duration-mode').value=run.durationMode||'FIXED';
+      document.getElementById('run-shift-hours').value=run.shiftHours||8;
+      document.getElementById('run-shift-count').value=run.shiftCount||1;
+      document.getElementById('run-rounds').value=run.rounds||1;
+      syncDurationControls();
       document.getElementById('run-duration').value = run.durationSeconds ?? document.getElementById('run-duration').defaultValue;
       document.getElementById('run-sample-interval').value = run.sampleEverySeconds ?? document.getElementById('run-sample-interval').defaultValue;
       document.getElementById('run-seed').value = run.seed ?? document.getElementById('run-seed').defaultValue;
@@ -5882,13 +6063,26 @@ function renderRawJson() {
       return row;
     }
 
-    function runSimulation() {
+    async function runSimulation() {
       if (state.isDirty && !collectCaseEditor()) return;
       var run = readRunConfiguration();
       if (!run) return;
       activePersistentSimulation().dynamicConfig=cloneJson(run);
       state.run.configuration = copyRunConfiguration(run);
-      if (!calculateSimulation(run, 0)) return;
+      if(run.rounds>1||run.durationMode==='SHIFTS') {
+        var dialog=document.getElementById('batch-dialog'),cancelled=false;
+        document.getElementById('batch-cancel').onclick=function(){cancelled=true;};
+        dialog.oncancel=function(event){event.preventDefault();cancelled=true;};
+        document.getElementById('batch-progress').value=0;dialog.showModal();
+        stopPlaybackTimer();
+        try {
+          var response=await SimulatorEngine.simulateBatch({case:cloneJson(state.activeCase),run:run},{cancelled:function(){return cancelled;},progress:function(value,round,total){document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=round+' / '+total+' · '+Math.round(value*100)+'%';}});
+          if(!response.ok){showError(response.error);return;}
+          state.run.result=response.result;state.run.sampleIndex=0;toggle('simulation-results',true);
+          document.getElementById('simulation-json-preview').value=JSON.stringify(response.result,null,2);shell.sync();renderPlaybackFrame();
+        } catch(error){if(error.message==='BATCH_CANCELLED')setStatus("Run cancelled. Previous results were kept; incomplete rounds were not saved.");else showError({message:error.message});return;}
+        finally{dialog.close();}
+      } else if (!calculateSimulation(run, 0)) return;
       var tab = activePersistentSimulation();
       if (tab) {
         tab.run = cloneJson(run);
@@ -5908,11 +6102,16 @@ function renderRawJson() {
       var durationSeconds = Number(document.getElementById('run-duration').value);
       var sampleEverySeconds = Number(document.getElementById('run-sample-interval').value);
       var seed = Number(document.getElementById('run-seed').value);
+      var durationMode=document.getElementById('duration-mode').value;
+      var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=Number(document.getElementById('run-rounds').value);
+      if(!Number.isInteger(rounds)||rounds<1||rounds>50||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||![1,2,3].includes(shiftCount))){showError({message:"Choose 1–50 whole rounds, 1–3 shifts and 0.25–24 hours per shift in quarter-hour increments."});return null;}
+      if(durationMode==='SHIFTS'){durationSeconds=shiftHours*3600*shiftCount;document.getElementById('run-duration').value=durationSeconds;}
       if (!(durationSeconds > 0) || !(sampleEverySeconds > 0) || !Number.isInteger(seed)) {
         showError({ code: 'INVALID_RUN_CONFIGURATION', message: "Duration, sample interval, and integer seed are required." });
         return null;
       }
       return {
+        durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
         sampleEverySeconds: sampleEverySeconds,
@@ -5929,6 +6128,7 @@ function renderRawJson() {
 
     function copyRunConfiguration(run) {
       return {
+        durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         tickSeconds: run.tickSeconds,
         sampleEverySeconds: run.sampleEverySeconds,
@@ -5940,6 +6140,7 @@ function renderRawJson() {
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
+        durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,
         tickSeconds: configuration.tickSeconds,
         sampleEverySeconds: configuration.sampleEverySeconds,
@@ -6396,6 +6597,7 @@ function summarizeGeometrySources(sources, assumptions) {
     function updateLiveEquipmentControl(button) {
       var sample = state.run.result && state.run.result.samples[state.run.sampleIndex];
       var isAtRunEnd = !sample || sample.virtualSecond >= state.run.result.durationSeconds;
+      if(state.run.result?.batch){button.disabled=true;button.title="For replicated runs, add equipment commands under scheduled events and run the whole batch again.";return;}
       button.disabled = isAtRunEnd;
       button.title = (button.dataset.actionLabel || '') + ' — ' + (isAtRunEnd
         ? "Reset playback to an earlier virtual time before applying a scenario control."
@@ -6404,6 +6606,7 @@ function summarizeGeometrySources(sources, assumptions) {
 
     function applyLiveScenarioControl(equipmentId, action) {
       if (!state.run.result) return;
+      if(state.run.result.batch)return setStatus("For replicated runs, add equipment commands under scheduled events and run the whole batch again.");
       var sample = state.run.result.samples[state.run.sampleIndex];
       if (!sample || sample.virtualSecond >= state.run.result.durationSeconds) {
         return setStatus("Reset playback to an earlier virtual time before applying a scenario control.");
