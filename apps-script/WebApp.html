@@ -121,6 +121,12 @@
           </div>
           <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
+        <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
+          <label><input type="radio" name="equipment-filter" value="equipment"><span><?= __ST_TEXT__('filter.equipment') ?></span></label>
+          <label><input type="radio" name="equipment-filter" value="conveyors"><span><?= __ST_TEXT__('filter.conveyors') ?></span></label>
+          <label><input type="radio" name="equipment-filter" value="all" checked><span><?= __ST_TEXT__('filter.all') ?></span></label>
+        </div>
+        <p id="equipment-filter-empty" class="empty hidden" role="status"><?= __ST_TEXT__('filter.empty') ?></p>
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
@@ -306,6 +312,7 @@
     <?!= include_('Comparison'); ?>
     <?!= include_('Assistant'); ?>
     <?!= include_('EquipmentDrag'); ?>
+    <?!= include_('EquipmentFilter'); ?>
     <?!= include_('EquipmentInspector'); ?>
     <?!= include_('SheetImportMerge'); ?>
     <?!= include_('SheetImportCorrections'); ?>

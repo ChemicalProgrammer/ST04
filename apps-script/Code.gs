@@ -6,6 +6,13 @@
 // -----------------------------------------------------------------------------
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "client.nominal_rate_bpm":"Nominal speed (BPM)",
+  "filter.label":"Filter line equipment",
+  "filter.equipment":"Equipment",
+  "filter.conveyors":"Conveyors",
+  "filter.all":"All",
+  "filter.empty":"No equipment matches this filter.",
+  "filter.reorder":"Select All to reorder the complete line.",
   "batch.compare_note":"Replication statistics are compared separately. The standard result comparison below uses round 1. Compare batch means only with matching duration, round count and seed lists.",
   "batch.evidence":"These proposals use round 1 as dynamic evidence. Replication averages are available in Results; proposed gains remain unverified.",
   "batch.controls":"For replicated runs, add equipment commands under scheduled events and run the whole batch again.",
@@ -84,7 +91,7 @@ var ST_TEXT_RESOURCES = {
   "inspector.help_id": "Unique equipment identifier used by commands and saved results. Keep it stable and unique within the simulation.",
   "inspector.help_name": "Equipment name displayed in the line, results and comparisons.",
   "inspector.help_type": "Equipment category. Conveyor enables the physical belt and sensor settings; other categories represent processing machines.",
-  "inspector.help_rate": "Nominal production rate in flow units per second. Multiply by 60 for units per minute. Conveyor belt velocity is calculated separately from its geometry and speed factor.",
+  "inspector.help_rate": "Nominal speed in BPM (bottles per minute), regardless of the case flow-unit label. The engine stores this value divided by 60. This changes the time basis only; it does not convert cases or pallets into bottles. Conveyor belt velocity is calculated separately from geometry and speed factor.",
   "inspector.help_mode": "Initial operating mode: AUTO follows line controls; MANUAL uses manual operation; PAUSE and STOP start the equipment paused or stopped.",
   "inspector.help_characteristics": "Optional equipment attributes as a JSON object. Use the example guide for supported fields; an empty object is allowed.",
   "inspector.help_noise": "Failure model inputs as a JSON object. Reliability requires both positive MTBF and MTTR in minutes. Use measured plant values; an empty object adds no reliability profile.",

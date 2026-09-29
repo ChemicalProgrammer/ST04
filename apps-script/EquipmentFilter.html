@@ -1,0 +1,24 @@
+<script>
+window.STEquipmentFilter=(function(){
+  var current='all';
+  function apply(){
+    var cards=Array.from(document.querySelectorAll('#equipment-list .equipment-card')),visible=0;
+    cards.forEach(function(card){
+      var fields=card._fields||card,type=fields.querySelector('.equipment-type')?.value;
+      var show=current==='all'||(current==='conveyors'?type==='CONVEYOR':type!=='CONVEYOR');
+      card.classList.toggle('hidden',!show);if(show)visible++;
+      var handle=card.querySelector('.equipment-drag');handle.disabled=current!=='all';
+      handle.title=(current==='all'?__ST_TEXT__('client.drag_to_reorder_use_arrow_up_or_down_on_this_handle'):__ST_TEXT__('filter.reorder'));
+      if(!show&&card.classList.contains('equipment-selected'))STEquipmentInspector.hide();
+    });
+    var empty=document.getElementById('equipment-filter-empty');empty.classList.toggle('hidden',!cards.length||visible>0);
+    document.querySelectorAll('[name="equipment-filter"]').forEach(function(input){input.checked=input.value===current;});
+  }
+  function set(value){current=value;apply();}
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[name="equipment-filter"]').forEach(function(input){input.addEventListener('change',function(){if(input.checked)set(input.value);});});
+    document.addEventListener('change',function(event){if(event.target.matches('.equipment-type'))apply();});
+  });
+  return {apply:apply,set:set,all:function(){return current==='all';}};
+})();
+</script>

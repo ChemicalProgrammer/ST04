@@ -28,7 +28,8 @@ test('manual Apps Script bundle contains all server modules and resolved HTML in
   assert.doesNotMatch(index, /<\?\s*include_/);
 
   const scripts = Array.from(index.matchAll(/<script>([\s\S]*?)<\/script>/g), (match) => match[1]);
-  assert.equal(scripts.length, 22);
+  assert.equal(scripts.length, 23);
+  assert.doesNotMatch(index, /\b__ST_(?:HTML_)?TEXT__\s*\(/, 'Client resource calls must be resolved at build time.');
   assert.match(index, /window\.STSheetCorrections=/);
   for (const script of scripts) new Function(script);
   new Function(code);

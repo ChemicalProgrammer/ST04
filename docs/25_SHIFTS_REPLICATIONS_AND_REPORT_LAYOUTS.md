@@ -19,6 +19,6 @@ A 13-equipment demo spanning three eight-hour shifts took approximately 15 secon
 - `apps-script/ReportStyles.html`: report typography, spacing, palettes and print rules.
 - `apps-script/Reports.html`: data formatting, escaping and populating the named HTML slots.
 
-Keep `data-report` slot names when rearranging templates. Labels use `data-report-text` resource keys. HTML/PDF snapshot the resolved light/dark theme and primary accent at export time; they need no external fonts or styles. PDF uses the browser print dialog. Enable background graphics in print settings to preserve theme fills.
+Keep `data-report` slot names when rearranging templates. Labels use `data-report-text` resource keys from the `templateText` map in `Reports.html`; add new resource keys to that map when extending a template. HTML/PDF snapshot the resolved light/dark theme and primary accent at export time; they need no external fonts or styles. PDF uses the browser print dialog. Enable background graphics in print settings to preserve theme fills.
 
 The equipment inspector remembers its own width, independent of Gemini chat, defaults to 760px where space permits, and distributes fields into one, two or three columns. Its minimum field width is a design token, `--equipment-field-width`.

@@ -466,3 +466,32 @@ test('UI: shift replications save compact results, reopen and expose statistics 
   assert(h.visible('batch-results'));assert.equal(h.d.getElementById('run-rounds').value,'2');assert.equal(h.d.getElementById('run-shift-count').value,'2');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: exclusive equipment filters preserve hidden records, order and saved values',async()=>{
+ const h=await setup({realScenarioServer:true});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const before=h.storedCases()[0],ids=before.equipment.map(e=>e.id);
+  const visible=()=>Array.from(h.d.querySelectorAll('#equipment-list .equipment-card:not(.hidden)'));
+  await h.click('[name="equipment-filter"][value="conveyors"]');assert.equal(visible().length,6);
+  assert.equal(h.d.querySelectorAll('[name="equipment-filter"]:checked').length,1);assert(visible().every(c=>c.querySelector('.equipment-drag').disabled));
+  await h.click('[name="equipment-filter"][value="equipment"]');assert.equal(visible().length,7);
+  assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
+  visible()[0].click();const input=h.d.querySelector('#equipment-inspector .equipment-name');input.value='Edited through filter';input.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[0].name==='Edited through filter');
+  const saved=h.storedCases()[0];assert.deepEqual(saved.equipment.map(e=>e.id),ids);assert.deepEqual(saved.equipment.map(e=>e.nominalRatePerSecond),before.equipment.map(e=>e.nominalRatePerSecond));
+  await h.click('[name="equipment-filter"][value="all"]');assert.equal(visible().length,13);assert(visible().every(c=>!c.querySelector('.equipment-drag').disabled));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+test('UI: BPM edits convert once and survive reload independently of the flow unit',async()=>{
+ const h=await setup({realScenarioServer:true});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  h.d.querySelector('.equipment-card').click();const rate=h.d.querySelector('#equipment-inspector .equipment-rate');
+  assert(Math.abs(Number(rate.value)-h.storedCases()[0].equipment[0].nominalRatePerSecond*60)<1e-9);
+  const flow=h.d.getElementById('unit-of-flow');flow.value='cases';flow.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  rate.value='345.5';rate.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[0].nominalRatePerSecond===345.5/60);
+  assert.match(h.d.querySelector('.equipment-header strong').textContent,/345.5 BPM/);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');h.d.querySelector('.equipment-card').click();
+  assert.equal(h.d.querySelector('#equipment-inspector .equipment-rate').value,'345.5');assert.equal(h.d.getElementById('unit-of-flow').value,'cases');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

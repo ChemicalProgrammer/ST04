@@ -1,6 +1,13 @@
 <script>
 window.STReports=(function(){
   var characterBudget=64000;
+  var templateText={
+    'exports.equipment_results':__ST_TEXT__('exports.equipment_results'),
+    'scenario.unverified':__ST_TEXT__('scenario.unverified'),
+    'scenario.design_checks':__ST_TEXT__('scenario.design_checks'),
+    'exports.setup_note':__ST_TEXT__('exports.setup_note'),
+    'exports.setup_json':__ST_TEXT__('exports.setup_json')
+  };
   function escape(value){return String(value??'—').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function compact(value,depth){
     if(value===null||typeof value==='boolean')return value;
@@ -39,7 +46,7 @@ window.STReports=(function(){
     var root=document.getElementById('report-document-template').content.cloneNode(true);
     root.querySelector('[data-report="brand"]').textContent=__ST_TEXT__('reports.brand');root.querySelector('[data-report="title"]').textContent=title;
     root.querySelector('[data-report="subtitle"]').textContent=__ST_TEXT__('reports.subtitle');root.querySelector('[data-report="footer"]').textContent=__ST_TEXT__('reports.footer')+' · '+new Date().toISOString();
-    var section=document.getElementById('report-'+(kind||'results')+'-template').content.cloneNode(true);Object.entries(slots).forEach(function(pair){var slot=section.querySelector('[data-report="'+pair[0]+'"]');if(slot)slot.innerHTML=pair[1];});section.querySelectorAll('[data-report-text]').forEach(function(node){node.textContent=__ST_TEXT__(node.dataset.reportText);});root.querySelector('[data-report="body"]').append(section);
+    var section=document.getElementById('report-'+(kind||'results')+'-template').content.cloneNode(true);Object.entries(slots).forEach(function(pair){var slot=section.querySelector('[data-report="'+pair[0]+'"]');if(slot)slot.innerHTML=pair[1];});section.querySelectorAll('[data-report-text]').forEach(function(node){node.textContent=templateText[node.dataset.reportText]||node.dataset.reportText;});root.querySelector('[data-report="body"]').append(section);
     var container=document.createElement('div');container.append(root);
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+palette+'</style></head><body>'+container.innerHTML+'</body></html>';
   }

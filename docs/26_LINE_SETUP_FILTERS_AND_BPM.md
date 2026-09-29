@@ -1,0 +1,5 @@
+# Line Setup filters and BPM entry
+
+The exclusive Equipment / Conveyors / All filter controls visibility only. Equipment means every non-conveyor machine, including custom machines. Hidden records remain in the editor and are serialized in their original order. Filtering does not autosave or invalidate results. Reordering requires All so the full physical sequence is visible; adding equipment selects All. Native radio controls support keyboard navigation.
+
+Nominal speed is displayed and edited in BPM (bottles per minute), independent of the case flow-unit label. Existing `nominalRatePerSecond` storage and engine contracts are preserved: display multiplies by 60, edits divide by 60. Untouched fields retain their original numeric value exactly, avoiding conversion drift on unrelated saves. JSON configuration remains explicit about its per-second field name. This is a time-basis conversion, not a conversion between bottles, cases and pallets. Conveyor belt velocity remains calculated independently from geometry and speed factors.
