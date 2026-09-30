@@ -47,6 +47,10 @@
       STEquipmentInspector.init(state,markCaseDirty);
       assistant.init();
       sheetImport.init();
+      STConfigurationEditor.init(state, {
+        capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
+        apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
+      });
       shell.init();
       if (STPreferences.read('remember') === 'yes') {
         document.getElementById('remember-session').checked = true;
@@ -448,6 +452,7 @@ async function openCase(caseId) {
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
       Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
       card.appendChild(fields); card._fields = fields;
+      STReliabilityControls(card);
       addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
@@ -774,6 +779,7 @@ function numericInputValue(input) {
         if (noiseProfile === null) return false;
         var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, __ST_TEXT__('client.process_format_data'), index + 1);
         if (processData === null) return false;
+        if(!STReliabilityControls.valid(card)){showError({message:'MTBF and MTTR must be positive numbers when failures are enabled.'});return false;}
         var type = equipmentField(card, '.equipment-type').value;
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
@@ -831,7 +837,7 @@ function renderRawJson() {
           if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid'));
           return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run}));
         }
-        preview.value=JSON.stringify(state.activeCase,null,2);
+        preview.value=JSON.stringify(STReports.configuration(state.activeCase,Object.assign({},activePersistentSimulation(),{equipment:state.activeCase.equipment})),null,2);
         STReports.bindConfiguration(configuration);
       }
     }

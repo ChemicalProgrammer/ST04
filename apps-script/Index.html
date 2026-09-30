@@ -635,6 +635,10 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .gemini-settings > label { display:block; margin:var(--space-4) 0 var(--space-2); }
 .gemini-settings > input { margin:0; }
 .gemini-settings #gemini-key-status { margin:var(--space-3) 0 0; }
+#configuration-dialog { width:min(900px,92vw); max-height:90vh; overflow:auto; }
+#configuration-draft { width:100%; min-height:40vh; font-family:monospace; }
+#configuration-error { white-space:pre-wrap; overflow-wrap:anywhere; }
+.reliability-controls { margin-block:16px; }
 </style>
     <style>
 .result-kpis { display: grid; grid-template-columns: repeat(auto-fit,minmax(var(--size-150),1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
@@ -1200,7 +1204,7 @@ window.STPreferences = (function() {
             <h3>Equipment sequence</h3>
             <p>Order defines material flow. Use alternating machine → conveyor → machine steps; every conveyor requires physical geometry.</p>
           </div>
-          <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button">Import Sheet</button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="Add equipment" title="Add equipment"></button></div>
+          <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button">Import Sheet</button><button id="open-json-import" class="secondary" type="button">Import JSON</button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="Add equipment" title="Add equipment"></button></div>
         </div>
         <div class="equipment-filters" role="radiogroup" aria-label="Filter line equipment">
           <label><input type="radio" name="equipment-filter" value="equipment"><span>Equipment</span></label>
@@ -1211,9 +1215,9 @@ window.STPreferences = (function() {
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
-          <summary>Configuration preview and export</summary>
+          <summary>Active simulation JSON</summary>
           <p class="chart-note">The preview below contains the full case, including saved simulations and results. Export downloads only the complete inputs for the selected simulation: equipment, geometry, reliability, run settings and case metadata. Results and replay are excluded. This JSON can be shared as input context with an AI; it is not a measured performance report. No abbreviated copy is needed unless your AI has a smaller context limit.</p>
-          <div class="button-row"><button id="export-setup-json" type="button" class="secondary" data-icon="download">Configuration JSON</button><button id="export-setup-html" type="button" class="secondary">HTML report</button><button id="export-setup-pdf" type="button" class="secondary">PDF / Print</button></div>
+          <div class="button-row"><button id="edit-setup-json" class="secondary" type="button">Edit JSON</button><button id="export-setup-json" type="button" class="secondary" data-icon="download">Configuration JSON</button><button id="export-setup-html" type="button" class="secondary">HTML report</button><button id="export-setup-pdf" type="button" class="secondary">PDF / Print</button></div>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
       </section>
@@ -5192,6 +5196,93 @@ window.STSheetImport=function(state,actions){
   return {init:init,close:close};
 };
 </script>
+    <dialog id="configuration-dialog" aria-labelledby="configuration-title">
+      <h2 id="configuration-title">Active simulation JSON</h2>
+      <p>Import a configuration export or paste a simulation object with equipment and optional dynamicConfig. Only the active simulation changes. Case identity and other simulations are preserved. Apply clears previous results.</p>
+      <label>Choose JSON file (maximum 6 MB)<input id="configuration-file" type="file" accept=".json,application/json"></label>
+      <label for="configuration-draft">Configuration JSON</label>
+      <textarea id="configuration-draft" spellcheck="false"></textarea>
+      <pre id="configuration-error" role="alert"></pre>
+      <div class="button-row"><button id="configuration-apply" type="button">Validate and Apply</button><button id="configuration-cancel" class="secondary" type="button">Cancel</button></div>
+    </dialog>
+    <script>
+var STReliabilityControls = (function(){
+  function attach(card){
+    var fields=card._fields, profile=fields.querySelector('.equipment-noise-profile'), process=fields.querySelector('.equipment-process-data');
+    var group=document.createElement('section');group.className='equipment-grid reliability-controls';
+    var controls={};
+    [['enabled',"Failures enabled"],['mtbfMinutes',"MTBF (min)"],['mttrMinutes',"MTTR (min)"]].forEach(function(spec){
+      var label=document.createElement('label'),input=document.createElement('input');label.textContent=spec[1];label.title=spec[1]+' — positive minutes when failures are enabled; disabling failures retains these values.';input.className='reliability-'+spec[0];input.type=spec[0]==='enabled'?'checkbox':'number';if(input.type==='number'){input.min='0';input.step='any';}label.appendChild(input);group.appendChild(label);controls[spec[0]]=input;
+    });
+    fields.querySelector('.equipment-grid').after(group);
+    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}}
+    function update(){
+      try{
+        var noise=JSON.parse(profile.value),data=JSON.parse(process.value);
+        if(!noise||Array.isArray(noise)||typeof noise!=='object'||!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid JSON');
+        var rel={mtbfMinutes:Number(controls.mtbfMinutes.value),mttrMinutes:Number(controls.mttrMinutes.value)};
+        if(controls.enabled.checked)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
+        data.equipment=Object.assign({},data.equipment,rel);
+        profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
+      }catch(e){group.dataset.invalid='true';}
+    }
+    Object.values(controls).forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
+    profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();
+  }
+  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
+  return attach;
+})();
+var STConfigurationEditor=(function(){
+  function object(value){return value&&typeof value==='object'&&!Array.isArray(value);}
+  function validate(text,current){
+    var parsed=JSON.parse(text,function(key,value){if(['__proto__','constructor','prototype'].includes(key))throw Error('Unsafe JSON key: '+key);return value;});
+    if(!object(parsed))throw Error('Configuration must be a JSON object.');
+    if(parsed.schema&&parsed.schema!=='st-line-configuration-v1')throw Error('Unsupported configuration schema: '+parsed.schema);
+    if(parsed.simulations)throw Error('Import an active simulation configuration export, not an entire case.');
+    if(parsed.case?.unitOfFlow&&parsed.case.unitOfFlow!==current.case.unitOfFlow)throw Error('unitOfFlow must match the active case: '+current.case.unitOfFlow);
+    var source=parsed.schema?parsed.simulation:parsed;
+    if(!object(source)||!Array.isArray(source.equipment))throw Error('equipment must be an array.');
+    if(source.engineConfig&&JSON.stringify(source.engineConfig)!==JSON.stringify(current.simulation.engineConfig))throw Error('engineConfig is shared by the case and must match the active case.');
+    if(source.dynamicConfig!==undefined&&!object(source.dynamicConfig))throw Error('dynamicConfig must be an object.');
+    var run=Object.assign({},current.simulation.dynamicConfig,source.dynamicConfig||{});
+    if(run.tickSeconds!==0.25)throw Error('tickSeconds must be 0.25 in this interface.');
+    if(!['FIXED','SHIFTS'].includes(run.durationMode)||!Number.isInteger(run.rounds)||run.rounds<1||run.rounds>50)throw Error('Use durationMode FIXED or SHIFTS and rounds from 1 to 50.');
+    if(run.durationMode==='SHIFTS'){
+      if(!(run.shiftHours>=0.25&&run.shiftHours<=24)||!Number.isInteger(run.shiftHours*4)||![1,2,3].includes(run.shiftCount))throw Error('Invalid shiftHours or shiftCount.');
+      run.shiftSeconds=run.shiftHours*3600;run.durationSeconds=run.shiftSeconds*run.shiftCount;
+    }
+    source.equipment.forEach(function(e,index){
+      if(!object(e)||typeof e.name!=='string'||!e.name.trim())throw Error('equipment['+index+'].name is required.');
+      if(typeof e.id==='string')e.id=e.id.trim();e.name=e.name.trim();
+      if(!['BLOWER','BLOWMOLDER','CONVEYOR','PACEMAKER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'].includes(e.type))throw Error('equipment['+index+'].type is unsupported.');
+      ['characteristics','noiseProfile','processData'].forEach(function(key){if(e[key]===undefined)e[key]={};if(!object(e[key]))throw Error('equipment['+index+'].'+key+' must be an object.');});
+      if(e.noiseProfile.reliability){e.processData.equipment=Object.assign({},e.processData.equipment,e.noiseProfile.reliability);}
+    });
+    var result=SimulatorEngine.validateSimulationInput({case:{equipment:source.equipment},run:run});
+    if(!result.ok)throw Error(result.error.details.map(function(d){return d.path+': '+d.reason;}).join('\n'));
+    return {equipment:source.equipment,dynamicConfig:run};
+  }
+  function init(state,callbacks){
+    var dialog=document.getElementById('configuration-dialog'),draft=document.getElementById('configuration-draft'),error=document.getElementById('configuration-error'),file=document.getElementById('configuration-file'),apply=document.getElementById('configuration-apply');
+    var context=null,serial=0;
+    function close(){serial++;context=null;draft.value='';file.value='';dialog.close();}
+    async function open(importing){
+      var token=++serial,caseId=state.activeCase?.id,simulationId=state.activeSimulationId;
+      try{var current=await callbacks.capture();if(token!==serial||state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId)return;
+        context={caseId:caseId,simulationId:simulationId,current:current};draft.value=importing?'':JSON.stringify(current,null,2);file.value='';error.textContent='';apply.disabled=false;dialog.showModal();draft.focus();
+      }catch(e){STDialog.open({message:e.message});}
+    }
+    document.getElementById('open-json-import').onclick=function(){open(true);};document.getElementById('edit-setup-json').onclick=function(){open(false);};
+    document.getElementById('configuration-cancel').onclick=close;dialog.addEventListener('cancel',function(event){event.preventDefault();close();});
+    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;error.textContent='';}catch(e){if(token===serial)error.textContent=e.message;}finally{if(token===serial)apply.disabled=false;}};
+    apply.onclick=function(){try{
+      if(!context||state.activeCase?.id!==context.caseId||state.activeSimulationId!==context.simulationId)throw Error('The active simulation changed. Reopen the editor.');
+      var configuration=validate(draft.value,context.current);callbacks.apply(configuration);close();
+    }catch(e){error.textContent=e.message;}};
+  }
+  return {init:init,validate:validate};
+})();
+</script>
     <script>
   (function() {
     var state = {
@@ -5241,6 +5332,10 @@ window.STSheetImport=function(state,actions){
       STEquipmentInspector.init(state,markCaseDirty);
       assistant.init();
       sheetImport.init();
+      STConfigurationEditor.init(state, {
+        capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error("Correct the invalid configuration fields before exporting."); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
+        apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
+      });
       shell.init();
       if (STPreferences.read('remember') === 'yes') {
         document.getElementById('remember-session').checked = true;
@@ -5642,6 +5737,7 @@ async function openCase(caseId) {
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
       Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
       card.appendChild(fields); card._fields = fields;
+      STReliabilityControls(card);
       addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);
@@ -5968,6 +6064,7 @@ function numericInputValue(input) {
         if (noiseProfile === null) return false;
         var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, "Process format data", index + 1);
         if (processData === null) return false;
+        if(!STReliabilityControls.valid(card)){showError({message:'MTBF and MTTR must be positive numbers when failures are enabled.'});return false;}
         var type = equipmentField(card, '.equipment-type').value;
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
@@ -6025,7 +6122,7 @@ function renderRawJson() {
           if(!editor||!run)throw Error("Correct the invalid configuration fields before exporting.");
           return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run}));
         }
-        preview.value=JSON.stringify(state.activeCase,null,2);
+        preview.value=JSON.stringify(STReports.configuration(state.activeCase,Object.assign({},activePersistentSimulation(),{equipment:state.activeCase.equipment})),null,2);
         STReports.bindConfiguration(configuration);
       }
     }

@@ -119,7 +119,7 @@
             <h3><?= __ST_TEXT__('view.equipment_sequence') ?></h3>
             <p><?= __ST_TEXT__('view.order_defines_material_flow_use_alternating_machine_conveyor_machine_steps_') ?></p>
           </div>
-          <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
+          <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" class="secondary" type="button"><?= __ST_TEXT__('json.import') ?></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
         <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
           <label><input type="radio" name="equipment-filter" value="equipment"><span><?= __ST_TEXT__('filter.equipment') ?></span></label>
@@ -130,9 +130,9 @@
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
-          <summary><?= __ST_TEXT__('view.raw_json_preview') ?></summary>
+          <summary><?= __ST_TEXT__('json.title') ?></summary>
           <p class="chart-note"><?= __ST_TEXT__('exports.setup_note') ?></p>
-          <div class="button-row"><button id="export-setup-json" type="button" class="secondary" data-icon="download"><?= __ST_TEXT__('exports.setup_json') ?></button><button id="export-setup-html" type="button" class="secondary"><?= __ST_TEXT__('exports.html') ?></button><button id="export-setup-pdf" type="button" class="secondary"><?= __ST_TEXT__('exports.pdf') ?></button></div>
+          <div class="button-row"><button id="edit-setup-json" class="secondary" type="button"><?= __ST_TEXT__('json.edit') ?></button><button id="export-setup-json" type="button" class="secondary" data-icon="download"><?= __ST_TEXT__('exports.setup_json') ?></button><button id="export-setup-html" type="button" class="secondary"><?= __ST_TEXT__('exports.html') ?></button><button id="export-setup-pdf" type="button" class="secondary"><?= __ST_TEXT__('exports.pdf') ?></button></div>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
       </section>
@@ -317,6 +317,16 @@
     <?!= include_('SheetImportMerge'); ?>
     <?!= include_('SheetImportCorrections'); ?>
     <?!= include_('SheetImport'); ?>
+    <dialog id="configuration-dialog" aria-labelledby="configuration-title">
+      <h2 id="configuration-title"><?= __ST_TEXT__('json.title') ?></h2>
+      <p><?= __ST_TEXT__('json.note') ?></p>
+      <label><?= __ST_TEXT__('json.file') ?><input id="configuration-file" type="file" accept=".json,application/json"></label>
+      <label for="configuration-draft"><?= __ST_TEXT__('json.draft') ?></label>
+      <textarea id="configuration-draft" spellcheck="false"></textarea>
+      <pre id="configuration-error" role="alert"></pre>
+      <div class="button-row"><button id="configuration-apply" type="button"><?= __ST_TEXT__('json.apply') ?></button><button id="configuration-cancel" class="secondary" type="button"><?= __ST_TEXT__('json.cancel') ?></button></div>
+    </dialog>
+    <?!= include_('ConfigurationEditor'); ?>
     <?!= include_('Client'); ?>
   </body>
 </html>

@@ -243,8 +243,8 @@ test('UI: compact editor reorders equipment with keyboard and preserves values',
 test('UI: selective Sheet reload updates the active simulation, preserves other runs and saves selection',async()=>{
  const h=await setup();try{
  async function waitFor(predicate){for(let i=0;i<30;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
- await h.click('#sign-in-button');await h.click('.open-case');h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await waitFor(()=>JSON.parse(h.d.getElementById('case-json-preview').value).simulations.length===2);await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');
- let before=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(before.simulations.length,2,JSON.stringify({calls:h.calls,errors:h.errors,status:h.d.getElementById('status').textContent}));const simId=before.simulations[1].id,firstId=before.equipment[0].id,oldMTBF=before.equipment[0].noiseProfile.reliability.mtbfMinutes;
+ await h.click('#sign-in-button');await h.click('.open-case');h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');
+ let before=h.storedCases()[0];assert.equal(before.simulations.length,2,JSON.stringify({calls:h.calls,errors:h.errors,status:h.d.getElementById('status').textContent}));const simId=before.simulations[1].id,firstId=before.equipment[0].id,oldMTBF=before.equipment[0].noiseProfile.reliability.mtbfMinutes;
  const field=h.d.querySelector('.equipment-name');field.value='Local equipment name';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
  await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
  assert.match(h.d.getElementById('sheet-import-preview').textContent,/Current/);assert.match(h.d.getElementById('sheet-import-preview').textContent,/Local equipment name/);
@@ -252,16 +252,17 @@ test('UI: selective Sheet reload updates the active simulation, preserves other 
  Array.from(h.d.querySelectorAll('#sheet-import-preview button')).find(b=>b.textContent==='Deselect all fields').click();
  const mtbf=h.d.querySelector('[data-source-index="0"] [data-field="mtbf"]');mtbf.checked=true;mtbf.dispatchEvent(new h.w.Event('change'));
  h.d.getElementById('sheet-import-ack').checked=true;h.d.getElementById('sheet-import-ack').dispatchEvent(new h.w.Event('change'));assert(!h.d.getElementById('sheet-import-apply').disabled);await h.click('#sheet-import-apply');
- let record=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(record.simulations.length,2);assert.equal(record.simulations[1].id,simId);assert.equal(record.equipment.length,13);assert.equal(record.equipment[0].id,firstId);assert.equal(record.equipment[0].name,'Local equipment name');assert.equal(record.equipment[0].noiseProfile.reliability.mtbfMinutes,oldMTBF+60);assert.equal(record.simulations[1].results,null);assert(record.simulations[0].results.summary);
+ await waitFor(()=>h.storedCases()[0].equipment[0].noiseProfile.reliability.mtbfMinutes===oldMTBF+60);
+ let record=h.storedCases()[0];assert.equal(record.simulations.length,2);assert.equal(record.simulations[1].id,simId);assert.equal(record.equipment.length,13);assert.equal(record.equipment[0].id,firstId);assert.equal(record.equipment[0].name,'Local equipment name');assert.equal(record.equipment[0].noiseProfile.reliability.mtbfMinutes,oldMTBF+60);assert.equal(record.simulations[1].results,null);assert(record.simulations[0].results.summary);
  assert.deepEqual(record.simulations[1].sourceImport.lastApplied.equipment[0].fields.map(f=>f.field),['mtbf']);
- await h.click('#home-cases');await h.click('.open-case');await h.click('#workspace-tabs button:nth-child(2)');record=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(record.simulations.length,2);assert.equal(record.simulations[1].equipment[0].name,'Local equipment name');assert.equal(record.simulations[1].equipment[0].noiseProfile.reliability.mtbfMinutes,oldMTBF+60);assert.deepEqual(h.errors,[]);
+ await h.click('#home-cases');await h.click('.open-case');await h.click('#workspace-tabs button:nth-child(2)');record=h.storedCases()[0];assert.equal(record.simulations.length,2);assert.equal(record.simulations[1].equipment[0].name,'Local equipment name');assert.equal(record.simulations[1].equipment[0].noiseProfile.reliability.mtbfMinutes,oldMTBF+60);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: empty simulation imports all selected equipment without creating another simulation',async()=>{
  const h=await setup({empty:true});try{
  await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
  h.d.getElementById('sheet-import-ack').checked=true;h.d.getElementById('sheet-import-ack').dispatchEvent(new h.w.Event('change'));await h.click('#sheet-import-apply');
- const record=JSON.parse(h.d.getElementById('case-json-preview').value);assert.equal(record.simulations.length,1);assert.equal(record.equipment.length,3);assert.equal(record.simulations[0].sourceImport.metadata.site,'Synthetic site');await waitFor(()=>h.storedCases()[0].equipment.length===3);assert.deepEqual(h.errors,[]);
+ await waitFor(()=>h.storedCases()[0].equipment.length===3);const record=h.storedCases()[0];assert.equal(record.simulations.length,1);assert.equal(record.equipment.length,3);assert.equal(record.simulations[0].sourceImport.metadata.site,'Synthetic site');await waitFor(()=>h.storedCases()[0].equipment.length===3);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: invalid source fields are unavailable and cancel leaves equipment intact',async()=>{
@@ -403,7 +404,7 @@ test('UI: negative-gap proposals require acceptance, support undo and cancel, an
   assert.equal(h.storedCases()[0].simulations[0].equipment.length,0);
   await preview();assert(h.d.querySelector('.correction-accept'));assert(!h.d.querySelector('.correction-undo'));
   await h.click('.correction-accept');await h.click('#sheet-import-ack');await h.click('#sheet-import-apply');
-  const record=JSON.parse(h.d.getElementById('case-json-preview').value),unit=record.equipment[1];
+  await waitFor(()=>h.storedCases()[0].equipment.length===3);const record=h.storedCases()[0],unit=record.equipment[1];
   assert.equal(unit.processData.accumulation.conveyorSpeedFactorPercent,23.74);
   const source=record.simulations[0].sourceImport;
   assert.equal(source.rows[0].values.conveyorSpeedFactorVsDischargeVelocityPercent,0);
@@ -516,5 +517,59 @@ test('UI: conveyor speed and spacing controls survive autosave and reopening and
   const geometry=response.result.samples[0].accumulationZones[0].geometry;
   assert.equal(geometry.conveyorSpeedMmPerSecond,500);assert.equal(geometry.productPitchMm,belt.processData.upstream.packageLengthMm+20);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: reliability fields persist engine values and disabled settings',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const field=key=>h.d.querySelector('.reliability-'+key);
+  assert(Number(field('mtbfMinutes').value)>0);
+  field('mtbfMinutes').value='321';field('mtbfMinutes').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  field('mttrMinutes').value='7';field('mttrMinutes').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#edit-setup-json');await waitFor(()=>h.d.getElementById('configuration-dialog').open);
+  let config=JSON.parse(h.d.getElementById('configuration-draft').value),equipment=config.simulation.equipment[0];
+  assert.equal(equipment.noiseProfile.reliability.mtbfMinutes,321);assert.equal(equipment.processData.equipment.mttrMinutes,7);
+  await h.click('#configuration-cancel');field('enabled').checked=false;field('enabled').dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  await h.click('#edit-setup-json');await waitFor(()=>h.d.getElementById('configuration-dialog').open);
+  equipment=JSON.parse(h.d.getElementById('configuration-draft').value).simulation.equipment[0];assert.equal(equipment.noiseProfile.reliability,undefined);assert.equal(equipment.processData.equipment.mtbfMinutes,321);
+  await h.click('#configuration-cancel');await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  assert.equal(field('enabled').checked,false);assert.equal(field('mtbfMinutes').value,'321');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: JSON drafts are isolated, imports validate physics and preserve simulation identity',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const original=h.storedCases()[0];const sibling={...original.simulations[0],id:'other',name:'Other'};
+  original.simulations.push(sibling);h.api.saveCase(original);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  await h.click('#edit-setup-json');await waitFor(()=>h.d.getElementById('configuration-dialog').open);
+  const draft=h.d.getElementById('configuration-draft'),config=JSON.parse(draft.value),before=JSON.stringify(h.storedCases());
+  draft.value='{broken';await h.click('#configuration-apply');assert(h.d.getElementById('configuration-error').textContent);assert.equal(JSON.stringify(h.storedCases()),before);
+  draft.value=JSON.stringify({...config,simulation:{...config.simulation,equipment:config.simulation.equipment.map(e=>({...e,id:'duplicate'}))}});
+  await h.click('#configuration-apply');assert.match(h.d.getElementById('configuration-error').textContent,/unique/);
+  await h.click('#configuration-cancel');assert.equal(JSON.stringify(h.storedCases()),before);
+  await h.click('#open-json-import');await waitFor(()=>h.d.getElementById('configuration-dialog').open);assert.equal(draft.value,'');
+  config.simulation.id='external-id';config.simulation.equipment[0].name='JSON equipment';config.simulation.dynamicConfig.durationSeconds=28800;
+  const file=h.d.getElementById('configuration-file');Object.defineProperty(file,'files',{value:[{size:100,text:async()=>JSON.stringify(config)}],configurable:true});file.dispatchEvent(new h.w.Event('change'));await waitFor(()=>draft.value.includes('JSON equipment'));
+  await h.click('#configuration-apply');assert.equal(h.d.getElementById('configuration-error').textContent,'');assert(!h.d.getElementById('configuration-dialog').open);
+  await waitFor(()=>h.storedCases()[0].simulations[0].equipment[0].name==='JSON equipment');
+  const saved=h.storedCases()[0];assert.equal(saved.id,'demo');assert.equal(saved.simulations[0].id,'simulation-a');assert.deepEqual(saved.simulations[1],sibling);assert.equal(saved.simulations[0].dynamicConfig.durationSeconds,28800);assert.equal(saved.simulations[0].results,null);
+  assert.equal(h.d.querySelector('.equipment-name').value,'JSON equipment');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: JSON validation rejects unsupported settings, invalid reliability and unsafe keys',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#edit-setup-json');await waitFor(()=>h.d.getElementById('configuration-dialog').open);
+  const config=JSON.parse(h.d.getElementById('configuration-draft').value),validate=h.w.STConfigurationEditor.validate;
+  const reject=(change,pattern)=>{const c=JSON.parse(JSON.stringify(config));change(c);assert.throws(()=>validate(JSON.stringify(c),config),pattern);};
+  reject(c=>c.schema='other',/schema/);reject(c=>c.simulation.dynamicConfig.tickSeconds=1,/tickSeconds/);
+  reject(c=>c.simulation.equipment[0].noiseProfile.reliability.mttrMinutes=-1,/mttrMinutes/);
+  reject(c=>c.simulation.equipment[1].processData.upstream.packageLengthMm=0,/productLengthMm/i);
+  reject(c=>c.simulation.dynamicConfig.commands=[{equipmentId:'missing',action:'PAUSE',atVirtualSecond:1}],/equipmentId/);
+  assert.throws(()=>validate('{"__proto__":{}}',config),/Unsafe/);
+  const original=JSON.stringify(config);validate(original,config);assert.equal(JSON.stringify(config),original);
  }finally{h.dom.window.close();}
 });

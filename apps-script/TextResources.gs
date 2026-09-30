@@ -1,5 +1,17 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "json.import":"Import JSON",
+  "json.edit":"Edit JSON",
+  "json.title":"Active simulation JSON",
+  "json.note":"Import a configuration export or paste a simulation object with equipment and optional dynamicConfig. Only the active simulation changes. Case identity and other simulations are preserved. Apply clears previous results.",
+  "json.apply":"Validate and Apply",
+  "json.cancel":"Cancel",
+  "json.file":"Choose JSON file (maximum 6 MB)",
+  "json.draft":"Configuration JSON",
+  "reliability.enabled":"Failures enabled",
+  "reliability.mtbf":"MTBF (min)",
+  "reliability.mttr":"MTTR (min)",
+
   "conveyor.invalid_geometry":"Enter a positive belt speed and package length, a conveyor long enough for one moving pitch, and an accumulated gap no greater than the moving gap.",
   "conveyor.moving_pitch":"Moving pitch",
   "conveyor.packed_pitch":"Accumulated pitch",

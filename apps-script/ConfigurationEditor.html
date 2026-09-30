@@ -1,0 +1,78 @@
+<script>
+var STReliabilityControls = (function(){
+  function attach(card){
+    var fields=card._fields, profile=fields.querySelector('.equipment-noise-profile'), process=fields.querySelector('.equipment-process-data');
+    var group=document.createElement('section');group.className='equipment-grid reliability-controls';
+    var controls={};
+    [['enabled',__ST_TEXT__('reliability.enabled')],['mtbfMinutes',__ST_TEXT__('reliability.mtbf')],['mttrMinutes',__ST_TEXT__('reliability.mttr')]].forEach(function(spec){
+      var label=document.createElement('label'),input=document.createElement('input');label.textContent=spec[1];label.title=spec[1]+' — positive minutes when failures are enabled; disabling failures retains these values.';input.className='reliability-'+spec[0];input.type=spec[0]==='enabled'?'checkbox':'number';if(input.type==='number'){input.min='0';input.step='any';}label.appendChild(input);group.appendChild(label);controls[spec[0]]=input;
+    });
+    fields.querySelector('.equipment-grid').after(group);
+    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}}
+    function update(){
+      try{
+        var noise=JSON.parse(profile.value),data=JSON.parse(process.value);
+        if(!noise||Array.isArray(noise)||typeof noise!=='object'||!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid JSON');
+        var rel={mtbfMinutes:Number(controls.mtbfMinutes.value),mttrMinutes:Number(controls.mttrMinutes.value)};
+        if(controls.enabled.checked)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
+        data.equipment=Object.assign({},data.equipment,rel);
+        profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
+      }catch(e){group.dataset.invalid='true';}
+    }
+    Object.values(controls).forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
+    profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();
+  }
+  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
+  return attach;
+})();
+var STConfigurationEditor=(function(){
+  function object(value){return value&&typeof value==='object'&&!Array.isArray(value);}
+  function validate(text,current){
+    var parsed=JSON.parse(text,function(key,value){if(['__proto__','constructor','prototype'].includes(key))throw Error('Unsafe JSON key: '+key);return value;});
+    if(!object(parsed))throw Error('Configuration must be a JSON object.');
+    if(parsed.schema&&parsed.schema!=='st-line-configuration-v1')throw Error('Unsupported configuration schema: '+parsed.schema);
+    if(parsed.simulations)throw Error('Import an active simulation configuration export, not an entire case.');
+    if(parsed.case?.unitOfFlow&&parsed.case.unitOfFlow!==current.case.unitOfFlow)throw Error('unitOfFlow must match the active case: '+current.case.unitOfFlow);
+    var source=parsed.schema?parsed.simulation:parsed;
+    if(!object(source)||!Array.isArray(source.equipment))throw Error('equipment must be an array.');
+    if(source.engineConfig&&JSON.stringify(source.engineConfig)!==JSON.stringify(current.simulation.engineConfig))throw Error('engineConfig is shared by the case and must match the active case.');
+    if(source.dynamicConfig!==undefined&&!object(source.dynamicConfig))throw Error('dynamicConfig must be an object.');
+    var run=Object.assign({},current.simulation.dynamicConfig,source.dynamicConfig||{});
+    if(run.tickSeconds!==0.25)throw Error('tickSeconds must be 0.25 in this interface.');
+    if(!['FIXED','SHIFTS'].includes(run.durationMode)||!Number.isInteger(run.rounds)||run.rounds<1||run.rounds>50)throw Error('Use durationMode FIXED or SHIFTS and rounds from 1 to 50.');
+    if(run.durationMode==='SHIFTS'){
+      if(!(run.shiftHours>=0.25&&run.shiftHours<=24)||!Number.isInteger(run.shiftHours*4)||![1,2,3].includes(run.shiftCount))throw Error('Invalid shiftHours or shiftCount.');
+      run.shiftSeconds=run.shiftHours*3600;run.durationSeconds=run.shiftSeconds*run.shiftCount;
+    }
+    source.equipment.forEach(function(e,index){
+      if(!object(e)||typeof e.name!=='string'||!e.name.trim())throw Error('equipment['+index+'].name is required.');
+      if(typeof e.id==='string')e.id=e.id.trim();e.name=e.name.trim();
+      if(!['BLOWER','BLOWMOLDER','CONVEYOR','PACEMAKER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'].includes(e.type))throw Error('equipment['+index+'].type is unsupported.');
+      ['characteristics','noiseProfile','processData'].forEach(function(key){if(e[key]===undefined)e[key]={};if(!object(e[key]))throw Error('equipment['+index+'].'+key+' must be an object.');});
+      if(e.noiseProfile.reliability){e.processData.equipment=Object.assign({},e.processData.equipment,e.noiseProfile.reliability);}
+    });
+    var result=SimulatorEngine.validateSimulationInput({case:{equipment:source.equipment},run:run});
+    if(!result.ok)throw Error(result.error.details.map(function(d){return d.path+': '+d.reason;}).join('\n'));
+    return {equipment:source.equipment,dynamicConfig:run};
+  }
+  function init(state,callbacks){
+    var dialog=document.getElementById('configuration-dialog'),draft=document.getElementById('configuration-draft'),error=document.getElementById('configuration-error'),file=document.getElementById('configuration-file'),apply=document.getElementById('configuration-apply');
+    var context=null,serial=0;
+    function close(){serial++;context=null;draft.value='';file.value='';dialog.close();}
+    async function open(importing){
+      var token=++serial,caseId=state.activeCase?.id,simulationId=state.activeSimulationId;
+      try{var current=await callbacks.capture();if(token!==serial||state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId)return;
+        context={caseId:caseId,simulationId:simulationId,current:current};draft.value=importing?'':JSON.stringify(current,null,2);file.value='';error.textContent='';apply.disabled=false;dialog.showModal();draft.focus();
+      }catch(e){STDialog.open({message:e.message});}
+    }
+    document.getElementById('open-json-import').onclick=function(){open(true);};document.getElementById('edit-setup-json').onclick=function(){open(false);};
+    document.getElementById('configuration-cancel').onclick=close;dialog.addEventListener('cancel',function(event){event.preventDefault();close();});
+    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;error.textContent='';}catch(e){if(token===serial)error.textContent=e.message;}finally{if(token===serial)apply.disabled=false;}};
+    apply.onclick=function(){try{
+      if(!context||state.activeCase?.id!==context.caseId||state.activeSimulationId!==context.simulationId)throw Error('The active simulation changed. Reopen the editor.');
+      var configuration=validate(draft.value,context.current);callbacks.apply(configuration);close();
+    }catch(e){error.textContent=e.message;}};
+  }
+  return {init:init,validate:validate};
+})();
+</script>

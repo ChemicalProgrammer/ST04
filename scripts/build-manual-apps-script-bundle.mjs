@@ -63,6 +63,7 @@ const htmlIncludes = [
   ['SheetImportMerge', 'SheetImportMerge.html'],
   ['SheetImportCorrections', 'SheetImportCorrections.html'],
   ['SheetImport', 'SheetImport.html'],
+  ['ConfigurationEditor', 'ConfigurationEditor.html'],
   ['Client', 'Client.html']
 ];
 

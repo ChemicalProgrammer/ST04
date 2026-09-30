@@ -23,4 +23,8 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .gemini-settings > label { display:block; margin:var(--space-4) 0 var(--space-2); }
 .gemini-settings > input { margin:0; }
 .gemini-settings #gemini-key-status { margin:var(--space-3) 0 0; }
+#configuration-dialog { width:min(900px,92vw); max-height:90vh; overflow:auto; }
+#configuration-draft { width:100%; min-height:40vh; font-family:monospace; }
+#configuration-error { white-space:pre-wrap; overflow-wrap:anywhere; }
+.reliability-controls { margin-block:16px; }
 </style>
