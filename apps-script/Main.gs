@@ -51,7 +51,9 @@ function deleteCase(caseId) {
 
 function saveCase(request) {
   return executeServerAction_(function(user) {
-    return saveCase_(request, user);
+    var saved=saveCase_(request, user);
+    // The client already holds the draft; return only the acknowledgement.
+    return {id:saved.id,name:saved.name,revision:saved.revision,updatedAt:saved.updatedAt,equipmentCount:saved.equipment.length};
   });
 }
 
