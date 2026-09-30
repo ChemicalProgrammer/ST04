@@ -1,41 +1,14 @@
-# Manual Apps Script update
+# Modular Apps Script update
 
-The repository remains modular for maintenance and testing. For a manual Apps Script update, use the generated two-file package in `apps-script/`:
+Deploy the individual `.gs` and `.html` files in `apps-script/`, together with `appsscript.json`. `Main.gs` serves `WebApp.html`, which loads the interface modules.
 
-- `apps-script/Code.gs`
-- `apps-script/Index.html`
+1. Update the modules from the same repository revision. Run `npm run build:apps-script` after changing the engine sources in `src/`; this updates `SimulationEngine.html` and `ScenarioEngine.gs`.
+2. Remove legacy `Code.gs` and `Index.html` from the Apps Script project. They are no longer generated or deployed.
+3. Preserve the existing manifest settings and configured permissions.
+4. Save and update the existing web-app deployment to a new version to test through its `/exec` URL.
 
-They contain the same tested code as the modular sources, including the Case Editor, Run Workspace, and the real-format `processData` support. These two root files are the **only** manual copy/paste entry point.
+When using clasp, configure `rootDir` as `apps-script`, as shown in `.clasp.json.example`. Check the remote file list after synchronization to ensure the legacy files are gone. Do not upload `src/`, `scripts/`, `test/`, or documentation as application files.
 
-## Safe update path
+Keep the existing Apps Script project to retain its user settings and API key. Removing the two legacy source files does not delete cases stored in Drive. Publishing changes on GitHub does not update the running Apps Script deployment.
 
-Use a new blank Apps Script project for this package. Do not paste `Code.gs` alongside the older modular server files: duplicate global functions can make deployment behaviour ambiguous.
-
-1. Create a blank standalone Apps Script project in the browser.
-2. Replace its default `Code.gs` with `apps-script/Code.gs`.
-3. Add one HTML file named `Index` and paste `apps-script/Index.html` into it.
-4. Deploy it as a web app with the same Google account that owns the intended Drive workspace. Keep access restricted to yourself for the single-user MVP.
-5. On first use, authorize the requested Google permissions, then enter the existing workspace Drive folder ID in the console.
-
-The Case JSON files stay in that Drive workspace. A new Apps Script project has its own user settings, so the workspace folder ID must be entered once again.
-
-## Updating a deployment
-
-For a test deployment, use the editor's current saved code. For the stable `/exec` URL, create a new deployment version through **Manage deployments** after pasting the files.
-
-## Source of truth
-
-Do not hand-edit the generated deployment files in GitHub. The editable sources are in `apps-script/`; its page template is named `WebApp.html` specifically so it is not confused with the manual `Index.html`. The generated bundle is rebuilt and verified by the repository tests.
-
-## Current release: replace the pair in `apps-script/`
-
-For an existing manual Apps Script project, replace both:
-
-- `apps-script/Code.gs` → your Apps Script file named `Code.gs`
-- `apps-script/Index.html` → your Apps Script HTML file named `Index`
-
-This release adds Case deletion and changes the simulation contract: physical geometry is mandatory on every conveyor. Old Cases that use abstract buffers or `accumulationZone` overrides must be deleted or rebuilt from the new public demo.
-
-Do not copy files from `apps-script/`, `src/`, `test/`, or `docs/` into Apps Script. There is no third file for sensor control, the browser engine, styles, or charts: all browser code is embedded in `apps-script/Index.html`.
-
-After pasting, save, then update the existing web-app deployment to a new version. This changes application code only; it does not create a Git branch or a Drive Case copy.
+Tests and the local preview resolve `WebApp.html` and its includes in memory through `scripts/render-apps-script.mjs`; they do not write combined deployment files.

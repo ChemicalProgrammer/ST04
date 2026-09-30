@@ -23,8 +23,13 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .gemini-settings > label { display:block; margin:var(--space-4) 0 var(--space-2); }
 .gemini-settings > input { margin:0; }
 .gemini-settings #gemini-key-status { margin:var(--space-3) 0 0; }
-#configuration-dialog { width:min(900px,92vw); max-height:90vh; overflow:auto; }
-#configuration-draft { width:100%; min-height:40vh; font-family:monospace; }
-#configuration-error { white-space:pre-wrap; overflow-wrap:anywhere; }
+#configuration-dialog { width:min(900px,calc(100vw - var(--space-6))); }
+#configuration-dialog .dialog-body > .chart-note:first-child { margin-top:0; }
+.configuration-file-row { display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; }
+#configuration-filename { min-width:0; overflow-wrap:anywhere; color:var(--muted); font-size:var(--font-secondary); }
+#configuration-dialog .dialog-actions { flex-wrap:wrap; }
+#configuration-draft { width:100%; min-height:40vh; font-family:var(--font-mono); }
+#configuration-error { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--danger); font-size:var(--font-secondary); margin-bottom:0; }
+#configuration-error:empty { display:none; }
 .reliability-controls { margin-block:16px; }
 </style>

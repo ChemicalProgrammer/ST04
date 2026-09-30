@@ -57,9 +57,8 @@ in `Icons.html`; all use the same stroke, grid and currentColor.
 | Client | Case, engine and workspace orchestration |
 | UiPreferences | Browser appearance, automatic theme observation and remembered entry |
 
-Modules stay flat under `apps-script/` for Apps Script compatibility. The manual
-bundle generator resolves them to two deployment files; do not edit generated
-`Code.gs` or `Index.html` directly.
+Modules stay flat under `apps-script/` for Apps Script compatibility and are deployed
+individually. Tests and previews resolve HTML includes in memory.
 
 ## Interaction
 
@@ -105,10 +104,9 @@ Automated DOM tests do not validate actual browser rendering, native dialog focu
 trapping, device layouts or live Google authentication. Visual browser review of
 this revision was blocked by the execution environment's local-page policy.
 
-For manual deployment, replace ONLY Code.gs and Index.html in Apps Script, retain
-the required manifest, and update the deployment. Do not combine generated Code.gs
-with modular .gs sources (duplicate functions). For modular deployment, include
-source modules and use WebApp.html, excluding generated Code.gs/Index.html.
+Deploy all `.gs` and `.html` modules from `apps-script/`, retain the required manifest,
+and update the deployment. Remove legacy `Code.gs` and `Index.html`.
+`Main.gs` serves `WebApp.html` and its includes.
 Publishing GitHub changes does not update the running Apps Script deployment.
 
 
@@ -118,7 +116,7 @@ Cases now has no sidebar. Once a case is open, the sidebar groups saved simulati
 
 The right Gemini panel flushes pending edits before sending a compact analysis of the selected simulation. Replay and raw imports are excluded; coverage counts identify further omissions. Configure your own Gemini API key and model in Settings; default model is `gemini-2.5-flash`. The key lives in Apps Script UserProperties and is never returned by bootstrap or written to browser storage. A blank key preserves the existing key; the explicit removal checkbox deletes it. Chat messages are transient and clear when changing simulation/case or signing out. Requests are only sent by pressing Send. Validated proposals appear as buttons that create separate scenarios after confirmation.
 
-Deploy the regenerated `Code.gs` and `Index.html` together. Apps Script may ask for authorization for external requests after adding UrlFetchApp. Reference: [Gemini generateContent API](https://ai.google.dev/api/generate-content). The integration is tested with mocked API responses; a live request requires the user's API key. DOM and CSS checks do not substitute for final visual review in the deployed Apps Script web app.
+Deploy the updated individual modules together. Apps Script may ask for authorization for external requests after adding UrlFetchApp. Reference: [Gemini generateContent API](https://ai.google.dev/api/generate-content). The integration is tested with mocked API responses; a live request requires the user's API key. DOM and CSS checks do not substitute for final visual review in the deployed Apps Script web app.
 
 
 ### Workspace polish

@@ -2,7 +2,7 @@
 
 ## What is implemented
 
-The `apps-script/` directory is the modular Apps Script web-app scaffold. It provides a minimal HTML Service console, active-user identity checks, user-scoped settings, a Drive workspace boundary, and Drive-backed Case summaries. For manual browser updates, use only `apps-script/Code.gs` and `apps-script/Index.html`.
+The `apps-script/` directory is the modular Apps Script web-app scaffold. It provides a minimal HTML Service console, active-user identity checks, user-scoped settings, a Drive workspace boundary, and Drive-backed Case summaries. Deploy the individual `.gs` and `.html` modules with the manifest; see `13_MANUAL_APPS_SCRIPT_UPDATE.md`.
 
 It deliberately does **not** send data to Gemini or run the simulation on the server. The existing deterministic engine remains an independent browser-compatible module.
 

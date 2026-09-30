@@ -3,27 +3,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { buildManualAppsScriptBundle } from '../scripts/build-manual-apps-script-bundle.mjs';
+import { renderAppsScript } from '../scripts/render-apps-script.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('manual Apps Script bundle contains all server modules and resolved HTML includes', () => {
-  const committedCode = fs.readFileSync(path.join(repositoryRoot, 'apps-script', 'Code.gs'), 'utf8');
-  const committedIndex = fs.readFileSync(path.join(repositoryRoot, 'apps-script', 'Index.html'), 'utf8');
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const code = fs.readFileSync(output.codePath, 'utf8');
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular Apps Script application contains all server modules and resolved HTML includes', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const code = output.server;
+  const index = output.html;
 
-  assert.equal(committedCode, code, 'apps-script/Code.gs must match the manual bundle generated from apps-script/.');
-  assert.equal(committedIndex, index, 'apps-script/Index.html must match the manual bundle generated from apps-script/.');
 
   for (const sourceFile of ['ApiResponse.gs', 'AuthService.gs', 'ConfigService.gs', 'DriveService.gs', 'CaseService.gs', 'ReferenceCaseFactory.gs', 'PublicDemoCaseFactory.gs', 'Main.gs']) {
     assert.match(code, new RegExp(`Source: apps-script/${sourceFile.replace('.', '\\.')}`));
   }
   assert.match(code, /function doGet\(\)/);
-  assert.match(code, /createTemplateFromFile\('Index'\)/);
-  assert.doesNotMatch(code, /createTemplateFromFile\('WebApp'\)/);
-  assert.doesNotMatch(code, /function include_\(/);
+  assert.match(code, /createTemplateFromFile\('WebApp'\)/);
+  assert.equal((code.match(/function doGet\(/g)||[]).length,1);
+  assert(!fs.existsSync(path.join(repositoryRoot,'apps-script','Code.gs')));
+  assert(!fs.existsSync(path.join(repositoryRoot,'apps-script','Index.html')));
   assert.doesNotMatch(index, /<\?!=\s*include_/);
   assert.doesNotMatch(index, /<\?\s*include_/);
 
@@ -33,13 +30,11 @@ test('manual Apps Script bundle contains all server modules and resolved HTML in
   assert.match(index, /window\.STSheetCorrections=/);
   for (const script of scripts) new Function(script);
   new Function(code);
-  assert.match(code, /GENERATED SERVER BUNDLE/);
-  assert.match(index, /GENERATED CLIENT BUNDLE/);
 });
 
-test('manual bundle keeps time-faithful playback and direct equipment scenario controls', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application keeps time-faithful playback and direct equipment scenario controls', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const index = output.html;
 
   assert.match(index, /At 1×, one virtual second takes one real second\./);
   assert.match(index, /virtualSeconds \* 1000 \/ playbackRate/);
@@ -50,9 +45,9 @@ test('manual bundle keeps time-faithful playback and direct equipment scenario c
   assert.match(index, /function applyLiveScenarioControl\(/);
 });
 
-test('manual bundle uses a wide, compact live-equipment list on large screens', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application uses a wide, compact live-equipment list on large screens', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const index = output.html;
 
   assert.match(index, /padding-left: var\(--sidebar-width\)/);
   assert.match(index, /live-equipment-columns/);
@@ -62,9 +57,9 @@ test('manual bundle uses a wide, compact live-equipment list on large screens', 
   assert.match(index, /physical accumulation/);
 });
 
-test('manual bundle updates live equipment rows in place to preserve scroll position', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application updates live equipment rows in place to preserve scroll position', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const index = output.html;
 
   assert.match(index, /function ensureLiveEquipmentColumns\(/);
   assert.match(index, /function createLiveEquipmentCard\(/);
@@ -79,10 +74,10 @@ test('manual bundle updates live equipment rows in place to preserve scroll posi
 });
 
 
-test('manual bundle makes FlowPilot conveyor geometry mandatory and exposes Case deletion', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const code = fs.readFileSync(output.codePath, 'utf8');
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application makes FlowPilot conveyor geometry mandatory and exposes Case deletion', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const code = output.server;
+  const index = output.html;
 
   assert.match(index, /FlowPilot conveyor design/);
   assert.match(index, /Installed length L_act/);
@@ -95,9 +90,9 @@ test('manual bundle makes FlowPilot conveyor geometry mandatory and exposes Case
   assert.match(code, /function deleteCase\(/);
 });
 
-test('manual bundle exposes photoeye pulses, sustained Back-up timers, and Waiting material', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application exposes photoeye pulses, sustained Back-up timers, and Waiting material', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const index = output.html;
 
   assert.match(index, /normal photoeye pulse/);
   assert.match(index, /Back-up blocked delay/);
@@ -107,10 +102,10 @@ test('manual bundle exposes photoeye pulses, sustained Back-up timers, and Waiti
   assert.match(index, /SENSOR_DEBOUNCE/);
 });
 
-test('manual bundle includes shared three-tier planning, dialogs and automatic persistence', () => {
-  const output = buildManualAppsScriptBundle(repositoryRoot);
-  const code = fs.readFileSync(output.codePath, 'utf8');
-  const index = fs.readFileSync(output.indexPath, 'utf8');
+test('modular application includes shared three-tier planning, dialogs and automatic persistence', () => {
+  const output = renderAppsScript(repositoryRoot);
+  const code = output.server;
+  const index = output.html;
   for (const name of ['STAutosave','STDialog','STScenarios','STWhatIf']) assert(index.includes(name),name);
   for (const label of ['Zero CAPEX','Medium CAPEX / OPEX','High CAPEX','Static inputs only','Static + dynamic evidence','Advanced engine configuration']) assert(index.includes(label),label);
   assert(index.includes('Global OEE'));

@@ -398,7 +398,7 @@ async function openCase(caseId) {
         ? __ST_TEXT__('client.what_if') + activeSimulation.scenario.title
         : '';
       shell.sync();
-      document.getElementById('editor-meta').textContent = __ST_TEXT__('client.id') + state.activeCase.id + __ST_TEXT__('client.active') + (activeSimulation ? activeSimulation.name : '—') + scenarioText + __ST_TEXT__('client.revision') + state.activeCase.revision + dirtyText;
+      document.getElementById('editor-meta').textContent = __ST_TEXT__('client.id') + state.activeCase.id + __ST_TEXT__('client.active') + (activeSimulation ? activeSimulation.name : '—') + scenarioText + dirtyText;
     }
 
     function renderCaseDataNote() {
@@ -847,7 +847,7 @@ function renderRawJson() {
       toggle('run-panel', canRender);
       if (!canRender) return;
       var ready = isRunReady();
-      document.getElementById('run-case-meta').textContent = state.activeCase.name + __ST_TEXT__('client.revision_2') + state.activeCase.revision + (state.isDirty ? __ST_TEXT__('client.scenario_edits_not_yet_saved_to_drive') : '');
+      document.getElementById('run-case-meta').textContent = state.activeCase.name + (state.isDirty ? __ST_TEXT__('client.scenario_edits_not_yet_saved_to_drive') : '');
       toggle('run-not-ready', !ready);
       document.getElementById('run-simulation').disabled = !ready;
       renderControlEvents();

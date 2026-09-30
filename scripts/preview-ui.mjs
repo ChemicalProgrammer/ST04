@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import http from 'node:http';
+import { renderAppsScript } from './render-apps-script.mjs';
 const context={}; vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL('../apps-script/PublicDemoCaseFactory.gs',import.meta.url),'utf8'),context);
 const demo=context.createPublicDemoCaseRequest_();
@@ -24,5 +25,5 @@ function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner
 window.google={script:{run:runner()}};
 })();
 </script>`;
-const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(fs.readFileSync(new URL('../apps-script/Index.html',import.meta.url),'utf8').replace('<head>','<head>'+mock));});
+const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(renderAppsScript().html.replace('<head>','<head>'+mock));});
 server.listen(8765,'0.0.0.0',()=>console.log('Synthetic UI preview: http://127.0.0.1:8765'));

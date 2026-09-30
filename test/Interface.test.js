@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import postcss from 'postcss';
+import { renderAppsScript } from '../scripts/render-apps-script.mjs';
 import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
@@ -46,7 +47,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  }
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  let media;
- const dom=new JSDOM(read('Index.html'),{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
+ const dom=new JSDOM(renderAppsScript().html,{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
   if(remember)w.localStorage.setItem('st.ui.v1.remember','yes');
   media={matches:false,addEventListener(_,fn){this.listener=fn;}};w.matchMedia=()=>media;
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
@@ -197,7 +198,7 @@ test('UI: invalid JSON remains visible and blocks closing until corrected; faile
  const failed=await setup({remember:true,fail:true});try{assert(failed.visible('auth-panel'));assert(!failed.d.documentElement.classList.contains('restoring-session'));}finally{failed.dom.window.close();}
 });
 test('styles have valid selectors and all custom properties are defined',()=>{
- const html=read('Index.html'),parsed=new JSDOM(html),css=Array.from(parsed.window.document.querySelectorAll('style')).map(el=>el.textContent).join('\n');parsed.window.close();const ast=postcss.parse(css),defined=new Set(),used=new Set();
+ const html=renderAppsScript().html,parsed=new JSDOM(html),css=Array.from(parsed.window.document.querySelectorAll('style')).map(el=>el.textContent).join('\n');parsed.window.close();const ast=postcss.parse(css),defined=new Set(),used=new Set();
  ast.walkRules(rule=>{selectorParser().astSync(rule.selector);assert.doesNotMatch(rule.selector,/:\s+(?:hover|not|active|disabled)/);});
  ast.walkDecls(decl=>{if(decl.prop.startsWith('--'))defined.add(decl.prop);for(const m of decl.value.matchAll(/var\((--[\w-]+)/g))used.add(m[1]);});
  assert.deepEqual([...used].filter(name=>!defined.has(name)),[]);
@@ -571,5 +572,24 @@ test('UI: JSON validation rejects unsupported settings, invalid reliability and 
   reject(c=>c.simulation.dynamicConfig.commands=[{equipmentId:'missing',action:'PAUSE',atVirtualSecond:1}],/equipmentId/);
   assert.throws(()=>validate('{"__proto__":{}}',config),/Unsafe/);
   const original=JSON.stringify(config);validate(original,config);assert.equal(JSON.stringify(config),original);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: JSON dialog uses shared spacing and import action; revision stays internal',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  assert.doesNotMatch(h.d.getElementById('editor-meta').textContent,/revision/i);
+  assert.doesNotMatch(h.d.getElementById('run-case-meta').textContent,/revision/i);
+  assert(h.storedCases()[0].revision>0);
+  await h.click('#edit-setup-json');await waitFor(()=>h.d.getElementById('configuration-dialog').open);
+  const dialog=h.d.getElementById('configuration-dialog');
+  assert(dialog.querySelector('.dialog-heading #configuration-title'));
+  assert(dialog.querySelector('.dialog-body #configuration-draft'));
+  assert(dialog.querySelector('.dialog-actions #configuration-apply'));
+  const button=h.d.getElementById('configuration-import'),entry=h.d.getElementById('open-json-import');
+  assert.equal(button.textContent,entry.textContent);assert.equal(button.className,entry.className);
+  let opened=false;h.d.getElementById('configuration-file').click=()=>{opened=true;};
+  await h.click('#configuration-import');assert(opened);assert(h.d.getElementById('configuration-file').hidden);
+  await h.click('#configuration-close');assert(!dialog.open);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

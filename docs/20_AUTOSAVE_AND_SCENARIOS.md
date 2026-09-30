@@ -103,10 +103,9 @@ Google Drive permissions, native browser behavior and real Gemini API responses
 still require a deployed-app check with the authorized account. No real plant data
 or API credentials are used in automated tests.
 
-Regenerate using `npm run build:apps-script`. For the existing manual deployment,
-replace `apps-script/Code.gs` and `apps-script/Index.html` together and update the
-Apps Script deployment. Keep the manifest. Do not combine the generated server
-bundle with modular `.gs` files. Publishing GitHub changes does not deploy Apps Script.
+Update the engine adapters using `npm run build:apps-script`, then deploy the individual
+modules in `apps-script/`. Remove legacy `Code.gs` and `Index.html` from Apps Script
+and retain the manifest. Publishing GitHub changes does not deploy Apps Script.
 Scenario RPC failures include a version marker and error code, for example
 `[whatif-20260925-3 / SCENARIO_REVIEW_REQUIRED]`, to identify the responding code
 without exposing case inputs or credentials. The `/s/` portion of an Apps Script

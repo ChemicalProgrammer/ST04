@@ -9,7 +9,7 @@ Aplicación web con Apps Script, almacenamiento en Drive e integración con Gemi
 - Documentación histórica: `docs/`.
 - Reconstrucción con Gemini Code Assist: [Visual Code](Visual%20Code/docs/README.md).
 
-`npm run build:apps-script` genera los archivos de distribución. `npm test` ejecuta las pruebas.
+`npm run build:apps-script` actualiza los adaptadores del motor (`SimulationEngine.html` y `ScenarioEngine.gs`). El despliegue usa todos los módulos `.gs` y `.html` de `apps-script/` y su manifiesto. Si existen `Code.gs` e `Index.html` en un proyecto de Apps Script anterior, elimínalos: ya no forman parte del despliegue. `npm test` ejecuta las pruebas.
 
 En **Line Setup**, cada equipo permite editar **MTBF (min)** y **MTTR (min)** y activar/desactivar **Failures enabled**. Los valores alimentan `noiseProfile.reliability` y se conservan en `processData.equipment`; desactivar fallas conserva los tiempos para volver a activarlas.
 

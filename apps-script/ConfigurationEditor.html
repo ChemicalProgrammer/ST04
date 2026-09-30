@@ -58,16 +58,18 @@ var STConfigurationEditor=(function(){
   function init(state,callbacks){
     var dialog=document.getElementById('configuration-dialog'),draft=document.getElementById('configuration-draft'),error=document.getElementById('configuration-error'),file=document.getElementById('configuration-file'),apply=document.getElementById('configuration-apply');
     var context=null,serial=0;
-    function close(){serial++;context=null;draft.value='';file.value='';dialog.close();}
+    function close(){serial++;context=null;draft.value='';file.value='';document.getElementById('configuration-filename').textContent='';dialog.close();}
     async function open(importing){
       var token=++serial,caseId=state.activeCase?.id,simulationId=state.activeSimulationId;
       try{var current=await callbacks.capture();if(token!==serial||state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId)return;
-        context={caseId:caseId,simulationId:simulationId,current:current};draft.value=importing?'':JSON.stringify(current,null,2);file.value='';error.textContent='';apply.disabled=false;dialog.showModal();draft.focus();
+        context={caseId:caseId,simulationId:simulationId,current:current};draft.value=importing?'':JSON.stringify(current,null,2);file.value='';document.getElementById('configuration-filename').textContent='';error.textContent='';apply.disabled=false;dialog.showModal();draft.focus();
       }catch(e){STDialog.open({message:e.message});}
     }
     document.getElementById('open-json-import').onclick=function(){open(true);};document.getElementById('edit-setup-json').onclick=function(){open(false);};
+    document.getElementById('configuration-import').onclick=function(){file.click();};
+    document.getElementById('configuration-close').onclick=close;
     document.getElementById('configuration-cancel').onclick=close;dialog.addEventListener('cancel',function(event){event.preventDefault();close();});
-    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;error.textContent='';}catch(e){if(token===serial)error.textContent=e.message;}finally{if(token===serial)apply.disabled=false;}};
+    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;document.getElementById('configuration-filename').textContent=selected.name||'';error.textContent='';}catch(e){if(token===serial)error.textContent=e.message;}finally{if(token===serial)apply.disabled=false;}};
     apply.onclick=function(){try{
       if(!context||state.activeCase?.id!==context.caseId||state.activeSimulationId!==context.simulationId)throw Error('The active simulation changed. Reopen the editor.');
       var configuration=validate(draft.value,context.current);callbacks.apply(configuration);close();
