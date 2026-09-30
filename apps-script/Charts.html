@@ -180,7 +180,9 @@ window.STCharts=function(state,formatNumber){
       if (!allSamples.length) return [];
       var endTime = allSamples[allSamples.length - 1].virtualSecond;
       var startTime = Math.max(0, endTime - 60);
-      return allSamples.filter(function(sample) { return sample.virtualSecond >= startTime; });
+      var recent=allSamples.filter(function(sample) { return sample.virtualSecond >= startTime; });
+      // Optimized batch replays may have fewer than two points in 60 seconds.
+      return recent.length<2&&allSamples.length>1?allSamples.slice(-2):recent;
     }
 
     function prepareLineCanvas(canvas, height) {

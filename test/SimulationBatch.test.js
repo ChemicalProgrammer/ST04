@@ -11,12 +11,20 @@ test('async ticks and shift boundaries preserve the single-run physical result',
  assert.equal(asyncResult.result.shifts.length,3);
  for(const [shiftKey,summaryKey] of [['outputCount','outputCount'],['starvedSeconds','totalStarvedSeconds'],['failureSeconds','totalFailureSeconds']])assert(Math.abs(asyncResult.result.shifts.reduce((n,s)=>n+s[shiftKey],0)-single.result.summary[summaryKey])<.001);
 });
-test('batch statistics match independent seeded runs and store only one replay',async()=>{
+test('batch statistics match independent seeded runs and retain bounded replays for later rounds',async()=>{
  const data=input();data.run.rounds=3;const batch=await simulateBatch(data);
  const outputs=[17,18,19].map(seed=>simulateLine({...data,run:{...data.run,seed}}).result.summary.outputCount);
  assert.deepEqual(batch.result.batch.statistics.outputCount,summarizeReplications(outputs));
- assert.deepEqual(batch.result.batch.rows.map(r=>r.seed),[17,18,19]);assert(batch.result.samples.length<=602);
+ assert.deepEqual(batch.result.batch.rows.map(r=>r.seed),[17,18,19]);assert.equal(batch.result.samples.length,601);
+ assert.deepEqual(batch.result.batch.replays.map(r=>r.seed),[18,19]);assert(batch.result.batch.replays.every(r=>r.samples.length<=121&&r.samples[0].virtualSecond===0&&r.samples.at(-1).virtualSecond===600));
  assert(batch.result.batch.rows.every(r=>!r.samples&&!r.events));assert.equal(batch.result.batch.equipmentStatistics[data.case.equipment[0].id].outputCount.n,3);
+});
+test('scheduled events affect every seed and the first replay keeps its requested frames',async()=>{
+ const data=input();data.run={...data.run,rounds:2,commands:[{atVirtualSecond:0,equipmentId:data.case.equipment[0].id,action:'STOP'}]};
+ const batch=await simulateBatch(data);
+ assert.equal(batch.result.samples.length,601);assert.equal(batch.result.batch.replays.length,1);
+ for(const row of batch.result.batch.rows)assert.equal(row.summary.outputCount,0);
+ assert.equal(batch.result.batch.replays[0].samples.at(-1).outputCount,0);
 });
 test('batch cancellation and invalid limits never return partial success',async()=>{
  const data=input();await assert.rejects(simulateBatch({...data,run:{...data.run,rounds:51}}),/INVALID_BATCH_ROUNDS/);

@@ -8,16 +8,19 @@ export function summarizeReplications(values) {
 export async function simulateBatch(input, options={}) {
   const count=input.run.rounds||1;
   if(!Number.isInteger(count)||count<1||count>50)throw new Error('INVALID_BATCH_ROUNDS');
-  const baseSeed=input.run.seed>>>0,rows=[];let representative;
+  const baseSeed=input.run.seed>>>0,rows=[],replays=[];let representative;
   for(let index=0;index<count;index++) {
     const run={...input.run,seed:(baseSeed+index)>>>0};
-    run.sampleEverySeconds=index===0?Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds):run.durationSeconds;
+    // Round 1 retains the requested display interval. Later rounds keep a
+    // bounded replay so they can still be inspected without storing every tick.
+    if(index>0)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
     const response=await simulateLineAsync({case:input.case,run},{detail:index===0,cancelled:options.cancelled,progress:f=>options.progress?.((index+f)/count,index+1,count)});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok)return response;
     const result=response.result;
     rows.push({round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts});
     if(index===0)representative=result;
+    else replays.push({round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage});
   }
   const statistics={};
   for(const key of Object.keys(rows[0].summary)) {
@@ -29,6 +32,6 @@ export async function simulateBatch(input, options={}) {
     equipmentStatistics[id]={};
     for(const key of Object.keys(metrics))if(typeof metrics[key]==='number')equipmentStatistics[id][key]=summarizeReplications(rows.map(r=>r.equipmentMetrics[id][key]));
   }
-  representative.batch={schema:'st-replications-v1',rounds:count,baseSeed,representativeRound:1,durationSeconds:input.run.durationSeconds,shiftSeconds:input.run.shiftSeconds||null,statistics,equipmentStatistics,rows};
+  representative.batch={schema:'st-replications-v1',rounds:count,baseSeed,representativeRound:1,durationSeconds:input.run.durationSeconds,shiftSeconds:input.run.shiftSeconds||null,statistics,equipmentStatistics,rows,replays};
   return {ok:true,result:representative};
 }

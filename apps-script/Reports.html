@@ -80,12 +80,13 @@ window.STReports=(function(){
   }
   function whatIfData(simulation,plan){
     var results=simulation.results;
-    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:results.batch||null}:null,projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
+    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
   }
+  function batchWithoutReplay(batch){if(!batch)return null;var summary=Object.assign({},batch);delete summary.replays;return summary;}
   function comparisonData(activeCase,left,right){
     function snapshot(simulation){
       var result=simulation.results;
-      return {id:simulation.id,name:simulation.name,equipment:simulation.equipment||[],dynamicConfig:simulation.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},scenario:simulation.scenario||null,results:result?.summary?{seed:result.seed,durationSeconds:result.durationSeconds,completedAt:result.completedAt,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow,summary:result.summary,equipmentMetrics:result.equipmentMetrics||{},accumulationZoneMetrics:result.accumulationZoneMetrics||{},batch:result.batch||null}:null};
+      return {id:simulation.id,name:simulation.name,equipment:simulation.equipment||[],dynamicConfig:simulation.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},scenario:simulation.scenario||null,results:result?.summary?{seed:result.seed,durationSeconds:result.durationSeconds,completedAt:result.completedAt,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow,summary:result.summary,equipmentMetrics:result.equipmentMetrics||{},accumulationZoneMetrics:result.accumulationZoneMetrics||{},batch:batchWithoutReplay(result.batch)}:null};
     }
     var a=snapshot(left),b=snapshot(right),pair=a.results&&b.results;
     var paired=Boolean(pair&&a.results.seed===b.results.seed&&a.results.durationSeconds===b.results.durationSeconds&&(!a.results.batch&&!b.results.batch||a.results.batch&&b.results.batch&&a.results.batch.rounds===b.results.batch.rounds&&JSON.stringify(a.results.batch.rows?.map(r=>r.seed))===JSON.stringify(b.results.batch.rows?.map(r=>r.seed))));
