@@ -31,13 +31,15 @@ test('updates a case with ordered equipment and increments its revision', () => 
     unitOfFlow: 'bottles',
     equipment: [
       equipment('blower-1', 'BLOWER', 20, 100),
-      equipment('pacemaker-1', 'PACEMAKER', 25, 80)
+      { ...equipment('pacemaker-1', 'PACEMAKER', 25, 80), unitOfFlow: 'cases' }
     ]
   }, owner);
 
   assert.equal(saved.revision, 2);
   assert.equal(saved.name, 'Editable line v2');
   assert.deepEqual(saved.equipment.map((item) => item.id), ['blower-1', 'pacemaker-1']);
+  assert.equal(saved.equipment[0].unitOfFlow, undefined);
+  assert.equal(saved.equipment[1].unitOfFlow, 'cases');
 });
 
 test('rejects a stale Case Editor save instead of overwriting a newer revision', () => {

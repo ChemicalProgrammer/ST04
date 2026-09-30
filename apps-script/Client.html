@@ -107,7 +107,7 @@
       if (!state.activeCase || state.activeCase.id !== saved.id) return;
       state.activeCase.revision=saved.revision;state.activeCase.updatedAt=saved.updatedAt;
       var item=(state.bootstrap?.cases||[]).find(function(x){return x.id===saved.id;});
-      if(item){item.name=saved.name;item.updatedAt=saved.updatedAt;item.equipmentCount=saved.equipmentCount??saved.equipment?.length??item.equipmentCount;item.isSimulationReady=saved.equipment.length>=2;}
+      if(item){item.name=saved.name;item.updatedAt=saved.updatedAt;item.equipmentCount=saved.equipmentCount??saved.equipment?.length??item.equipmentCount;item.isSimulationReady=item.equipmentCount>=2;}
     },status:function(status,error){
       state.saving=status==='saving';state.isDirty=status!=='saved';
       var label=document.getElementById('autosave-status');if(!label)return;
@@ -451,11 +451,16 @@ async function openCase(caseId) {
       card.className = 'equipment-card';
       card.dataset.index = String(index);
       card.innerHTML = ("<div class=\"equipment-header\"><strong></strong><div class=\"button-row\"><button class=\"equipment-drag ghost icon-button\" type=\"button\" aria-label=\"" + __ST_HTML_TEXT__('client.reorder_equipment') + "\" title=\"" + __ST_HTML_TEXT__('client.drag_to_reorder_use_arrow_up_or_down_on_this_handle') + "\"></button><button class=\"remove-equipment danger\" type=\"button\">" + __ST_HTML_TEXT__('client.remove') + "</button></div></div><div class=\"equipment-grid\"><label>" + __ST_HTML_TEXT__('client.equipment_id') + "<input class=\"equipment-id\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.type') + "<select class=\"equipment-type\"><option value=\"BLOWER\">" + __ST_HTML_TEXT__('client.blower') + "</option><option value=\"BLOWMOLDER\">" + __ST_HTML_TEXT__('client.blowmolder') + "</option><option value=\"CONVEYOR\">" + __ST_HTML_TEXT__('client.conveyor') + "</option><option value=\"PACEMAKER\">" + __ST_HTML_TEXT__('client.pacemaker') + "</option><option value=\"PUCKER\">" + __ST_HTML_TEXT__('client.pucker') + "</option><option value=\"FILLER\">" + __ST_HTML_TEXT__('client.filler') + "</option><option value=\"DEPUCKER\">" + __ST_HTML_TEXT__('client.de_pucker') + "</option><option value=\"SLEEVER\">" + __ST_HTML_TEXT__('client.sleever') + "</option><option value=\"CASE_PACKER\">" + __ST_HTML_TEXT__('client.case_packer') + "</option><option value=\"PALLETIZER\">" + __ST_HTML_TEXT__('client.palletizer') + "</option><option value=\"CUSTOM\">" + __ST_HTML_TEXT__('client.other_custom') + "</option></select></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.name') + "<input class=\"equipment-name\"></label><label>" + __ST_HTML_TEXT__('client.nominal_rate_bpm') + "<input class=\"equipment-rate\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.initial_mode') + "<select class=\"equipment-mode\"><option value=\"AUTO\">" + __ST_HTML_TEXT__('client.automatic') + "</option><option value=\"MANUAL\">" + __ST_HTML_TEXT__('client.manual') + "</option><option value=\"PAUSE\">" + __ST_HTML_TEXT__('client.paused') + "</option><option value=\"STOP\">" + __ST_HTML_TEXT__('client.stopped') + "</option></select></label></div><section class=\"format-zone-setup\"><div class=\"format-zone-heading\"><div><strong>" + __ST_HTML_TEXT__('client.flowpilot_conveyor_design') + "</strong><p>" + __ST_HTML_TEXT__('client.required_for_every_conveyor_geometry_is_always_active_the_engine_derives_co') + "</p></div></div><div class=\"format-zone-grid\"><label>" + __ST_HTML_TEXT__('client.installed_length_l_act_mm') + "<input class=\"format-zone-lact\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.prime_reserve_l_p_mm') + "<input class=\"format-zone-lp-prime\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.package_length_mm') + "<input class=\"format-zone-package-length\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_discharge_pitch_mm') + "<input class=\"format-zone-discharge-pitch\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.conveyor_speed_factor') + "<input class=\"format-zone-speed-factor\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.installed_back_up_position_mm') + "<input class=\"format-zone-backup\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.discharge_runout_mm') + "<input class=\"format-zone-discharge-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.reject_runout_mm') + "<input class=\"format-zone-reject-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.blocked_time_delay_s') + "<input class=\"format-zone-blocked-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.clear_time_delay_s') + "<input class=\"format-zone-clear-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.insurance_factor_units') + "<input class=\"format-zone-insurance\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_stop_response_s') + "<input class=\"format-zone-stop-response\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.bottles_discharged_at_stop') + "<input class=\"format-zone-residual\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.downstream_ramp_up_s') + "<input class=\"format-zone-downstream-ramp\" type=\"number\" min=\"0\" step=\"any\"></label></div><p class=\"format-zone-preview\"></p></section><details class=\"equipment-json-details\"><summary>" + __ST_HTML_TEXT__('client.advanced_json_fields') + "</summary><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.characteristics_json_optional') + "<textarea class=\"equipment-characteristics\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.noise_profile_json_optional') + "<textarea class=\"equipment-noise-profile\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.advanced_process_format_json_optional') + "<textarea class=\"equipment-process-data\" spellcheck=\"false\"></textarea></label></details>");
+      var unitLabel=document.createElement('label'),unitInput=document.createElement('input');
+      unitLabel.textContent=__ST_TEXT__('client.equipment_unit_label');unitLabel.title=__ST_TEXT__('client.equipment_unit_help');
+      unitInput.className='equipment-unit';unitInput.maxLength=40;unitInput.placeholder='units';
+      unitLabel.appendChild(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
       equipmentField(card, 'strong').textContent = __ST_TEXT__('client.step') + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
       equipmentField(card, '.equipment-type').value = equipment.type || 'CUSTOM';
       equipmentField(card, '.equipment-name').value = equipment.name || '';
+      unitInput.value=equipment.unitOfFlow||'';
       var rateInput=equipmentField(card,'.equipment-rate');
       rateInput.value=equipment.nominalRatePerSecond==null?'':Number((equipment.nominalRatePerSecond*60).toPrecision(15));
       rateInput.dataset.originalBpm=rateInput.value;
@@ -807,6 +812,7 @@ function numericInputValue(input) {
           id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
           name: equipmentField(card, '.equipment-name').value.trim(),
+          unitOfFlow: equipmentField(card, '.equipment-unit').value.trim()||undefined,
           nominalRatePerSecond: readEquipmentRate(card),
           initialMode: equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,
@@ -996,9 +1002,7 @@ function renderRawJson() {
         if(saved.replay?.samples)saved.replay.samples=retainedReplaySamples(saved.replay.samples,600);
         if(saved.batch?.replays){
           var laterLimit=Math.max(2,Math.min(120,Math.floor(600/Math.max(1,saved.batch.rounds-1))));
-          saved.batch.replays.forEach(function(replay){
-            replay.samples=retainedReplaySamples(replay.samples,laterLimit);
-          });
+          saved.batch.replays.forEach(function(replay){replay.samples=retainedReplaySamples(replay.samples,laterLimit);});
         }
       });
     }
@@ -1510,6 +1514,7 @@ function renderRawJson() {
       var availabilityState = unit.availabilityState || unit.mode || 'UNKNOWN';
       card.className = 'live-equipment-card state-' + availabilityState.toLowerCase().replace(/_/g, '-') + (card.dataset.losses === 'open' ? __ST_TEXT__('client.show_losses') : '');
       card.querySelector('.live-equipment-identity strong').textContent = model.name || unit.id;
+      card.querySelector('.live-equipment-identity strong').title=__ST_TEXT__('client.equipment_unit_label')+': '+(model.unitOfFlow||'units')+' · '+__ST_TEXT__('client.equipment_unit_help');
       card.querySelector('.live-state').textContent = availabilityState.replace(/_/g,' ');
       card.querySelector('.critical-label').textContent = model.processData?.role === 'PACEMAKER' ? __ST_TEXT__('client.critical_pacemaker') : model.processData?.role === 'CRITICAL_MACHINE' ? __ST_TEXT__('client.critical_equipment') : '';
       card.querySelector('.reliability-label').textContent = model.noiseProfile?.reliability ? __ST_TEXT__('client.mtbf')+formatNumber(model.noiseProfile?.reliability.mtbfMinutes)+__ST_TEXT__('client.min_mttr')+formatNumber(model.noiseProfile?.reliability.mttrMinutes)+__ST_TEXT__('client.min') : '';

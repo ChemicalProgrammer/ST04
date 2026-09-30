@@ -210,6 +210,9 @@ function normalizeEquipmentList_(equipment) {
     if (typeof unit.name !== 'string' || !unit.name.trim()) {
       throw createSimulatorError_('INVALID_CASE', path + '.name is required.');
     }
+    if(unit.unitOfFlow!==undefined&&(typeof unit.unitOfFlow!=='string'||unit.unitOfFlow.trim().length>40)){
+      throw createSimulatorError_('INVALID_CASE', path + '.unitOfFlow must be text of at most 40 characters.');
+    }
     if (!isPositiveFiniteNumber_(unit.nominalRatePerSecond)) {
       throw createSimulatorError_('INVALID_CASE', path + '.nominalRatePerSecond must be greater than zero.');
     }
@@ -220,6 +223,7 @@ function normalizeEquipmentList_(equipment) {
       id: id,
       type: unit.type,
       name: unit.name.trim(),
+      unitOfFlow: unit.unitOfFlow?.trim()||undefined,
       nominalRatePerSecond: Number(unit.nominalRatePerSecond),
       initialMode: unit.initialMode,
       characteristics: normalizeObject_(unit.characteristics),

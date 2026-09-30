@@ -655,3 +655,27 @@ test('UI: switching between conveyors retains inspector nodes, scroll and JSON t
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: equipment units persist independently and the resizer remains anchored during pointer movement',async()=>{
+ const h=await setup({remember:true,realScenarioServer:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const cards=Array.from(h.d.querySelectorAll('.equipment-card')),pane=h.d.getElementById('equipment-inspector');
+  const machines=cards.filter(card=>card._fields.querySelector('.equipment-type').value!=='CONVEYOR');
+  machines[0].click();const retained=pane.querySelector('.equipment-unit');
+  assert.equal(retained.placeholder,'units');retained.value='bottles';retained.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  machines[1].click();assert.equal(pane.querySelector('.equipment-unit'),retained);
+  assert.equal(retained.value,'');retained.value='cases';retained.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  machines[0].click();assert.equal(retained.value,'bottles');
+  await waitFor(()=>h.storedCases()[0].equipment.find(e=>e.id===machines[1].dataset.equipmentId)?.unitOfFlow==='cases');
+  const grip=h.d.getElementById('gemini-resize'),before=Number(grip.getAttribute('aria-valuenow'));
+  grip.onpointerdown({button:0,pointerId:5,clientX:600,preventDefault(){}});
+  grip.onpointermove({pointerId:5,clientX:560});
+  assert.equal(Number(grip.getAttribute('aria-valuenow')),before+40);
+  h.w.dispatchEvent(new h.w.Event('resize'));
+  assert.equal(Number(grip.getAttribute('aria-valuenow')),before+40);
+  grip.onpointerup({pointerId:5});
+  grip.onpointermove({pointerId:5,clientX:30});
+  assert.equal(Number(grip.getAttribute('aria-valuenow')),before+40);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

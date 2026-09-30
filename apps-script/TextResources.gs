@@ -41,6 +41,8 @@ var ST_TEXT_RESOURCES = {
   "results.partial_blocking":"Partial output loss (equiv. min)",
   "results.partial_note":"Starved and blocked columns count stopped flow. Partial losses are equivalent lost capacity during ticks with positive flow; they are not additional stopped time.",
   "client.nominal_rate_bpm":"Nominal speed (BPM)",
+  "client.equipment_unit_label":"Unit on this equipment (optional)",
+  "client.equipment_unit_help":"Descriptive label only (for example bottles or cases). Blank displays units. This does not convert rates or counts; the simulation still uses the Case flow unit throughout.",
   "filter.label":"Filter line equipment",
   "filter.equipment":"Equipment",
   "filter.conveyors":"Conveyors",

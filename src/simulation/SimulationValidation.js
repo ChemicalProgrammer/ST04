@@ -39,6 +39,7 @@ function validateCase(caseModel, details) {
     if (ids.has(equipment.id)) details.push(invalid(path + '.id', 'must be unique'));
     ids.add(equipment.id);
     if (!nonEmptyString(equipment.type)) details.push(required(path + '.type'));
+    if(equipment.unitOfFlow!==undefined&&(typeof equipment.unitOfFlow!=='string'||equipment.unitOfFlow.trim().length>40))details.push(invalid(path+'.unitOfFlow','must be text of at most 40 characters'));
     if (!positiveNumber(equipment.nominalRatePerSecond)) {
       details.push(invalid(path + '.nominalRatePerSecond', 'must be a number greater than zero'));
     }
