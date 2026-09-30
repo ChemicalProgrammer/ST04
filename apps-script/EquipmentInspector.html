@@ -30,11 +30,12 @@ window.STEquipmentInspector=(function(){
     });
     return true;
   }
+  function layout(card){return card._fields.querySelector('.equipment-type').value==='CONVEYOR'?'CONVEYOR':'EQUIPMENT';}
   function select(card,focus){
     if(selected===card){opened=true;return;}
     var previous=selected,panel=el('equipment-inspector'),scroll=panel.scrollTop;
-    var sameType=previous&&context===key()&&previous._fields.querySelector('.equipment-type').value===card._fields.querySelector('.equipment-type').value;
-    if(sameType){
+    var sameLayout=previous&&context===key()&&layout(previous)===layout(card);
+    if(sameLayout){
       if(!card._helpReady){decorate(card);card._helpReady=true;}
       var retained=previous._fields,incoming=card._fields;
       if(exchangeValues(retained,incoming)){
