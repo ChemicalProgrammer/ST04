@@ -605,3 +605,25 @@ test('UI: gallery clones the chosen case in list and grid and recovers from fail
   row.querySelector('.open-case').click();await settle();assert.equal(h.d.getElementById('case-name').value,'Copy of '+source.name);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: switching between conveyors retains inspector nodes, scroll and JSON textarea size',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const cards=Array.from(h.d.querySelectorAll('.equipment-card')),pane=h.d.getElementById('equipment-inspector');
+  cards[1].click();const firstName=pane.querySelector('.equipment-name').value;
+  const detail=pane.querySelector('.equipment-json-details');detail.open=true;
+  const json=pane.querySelector('.equipment-process-data');json.style.height='370px';pane.scrollTop=245;
+  cards[3].click();
+  assert.equal(pane.querySelector('.equipment-process-data'),json);
+  assert.equal(json.style.height,'370px');assert.equal(pane.scrollTop,245);assert(detail.open);
+  assert.equal(pane.querySelector('.equipment-name').value,cards[3]._fields.querySelector('.equipment-name').value);
+  assert.notEqual(pane.querySelector('.equipment-name').value,firstName);
+  const value=pane.querySelector('.format-zone-speed-factor');value.value='11';value.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  assert.equal(cards[3]._fields.querySelector('.format-zone-speed-factor').value,'11');
+  cards[1].click();assert.equal(pane.querySelector('.equipment-process-data'),json);assert.equal(pane.querySelector('.equipment-name').value,firstName);assert.equal(json.style.height,'370px');
+  await waitFor(()=>h.storedCases()[0].equipment[3].processData.accumulation.conveyorSpeedFactorPercent===11);
+  assert.notEqual(h.storedCases()[0].equipment[1].processData.accumulation.conveyorSpeedFactorPercent,11);
+  cards[0].click();assert.notEqual(pane.querySelector('.equipment-process-data'),json);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

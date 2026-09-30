@@ -464,7 +464,7 @@ async function openCase(caseId) {
       card.dataset.equipmentId = equipment.id;
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
       Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
-      card.appendChild(fields); card._fields = fields;
+      card.appendChild(fields); card._fields = fields; fields._owner = card; card._refreshFormatPreview = function(){ updateFormatZoneVisibility(card); renderFormatZonePreview(card); };
       STReliabilityControls(card);
       addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
@@ -480,15 +480,15 @@ async function openCase(caseId) {
       card.addEventListener('click',function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
       card.addEventListener('keydown',function(event){if(event.target===card&&(event.key==='Enter'||event.key===' ')){event.preventDefault();STEquipmentInspector.select(card);}});
       equipmentField(card, '.equipment-type').addEventListener('change', function() {
-        updateFormatZoneVisibility(card);
-        renderFormatZonePreview(card);
+        updateFormatZoneVisibility(fields._owner);
+        renderFormatZonePreview(fields._owner);
       });
       Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input, .format-zone-grid select')).forEach(function(input) {
         input.addEventListener('input', function() {
           state.isDirty = true;
-          renderFormatZonePreview(card);
+          renderFormatZonePreview(fields._owner);
         });
-        input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(card); });
+        input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(fields._owner); });
       });
       return card;
     }

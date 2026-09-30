@@ -13,12 +13,51 @@ window.STEquipmentInspector=(function(){
     var card=Array.from(document.querySelectorAll('#equipment-list .equipment-card')).find(function(c){return c.dataset.equipmentId===selection.id;});
     if(card){select(card,false);opened=selection.opened;}else opened=false;
   }
+  function exchangeValues(a,b){
+    var left=Array.from(a.querySelectorAll('input,select,textarea'));
+    var right=Array.from(b.querySelectorAll('input,select,textarea'));
+    if(left.length!==right.length)return false;
+    left.forEach(function(control,index){
+      var other=right[index],value=control.value,checked=control.checked;
+      var bpm=control.dataset.originalBpm,rate=control.dataset.originalRate;
+      control.value=other.value;control.checked=other.checked;
+      other.value=value;other.checked=checked;
+      if(control.classList.contains('equipment-rate')){
+        control.dataset.originalBpm=other.dataset.originalBpm;
+        control.dataset.originalRate=other.dataset.originalRate;
+        other.dataset.originalBpm=bpm;other.dataset.originalRate=rate;
+      }
+    });
+    return true;
+  }
   function select(card,focus){
+    if(selected===card){opened=true;return;}
+    var previous=selected,panel=el('equipment-inspector'),scroll=panel.scrollTop;
+    var sameType=previous&&context===key()&&previous._fields.querySelector('.equipment-type').value===card._fields.querySelector('.equipment-type').value;
+    if(sameType){
+      if(!card._helpReady){decorate(card);card._helpReady=true;}
+      var retained=previous._fields,incoming=card._fields;
+      if(exchangeValues(retained,incoming)){
+        release();
+        previous._fields=incoming;card._fields=retained;
+        incoming._owner=previous;retained._owner=card;
+        previous.appendChild(incoming);
+        previous._refreshFormatPreview?.();card._refreshFormatPreview?.();
+        selected=card;context=key();opened=true;
+        panel.appendChild(retained);card.classList.add('equipment-selected');
+        panel.scrollTop=scroll;
+        window.dispatchEvent(new Event('st:inspector'));
+        panel.scrollTop=scroll;
+        if(focus!==false)panel.querySelector('input,select,textarea')?.focus({preventScroll:true});
+        panel.scrollTop=scroll;
+        return;
+      }
+    }
     release();selected=card;context=key();opened=true;
     if(!card._helpReady){decorate(card);card._helpReady=true;}
-    el('equipment-inspector').appendChild(card._fields);card.classList.add('equipment-selected');
+    panel.appendChild(card._fields);card.classList.add('equipment-selected');
     window.dispatchEvent(new Event('st:inspector'));
-    if(focus!==false)el('equipment-inspector').querySelector('input,select,textarea')?.focus();
+    if(focus!==false)panel.querySelector('input,select,textarea')?.focus();
   }
   function sync(){
     if(context!==key()){release();opened=false;el('equipment-inspector').textContent='';}
@@ -57,7 +96,7 @@ window.STEquipmentInspector=(function(){
       help(control,basic[control.className]||control.closest('label').title);
       if(control.tagName==='TEXTAREA'){
         var button=document.createElement('button');button.type='button';button.className='ghost json-example';button.textContent=__ST_TEXT__('inspector.example');
-        button.onclick=function(){showExample(control,card,button);};control.closest('label').appendChild(button);
+        button.onclick=function(){showExample(control,control.closest('.equipment-fields')._owner||card,button);};control.closest('label').appendChild(button);
       }
     });
   }
