@@ -78,6 +78,55 @@ window.STReports=(function(){
     var checks=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.check'),__ST_TEXT__('exports.status')],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
     return documentHtml(__ST_TEXT__('exports.whatif_report'),{context:escape(simulation.name),proposals:body,checks:checks},'whatif');
   }
+  function whatIfData(simulation,plan){
+    var results=simulation.results;
+    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:results.batch||null}:null,projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
+  }
+  function comparisonData(activeCase,left,right){
+    function snapshot(simulation){
+      var result=simulation.results;
+      return {id:simulation.id,name:simulation.name,equipment:simulation.equipment||[],dynamicConfig:simulation.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},scenario:simulation.scenario||null,results:result?.summary?{seed:result.seed,durationSeconds:result.durationSeconds,completedAt:result.completedAt,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow,summary:result.summary,equipmentMetrics:result.equipmentMetrics||{},accumulationZoneMetrics:result.accumulationZoneMetrics||{},batch:result.batch||null}:null};
+    }
+    var a=snapshot(left),b=snapshot(right),pair=a.results&&b.results;
+    var paired=Boolean(pair&&a.results.seed===b.results.seed&&a.results.durationSeconds===b.results.durationSeconds&&(!a.results.batch&&!b.results.batch||a.results.batch&&b.results.batch&&a.results.batch.rounds===b.results.batch.rounds&&JSON.stringify(a.results.batch.rows?.map(r=>r.seed))===JSON.stringify(b.results.batch.rows?.map(r=>r.seed))));
+    return {schema:'st-comparison-v1',generatedAt:new Date().toISOString(),case:{id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow},baseline:a,proposed:b,comparability:pair?(paired?'PAIRED_INPUTS':'DIFFERENT_SEED_DURATION_OR_ROUNDS'):'CONFIGURATION_ONLY',limitations:[__ST_TEXT__('exports.comparison_scope'),__ST_TEXT__('batch.compare_note')]};
+  }
+  function comparisonHtml(data){
+    function flat(value,prefix,output){
+      output=output||{};
+      if(value&&typeof value==='object'&&!Array.isArray(value)){Object.keys(value).forEach(function(key){flat(value[key],prefix?prefix+'.'+key:key,output);});}
+      else output[prefix||'value']=value;
+      return output;
+    }
+    function diff(left,right){
+      var a=flat(left),b=flat(right),keys=Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).sort();
+      return table([__ST_TEXT__('results.metric'),__ST_TEXT__('view.baseline'),__ST_TEXT__('results.proposed'),__ST_TEXT__('results.absolute')],keys.map(function(key){var x=a[key],y=b[key];return [key,value(x),value(y),typeof x==='number'&&typeof y==='number'?value(y-x):(JSON.stringify(x)===JSON.stringify(y)?'=':'Δ')];}));
+    }
+    var a=data.baseline,b=data.proposed;
+    var ids=Array.from(new Set(a.equipment.map(e=>e.id).concat(b.equipment.map(e=>e.id))));
+    var equipment=ids.map(function(id){
+      var left=a.equipment.find(e=>e.id===id),right=b.equipment.find(e=>e.id===id);
+      var zonesA=Object.values(a.results?.accumulationZoneMetrics||{}).filter(z=>z.ownerEquipmentId===id),zonesB=Object.values(b.results?.accumulationZoneMetrics||{}).filter(z=>z.ownerEquipmentId===id);
+      return '<section><h3>'+escape(left?.name||right?.name||id)+' · '+escape(id)+'</h3>'+diff({inputs:left||{},metrics:a.results?.equipmentMetrics?.[id]||{},accumulation:zonesA},{inputs:right||{},metrics:b.results?.equipmentMetrics?.[id]||{},accumulation:zonesB})+'</section>';
+    }).join('');
+    var changed=[];
+    ids.forEach(function(id){var left=a.equipment.find(e=>e.id===id),right=b.equipment.find(e=>e.id===id),before=flat(left||{}),after=flat(right||{});
+      Array.from(new Set(Object.keys(before).concat(Object.keys(after)))).sort().forEach(function(key){if(JSON.stringify(before[key])!==JSON.stringify(after[key]))changed.push([left?.name||right?.name||id,key,value(before[key]),value(after[key])]);});
+    });
+    var slots={context:escape(data.case.name)+' · '+escape(a.name)+' vs. '+escape(b.name),basis:escape(data.comparability),
+      'overview-title':escape(__ST_TEXT__('results.outcome_comparison')),overview:diff(a.results?.summary||{},b.results?.summary||{}),
+      'inputs-title':escape(__ST_TEXT__('comparison.changed_inputs')),inputs:changed.length?table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('view.baseline'),__ST_TEXT__('results.proposed')],changed):'<p>'+escape(__ST_TEXT__('comparison.no_equipment_input_differences_run_settings_are_listed_below'))+'</p>',
+      'equipment-title':escape(__ST_TEXT__('view.equipment_comparison')),equipment:equipment,
+      'batch-title':escape(__ST_TEXT__('batch.title')),batch:diff(a.results?.batch?{rounds:a.results.batch.rounds,statistics:a.results.batch.statistics,seeds:a.results.batch.rows?.map(r=>r.seed)}:{},b.results?.batch?{rounds:b.results.batch.rounds,statistics:b.results.batch.statistics,seeds:b.results.batch.rows?.map(r=>r.seed)}:{}),
+      'configuration-title':escape(__ST_TEXT__('comparison.simulation_configuration')),configuration:diff({dynamicConfig:a.dynamicConfig,engineConfig:a.engineConfig,scenario:a.scenario},{dynamicConfig:b.dynamicConfig,engineConfig:b.engineConfig,scenario:b.scenario}),limitations:escape(data.limitations.join(' '))};
+    return documentHtml(__ST_TEXT__('exports.comparison_report'),slots,'comparison');
+  }
+  function bindComparison(activeCase,left,right){
+    var ready=Boolean(activeCase&&left&&right&&left.id!==right.id),read=function(){return comparisonData(activeCase,left,right);};
+    bind('export-comparison-json',ready,function(){download(JSON.stringify(read(),null,2),'simulation-comparison.json','application/json');});
+    bind('export-comparison-html',ready,function(){download(comparisonHtml(read()),'simulation-comparison.html','text/html');});
+    bind('export-comparison-pdf',ready,function(){pdf(comparisonHtml(read()));});
+  }
   function pdf(html){var win=window.open('','_blank');if(!win){STDialog.open({message:__ST_TEXT__('exports.popup_blocked')});return;}win.document.open();win.document.write(html);win.document.close();win.focus();win.setTimeout(function(){win.print();},250);}
   function bind(id,enabled,action){var button=document.getElementById(id);if(!button)return;button.disabled=!enabled;button.onclick=function(){button.closest('details')?.removeAttribute('open');try{action();}catch(error){STDialog.open({message:error.message});}};}
   function configuration(activeCase,simulation){
@@ -94,7 +143,7 @@ window.STReports=(function(){
     bind('export-setup-pdf',true,function(){pdf(configurationHtml(read()));});
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
-  function bindWhatIf(simulation,plan,projects){bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
+  return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>

@@ -1,5 +1,8 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "exports.comparison_report": "Simulation comparison",
+  "exports.comparison_scope": "Comparison exports include selected configurations, saved summaries, equipment metrics and replication statistics. Replay frames and event logs are excluded.",
+  "exports.whatif_scope": "What-If proposals use the selected simulation and its current results. Suggested gains remain unverified until the proposed simulation is run.",
   "casegallery.clone": "Clone case",
   "casegallery.copy_prefix": "Copy of ",
   "casegallery.cloned": "Case cloned.",
@@ -74,6 +77,7 @@ var ST_TEXT_RESOURCES = {
   "inspector.select": "Select equipment",
   "exports.menu": "Export",
   "exports.full_json": "Full results \u00b7 JSON",
+  "exports.data_json": "Data · JSON",
   "exports.ai_json": "AI context \u00b7 compact JSON",
   "exports.html": "HTML report",
   "exports.pdf": "PDF / Print",

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
 const read=f=>fs.readFileSync('apps-script/'+f,'utf8');
 function setup(){
- const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+'<button id="export-results-pdf"></button><button id="export-whatif-pdf"></button>',{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
+ const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+read('ReportComparisonTemplate.html')+['export-results-pdf','export-whatif-json','export-whatif-pdf','export-comparison-json','export-comparison-html','export-comparison-pdf'].map(id=>'<button id="'+id+'"></button>').join(''),{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  w.eval(read('TextResources.gs'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
  for(const file of ['SimulationEngine.html','WhatIf.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
  w.eval(read('PublicDemoCaseFactory.gs'));const c=w.createPublicDemoCaseRequest_();c.name='Synthetic line';
@@ -66,5 +66,33 @@ test('report layouts inherit dark theme and primary accent and can be edited ind
   const html=h.w.STReports.configurationHtml(h.w.STReports.configuration(h.c,h.sim));
   assert(html.includes('--report-accent:#abcdef'));assert(html.includes('--report-page:#121212'));assert(html.includes('color-scheme:dark'));assert(html.includes('data-custom-layout="yes"'));
   assert(!h.w.STReports.resultsHtml(h.result,h.c,h.sim).includes('data-custom-layout'));
+ }finally{h.dom.window.close();}
+});
+
+test('comparison export includes both selected runs and all replication summaries but excludes replay',()=>{
+ const h=setup();try{
+  const left={...h.sim,results:{...h.result,batch:{rounds:2,statistics:{outputCount:{mean:122,standardDeviation:2,min:120,max:124}},rows:[{seed:17,summary:{outputCount:120},shifts:[{outputCount:120}]},{seed:18,summary:{outputCount:124},shifts:[{outputCount:124}]}]},replay:{samples:[{secret:'replay-only'}],events:[]}}};
+  const right={...left,id:'b',name:'Proposed <script>alert(1)</script>',equipment:h.sim.equipment.map((e,i)=>i?e:{...e,nominalRatePerSecond:99}),results:{...left.results,summary:{outputCount:140,lineOeePercent:91},batch:{...left.results.batch,statistics:{outputCount:{mean:142,standardDeviation:2,min:140,max:144}}}}};
+  const data=h.w.STReports.comparisonData({...h.c,simulations:[left,right,{id:'third',name:'Other'}]},left,right),json=JSON.stringify(data);
+  assert.equal(data.schema,'st-comparison-v1');assert.equal(data.comparability,'PAIRED_INPUTS');assert.equal(data.baseline.results.batch.rows.length,2);assert.equal(data.proposed.results.batch.statistics.outputCount.mean,142);
+  assert.equal(data.proposed.equipment[0].nominalRatePerSecond,99);assert(!json.includes('replay-only'));assert(!json.includes('privateEvent'));assert(!json.includes('Other'));
+  const html=h.w.STReports.comparisonHtml(data),doc=new JSDOM(html);
+  assert.equal(doc.window.document.querySelectorAll('script').length,0);assert(doc.window.document.body.textContent.includes(right.name));assert(doc.window.document.body.textContent.includes('nominalRatePerSecond'));
+  assert(doc.window.document.body.textContent.includes('142'));assert(html.includes('@page'));doc.window.close();
+  h.w.STReports.bindComparison(h.c,left,left);assert(h.w.document.getElementById('export-comparison-json').disabled);
+  h.w.STReports.bindComparison(h.c,left,right);assert(!h.w.document.getElementById('export-comparison-json').disabled);
+  let printed='';h.w.open=()=>({document:{open(){},write(s){printed=s;},close(){}},focus(){},setTimeout(fn){fn();},print(){}});
+  h.w.document.getElementById('export-comparison-pdf').click();assert(printed.includes('142'));
+ }finally{h.dom.window.close();}
+});
+
+test('What-If JSON follows visible proposals and includes baseline evidence and engineering checks',()=>{
+ const h=setup();try{
+  h.sim.results={...h.result,batch:{rounds:2,statistics:{outputCount:{mean:123}},rows:[{seed:17},{seed:18}]}};
+  const plan=h.w.STScenarios.plan(h.sim),data=h.w.STReports.whatIfData(h.sim,plan),json=JSON.stringify(data);
+  assert.equal(data.schema,'st-what-if-v1');assert.equal(data.baseline.summary.outputCount,120);
+  assert.equal(data.baseline.batch.rounds,2);assert.equal(data.projects.length,h.w.STWhatIf.visibleProjects(plan).length);assert.equal(data.checks.length,plan.checks.length);
+  assert(data.limitations.some(s=>s.includes('round 1')));assert(!json.includes('privateRaw'));assert(!json.includes('privateEvent'));
+  h.w.STReports.bindWhatIf(h.sim,plan,data.projects);assert(!h.w.document.getElementById('export-whatif-json').disabled);
  }finally{h.dom.window.close();}
 });

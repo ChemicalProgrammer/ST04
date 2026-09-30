@@ -4,6 +4,7 @@ window.STComparison=function(state,isFiniteNumber){
       var a = (state.activeCase.simulations || []).find(function(sim) { return sim.id === document.getElementById('case-compare-a').value; });
       var b = (state.activeCase.simulations || []).find(function(sim) { return sim.id === document.getElementById('case-compare-b').value; });
       var target = document.getElementById('case-comparison-content'); target.textContent = '';
+      STReports.bindComparison(state.activeCase,a,b);
       if (!a || !b || a.id === b.id) { target.textContent = __ST_TEXT__('comparison.select_two_different_simulations'); return; }
       appendComparisonContext(target, a, b);
       if(a.results?.batch||b.results?.batch){

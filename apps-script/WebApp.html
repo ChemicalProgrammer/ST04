@@ -238,12 +238,12 @@
                 <p><?= __ST_TEXT__('view.the_recommendation_combines_this_run_s_losses_with_the_physical_conveyor_au') ?></p>
               </div>
             </div>
-            <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
+            <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
             <div id="simulation-analysis-content" class="simulation-analysis-content"></div>
           </section>
       </section>
       <section id="comparison-panel" class="card hidden">
-        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.case_comparison') ?></p><h2><?= __ST_TEXT__('client.compare_simulations') ?></h2><p><?= __ST_TEXT__('view.select_exactly_two_saved_simulations') ?></p></div></div>
+        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.case_comparison') ?></p><h2><?= __ST_TEXT__('client.compare_simulations') ?></h2><p><?= __ST_TEXT__('view.select_exactly_two_saved_simulations') ?></p></div><details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-comparison-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-comparison-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-comparison-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div class="field-grid"><label><?= __ST_TEXT__('view.baseline') ?><select id="case-compare-a"></select></label><label><?= __ST_TEXT__('view.proposed_scenario') ?><select id="case-compare-b"></select></label></div>
         <div id="case-comparison-content" class="comparison-vertical"></div>
       </section>
@@ -304,6 +304,7 @@
     <?!= include_('ReportResultsTemplate'); ?>
     <?!= include_('ReportWhatifTemplate'); ?>
     <?!= include_('ReportConfigurationTemplate'); ?>
+    <?!= include_('ReportComparisonTemplate'); ?>
     <?!= include_('Reports'); ?>
     <?!= include_('Results'); ?>
     <?!= include_('LinePerformance'); ?>
