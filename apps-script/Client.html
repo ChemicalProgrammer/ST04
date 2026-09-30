@@ -154,6 +154,7 @@
       if (!await showCaseHome()) return;
       if (!await STSettings.flush()) return;
       state.requestEpoch += 1;
+      cloningCases.clear();
       STPreferences.write('remember', null);
       document.getElementById('remember-session').checked = false;
       state.bootstrap = null;
@@ -374,7 +375,19 @@ async function openCase(caseId) {
       renderRunWorkspace();
     }
 
-    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseDeletion); }
+    var cloningCases = new Set();
+    function requestCaseClone(caseId,button) {
+      if(cloningCases.has(caseId))return;
+      cloningCases.add(caseId);button.disabled=true;
+      callServer('cloneCase',[caseId],function(response){
+        cloningCases.delete(caseId);button.disabled=false;
+        if(!response.ok)return showError(response.error);
+        state.bootstrap.cases.push(response.data);renderCases(state.bootstrap.cases);
+        setStatus(__ST_TEXT__('casegallery.cloned'));
+      });
+    }
+
+    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone); }
 
     function renderEditor() {
       if (!state.activeCase) return;

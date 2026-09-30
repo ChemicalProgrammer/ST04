@@ -32,32 +32,11 @@ function cloneCase_(caseId, user) {
   delete copy.createdAt;
   delete copy.updatedAt;
   delete copy.revision;
-  copy.name = source.name + ' — Simulation copy';
+  copy.name = __ST_TEXT__('casegallery.copy_prefix') + source.name;
   copy.metadata = copy.metadata || {};
   copy.metadata.clonedFromCaseId = source.id;
   copy.metadata.clonedFromCaseName = source.name;
   return createCase_(copy, user);
-}
-
-function cloneSimulation_(caseId, simulationId, user) { return withCaseWriteLock_(function(){return cloneSimulationUnlocked_(caseId,simulationId,user);}); }
-function cloneSimulationUnlocked_(caseId, simulationId, user) {
-  var owned = getOwnedCaseFile_(caseId, user);
-  var current = ensureCaseSimulations_(owned.caseData);
-  var source = current.simulations.filter(function(item) { return item.id === simulationId; })[0];
-  if (!source) throw createSimulatorError_('SIMULATION_NOT_FOUND', 'The requested simulation does not exist in this Case.');
-  var next = JSON.parse(JSON.stringify(current));
-  var copy = JSON.parse(JSON.stringify(source));
-  copy.id = generateSimulationId_(next.simulations.length);
-  copy.name = 'Simulation ' + simulationLetter_(next.simulations.length);
-  copy.results = null;
-  copy.clonedFromSimulationId = source.id;
-  copy.createdAt = new Date().toISOString();
-  copy.updatedAt = copy.createdAt;
-  next.simulations.push(copy);
-  next.revision = Number(next.revision || 0) + 1;
-  next.updatedAt = copy.updatedAt;
-  owned.file.setContent(JSON.stringify(next, null, 2));
-  return next;
 }
 
 function getCase_(caseId, user) {

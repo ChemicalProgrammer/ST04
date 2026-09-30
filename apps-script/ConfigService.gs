@@ -23,12 +23,6 @@ function saveUserSettings_(request) {
   return settings;
 }
 
-function getClientSafeGlobalConfig_() {
-  return {
-    fixedKnowledgeFolderConfigured: Boolean(PropertiesService.getScriptProperties().getProperty('FIXED_KNOWLEDGE_FOLDER_ID'))
-  };
-}
-
 function createDefaultUserSettings_() {
   return {
     schemaVersion: '1.0',

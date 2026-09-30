@@ -12,14 +12,14 @@ const mock=`<script>
 var demo=${JSON.stringify(demo)}, cases=[demo], settings={workspaceRootFolderId:'synthetic-preview',preferredPlaybackRate:10};
 function copy(v){return JSON.parse(JSON.stringify(v));}
 var api={
- getBootstrap:function(){return {user:{email:'preview@example.test'},settings:settings,globalConfig:{},cases:cases.map(function(c){return {id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt};})};},
+ getBootstrap:function(){return {user:{email:'preview@example.test'},settings:settings,cases:cases.map(function(c){return {id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt};})};},
  getCase:function(id){return copy(cases.find(c=>c.id===id));},
  saveCase:function(c){c=copy(c);c.revision=(c.revision||0)+1;c.updatedAt=new Date().toISOString();cases=cases.map(x=>x.id===c.id?c:x);return c;},
  saveUserSettings:function(s){settings=s;return s;},
  createCase:function(c){c=Object.assign({equipment:[],revision:1,updatedAt:new Date().toISOString()},c,{id:'preview-'+Date.now()});cases.push(c);return copy(c);},
  createPublicDemoCase:function(){var c=copy(demo);c.id='demo-'+Date.now();cases.push(c);return c;},
+ cloneCase:function(id){var source=cases.find(c=>c.id===id),record=copy(source);record.id='copy-'+Date.now();record.name='Copy of '+source.name;record.revision=1;record.updatedAt=new Date().toISOString();cases.push(record);return {id:record.id,name:record.name,equipmentCount:record.equipment.length,isSimulationReady:record.equipment.length>1,updatedAt:record.updatedAt};},
  deleteCase:function(id){cases=cases.filter(c=>c.id!==id);return {id:id};},
- cloneSimulation:function(caseId,simulationId){var c=cases.find(c=>c.id===caseId),a=c.simulations.find(s=>s.id===simulationId),b=copy(a);b.id='simulation-'+Date.now();b.name='Simulation '+String.fromCharCode(65+c.simulations.length);b.results=null;c.simulations.push(b);return copy(c);}
 };
 function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:function(target,key){return target[key]||function(...args){setTimeout(function(){try{if(!api[key])throw new Error('Unmocked method: '+key);success({ok:true,data:api[key](...args)});}catch(e){console.error(e);failure(e);}},50);};}});}
 window.google={script:{run:runner()}};

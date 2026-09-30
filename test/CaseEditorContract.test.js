@@ -154,7 +154,7 @@ function createCaseRuntime() {
     ,LockService: {getUserLock:()=>({tryLock:()=>true,releaseLock:()=>{}})}
   });
 
-  ['ApiResponse.gs', 'CaseService.gs'].forEach((file) => {
+  ['TextResources.gs', 'ApiResponse.gs', 'CaseService.gs'].forEach((file) => {
     vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script', file), 'utf8'), context, { filename: file });
   });
   context.getWorkspaceFolders_ = () => ({ cases: folder });
@@ -182,3 +182,15 @@ function iterator(values) {
 function toPlainObject(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+test('clones a complete case into an independent owned record and denies other owners',()=>{
+ const runtime=createCaseRuntime();
+ const summary=runtime.createCase_({id:'original-case',name:'Original case',equipment:[equipment('unit','CUSTOM',10,0)],simulations:[{id:'sim-a',name:'A',equipment:[equipment('unit','CUSTOM',10,0)],dynamicConfig:{seed:21,durationSeconds:28800},results:{summary:{produced:123}},sourceImport:{sheet:'source'}}]},owner);
+ const before=runtime.getCase_(summary.id,owner);
+ const cloned=runtime.cloneCase_(summary.id,owner),copy=runtime.getCase_(cloned.id,owner);
+ assert.notEqual(copy.id,before.id);assert.equal(copy.name,'Copy of Original case');assert.equal(copy.revision,1);
+ assert.deepEqual(toPlainObject(copy.simulations),toPlainObject(before.simulations));assert.equal(copy.metadata.clonedFromCaseId,before.id);
+ runtime.saveCase_({...copy,expectedRevision:copy.revision,name:'Changed copy'},owner);
+ assert.deepEqual(toPlainObject(runtime.getCase_(summary.id,owner)),toPlainObject(before));
+ assert.throws(()=>runtime.cloneCase_(summary.id,{email:'other@example.com'}),e=>e.simulatorError?.code==='CASE_NOT_FOUND');
+});

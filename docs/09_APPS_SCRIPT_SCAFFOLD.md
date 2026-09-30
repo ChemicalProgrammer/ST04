@@ -24,7 +24,6 @@ The setup does not store passwords, API keys, Drive content in User Properties, 
 3. From a local clone with clasp authenticated, run `clasp push`.
 4. In Apps Script Project Settings, set Script Properties as appropriate:
    - `ALLOWED_USER_EMAILS_JSON`: optional, for example `["engineer@example.com"]`.
-   - `FIXED_KNOWLEDGE_FOLDER_ID`: optional for this scaffold; it will be required once source retrieval is added.
 5. Deploy as a web app executing as **User accessing the web app**. Choose the narrowest organization-approved audience.
 6. Open the deployed app, paste the ID of a Drive folder you own or can access, and save it. The app will make controlled subfolders.
 
@@ -37,7 +36,6 @@ The setup does not store passwords, API keys, Drive content in User Properties, 
 | `ConfigService.gs` | User and global configuration contracts |
 | `DriveService.gs` | Drive workspace verification and managed folders |
 | `CaseService.gs` | Case creation/listing with owner filter |
-| `ReferenceCaseFactory.gs` | Explicit sample case for initial smoke testing |
 | `WebApp.html`, `Styles.html`, `Client.html` | Presentation only; no process calculations |
 
 ## Verification

@@ -23,8 +23,3 @@ function getOrCreateChildFolder_(parent, name) {
   var folders = parent.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : parent.createFolder(name);
 }
-
-function getFixedKnowledgeFolder_() {
-  var folderId = PropertiesService.getScriptProperties().getProperty('FIXED_KNOWLEDGE_FOLDER_ID');
-  return folderId ? verifyWorkspaceRoot_(folderId) : null;
-}

@@ -1,7 +1,7 @@
 <script>
 window.STCaseGallery = (function() {
   var page=0, pageSize=24, lastKey='', grid=STPreferences.read('caseLayout')==='grid';
-  function render(cases,openCase,requestCaseDeletion) {
+  function render(cases,openCase,requestCaseClone) {
     var target=document.getElementById('cases-list'), pagination=document.getElementById('case-pagination');
     var query=document.getElementById('case-search').value.trim().toLowerCase();
     var filter=document.getElementById('case-filter').value, sort=document.getElementById('case-sort').value;
@@ -13,7 +13,7 @@ window.STCaseGallery = (function() {
     target.textContent=''; pagination.textContent=''; target.classList.toggle('grid',grid);
     document.getElementById('case-count').textContent=items.length+' '+(items.length===1?'case':'cases');
     var layout=document.getElementById('case-layout'); layout.innerHTML=STIcons.svg(grid?'list':'grid'); layout.setAttribute('aria-label',__ST_TEXT__('casegallery.switch_to')+(grid?'list':'grid')+__ST_TEXT__('casegallery.view'));layout.title=layout.getAttribute('aria-label');
-    layout.onclick=function(){grid=!grid;STPreferences.write('caseLayout',grid?'grid':'list');render(cases,openCase,requestCaseDeletion);};
+    layout.onclick=function(){grid=!grid;STPreferences.write('caseLayout',grid?'grid':'list');render(cases,openCase,requestCaseClone);};
     if(!items.length) {
       target.innerHTML=("<div class=\"empty\">")+STIcons.svg('folder')+'<h3>'+(query||filter!=='all'?__ST_TEXT__('casegallery.no_matching_cases'):__ST_TEXT__('casegallery.your_workspace_starts_here'))+'</h3><p>'+(query||filter!=='all'?__ST_TEXT__('casegallery.try_a_different_search_or_filter'):__ST_TEXT__('casegallery.create_a_case_to_model_a_line_or_start_with_the_demonstration_case'))+'</p></div>'; return;
     }
@@ -25,11 +25,13 @@ window.STCaseGallery = (function() {
       var badge=row.querySelector('.badge');badge.classList.toggle('ready',Boolean(item.isSimulationReady));badge.innerHTML=STIcons.svg(item.isSimulationReady?'check':'edit')+(item.isSimulationReady?__ST_TEXT__('casegallery.ready'):__ST_TEXT__('casegallery.draft'));
       var date=new Date(item.updatedAt);row.querySelector('time').textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
       row.querySelector('.open-case').onclick=function(){openCase(item.id);};
+      var clone=document.createElement('button');clone.type='button';clone.className='clone-case ghost icon-button';clone.innerHTML=STIcons.svg('copy');clone.title=__ST_TEXT__('casegallery.clone');clone.setAttribute('aria-label',__ST_TEXT__('casegallery.clone')+' '+item.name);
+      clone.onclick=function(){requestCaseClone(item.id,clone);};row.querySelector('.case-actions').appendChild(clone);
       target.appendChild(row);
     });
     if(items.length>pageSize) {
-      var prev=document.createElement('button');prev.className='ghost';prev.innerHTML=STIcons.svg('back')+__ST_TEXT__('casegallery.previous');prev.disabled=page===0;prev.onclick=function(){page--;render(cases,openCase,requestCaseDeletion);};
-      var next=document.createElement('button');next.className='ghost';next.innerHTML=__ST_TEXT__('casegallery.next')+STIcons.svg('chevron');next.disabled=(page+1)*pageSize>=items.length;next.onclick=function(){page++;render(cases,openCase,requestCaseDeletion);};
+      var prev=document.createElement('button');prev.className='ghost';prev.innerHTML=STIcons.svg('back')+__ST_TEXT__('casegallery.previous');prev.disabled=page===0;prev.onclick=function(){page--;render(cases,openCase,requestCaseClone);};
+      var next=document.createElement('button');next.className='ghost';next.innerHTML=__ST_TEXT__('casegallery.next')+STIcons.svg('chevron');next.disabled=(page+1)*pageSize>=items.length;next.onclick=function(){page++;render(cases,openCase,requestCaseClone);};
       pagination.append(prev,document.createTextNode(__ST_TEXT__('casegallery.page')+(page+1)+__ST_TEXT__('casegallery.of')+Math.ceil(items.length/pageSize)),next);
     }
   }

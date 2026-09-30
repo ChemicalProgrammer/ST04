@@ -12,7 +12,6 @@ function getBootstrap() {
   return executeServerAction_(function(user) {
     return {
       user: user,
-      globalConfig: getClientSafeGlobalConfig_(),
       settings: getUserSettings_(),
       gemini: getGeminiClientConfig_(),
       cases: listCases_(user)
@@ -59,18 +58,6 @@ function saveCase(request) {
 function cloneCase(caseId) {
   return executeServerAction_(function(user) {
     return cloneCase_(caseId, user);
-  });
-}
-
-function cloneSimulation(caseId, simulationId) {
-  return executeServerAction_(function(user) {
-    return cloneSimulation_(caseId, simulationId, user);
-  });
-}
-
-function createReferenceCase() {
-  return executeServerAction_(function(user) {
-    return createCase_(createReferenceCaseRequest_(), user);
   });
 }
 

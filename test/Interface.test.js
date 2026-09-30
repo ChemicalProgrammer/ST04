@@ -20,7 +20,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  if(many) cases=Array.from({length:60},(_,i)=>({...initial,id:'case-'+i,name:'Line '+String(i).padStart(2,'0')}));
  const copy=x=>JSON.parse(JSON.stringify(x));
  const api={
-  getBootstrap:()=>({user:{email:'preview@example.test'},settings:stored,globalConfig:{},gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt}))}),
+  getBootstrap:()=>({user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt}))}),
   askGemini:()=>({text:'Analysis of the saved case.'}),
   previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
   getCase:id=>copy(cases.find(c=>c.id===id)),
@@ -28,7 +28,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   getScenarioSourceSignature:request=>{const record=cases.find(c=>c.id===request.caseId),simulation=record?.simulations.find(s=>s.id===request.simulationId);if(!simulation||record.revision!==request.expectedRevision)throw Error('Stale scenario source');return {revision:record.revision,simulationId:simulation.id,signature:dom.window.STScenarios.signature(simulation)};},
   saveUserSettings:s=>{if(s.gemini?.apiKey)geminiConfigured=true;return stored=s;},
   deleteGeminiApiKey:()=>{geminiConfigured=false;return {configured:false,model:'gemini-2.5-flash'};},
-  cloneSimulation:(id,sid)=>{const c=cases.find(c=>c.id===id),source=c.simulations.find(s=>s.id===sid),next=copy(source);next.id='simulation-b';next.name='Simulation B';next.results=null;c.simulations.push(next);return copy(c);},
+  cloneCase:id=>{const source=cases.find(c=>c.id===id),record=copy(source);record.id='copy-'+id;record.name='Copy of '+source.name;record.revision=1;record.updatedAt=new Date().toISOString();cases.push(record);return {id:record.id,name:record.name,equipmentCount:record.equipment.length,isSimulationReady:record.equipment.length>1,updatedAt:record.updatedAt};},
   deleteCase:id=>{cases=cases.filter(c=>c.id!==id);return {id};},
   createCase:c=>{c={...c,id:'new',equipment:[],revision:1,updatedAt:new Date().toISOString()};cases.push(c);return c;}
  };
@@ -591,5 +591,17 @@ test('UI: JSON dialog uses shared spacing and import action; revision stays inte
   let opened=false;h.d.getElementById('configuration-file').click=()=>{opened=true;};
   await h.click('#configuration-import');assert(opened);assert(h.d.getElementById('configuration-file').hidden);
   await h.click('#configuration-close');assert(!dialog.open);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: gallery clones the chosen case in list and grid and recovers from failure',async()=>{
+ const h=await setup({remember:true});try{
+  const source=h.storedCases()[0],api=h.api.cloneCase;
+  h.api.cloneCase=()=>{throw Error('offline');};await h.click('.clone-case');assert(!h.d.querySelector('.clone-case').disabled);assert.equal(h.storedCases().length,1);
+  h.api.cloneCase=api;await h.click('#case-layout');assert(h.d.querySelector('#cases-list.grid .clone-case'));
+  const button=h.d.querySelector('.clone-case');button.click();button.click();await waitFor(()=>h.d.querySelectorAll('.case-row').length===2);
+  assert.equal(h.calls.filter(c=>c==='cloneCase').length,2);assert.deepEqual(h.storedCases().find(c=>c.id===source.id),source);
+  const row=Array.from(h.d.querySelectorAll('.case-row')).find(r=>r.querySelector('.case-name').textContent.startsWith('Copy of '));assert(row);
+  row.querySelector('.open-case').click();await settle();assert.equal(h.d.getElementById('case-name').value,'Copy of '+source.name);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
