@@ -6,6 +6,13 @@ from `processData.equipment.maximumSpeedBpm`. Both are expressed as a percent
 of the selected pacemaker's normal speed. The chart shows the available
 over-speed profile, not a certified V-Graph: the engine processes at nominal
 speed and does not yet command maximum recovery speed after a microstop.
+After a run, the graph also shows an estimated recovery target per machine:
+`max(machine nominal BPM, pacemaker nominal BPM / intrinsic availability)`.
+Intrinsic availability is `(duration − stoppedSeconds) / duration` and excludes
+starvation and blocking. A target above the configured maximum is flagged as
+unavailable; without a maximum its feasibility is unknown. This simple static
+capacity target does not account for buffer dynamics or certify that recovery
+is achievable. The engine does not use it to change machine speed.
 An imported Sheet sets nominal speed from its maximum-speed column, so a new
 import has zero demonstrated recovery reserve until operating speed is set
 separately in Line setup. An absent or lower-than-normal maximum is not
