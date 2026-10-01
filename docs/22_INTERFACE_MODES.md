@@ -13,7 +13,8 @@ Basic uses the existing controls and persistence pipeline:
 - The header displays the case title. A shared toolbar groups the simulation
   selector, Rename, Clone and Delete in Basic, with consistent icon-and-text
   buttons. Advance uses its sidebar selector and shows only the three actions
-  aligned right, without a surrounding frame. Case name is editable only in Settings while a case is active.
+  aligned right in the current section heading, without a surrounding frame
+  or an additional toolbar row. Case name is editable only in Settings while a case is active.
   Machine cards use
   compact, equal-height inputs and responsive columns. Equipment ID is hidden
   in Basic and read-only in both modes; assigned IDs remain stable. Drag handles

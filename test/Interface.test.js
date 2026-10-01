@@ -866,6 +866,11 @@ test('UI Advance: simulation actions align right without a selector or enclosing
   assert.equal(style.justifyContent,'flex-end');assert.equal(style.borderTopWidth,'0px');assert.equal(style.backgroundColor,'rgba(0, 0, 0, 0)');
   assert.equal(h.d.querySelectorAll('#simulation-toolbar button').length,3);assert(h.visible('case-sidebar'));
   assert.equal(h.d.getElementById('toggle-gemini').parentElement.className,'topbar');
+  for(const [view,panel] of [['editor','editor'],['simulation','run'],['results','results'],['whatif','whatif']]){
+   await h.click('.sidebar [data-view="'+view+'"]');
+   assert.equal(toolbar.parentElement,h.d.querySelector('#'+panel+'-panel > .section-heading'));
+   assert.equal(h.w.getComputedStyle(toolbar).marginTop,'0px');
+  }
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

@@ -1,6 +1,7 @@
 <script>
 window.STShell = function(state,actions) {
   var collapsed=STPreferences.read('sidebar')==='collapsed', toastTimer;
+  var simulationToolbar=document.getElementById('simulation-toolbar'),toolbarHome=simulationToolbar.parentNode,toolbarNext=simulationToolbar.nextSibling;
   function sync() {
     var active=Boolean(state.activeCase),view=active?(state.uiView||'simulation'):'cases';
     var connected=Boolean(state.bootstrap?.settings?.workspaceRootFolderId);
@@ -19,7 +20,12 @@ window.STShell = function(state,actions) {
     document.getElementById('case-danger-zone').classList.toggle('hidden',!active);
     document.getElementById('settings-case-section').classList.toggle('hidden',!active);
     document.getElementById('case-name').disabled=!active;
-    document.getElementById('simulation-toolbar').classList.toggle('hidden',!active||view==='comparison');
+    simulationToolbar.classList.toggle('hidden',!active||view==='comparison');
+    var advance=['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode||'BASIC').trim().toUpperCase());
+    var panel={editor:'editor',simulation:'run',results:'results',whatif:'whatif'}[view];
+    var heading=active&&advance&&panel?document.querySelector('#'+panel+'-panel > .section-heading'):null;
+    if(heading){if(simulationToolbar.parentNode!==heading)heading.appendChild(simulationToolbar);}
+    else if(simulationToolbar.parentNode!==toolbarHome)toolbarHome.insertBefore(simulationToolbar,toolbarNext);
     document.getElementById('workspace-folder-id').disabled=false;
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-public-demo-case').disabled=!connected;
