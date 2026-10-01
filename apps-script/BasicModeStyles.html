@@ -1,13 +1,15 @@
 <style>
 /* All Basic presentation overrides stay under the server-selected mode. */
-#basic-navigation,#basic-case-actions,#basic-conveyor-layout { display:none; }
+#basic-section-row,#basic-navigation,#basic-case-actions,#basic-conveyor-layout { display:none; }
 html[data-ui-mode=basic] .app-shell.case-open { padding-left:0; padding-right:0; }
 html[data-ui-mode=basic] #case-sidebar { display:none !important; }
 html[data-ui-mode=basic] .app-shell.case-open.assistant-open { padding-right:var(--assistant-width); }
 html[data-ui-mode=basic] .topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-3); padding-bottom:var(--space-3); }
-html[data-ui-mode=basic] #basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; order:3; flex-basis:100%; }
+html[data-ui-mode=basic] #basic-section-row { display:flex; align-items:center; gap:var(--space-3); order:3; flex-basis:100%; min-width:0; }
+html[data-ui-mode=basic] #basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; flex:1; min-width:0; }
+html[data-ui-mode=basic] #basic-section-row > #toggle-gemini { flex-shrink:0; margin-left:auto; }
 html[data-ui-mode=basic] #basic-navigation [aria-current=page] { background:var(--selected); color:var(--selected-text); }
-html[data-ui-mode=basic] #basic-case-actions { display:grid; gap:var(--space-2); justify-items:end; }
+html[data-ui-mode=basic] #basic-case-actions { display:flex; align-items:center; }
 html[data-ui-mode=basic] .chart-note,
 html[data-ui-mode=basic] .notice,
 html[data-ui-mode=basic] .eyebrow,
@@ -51,10 +53,8 @@ html[data-ui-mode=basic] label:has(> .equipment-unit),
 html[data-ui-mode=basic] label:has(> .equipment-mode) { display:none !important; }
 /* Keep the setup controls on one compact row and use identical field tracks. */
 html[data-ui-mode=basic] .topbar { padding-top:var(--space-2); padding-bottom:var(--space-2); }
-html[data-ui-mode=basic] #basic-navigation { flex-basis:auto; order:0; flex:1; }
 html[data-ui-mode=basic] .case-open .user-chip { display:none; }
 html[data-ui-mode=basic] .case-open .breadcrumb { flex:1 1 var(--size-220); }
-html[data-ui-mode=basic] #basic-navigation { order:3; flex-basis:100%; }
 html[data-ui-mode=basic] #editor-panel > .section-heading > div:first-of-type { display:none; }
 html[data-ui-mode=basic] #editor-panel > .editor-subheading { margin-top:var(--space-3); margin-bottom:0; }
 html[data-ui-mode=basic] #equipment-list { gap:var(--space-3); margin-top:0; }
@@ -70,7 +70,6 @@ html[data-ui-mode=basic] .equipment-grid select { height:var(--control-height); 
 html[data-ui-mode=basic] #equipment-inspector label { padding-right:0; }
 html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
 @media(max-width:760px){
-  html[data-ui-mode=basic] #basic-navigation { order:3; flex-basis:100%; }
   html[data-ui-mode=basic] #editor-panel > .section-heading { flex-wrap:wrap; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }

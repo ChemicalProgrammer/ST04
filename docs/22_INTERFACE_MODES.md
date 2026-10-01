@@ -29,8 +29,8 @@ Basic uses the existing controls and persistence pipeline:
 - Explanatory notes and advisories are hidden. Blocking errors, save status,
   and import validation remain available so failed actions are visible.
 - Header utility buttons preserve access to Settings, closing the case,
-  and signing out. The Gemini button appears beneath these utilities, outside
-  the Basic navigation, in every section. It opens the same resizable right
+  and signing out. The Gemini button is aligned to the right of the section navigation,
+  outside the navigation itself, in every section. It opens the same resizable right
   panel as Advance, while keeping the Basic conveyor inspector visible. The simulation toolbar stays available across the five
   Basic sections. Machine cards and the conveyor inspector start at the same
   distance below the import controls.

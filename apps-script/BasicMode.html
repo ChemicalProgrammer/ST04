@@ -1,7 +1,7 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,tools,title,geminiToggle,geminiHome,geminiNext;
+  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext;
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
@@ -10,11 +10,12 @@ window.STBasicMode=(function(){
   function init(current,callbacks){
     if(initialized)return;initialized=true;state=current;actions=callbacks;
     var header=document.querySelector('.topbar');
+    sectionRow=document.createElement('div');sectionRow.id='basic-section-row';header.appendChild(sectionRow);
     nav=document.createElement('nav');nav.id='basic-navigation';nav.setAttribute('aria-label',__ST_TEXT__('basic.navigation'));
     sections.forEach(function(s){var b=button(s[1],s[2],function(){
       var previous=state.basicView;state.basicView=s[0];
       if(actions.navigate(s[3])===false){state.basicView=previous;actions.refresh();}
-    });b.dataset.basicView=s[0];nav.appendChild(b);});header.appendChild(nav);
+    });b.dataset.basicView=s[0];nav.appendChild(b);});sectionRow.appendChild(nav);
     tools=document.createElement('div');tools.id='basic-case-actions';tools.className='basic-utilities';
     var utilityRow=document.createElement('div');utilityRow.className='button-row';tools.appendChild(utilityRow);
     geminiToggle=document.getElementById('toggle-gemini');geminiHome=geminiToggle.parentNode;geminiNext=geminiToggle.nextSibling;
@@ -27,7 +28,7 @@ window.STBasicMode=(function(){
     window.addEventListener('st:inspector',function(){if(basic())title.textContent=STEquipmentInspector.name();});
     sync(current);
   }
-  function mount(){if(mounted)return;tools.appendChild(geminiToggle);layout.insertBefore(list,panel);panel.appendChild(inspector);mounted=true;}
+  function mount(){if(mounted)return;sectionRow.appendChild(geminiToggle);layout.insertBefore(list,panel);panel.appendChild(inspector);mounted=true;}
   function unmount(){if(!mounted)return;geminiHome.insertBefore(geminiToggle,geminiNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
@@ -36,7 +37,7 @@ window.STBasicMode=(function(){
     if(!enabled){unmount();return;}mount();
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?'vgraph':view==='whatif'?'whatif':'simulation';
-    root.dataset.basicView=active?section:'cases';nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
+    root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
     var cards=Array.from(list.querySelectorAll('.equipment-card'));
     cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');});

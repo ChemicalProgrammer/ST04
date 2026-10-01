@@ -837,7 +837,7 @@ test('UI: source color names and hex values populate compact Settings and work i
 test('UI Basic: Gemini is available in every section and resizes without hiding conveyor fields',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');
-  const toggle=h.d.getElementById('toggle-gemini');assert(h.d.getElementById('basic-case-actions').contains(toggle));assert(!h.d.getElementById('basic-navigation').contains(toggle));
+  const toggle=h.d.getElementById('toggle-gemini');assert.equal(toggle.parentElement.id,'basic-section-row');assert.equal(h.d.getElementById('basic-navigation').parentElement,toggle.parentElement);assert(!h.d.getElementById('basic-navigation').contains(toggle));
   await h.click('#toggle-gemini');
   for(const section of ['equipment','conveyors','simulation','vgraph','whatif']){
    await h.click('[data-basic-view="'+section+'"]');
