@@ -10,6 +10,11 @@ Basic uses the existing controls and persistence pipeline:
 
 - The case sidebar and Gemini overlay are hidden. Equipment, Conveyors,
   Simulation, V-Graph, and What-If appear in the top navigation.
+- Line Setup places Case name beside the simulation actions. The top navigation
+  shares a row with the utility buttons when space permits. Machine cards use
+  compact, equal-height inputs and responsive columns. Equipment ID is hidden
+  in Basic and read-only in both modes; assigned IDs remain stable. Drag handles
+  are hidden on all Basic cards, including conveyors.
 - Equipment fields remain inside each machine card. Per-equipment Units and
   Initial Mode are hidden; Basic uses AUTO when editing/saving or starting a run.
   The old case-wide Units input is removed in both modes, with its stored
@@ -36,6 +41,11 @@ Each machine has a Pacemaker checkbox. Selecting it clears other machine
 selections and preserves the physical type (Blowmolder, Filler, etc.). Legacy
 PACEMAKER types reopen using their recorded machine type, or CUSTOM if that
 information is unavailable, while retaining the role.
+
+The Drive storage folder can be edited in Settings with a case open. Changing
+it flushes pending case edits to the original folder and closes that case before
+saving the new folder setting. A failed case save prevents the switch. Existing
+cases stay in the original folder, and the gallery reloads from the new folder.
 
 ## Removing Basic
 

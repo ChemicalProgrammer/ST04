@@ -32,12 +32,12 @@ html[data-ui-mode=basic] #status:not(.error),
 html[data-ui-mode=basic] .equipment-filters { display:none !important; }
 html[data-ui-mode=basic] #basic-conveyor-layout { display:block; }
 html[data-ui-mode=basic] #basic-conveyor-panel { display:none; }
-html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-300)),1fr)); align-items:start; }
+html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-240)),1fr)); align-items:start; }
 html[data-ui-mode=basic] .basic-machine { cursor:default; padding:var(--space-4); }
 html[data-ui-mode=basic] .basic-machine .equipment-fields { display:block; }
 html[data-ui-mode=basic][data-show-json=true] .basic-machine .equipment-json-details { display:block; }
 html[data-ui-mode=basic] .basic-machine .equipment-grid { display:grid; }
-html[data-ui-mode=basic] .basic-machine .equipment-drag { display:none; }
+html[data-ui-mode=basic] .equipment-drag { display:none; }
 html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { display:grid; grid-template-columns:minmax(var(--size-220),1fr) minmax(0,3fr); gap:var(--space-5); align-items:start; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { display:flex; flex-direction:column; min-width:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-4); background:var(--surface); position:sticky; top:var(--space-4); }
@@ -51,7 +51,31 @@ html[data-ui-mode=basic] .equipment-speed-chart-heading p,
 html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
 html[data-ui-mode=basic] label:has(> .equipment-unit),
 html[data-ui-mode=basic] label:has(> .equipment-mode) { display:none !important; }
+/* Keep the setup controls on one compact row and use identical field tracks. */
+html[data-ui-mode=basic] .topbar { padding-top:var(--space-2); padding-bottom:var(--space-2); }
+html[data-ui-mode=basic] #basic-navigation { flex-basis:auto; order:0; flex:1; }
+html[data-ui-mode=basic] .case-open .breadcrumb,
+html[data-ui-mode=basic] .case-open .user-chip { display:none; }
+html[data-ui-mode=basic] #editor-panel > .section-heading > div:first-of-type { display:none; }
+html[data-ui-mode=basic] #case-editor-form { flex:1; min-width:0; max-width:var(--size-420); }
+html[data-ui-mode=basic] #case-editor-form .field-grid { margin:0; }
+html[data-ui-mode=basic] #case-editor-form label { grid-template-columns:auto minmax(0,1fr); align-items:center; gap:var(--space-3); }
+html[data-ui-mode=basic] #editor-panel > .editor-subheading { margin-top:var(--space-3); margin-bottom:0; }
+html[data-ui-mode=basic] #equipment-list { gap:var(--space-3); margin-top:var(--space-3); }
+html[data-ui-mode=basic] .basic-machine { padding:var(--space-3); }
+html[data-ui-mode=basic] .basic-machine .equipment-header { gap:var(--space-2); margin-bottom:var(--space-2); }
+html[data-ui-mode=basic] .basic-machine .equipment-header strong { font-size:var(--font-secondary); overflow-wrap:anywhere; min-width:0; }
+html[data-ui-mode=basic] .basic-machine .equipment-grid { gap:var(--space-2); align-items:start; }
+html[data-ui-mode=basic] .equipment-grid label { min-width:0; font-size:var(--font-caption); }
+html[data-ui-mode=basic] .basic-machine .equipment-grid label { grid-template-rows:minmax(var(--size-28),auto) var(--control-height); gap:var(--space-1); align-items:end; }
+html[data-ui-mode=basic] .equipment-grid input:not([type=checkbox]),
+html[data-ui-mode=basic] .equipment-grid select { height:var(--control-height); box-sizing:border-box; }
+html[data-ui-mode=basic] #equipment-inspector label { padding-right:0; }
+html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
 @media(max-width:760px){
+  html[data-ui-mode=basic] #basic-navigation { order:3; flex-basis:100%; }
+  html[data-ui-mode=basic] #editor-panel > .section-heading { flex-wrap:wrap; }
+  html[data-ui-mode=basic] #case-editor-form { flex-basis:100%; max-width:none; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }
   html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; }

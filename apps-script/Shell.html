@@ -17,7 +17,7 @@ window.STShell = function(state,actions) {
     document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),results:__ST_TEXT__('shell.results'),whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('autosave-indicator').classList.toggle('hidden',!active);
     document.getElementById('case-danger-zone').classList.toggle('hidden',!active);
-    document.getElementById('workspace-folder-id').disabled=active;
+    document.getElementById('workspace-folder-id').disabled=false;
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-public-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');

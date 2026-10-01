@@ -690,12 +690,17 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   await h.click('[data-basic-view="equipment"]');
   const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
+  assert.equal(h.d.getElementById('case-editor-form').parentElement.className,'section-heading');
+  assert.equal(style(machines[0]._fields.querySelector('.equipment-id').closest('label')),'none');
+  assert(machines[0]._fields.querySelector('.equipment-id').readOnly);
   const field=machines[0]._fields.querySelector('.equipment-rate');field.value='333';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   machines[0].click();assert.equal(machines[0]._fields.parentElement,machines[0]);
   await waitFor(()=>h.storedCases()[0].equipment[0].nominalRatePerSecond===333/60);
   await h.click('[data-basic-view="conveyors"]');
   const conveyors=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(conveyors.length,6);assert.equal(style(h.d.getElementById('basic-conveyor-panel')),'flex');
+  assert.equal(style(conveyors[0].querySelector('.equipment-drag')),'none');
+  assert.equal(style(h.d.querySelector('#equipment-inspector .equipment-id').closest('label')),'none');
   assert.equal(h.d.getElementById('equipment-inspector').parentElement.id,'basic-conveyor-panel');
   assert.equal(style(h.d.getElementById('gemini-panel')),'none');
   conveyors[1].click();
@@ -761,6 +766,23 @@ test('UI Basic: a clean imported stopped machine starts automatically without re
   h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');
   await waitFor(()=>h.storedCases()[0].simulations[0].results);
   const record=h.storedCases()[0];assert(record.equipment.every(e=>e.initialMode==='AUTO'));assert(record.simulations[0].results.equipmentMetrics['blowmolder-1'].outputCount>0);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: changing storage with an open case saves its pending edits before switching folders',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
+  const name=h.d.getElementById('case-name');name.value='Saved before folder switch';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#open-settings');
+  const folder=h.d.getElementById('workspace-folder-id');assert(!folder.disabled);
+  folder.value='new-storage';folder.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#settings-close');
+  await waitFor(()=>h.calls.includes('saveUserSettings')&&h.visible('cases-panel')&&!h.d.getElementById('settings-dialog').open);
+  assert.equal(h.storedCases()[0].name,'Saved before folder switch');
+  assert(h.calls.lastIndexOf('saveCase')<h.calls.lastIndexOf('saveUserSettings'));
+  assert(!h.visible('editor-panel'));assert(!h.d.getElementById('settings-dialog').open);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

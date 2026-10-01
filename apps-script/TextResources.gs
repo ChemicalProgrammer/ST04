@@ -188,7 +188,7 @@ var ST_TEXT_RESOURCES = {
   "simulation.copy_name": "Copy of ",
   "simulation.new_equipment": "New equipment",
   "editor.json_note": "Advanced engine configuration. These values are populated by the forms and Sheet import. Most users do not need to edit JSON. Invalid JSON is not saved; correct it to resume automatic saving. Conveyor geometry controls take precedence over the corresponding JSON fields.",
-  "settings.close_case_storage": "Close the current case before changing its storage folder.",
+  "settings.close_case_storage": "Changing the storage folder saves and closes the current case. Existing cases stay in their original folder.",
   "settings.complete_fields": "Complete the required settings before they can be saved.",
   "settings.delete_case_note": "Move the open case and all its simulations to the Drive trash.",
   "scenario.zero": "Zero CAPEX",

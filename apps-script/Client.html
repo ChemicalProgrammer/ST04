@@ -196,7 +196,9 @@
       shell.sync();
     }
 
-    function saveWorkspace(request, done) {
+    async function saveWorkspace(request, done) {
+      var changingFolder=request.workspaceRootFolderId.trim()!==state.bootstrap.settings.workspaceRootFolderId;
+      if(changingFolder && !await showCaseHome()){done({ok:false,error:{message:__ST_TEXT__('autosave.invalid')}});return;}
       callServer('saveUserSettings', [request], function(response) {
         if(response.ok){
           state.bootstrap.settings=response.data;
@@ -459,6 +461,7 @@ async function openCase(caseId) {
       equipmentField(card, 'strong').textContent = __ST_TEXT__('client.step') + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
+      equipmentField(card, '.equipment-id').readOnly = true;
       equipmentField(card, '.equipment-type').value = STEquipmentRoles.machineType(equipment);
       equipmentField(card, '.equipment-name').value = equipment.name || '';
       unitInput.value=equipment.unitOfFlow||'';
