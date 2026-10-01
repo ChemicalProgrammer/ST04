@@ -36,7 +36,7 @@ window.STShell = function(state,actions) {
   }
   function toast(message) {var el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.add('hidden');},4000);}
   function init(){
-    window.STBasicMode?.init(state,{navigate:actions.navigate,refresh:sync});
+    window.STBasicMode?.init(state,{navigate:actions.navigate,refresh:sync,preview:actions.preview});
     STSettings.init();STIcons.decorate();
     document.getElementById('cases-settings').onclick=STSettings.open;
     document.getElementById('cases-sign-out').onclick=actions.signout;

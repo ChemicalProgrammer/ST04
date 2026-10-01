@@ -1,6 +1,6 @@
 # Shifts, replications and report layouts
 
-Select **Consecutive shifts** in Simulation. Each shift lasts 0.25–24 hours in quarter-hour increments; the default is eight hours. Choose 1–3 shifts and 1–50 rounds. Fixed duration remains available. Shift boundaries do not reset inventory, controls, failures or random streams. Breaks and shift-specific staffing are not implied; use scheduled commands where needed.
+Select **Consecutive shifts** in Simulation. Each shift lasts 0.25–24 hours in quarter-hour increments; the default is eight hours. Choose 1–3 shifts and 1–100 rounds. Fixed duration remains available. Shift boundaries do not reset inventory, controls, failures or random streams. Breaks and shift-specific staffing are not implied; use scheduled commands where needed.
 
 Each round starts from the same configuration and initial conditions with seed `(baseSeed + roundIndex) >>> 0`. A cloned simulation preserves the configuration. The async runner uses the same tick operations and 0.25-second integration step, yields every 1,000 ticks and supports cancellation. An incomplete batch is not published as a successful result. There is no warm-up exclusion.
 

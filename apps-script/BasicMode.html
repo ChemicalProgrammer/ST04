@@ -1,8 +1,8 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext;
-  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif']];
+  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext,setupControls,efficiencies,startButton,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['results',__ST_TEXT__('shell.results'),'chart','results']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
@@ -24,20 +24,41 @@ window.STBasicMode=(function(){
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
     panel=document.createElement('aside');panel.id='basic-conveyor-panel';panel.setAttribute('aria-label',__ST_TEXT__('basic.conveyor_configuration'));
     title=document.createElement('h3');panel.appendChild(title);layout.appendChild(panel);
+    conveyorTabs=document.createElement('div');conveyorTabs.className='button-row basic-conveyor-tabs';
+    ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});panel.appendChild(conveyorTabs);
+    conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
+    efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';document.querySelector('#editor-panel > .editor-subheading').before(efficiencies);
+    setupControls=document.createElement('div');setupControls.id='basic-run-controls';efficiencies.after(setupControls);
+    [['run-playback-rate','Speed'],['run-shift-count','Duration (8 h shifts)'],['run-rounds','Rounds']].forEach(function(spec){
+      var control=document.getElementById(spec[0]),label=control.closest('label');controlHomes.push({node:label,home:label.parentNode,next:label.nextSibling});
+      var group=document.createElement('section'),heading=document.createElement('strong');heading.textContent=spec[1];group.appendChild(heading);setupControls.appendChild(group);
+      if(spec[0]!=='run-rounds'){
+        var row=document.createElement('div');row.className='button-row';group.appendChild(row);
+        var values=spec[0]==='run-playback-rate'?[1,5,10,50,100]:[1,2,3];
+        values.forEach(function(value){var b=button(spec[0]==='run-playback-rate'?value+'×':value+' shift'+(value===1?'':'s'),'',function(){
+          control.value=String(value);
+          if(spec[0]==='run-shift-count'){document.getElementById('run-shift-hours').value='8';var mode=document.getElementById('duration-mode');mode.value='SHIFTS';mode.dispatchEvent(new Event('change',{bubbles:true}));}
+          control.dispatchEvent(new Event(spec[0]==='run-playback-rate'?'change':'input',{bubbles:true}));refreshData();
+        });b.dataset.control=spec[0];b.dataset.value=String(value);row.appendChild(b);});
+      }
+      group._label=label;
+    });
+    startButton=button('Start simulation','play',function(){document.getElementById('run-simulation').click();});startButton.id='basic-start-simulation';layout.after(startButton);
     inspector=document.getElementById('equipment-inspector');inspectorHome=inspector.parentNode;inspectorNext=inspector.nextSibling;
-    window.addEventListener('st:inspector',function(){if(basic())title.textContent=STEquipmentInspector.name();});
+    window.addEventListener('st:inspector',function(){if(basic()){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
     sync(current);
   }
-  function mount(){if(mounted)return;sectionRow.appendChild(geminiToggle);layout.insertBefore(list,panel);panel.appendChild(inspector);mounted=true;}
-  function unmount(){if(!mounted)return;geminiHome.insertBefore(geminiToggle,geminiNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function mount(){if(mounted)return;sectionRow.appendChild(geminiToggle);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
+  function unmount(){if(!mounted)return;controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});geminiHome.insertBefore(geminiToggle,geminiNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
     STPreferences.applyJsonFields(root.dataset.uiMode);
     if(!enabled){unmount();return;}mount();
     var active=Boolean(state.activeCase),view=state.uiView;
-    var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?'vgraph':view==='whatif'?'whatif':'simulation';
+    var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='whatif'?'whatif':'simulation';
     root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
+    nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
     var cards=Array.from(list.querySelectorAll('.equipment-card'));
     cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');});
@@ -52,13 +73,68 @@ window.STBasicMode=(function(){
         title.textContent=chosen?STEquipmentInspector.name():__ST_TEXT__('filter.empty');
       }
       document.getElementById('breadcrumb-view').textContent=conveyor?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
-    }else if(active&&view==='results'){
+    }else if(active&&view==='results'&&section==='vgraph'){
       document.getElementById('breadcrumb-view').textContent=__ST_TEXT__('basic.vgraph');
       // Display the input speed profile even before a run has been completed.
       document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');
       STLinePerformance.render(state.run.result,state.activeCase.equipment||[]);
     }
-    STIcons.decorate(nav);STIcons.decorate(tools);
+    if(active){var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
+      var before=section==='simulation'?document.getElementById('run-config'):host.querySelector('.editor-subheading');
+      host.insertBefore(efficiencies,before);host.insertBefore(setupControls,before);
+    }
+    refreshData();
+    STIcons.decorate(nav);STIcons.decorate(tools);STIcons.decorate(startButton);
+  }
+  function number(value,digits){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:digits??2}):'—';}
+  function node(tag,text,cls){var n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n;}
+  function metric(host,label,value){var row=node('div','','basic-metric');row.append(node('span',label),node('strong',value));host.appendChild(row);}
+  function refreshData(){
+    if(!mounted||!basic()||!state.activeCase)return;
+    var equipment=actions.preview?.()||state.activeCase.equipment||[],simulation=(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
+    var audits=STScenarios.audit({equipment:equipment}),availability=1;
+    Array.from(list.querySelectorAll('.equipment-card')).forEach(function(card,index){
+      var e=equipment[index];if(!e)return;var machine=e.type!=='CONVEYOR';
+      var sectionAudit=!machine?audits.find(function(x){return x.equipmentId===e.id;}):null;
+      var upstream=equipment.find(function(x){return x.id===sectionAudit?.upstreamId;}),downstream=equipment.find(function(x){return x.id===sectionAudit?.downstreamId;});
+      card.querySelector('.equipment-header strong').textContent=machine?e.name:(upstream&&downstream?upstream.name+' → '+downstream.name:e.name);
+      var data=card.querySelector('.basic-card-data');if(!data){data=node('section','','basic-card-data');card.appendChild(data);}
+      data.replaceChildren();
+      if(machine){
+        var reliability=e.noiseProfile.reliability||{},a=reliability.mtbfMinutes/(reliability.mtbfMinutes+reliability.mttrMinutes);availability*=Number.isFinite(a)?a:NaN;
+        var next=equipment[index+1],audit=next?.type==='CONVEYOR'?audits.find(function(x){return x.equipmentId===next.id;}):null;
+        var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits,downstream=equipment.find(function(x){return x.id===audit?.downstreamId;});
+        var buffer=next?.type==='CONVEYOR'?capacity/(downstream?.nominalRatePerSecond*60):0;
+        var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail: '+number(a*100,1)+'%','basic-availability'));
+      }else{
+        var audit=audits.find(function(x){return x.equipmentId===e.id;}),calc=audit?.engineering?.calculated;
+        var metricData=state.run.result?.equipmentMetrics?.[e.id],loss=metricData?100-(metricData.processingCapacityPercent??metricData.oeePercent):null;
+        metric(data,'Loss',number(loss,1)+(loss===null?'':'%'));metric(data,'Tacc AB',number(calc?.antiBlockSeconds,0)+' s');
+        data.appendChild(node('strong',audit?.engineering?.audit?.status||'NOT EVALUATED','basic-validation'));
+      }
+    });
+    efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(state.run.result?.summary?.lineOeePercent,1)+(state.run.result?'%':''));
+    setupControls.querySelectorAll('[data-control]').forEach(function(b){b.setAttribute('aria-pressed',String(document.getElementById(b.dataset.control).value===b.dataset.value));});
+    startButton.disabled=document.getElementById('run-simulation').disabled;
+    var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;}),c=audit?.engineering?.calculated,unit=equipment.find(function(e){return e.id===audit?.downstreamId;});
+    if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;
+    conveyorSummary.replaceChildren();conveyorSummary.appendChild(node('h4','Accumulation capacity'));
+    var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits;
+    metric(conveyorSummary,'Total capacity ('+number(capacity,0)+' units)',number(capacity/(unit?.nominalRatePerSecond*60))+' min');
+    metric(conveyorSummary,'Tacc Anti-Starve',number(c?.antiStarveSeconds/60)+' min');metric(conveyorSummary,'Tacc Anti-Block',number(c?.antiBlockSeconds/60)+' min');
+    var validation=node('section','','basic-conveyor-validation');validation.appendChild(node('h4','Validation'));
+    var up=equipment.find(function(e){return e.id===audit?.upstreamId;}),down=equipment.find(function(e){return e.id===audit?.downstreamId;});
+    validation.appendChild(node('p','Physical capacity · '+(audit?.engineering?.audit?.status||'NOT EVALUATED')));
+    [[c?.antiStarveSeconds,up?.noiseProfile?.reliability?.mttrMinutes,'AS','up'],[c?.antiBlockSeconds,down?.noiseProfile?.reliability?.mttrMinutes,'AB','down']].forEach(function(row){
+      var evaluated=Number.isFinite(row[0])&&Number.isFinite(row[1]);
+      validation.appendChild(node('p',(evaluated?(row[0]>=row[1]*60?'OK':'FAIL'):'NOT EVALUATED')+' '+row[2]+' '+number(row[0],0)+' s ≥ MTTR '+row[3]+' '+number(row[1]*60,0)+' s'));
+    });conveyorSummary.appendChild(validation);
+    if(conveyorView==='results'){
+      var m=state.run.result?.equipmentMetrics?.[id];
+      if(m){metric(conveyorSummary,'Processed',number(m.outputCount,0));metric(conveyorSummary,'Efficiency',number(m.processingCapacityPercent,1)+'%');metric(conveyorSummary,'Blocked',number(m.blockedSeconds/60)+' min');metric(conveyorSummary,'Starved',number(m.starvedSeconds/60)+' min');}
+    }
+    inspector.classList.toggle('hidden',state.uiView!=='editor'||state.basicView!=='conveyors'||conveyorView!=='inputs');
+    conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=b.dataset.conveyorView==='results'&&!state.run.result?.summary;});
   }
   return {init:init,sync:sync,inline:inline,isBasic:basic,newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();

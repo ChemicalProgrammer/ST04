@@ -9,7 +9,7 @@ switch in Settings, browser storage, or the case JSON.
 Basic uses the existing controls and persistence pipeline:
 
 - The case sidebar is hidden. Equipment, Conveyors,
-  Simulation, V-Graph, and What-If appear in the top navigation.
+  Simulation, V-Graph, and What-If appear in the top navigation. Results appears only after the active simulation completes.
 - The header displays the case title. A shared toolbar groups the simulation
   selector, Rename, Clone and Delete in Basic, with consistent icon-and-text
   buttons. Advance uses its sidebar selector and shows only the three actions
@@ -19,25 +19,25 @@ Basic uses the existing controls and persistence pipeline:
   compact, equal-height inputs and responsive columns. Equipment ID is hidden
   in Basic and read-only in both modes; assigned IDs remain stable. Drag handles
   are hidden on all Basic cards, including conveyors.
-- Equipment fields remain inside each machine card. Per-equipment Units and
+- Machine cards retain the name and show only speed, MTBF, MTTR, calculated post-buffer minutes and intrinsic availability by default. Failures are mandatory for Basic machines; MTBF and MTTR must be positive. Equipment fields remain inside each machine card. Per-equipment Units and
   Initial Mode are hidden; Basic uses AUTO when editing/saving or starting a run.
   The old case-wide Units input is removed in both modes, with its stored
   metadata retained for compatibility. Conveyor selection uses
   the existing inspector in an always-open right column, without a collapse
   button or resize grip. On narrow screens the column follows the list.
 - V-Graph displays normal line targets and estimated recovery overspeed,
-  including before a run, with its legend and without result tables.
+  including before a run, with a taller plot and Current (green) / Recommended (magenta) legend. Results has its own section.
 - Explanatory notes and advisories are hidden. Blocking errors, save status,
   and import validation remain available so failed actions are visible.
 - Header utility buttons preserve access to Settings, closing the case,
   and signing out. The Gemini button is aligned to the right of the section navigation,
   outside the navigation itself, in every section. It opens the same resizable right
-  panel as Advance, while keeping the Basic conveyor inspector visible. The simulation toolbar stays available across the five
+  panel as Advance, while keeping the Basic conveyor inspector visible. The simulation toolbar stays available across the six
   Basic sections. Machine cards and the conveyor inspector start at the same
   distance below the import controls.
 
 Advance uses the existing sidebar, inspector, Gemini, tables, and notes.
-The physical engine is unchanged. Basic initializes equipment automatically;
+The physical equations are unchanged. Both modes allow 1–100 replications and the playback speeds 1×, 5×, 10×, 50× and 100×. Basic adds speed, eight-hour shift and round controls above the machines, plus theoretical and simulated efficiencies. The conveyor column shows capacity, anti-starve/anti-block minutes, validation and separate Inputs/Results views. Basic initializes equipment automatically;
 Advance keeps the Initial Mode selector. Hiding fields is not access control.
 
 Settings includes **Show JSON fields**. Basic defaults to hidden; Advance
@@ -45,7 +45,7 @@ defaults to visible. The preference is remembered separately for each mode
 in this browser. It hides the equipment JSON sections and the Line Setup JSON
 viewer, without affecting Import JSON or exports.
 
-Each machine has a Pacemaker checkbox. Selecting it clears other machine
+Advance exposes the Pacemaker checkbox; Basic retains the configured role without adding it to the compact card. Selecting it clears other machine
 selections and preserves the physical type (Blowmolder, Filler, etc.). Legacy
 PACEMAKER types reopen using their recorded machine type, or CUSTOM if that
 information is unavailable, while retaining the role.
@@ -73,3 +73,5 @@ can also be removed. The engine and saved case format need no migration.
 
 The adapter moves the original field nodes; it does not clone inputs or
 maintain a second draft. Its styling is scoped under `data-ui-mode=basic`.
+
+Gemini returns actionable validated What-If scenarios in Advance. Basic requests descriptive improvements and hides scenario creation cards. Proposals bind exact stored before values at generation time; creation verifies the original fingerprint instead of replacing it with a newer server fingerprint.

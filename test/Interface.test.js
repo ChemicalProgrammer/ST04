@@ -140,7 +140,7 @@ test('UI: automatic edits survive reload and simulation rename/delete uses reusa
   await h.click('#delete-simulation');await h.click('.message-dialog button:first-child');assert.equal(h.storedCases()[0].simulations.length,2);
   await h.click('#delete-simulation');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases()[0].simulations.length===1);
   await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.querySelector('.equipment-name').value,'Automatically saved equipment');
-  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['0.5','1','2','5','10','20','50','100','200','500','1000']);assert.deepEqual(h.errors,[]);
+  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['1','5','10','50','100']);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: local and Gemini chat buttons clone only validated changes into persistent scenarios',async()=>{
@@ -164,7 +164,7 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
   assert.equal(h.storedCases()[0].simulations[2].name,'Chat proposal');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
-test('UI: Gemini proposal creation uses the fingerprint of the persisted server record',async()=>{
+test('UI: Gemini cannot rebind an old proposal to a different persisted server record',async()=>{
  const h=await setup();try{
   let expectedSignature;
   h.api.getScenarioSourceSignature=request=>{const record=h.storedCases()[0];assert.equal(request.expectedRevision,record.revision);expectedSignature='server-fingerprint-'+record.revision;return {revision:record.revision,simulationId:request.simulationId,signature:expectedSignature};};
@@ -174,7 +174,7 @@ test('UI: Gemini proposal creation uses the fingerprint of the persisted server 
   h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');
   await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
   await h.click('#gemini-messages .analysis-recommendation button');await h.click('.message-dialog button:last-child');
-  await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await waitFor(()=>h.d.getElementById('status').textContent.includes('changed'));assert.equal(h.storedCases()[0].simulations.length,1);assert(!h.calls.includes('createScenario'));
   assert(h.calls.includes('getScenarioSourceSignature'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -246,7 +246,7 @@ test('UI: compact editor reorders equipment with keyboard and preserves values',
 test('UI: selective Sheet reload updates the active simulation, preserves other runs and saves selection',async()=>{
  const h=await setup();try{
  async function waitFor(predicate){for(let i=0;i<30;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
- await h.click('#sign-in-button');await h.click('.open-case');h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');
+ await h.click('#sign-in-button');await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');
  let before=h.storedCases()[0];assert.equal(before.simulations.length,2,JSON.stringify({calls:h.calls,errors:h.errors,status:h.d.getElementById('status').textContent}));const simId=before.simulations[1].id,firstId=before.equipment[0].id,oldMTBF=before.equipment[0].noiseProfile.reliability.mtbfMinutes;
  const field=h.d.querySelector('.equipment-name');field.value='Local equipment name';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
  await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
@@ -284,9 +284,9 @@ test('UI: opening and navigating a saved case performs no write; playback speed 
   const collapse=h.d.getElementById('collapse-sidebar'),path=collapse.querySelector('path').getAttribute('d');
   await h.click('#collapse-sidebar');assert.notEqual(collapse.querySelector('path').getAttribute('d'),path);
   await h.click('#collapse-sidebar');assert.equal(collapse.querySelector('path').getAttribute('d'),path);
-  await h.click('.sidebar [data-view="simulation"]');const speed=h.d.getElementById('run-playback-rate');speed.value='20';speed.dispatchEvent(new h.w.Event('change',{bubbles:true}));
-  await waitFor(()=>h.storedCases()[0].simulations[0].playbackRate===20);
-  await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.getElementById('run-playback-rate').value,'20');
+  await h.click('.sidebar [data-view="simulation"]');const speed=h.d.getElementById('run-playback-rate');speed.value='50';speed.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].simulations[0].playbackRate===50);
+  await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.getElementById('run-playback-rate').value,'50');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -687,7 +687,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   const style=e=>h.w.getComputedStyle(e).display;
   await h.click('.open-case');assert.equal(h.d.documentElement.dataset.uiMode,'basic');
   assert.equal(style(h.d.getElementById('case-sidebar')),'none');
-  assert.equal(h.d.querySelectorAll('#basic-navigation button').length,5);
+  assert.equal(h.d.querySelectorAll('#basic-navigation button:not(.hidden)').length,5);
   await h.click('[data-basic-view="equipment"]');
   const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
@@ -706,7 +706,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   assert.equal(h.d.getElementById('equipment-inspector').parentElement.id,'basic-conveyor-panel');
   assert.equal(style(h.d.getElementById('gemini-panel')),'none');
   conveyors[1].click();
-  assert.equal(h.d.querySelector('#basic-conveyor-panel h3').textContent,conveyors[1]._fields.querySelector('.equipment-name').value);
+  assert.equal(h.d.querySelector('#basic-conveyor-panel h3').textContent,conveyors[1].querySelector('.equipment-header strong').textContent);
   const gap=conveyors[1]._fields.querySelector('.format-zone-moving-gap');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await waitFor(()=>h.storedCases()[0].equipment[3].processData.accumulation.movingGapMm===23);
   await h.click('[data-basic-view="equipment"]');assert.equal(h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-rate').value,'333');
@@ -765,7 +765,7 @@ test('UI Basic: a clean imported stopped machine starts automatically without re
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   const get=h.api.getCase;h.api.getCase=id=>{const c=get(id);for(const list of [c.equipment,c.simulations[0].equipment])list.forEach(e=>e.initialMode='STOP');return c;};
   await h.click('.open-case');assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');
+  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');
   await waitFor(()=>h.storedCases()[0].simulations[0].results);
   const record=h.storedCases()[0];assert(record.equipment.every(e=>e.initialMode==='AUTO'));assert(record.simulations[0].results.equipmentMetrics['blowmolder-1'].outputCount>0);
   assert.deepEqual(h.errors,[]);
@@ -871,6 +871,39 @@ test('UI Advance: simulation actions align right without a selector or enclosing
    assert.equal(toolbar.parentElement,h.d.querySelector('#'+panel+'-panel > .section-heading'));
    assert.equal(h.w.getComputedStyle(toolbar).marginTop,'0px');
   }
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Basic: worksheet controls, calculated buffers, Results availability and text-only Gemini',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+  const display=e=>h.w.getComputedStyle(e).display,card=h.d.querySelector('.basic-machine'),fields=card._fields;
+  assert.equal(display(fields.querySelector('.equipment-type').closest('label')),'none');
+  assert.equal(display(fields.querySelector('.equipment-name').closest('label')),'none');
+  assert.equal(display(fields.querySelector('.reliability-enabled').closest('label')),'none');
+  assert.equal(fields.querySelector('.reliability-enabled').checked,true);
+  assert(!card.querySelector('.equipment-header strong').textContent.includes('Step'));
+  assert(card.querySelector('.basic-buffer'));assert(!card.querySelector('.basic-buffer input'));
+  const equipment=h.storedCases()[0].equipment,audit=h.w.STScenarios.audit({equipment})[0],downstream=equipment.find(e=>e.id===audit.downstreamId);
+  const expected=audit.engineering.runtimeGeometry.capacityUnits/(downstream.nominalRatePerSecond*60);
+  assert.equal(card.querySelector('.basic-buffer').textContent,expected.toLocaleString(undefined,{maximumFractionDigits:2}));
+  const results=h.d.querySelector('[data-basic-view="results"]');assert(results.classList.contains('hidden'));
+  await h.click('#basic-run-controls [data-control="run-shift-count"][data-value="2"]');
+  assert.equal(h.d.getElementById('duration-mode').value,'SHIFTS');assert.equal(h.d.getElementById('run-shift-count').value,'2');assert.equal(h.d.getElementById('run-shift-hours').value,'8');
+  await h.click('#basic-run-controls [data-control="run-playback-rate"][data-value="50"]');assert.equal(h.d.getElementById('run-playback-rate').value,'50');
+  // Keep the integration run short; shift duration is tested in the batch engine.
+  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='20';
+  await h.click('#basic-start-simulation');await waitFor(()=>!results.classList.contains('hidden'));await h.click('#pause-simulation');
+  await h.click('[data-basic-view="results"]');assert.equal(h.d.documentElement.dataset.basicView,'results');assert(h.visible('results-body'));assert.equal(display(h.d.getElementById('line-performance')),'none');assert(h.d.querySelector('#results-table table'));
+  await h.click('[data-basic-view="vgraph"]');assert.equal(display(h.d.getElementById('line-performance')),'block');assert.equal(h.w.getComputedStyle(h.d.documentElement).getPropertyValue('--vgraph-height'),'440px');
+  assert.equal(h.d.querySelector('.vgraph-key-normal').textContent,'Current');assert.equal(h.d.querySelector('.vgraph-key-recommended').textContent,'Recommended');
+  h.api.askGemini=request=>({text:'Describe suggested improvements.',proposals:[h.w.STScenarios.plan(h.storedCases()[0].simulations[0]).projects.find(p=>p.canApply)]});
+  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Describe suggested'));
+  assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
+  await h.click('[data-basic-view="conveyors"]');assert(h.d.getElementById('basic-conveyor-summary').textContent.includes('Tacc Anti-Starve'));
+  await h.click('[data-conveyor-view="results"]');assert(h.d.getElementById('equipment-inspector').classList.contains('hidden'));
+  await h.click('[data-conveyor-view="inputs"]');assert(!h.d.getElementById('equipment-inspector').classList.contains('hidden'));
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

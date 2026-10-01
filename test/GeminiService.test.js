@@ -68,3 +68,27 @@ test('Gemini server errors recommend retrying without blaming the saved key',()=
    !error.message.includes('API key'));
  }
 });
+
+test('Basic Gemini requests descriptive improvements and returns no actionable scenarios',()=>{
+ const fixture=setup(),project=fixture.ctx.STScenarioEngine_.plan(fixture.record.simulations[0]).projects.find(p=>p.canApply);
+ const h=setup({answer:JSON.stringify({text:'Consider increasing accumulation coverage.',proposals:[{...project,title:'Study'}]})});
+ h.ctx.getInterfaceMode_=()=> 'BASIC';
+ const result=h.ctx.askGemini_(request,user);
+ assert.equal(result.proposals.length,0);assert.match(result.text,/accumulation coverage/);
+ assert.match(JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+});
+test('Gemini rounded before values bind to exact saved inputs and survive the create RPC round trip',()=>{
+ const fixture=setup(),source=fixture.record.simulations[0],project=fixture.ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);
+ const proposal={...project,title:'Exact saved input study',changes:project.changes.map(c=>({...c,before:999.123}))};
+ const h=setup({answer:JSON.stringify({text:'Review the study.',proposals:[proposal]})});
+ const response=h.ctx.askGemini_(request,user),accepted=JSON.parse(JSON.stringify(response.proposals[0]));assert(accepted);
+ assert.notEqual(accepted.changes[0].before,999.123);
+ let saved=h.record,writes=0;
+ h.ctx.withCaseWriteLock_=fn=>fn();h.ctx.getOwnedCaseFile_=()=>({caseData:JSON.parse(JSON.stringify(saved)),file:{setContent:value=>{saved=JSON.parse(value);writes++;}}});h.ctx.ensureCaseSimulations_=c=>c;h.ctx.generateSimulationId_=()=> 'scenario';h.ctx.Utilities={getUuid:()=> 'unique-clone'};
+ const created=h.ctx.createScenario_({caseId:saved.id,simulationId:'a',expectedRevision:1,origin:'GEMINI',sourceSignature:accepted.sourceSignature,proposal:accepted},user);
+ assert.equal(writes,1);assert.equal(created.case.simulations.length,2);assert.equal(created.case.simulations[0].dynamicConfig.seed,7);assert.equal(created.case.simulations[1].results,null);
+ const changed=setup({answer:JSON.stringify({text:'Review',proposals:[proposal]})});const old=changed.ctx.askGemini_(request,user).proposals[0];
+ changed.record.simulations[0].equipment[0].nominalRatePerSecond+=1;
+ changed.ctx.withCaseWriteLock_=fn=>fn();changed.ctx.getOwnedCaseFile_=()=>({caseData:changed.record});changed.ctx.ensureCaseSimulations_=c=>c;
+ assert.throws(()=>changed.ctx.createScenario_({caseId:'case-a',simulationId:'a',expectedRevision:1,origin:'GEMINI',sourceSignature:old.sourceSignature,proposal:old},user),e=>e.code==='SCENARIO_STALE');
+});

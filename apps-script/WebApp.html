@@ -156,8 +156,8 @@
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
             <label><?= __ST_TEXT__('batch.hours') ?><input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
             <label><?= __ST_TEXT__('batch.shift_count') ?><select id="run-shift-count"><option>1</option><option>2</option><option>3</option></select></label>
-            <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="50" step="1" value="1"></label>
-            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
+            <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label>
+            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option></select></label>
           </div>
 
           <details class="notice model-boundary"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>

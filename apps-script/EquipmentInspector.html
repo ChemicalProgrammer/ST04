@@ -68,7 +68,7 @@ window.STEquipmentInspector=(function(){
   }
   function init(current,dirty){
     state=current;
-    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent=__ST_TEXT__('client.step')+(Number(selected.dataset.index)+1)+' · '+fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+(fields.querySelector('.equipment-type').value==='CONVEYOR'?'':' · '+Number(fields.querySelector('.equipment-rate').value)+__ST_TEXT__('client.bpm'));dirty(event);}});});
+    ['input','change'].forEach(function(type){el('equipment-inspector').addEventListener(type,function(event){if(event.target.matches('input,select,textarea')){var fields=selected?._fields;if(fields)selected.querySelector('.equipment-header strong').textContent=fields.querySelector('.equipment-type').value+' · '+fields.querySelector('.equipment-name').value+(fields.querySelector('.equipment-type').value==='CONVEYOR'?'':' · '+Number(fields.querySelector('.equipment-rate').value)+__ST_TEXT__('client.bpm'));dirty(event);}});});
     el('json-help-close').onclick=function(){el('json-help-dialog').close();};
     el('json-help-dialog').addEventListener('close',function(){helpOrigin?.focus();});
     el('json-help-copy').onclick=async function(){

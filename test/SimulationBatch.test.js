@@ -27,13 +27,13 @@ test('scheduled events affect every seed and the first replay keeps its requeste
  assert.equal(batch.result.batch.replays[0].samples.at(-1).outputCount,0);
 });
 test('batch cancellation and invalid limits never return partial success',async()=>{
- const data=input();await assert.rejects(simulateBatch({...data,run:{...data.run,rounds:51}}),/INVALID_BATCH_ROUNDS/);
+ const data=input();await assert.rejects(simulateBatch({...data,run:{...data.run,rounds:101}}),/INVALID_BATCH_ROUNDS/);
  let cancel=false;await assert.rejects(simulateBatch(data,{progress:()=>{cancel=true;},cancelled:()=>cancel}),/BATCH_CANCELLED/);
  await assert.rejects(simulateLineAsync({...data,run:{...data.run,shiftSeconds:-1}}),/INVALID_SHIFT_DURATION/);
  assert.equal(summarizeReplications([2]).standardDeviation,null);
 });
-test('50 short replications record distinct reproducible seeds with bounded replay',async()=>{
- const data=input();data.run={...data.run,durationSeconds:2,rounds:50};const r=await simulateBatch(data);
- assert.equal(r.result.batch.rows.length,50);assert.equal(new Set(r.result.batch.rows.map(r=>r.seed)).size,50);
+test('100 short replications record distinct reproducible seeds with bounded replay',async()=>{
+ const data=input();data.run={...data.run,durationSeconds:2,rounds:100};const r=await simulateBatch(data);
+ assert.equal(r.result.batch.rows.length,100);assert.equal(new Set(r.result.batch.rows.map(r=>r.seed)).size,100);
  assert(r.result.samples.length<=121);assert(r.result.events.length<=2000);
 });

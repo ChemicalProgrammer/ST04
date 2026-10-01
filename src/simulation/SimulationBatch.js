@@ -7,7 +7,7 @@ export function summarizeReplications(values) {
 }
 export async function simulateBatch(input, options={}) {
   const count=input.run.rounds||1;
-  if(!Number.isInteger(count)||count<1||count>50)throw new Error('INVALID_BATCH_ROUNDS');
+  if(!Number.isInteger(count)||count<1||count>100)throw new Error('INVALID_BATCH_ROUNDS');
   const baseSeed=input.run.seed>>>0,rows=[],replays=[];let representative;
   for(let index=0;index<count;index++) {
     const run={...input.run,seed:(baseSeed+index)>>>0};

@@ -14,6 +14,7 @@ var STReliabilityControls = (function(){
         var noise=JSON.parse(profile.value),data=JSON.parse(process.value);
         if(!noise||Array.isArray(noise)||typeof noise!=='object'||!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid JSON');
         var rel={mtbfMinutes:Number(controls.mtbfMinutes.value),mttrMinutes:Number(controls.mttrMinutes.value)};
+        if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR')controls.enabled.checked=true;
         if(controls.enabled.checked)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
         data.equipment=Object.assign({},data.equipment,rel);
         profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
@@ -21,6 +22,9 @@ var STReliabilityControls = (function(){
     }
     Object.values(controls).forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
     profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();
+    if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR'){
+      controls.enabled.checked=true;update();
+    }
   }
   attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
   return attach;
@@ -39,7 +43,7 @@ var STConfigurationEditor=(function(){
     if(source.dynamicConfig!==undefined&&!object(source.dynamicConfig))throw Error('dynamicConfig must be an object.');
     var run=Object.assign({},current.simulation.dynamicConfig,source.dynamicConfig||{});
     if(run.tickSeconds!==0.25)throw Error('tickSeconds must be 0.25 in this interface.');
-    if(!['FIXED','SHIFTS'].includes(run.durationMode)||!Number.isInteger(run.rounds)||run.rounds<1||run.rounds>50)throw Error('Use durationMode FIXED or SHIFTS and rounds from 1 to 50.');
+    if(!['FIXED','SHIFTS'].includes(run.durationMode)||!Number.isInteger(run.rounds)||run.rounds<1||run.rounds>100)throw Error('Use durationMode FIXED or SHIFTS and rounds from 1 to 100.');
     if(run.durationMode==='SHIFTS'){
       if(!(run.shiftHours>=0.25&&run.shiftHours<=24)||!Number.isInteger(run.shiftHours*4)||![1,2,3].includes(run.shiftCount))throw Error('Invalid shiftHours or shiftCount.');
       run.shiftSeconds=run.shiftHours*3600;run.durationSeconds=run.shiftSeconds*run.shiftCount;

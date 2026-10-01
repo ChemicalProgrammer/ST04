@@ -33,7 +33,7 @@
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
     var assistant = STAssistant(state, {flush:flushCase, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
-    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame});
+    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
     function navigateView(view) {
       if (!state.activeCase) return false;
       if (!syncPersistentSimulation()) return false;
@@ -331,7 +331,7 @@ async function openCase(caseId) {
       if (!state.activeCase) return;
       if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
       else invalidateActiveResult();
-      autosave.change();renderEditorMeta();
+      autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
     }
     function captureForSave() {
       var next=collectCaseEditor();if(!next)return null;
@@ -461,7 +461,7 @@ async function openCase(caseId) {
       unitLabel.textContent=__ST_TEXT__('client.equipment_unit_label');unitLabel.title=__ST_TEXT__('client.equipment_unit_help');
       unitInput.className='equipment-unit';unitInput.maxLength=40;unitInput.placeholder='units';
       unitLabel.appendChild(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
-      equipmentField(card, 'strong').textContent = __ST_TEXT__('client.step') + (index + 1) + ' · ' + (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
+      equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
       equipmentField(card, '.equipment-id').readOnly = true;
@@ -792,6 +792,14 @@ function numericInputValue(input) {
       };
     }
 
+    function basicEquipmentPreview(){
+      return Array.from(document.querySelectorAll('#equipment-list .equipment-card')).map(function(card){
+        var type=equipmentField(card,'.equipment-type').value,data=parseJsonForPreview(equipmentField(card,'.equipment-process-data').value);
+        if(type==='CONVEYOR')data=mergeFormatZoneData(data,readFormatZoneInputs(card));
+        return {id:equipmentField(card,'.equipment-id').value,type:type,name:equipmentField(card,'.equipment-name').value,
+          nominalRatePerSecond:readEquipmentRate(card),processData:data,noiseProfile:parseJsonForPreview(equipmentField(card,'.equipment-noise-profile').value)};
+      });
+    }
     function readEquipmentRate(card){
       var input=equipmentField(card,'.equipment-rate');
       return input.value!==''&&Number(input.value)===Number(input.dataset.originalBpm)&&input.dataset.originalRate!==''?Number(input.dataset.originalRate):Number(input.value)/60;
@@ -808,8 +816,12 @@ function numericInputValue(input) {
         if (noiseProfile === null) return false;
         var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, __ST_TEXT__('client.process_format_data'), index + 1);
         if (processData === null) return false;
-        if(!STReliabilityControls.valid(card)){showError({message:'MTBF and MTTR must be positive numbers when failures are enabled.'});return false;}
         var type = equipmentField(card, '.equipment-type').value;
+        if(window.STBasicMode?.isBasic()&&type!=='CONVEYOR'){
+          equipmentField(card,'.reliability-enabled').checked=true;
+          noiseProfile.reliability=Object.assign({},noiseProfile.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
+        }
+        if(!STReliabilityControls.valid(card)){showError({message:'MTBF and MTTR must be positive numbers when failures are enabled.'});return false;}
         if(!STEquipmentRoles.read(card,characteristics,processData,type)){showError({message:__ST_TEXT__('equipment.design_invalid')});return false;}
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
@@ -985,7 +997,7 @@ function renderRawJson() {
       state.run.commands = cloneJson(simulation.dynamicConfig?.commands || []);
       applyScenarioRunInputs(simulation.dynamicConfig);
       state.run.configuration=simulation.results?copyRunConfiguration(simulation.dynamicConfig||{}):null;
-      document.getElementById('run-playback-rate').value=String(simulation.playbackRate||1);
+      document.getElementById('run-playback-rate').value=String([1,5,10,50,100].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
       state.run.result = simulation.results?.replay ? cloneJson(simulation.results.replay) : null;
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();
@@ -1094,14 +1106,14 @@ function renderRawJson() {
           });
         });
         if(state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId||state.activeCase.revision!==expectedRevision||
-            verified.revision!==expectedRevision||verified.simulationId!==simulationId||!verified.signature){
+            verified.revision!==expectedRevision||verified.simulationId!==simulationId||!verified.signature||verified.signature!==proposal.sourceSignature){
           if(origin==='LOCAL')renderSimulationAnalysis();
           throw new Error(__ST_TEXT__('scenario.stale'));
         }
         var payload={caseId:caseId,simulationId:simulationId,expectedRevision:expectedRevision,sourceSignature:verified.signature,origin:origin,proposal:Object.assign({},proposal,{title:proposal.title||STScenarioText[proposal.titleKey]})};
         document.getElementById('application').inert=true;
         await new Promise(function(resolve,reject){callServer('createScenario',[payload],function(response){
-          if(!response.ok){reject(new Error(response.error.message));return;}
+          if(!response.ok){reject(new Error(response.error.message+(response.error.details?.length?' '+response.error.details.join('; '):'')));return;}
           state.activeCase=response.data.case;autosave.reset();activatePersistentSimulation(response.data.simulationId,true);state.uiView='editor';shell.sync();resolve();
         });});
         setStatus(__ST_TEXT__('scenario.created'));
@@ -1115,7 +1127,7 @@ function renderRawJson() {
     }
     function applyScenarioRunInputs(run) {
       if (!run) return;
-      document.getElementById('duration-mode').value=run.durationMode||'FIXED';
+      document.getElementById('duration-mode').value=run.durationMode||(window.STBasicMode?.isBasic()?'SHIFTS':'FIXED');
       document.getElementById('run-shift-hours').value=run.shiftHours||8;
       document.getElementById('run-shift-count').value=run.shiftCount||1;
       document.getElementById('run-rounds').value=run.rounds||1;
@@ -1246,7 +1258,7 @@ function renderRawJson() {
       var seed = Number(document.getElementById('run-seed').value);
       var durationMode=document.getElementById('duration-mode').value;
       var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=Number(document.getElementById('run-rounds').value);
-      if(!Number.isInteger(rounds)||rounds<1||rounds>50||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||![1,2,3].includes(shiftCount))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
+      if(!Number.isInteger(rounds)||rounds<1||rounds>100||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||![1,2,3].includes(shiftCount))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
       if(durationMode==='SHIFTS'){durationSeconds=shiftHours*3600*shiftCount;document.getElementById('run-duration').value=durationSeconds;}
       if (!(durationSeconds > 0) || !(sampleEverySeconds > 0) || !Number.isInteger(seed)) {
         showError({ code: 'INVALID_RUN_CONFIGURATION', message: __ST_TEXT__('client.duration_sample_interval_and_integer_seed_are_required') });
