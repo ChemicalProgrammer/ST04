@@ -64,6 +64,12 @@
         <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button></span>
       </header>
       <div class="workspace-content">
+      <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
+        <label class="simulation-picker" for="simulation-selector"><?= __ST_TEXT__('view.simulations') ?><select id="simulation-selector"></select></label>
+          <div class="simulation-actions">
+            <button id="rename-simulation" type="button" class="secondary" data-icon="edit"><?= __ST_TEXT__('simulation.rename') ?></button><button id="clone-case" data-icon="copy" class="secondary" type="button"><?= __ST_TEXT__('view.clone_simulation') ?></button><button id="delete-simulation" type="button" class="secondary" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"><?= __ST_TEXT__('simulation.delete') ?></button>
+          </div>
+      </section>
       <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       <section id="status" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
 
@@ -101,18 +107,10 @@
             <h2 id="editor-title"><?= __ST_TEXT__('view.case') ?></h2>
             <p id="editor-meta"></p>
           </div>
-          <div class="button-row">
-            <button id="rename-simulation" type="button" class="secondary" data-icon="edit"><?= __ST_TEXT__('simulation.rename') ?></button><button id="clone-case" data-icon="copy" class="secondary" type="button"><?= __ST_TEXT__('view.clone_simulation') ?></button><button id="delete-simulation" type="button" class="ghost icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"></button>
-          </div>
+
         </div>
 
         <div id="case-data-note" class="notice hidden" role="status"></div>
-
-        <form id="case-editor-form">
-          <div class="field-grid">
-            <label><?= __ST_TEXT__('view.case_name') ?><input id="case-name" maxlength="120" required></label>
-          </div>
-        </form>
 
         <div class="editor-subheading">
           <div>
@@ -268,7 +266,14 @@
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title"><?= __ST_TEXT__('shell.settings') ?></h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('view.close_settings') ?>" title="<?= __ST_TEXT__('view.close_settings_esc') ?>"></button></header>
       <div class="dialog-body">
-        <section class="settings-section"><h3><?= __ST_TEXT__('view.appearance') ?></h3><p><?= __ST_TEXT__('view.applied_immediately_on_this_browser') ?></p><div class="settings-row"><label for="settings-theme"><?= __ST_TEXT__('view.theme') ?></label><select id="settings-theme" data-theme-picker aria-label="<?= __ST_TEXT__('view.appearance') ?>"><option value="light"><?= __ST_TEXT__('view.light') ?></option><option value="dark"><?= __ST_TEXT__('view.dark') ?></option><option value="auto"><?= __ST_TEXT__('view.system_automatic') ?></option></select></div><div class="settings-row"><span><?= __ST_TEXT__('view.accent_color') ?></span><div id="accent-palette" class="accent-palette" role="group" aria-label="<?= __ST_TEXT__('view.accent_color') ?>"></div></div><div class="settings-row"><label class="remember"><input id="settings-json-fields" type="checkbox"><?= __ST_TEXT__('settings.show_json_fields') ?></label></div></section>
+        <section id="settings-case-section" class="settings-section hidden"><h3><?= __ST_TEXT__('view.case') ?></h3>
+        <form id="case-editor-form">
+          <div class="field-grid">
+            <label><?= __ST_TEXT__('view.case_name') ?><input id="case-name" maxlength="120" required></label>
+          </div>
+        </form>
+        </section>
+        <section class="settings-section"><h3><?= __ST_TEXT__('view.appearance') ?></h3><p><?= __ST_TEXT__('view.applied_immediately_on_this_browser') ?></p><div class="settings-row"><label for="settings-theme"><?= __ST_TEXT__('view.theme') ?></label><select id="settings-theme" data-theme-picker aria-label="<?= __ST_TEXT__('view.appearance') ?>"><option value="light"><?= __ST_TEXT__('view.light') ?></option><option value="dark"><?= __ST_TEXT__('view.dark') ?></option><option value="auto"><?= __ST_TEXT__('view.system_automatic') ?></option></select></div><div class="settings-row settings-colors"><div class="accent-heading"><span><?= __ST_TEXT__('view.accent_color') ?></span><span id="accent-name" role="status"></span></div><div id="accent-palette" class="accent-palette" role="group" aria-label="<?= __ST_TEXT__('view.accent_color') ?>"></div></div><div class="settings-row"><label class="remember"><input id="settings-json-fields" type="checkbox"><?= __ST_TEXT__('settings.show_json_fields') ?></label></div></section>
         <section id="workspace-panel" class="settings-section"><h3><?= __ST_TEXT__('view.storage_simulation_defaults') ?></h3><p><?= __ST_TEXT__('view.choose_a_drive_folder_you_can_access_cases_and_results_are_saved_in_this_wo') ?></p>
         <form id="workspace-form"><label for="workspace-folder-id"><?= __ST_TEXT__('view.drive_folder_id') ?></label><input id="workspace-folder-id" autocomplete="off" required><p id="workspace-folder-note" class="chart-note hidden"><?= __ST_TEXT__('settings.close_case_storage') ?></p>
         <fieldset class="gemini-settings"><legend><?= __ST_TEXT__('assistant.gemini') ?></legend><p class="chart-note"><?= __ST_TEXT__('view.your_api_key_is_stored_in_your_apps_script_user_properties_and_used_only_by') ?></p><label for="gemini-model"><?= __ST_TEXT__('view.model_id') ?></label><input id="gemini-model" value="gemini-2.5-flash" maxlength="100" pattern="gemini-[a-zA-Z0-9.\-]+" required><label for="gemini-api-key"><?= __ST_TEXT__('view.api_key') ?></label><div class="api-key-control">

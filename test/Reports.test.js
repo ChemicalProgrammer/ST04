@@ -40,9 +40,9 @@ test('theme dictionary alone controls palette entries, fallback and both modes',
  const dom=new JSDOM('<div id="accent-palette"></div>',{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  try{
   w.matchMedia=()=>({matches:false,addEventListener(){}});w.STIcons={svg:()=>''};w.eval(read('ThemeResources.html').replace(/^<script>|<\/script>\s*$/g,''));
-  delete w.STThemeResources.palettes.violet;w.STThemeResources.palettes.custom={light:{accent:'#123456',soft:'#eeeeee',onAccent:'#ffffff'},dark:{accent:'#aabbcc',soft:'#112233',onAccent:'#000000'}};
+  delete w.STThemeResources.palettes['amparo-blue'];w.STThemeResources.palettes.custom={light:{accent:'#123456',soft:'#eeeeee',onAccent:'#ffffff'},dark:{accent:'#aabbcc',soft:'#112233',onAccent:'#000000'}};
   w.eval(read('UiPreferences.html').replace(/^<script>|<\/script>\s*$/g,''));w.document.dispatchEvent(new w.Event('DOMContentLoaded'));
-  assert(!w.document.querySelector('[data-accent="violet"]'));w.document.querySelector('[data-accent="custom"]').click();assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#123456');w.STPreferences.setTheme('dark');assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#aabbcc');
+  assert(!w.document.querySelector('[data-accent="amparo-blue"]'));w.document.querySelector('[data-accent="custom"]').click();assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#123456');w.STPreferences.setTheme('dark');assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#aabbcc');
  }finally{w.close();}
 });
 

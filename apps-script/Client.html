@@ -76,6 +76,7 @@
       document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
+      STSettings.connectCaseFlush(flushCase);
       STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});
       document.getElementById('retry-autosave').onclick = retryAutosave;
       document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
@@ -83,6 +84,7 @@
       document.getElementById('clone-case').addEventListener('click', cloneActiveSimulation);
       document.getElementById('delete-case').addEventListener('click', deleteActiveCase);
       document.getElementById('rename-simulation').onclick = renameSimulation;
+      document.getElementById('simulation-selector').onchange=function(){activatePersistentSimulation(this.value);this.value=state.activeSimulationId||'';};
       document.getElementById('delete-simulation').onclick = deleteSimulation;
       document.getElementById('add-equipment').addEventListener('click', addEquipment);
       document.getElementById('case-editor-form').addEventListener('input', markCaseDirty);
@@ -327,7 +329,8 @@ async function openCase(caseId) {
     }
     function markCaseDirty(event) {
       if (!state.activeCase) return;
-      if(!event||!['case-name'].includes(event.target?.id))invalidateActiveResult();
+      if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
+      else invalidateActiveResult();
       autosave.change();renderEditorMeta();
     }
     function captureForSave() {
@@ -896,6 +899,9 @@ function renderRawJson() {
       if (!target) return;
       target.textContent = '';
       var simulations = state.activeCase?.simulations || [];
+      var selector=document.getElementById('simulation-selector');selector.replaceChildren();
+      simulations.forEach(function(simulation){var option=document.createElement('option');option.value=simulation.id;option.textContent=simulation.name;selector.appendChild(option);});
+      selector.value=state.activeSimulationId||'';
       toggle('workspace-tabs', Boolean(simulations.length));
       simulations.forEach(function(tab) {
         var button = document.createElement('button'); button.type = 'button';

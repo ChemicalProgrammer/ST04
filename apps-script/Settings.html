@@ -1,6 +1,6 @@
 <script>
 window.STSettings = (function() {
-  var save, removeKey, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, lastFocus, failure=null, waiters=[];
+  var save, flushCase, removeKey, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, lastFocus, failure=null, waiters=[];
   function el(id){return document.getElementById(id);}
   function request(){return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:{model:el('gemini-model').value,apiKey:el('gemini-api-key').value}};}
   function refresh(){el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
@@ -19,7 +19,14 @@ window.STSettings = (function() {
     });
   }
   function flush(){return new Promise(function(resolve){waiters.push(resolve);write();});}
-  async function close(){if(removing||!await flush())return;el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();}
+  async function close(){
+    if(removing||!await flush())return;
+    if(flushCase && !el('settings-case-section').classList.contains('hidden')){
+      if(!el('case-editor-form').reportValidity())return;
+      try{await flushCase();}catch(error){el('settings-error').textContent=error.message;return;}
+    }
+    el('settings-error').textContent='';el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();
+  }
   function keyStatus(){el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
   async function deleteKey(){
     if(removing||!hasKey||!removeKey)return;
@@ -42,6 +49,6 @@ window.STSettings = (function() {
   }
   function configureGemini(config){el('gemini-model').value=config.model||'gemini-2.5-flash';hasKey=Boolean(config.configured);keyStatus();}
   function setKeyConfigured(value){hasKey=Boolean(value);keyStatus();}
-  return {init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(message){failure=true;el('settings-error').textContent=message;refresh();}};
+  return {init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectCaseFlush:function(fn){flushCase=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(message){failure=true;el('settings-error').textContent=message;refresh();}};
 })();
 </script>

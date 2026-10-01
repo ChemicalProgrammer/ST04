@@ -32,4 +32,22 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 #configuration-error { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--danger); font-size:var(--font-secondary); margin-bottom:0; }
 #configuration-error:empty { display:none; }
 .reliability-controls { margin-block:16px; }
+/* Settings uses the full dialog width for the source color collection. */
+#settings-dialog .dialog-heading { padding:var(--space-3) var(--space-4); }
+#settings-dialog .dialog-body { padding:var(--space-4); }
+#settings-dialog .settings-section { padding-bottom:var(--space-3); margin-bottom:var(--space-3); }
+#settings-dialog .settings-section h3 { margin:0 0 var(--space-2); font-size:var(--font-secondary); }
+#settings-dialog .settings-section > p { margin:0 0 var(--space-2); }
+#settings-dialog .settings-row { margin-top:var(--space-2); gap:var(--space-3); }
+#settings-dialog .settings-colors { grid-template-columns:1fr; gap:var(--space-2); }
+.accent-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); font-size:var(--font-secondary); }
+#accent-name { color:var(--muted); text-align:right; }
+#settings-dialog .accent-palette { display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--size-28),1fr)); gap:var(--space-2); }
+#settings-dialog .accent-choice { width:var(--size-28); height:var(--size-28); justify-self:center; border:var(--border-width) solid var(--line-strong); }
+#settings-dialog .accent-choice[aria-pressed=true] { outline:var(--focus-width) solid var(--ink); outline-offset:2px; }
+#settings-dialog #case-editor-form .field-grid { margin:0; }
+#settings-dialog .gemini-settings { margin-top:var(--space-3); padding:var(--space-3); }
+#settings-dialog .gemini-settings > label { margin:var(--space-2) 0 var(--space-1); }
+#settings-dialog .dialog-actions { padding:var(--space-3) var(--space-4); }
+#settings-error:empty { display:none; }
 </style>

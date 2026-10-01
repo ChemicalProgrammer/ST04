@@ -9,7 +9,7 @@ import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit,savedAccent}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  if(flowUnit)initial.unitOfFlow=flowUnit;
@@ -50,6 +50,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  let media;
  const dom=new JSDOM(renderAppsScript().html,{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
   if(remember)w.localStorage.setItem('st.ui.v1.remember','yes');
+  if(savedAccent)w.localStorage.setItem('st.ui.v1.accent',savedAccent);
   media={matches:false,addEventListener(_,fn){this.listener=fn;}};w.matchMedia=()=>media;
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
@@ -72,7 +73,7 @@ test('UI: cases-only entry, accessible navigation, theme settings and remembered
   theme.value='auto';theme.dispatchEvent(new h.w.Event('change'));h.media.matches=true;h.media.listener();assert.equal(h.d.documentElement.dataset.theme,'dark');
   h.media.matches=false;h.media.listener();assert.equal(h.d.documentElement.dataset.theme,'light');
   const field=h.d.getElementById('workspace-folder-id');field.value='new-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.match(h.d.getElementById('settings-unsaved').textContent,/pending/);
-  h.d.getElementById('settings-dialog').dispatchEvent(new h.w.Event('cancel',{cancelable:true}));await settle();assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'new-folder');
+  h.d.getElementById('settings-dialog').dispatchEvent(new h.w.Event('cancel',{cancelable:true}));await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'new-folder');
   await h.click('#cases-settings');field.value='saved-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#settings-cancel');assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'saved-folder');
   await h.click('#collapse-sidebar');assert(h.d.getElementById('application').classList.contains('sidebar-collapsed'));
   await h.click('#cases-sign-out');assert(h.visible('auth-panel'));assert.equal(h.w.localStorage.getItem('st.ui.v1.remember'),null);
@@ -223,7 +224,7 @@ test('UI: Gemini panel sends case questions, closes, and clears on sign out',asy
  await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));
  h.d.getElementById('gemini-question').value='Where is the bottleneck?';await h.click('#send-gemini');assert(h.calls.includes('askGemini'));assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
  await h.click('#close-gemini');assert(!h.visible('gemini-panel'));
- await h.click('#open-settings');await h.click('[data-accent="teal"].accent-choice');assert.equal(h.d.documentElement.dataset.accent,'teal');await h.click('#settings-close');
+ await h.click('#open-settings');await h.click('[data-accent="ocean-liner"].accent-choice');assert.equal(h.d.documentElement.dataset.accent,'ocean-liner');await h.click('#settings-close');
  await h.click('#sign-out');assert.equal(h.d.getElementById('gemini-messages').textContent,'');assert(!h.visible('gemini-panel'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -235,7 +236,7 @@ test('UI: compact editor reorders equipment with keyboard and preserves values',
  h.d.querySelector('.equipment-drag').dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
  assert.equal(ids()[1],before[0]);assert.equal(ids()[0],before[1]);assert.equal(h.d.querySelectorAll('.move-up,.move-down').length,0);
  assert.equal(h.d.querySelector('.remove-equipment').textContent,'');assert(!h.d.querySelector('.toggle-step'));
- await h.click('#open-settings');assert.equal(h.d.querySelectorAll('.accent-choice').length,25);assert(!h.d.getElementById('settings-save'));assert(!h.d.querySelector('.dialog-body #settings-cancel'));
+ await h.click('#open-settings');assert.equal(h.d.querySelectorAll('.accent-choice').length,57);assert(!h.d.getElementById('settings-save'));assert(!h.d.querySelector('.dialog-body #settings-cancel'));
  await h.click('#settings-cancel');assert(!h.d.getElementById('status').textContent.includes('Loading console'));
  await h.click('#toggle-gemini');const grip=h.d.getElementById('gemini-resize');const initial=Number(grip.getAttribute('aria-valuenow'));grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert(Number(grip.getAttribute('aria-valuenow'))>initial);
  assert.deepEqual(h.errors,[]);
@@ -690,7 +691,8 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   await h.click('[data-basic-view="equipment"]');
   const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
-  assert.equal(h.d.getElementById('case-editor-form').parentElement.className,'section-heading');
+  assert.equal(h.d.getElementById('case-editor-form').parentElement.id,'settings-case-section');
+  assert.notEqual(style(h.d.querySelector('.breadcrumb')),'none');
   assert.equal(style(machines[0]._fields.querySelector('.equipment-id').closest('label')),'none');
   assert(machines[0]._fields.querySelector('.equipment-id').readOnly);
   const field=machines[0]._fields.querySelector('.equipment-rate');field.value='333';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
@@ -783,6 +785,50 @@ test('UI: changing storage with an open case saves its pending edits before swit
   assert.equal(h.storedCases()[0].name,'Saved before folder switch');
   assert(h.calls.lastIndexOf('saveCase')<h.calls.lastIndexOf('saveUserSettings'));
   assert(!h.visible('editor-panel'));assert(!h.d.getElementById('settings-dialog').open);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: shared simulation controls and case name in Settings preserve case results in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});try{
+   assert(!h.visible('settings-case-section'));assert(h.d.getElementById('case-name').disabled);
+   await h.click('.open-case');
+   assert(h.visible('simulation-toolbar'));assert(h.visible('settings-case-section'));
+   for(const id of ['simulation-selector','rename-simulation','clone-case','delete-simulation'])assert(h.d.getElementById('simulation-toolbar').contains(h.d.getElementById(id)));
+   const remove=h.d.getElementById('delete-simulation');assert.match(remove.textContent,/Delete/);assert(remove.classList.contains('secondary'));assert(remove.querySelector('svg'));
+   const selector=h.d.getElementById('simulation-selector');assert.equal(selector.options.length,1);
+   await h.click('#clone-case');await waitFor(()=>selector.options.length===2);
+   const first=selector.options[0].value;selector.value=first;selector.dispatchEvent(new h.w.Event('change'));await settle();assert.equal(selector.value,first);
+   await h.click('#open-settings');
+   const name=h.d.getElementById('case-name');assert(h.d.getElementById('settings-dialog').contains(name));name.value='Renamed in Settings';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+   assert.equal(h.d.getElementById('breadcrumb-case').textContent,'Renamed in Settings');
+   await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);
+   assert.equal(h.storedCases()[0].name,'Renamed in Settings');
+   await h.click('#home-cases');assert(!h.visible('settings-case-section'));assert(!h.visible('simulation-toolbar'));
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+test('UI: source color names and hex values populate compact Settings and work in both themes',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('#cases-settings');
+  const palettes=h.w.STThemeResources.palettes,swatches=h.d.querySelectorAll('.accent-choice');assert.equal(swatches.length,57);
+  function luminance(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);}
+  function contrast(a,b){return (Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);}
+  for(const entry of Object.values(palettes))for(const mode of ['light','dark']){assert.equal(entry[mode].accent,entry.hex);assert(contrast(entry[mode].onAccent,entry.hex)>=4.5);assert(contrast(entry[mode].text,entry[mode].soft)>=4.5);}
+  const color=palettes['a-lorange'];assert.equal(color.hex,'#F6820D');
+  await h.click('.accent-choice[data-accent="a-lorange"]');assert.equal(h.d.getElementById('accent-name').textContent,'à l’orange');
+  for(const mode of ['light','dark']){
+   h.w.STPreferences.setTheme(mode);assert.equal(h.d.documentElement.style.getPropertyValue('--accent'),'#F6820D');
+   assert.equal(h.d.documentElement.style.getPropertyValue('--on-accent'),color[mode].onAccent);
+  }
+  assert.equal(h.d.querySelector('.accent-choice[data-accent="a-lorange"]').getAttribute('aria-pressed'),'true');
+  const migrated=await setup({remember:true,savedAccent:'teal'});try{
+   assert(palettes[migrated.d.documentElement.dataset.accent]);assert.notEqual(migrated.d.documentElement.dataset.accent,'teal');assert.equal(migrated.d.querySelectorAll('.accent-choice').length,57);
+  }finally{migrated.dom.window.close();}
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

@@ -1,306 +1,946 @@
 <script>
-// Add or remove an entry here to update Settings and both theme variants.
+// Source colors are preserved exactly; text variants keep selections readable in both themes.
 window.STThemeResources = {
-  "defaultAccent": "violet",
+  "source": "https://github.com/ChemicalProgrammer/ChemicalApplications/blob/main/ThemeColors.json",
+  "defaultAccent": "amparo-blue",
+  "legacyAccents": {
+    "violet": "amparo-blue",
+    "blue": "blues",
+    "teal": "pacific-pleasure",
+    "green": "adamite-green",
+    "amber": "aviator",
+    "rose": "redcurrant",
+    "red": "redcurrant",
+    "coral": "aviator",
+    "orange": "aviator",
+    "copper": "aviator",
+    "gold": "aviator",
+    "olive": "quartz-green",
+    "lime": "quartz-green",
+    "forest": "adamite-green",
+    "mint": "adamite-green",
+    "aqua": "ocean-liner",
+    "cyan": "blues",
+    "sky": "blues",
+    "cobalt": "blues",
+    "indigo": "blues",
+    "purple": "redcurrant",
+    "plum": "redcurrant",
+    "magenta": "redcurrant",
+    "pink": "redcurrant",
+    "slate": "adamite-green"
+  },
   "palettes": {
-    "violet": {
+    "a-lorange": {
+      "name": "à l’orange",
+      "hex": "#F6820D",
       "light": {
-        "accent": "#5656c9",
-        "soft": "#ededfc",
-        "onAccent": "#ffffff"
+        "accent": "#F6820D",
+        "soft": "#fef4e9",
+        "onAccent": "#000000",
+        "text": "#ac5b09"
       },
       "dark": {
-        "accent": "#a6a4ff",
-        "soft": "#2b2947",
-        "onAccent": "#16171b"
+        "accent": "#F6820D",
+        "soft": "#3e2a18",
+        "onAccent": "#000000",
+        "text": "#F6820D"
       }
     },
-    "blue": {
+    "abra-cadabra": {
+      "name": "abra cadabra",
+      "hex": "#985D64",
       "light": {
-        "accent": "#2563a9",
-        "soft": "#eaf2fc",
-        "onAccent": "#ffffff"
+        "accent": "#985D64",
+        "soft": "#f6f0f1",
+        "onAccent": "#ffffff",
+        "text": "#985D64"
       },
       "dark": {
-        "accent": "#8bb9f0",
-        "soft": "#223149",
-        "onAccent": "#16171b"
+        "accent": "#985D64",
+        "soft": "#2d2428",
+        "onAccent": "#ffffff",
+        "text": "#af8186"
       }
     },
-    "teal": {
+    "adamite-green": {
+      "name": "adamite green",
+      "hex": "#388358",
       "light": {
-        "accent": "#14766d",
-        "soft": "#e6f5f1",
-        "onAccent": "#ffffff"
+        "accent": "#388358",
+        "soft": "#edf4f0",
+        "onAccent": "#ffffff",
+        "text": "#357c54"
       },
       "dark": {
-        "accent": "#7bd4c8",
-        "soft": "#203b37",
-        "onAccent": "#16171b"
+        "accent": "#388358",
+        "soft": "#1c2a26",
+        "onAccent": "#ffffff",
+        "text": "#5e9b78"
       }
     },
-    "green": {
+    "amorphous-rose": {
+      "name": "amorphous rose",
+      "hex": "#B0A8B9",
       "light": {
-        "accent": "#287447",
-        "soft": "#eaf5ee",
-        "onAccent": "#ffffff"
+        "accent": "#B0A8B9",
+        "soft": "#f8f7f9",
+        "onAccent": "#000000",
+        "text": "#746f7a"
       },
       "dark": {
-        "accent": "#8dd5a6",
-        "soft": "#20372c",
-        "onAccent": "#16171b"
+        "accent": "#B0A8B9",
+        "soft": "#323137",
+        "onAccent": "#000000",
+        "text": "#B0A8B9"
       }
     },
-    "amber": {
+    "astronomicon-grey": {
+      "name": "astronomicon grey",
+      "hex": "#6A7E86",
       "light": {
-        "accent": "#875900",
-        "soft": "#fff5df",
-        "onAccent": "#ffffff"
+        "accent": "#6A7E86",
+        "soft": "#f2f3f4",
+        "onAccent": "#000000",
+        "text": "#5f7179"
       },
       "dark": {
-        "accent": "#e7bd6a",
-        "soft": "#3a3020",
-        "onAccent": "#16171b"
+        "accent": "#6A7E86",
+        "soft": "#252a2e",
+        "onAccent": "#000000",
+        "text": "#829399"
       }
     },
-    "rose": {
+    "aviator": {
+      "name": "aviator",
+      "hex": "#7D6149",
       "light": {
-        "accent": "#ad355f",
-        "soft": "#fcecf2",
-        "onAccent": "#ffffff"
+        "accent": "#7D6149",
+        "soft": "#f3f1ef",
+        "onAccent": "#ffffff",
+        "text": "#7D6149"
       },
       "dark": {
-        "accent": "#ef9aba",
-        "soft": "#3e2531",
-        "onAccent": "#16171b"
+        "accent": "#7D6149",
+        "soft": "#292423",
+        "onAccent": "#ffffff",
+        "text": "#9e8876"
       }
     },
-    "red": {
+    "bath-turquoise": {
+      "name": "bath turquoise",
+      "hex": "#63BAAB",
       "light": {
-        "accent": "#832121",
-        "soft": "#faebeb",
-        "onAccent": "#ffffff"
+        "accent": "#63BAAB",
+        "soft": "#f1f9f7",
+        "onAccent": "#000000",
+        "text": "#417b71"
       },
       "dark": {
-        "accent": "#e79d9d",
-        "soft": "#362121",
-        "onAccent": "#16171b"
+        "accent": "#63BAAB",
+        "soft": "#243435",
+        "onAccent": "#000000",
+        "text": "#63BAAB"
       }
     },
-    "coral": {
+    "blues": {
+      "name": "blues",
+      "hex": "#276998",
       "light": {
-        "accent": "#833421",
-        "soft": "#faeeeb",
-        "onAccent": "#ffffff"
+        "accent": "#276998",
+        "soft": "#ecf2f6",
+        "onAccent": "#ffffff",
+        "text": "#276998"
       },
       "dark": {
-        "accent": "#e7ac9d",
-        "soft": "#362521",
-        "onAccent": "#16171b"
+        "accent": "#276998",
+        "soft": "#192632",
+        "onAccent": "#ffffff",
+        "text": "#6192b4"
       }
     },
-    "orange": {
+    "boat-house": {
+      "name": "boat house",
+      "hex": "#4E8AC2",
       "light": {
-        "accent": "#834821",
-        "soft": "#faf1eb",
-        "onAccent": "#ffffff"
+        "accent": "#4E8AC2",
+        "soft": "#eff4fa",
+        "onAccent": "#000000",
+        "text": "#4173a1"
       },
       "dark": {
-        "accent": "#e7ba9d",
-        "soft": "#362921",
-        "onAccent": "#16171b"
+        "accent": "#4E8AC2",
+        "soft": "#202c39",
+        "onAccent": "#000000",
+        "text": "#6096c8"
       }
     },
-    "copper": {
+    "bruschetta-tomato": {
+      "name": "bruschetta tomato",
+      "hex": "#FF6347",
       "light": {
-        "accent": "#835221",
-        "soft": "#faf2eb",
-        "onAccent": "#ffffff"
+        "accent": "#FF6347",
+        "soft": "#fff1ee",
+        "onAccent": "#000000",
+        "text": "#bd4935"
       },
       "dark": {
-        "accent": "#e7c29d",
-        "soft": "#362b21",
-        "onAccent": "#16171b"
+        "accent": "#FF6347",
+        "soft": "#402523",
+        "onAccent": "#000000",
+        "text": "#FF6347"
       }
     },
-    "gold": {
+    "cadmium-orange": {
+      "name": "cadmium orange",
+      "hex": "#ED872D",
       "light": {
-        "accent": "#836a21",
-        "soft": "#faf6eb",
-        "onAccent": "#ffffff"
+        "accent": "#ED872D",
+        "soft": "#fdf4ec",
+        "onAccent": "#000000",
+        "text": "#a65e1f"
       },
       "dark": {
-        "accent": "#e7d49d",
-        "soft": "#363121",
-        "onAccent": "#16171b"
+        "accent": "#ED872D",
+        "soft": "#3d2b1e",
+        "onAccent": "#000000",
+        "text": "#ED872D"
       }
     },
-    "olive": {
+    "cajun-spice": {
+      "name": "cajun spice",
+      "hex": "#C16E5C",
       "light": {
-        "accent": "#7a8321",
-        "soft": "#f9faeb",
-        "onAccent": "#ffffff"
+        "accent": "#C16E5C",
+        "soft": "#f9f2f0",
+        "onAccent": "#000000",
+        "text": "#a25c4d"
       },
       "dark": {
-        "accent": "#e0e79d",
-        "soft": "#343621",
-        "onAccent": "#16171b"
+        "accent": "#C16E5C",
+        "soft": "#352727",
+        "onAccent": "#000000",
+        "text": "#c87e6e"
       }
     },
-    "lime": {
+    "chilly-blue": {
+      "name": "chilly blue",
+      "hex": "#89AEC5",
       "light": {
-        "accent": "#5a8321",
-        "soft": "#f4faeb",
-        "onAccent": "#ffffff"
+        "accent": "#89AEC5",
+        "soft": "#f4f8fa",
+        "onAccent": "#000000",
+        "text": "#5c7584"
       },
       "dark": {
-        "accent": "#c8e79d",
-        "soft": "#2d3621",
-        "onAccent": "#16171b"
+        "accent": "#89AEC5",
+        "soft": "#2b323a",
+        "onAccent": "#000000",
+        "text": "#89AEC5"
       }
     },
-    "forest": {
+    "cold-grey": {
+      "name": "cold grey",
+      "hex": "#9F9F9F",
       "light": {
-        "accent": "#218341",
-        "soft": "#ebfaf0",
-        "onAccent": "#ffffff"
+        "accent": "#9F9F9F",
+        "soft": "#f6f6f6",
+        "onAccent": "#000000",
+        "text": "#717171"
       },
       "dark": {
-        "accent": "#9de7b6",
-        "soft": "#213628",
-        "onAccent": "#16171b"
+        "accent": "#9F9F9F",
+        "soft": "#2f2f33",
+        "onAccent": "#000000",
+        "text": "#9F9F9F"
       }
     },
-    "mint": {
+    "colombo-red-mauve": {
+      "name": "colombo red mauve",
+      "hex": "#B875AE",
       "light": {
-        "accent": "#218362",
-        "soft": "#ebfaf5",
-        "onAccent": "#ffffff"
+        "accent": "#B875AE",
+        "soft": "#f9f3f8",
+        "onAccent": "#000000",
+        "text": "#935e8b"
       },
       "dark": {
-        "accent": "#9de7ce",
-        "soft": "#21362f",
-        "onAccent": "#16171b"
+        "accent": "#B875AE",
+        "soft": "#332835",
+        "onAccent": "#000000",
+        "text": "#bd7fb4"
       }
     },
-    "aqua": {
+    "el-capitan": {
+      "name": "el capitan",
+      "hex": "#B6A897",
       "light": {
-        "accent": "#21837a",
-        "soft": "#ebfaf9",
-        "onAccent": "#ffffff"
+        "accent": "#B6A897",
+        "soft": "#f8f7f6",
+        "onAccent": "#000000",
+        "text": "#786f64"
       },
       "dark": {
-        "accent": "#9de7e0",
-        "soft": "#213634",
-        "onAccent": "#16171b"
+        "accent": "#B6A897",
+        "soft": "#333131",
+        "onAccent": "#000000",
+        "text": "#B6A897"
       }
     },
-    "cyan": {
+    "encore": {
+      "name": "encore",
+      "hex": "#6E7484",
       "light": {
-        "accent": "#217283",
-        "soft": "#ebf7fa",
-        "onAccent": "#ffffff"
+        "accent": "#6E7484",
+        "soft": "#f2f2f4",
+        "onAccent": "#ffffff",
+        "text": "#686e7d"
       },
       "dark": {
-        "accent": "#9ddae7",
-        "soft": "#213236",
-        "onAccent": "#16171b"
+        "accent": "#6E7484",
+        "soft": "#26282e",
+        "onAccent": "#ffffff",
+        "text": "#8a8e9b"
       }
     },
-    "sky": {
+    "enhance": {
+      "name": "enhance",
+      "hex": "#D3A8BA",
       "light": {
-        "accent": "#215a83",
-        "soft": "#ebf4fa",
-        "onAccent": "#ffffff"
+        "accent": "#D3A8BA",
+        "soft": "#fbf7f9",
+        "onAccent": "#000000",
+        "text": "#856a75"
       },
       "dark": {
-        "accent": "#9dc8e7",
-        "soft": "#212d36",
-        "onAccent": "#16171b"
+        "accent": "#D3A8BA",
+        "soft": "#383138",
+        "onAccent": "#000000",
+        "text": "#D3A8BA"
       }
     },
-    "cobalt": {
+    "fennel": {
+      "name": "fennel",
+      "hex": "#92C897",
       "light": {
-        "accent": "#214183",
-        "soft": "#ebf0fa",
-        "onAccent": "#ffffff"
+        "accent": "#92C897",
+        "soft": "#f5faf6",
+        "onAccent": "#000000",
+        "text": "#597a5c"
       },
       "dark": {
-        "accent": "#9db6e7",
-        "soft": "#212836",
-        "onAccent": "#16171b"
+        "accent": "#92C897",
+        "soft": "#2c3731",
+        "onAccent": "#000000",
+        "text": "#92C897"
       }
     },
-    "indigo": {
+    "ferntastic": {
+      "name": "ferntastic",
+      "hex": "#71A85F",
       "light": {
-        "accent": "#212183",
-        "soft": "#ebebfa",
-        "onAccent": "#ffffff"
+        "accent": "#71A85F",
+        "soft": "#f2f7f1",
+        "onAccent": "#000000",
+        "text": "#527b45"
       },
       "dark": {
-        "accent": "#9d9de7",
-        "soft": "#212136",
-        "onAccent": "#16171b"
+        "accent": "#71A85F",
+        "soft": "#263127",
+        "onAccent": "#000000",
+        "text": "#71A85F"
       }
     },
-    "purple": {
+    "flame-stitch": {
+      "name": "flame stitch",
+      "hex": "#D85A43",
       "light": {
-        "accent": "#522183",
-        "soft": "#f2ebfa",
-        "onAccent": "#ffffff"
+        "accent": "#D85A43",
+        "soft": "#fbf0ee",
+        "onAccent": "#000000",
+        "text": "#b84c39"
       },
       "dark": {
-        "accent": "#c29de7",
-        "soft": "#2b2136",
-        "onAccent": "#16171b"
+        "accent": "#D85A43",
+        "soft": "#392322",
+        "onAccent": "#000000",
+        "text": "#dd6f5b"
       }
     },
-    "plum": {
+    "football-field": {
+      "name": "football field",
+      "hex": "#81AA30",
       "light": {
-        "accent": "#6a2183",
-        "soft": "#f6ebfa",
-        "onAccent": "#ffffff"
+        "accent": "#81AA30",
+        "soft": "#f4f7ec",
+        "onAccent": "#000000",
+        "text": "#5d7a23"
       },
       "dark": {
-        "accent": "#d49de7",
-        "soft": "#312136",
-        "onAccent": "#16171b"
+        "accent": "#81AA30",
+        "soft": "#29311f",
+        "onAccent": "#000000",
+        "text": "#81AA30"
       }
     },
-    "magenta": {
+    "fugitive-flamingo": {
+      "name": "fugitive flamingo",
+      "hex": "#E65FA2",
       "light": {
-        "accent": "#83217a",
-        "soft": "#faebf9",
-        "onAccent": "#ffffff"
+        "accent": "#E65FA2",
+        "soft": "#fdf1f7",
+        "onAccent": "#000000",
+        "text": "#b34a7e"
       },
       "dark": {
-        "accent": "#e79de0",
-        "soft": "#362134",
-        "onAccent": "#16171b"
+        "accent": "#E65FA2",
+        "soft": "#3b2433",
+        "onAccent": "#000000",
+        "text": "#e764a5"
       }
     },
-    "pink": {
+    "glaucous": {
+      "name": "glaucous",
+      "hex": "#5F78A0",
       "light": {
-        "accent": "#83215a",
-        "soft": "#faebf4",
-        "onAccent": "#ffffff"
+        "accent": "#5F78A0",
+        "soft": "#f1f3f6",
+        "onAccent": "#000000",
+        "text": "#587095"
       },
       "dark": {
-        "accent": "#e79dc8",
-        "soft": "#36212d",
-        "onAccent": "#16171b"
+        "accent": "#5F78A0",
+        "soft": "#232833",
+        "onAccent": "#000000",
+        "text": "#7c90b1"
       }
     },
-    "slate": {
+    "grapefruit-juice": {
+      "name": "grapefruit juice",
+      "hex": "#EB7189",
       "light": {
-        "accent": "#434f60",
-        "soft": "#f0f2f5",
-        "onAccent": "#ffffff"
+        "accent": "#EB7189",
+        "soft": "#fdf2f4",
+        "onAccent": "#000000",
+        "text": "#ae5465"
       },
       "dark": {
-        "accent": "#b7c0cd",
-        "soft": "#212a36",
-        "onAccent": "#16171b"
+        "accent": "#EB7189",
+        "soft": "#3c272f",
+        "onAccent": "#000000",
+        "text": "#EB7189"
+      }
+    },
+    "grilled-cheese": {
+      "name": "grilled cheese",
+      "hex": "#FFC75F",
+      "light": {
+        "accent": "#FFC75F",
+        "soft": "#fffaf1",
+        "onAccent": "#000000",
+        "text": "#8c6d34"
+      },
+      "dark": {
+        "accent": "#FFC75F",
+        "soft": "#403727",
+        "onAccent": "#000000",
+        "text": "#FFC75F"
+      }
+    },
+    "hibiscus-delight": {
+      "name": "hibiscus delight",
+      "hex": "#FF9671",
+      "light": {
+        "accent": "#FF9671",
+        "soft": "#fff6f2",
+        "onAccent": "#000000",
+        "text": "#a36048"
+      },
+      "dark": {
+        "accent": "#FF9671",
+        "soft": "#402e2a",
+        "onAccent": "#000000",
+        "text": "#FF9671"
+      }
+    },
+    "hole-in-one": {
+      "name": "hole in one",
+      "hex": "#4AAC8F",
+      "light": {
+        "accent": "#4AAC8F",
+        "soft": "#eff8f5",
+        "onAccent": "#000000",
+        "text": "#357c67"
+      },
+      "dark": {
+        "accent": "#4AAC8F",
+        "soft": "#1f3230",
+        "onAccent": "#000000",
+        "text": "#4AAC8F"
+      }
+    },
+    "imperial-yellow": {
+      "name": "imperial yellow",
+      "hex": "#FFB100",
+      "light": {
+        "accent": "#FFB100",
+        "soft": "#fff8e8",
+        "onAccent": "#000000",
+        "text": "#966800"
+      },
+      "dark": {
+        "accent": "#FFB100",
+        "soft": "#403316",
+        "onAccent": "#000000",
+        "text": "#FFB100"
+      }
+    },
+    "island-aqua": {
+      "name": "island aqua",
+      "hex": "#31B9B3",
+      "light": {
+        "accent": "#31B9B3",
+        "soft": "#ecf9f8",
+        "onAccent": "#000000",
+        "text": "#217c78"
+      },
+      "dark": {
+        "accent": "#31B9B3",
+        "soft": "#1b3436",
+        "onAccent": "#000000",
+        "text": "#31B9B3"
+      }
+    },
+    "amparo-blue": {
+      "name": "amparo blue",
+      "hex": "#516BB7",
+      "light": {
+        "accent": "#516BB7",
+        "soft": "#eff2f9",
+        "onAccent": "#ffffff",
+        "text": "#516BB7"
+      },
+      "dark": {
+        "accent": "#516BB7",
+        "soft": "#212637",
+        "onAccent": "#ffffff",
+        "text": "#778cc7"
+      }
+    },
+    "kissable": {
+      "name": "kissable",
+      "hex": "#FF8C79",
+      "light": {
+        "accent": "#FF8C79",
+        "soft": "#fff5f3",
+        "onAccent": "#000000",
+        "text": "#a85c50"
+      },
+      "dark": {
+        "accent": "#FF8C79",
+        "soft": "#402c2c",
+        "onAccent": "#000000",
+        "text": "#FF8C79"
+      }
+    },
+    "manila-sunset": {
+      "name": "manila sunset",
+      "hex": "#FF6F61",
+      "light": {
+        "accent": "#FF6F61",
+        "soft": "#fff2f1",
+        "onAccent": "#000000",
+        "text": "#b54f45"
+      },
+      "dark": {
+        "accent": "#FF6F61",
+        "soft": "#402728",
+        "onAccent": "#000000",
+        "text": "#FF6F61"
+      }
+    },
+    "mermaid-dreams": {
+      "name": "mermaid dreams",
+      "hex": "#0089BA",
+      "light": {
+        "accent": "#0089BA",
+        "soft": "#e8f4f9",
+        "onAccent": "#000000",
+        "text": "#0077a2"
+      },
+      "dark": {
+        "accent": "#0089BA",
+        "soft": "#122c38",
+        "onAccent": "#000000",
+        "text": "#249ac4"
+      }
+    },
+    "neapolitan": {
+      "name": "neapolitan",
+      "hex": "#9B7B78",
+      "light": {
+        "accent": "#9B7B78",
+        "soft": "#f6f3f3",
+        "onAccent": "#000000",
+        "text": "#846966"
+      },
+      "dark": {
+        "accent": "#9B7B78",
+        "soft": "#2e292c",
+        "onAccent": "#000000",
+        "text": "#a78b88"
+      }
+    },
+    "ocean-blues": {
+      "name": "ocean blues",
+      "hex": "#4E8397",
+      "light": {
+        "accent": "#4E8397",
+        "soft": "#eff4f6",
+        "onAccent": "#000000",
+        "text": "#467688"
+      },
+      "dark": {
+        "accent": "#4E8397",
+        "soft": "#202a31",
+        "onAccent": "#000000",
+        "text": "#6996a7"
+      }
+    },
+    "ocean-liner": {
+      "name": "ocean liner",
+      "hex": "#209B87",
+      "light": {
+        "accent": "#209B87",
+        "soft": "#ebf6f4",
+        "onAccent": "#000000",
+        "text": "#1a7c6c"
+      },
+      "dark": {
+        "accent": "#209B87",
+        "soft": "#182f2e",
+        "onAccent": "#000000",
+        "text": "#30a28f"
+      }
+    },
+    "olivine": {
+      "name": "olivine",
+      "hex": "#91B47D",
+      "light": {
+        "accent": "#91B47D",
+        "soft": "#f5f8f3",
+        "onAccent": "#000000",
+        "text": "#607752"
+      },
+      "dark": {
+        "accent": "#91B47D",
+        "soft": "#2c332d",
+        "onAccent": "#000000",
+        "text": "#91B47D"
+      }
+    },
+    "oxide": {
+      "name": "oxide",
+      "hex": "#BD7459",
+      "light": {
+        "accent": "#BD7459",
+        "soft": "#f9f2f0",
+        "onAccent": "#000000",
+        "text": "#9d604a"
+      },
+      "dark": {
+        "accent": "#BD7459",
+        "soft": "#342826",
+        "onAccent": "#000000",
+        "text": "#c38168"
+      }
+    },
+    "pacific-pleasure": {
+      "name": "pacific pleasure",
+      "hex": "#147896",
+      "light": {
+        "accent": "#147896",
+        "soft": "#eaf3f6",
+        "onAccent": "#ffffff",
+        "text": "#147794"
+      },
+      "dark": {
+        "accent": "#147896",
+        "soft": "#162831",
+        "onAccent": "#ffffff",
+        "text": "#4896ad"
+      }
+    },
+    "poinsettia": {
+      "name": "poinsettia",
+      "hex": "#CB3B47",
+      "light": {
+        "accent": "#CB3B47",
+        "soft": "#faedee",
+        "onAccent": "#ffffff",
+        "text": "#c53945"
+      },
+      "dark": {
+        "accent": "#CB3B47",
+        "soft": "#371d23",
+        "onAccent": "#ffffff",
+        "text": "#d76a73"
+      }
+    },
+    "quartz-green": {
+      "name": "quartz green",
+      "hex": "#6B7947",
+      "light": {
+        "accent": "#6B7947",
+        "soft": "#f2f3ee",
+        "onAccent": "#ffffff",
+        "text": "#677444"
+      },
+      "dark": {
+        "accent": "#6B7947",
+        "soft": "#252923",
+        "onAccent": "#ffffff",
+        "text": "#89946c"
+      }
+    },
+    "redcurrant": {
+      "name": "redcurrant",
+      "hex": "#884060",
+      "light": {
+        "accent": "#884060",
+        "soft": "#f4eef1",
+        "onAccent": "#ffffff",
+        "text": "#884060"
+      },
+      "dark": {
+        "accent": "#884060",
+        "soft": "#2b1e27",
+        "onAccent": "#ffffff",
+        "text": "#ad7b91"
+      }
+    },
+    "sarahs-garden": {
+      "name": "sarah’s garden",
+      "hex": "#00A5C1",
+      "light": {
+        "accent": "#00A5C1",
+        "soft": "#e8f7f9",
+        "onAccent": "#000000",
+        "text": "#007a8f"
+      },
+      "dark": {
+        "accent": "#00A5C1",
+        "soft": "#123139",
+        "onAccent": "#000000",
+        "text": "#00A5C1"
+      }
+    },
+    "southern-platyfish": {
+      "name": "southern platyfish",
+      "hex": "#D3D049",
+      "light": {
+        "accent": "#D3D049",
+        "soft": "#fbfbef",
+        "onAccent": "#000000",
+        "text": "#78772a"
+      },
+      "dark": {
+        "accent": "#D3D049",
+        "soft": "#383823",
+        "onAccent": "#000000",
+        "text": "#D3D049"
+      }
+    },
+    "spanish-yellow": {
+      "name": "spanish yellow",
+      "hex": "#F9B713",
+      "light": {
+        "accent": "#F9B713",
+        "soft": "#fef9ea",
+        "onAccent": "#000000",
+        "text": "#936c0b"
+      },
+      "dark": {
+        "accent": "#F9B713",
+        "soft": "#3f341a",
+        "onAccent": "#000000",
+        "text": "#F9B713"
+      }
+    },
+    "space-station": {
+      "name": "space station",
+      "hex": "#6B6A7C",
+      "light": {
+        "accent": "#6B6A7C",
+        "soft": "#f2f2f3",
+        "onAccent": "#ffffff",
+        "text": "#6B6A7C"
+      },
+      "dark": {
+        "accent": "#6B6A7C",
+        "soft": "#25262c",
+        "onAccent": "#ffffff",
+        "text": "#8c8b99"
+      }
+    },
+    "sunkist-coral": {
+      "name": "sunkist coral",
+      "hex": "#EE6774",
+      "light": {
+        "accent": "#EE6774",
+        "soft": "#fdf1f2",
+        "onAccent": "#000000",
+        "text": "#b54e58"
+      },
+      "dark": {
+        "accent": "#EE6774",
+        "soft": "#3d252b",
+        "onAccent": "#000000",
+        "text": "#EE6774"
+      }
+    },
+    "tangerine-tango": {
+      "name": "tangerine tango",
+      "hex": "#FF9900",
+      "light": {
+        "accent": "#FF9900",
+        "soft": "#fff6e8",
+        "onAccent": "#000000",
+        "text": "#a36200"
+      },
+      "dark": {
+        "accent": "#FF9900",
+        "soft": "#402e16",
+        "onAccent": "#000000",
+        "text": "#FF9900"
+      }
+    },
+    "thirsty-thursday": {
+      "name": "thirsty thursday",
+      "hex": "#6F6D9E",
+      "light": {
+        "accent": "#6F6D9E",
+        "soft": "#f2f2f6",
+        "onAccent": "#ffffff",
+        "text": "#6c6a99"
+      },
+      "dark": {
+        "accent": "#6F6D9E",
+        "soft": "#262633",
+        "onAccent": "#ffffff",
+        "text": "#8c8ab1"
+      }
+    },
+    "tin-soldier": {
+      "name": "tin soldier",
+      "hex": "#BEBEBE",
+      "light": {
+        "accent": "#BEBEBE",
+        "soft": "#f9f9f9",
+        "onAccent": "#000000",
+        "text": "#727272"
+      },
+      "dark": {
+        "accent": "#BEBEBE",
+        "soft": "#343538",
+        "onAccent": "#000000",
+        "text": "#BEBEBE"
+      }
+    },
+    "tinted-iris": {
+      "name": "tinted iris",
+      "hex": "#C4B7D7",
+      "light": {
+        "accent": "#C4B7D7",
+        "soft": "#faf9fb",
+        "onAccent": "#000000",
+        "text": "#787083"
+      },
+      "dark": {
+        "accent": "#C4B7D7",
+        "soft": "#35343d",
+        "onAccent": "#000000",
+        "text": "#C4B7D7"
+      }
+    },
+    "vineyard": {
+      "name": "vineyard",
+      "hex": "#819984",
+      "light": {
+        "accent": "#819984",
+        "soft": "#f4f6f4",
+        "onAccent": "#000000",
+        "text": "#627464"
+      },
+      "dark": {
+        "accent": "#819984",
+        "soft": "#292e2e",
+        "onAccent": "#000000",
+        "text": "#829a85"
+      }
+    },
+    "zima-blue": {
+      "name": "zima blue",
+      "hex": "#0CB7F2",
+      "light": {
+        "accent": "#0CB7F2",
+        "soft": "#e9f9fe",
+        "onAccent": "#000000",
+        "text": "#0879a0"
+      },
+      "dark": {
+        "accent": "#0CB7F2",
+        "soft": "#143442",
+        "onAccent": "#000000",
+        "text": "#0CB7F2"
+      }
+    },
+    "aegean-sea": {
+      "name": "aegean sea",
+      "hex": "#4D8EA3",
+      "light": {
+        "accent": "#4D8EA3",
+        "soft": "#eff5f7",
+        "onAccent": "#000000",
+        "text": "#417789"
+      },
+      "dark": {
+        "accent": "#4D8EA3",
+        "soft": "#202c33",
+        "onAccent": "#000000",
+        "text": "#5f99ac"
+      }
+    },
+    "machu-picchu-gardens": {
+      "name": "machu picchu gardens",
+      "hex": "#98BC35",
+      "light": {
+        "accent": "#98BC35",
+        "soft": "#f6f9ed",
+        "onAccent": "#000000",
+        "text": "#637a22"
+      },
+      "dark": {
+        "accent": "#98BC35",
+        "soft": "#2d3520",
+        "onAccent": "#000000",
+        "text": "#98BC35"
+      }
+    },
+    "cape-lee": {
+      "name": "cape lee",
+      "hex": "#527F8F",
+      "light": {
+        "accent": "#527F8F",
+        "soft": "#eff3f5",
+        "onAccent": "#000000",
+        "text": "#4b7584"
+      },
+      "dark": {
+        "accent": "#527F8F",
+        "soft": "#212a30",
+        "onAccent": "#000000",
+        "text": "#6f95a2"
       }
     }
   }

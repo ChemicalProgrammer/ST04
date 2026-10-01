@@ -10,8 +10,10 @@ Basic uses the existing controls and persistence pipeline:
 
 - The case sidebar and Gemini overlay are hidden. Equipment, Conveyors,
   Simulation, V-Graph, and What-If appear in the top navigation.
-- Line Setup places Case name beside the simulation actions. The top navigation
-  shares a row with the utility buttons when space permits. Machine cards use
+- The header displays the case title. A shared toolbar groups the simulation
+  selector, Rename, Clone and Delete in both modes, with consistent icon-and-text
+  buttons. Case name is editable only in Settings while a case is active.
+  Machine cards use
   compact, equal-height inputs and responsive columns. Equipment ID is hidden
   in Basic and read-only in both modes; assigned IDs remain stable. Drag handles
   are hidden on all Basic cards, including conveyors.
@@ -25,8 +27,10 @@ Basic uses the existing controls and persistence pipeline:
   including before a run, with its legend and without result tables.
 - Explanatory notes and advisories are hidden. Blocking errors, save status,
   and import validation remain available so failed actions are visible.
-- A top simulation selector and utility buttons preserve access to existing
-  simulations, Settings, closing the case, and signing out.
+- Header utility buttons preserve access to Settings, closing the case,
+  and signing out. The simulation toolbar stays available across the five
+  Basic sections. Machine cards and the conveyor inspector start at the same
+  distance below the import controls.
 
 Advance uses the existing sidebar, inspector, Gemini, tables, and notes.
 The physical engine is unchanged. Basic initializes equipment automatically;
@@ -41,6 +45,14 @@ Each machine has a Pacemaker checkbox. Selecting it clears other machine
 selections and preserves the physical type (Blowmolder, Filler, etc.). Legacy
 PACEMAKER types reopen using their recorded machine type, or CUSTOM if that
 information is unavailable, while retaining the role.
+
+Settings displays the 57 named colors from
+[ChemicalApplications/ThemeColors.json](https://github.com/ChemicalProgrammer/ChemicalApplications/blob/main/ThemeColors.json)
+in a compact grid. `ThemeResources.html` retains each original name and hex;
+light/dark soft backgrounds and text colors are derived for contrast. Existing
+accent preferences migrate to the nearest source color. This is a bundled
+snapshot, so the app does not fetch the palette at startup. Closing Settings
+flushes a case-name edit through the existing case autosave flow.
 
 The Drive storage folder can be edited in Settings with a case open. Changing
 it flushes pending case edits to the original folder and closes that case before
