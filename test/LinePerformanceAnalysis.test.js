@@ -15,7 +15,7 @@ test('design profile identifies the pacemaker and distinguishes maximum from nor
   assert.equal(profile.referenceId, 'f');
   assert.equal(profile.points[0].normalPercent, 125);
   assert.equal(profile.points[0].maximumPercent, 150);
-  assert.equal(profile.points[0].recommendedBpm, null);
+  assert.equal(profile.points[0].capacityEstimateBpm, null);
   assert(Math.abs(profile.points[0].speedHeadroomPercent - 20) < 1e-9);
   assert.equal(profile.points[1].speedHeadroomPercent, 0);
   assert.equal(profile.simulatesOverspeed, false);
@@ -35,11 +35,11 @@ test('observed throughput equals availability times operating efficiency times n
   assert.equal(profile.points[2].availability, .8);
   assert.equal(profile.points[2].runtimeEfficiency, 2400 / (480 * 5));
   assert.equal(profile.points[2].computedBpm, profile.points[2].observedBpm);
-  assert.equal(profile.points[0].recommendedBpm, 300);
-  assert.equal(profile.points[1].recommendedBpm, 240 / .9);
-  assert.equal(profile.points[1].recommendationExceedsMaximum, true);
-  assert.equal(profile.points[2].recommendedBpm, 300);
-  assert.equal(profile.points[2].recommendationExceedsMaximum, false);
+  assert.equal(profile.points[0].capacityEstimateBpm, 300);
+  assert.equal(profile.points[1].capacityEstimateBpm, null,'the pacemaker is not assigned a recovery overspeed target');
+  assert.equal(profile.points[1].capacityEstimateExceedsMaximum, null);
+  assert.equal(profile.points[2].capacityEstimateBpm, 300);
+  assert.equal(profile.points[2].capacityEstimateExceedsMaximum, false);
 });
 
 test('imported maximum equal to normal is not presented as recovery overspeed', () => {

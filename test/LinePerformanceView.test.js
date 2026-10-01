@@ -19,10 +19,9 @@ test('results render an accessible speed profile and distinguish outlet from mac
   assert.match(document.getElementById('throughput-method').textContent, /120 bottles\/min/);
   assert.match(document.getElementById('performance-rows').textContent, /180/);
   assert.equal(document.querySelector('#vgraph-plot svg').getAttribute('role'), 'img');
-  assert.equal(document.querySelectorAll('#vgraph-plot circle').length, 3);
-  assert.equal(document.querySelectorAll('#vgraph-plot .vgraph-recommended-dot').length,1);
-  assert.match(document.querySelector('#vgraph-plot .vgraph-recommended-dot title').textContent,/exceeds_maximum/);
-  assert.match(document.getElementById('performance-rows').textContent,/320 †/);
+  assert.equal(document.querySelectorAll('#vgraph-plot circle').length, 2);
+  assert.equal(document.querySelectorAll('#vgraph-plot .vgraph-recommended-dot').length,0);
+  assert.match(document.getElementById('performance-rows').textContent,/240/);
   assert.equal(document.querySelector('#vgraph-plot svg').getAttribute('viewBox'),'0 0 1440 260','SVG coordinates match the displayed width so labels are not magnified');
   dom.window.close();
 });

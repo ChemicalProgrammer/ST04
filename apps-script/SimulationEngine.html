@@ -2271,9 +2271,10 @@ function analyzeLinePerformance(equipment, result) {
     const availableSeconds = duration > 0 && Number.isFinite(stopped)
       ? Math.max(0, duration - stopped) : 0;
     const availability = duration > 0 && Number.isFinite(stopped) ? availableSeconds / duration : null;
-    // Static capacity target: recover the pacemaker's nominal flow during the
-    // machine's available time. This is not a commanded recovery speed.
-    const recommendedBpm = baselineBpm > 0 && normalBpm > 0 && availability > 0
+    // Availability-only capacity estimate. Buffer recovery requires the actual
+    // deviation from desired inventory and a recovery time, neither supplied here.
+    // The pacemaker is the reference, not a machine to overspeed for recovery.
+    const capacityEstimateBpm = item.id !== referenceId && baselineBpm > 0 && normalBpm > 0 && availability > 0
       ? Math.max(normalBpm, baselineBpm / availability) : null;
     const runtimeEfficiency = availableSeconds > 0 && Number.isFinite(output) && normalBpm > 0
       ? output / (availableSeconds * normalBpm / 60) : null;
@@ -2284,9 +2285,8 @@ function analyzeLinePerformance(equipment, result) {
       speedHeadroomPercent: validMaximum ? (maximumBpm / normalBpm - 1) * 100 : null,
       normalPercent: baselineBpm > 0 ? normalBpm / baselineBpm * 100 : null,
       maximumPercent: validMaximum && baselineBpm > 0 ? maximumBpm / baselineBpm * 100 : null,
-      recommendedBpm,
-      recommendedPercent: recommendedBpm !== null ? recommendedBpm / baselineBpm * 100 : null,
-      recommendationExceedsMaximum: recommendedBpm !== null && validMaximum ? recommendedBpm > maximumBpm + 1e-9 : null,
+      capacityEstimateBpm,
+      capacityEstimateExceedsMaximum: capacityEstimateBpm !== null && validMaximum ? capacityEstimateBpm > maximumBpm + 1e-9 : null,
       availability, runtimeEfficiency, observedBpm,
       computedBpm: availability !== null && runtimeEfficiency !== null
         ? normalBpm * availability * runtimeEfficiency : null,
