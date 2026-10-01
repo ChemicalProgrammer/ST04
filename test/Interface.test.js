@@ -832,3 +832,40 @@ test('UI: source color names and hex values populate compact Settings and work i
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+
+test('UI Basic: Gemini is available in every section and resizes without hiding conveyor fields',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');
+  const toggle=h.d.getElementById('toggle-gemini');assert(h.d.getElementById('basic-case-actions').contains(toggle));assert(!h.d.getElementById('basic-navigation').contains(toggle));
+  await h.click('#toggle-gemini');
+  for(const section of ['equipment','conveyors','simulation','vgraph','whatif']){
+   await h.click('[data-basic-view="'+section+'"]');
+   assert(h.visible('gemini-panel'));assert.equal(h.w.getComputedStyle(h.d.getElementById('gemini-panel')).display,'flex');
+   assert(h.visible('gemini-chat-view'));assert.equal(toggle.getAttribute('aria-expanded'),'true');
+   assert.equal(h.d.getElementById('gemini-title').textContent,'Gemini');
+  }
+  await h.click('[data-basic-view="conveyors"]');
+  const inspector=h.d.getElementById('equipment-inspector');assert.equal(inspector.parentElement.id,'basic-conveyor-panel');assert(!inspector.classList.contains('hidden'));
+  const gap=inspector.querySelector('.format-zone-moving-gap');gap.value='29';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  h.d.getElementById('gemini-question').value='Analyze the conveyors';await h.click('#send-gemini');await waitFor(()=>h.calls.includes('askGemini')&&/Analysis of the saved case/.test(h.d.getElementById('gemini-messages').textContent));
+  assert.equal(h.storedCases()[0].equipment[1].processData.accumulation.movingGapMm,29);
+  const grip=h.d.getElementById('gemini-resize'),width=Number(grip.getAttribute('aria-valuenow'));
+  grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert(Number(grip.getAttribute('aria-valuenow'))>width);assert(h.w.localStorage.getItem('st.ui.v1.assistant-width'));
+  await h.click('#close-gemini');assert(!h.visible('gemini-panel'));assert.equal(h.d.activeElement,toggle);assert(!inspector.classList.contains('hidden'));
+  await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));assert(!inspector.classList.contains('hidden'));
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Advance: simulation actions align right without a selector or enclosing frame',async()=>{
+ const h=await setup({remember:true,uiMode:'ADVANCE'});try{
+  await h.click('.open-case');
+  const toolbar=h.d.getElementById('simulation-toolbar'),style=h.w.getComputedStyle(toolbar);
+  assert.equal(h.w.getComputedStyle(h.d.querySelector('.simulation-picker')).display,'none');
+  assert.equal(style.justifyContent,'flex-end');assert.equal(style.borderTopWidth,'0px');assert.equal(style.backgroundColor,'rgba(0, 0, 0, 0)');
+  assert.equal(h.d.querySelectorAll('#simulation-toolbar button').length,3);assert(h.visible('case-sidebar'));
+  assert.equal(h.d.getElementById('toggle-gemini').parentElement.className,'topbar');
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

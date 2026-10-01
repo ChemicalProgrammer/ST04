@@ -2,13 +2,12 @@
 /* All Basic presentation overrides stay under the server-selected mode. */
 #basic-navigation,#basic-case-actions,#basic-conveyor-layout { display:none; }
 html[data-ui-mode=basic] .app-shell.case-open { padding-left:0; padding-right:0; }
-html[data-ui-mode=basic] #case-sidebar,
-html[data-ui-mode=basic] #gemini-panel,
-html[data-ui-mode=basic] #toggle-gemini { display:none !important; }
+html[data-ui-mode=basic] #case-sidebar { display:none !important; }
+html[data-ui-mode=basic] .app-shell.case-open.assistant-open { padding-right:var(--assistant-width); }
 html[data-ui-mode=basic] .topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-3); padding-bottom:var(--space-3); }
 html[data-ui-mode=basic] #basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; order:3; flex-basis:100%; }
 html[data-ui-mode=basic] #basic-navigation [aria-current=page] { background:var(--selected); color:var(--selected-text); }
-html[data-ui-mode=basic] #basic-case-actions { display:flex; align-items:center; }
+html[data-ui-mode=basic] #basic-case-actions { display:grid; gap:var(--space-2); justify-items:end; }
 html[data-ui-mode=basic] .chart-note,
 html[data-ui-mode=basic] .notice,
 html[data-ui-mode=basic] .eyebrow,
@@ -76,6 +75,10 @@ html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }
   html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; }
-  html[data-ui-mode=basic] #basic-case-actions { flex-wrap:wrap; }
+
+}
+@media(max-width:1100px){
+ html[data-ui-mode=basic] .app-shell.case-open.assistant-open { padding-right:0; }
+ html[data-ui-mode=basic] .gemini-panel { width:min(var(--assistant-width),calc(100% - var(--space-6))); }
 }
 </style>

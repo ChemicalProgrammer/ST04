@@ -2,6 +2,8 @@
 window.STAssistant = function(state,actions) {
   var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0;
   function el(id){return document.getElementById(id);}
+  function basic(){return Boolean(window.STBasicMode?.isBasic());}
+  function sideEditing(){return !basic()&&STEquipmentInspector.sync();}
   function progress(next){
     phase=next;clearInterval(progressTimer);progressTimer=null;
     var target=el('gemini-progress');target.textContent='';target.classList.toggle('hidden',next==='idle');
@@ -25,9 +27,9 @@ window.STAssistant = function(state,actions) {
   function sync(){
     var active=state.activeCase;
     if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=[];pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
-    var editing=STEquipmentInspector.sync();
+    var editing=sideEditing();
     var visible=Boolean(active&&(opened||editing));
-    el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
+    if(!basic())el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
     el('gemini-title').textContent=editing?__ST_TEXT__('inspector.equipment'):__ST_TEXT__('assistant.gemini');
     el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
     el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
@@ -39,7 +41,7 @@ window.STAssistant = function(state,actions) {
   }
   function init(){
     var resize=el('gemini-resize');
-    var mode=STEquipmentInspector.sync()?'inspector':'assistant',drag=null,currentWidth=360;
+    var mode=sideEditing()?'inspector':'assistant',drag=null,currentWidth=360;
     function preference(){return mode+'-width';}
     function width(value,persist){
       var min=Math.min(360,Math.max(240,window.innerWidth-60));
@@ -51,7 +53,7 @@ window.STAssistant = function(state,actions) {
       if(persist)STPreferences.write(preference(),String(currentWidth));
     }
     function syncWidthMode(){
-      var next=STEquipmentInspector.sync()?'inspector':'assistant';
+      var next=sideEditing()?'inspector':'assistant';
       if(next===mode)return;
       mode=next;
       width(Number(STPreferences.read(preference()))||(mode==='inspector'?760:360),false);
@@ -76,8 +78,8 @@ window.STAssistant = function(state,actions) {
     resize.onpointerup=finish;resize.onpointercancel=finish;resize.onlostpointercapture=finish;
     window.addEventListener('resize',function(){if(!drag){syncWidthMode();width(currentWidth,false);}});
 
-    el('toggle-gemini').onclick=function(){var wasEditing=STEquipmentInspector.sync();STEquipmentInspector.hide();opened=wasEditing||!opened;sync();if(opened)el('gemini-question').focus();window.dispatchEvent(new Event('resize'));};
-    el('close-gemini').onclick=function(){STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
+    el('toggle-gemini').onclick=function(){var wasEditing=sideEditing();if(!basic())STEquipmentInspector.hide();opened=wasEditing||!opened;sync();if(opened)el('gemini-question').focus();window.dispatchEvent(new Event('resize'));};
+    el('close-gemini').onclick=function(){if(!basic())STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();if(!drag)syncWidthMode();window.dispatchEvent(new Event('resize'));});
     el('clear-gemini').onclick=function(){progress('idle');messages=[];render();el('gemini-error').textContent='';};

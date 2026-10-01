@@ -8,11 +8,12 @@ switch in Settings, browser storage, or the case JSON.
 
 Basic uses the existing controls and persistence pipeline:
 
-- The case sidebar and Gemini overlay are hidden. Equipment, Conveyors,
+- The case sidebar is hidden. Equipment, Conveyors,
   Simulation, V-Graph, and What-If appear in the top navigation.
 - The header displays the case title. A shared toolbar groups the simulation
-  selector, Rename, Clone and Delete in both modes, with consistent icon-and-text
-  buttons. Case name is editable only in Settings while a case is active.
+  selector, Rename, Clone and Delete in Basic, with consistent icon-and-text
+  buttons. Advance uses its sidebar selector and shows only the three actions
+  aligned right, without a surrounding frame. Case name is editable only in Settings while a case is active.
   Machine cards use
   compact, equal-height inputs and responsive columns. Equipment ID is hidden
   in Basic and read-only in both modes; assigned IDs remain stable. Drag handles
@@ -28,7 +29,9 @@ Basic uses the existing controls and persistence pipeline:
 - Explanatory notes and advisories are hidden. Blocking errors, save status,
   and import validation remain available so failed actions are visible.
 - Header utility buttons preserve access to Settings, closing the case,
-  and signing out. The simulation toolbar stays available across the five
+  and signing out. The Gemini button appears beneath these utilities, outside
+  the Basic navigation, in every section. It opens the same resizable right
+  panel as Advance, while keeping the Basic conveyor inspector visible. The simulation toolbar stays available across the five
   Basic sections. Machine cards and the conveyor inspector start at the same
   distance below the import controls.
 
