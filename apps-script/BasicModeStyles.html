@@ -1,0 +1,58 @@
+<style>
+/* All Basic presentation overrides stay under the server-selected mode. */
+#basic-navigation,#basic-case-actions,#basic-conveyor-layout { display:none; }
+html[data-ui-mode=basic] .app-shell.case-open { padding-left:0; padding-right:0; }
+html[data-ui-mode=basic] #case-sidebar,
+html[data-ui-mode=basic] #gemini-panel,
+html[data-ui-mode=basic] #toggle-gemini { display:none !important; }
+html[data-ui-mode=basic] .topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-3); padding-bottom:var(--space-3); }
+html[data-ui-mode=basic] #basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; order:3; flex-basis:100%; }
+html[data-ui-mode=basic] #basic-navigation [aria-current=page] { background:var(--selected); color:var(--selected-text); }
+html[data-ui-mode=basic] #basic-case-actions { display:flex; align-items:center; }
+html[data-ui-mode=basic] #basic-simulation { width:var(--size-180); }
+html[data-ui-mode=basic] .chart-note,
+html[data-ui-mode=basic] .notice,
+html[data-ui-mode=basic] .eyebrow,
+html[data-ui-mode=basic] .auth-note,
+html[data-ui-mode=basic] .section-heading p,
+html[data-ui-mode=basic] .editor-subheading p,
+html[data-ui-mode=basic] .format-zone-heading p,
+html[data-ui-mode=basic] .format-zone-preview,
+html[data-ui-mode=basic] .zone-caption,
+html[data-ui-mode=basic] .zone-assumptions,
+html[data-ui-mode=basic] .zone-audit-goals,
+html[data-ui-mode=basic] #batch-dialog .dialog-body > p:first-child,
+html[data-ui-mode=basic] #sheet-import-dialog .dialog-body > p:first-child,
+html[data-ui-mode=basic] .settings-section > p,
+html[data-ui-mode=basic] .parameter-help,
+html[data-ui-mode=basic] .json-example,
+html[data-ui-mode=basic] #editor-meta,
+html[data-ui-mode=basic] #run-case-meta,
+html[data-ui-mode=basic] #status:not(.error),
+html[data-ui-mode=basic] .equipment-filters { display:none !important; }
+html[data-ui-mode=basic] #basic-conveyor-layout { display:block; }
+html[data-ui-mode=basic] #basic-conveyor-panel { display:none; }
+html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-300)),1fr)); align-items:start; }
+html[data-ui-mode=basic] .basic-machine { cursor:default; padding:var(--space-4); }
+html[data-ui-mode=basic] .basic-machine .equipment-fields,
+html[data-ui-mode=basic] .basic-machine .equipment-json-details { display:block; }
+html[data-ui-mode=basic] .basic-machine .equipment-grid { display:grid; }
+html[data-ui-mode=basic] .basic-machine .equipment-drag { display:none; }
+html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
+html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { display:grid; grid-template-columns:minmax(var(--size-220),1fr) minmax(0,3fr); gap:var(--space-5); align-items:start; }
+html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { display:flex; flex-direction:column; min-width:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-4); background:var(--surface); position:sticky; top:var(--space-4); }
+html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:calc(100vh - var(--header-height) - var(--space-8)); }
+html[data-ui-mode=basic] #basic-conveyor-panel h3 { margin:0 0 var(--space-3); }
+html[data-ui-mode=basic][data-basic-view=vgraph] #results-panel > .section-heading,
+html[data-ui-mode=basic][data-basic-view=vgraph] #results-body > :not(#line-performance),
+html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance > :not(.section-heading):not(.vgraph-legend):not(.vgraph-plot) { display:none !important; }
+html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance { margin-top:0; border-top:0; }
+html[data-ui-mode=basic] .equipment-speed-chart-heading p,
+html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
+@media(max-width:760px){
+  html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
+  html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }
+  html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; }
+  html[data-ui-mode=basic] #basic-case-actions { flex-wrap:wrap; }
+}
+</style>

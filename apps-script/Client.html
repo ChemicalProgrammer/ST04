@@ -35,13 +35,14 @@
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame});
     function navigateView(view) {
-      if (!state.activeCase) return;
-      if (!syncPersistentSimulation()) return;
+      if (!state.activeCase) return false;
+      if (!syncPersistentSimulation()) return false;
       state.uiView = view;
       if(view==='whatif')renderSimulationAnalysis();
       if (view === 'comparison') showCaseComparison();
       else { state.workspaceView = 'simulation'; renderWorkspaceTabs(); }
       shell.sync(); renderPlaybackFrame();
+      return true;
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -441,6 +442,7 @@ async function openCase(caseId) {
       STEquipmentFilter.apply();
       assistant.sync();
       renderRawJson();
+      window.STBasicMode?.sync(state);
     }
 
     function equipmentField(card, selector) { return card.querySelector(selector) || card._fields?.querySelector(selector); }
@@ -842,7 +844,7 @@ function parseJsonObject(rawValue, label, step) {
 function createBlankEquipment() {
       return {
         id: 'equipment-'+Date.now().toString(36),
-        type: 'CUSTOM',
+        type: window.STBasicMode?.newType() || 'CUSTOM',
         name: __ST_TEXT__('simulation.new_equipment'),
         nominalRatePerSecond: 1,
         initialMode: 'AUTO',

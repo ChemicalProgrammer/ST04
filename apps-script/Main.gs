@@ -14,6 +14,7 @@ function getBootstrap() {
       user: user,
       settings: getUserSettings_(),
       gemini: getGeminiClientConfig_(),
+      uiMode: getInterfaceMode_(),
       cases: listCases_(user)
     };
   });

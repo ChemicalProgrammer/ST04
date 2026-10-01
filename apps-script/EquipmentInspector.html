@@ -32,6 +32,7 @@ window.STEquipmentInspector=(function(){
   }
   function layout(card){return card._fields.querySelector('.equipment-type').value==='CONVEYOR'?'CONVEYOR':'EQUIPMENT';}
   function select(card,focus){
+    if(window.STBasicMode?.inline(card))return;
     if(selected===card){opened=true;return;}
     var previous=selected,panel=el('equipment-inspector'),scroll=panel.scrollTop;
     var sameLayout=previous&&context===key()&&layout(previous)===layout(card);

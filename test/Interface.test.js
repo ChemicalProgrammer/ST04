@@ -9,7 +9,7 @@ import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE'}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  Object.assign(initial,{id:'demo',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
@@ -20,7 +20,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  if(many) cases=Array.from({length:60},(_,i)=>({...initial,id:'case-'+i,name:'Line '+String(i).padStart(2,'0')}));
  const copy=x=>JSON.parse(JSON.stringify(x));
  const api={
-  getBootstrap:()=>({user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt}))}),
+  getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt}))}),
   askGemini:()=>({text:'Analysis of the saved case.'}),
   previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
   getCase:id=>copy(cases.find(c=>c.id===id)),
@@ -676,6 +676,37 @@ test('UI: equipment units persist independently and the resizer remains anchored
   grip.onpointerup({pointerId:5});
   grip.onpointermove({pointerId:5,clientX:30});
   assert.equal(Number(grip.getAttribute('aria-valuenow')),before+40);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Basic: inline equipment and fixed conveyor fields persist across the five top sections',async()=>{
+ const h=await setup({remember:true,uiMode:null});try{
+  const style=e=>h.w.getComputedStyle(e).display;
+  await h.click('.open-case');assert.equal(h.d.documentElement.dataset.uiMode,'basic');
+  assert.equal(style(h.d.getElementById('case-sidebar')),'none');
+  assert.equal(h.d.querySelectorAll('#basic-navigation button').length,5);
+  await h.click('[data-basic-view="equipment"]');
+  const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
+  assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
+  const field=machines[0]._fields.querySelector('.equipment-rate');field.value='333';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  machines[0].click();assert.equal(machines[0]._fields.parentElement,machines[0]);
+  await waitFor(()=>h.storedCases()[0].equipment[0].nominalRatePerSecond===333/60);
+  await h.click('[data-basic-view="conveyors"]');
+  const conveyors=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
+  assert.equal(conveyors.length,6);assert.equal(style(h.d.getElementById('basic-conveyor-panel')),'flex');
+  assert.equal(h.d.getElementById('equipment-inspector').parentElement.id,'basic-conveyor-panel');
+  assert.equal(style(h.d.getElementById('gemini-panel')),'none');
+  conveyors[1].click();
+  assert.equal(h.d.querySelector('#basic-conveyor-panel h3').textContent,conveyors[1]._fields.querySelector('.equipment-name').value);
+  const gap=conveyors[1]._fields.querySelector('.format-zone-moving-gap');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[3].processData.accumulation.movingGapMm===23);
+  await h.click('[data-basic-view="equipment"]');assert.equal(h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-rate').value,'333');
+  await h.click('[data-basic-view="vgraph"]');assert(h.d.querySelector('#vgraph-plot svg'));
+  assert.equal(style(h.d.querySelector('#line-performance .table-scroll')),'none');
+  assert.equal(style(h.d.getElementById('vgraph-caveat')),'none');
+  await h.click('[data-basic-view="whatif"]');assert(h.visible('whatif-panel'));
+  await h.click('[data-basic-view="simulation"]');assert(h.visible('run-panel'));
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

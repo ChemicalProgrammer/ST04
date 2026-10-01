@@ -16,6 +16,7 @@
     <?!= include_('DashboardStyles'); ?>
     <?!= include_('AssistantStyles'); ?>
     <?!= include_('SheetImportStyles'); ?>
+    <?!= include_('BasicModeStyles'); ?>
     <?!= include_('ThemeResources'); ?>
     <?!= include_('UiPreferences'); ?>
   </head>
@@ -333,6 +334,7 @@
       <footer class="dialog-actions"><button id="configuration-cancel" class="secondary" type="button"><?= __ST_TEXT__('json.cancel') ?></button><button id="configuration-apply" type="button"><?= __ST_TEXT__('json.apply') ?></button></footer>
     </dialog>
     <?!= include_('ConfigurationEditor'); ?>
+    <?!= include_('BasicMode'); ?>
     <?!= include_('Client'); ?>
   </body>
 </html>

@@ -1,5 +1,8 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "basic.navigation":"Simulation sections",
+  "basic.vgraph":"V-Graph",
+  "basic.conveyor_configuration":"Conveyor configuration",
   "exports.comparison_report": "Simulation comparison",
   "exports.comparison_scope": "Comparison exports include selected configurations, saved summaries, equipment metrics and replication statistics. Replay frames and event logs are excluded.",
   "exports.whatif_scope": "What-If proposals use the selected simulation and its current results. Suggested gains remain unverified until the proposed simulation is run.",
