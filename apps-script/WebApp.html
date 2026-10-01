@@ -111,7 +111,6 @@
         <form id="case-editor-form">
           <div class="field-grid">
             <label><?= __ST_TEXT__('view.case_name') ?><input id="case-name" maxlength="120" required></label>
-            <label><?= __ST_TEXT__('view.unit_of_flow') ?><input id="unit-of-flow" placeholder="<?= __ST_TEXT__('view.bottles_cases_pallets') ?>"></label>
           </div>
         </form>
 
@@ -207,10 +206,10 @@
         <h3><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
-          <div class="vgraph-legend"><span class="vgraph-key vgraph-key-normal"><?= __ST_TEXT__('performance.normal') ?></span><span class="vgraph-key vgraph-key-maximum"><?= __ST_TEXT__('performance.maximum') ?></span></div>
+          <div class="vgraph-legend"><span class="vgraph-key vgraph-key-normal"><?= __ST_TEXT__('performance.normal') ?></span><span class="vgraph-key vgraph-key-recommended"><?= __ST_TEXT__('performance.recommended') ?></span></div>
           <div id="vgraph-plot" class="vgraph-plot"></div><p id="vgraph-caveat" class="chart-note"></p>
           <h3><?= __ST_TEXT__('performance.throughput_by_machine') ?></h3>
-          <div class="table-scroll"><table><thead><tr><th><?= __ST_TEXT__('performance.machine') ?></th><th class="numeric"><?= __ST_TEXT__('performance.normal_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.maximum_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.capacity_estimate_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.headroom') ?></th><th class="numeric"><?= __ST_TEXT__('performance.availability') ?></th><th class="numeric"><?= __ST_TEXT__('performance.efficiency') ?></th><th class="numeric"><?= __ST_TEXT__('performance.effective_bpm') ?></th></tr></thead><tbody id="performance-rows"></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th><?= __ST_TEXT__('performance.machine') ?></th><th class="numeric"><?= __ST_TEXT__('performance.normal_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.maximum_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.recommended_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.headroom') ?></th><th class="numeric"><?= __ST_TEXT__('performance.availability') ?></th><th class="numeric"><?= __ST_TEXT__('performance.efficiency') ?></th><th class="numeric"><?= __ST_TEXT__('performance.effective_bpm') ?></th></tr></thead><tbody id="performance-rows"></tbody></table></div>
           <p id="throughput-method" class="chart-note"></p>
         </section>
         <div class="chart-layout"><section class="chart-panel"><h3><?= __ST_TEXT__('view.cumulative_production') ?></h3><p class="chart-note"><?= __ST_TEXT__('view.complete_simulated_duration_output_units') ?></p>          <canvas id="simulation-chart" height="210" aria-label="<?= __ST_TEXT__('view.cumulative_output_chart') ?>"></canvas>
@@ -269,7 +268,7 @@
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title"><?= __ST_TEXT__('shell.settings') ?></h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('view.close_settings') ?>" title="<?= __ST_TEXT__('view.close_settings_esc') ?>"></button></header>
       <div class="dialog-body">
-        <section class="settings-section"><h3><?= __ST_TEXT__('view.appearance') ?></h3><p><?= __ST_TEXT__('view.applied_immediately_on_this_browser') ?></p><div class="settings-row"><label for="settings-theme"><?= __ST_TEXT__('view.theme') ?></label><select id="settings-theme" data-theme-picker aria-label="<?= __ST_TEXT__('view.appearance') ?>"><option value="light"><?= __ST_TEXT__('view.light') ?></option><option value="dark"><?= __ST_TEXT__('view.dark') ?></option><option value="auto"><?= __ST_TEXT__('view.system_automatic') ?></option></select></div><div class="settings-row"><span><?= __ST_TEXT__('view.accent_color') ?></span><div id="accent-palette" class="accent-palette" role="group" aria-label="<?= __ST_TEXT__('view.accent_color') ?>"></div></div></section>
+        <section class="settings-section"><h3><?= __ST_TEXT__('view.appearance') ?></h3><p><?= __ST_TEXT__('view.applied_immediately_on_this_browser') ?></p><div class="settings-row"><label for="settings-theme"><?= __ST_TEXT__('view.theme') ?></label><select id="settings-theme" data-theme-picker aria-label="<?= __ST_TEXT__('view.appearance') ?>"><option value="light"><?= __ST_TEXT__('view.light') ?></option><option value="dark"><?= __ST_TEXT__('view.dark') ?></option><option value="auto"><?= __ST_TEXT__('view.system_automatic') ?></option></select></div><div class="settings-row"><span><?= __ST_TEXT__('view.accent_color') ?></span><div id="accent-palette" class="accent-palette" role="group" aria-label="<?= __ST_TEXT__('view.accent_color') ?>"></div></div><div class="settings-row"><label class="remember"><input id="settings-json-fields" type="checkbox"><?= __ST_TEXT__('settings.show_json_fields') ?></label></div></section>
         <section id="workspace-panel" class="settings-section"><h3><?= __ST_TEXT__('view.storage_simulation_defaults') ?></h3><p><?= __ST_TEXT__('view.choose_a_drive_folder_you_can_access_cases_and_results_are_saved_in_this_wo') ?></p>
         <form id="workspace-form"><label for="workspace-folder-id"><?= __ST_TEXT__('view.drive_folder_id') ?></label><input id="workspace-folder-id" autocomplete="off" required><p id="workspace-folder-note" class="chart-note hidden"><?= __ST_TEXT__('settings.close_case_storage') ?></p>
         <fieldset class="gemini-settings"><legend><?= __ST_TEXT__('assistant.gemini') ?></legend><p class="chart-note"><?= __ST_TEXT__('view.your_api_key_is_stored_in_your_apps_script_user_properties_and_used_only_by') ?></p><label for="gemini-model"><?= __ST_TEXT__('view.model_id') ?></label><input id="gemini-model" value="gemini-2.5-flash" maxlength="100" pattern="gemini-[a-zA-Z0-9.\-]+" required><label for="gemini-api-key"><?= __ST_TEXT__('view.api_key') ?></label><div class="api-key-control">
@@ -334,6 +333,7 @@
       <footer class="dialog-actions"><button id="configuration-cancel" class="secondary" type="button"><?= __ST_TEXT__('json.cancel') ?></button><button id="configuration-apply" type="button"><?= __ST_TEXT__('json.apply') ?></button></footer>
     </dialog>
     <?!= include_('ConfigurationEditor'); ?>
+    <?!= include_('EquipmentRoles'); ?>
     <?!= include_('BasicMode'); ?>
     <?!= include_('Client'); ?>
   </body>

@@ -1,10 +1,17 @@
 <style>
   .field-grid, .equipment-grid { display: grid; gap: var(--size-12); grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-grid { margin: var(--size-20) 0; max-width: var(--size-760); }
+  #case-editor-form .field-grid { grid-template-columns:1fr; }
   label { color: var(--ink); display: grid; font-size: var(--text-13); font-weight: var(--weight-bold); gap: var(--size-6); }
   .editor-subheading { align-items: center; display: flex; justify-content: space-between; margin-top: var(--size-28); }
   .editor-subheading h3 { margin: 0 0 var(--size-4); }
   .editor-subheading p { margin-bottom: 0; }
+  #editor-panel > .editor-subheading { margin-bottom:var(--space-4); gap:var(--space-4); flex-wrap:wrap; }
+  #editor-panel > .editor-subheading .button-row { padding:var(--space-1) 0; gap:var(--space-3); }
+  html[data-show-json=false] #editor-panel .raw-viewer,
+  html[data-show-json=false] .equipment-json-details,
+  html[data-show-json=false] .json-example { display:none !important; }
+  .equipment-fields:has(.equipment-type option[value=CONVEYOR]:checked) .machine-design-field { display:none; }
   .equipment-list { display: grid; gap: var(--size-14); margin-top: var(--size-14); }
   .equipment-card { background: var(--surface); border: var(--size-1) solid var(--line); border-radius: var(--size-10); padding: var(--size-16); }
   .equipment-card:not(.equipment-card-expanded) .equipment-grid,

@@ -9,9 +9,10 @@ import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE'}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
+ if(flowUnit)initial.unitOfFlow=flowUnit;
  Object.assign(initial,{id:'demo',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
  const sourceEquipment=JSON.parse(JSON.stringify(initial.equipment));
  if(empty)initial.equipment=[];
@@ -513,16 +514,16 @@ test('UI: exclusive equipment filters preserve hidden records, order and saved v
  }finally{h.dom.window.close();}
 });
 test('UI: BPM edits convert once and survive reload independently of the flow unit',async()=>{
- const h=await setup({realScenarioServer:true});try{
+ const h=await setup({realScenarioServer:true,flowUnit:'cases'});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
   h.d.querySelector('.equipment-card').click();const rate=h.d.querySelector('#equipment-inspector .equipment-rate');
   assert(Math.abs(Number(rate.value)-h.storedCases()[0].equipment[0].nominalRatePerSecond*60)<1e-9);
-  const flow=h.d.getElementById('unit-of-flow');flow.value='cases';flow.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  assert.equal(h.d.getElementById('unit-of-flow'),null);
   rate.value='345.5';rate.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await waitFor(()=>h.storedCases()[0].equipment[0].nominalRatePerSecond===345.5/60);
   assert.match(h.d.querySelector('.equipment-header strong').textContent,/345.5 BPM/);
   await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');h.d.querySelector('.equipment-card').click();
-  assert.equal(h.d.querySelector('#equipment-inspector .equipment-rate').value,'345.5');assert.equal(h.d.getElementById('unit-of-flow').value,'cases');assert.deepEqual(h.errors,[]);
+  assert.equal(h.d.querySelector('#equipment-inspector .equipment-rate').value,'345.5');assert.equal(h.storedCases()[0].unitOfFlow,'cases');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -707,6 +708,59 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   assert.equal(style(h.d.getElementById('vgraph-caveat')),'none');
   await h.click('[data-basic-view="whatif"]');assert(h.visible('whatif-panel'));
   await h.click('[data-basic-view="simulation"]');assert(h.visible('run-panel'));
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: Basic hides units and modes, JSON visibility is a per-mode preference and pacemaker remains a role',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+  const display=e=>h.w.getComputedStyle(e).display,card=h.d.querySelector('.equipment-card');
+  assert.equal(h.d.getElementById('unit-of-flow'),null);
+  assert.equal(display(card._fields.querySelector('.equipment-unit').closest('label')),'none');
+  assert.equal(display(card._fields.querySelector('.equipment-mode').closest('label')),'none');
+  assert.equal(card._fields.querySelector('.equipment-mode').value,'AUTO');
+  assert.equal(display(card._fields.querySelector('.equipment-json-details')),'none');
+  assert.equal(display(h.d.querySelector('#editor-panel .raw-viewer')),'none');
+  assert.equal(h.d.querySelector('.equipment-type option[value="PACEMAKER"]'),null);
+  const show=h.d.getElementById('settings-json-fields');show.checked=true;show.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert.equal(display(card._fields.querySelector('.equipment-json-details')),'block');
+  assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),'yes');
+  const role=card._fields.querySelector('.equipment-pacemaker');role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[0].processData.role==='PACEMAKER');
+  const saved=h.storedCases()[0].equipment;assert.equal(saved[0].type,'BLOWMOLDER');assert.equal(saved.filter(e=>e.characteristics.isPacemaker).length,1);
+  await h.click('[data-basic-view="conveyors"]');assert.equal(display(h.d.querySelector('#equipment-inspector .equipment-unit').closest('label')),'none');
+  assert.equal(display(h.d.querySelector('#equipment-inspector .machine-design-field')),'none');
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+ const advanced=await setup({remember:true});try{
+  await advanced.click('.open-case');await advanced.click('.sidebar [data-view="editor"]');advanced.d.querySelector('.equipment-card').click();
+  assert.equal(advanced.d.documentElement.dataset.showJson,'true');
+  const show=advanced.d.getElementById('settings-json-fields');show.checked=false;show.dispatchEvent(new advanced.w.Event('change'));
+  assert.equal(advanced.w.getComputedStyle(advanced.d.querySelector('#equipment-inspector .equipment-json-details')).display,'none');
+  assert.equal(advanced.w.localStorage.getItem('st.ui.v1.jsonFields.advance'),'no');
+  assert.deepEqual(advanced.errors,[]);
+ }finally{advanced.dom.window.close();}
+});
+
+test('UI: legacy Pacemaker equipment opens as its machine type and keeps its selected role on save',async()=>{
+ const h=await setup({remember:true});try{
+  const get=h.api.getCase;h.api.getCase=id=>{const c=get(id);for(const list of [c.equipment,c.simulations[0].equipment]){list[0].type='PACEMAKER';list[0].processData.machineType='BLOWMOLDER';list[0].processData.role='PACEMAKER';list[4].processData.role='MACHINE';}return c;};
+  await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');h.d.querySelector('.equipment-card').click();
+  assert.equal(h.d.querySelector('#equipment-inspector .equipment-type').value,'BLOWMOLDER');assert(h.d.querySelector('#equipment-inspector .equipment-pacemaker').checked);
+  const name=h.d.querySelector('#equipment-inspector .equipment-name');name.value='Legacy blowmolder';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[0].name==='Legacy blowmolder');
+  assert.equal(h.storedCases()[0].equipment[0].type,'BLOWMOLDER');assert.equal(h.storedCases()[0].equipment[0].processData.role,'PACEMAKER');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Basic: a clean imported stopped machine starts automatically without requiring an edit',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  const get=h.api.getCase;h.api.getCase=id=>{const c=get(id);for(const list of [c.equipment,c.simulations[0].equipment])list.forEach(e=>e.initialMode='STOP');return c;};
+  await h.click('.open-case');assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].results);
+  const record=h.storedCases()[0];assert(record.equipment.every(e=>e.initialMode==='AUTO'));assert(record.simulations[0].results.equipmentMetrics['blowmolder-1'].outputCount>0);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

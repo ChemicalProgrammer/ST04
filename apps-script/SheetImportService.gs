@@ -119,12 +119,13 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
     var rowNumber=offset+10;
     if(row.every(missing))return;
     var rawType=missing(row[0])?'':String(row[0]).trim(),type=aliases[rawType.toUpperCase().replace(/[\s_-]+/g,'')];
-    if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pacemaker, Pucker, Filler, De-pucker, Sleever, Case packer, Palletizer or Other.');
+    if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pucker, Filler, De-pucker, Sleever, Case packer, Palletizer or Other.');
     var name=missing(row[1])?'':String(row[1]).trim();
     if(rawType.toUpperCase()==='MACHINE'){
       type=inferSheetMachineType_(name);
       issue(warnings,'A'+rowNumber,type==='CUSTOM'?'Machine name could not be classified uniquely. Review the machine type in Preview or Line setup.':'Machine type inferred from B'+rowNumber+': '+type+'. Review before applying.');
     }
+    var legacyPacemaker=type==='PACEMAKER';if(legacyPacemaker)type=inferSheetMachineType_(name);
     if(!name)issue(errors,'B'+rowNumber,'Equipment name is required.');
     var flag=missing(row[2])?'N':String(row[2]).trim().toUpperCase();if(!['Y','N'].includes(flag))issue(errors,'C'+rowNumber,'Use Y, N or NA.');
     var values={type:rawType,name:name,critical:missing(row[2])?null:flag};
@@ -135,7 +136,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
     if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or mark both NA.');
     if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'No reliability data: random failures are disabled for this equipment.');
     var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',rateBasis:'bottles per minute',sourceSheetRow:rowNumber},noiseProfile:{},processData:{
-      role:conveyor?'CONVEYOR':type==='PACEMAKER'?'PACEMAKER':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
+      role:conveyor?'CONVEYOR':legacyPacemaker?'PACEMAKER':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
       equipment:{mtbfMinutes:mtbf,mttrMinutes:mttr,maximumSpeedBpm:values.maximumSpeedBpm},
       geometry:{lactMm:values.lactMm,lpPrimeMm:values.lpPrimeMm,actualDischargeMm:values.actualDischargeMm,actualCodingMm:values.actualCodingMm},
       upstream:{packageLengthMm:values.packageLengthMm,dischargePitchMm:values.dischargePitchMm,startupTimeSeconds:values.startupTimeSeconds,bottlesDischargedAtStop:values.bottlesDischargedAtStop},

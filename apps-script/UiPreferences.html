@@ -25,7 +25,18 @@ window.STPreferences = (function() {
   }
   if (media.addEventListener) media.addEventListener('change', apply);
   apply();
+  function applyJsonFields(mode) {
+    mode=mode==='basic'?'basic':'advance';
+    var stored=read('jsonFields.'+mode),visible=stored===null?mode==='advance':stored==='yes';
+    document.documentElement.dataset.showJson=String(visible);
+    var checkbox=document.getElementById('settings-json-fields');if(checkbox)checkbox.checked=visible;
+  }
   document.addEventListener('DOMContentLoaded', function() {
+    applyJsonFields(document.documentElement.dataset.uiMode);
+    document.getElementById('settings-json-fields').addEventListener('change',function(event){
+      var mode=document.documentElement.dataset.uiMode==='advance'?'advance':'basic';
+      write('jsonFields.'+mode,event.target.checked?'yes':'no');applyJsonFields(mode);
+    });
     var palette=document.getElementById('accent-palette');
     colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;b.title=color;b.style.background=STThemeResources.palettes[color].light.accent;b.style.color=STThemeResources.palettes[color].light.onAccent;b.setAttribute('aria-label',color+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));
     document.querySelectorAll('[data-theme-picker]').forEach(function(select) {
@@ -33,6 +44,6 @@ window.STPreferences = (function() {
       select.addEventListener('change', function() { setTheme(select.value); });
     });
   });
-  return { read: read, write: write, setTheme: setTheme };
+  return { read: read, write: write, setTheme: setTheme, applyJsonFields:applyJsonFields };
 })();
 </script>

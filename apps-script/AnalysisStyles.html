@@ -4,17 +4,20 @@
   .vgraph-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--font-secondary); color: var(--muted); }
   .vgraph-key { display: inline-flex; align-items: center; gap: var(--space-2); }
   .vgraph-key::before { content: ''; width: var(--size-16); border-top: var(--focus-width) solid var(--series-0); }
-  .vgraph-key-maximum::before { border-color: var(--series-1); }
+  .vgraph-key-recommended::before { border-color: var(--series-1); }
   .vgraph-plot { width: 100%; overflow-x: auto; }
   .vgraph-plot svg { display: block; width: 100%; height: var(--vgraph-height); min-width: var(--vgraph-min-width); }
   .vgraph-grid { stroke: var(--chart-grid); stroke-width: var(--border-width); }
   .vgraph-label { fill: var(--muted); font-size: var(--font-caption); }
   .vgraph-reference { fill: var(--accent); font-size: var(--font-caption); font-weight: var(--weight-bold); }
-  .vgraph-normal, .vgraph-maximum { fill: none; stroke-width: var(--focus-width); stroke-linecap: round; stroke-linejoin: round; }
+  .vgraph-normal, .vgraph-recommended { fill: none; stroke-width: var(--focus-width); stroke-linecap: round; stroke-linejoin: round; }
   .vgraph-normal { stroke: var(--series-0); }
-  .vgraph-maximum { stroke: var(--series-1); }
-  .vgraph-normal-dot { fill: var(--series-0); }
-  .vgraph-maximum-dot { fill: var(--series-1); }
+  .vgraph-recommended { stroke: var(--series-1); stroke-dasharray:6 4; }
+  .vgraph-normal-dot { fill:var(--surface); stroke:var(--series-0); stroke-width:2; }
+  .vgraph-value { font-size:var(--font-caption); font-weight:var(--weight-bold); }
+  .vgraph-normal-value { fill:var(--series-0); }
+  .vgraph-recommended-value { fill:var(--series-1); }
+  .vgraph-recommended-dot { fill: var(--series-1); }
   .simulation-analysis { background: var(--surface); border: var(--size-1) solid var(--line); border-radius: var(--size-12); margin-top: var(--size-16); padding: var(--size-16); }
   .simulation-analysis-heading h3 { color: var(--ink); font-size: var(--text-16); margin: 0 0 var(--size-4); }
   .simulation-analysis-heading p { font-size: var(--text-12); margin: 0; max-width: var(--size-980); }

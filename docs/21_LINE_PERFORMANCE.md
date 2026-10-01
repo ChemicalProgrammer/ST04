@@ -1,32 +1,39 @@
 # Line speed profile and throughput
 
-Results now show a **design-speed profile** for non-conveyor machines. Normal
-speed comes from `nominalRatePerSecond × 60`; configured maximum speed comes
-from `processData.equipment.maximumSpeedBpm`. Both are expressed as a percent
-of the selected pacemaker's normal speed. The chart shows the available
-over-speed profile, not a certified V-Graph: the engine processes at nominal
-speed and does not yet command maximum recovery speed after a microstop.
-After a run, the table also shows an availability-only capacity estimate for
-non-pacemaker machines:
-`max(machine nominal BPM, pacemaker nominal BPM / intrinsic availability)`.
-Intrinsic availability is `(duration − stoppedSeconds) / duration` and excludes
-starvation and blocking. A target above the configured maximum is flagged as
-unavailable; without a maximum its feasibility is unknown. This simple static
-capacity target does not account for buffer dynamics or certify that recovery
-is achievable. It is not plotted as an overspeed recommendation. The engine
-does not use it to change machine speed.
-The design handbook describes overspeed as the capability of adjacent machines
-to refill an upstream buffer or drain a downstream buffer after a stop. In the
-desired state, machines run close to the critical machine's normal rate. The
-required recovery rate depends on the inventory deviation, the usable
-accumulation, and the intended recovery time. Those inputs and a tested speed
-controller are needed before recommending a numeric overspeed. The configured
-maximum line shows available machine capability only; a V-shaped profile is
-neither guaranteed nor certified by the current analysis.
-An imported Sheet sets nominal speed from its maximum-speed column, so a new
-import has zero demonstrated recovery reserve until operating speed is set
-separately in Line setup. An absent or lower-than-normal maximum is not
-interpreted as valid capacity.
+The V-Graph now shows two distinct design curves in units per minute:
+
+- **Normal line target**: `min(machine configured BPM, selected pacemaker BPM)`.
+- **Recommended overspeed (estimate)**: `normal target + recovery units × 60 / recovery seconds`.
+
+The pacemaker is a **role selected on a machine**, not a machine type. Its
+overspeed target equals its normal target. Other targets are derived from the
+nearest conveyor toward the pacemaker. Recoverable units are the lesser of
+`normal target × MTTR minutes` and the useful installed accumulation in units.
+Engineering conveyors use their calculated useful accumulation length; direct
+geometry uses its usable length. Unit capacity uses accumulated product pitch,
+not moving spacing. Missing geometry or enabled reliability produces no estimate.
+Without an accumulating conveyor, no recovery headroom is assigned.
+
+`processData.equipment.recoveryTimeSeconds` specifies the planning interval.
+Leaving it blank uses `MTBF minutes × 60` as an explicit planning assumption:
+recover the assumed mean-stop disturbance within one mean operating interval.
+This interval is not a measured recovery time or a guarantee against another
+stop. A shorter selected interval increases the estimated target. Capping the
+recoverable units at installed accumulation does **not** mean the buffer covers
+the whole MTTR; the analysis records `bufferCoversMeanStop` separately.
+
+The installed maximum remains in the Advance table. Estimates above it are
+flagged with a dagger; they are not clipped to capacity or certified feasible.
+The chart does not force a symmetric V. It can be asymmetric, have gaps where
+data is missing, or overlap where no recovery headroom is required.
+
+The estimate assumes a mean-stop inventory disturbance and the useful buffer's
+full available swing. Actual desired/observed inventories, interacting stops,
+ramping, upstream refill/downstream drain coordination and machine control
+still require dynamic validation. **The engine continues to process at the
+configured nominal rate; it does not implement this recovery controller.**
+An imported maximum that also initializes the nominal rate no longer serves
+as the plotted overspeed recommendation.
 
 The line throughput KPI counts **only units exiting the final equipment**:
 `outputCount / durationSeconds × 60`. This measures the complete simulated

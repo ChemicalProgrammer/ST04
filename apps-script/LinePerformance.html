@@ -10,9 +10,9 @@ window.STLinePerformance = (function() {
   }
   function plot(target, points) {
     target.textContent = '';
-    var valid = points.filter(function(p) { return Number.isFinite(p.normalPercent); });
+    var valid = points.filter(function(p) { return Number.isFinite(p.normalBpm); });
     if (!valid.length) return;
-    var all = valid.flatMap(function(p) { return [p.normalPercent, p.maximumPercent].filter(Number.isFinite); });
+    var all = valid.flatMap(function(p) { return [p.normalBpm, p.recommendedBpm].filter(Number.isFinite); });
     var minimum = Math.max(0, Math.floor((Math.min.apply(null, all) - 10) / 10) * 10);
     var maximum = Math.ceil((Math.max.apply(null, all) + 10) / 10) * 10;
     if (minimum === maximum) maximum += 10;
@@ -24,16 +24,18 @@ window.STLinePerformance = (function() {
     var y = function(pct) { return bottom - (pct - minimum) / (maximum - minimum) * (bottom - top); };
     [minimum, (minimum + maximum) / 2, maximum].forEach(function(pct) {
       chart.appendChild(svg('line', {x1:left, x2:right, y1:y(pct), y2:y(pct), class:'vgraph-grid'}));
-      chart.appendChild(svg('text', {x:left - 8, y:y(pct) + 4, class:'vgraph-label', 'text-anchor':'end'}, value(pct, 0) + '%'));
+      chart.appendChild(svg('text', {x:left - 8, y:y(pct) + 4, class:'vgraph-label', 'text-anchor':'end'}, value(pct, 0) + ' /min'));
     });
-    chart.appendChild(svg('polyline', {points:valid.map(function(p, i) { return x(i) + ',' + y(p.normalPercent); }).join(' '), class:'vgraph-normal'}));
+    chart.appendChild(svg('polyline', {points:valid.map(function(p, i) { return x(i) + ',' + y(p.normalBpm); }).join(' '), class:'vgraph-normal'}));
     var segment = [];
-    function flush() { if (segment.length > 1) chart.appendChild(svg('polyline', {points:segment.join(' '), class:'vgraph-maximum'})); segment = []; }
-    valid.forEach(function(p, i) { if (Number.isFinite(p.maximumPercent)) segment.push(x(i) + ',' + y(p.maximumPercent)); else flush(); });
+    function flush() { if (segment.length > 1) chart.appendChild(svg('polyline', {points:segment.join(' '), class:'vgraph-recommended'})); segment = []; }
+    valid.forEach(function(p, i) { if (Number.isFinite(p.recommendedBpm)) segment.push(x(i) + ',' + y(p.recommendedBpm)); else flush(); });
     flush();
     valid.forEach(function(p, i) {
-      chart.appendChild(svg('circle', {cx:x(i), cy:y(p.normalPercent), r:4, class:'vgraph-normal-dot'}));
-      if (Number.isFinite(p.maximumPercent)) chart.appendChild(svg('circle', {cx:x(i), cy:y(p.maximumPercent), r:4, class:'vgraph-maximum-dot'}));
+      var normal=svg('circle', {cx:x(i), cy:y(p.normalBpm), r:5, class:'vgraph-normal-dot'});normal.appendChild(svg('title',{},p.name+' · '+__ST_TEXT__('performance.normal')+': '+value(p.normalBpm)+' /min'));chart.appendChild(normal);
+      if (Number.isFinite(p.recommendedBpm)) {var recommended=svg('circle', {cx:x(i), cy:y(p.recommendedBpm), r:3, class:'vgraph-recommended-dot'});recommended.appendChild(svg('title',{},p.name+' · '+__ST_TEXT__('performance.recommended')+': '+value(p.recommendedBpm)+' /min'));chart.appendChild(recommended);}
+      chart.appendChild(svg('text',{x:x(i),y:y(p.normalBpm)+18,class:'vgraph-value vgraph-normal-value','text-anchor':'middle'},value(p.normalBpm)));
+      if(Number.isFinite(p.recommendedBpm))chart.appendChild(svg('text',{x:x(i),y:y(p.recommendedBpm)-10,class:'vgraph-value vgraph-recommended-value','text-anchor':'middle'},value(p.recommendedBpm)));
       chart.appendChild(svg('text', {x:x(i), y:height-40, class:'vgraph-label', 'text-anchor':'middle'}, p.name.length > 13 ? p.name.slice(0, 12) + '…' : p.name));
       if (p.isPacemaker) chart.appendChild(svg('text', {x:x(i), y:height-22, class:'vgraph-reference', 'text-anchor':'middle'}, __ST_TEXT__('performance.reference_short')));
     });
@@ -46,14 +48,14 @@ window.STLinePerformance = (function() {
     var analysis = window.SimulatorEngine.analyzeLinePerformance(equipment, result);
     document.getElementById('vgraph-context').textContent = __ST_TEXT__('performance.context') + (analysis.points.find(function(p) { return p.isPacemaker; })?.name || '—');
     plot(document.getElementById('vgraph-plot'), analysis.points);
-    document.getElementById('vgraph-caveat').textContent = (analysis.hasSpeedHeadroom
-      ? __ST_TEXT__('performance.design_only') : __ST_TEXT__('performance.no_headroom')) + ' ' + __ST_TEXT__('performance.capacity_method');
+    document.getElementById('vgraph-caveat').textContent = __ST_TEXT__('performance.recovery_method');
     var tbody = document.getElementById('performance-rows');
     tbody.textContent = '';
     analysis.points.forEach(function(point) {
       var row = el('tr');
+      row.title=point.recoveryBasis+' · '+__ST_TEXT__('equipment.recovery_time')+': '+value(point.recoveryTimeSeconds);
       [point.name + (point.isPacemaker ? ' · ' + __ST_TEXT__('performance.reference_short') : ''),
-        value(point.normalBpm), value(point.maximumBpm), value(point.capacityEstimateBpm)+(point.capacityEstimateExceedsMaximum?' †':''), value(point.speedHeadroomPercent) + (point.speedHeadroomPercent === null ? '' : '%'),
+        value(point.normalBpm), value(point.maximumBpm), value(point.recommendedBpm)+(point.recommendationExceedsMaximum?' †':''), value(point.speedHeadroomPercent) + (point.speedHeadroomPercent === null ? '' : '%'),
         value(point.availability === null ? null : point.availability * 100) + (point.availability === null ? '' : '%'),
         value(point.runtimeEfficiency === null ? null : point.runtimeEfficiency * 100) + (point.runtimeEfficiency === null ? '' : '%'),
         value(point.observedBpm)].forEach(function(cell, i) { var item = el('td', cell); if (i) item.className = 'numeric'; row.appendChild(item); });

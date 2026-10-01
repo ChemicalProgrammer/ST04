@@ -34,6 +34,7 @@ window.STBasicMode=(function(){
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
+    STPreferences.applyJsonFields(root.dataset.uiMode);
     if(!enabled){unmount();return;}mount();
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?'vgraph':view==='whatif'?'whatif':'simulation';
@@ -63,6 +64,6 @@ window.STBasicMode=(function(){
     }
     STIcons.decorate(nav);STIcons.decorate(tools);
   }
-  return {init:init,sync:sync,inline:inline,newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
+  return {init:init,sync:sync,inline:inline,isBasic:basic,newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>

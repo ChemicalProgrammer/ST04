@@ -1,0 +1,42 @@
+<script>
+window.STEquipmentRoles=(function(){
+  function machineType(e){var types=['BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'];return e.type==='PACEMAKER'?(types.includes(e.processData?.machineType)?e.processData.machineType:'CUSTOM'):e.type||'CUSTOM';}
+  function attach(card,equipment){
+    var fields=card._fields,grid=fields.querySelector('.equipment-grid');
+    var selected=equipment.type==='PACEMAKER'||equipment.processData?.role==='PACEMAKER'||equipment.characteristics?.isPacemaker===true;
+    [['pacemaker','checkbox',__ST_TEXT__('equipment.pacemaker')],['maximum-speed','number',__ST_TEXT__('equipment.maximum_speed')],['recovery-time','number',__ST_TEXT__('equipment.recovery_time')]].forEach(function(spec){
+      var label=document.createElement('label'),input=document.createElement('input');label.className='machine-design-field';label.textContent=spec[2];label.title=spec[0]==='pacemaker'?__ST_TEXT__('equipment.pacemaker_help'):__ST_TEXT__('equipment.maximum_help');input.className='equipment-'+spec[0];input.type=spec[1];
+      if(spec[1]==='number'){input.min='0.000001';input.step='any';}
+      if(spec[0]==='pacemaker'){input.checked=selected;input.addEventListener('change',function(){if(input.checked)document.querySelectorAll('.equipment-pacemaker').forEach(function(other){if(other!==input)other.checked=false;});});}
+      if(spec[0]==='maximum-speed')input.value=equipment.processData?.equipment?.maximumSpeedBpm??'';
+      if(spec[0]==='recovery-time'){input.value=equipment.processData?.equipment?.recoveryTimeSeconds??'';input.placeholder=__ST_TEXT__('equipment.recovery_default');label.title=__ST_TEXT__('equipment.recovery_help');}
+      label.appendChild(input);grid.appendChild(label);
+    });
+    function refresh(){
+      try{
+        var data=JSON.parse(fields.querySelector('.equipment-process-data').value),characteristics=JSON.parse(fields.querySelector('.equipment-characteristics').value);
+        fields.querySelector('.equipment-pacemaker').checked=data.role==='PACEMAKER'||characteristics.isPacemaker===true;
+        fields.querySelector('.equipment-maximum-speed').value=data.equipment?.maximumSpeedBpm??'';
+        fields.querySelector('.equipment-recovery-time').value=data.equipment?.recoveryTimeSeconds??'';
+      }catch(_){/* Validation handles incomplete JSON. */}
+    }
+    fields.querySelector('.equipment-process-data').addEventListener('change',refresh);
+    fields.querySelector('.equipment-characteristics').addEventListener('change',refresh);
+  }
+  function read(card,characteristics,data,type){
+    var fields=card._fields,pacemaker=type!=='CONVEYOR'&&fields.querySelector('.equipment-pacemaker').checked;
+    characteristics.isPacemaker=pacemaker;
+    data.role=type==='CONVEYOR'?'CONVEYOR':pacemaker?'PACEMAKER':(characteristics.criticalMachine||data.role==='CRITICAL_MACHINE')?'CRITICAL_MACHINE':'MACHINE';data.machineType=type;
+    if(type!=='CONVEYOR'){
+      data.equipment=data.equipment||{};
+      for(var spec of [['maximum-speed','maximumSpeedBpm'],['recovery-time','recoveryTimeSeconds']]){
+        var input=fields.querySelector('.equipment-'+spec[0]);
+        if(!input.checkValidity())return false;
+        if(input.value==='')delete data.equipment[spec[1]];else data.equipment[spec[1]]=Number(input.value);
+      }
+    }
+    return true;
+  }
+  return {attach:attach,read:read,machineType:machineType};
+})();
+</script>

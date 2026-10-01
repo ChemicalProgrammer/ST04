@@ -34,8 +34,8 @@ html[data-ui-mode=basic] #basic-conveyor-layout { display:block; }
 html[data-ui-mode=basic] #basic-conveyor-panel { display:none; }
 html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-300)),1fr)); align-items:start; }
 html[data-ui-mode=basic] .basic-machine { cursor:default; padding:var(--space-4); }
-html[data-ui-mode=basic] .basic-machine .equipment-fields,
-html[data-ui-mode=basic] .basic-machine .equipment-json-details { display:block; }
+html[data-ui-mode=basic] .basic-machine .equipment-fields { display:block; }
+html[data-ui-mode=basic][data-show-json=true] .basic-machine .equipment-json-details { display:block; }
 html[data-ui-mode=basic] .basic-machine .equipment-grid { display:grid; }
 html[data-ui-mode=basic] .basic-machine .equipment-drag { display:none; }
 html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
@@ -49,6 +49,8 @@ html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance > :not(.secti
 html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance { margin-top:0; border-top:0; }
 html[data-ui-mode=basic] .equipment-speed-chart-heading p,
 html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
+html[data-ui-mode=basic] label:has(> .equipment-unit),
+html[data-ui-mode=basic] label:has(> .equipment-mode) { display:none !important; }
 @media(max-width:760px){
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
   html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }

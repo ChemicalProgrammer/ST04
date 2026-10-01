@@ -39,7 +39,7 @@ window.STSheetImport=function(state,actions){
       if(unit.type!=='CONVEYOR'){
         var typeLabel=node('label',__ST_TEXT__('sheetimport.machine_type')),typeSelect=document.createElement('select');
         typeSelect.className='sheet-machine-type';typeSelect.setAttribute('aria-label',__ST_TEXT__('sheetimport.machine_type')+' '+unit.name);
-        ['CUSTOM','BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','PACEMAKER'].forEach(function(type){typeSelect.add(new Option(type.replace(/_/g,' '),type));});
+        ['CUSTOM','BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER'].forEach(function(type){typeSelect.add(new Option(type.replace(/_/g,' '),type));});
         typeSelect.value=unit.type;typeSelect.disabled=record.target==='skip';
         typeSelect.onchange=function(){unit.type=typeSelect.value;record.selected.type=true;render();host.querySelector('[data-source-index="'+record.index+'"]').open=true;};
         typeLabel.appendChild(typeSelect);section.appendChild(typeLabel);
