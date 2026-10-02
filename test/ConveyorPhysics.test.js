@@ -101,3 +101,14 @@ test('failures and recovery preserve material and state time across seeds',()=>{
     assert.ok(result.summary.totalFailureSeconds>0);conserved(result);
   }
 });
+
+test('connection loss counters include full and partial constraints without exceeding run time',()=>{
+  for(const model of [line({sinkRate:1}),line({sourceRate:1,sinkRate:8})]){
+    const result=run(model),zone=result.accumulationZoneMetrics['belt--physical-zone'];
+    assert(zone.blockingEquivalentSeconds>=0&&zone.blockingEquivalentSeconds<=result.durationSeconds);
+    assert(zone.starvingEquivalentSeconds>0&&zone.starvingEquivalentSeconds<=result.durationSeconds);
+    assert(zone.constraintLossEquivalentSeconds>=Math.max(zone.blockingEquivalentSeconds,zone.starvingEquivalentSeconds));
+    assert(zone.conveyorConstraintLossPercent>=0&&zone.conveyorConstraintLossPercent<=100);
+    conserved(result);
+  }
+});

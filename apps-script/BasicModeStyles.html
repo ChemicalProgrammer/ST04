@@ -114,7 +114,6 @@ html[data-ui-mode=basic] #basic-run-controls label:has(> #run-playback-rate),
 html[data-ui-mode=basic] #basic-run-controls label:has(> #run-shift-count) { display:none; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-run-controls,
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-efficiencies { display:none; }
-html[data-ui-mode=basic][data-basic-view=equipment] #basic-start-simulation { display:block; width:100%; margin-top:var(--space-4); font-size:20px; font-weight:700; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { display:grid; grid-template-columns:1fr; max-height:70vh; overflow-y:auto; }
 html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header .button-row { display:none; }
 html[data-ui-mode=basic] .basic-metric { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
@@ -141,4 +140,21 @@ html[data-ui-mode=basic] #run-config label:has(> #run-seed) { display:none !impo
  html[data-ui-mode=basic] #basic-conveyor-summary { grid-template-columns:1fr; }
  html[data-ui-mode=basic] .basic-conveyor-validation { grid-column:1; grid-row:auto; }
 }
+
+html[data-ui-mode=basic] .basic-conveyor-worksheet { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
+html[data-ui-mode=basic] .basic-worksheet-group { display:flex; flex-direction:column; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
+html[data-ui-mode=basic] .basic-worksheet-group h4 { margin:0 0 var(--space-2); font-size:16px; }
+html[data-ui-mode=basic] .basic-worksheet-group label { display:grid; grid-template-columns:minmax(0,1fr) minmax(85px,120px); align-items:center; gap:var(--space-2); font-size:14px; }
+html[data-ui-mode=basic] .basic-worksheet-group input { width:100%; min-width:0; font-size:16px; font-weight:600; height:var(--control-height); }
+html[data-ui-mode=basic] .basic-worksheet-group output { display:block; padding:var(--space-2); text-align:right; font-weight:700; background:var(--surface-soft); border-radius:var(--radius-sm); }
+html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-heading,
+html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-setup > .format-zone-grid,
+html[data-ui-mode=basic] #basic-conveyor-panel .equipment-json-details { display:none !important; }
+html[data-ui-mode=basic] #basic-conveyor-summary > section { display:flex; flex-direction:column; gap:var(--space-3); }
+html[data-ui-mode=basic] #basic-conveyor-summary .basic-metric strong { font-size:16px; }
+html[data-ui-mode=basic] .basic-metric[data-status=PASS] strong { color:var(--success); }
+html[data-ui-mode=basic] .basic-metric[data-status=FAIL] strong { color:var(--danger); }
+html[data-ui-mode=basic] .basic-population { display:grid; gap:var(--space-2); font-size:14px; }
+html[data-ui-mode=basic] .basic-population progress { width:100%; accent-color:var(--accent); }
+@media(max-width:1000px){html[data-ui-mode=basic] .basic-conveyor-worksheet { grid-template-columns:1fr; }}
 </style>

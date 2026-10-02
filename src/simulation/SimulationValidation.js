@@ -122,6 +122,9 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path + '.gapMm', 'must be a number greater than or equal to zero'));
   }
 
+  if(zone.engineering?.runtimeGeometry?.speedMode!=='MANUAL'&&zone.engineering?.calculated?.dischargePopulationPercent>100+1e-9){
+    details.push(invalid(path+'.gapMm','discharge pitch and discharge factor must leave non-overlapping package spacing in the discharge zone'));
+  }
   const hasExplicitPitch = positiveNumber(zone.productPitchMm);
   const hasLengthAndGap = positiveNumber(zone.productLengthMm) && nonNegativeNumber(zone.gapMm);
   if (!hasExplicitPitch && !hasLengthAndGap) {
@@ -176,6 +179,8 @@ function validateRequiredNonNegative(value, path, details) {
 function validateStartProfile(equipment, path, details) {
   validateOptionalNonNegative(equipment.startupDelaySeconds, path + '.startupDelaySeconds', details);
   validateOptionalNonNegative(equipment.restartRampUpSeconds, path + '.restartRampUpSeconds', details);
+  ['conveyorSpeedFactorVsDischargeVelocityPercent','codingConveyorSpeedFactorVsPreviousConveyorPercent','conveyorSpeedFactorVsPreviousConveyorPercent','overspeedVsInfeedScrewPercent'].forEach(key=>validateOptionalNonNegative(equipment.processData?.speedAndSensors?.[key],path+'.processData.speedAndSensors.'+key,details));
+  ['actualDischargeMm','actualCodingMm'].forEach(key=>validateOptionalNonNegative(equipment.processData?.geometry?.[key],path+'.processData.geometry.'+key,details));
   validateOptionalNonNegative(equipment.processData?.upstream?.startupTimeSeconds, path + '.processData.upstream.startupTimeSeconds', details);
   validateOptionalNonNegative(equipment.processData?.downstream?.rampUpTimeSeconds, path + '.processData.downstream.rampUpTimeSeconds', details);
 }

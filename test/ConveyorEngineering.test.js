@@ -153,3 +153,13 @@ test('flags a Back-up photocell that leaves less than the calculated overflow ma
 
   assert.equal(result.audit.goals.find((goal) => goal.id === 'BACKUP_POSITION').status, 'WARNING');
 });
+
+test('worksheet zone factors, actual lengths and overspeed produce dimensional design outputs',()=>{
+  const input={installedLengthMm:20000,primeReserveMm:1500,packageLengthMm:80,upstreamDischargePitchMm:100,upstreamNominalSpeedBpm:180,downstreamHighSpeedBpm:200,downstreamInfeedPitchMm:90,conveyorSpeedFactorPercent:10,codingSpeedFactorPercent:20,accumulationSpeedFactorPercent:30,infeedOverspeedPercent:7,dischargeRunoutLengthMm:200,rejectRunoutLengthMm:300,blockedTimeDelaySeconds:1,insuranceFactorUnits:2,bottlesDischargedAtStop:3,downstreamRampUpSeconds:4};
+  const {calculated:c}=calculateConveyorEngineering(input);
+  closeTo(c.dischargeZoneSpeedMmPerSecond,330);closeTo(c.codingZoneSpeedMmPerSecond,396);closeTo(c.conveyorSpeedMmPerSecond,514.8);
+  closeTo(c.dischargePopulationPercent,240/330*100);closeTo(c.codingPopulationPercent,240/396*100);closeTo(c.populationPercent,240/514.8*100);
+  closeTo(c.overflowLengthMm,200+300+c.overflowProductLengthMm);closeTo(c.usefulAccumulationLengthMm,20000-1500-c.overflowLengthMm);
+  closeTo(c.minimumRampAccumulationLengthMm,200*80/60*4/2);closeTo(c.minimumInstalledLengthMm,c.overflowLengthMm+1500+c.minimumRampAccumulationLengthMm);
+  closeTo(c.recommendedInfeedConveyorSpeedMmPerSecond,200*90/60*1.07);closeTo(c.downstreamInfeedRateMmPerSecond,300);
+});

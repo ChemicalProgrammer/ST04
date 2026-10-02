@@ -61,9 +61,10 @@ the accumulating zone. Existing `ConveyorEngineering` calculates its overflow
 from effective product pitch (`D / P`) and already includes discharge runout,
 reject/coding length, delay and containers discharged at stop. The two
 formulations do not yet have proven equivalent definitions of `P`: the reference
-distinguishes the discharge, coding and accumulating sections, while the
-current engine derives one population from the upstream output and conveyor
-speed. A geometry-audit PASS is therefore not proof that the separate reference
+distinguishes the discharge, coding and accumulating sections. The Basic
+worksheet now reports each design population from the packed output rate and
+the compounded zone speeds. The runtime still represents one physical transport
+zone at the accumulating belt speed; it does not simulate three separate belts. A geometry-audit PASS is therefore not proof that the separate reference
 calculation was verified. Reconcile section-specific speeds/populations and
 sensor positions with the full design worksheet before replacing the existing
 physical zone model or certifying backup-sensor protection.

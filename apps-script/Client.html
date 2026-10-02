@@ -517,7 +517,13 @@ async function openCase(caseId) {
         ['belt-speed',__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
         ['moving-gap',__ST_TEXT__('conveyor.moving_gap'),__ST_TEXT__('conveyor.help_moving_gap'),'number'],
         ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number']
-      ].forEach(function(spec) {
+      ].concat(window.STBasicMode?.isBasic()?[
+        ['startup','Startup Time (sec)','Upstream restart delay for this connection.','number'],
+        ['infeed','Infeed Pitch (mm)','Downstream infeed pitch for this connection.','number'],
+        ['coding-factor','Coding factor (%)','Speed increase relative to the discharge zone.','number'],
+        ['acc-factor','Acc Zone factor (%)','Speed increase relative to the coding zone.','number'],
+        ['overspeed','Conveyor overspeed (%)','Required infeed speed margin.','number']
+      ]:[]).forEach(function(spec) {
         var label = document.createElement('label'); label.textContent = spec[1]; label.title = spec[2];
         var control = document.createElement(spec[3] === 'select' ? 'select' : 'input');
         control.className = 'format-zone-' + spec[0];
@@ -577,15 +583,26 @@ function populateFormatZoneInputs(card, equipment) {
         accumulatedGap: firstDefinedValue(formatZone.accumulatedGapMm, formatZone.accumulatedPitchMm !== undefined ? formatZone.accumulatedPitchMm - firstDefinedValue(upstream.packageLengthMm, formatZone.productLengthMm) : 0),
         speedFactor: firstDefinedValue(formatZone.conveyorSpeedFactorPercent, equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent),
         backup: formatZone.backupSensorPositionMm,
-        dischargeRunout: formatZone.dischargeRunoutLengthMm,
-        rejectRunout: formatZone.rejectRunoutLengthMm,
+        dischargeRunout: firstDefinedValue(geometry.actualDischargeMm,formatZone.dischargeRunoutLengthMm),
+        rejectRunout: firstDefinedValue(geometry.actualCodingMm,formatZone.rejectRunoutLengthMm),
         blockedDelay: formatZone.blockedTimeDelaySeconds,
         clearDelay: formatZone.clearTimeDelaySeconds,
         insurance: formatZone.insuranceFactorUnits,
         stopResponse: formatZone.upstreamStopResponseSeconds,
         residual: formatZone.bottlesDischargedAtStop,
-        downstreamRamp: formatZone.downstreamRampUpSeconds
+        downstreamRamp: firstDefinedValue(formatZone.downstreamRampUpSeconds,equipment.processData?.downstream?.rampUpTimeSeconds),
+        startup: upstream.startupTimeSeconds,
+        infeed: equipment.processData?.downstream?.infeedPitchMm,
+        codingFactor: equipment.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
+        accFactor: equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
+        overspeed: equipment.processData?.speedAndSensors?.overspeedVsInfeedScrewPercent ?? 5
       };
+      if(window.STBasicMode?.isBasic()&&equipment.type==='CONVEYOR'){
+        var up=state.activeCase?.equipment?.[Number(card.dataset.index)-1],down=state.activeCase?.equipment?.[Number(card.dataset.index)+1];
+        values.startup=firstDefinedValue(values.startup,up?.processData?.upstream?.startupTimeSeconds,0);
+        values.infeed=firstDefinedValue(values.infeed,down?.processData?.downstream?.infeedPitchMm);
+        values.downstreamRamp=firstDefinedValue(values.downstreamRamp,down?.processData?.downstream?.rampUpTimeSeconds,0);
+      }
       Object.keys(values).forEach(function(key) {
         var input = equipmentField(card, '.format-zone-' + kebabCase(key));
         if (input) input.value = values[key] === undefined || values[key] === null ? '' : values[key];
@@ -676,7 +693,12 @@ function readFormatZoneInputs(card) {
         insuranceFactorUnits: numericInputValue(equipmentField(card, '.format-zone-insurance')),
         upstreamStopResponseSeconds: numericInputValue(equipmentField(card, '.format-zone-stop-response')),
         bottlesDischargedAtStop: numericInputValue(equipmentField(card, '.format-zone-residual')),
-        downstreamRampUpSeconds: numericInputValue(equipmentField(card, '.format-zone-downstream-ramp'))
+        downstreamRampUpSeconds: numericInputValue(equipmentField(card, '.format-zone-downstream-ramp')),
+        upstreamStartupTimeSeconds: numericInputValue(equipmentField(card, '.format-zone-startup')),
+        downstreamInfeedPitchMm: numericInputValue(equipmentField(card, '.format-zone-infeed')),
+        codingFactorPercent: numericInputValue(equipmentField(card, '.format-zone-coding-factor')),
+        accFactorPercent: numericInputValue(equipmentField(card, '.format-zone-acc-factor')),
+        overspeedPercent: numericInputValue(equipmentField(card, '.format-zone-overspeed'))
       };
     }
 
@@ -710,6 +732,22 @@ function readFormatZoneInputs(card) {
         bottlesDischargedAtStop: values.bottlesDischargedAtStop,
         downstreamRampUpSeconds: values.downstreamRampUpSeconds
       });
+      if(result.geometry.actualDischargeMm!==undefined)result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
+      if(result.geometry.actualCodingMm!==undefined)result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
+      if(window.STBasicMode?.isBasic()){
+        result.accumulation.useNominalDesignSpeed=true;
+        result.accumulation.speedMode='AUTO';
+        delete result.accumulation.backupSensorPositionMm;
+        delete result.accumulation.movingGapMm;
+        delete result.accumulation.conveyorSpeedMmPerSecond;
+        result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
+        result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
+        result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;
+        result.downstream=Object.assign({},result.downstream,{infeedPitchMm:values.downstreamInfeedPitchMm,rampUpTimeSeconds:values.downstreamRampUpSeconds});
+        result.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent=values.codingFactorPercent;
+        result.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent=values.accFactorPercent;
+        result.speedAndSensors.overspeedVsInfeedScrewPercent=values.overspeedPercent;
+      }
       Object.keys(result.accumulation).forEach(function(key) {
         if (result.accumulation[key] === undefined) delete result.accumulation[key];
       });

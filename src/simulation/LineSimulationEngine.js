@@ -203,6 +203,11 @@ function createAccumulationZoneRuntime(owner, downstreamModel, allEquipment, own
     waitingUnits: 0,
     overflowUnits: 0,
     overflowEvents: 0,
+    blockingEquivalentSeconds: 0,
+    starvingEquivalentSeconds: 0,
+    constraintLossEquivalentSeconds: 0,
+    lastPartialBlockingSeconds: 0,
+    lastPartialStarvingSeconds: 0,
     inventoryIntegralUnitSeconds: 0,
     minimumInventoryUnits: 0,
     maximumInventoryUnits: 0,
@@ -298,6 +303,16 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
 function recordZoneStatistics(runtime) {
   runtime.zones.forEach((zone) => {
     if (!zone.visible) return;
+    const up=getEquipment(runtime,zone.upstreamControlEquipmentId),down=getEquipment(runtime,zone.downstreamControlEquipmentId),tick=runtime.run.tickSeconds;
+    const partialBlock=Math.max(0,(up?.partialBlockingLossSeconds||0)-zone.lastPartialBlockingSeconds);
+    const partialStarve=Math.max(0,(down?.partialStarvationLossSeconds||0)-zone.lastPartialStarvingSeconds);
+    zone.lastPartialBlockingSeconds=up?.partialBlockingLossSeconds||0;zone.lastPartialStarvingSeconds=down?.partialStarvationLossSeconds||0;
+    const blocked=up?.availabilityState==='BLOCKED'||up?.availabilityState==='BACKUP_STOP'&&up.backupControl?.zoneId===zone.id;
+    const starved=['STARVED','WAITING_FOR_PRIME'].includes(down?.availabilityState);
+    const blockLoss=blocked?tick:Math.min(tick,partialBlock),starveLoss=starved?tick:Math.min(tick,partialStarve);
+    zone.blockingEquivalentSeconds+=blockLoss;zone.starvingEquivalentSeconds+=starveLoss;
+    // Concurrent constraints count once; partial losses use their larger weight.
+    zone.constraintLossEquivalentSeconds+=Math.max(blockLoss,starveLoss);
     const inventoryUnits = getZoneInventory(zone);
     zone.inventoryIntegralUnitSeconds += inventoryUnits * runtime.run.tickSeconds;
     zone.minimumInventoryUnits = Math.min(zone.minimumInventoryUnits, inventoryUnits);
@@ -1246,6 +1261,10 @@ function createZoneMetrics(zone, durationSeconds) {
     transferCapacityPerSecond: zone.conveyorSpeedMmPerSecond / zone.productPitchMm,
     modelOrigin: zone.modelOrigin,
     geometrySources: zone.geometrySources,
+    blockingEquivalentSeconds: round(zone.blockingEquivalentSeconds),
+    starvingEquivalentSeconds: round(zone.starvingEquivalentSeconds),
+    constraintLossEquivalentSeconds: round(zone.constraintLossEquivalentSeconds),
+    conveyorConstraintLossPercent: round(100*zone.constraintLossEquivalentSeconds/Math.max(durationSeconds,1e-9)),
     finalInventoryUnits: round(getZoneInventory(zone)),
     finalWaitingUnits: round(zone.waitingUnits),
     finalInTransitUnits: round(sum(zone.transit.map((packet) => packet.units))),

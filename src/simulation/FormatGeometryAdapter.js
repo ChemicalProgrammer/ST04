@@ -95,10 +95,12 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   const installedLength = sourceValue(owner.processData?.geometry?.lactMm, 'processData.geometry.lactMm');
   const primeReserve = sourceValue(owner.processData?.geometry?.lpPrimeMm, 'processData.geometry.lpPrimeMm');
   const downstreamHighSpeed = selectValue([
+    sourceValue(format.useNominalDesignSpeed ? rateBpm(downstreamControl) : undefined, 'downstream nominalRatePerSecond'),
     sourceValue(downstreamControl?.processData?.equipment?.maximumSpeedBpm, 'downstream processData.equipment.maximumSpeedBpm'),
     sourceValue(rateBpm(downstreamControl), 'downstream nominalRatePerSecond')
   ]);
   const downstreamInfeedPitch = selectValue([
+    sourceValue(format.useNominalDesignSpeed ? owner.processData?.downstream?.infeedPitchMm : undefined, 'processData.downstream.infeedPitchMm'),
     sourceValue(downstreamControl?.processData?.downstream?.infeedPitchMm, 'downstream processData.downstream.infeedPitchMm'),
     sourceValue(owner.processData?.downstream?.infeedPitchMm, 'processData.downstream.infeedPitchMm')
   ]);
@@ -120,8 +122,11 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     downstreamHighSpeedBpm: downstreamHighSpeed.value,
     downstreamInfeedPitchMm: downstreamInfeedPitch.value,
     conveyorSpeedFactorPercent: conveyorSpeedFactor.value,
-    dischargeRunoutLengthMm: format.dischargeRunoutLengthMm,
-    rejectRunoutLengthMm: format.rejectRunoutLengthMm,
+    codingSpeedFactorPercent: owner.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent,
+    accumulationSpeedFactorPercent: owner.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent,
+    infeedOverspeedPercent: owner.processData?.speedAndSensors?.overspeedVsInfeedScrewPercent,
+    dischargeRunoutLengthMm: owner.processData?.geometry?.actualDischargeMm ?? format.dischargeRunoutLengthMm,
+    rejectRunoutLengthMm: owner.processData?.geometry?.actualCodingMm ?? format.rejectRunoutLengthMm,
     blockedTimeDelaySeconds: format.blockedTimeDelaySeconds,
     clearTimeDelaySeconds: format.clearTimeDelaySeconds,
     insuranceFactorUnits: format.insuranceFactorUnits,
@@ -129,7 +134,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     upstreamStopResponseSeconds: upstreamStopResponse.value,
     bottlesDischargedAtStop: bottlesDischargedAtStop.value,
     downstreamRampUpSeconds: downstreamRampUp.value,
-    upstreamStartupTimeSeconds: upstreamControl?.processData?.upstream?.startupTimeSeconds
+    upstreamStartupTimeSeconds: owner.processData?.upstream?.startupTimeSeconds ?? upstreamControl?.processData?.upstream?.startupTimeSeconds
   });
   const derived = calculation.calculated;
   const definition = {
@@ -138,7 +143,8 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     name: format.name || (owner.name || owner.id) + ' accumulation',
     upstreamControlEquipmentId: upstreamControl?.id,
     downstreamControlEquipmentId: downstreamControl?.id,
-    engineering: calculation
+    engineering: calculation,
+    upstreamRestartDelaySeconds: calculation.input.upstreamStartupTimeSeconds
   };
 
   assignIfDefined(definition, 'usableLengthMm', calculation.input.installedLengthMm, sources, installedLength.source);

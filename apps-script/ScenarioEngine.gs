@@ -23,6 +23,9 @@ function normaliseInput(input) {
     downstreamHighSpeedBpm: numberOrUndefined(input.downstreamHighSpeedBpm),
     downstreamInfeedPitchMm: numberOrUndefined(input.downstreamInfeedPitchMm),
     conveyorSpeedFactorPercent: numberOrUndefined(input.conveyorSpeedFactorPercent),
+    codingSpeedFactorPercent: nonNegativeOrDefault(input.codingSpeedFactorPercent, 0),
+    accumulationSpeedFactorPercent: nonNegativeOrDefault(input.accumulationSpeedFactorPercent, 0),
+    infeedOverspeedPercent: nonNegativeOrDefault(input.infeedOverspeedPercent, 5),
     dischargeRunoutLengthMm: nonNegativeOrDefault(input.dischargeRunoutLengthMm, 0),
     rejectRunoutLengthMm: nonNegativeOrDefault(input.rejectRunoutLengthMm, 0),
     blockedTimeDelaySeconds: nonNegativeOrDefault(input.blockedTimeDelaySeconds, 0),
@@ -47,10 +50,14 @@ function calculate(values) {
     values.packageLengthMm,
     60
   );
-  const conveyorSpeedMmPerSecond = isFiniteNumber(upstreamDischargeVelocityMmPerSecond) &&
+  const dischargeZoneSpeedMmPerSecond = isFiniteNumber(upstreamDischargeVelocityMmPerSecond) &&
     isFiniteNumber(values.conveyorSpeedFactorPercent)
     ? upstreamDischargeVelocityMmPerSecond * (1 + values.conveyorSpeedFactorPercent / 100)
     : undefined;
+  const codingZoneSpeedMmPerSecond = multiplyIfFinite(dischargeZoneSpeedMmPerSecond, 1 + values.codingSpeedFactorPercent / 100);
+  const conveyorSpeedMmPerSecond = multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
+  const dischargePopulationPercent = safeDivide(machineOutputRateMmPerSecond, dischargeZoneSpeedMmPerSecond, 100);
+  const codingPopulationPercent = safeDivide(machineOutputRateMmPerSecond, codingZoneSpeedMmPerSecond, 100);
   const populationPercent = safeDivide(machineOutputRateMmPerSecond, conveyorSpeedMmPerSecond, 100);
   const effectiveProductPitchMm = safeDivide(values.packageLengthMm, populationPercent, 100);
   const productGapMm = isFiniteNumber(effectiveProductPitchMm) && isFiniteNumber(values.packageLengthMm)
@@ -113,14 +120,25 @@ function calculate(values) {
   const recommendedInfeedConveyorSpeedMmPerSecond = multiplyAndDivide(
     values.downstreamHighSpeedBpm,
     values.downstreamInfeedPitchMm,
-    60 / 1.05
+    60 / (1 + values.infeedOverspeedPercent / 100)
   );
   const recommendedConveyorSpeedFactorPercent = isFiniteNumber(recommendedInfeedConveyorSpeedMmPerSecond) &&
     isFiniteNumber(upstreamDischargeVelocityMmPerSecond) && upstreamDischargeVelocityMmPerSecond > 0
     ? (recommendedInfeedConveyorSpeedMmPerSecond / upstreamDischargeVelocityMmPerSecond - 1) * 100
     : undefined;
 
+  // Linear ramp-up integral: reserve half the full-rate consumption over the ramp.
+  const minimumRampAccumulationLengthMm = multiplyAndDivide(downstreamConsumptionRateMmPerSecond, values.downstreamRampUpSeconds, 2);
+  const minimumInstalledLengthMm = sumIfFinite(overflowLengthMm, values.primeReserveMm, minimumRampAccumulationLengthMm);
+  const downstreamInfeedRateMmPerSecond = multiplyAndDivide(values.downstreamHighSpeedBpm, values.downstreamInfeedPitchMm, 60);
   return compact({
+    dischargeZoneSpeedMmPerSecond,
+    codingZoneSpeedMmPerSecond,
+    dischargePopulationPercent,
+    codingPopulationPercent,
+    minimumRampAccumulationLengthMm,
+    minimumInstalledLengthMm,
+    downstreamInfeedRateMmPerSecond,
     upstreamDischargeVelocityMmPerSecond,
     machineOutputRateMmPerSecond,
     conveyorSpeedMmPerSecond,
@@ -391,10 +409,12 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   const installedLength = sourceValue(owner.processData?.geometry?.lactMm, 'processData.geometry.lactMm');
   const primeReserve = sourceValue(owner.processData?.geometry?.lpPrimeMm, 'processData.geometry.lpPrimeMm');
   const downstreamHighSpeed = selectValue([
+    sourceValue(format.useNominalDesignSpeed ? rateBpm(downstreamControl) : undefined, 'downstream nominalRatePerSecond'),
     sourceValue(downstreamControl?.processData?.equipment?.maximumSpeedBpm, 'downstream processData.equipment.maximumSpeedBpm'),
     sourceValue(rateBpm(downstreamControl), 'downstream nominalRatePerSecond')
   ]);
   const downstreamInfeedPitch = selectValue([
+    sourceValue(format.useNominalDesignSpeed ? owner.processData?.downstream?.infeedPitchMm : undefined, 'processData.downstream.infeedPitchMm'),
     sourceValue(downstreamControl?.processData?.downstream?.infeedPitchMm, 'downstream processData.downstream.infeedPitchMm'),
     sourceValue(owner.processData?.downstream?.infeedPitchMm, 'processData.downstream.infeedPitchMm')
   ]);
@@ -416,8 +436,11 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     downstreamHighSpeedBpm: downstreamHighSpeed.value,
     downstreamInfeedPitchMm: downstreamInfeedPitch.value,
     conveyorSpeedFactorPercent: conveyorSpeedFactor.value,
-    dischargeRunoutLengthMm: format.dischargeRunoutLengthMm,
-    rejectRunoutLengthMm: format.rejectRunoutLengthMm,
+    codingSpeedFactorPercent: owner.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent,
+    accumulationSpeedFactorPercent: owner.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent,
+    infeedOverspeedPercent: owner.processData?.speedAndSensors?.overspeedVsInfeedScrewPercent,
+    dischargeRunoutLengthMm: owner.processData?.geometry?.actualDischargeMm ?? format.dischargeRunoutLengthMm,
+    rejectRunoutLengthMm: owner.processData?.geometry?.actualCodingMm ?? format.rejectRunoutLengthMm,
     blockedTimeDelaySeconds: format.blockedTimeDelaySeconds,
     clearTimeDelaySeconds: format.clearTimeDelaySeconds,
     insuranceFactorUnits: format.insuranceFactorUnits,
@@ -425,7 +448,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     upstreamStopResponseSeconds: upstreamStopResponse.value,
     bottlesDischargedAtStop: bottlesDischargedAtStop.value,
     downstreamRampUpSeconds: downstreamRampUp.value,
-    upstreamStartupTimeSeconds: upstreamControl?.processData?.upstream?.startupTimeSeconds
+    upstreamStartupTimeSeconds: owner.processData?.upstream?.startupTimeSeconds ?? upstreamControl?.processData?.upstream?.startupTimeSeconds
   });
   const derived = calculation.calculated;
   const definition = {
@@ -434,7 +457,8 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     name: format.name || (owner.name || owner.id) + ' accumulation',
     upstreamControlEquipmentId: upstreamControl?.id,
     downstreamControlEquipmentId: downstreamControl?.id,
-    engineering: calculation
+    engineering: calculation,
+    upstreamRestartDelaySeconds: calculation.input.upstreamStartupTimeSeconds
   };
 
   assignIfDefined(definition, 'usableLengthMm', calculation.input.installedLengthMm, sources, installedLength.source);
@@ -732,6 +756,9 @@ function validatePhysicalZone(zone, path, details) {
     details.push(invalid(path + '.gapMm', 'must be a number greater than or equal to zero'));
   }
 
+  if(zone.engineering?.runtimeGeometry?.speedMode!=='MANUAL'&&zone.engineering?.calculated?.dischargePopulationPercent>100+1e-9){
+    details.push(invalid(path+'.gapMm','discharge pitch and discharge factor must leave non-overlapping package spacing in the discharge zone'));
+  }
   const hasExplicitPitch = positiveNumber(zone.productPitchMm);
   const hasLengthAndGap = positiveNumber(zone.productLengthMm) && nonNegativeNumber(zone.gapMm);
   if (!hasExplicitPitch && !hasLengthAndGap) {
@@ -786,6 +813,8 @@ function validateRequiredNonNegative(value, path, details) {
 function validateStartProfile(equipment, path, details) {
   validateOptionalNonNegative(equipment.startupDelaySeconds, path + '.startupDelaySeconds', details);
   validateOptionalNonNegative(equipment.restartRampUpSeconds, path + '.restartRampUpSeconds', details);
+  ['conveyorSpeedFactorVsDischargeVelocityPercent','codingConveyorSpeedFactorVsPreviousConveyorPercent','conveyorSpeedFactorVsPreviousConveyorPercent','overspeedVsInfeedScrewPercent'].forEach(key=>validateOptionalNonNegative(equipment.processData?.speedAndSensors?.[key],path+'.processData.speedAndSensors.'+key,details));
+  ['actualDischargeMm','actualCodingMm'].forEach(key=>validateOptionalNonNegative(equipment.processData?.geometry?.[key],path+'.processData.geometry.'+key,details));
   validateOptionalNonNegative(equipment.processData?.upstream?.startupTimeSeconds, path + '.processData.upstream.startupTimeSeconds', details);
   validateOptionalNonNegative(equipment.processData?.downstream?.rampUpTimeSeconds, path + '.processData.downstream.rampUpTimeSeconds', details);
 }

@@ -37,7 +37,7 @@ Basic uses the existing controls and persistence pipeline:
   distance below the import controls.
 
 Advance uses the existing sidebar, inspector, Gemini, tables, and notes.
-The physical equations are unchanged. Both modes allow 1–100 replications and the playback speeds 1×, 5×, 10×, 50× and 100×. Basic adds speed, eight-hour shift and round controls above the machines, plus theoretical and simulated efficiencies. The conveyor column shows capacity, anti-starve/anti-block minutes, validation and separate Inputs/Results views. Basic initializes equipment automatically;
+The physical equations are unchanged. Both modes allow 1–100 replications and the playback speeds 1×, 5×, 10×, 50× and 100×. Basic adds speed, eight-hour shift and round controls above the machines, plus theoretical and simulated efficiencies. The Run button appears only in Simulation. The conveyor column has four Input groups (UPSTREAM, DOWNSTREAM, GEOMETRY, Speed & Sensors) and a Results tab with design checks and measured connection losses. Static outputs are available before a run; measured outputs require a current run. Basic initializes equipment automatically;
 Advance keeps the Initial Mode selector. Hiding fields is not access control.
 
 Settings includes **Show JSON fields**. Basic defaults to hidden; Advance

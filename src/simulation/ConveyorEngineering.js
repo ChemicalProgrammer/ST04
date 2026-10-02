@@ -21,6 +21,9 @@ function normaliseInput(input) {
     downstreamHighSpeedBpm: numberOrUndefined(input.downstreamHighSpeedBpm),
     downstreamInfeedPitchMm: numberOrUndefined(input.downstreamInfeedPitchMm),
     conveyorSpeedFactorPercent: numberOrUndefined(input.conveyorSpeedFactorPercent),
+    codingSpeedFactorPercent: nonNegativeOrDefault(input.codingSpeedFactorPercent, 0),
+    accumulationSpeedFactorPercent: nonNegativeOrDefault(input.accumulationSpeedFactorPercent, 0),
+    infeedOverspeedPercent: nonNegativeOrDefault(input.infeedOverspeedPercent, 5),
     dischargeRunoutLengthMm: nonNegativeOrDefault(input.dischargeRunoutLengthMm, 0),
     rejectRunoutLengthMm: nonNegativeOrDefault(input.rejectRunoutLengthMm, 0),
     blockedTimeDelaySeconds: nonNegativeOrDefault(input.blockedTimeDelaySeconds, 0),
@@ -45,10 +48,14 @@ function calculate(values) {
     values.packageLengthMm,
     60
   );
-  const conveyorSpeedMmPerSecond = isFiniteNumber(upstreamDischargeVelocityMmPerSecond) &&
+  const dischargeZoneSpeedMmPerSecond = isFiniteNumber(upstreamDischargeVelocityMmPerSecond) &&
     isFiniteNumber(values.conveyorSpeedFactorPercent)
     ? upstreamDischargeVelocityMmPerSecond * (1 + values.conveyorSpeedFactorPercent / 100)
     : undefined;
+  const codingZoneSpeedMmPerSecond = multiplyIfFinite(dischargeZoneSpeedMmPerSecond, 1 + values.codingSpeedFactorPercent / 100);
+  const conveyorSpeedMmPerSecond = multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
+  const dischargePopulationPercent = safeDivide(machineOutputRateMmPerSecond, dischargeZoneSpeedMmPerSecond, 100);
+  const codingPopulationPercent = safeDivide(machineOutputRateMmPerSecond, codingZoneSpeedMmPerSecond, 100);
   const populationPercent = safeDivide(machineOutputRateMmPerSecond, conveyorSpeedMmPerSecond, 100);
   const effectiveProductPitchMm = safeDivide(values.packageLengthMm, populationPercent, 100);
   const productGapMm = isFiniteNumber(effectiveProductPitchMm) && isFiniteNumber(values.packageLengthMm)
@@ -111,14 +118,25 @@ function calculate(values) {
   const recommendedInfeedConveyorSpeedMmPerSecond = multiplyAndDivide(
     values.downstreamHighSpeedBpm,
     values.downstreamInfeedPitchMm,
-    60 / 1.05
+    60 / (1 + values.infeedOverspeedPercent / 100)
   );
   const recommendedConveyorSpeedFactorPercent = isFiniteNumber(recommendedInfeedConveyorSpeedMmPerSecond) &&
     isFiniteNumber(upstreamDischargeVelocityMmPerSecond) && upstreamDischargeVelocityMmPerSecond > 0
     ? (recommendedInfeedConveyorSpeedMmPerSecond / upstreamDischargeVelocityMmPerSecond - 1) * 100
     : undefined;
 
+  // Linear ramp-up integral: reserve half the full-rate consumption over the ramp.
+  const minimumRampAccumulationLengthMm = multiplyAndDivide(downstreamConsumptionRateMmPerSecond, values.downstreamRampUpSeconds, 2);
+  const minimumInstalledLengthMm = sumIfFinite(overflowLengthMm, values.primeReserveMm, minimumRampAccumulationLengthMm);
+  const downstreamInfeedRateMmPerSecond = multiplyAndDivide(values.downstreamHighSpeedBpm, values.downstreamInfeedPitchMm, 60);
   return compact({
+    dischargeZoneSpeedMmPerSecond,
+    codingZoneSpeedMmPerSecond,
+    dischargePopulationPercent,
+    codingPopulationPercent,
+    minimumRampAccumulationLengthMm,
+    minimumInstalledLengthMm,
+    downstreamInfeedRateMmPerSecond,
     upstreamDischargeVelocityMmPerSecond,
     machineOutputRateMmPerSecond,
     conveyorSpeedMmPerSecond,

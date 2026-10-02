@@ -707,8 +707,8 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   assert.equal(style(h.d.getElementById('gemini-panel')),'none');
   conveyors[1].click();
   assert.equal(h.d.querySelector('#basic-conveyor-panel h3').textContent,conveyors[1].querySelector('.equipment-header strong').textContent);
-  const gap=conveyors[1]._fields.querySelector('.format-zone-moving-gap');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
-  await waitFor(()=>h.storedCases()[0].equipment[3].processData.accumulation.movingGapMm===23);
+  const gap=conveyors[1]._fields.querySelector('.format-zone-coding-factor');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[3].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===23);
   await h.click('[data-basic-view="equipment"]');assert.equal(h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-rate').value,'333');
   await h.click('[data-basic-view="vgraph"]');assert(h.d.querySelector('#vgraph-plot svg'));
   assert.equal(style(h.d.querySelector('#line-performance .table-scroll')),'none');
@@ -847,9 +847,9 @@ test('UI Basic: Gemini is available in every section and resizes without hiding 
   }
   await h.click('[data-basic-view="conveyors"]');
   const inspector=h.d.getElementById('equipment-inspector');assert.equal(inspector.parentElement.id,'basic-conveyor-panel');assert(!inspector.classList.contains('hidden'));
-  const gap=inspector.querySelector('.format-zone-moving-gap');gap.value='29';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  const gap=inspector.querySelector('.format-zone-coding-factor');gap.value='29';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   h.d.getElementById('gemini-question').value='Analyze the conveyors';await h.click('#send-gemini');await waitFor(()=>h.calls.includes('askGemini')&&/Analysis of the saved case/.test(h.d.getElementById('gemini-messages').textContent));
-  assert.equal(h.storedCases()[0].equipment[1].processData.accumulation.movingGapMm,29);
+  assert.equal(h.storedCases()[0].equipment[1].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,29);
   const grip=h.d.getElementById('gemini-resize'),width=Number(grip.getAttribute('aria-valuenow'));
   grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert(Number(grip.getAttribute('aria-valuenow'))>width);assert(h.w.localStorage.getItem('st.ui.v1.assistant-width'));
   await h.click('#close-gemini');assert(!h.visible('gemini-panel'));assert.equal(h.d.activeElement,toggle);assert(!inspector.classList.contains('hidden'));
@@ -894,16 +894,54 @@ test('UI Basic: worksheet controls, calculated buffers, Results availability and
   await h.click('#basic-run-controls [data-control="run-playback-rate"][data-value="50"]');assert.equal(h.d.getElementById('run-playback-rate').value,'50');
   // Keep the integration run short; shift duration is tested in the batch engine.
   h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='20';
-  await h.click('#basic-start-simulation');await waitFor(()=>!results.classList.contains('hidden'));await h.click('#pause-simulation');
+  assert.equal(h.d.getElementById('basic-start-simulation'),null);await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await waitFor(()=>!results.classList.contains('hidden'));await h.click('#pause-simulation');
   await h.click('[data-basic-view="results"]');assert.equal(h.d.documentElement.dataset.basicView,'results');assert(h.visible('results-body'));assert.equal(display(h.d.getElementById('line-performance')),'none');assert(h.d.querySelector('#results-table table'));
   await h.click('[data-basic-view="vgraph"]');assert.equal(display(h.d.getElementById('line-performance')),'block');assert.equal(h.w.getComputedStyle(h.d.documentElement).getPropertyValue('--vgraph-height'),'440px');
   assert.equal(h.d.querySelector('.vgraph-key-normal').textContent,'Current');assert.equal(h.d.querySelector('.vgraph-key-recommended').textContent,'Recommended');
   h.api.askGemini=request=>({text:'Describe suggested improvements.',proposals:[h.w.STScenarios.plan(h.storedCases()[0].simulations[0]).projects.find(p=>p.canApply)]});
   await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Describe suggested'));
   assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
-  await h.click('[data-basic-view="conveyors"]');assert(h.d.getElementById('basic-conveyor-summary').textContent.includes('Tacc Anti-Starve'));
+  await h.click('[data-basic-view="conveyors"]');assert(h.d.querySelector('.basic-conveyor-worksheet'));assert(h.d.getElementById('basic-conveyor-summary').textContent.includes('Tacc Antistarve'));
   await h.click('[data-conveyor-view="results"]');assert(h.d.getElementById('equipment-inspector').classList.contains('hidden'));
   await h.click('[data-conveyor-view="inputs"]');assert(!h.d.getElementById('equipment-inspector').classList.contains('hidden'));
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Basic: four conveyor worksheet groups persist inputs and expose static and observed outputs',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+  assert.equal(h.d.getElementById('basic-start-simulation'),null);
+  const machine=h.d.querySelector('.basic-machine'),change=(control,value)=>{control.value=String(value);control.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+  change(machine._fields.querySelector('.equipment-rate'),120);change(machine._fields.querySelector('.reliability-mtbfMinutes'),.2);change(machine._fields.querySelector('.reliability-mttrMinutes'),.1);
+  await waitFor(()=>h.storedCases()[0].equipment[0].noiseProfile.reliability.mtbfMinutes===.2);
+  assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
+  await h.click('[data-basic-view="conveyors"]');
+  let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,17);
+  const values={'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
+  Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
+  await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.overspeedVsInfeedScrewPercent===7);
+  const saved=h.storedCases()[0].equipment[1].processData;
+  assert.equal(saved.geometry.actualDischargeMm,300);assert.equal(saved.geometry.actualCodingMm,200);assert.equal(saved.upstream.startupTimeSeconds,2.4);assert.equal(saved.downstream.infeedPitchMm,125);assert.equal(saved.downstream.rampUpTimeSeconds,5);
+  assert.equal(saved.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,20);assert.equal(saved.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent,30);
+  assert.equal(saved.accumulation.speedMode,'AUTO');assert.equal(saved.accumulation.movingGapMm,undefined);
+  const audit=h.w.STScenarios.audit({equipment:h.storedCases()[0].equipment})[0],c=audit.engineering.calculated;
+  assert.equal(fields.querySelector('[data-basic-output=lbu]').textContent,c.overflowLengthMm.toLocaleString(undefined,{maximumFractionDigits:2}));
+  await h.click('[data-conveyor-view="results"]');let results=h.d.getElementById('basic-conveyor-summary');assert(!results.classList.contains('hidden'));
+  for(const label of ['Tacc Antistarve (sec)','Tacc Antiblock (sec)','Lact vs Lmin','Conv Loss (%)','Lba actual (mm)','Lba min rampup (mm)','Lrec (mm)','Overflow req (mm)','Lmin required (mm)','Min infeed speed (m/min)','Block upstream','Starve downstream','Lost blocking/hr (s)','Lost starving/hr (s)'])assert(results.textContent.includes(label),label);
+  assert.equal(results.querySelectorAll('progress').length,3);assert.equal(results.querySelectorAll('input').length,0);
+  assert(results.textContent.includes('—'),'No invented dynamic losses before a run');
+  await h.click('[data-conveyor-view="inputs"]');
+  const second=h.d.querySelectorAll('.equipment-card:not(.hidden)')[1];second.click();await settle();
+  fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');change(fields.querySelector('.format-zone-coding-factor'),11);
+  await waitFor(()=>h.storedCases()[0].equipment[3].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===11);
+  assert.equal(h.storedCases()[0].equipment[1].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,20);
+  await h.click('[data-basic-view="simulation"]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='60';await h.click('#run-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].results);await h.click('#pause-simulation');
+  assert(h.storedCases()[0].simulations[0].results.equipmentMetrics['blowmolder-1'].failureCount>0);
+  await h.click('[data-basic-view="conveyors"]');await h.click('[data-conveyor-view="results"]');results=h.d.getElementById('basic-conveyor-summary');assert(!Array.from(results.querySelectorAll('.basic-metric')).find(row=>row.querySelector('span').textContent==='Conv Loss (%)').querySelector('strong').textContent.includes('—'));
+  await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view="conveyors"]');h.d.querySelector('.equipment-card:not(.hidden)').click();await settle();
+  fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');assert.equal(fields.querySelector('.format-zone-coding-factor').value,'20');assert.equal(fields.querySelector('.format-zone-startup').value,'2.4');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

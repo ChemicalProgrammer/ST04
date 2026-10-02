@@ -1,7 +1,7 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext,setupControls,efficiencies,startButton,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext,setupControls,efficiencies,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['results',__ST_TEXT__('shell.results'),'chart','results']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
@@ -43,7 +43,6 @@ window.STBasicMode=(function(){
       }
       group._label=label;
     });
-    startButton=button('Start simulation','play',function(){document.getElementById('run-simulation').click();});startButton.id='basic-start-simulation';layout.after(startButton);
     inspector=document.getElementById('equipment-inspector');inspectorHome=inspector.parentNode;inspectorNext=inspector.nextSibling;
     window.addEventListener('st:inspector',function(){if(basic()){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
     sync(current);
@@ -61,7 +60,7 @@ window.STBasicMode=(function(){
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
     var cards=Array.from(list.querySelectorAll('.equipment-card'));
-    cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');});
+    cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');if(type(card)==='CONVEYOR')prepareWorksheet(card);});
     if(active&&view==='editor'){
       var conveyor=section==='conveyors';
       inspector.classList.toggle('hidden',!conveyor);
@@ -84,7 +83,39 @@ window.STBasicMode=(function(){
       host.insertBefore(efficiencies,before);host.insertBefore(setupControls,before);
     }
     refreshData();
-    STIcons.decorate(nav);STIcons.decorate(tools);STIcons.decorate(startButton);
+    STIcons.decorate(nav);STIcons.decorate(tools);
+  }
+  function prepareWorksheet(card){
+    var fields=card._fields;if(fields._basicWorksheet)return;
+    var setup=fields.querySelector('.format-zone-setup'),worksheet=node('div','','basic-conveyor-worksheet');setup.appendChild(worksheet);
+    var groups=[
+      ['UPSTREAM','upstream',[
+        ['package-length','Package Length (mm)'],['discharge-pitch','Discharge Pitch (mm)'],['startup','Startup Time (sec)'],['residual','Bottles at Stop'],
+        [null,'Package velocity (m/min)','package-velocity'],[null,'Output rate B2B (m/min)','output-b2b']]],
+      ['DOWNSTREAM','downstream',[
+        ['infeed','Infeed Pitch (mm)'],['downstream-ramp','Ramp Up Time (sec)'],[null,'Consumption Rate (m/min)','consumption']]],
+      ['GEOMETRY','geometry',[
+        ['lact','Lact = Total Length (mm)'],['lp-prime','Lp = Prime Zone (mm)'],['discharge-runout','Discharge Actual (mm)'],['reject-runout','Coding Actual (mm)'],
+        [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],[null,'Lba = Lact − Lbu − Lp (mm)','lba']]],
+      ['Speed & Sensors','sensors',[
+        ['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
+        ['clear-delay','Back up clear delay (sec)'],['insurance','Insurance factor (pkgs)'],['overspeed','Conveyor overspeed (%)']]]
+    ];
+    groups.forEach(function(group){var section=node('section','','basic-worksheet-group format-zone-grid'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);
+      group[2].forEach(function(spec){var label;
+        if(spec[0]){var control=fields.querySelector('.format-zone-'+spec[0]);label=control.closest('label');if(label.firstChild?.nodeType===Node.TEXT_NODE)label.firstChild.nodeValue=spec[1];section.appendChild(label);}
+        else {label=node('label',spec[1],'basic-worksheet-calculated');var output=node('output','—');output.dataset.basicOutput=spec[2];label.appendChild(output);section.appendChild(label);}
+      });
+    });
+    fields._basicWorksheet=worksheet;
+  }
+  function updateWorksheet(card,audit,equipment){
+    prepareWorksheet(card);
+    var fields=card._fields,c=audit?.engineering?.calculated,up=equipment.find(function(e){return e.id===audit?.upstreamId;}),down=equipment.find(function(e){return e.id===audit?.downstreamId;});
+    fields.querySelector('[data-basic-group=upstream]').textContent='UPSTREAM: '+(up?.name||'—')+' ('+number(up?.nominalRatePerSecond*60)+' BPM)';
+    fields.querySelector('[data-basic-group=downstream]').textContent='DOWNSTREAM: '+(down?.name||'—')+' ('+number(down?.nominalRatePerSecond*60)+' BPM)';
+    var outputs={'package-velocity':c?.upstreamDischargeVelocityMmPerSecond*.06,'output-b2b':c?.machineOutputRateMmPerSecond*.06,'consumption':c?.downstreamInfeedRateMmPerSecond*.06,'overflow':c?.overflowProductLengthMm,'lbu':c?.overflowLengthMm,'lba':c?.usefulAccumulationLengthMm};
+    fields.querySelectorAll('[data-basic-output]').forEach(function(output){output.textContent=number(outputs[output.dataset.basicOutput]);});
   }
   function number(value,digits){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:digits??2}):'—';}
   function node(tag,text,cls){var n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n;}
@@ -101,40 +132,44 @@ window.STBasicMode=(function(){
       var data=card.querySelector('.basic-card-data');if(!data){data=node('section','','basic-card-data');card.appendChild(data);}
       data.replaceChildren();
       if(machine){
+        var speedLabel=card._fields.querySelector('.equipment-rate').closest('label');if(speedLabel.firstChild?.nodeType===Node.TEXT_NODE)speedLabel.firstChild.nodeValue='Speed (BPM)';
         var reliability=e.noiseProfile.reliability||{},a=reliability.mtbfMinutes/(reliability.mtbfMinutes+reliability.mttrMinutes);availability*=Number.isFinite(a)?a:NaN;
         var next=equipment[index+1],audit=next?.type==='CONVEYOR'?audits.find(function(x){return x.equipmentId===next.id;}):null;
         var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits,downstream=equipment.find(function(x){return x.id===audit?.downstreamId;});
         var buffer=next?.type==='CONVEYOR'?capacity/(downstream?.nominalRatePerSecond*60):0;
-        var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail: '+number(a*100,1)+'%','basic-availability'));
+        var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail (%): '+number(a*100,1),'basic-availability'));
       }else{
         var audit=audits.find(function(x){return x.equipmentId===e.id;}),calc=audit?.engineering?.calculated;
-        var metricData=state.run.result?.equipmentMetrics?.[e.id],loss=metricData?100-(metricData.processingCapacityPercent??metricData.oeePercent):null;
+        var zone=Object.values(state.run.result?.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),loss=zone?.conveyorConstraintLossPercent??null;
         metric(data,'Loss',number(loss,1)+(loss===null?'':'%'));metric(data,'Tacc AB',number(calc?.antiBlockSeconds,0)+' s');
         data.appendChild(node('strong',audit?.engineering?.audit?.status||'NOT EVALUATED','basic-validation'));
       }
     });
     efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(state.run.result?.summary?.lineOeePercent,1)+(state.run.result?'%':''));
     setupControls.querySelectorAll('[data-control]').forEach(function(b){b.setAttribute('aria-pressed',String(document.getElementById(b.dataset.control).value===b.dataset.value));});
-    startButton.disabled=document.getElementById('run-simulation').disabled;
     var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;}),c=audit?.engineering?.calculated,unit=equipment.find(function(e){return e.id===audit?.downstreamId;});
     if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;
-    conveyorSummary.replaceChildren();conveyorSummary.appendChild(node('h4','Accumulation capacity'));
-    var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits;
-    metric(conveyorSummary,'Total capacity ('+number(capacity,0)+' units)',number(capacity/(unit?.nominalRatePerSecond*60))+' min');
-    metric(conveyorSummary,'Tacc Anti-Starve',number(c?.antiStarveSeconds/60)+' min');metric(conveyorSummary,'Tacc Anti-Block',number(c?.antiBlockSeconds/60)+' min');
-    var validation=node('section','','basic-conveyor-validation');validation.appendChild(node('h4','Validation'));
-    var up=equipment.find(function(e){return e.id===audit?.upstreamId;}),down=equipment.find(function(e){return e.id===audit?.downstreamId;});
-    validation.appendChild(node('p','Physical capacity · '+(audit?.engineering?.audit?.status||'NOT EVALUATED')));
-    [[c?.antiStarveSeconds,up?.noiseProfile?.reliability?.mttrMinutes,'AS','up'],[c?.antiBlockSeconds,down?.noiseProfile?.reliability?.mttrMinutes,'AB','down']].forEach(function(row){
-      var evaluated=Number.isFinite(row[0])&&Number.isFinite(row[1]);
-      validation.appendChild(node('p',(evaluated?(row[0]>=row[1]*60?'OK':'FAIL'):'NOT EVALUATED')+' '+row[2]+' '+number(row[0],0)+' s ≥ MTTR '+row[3]+' '+number(row[1]*60,0)+' s'));
-    });conveyorSummary.appendChild(validation);
-    if(conveyorView==='results'){
-      var m=state.run.result?.equipmentMetrics?.[id];
-      if(m){metric(conveyorSummary,'Processed',number(m.outputCount,0));metric(conveyorSummary,'Efficiency',number(m.processingCapacityPercent,1)+'%');metric(conveyorSummary,'Blocked',number(m.blockedSeconds/60)+' min');metric(conveyorSummary,'Starved',number(m.starvedSeconds/60)+' min');}
-    }
+    if(chosen)updateWorksheet(chosen,audit,equipment);
+    conveyorSummary.replaceChildren();
+    var left=node('section','','basic-conveyor-result-column'),right=node('section','','basic-conveyor-result-column');conveyorSummary.append(left,right);
+    var zone=Object.values(state.run.result?.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===id;}),duration=state.run.result?.durationSeconds;
+    var status=Number.isFinite(c?.minimumInstalledLengthMm)&&Number.isFinite(audit?.engineering?.input.installedLengthMm)?audit.engineering.input.installedLengthMm>=c.minimumInstalledLengthMm?'PASS':'FAIL':'NOT EVALUATED';
+    metric(left,'Tacc Antistarve (sec)',number(c?.antiStarveSeconds));metric(right,'Tacc Antiblock (sec)',number(c?.antiBlockSeconds));
+    var pass=node('div','','basic-metric');pass.dataset.status=status;pass.append(node('span','Lact vs Lmin'),node('strong',status));left.appendChild(pass);
+    metric(right,'Conv Loss (%)',number(zone?.conveyorConstraintLossPercent));
+    [['Lba actual (mm)',c?.usefulAccumulationLengthMm],['Lba min rampup (mm)',c?.minimumRampAccumulationLengthMm],['Lrec (mm)',c?.recoveryLengthMm],['Overflow req (mm)',c?.overflowProductLengthMm],['Lmin required (mm)',c?.minimumInstalledLengthMm],['Min infeed speed (m/min)',c?.recommendedInfeedConveyorSpeedMmPerSecond*.06]].forEach(function(row){metric(left,row[0],number(row[1]));});
+    [['Discharge zone',c?.dischargePopulationPercent],['Coding zone',c?.codingPopulationPercent],['Acc zone',c?.populationPercent]].forEach(function(row){
+      var label=node('label',row[0]+' · '+number(row[1])+'%','basic-population');label.title='Calculated design population (packed material rate / zone belt speed); this is not live inventory.';
+      var bar=document.createElement('progress');bar.max=100;if(Number.isFinite(row[1]))bar.value=Math.max(0,Math.min(100,row[1]));bar.setAttribute('aria-label',row[0]+' population');label.appendChild(bar);right.appendChild(label);
+    });
+    metric(right,'Block upstream',Number.isFinite(zone?.blockingEquivalentSeconds)?zone.blockingEquivalentSeconds>0?'YES':'NO':'—');
+    metric(right,'Starve downstream',Number.isFinite(zone?.starvingEquivalentSeconds)?zone.starvingEquivalentSeconds>0?'YES':'NO':'—');
+    metric(right,'Lost blocking/hr (s)',number(duration>0?zone?.blockingEquivalentSeconds/duration*3600:undefined));
+    metric(right,'Lost starving/hr (s)',number(duration>0?zone?.starvingEquivalentSeconds/duration*3600:undefined));
+    right.title='Observed equivalent loss seconds per hour; concurrent upstream blocking and downstream starving count once in Conv Loss.';
+    conveyorSummary.classList.toggle('hidden',conveyorView!=='results');
     inspector.classList.toggle('hidden',state.uiView!=='editor'||state.basicView!=='conveyors'||conveyorView!=='inputs');
-    conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=b.dataset.conveyorView==='results'&&!state.run.result?.summary;});
+    conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=false;});
   }
   return {init:init,sync:sync,inline:inline,isBasic:basic,newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
