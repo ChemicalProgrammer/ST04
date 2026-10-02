@@ -99,7 +99,7 @@ window.STBasicMode=(function(){
         ['lact','Lact = Total Length (mm)'],['lp-prime','Lp = Prime Zone (mm)'],['discharge-runout','Discharge Actual (mm)'],['reject-runout','Coding Actual (mm)'],
         [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],[null,'Lba = Lact − Lbu − Lp (mm)','lba']]],
       ['Speed & Sensors','sensors',[
-        ['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
+        ['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
         ['clear-delay','Back up clear delay (sec)'],['insurance','Insurance factor (pkgs)'],['overspeed','Conveyor overspeed (%)']]]
     ];
     groups.forEach(function(group){var section=node('section','','basic-worksheet-group format-zone-grid'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);

@@ -919,14 +919,14 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
-  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,17);
-  const values={'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,18);
+  const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
   Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
   await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.overspeedVsInfeedScrewPercent===7);
   const saved=h.storedCases()[0].equipment[1].processData;
   assert.equal(saved.geometry.actualDischargeMm,300);assert.equal(saved.geometry.actualCodingMm,200);assert.equal(saved.upstream.startupTimeSeconds,2.4);assert.equal(saved.downstream.infeedPitchMm,125);assert.equal(saved.downstream.rampUpTimeSeconds,5);
   assert.equal(saved.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,20);assert.equal(saved.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent,30);
-  assert.equal(saved.accumulation.speedMode,'AUTO');assert.equal(saved.accumulation.movingGapMm,undefined);
+  assert.equal(saved.accumulation.speedMode,'MANUAL');assert.equal(saved.accumulation.conveyorSpeedMmPerSecond,500);assert.equal(saved.accumulation.movingGapMm,undefined);
   const audit=h.w.STScenarios.audit({equipment:h.storedCases()[0].equipment})[0],c=audit.engineering.calculated;
   assert.equal(fields.querySelector('[data-basic-output=lbu]').textContent,c.overflowLengthMm.toLocaleString(undefined,{maximumFractionDigits:2}));
   await h.click('[data-conveyor-view="results"]');let results=h.d.getElementById('basic-conveyor-summary');assert(!results.classList.contains('hidden'));
@@ -987,4 +987,28 @@ test('UI: hidden mode selector requires five deliberate M presses, saves pending
  }finally{h.dom.window.close();}
  const persisted=await setup({remember:true,uiMode:'BASIC',savedUiMode:'ADVANCE'});try{assert.equal(persisted.d.documentElement.dataset.uiMode,'advance');assert.deepEqual(persisted.errors,[]);}finally{persisted.dom.window.close();}
  const other=await setup({remember:true,uiMode:'BASIC'});try{assert.equal(other.d.documentElement.dataset.uiMode,'basic');}finally{other.dom.window.close();}
+});
+
+test('UI: Basic conveyor speed round-trips m/min and preserves overrides while Gemini follows the local mode',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',savedUiMode:'ADVANCE'});try{
+  const original=h.api.getCase;h.api.getCase=id=>{const record=original(id);for(const list of [record.equipment,record.simulations[0].equipment])Object.assign(list[1].processData.accumulation,{speedMode:'MANUAL',conveyorSpeedMmPerSecond:500,movingGapMm:7,backupSensorPositionMm:200});return record;};
+  await h.click('.open-case');
+  let asked;h.api.askGemini=request=>{asked=request;return {text:'Mode received.'};};
+  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the conveyor';await h.click('#send-gemini');await waitFor(()=>asked);assert.equal(asked.uiMode,'ADVANCE');
+  await h.click('#close-gemini');
+  async function mode(value){await h.click('#open-settings');for(let i=0;i<5;i++)h.d.getElementById('settings-dialog').dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'m',bubbles:true}));h.d.getElementById('settings-interface-mode').value=value;await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);}
+  await mode('BASIC');await h.click('[data-basic-view=conveyors]');
+  let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields'),speed=fields.querySelector('.format-zone-belt-speed');
+  assert.equal(speed.disabled,false);assert.equal(Number(speed.value),30);assert.match(speed.closest('label').textContent,/m\/min/);
+  speed.value='60';speed.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await waitFor(()=>h.storedCases()[0].equipment[1].processData.accumulation.conveyorSpeedMmPerSecond===1000);
+  const stored=h.storedCases()[0].equipment[1].processData.accumulation;assert.equal(stored.movingGapMm,7);assert.equal(stored.backupSensorPositionMm,200);
+  assert.equal(h.w.STScenarios.audit({equipment:h.storedCases()[0].equipment})[0].engineering.runtimeGeometry.conveyorSpeedMmPerSecond,1000);
+  asked=null;await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Explain improvements';await h.click('#send-gemini');await waitFor(()=>asked);assert.equal(asked.uiMode,'BASIC');await h.click('#close-gemini');
+  await mode('ADVANCE');
+  const card=Array.from(h.d.querySelectorAll('.equipment-card')).find(c=>c.dataset.equipmentId===h.storedCases()[0].equipment[1].id);
+  assert.equal(Number(card._fields.querySelector('.format-zone-belt-speed').value),1000);assert.equal(card._fields.querySelector('.format-zone-speed-mode').value,'MANUAL');
+  await mode('BASIC');await h.click('[data-basic-view=conveyors]');assert.equal(Number(h.d.querySelector('#equipment-inspector .format-zone-belt-speed').value),60);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

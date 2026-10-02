@@ -18,12 +18,16 @@ started from the Simulation section.
 | UPSTREAM | Package length; discharge pitch; startup time; bottles at stop | `processData.upstream.packageLengthMm`, `dischargePitchMm`, `startupTimeSeconds`; `processData.accumulation.bottlesDischargedAtStop` |
 | DOWNSTREAM | Infeed pitch; ramp-up time | `processData.downstream.infeedPitchMm`, `rampUpTimeSeconds`; ramp is also synchronized to `processData.accumulation.downstreamRampUpSeconds` |
 | GEOMETRY | Lact; Lp; discharge actual; coding actual | `processData.geometry.lactMm`, `lpPrimeMm`, `actualDischargeMm`, `actualCodingMm`; actual lengths are synchronized to the engine's discharge/coding runout fields |
-| Speed & Sensors | Discharge, coding and accumulation factors; block/clear delays; insurance; overspeed | Existing `processData.speedAndSensors` factors and `processData.accumulation` sensor fields |
+| Speed & Sensors | Conveyor speed in m/min; discharge, coding and accumulation factors; block/clear delays; insurance; overspeed | Existing `processData.speedAndSensors` factors and `processData.accumulation` sensor fields |
 
-Basic derives automatic belt speed, moving pitch and the Back-up position.
-The hidden manual speed, moving-gap and installed Back-up overrides are removed
-from the Basic draft on save/run. Advance retains its explicit controls. The
-Basic design calculations use the BPM shown in the machine cards.
+Basic exposes Conveyor speed (m/min) in Speed & Sensors. A previously automatic
+conveyor starts with its current calculated speed; a manual conveyor preserves
+its speed. Editing and saving stores MANUAL speed in mm/s (m/min ÷ 0.06).
+It controls physical travel and transfer capacity. Basic retains existing moving-gap
+and Back-up overrides; absent overrides remain derived. Advance uses the same stored
+manual speed in its mm/s control. Basic design calculations use the BPM shown in
+the machine cards. Stage factors and design populations remain calculated design
+references; manual speed overrides the runtime accumulating belt velocity.
 
 Rates inside the engine are mm/s. Worksheet rates are converted to m/min by
 multiplying by 0.06. Package velocity uses upstream BPM × discharge pitch / 60;

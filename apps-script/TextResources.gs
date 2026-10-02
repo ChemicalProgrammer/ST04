@@ -46,6 +46,7 @@ var ST_TEXT_RESOURCES = {
   "conveyor.speed_mode":"Belt speed mode",
   "conveyor.auto":"Automatic (speed factor)",
   "conveyor.manual":"Manual belt speed",
+  "conveyor.belt_speed_m_min":"Conveyor speed (m/min)",
   "conveyor.belt_speed":"Belt speed (mm/s)",
   "conveyor.moving_gap":"Moving gap (mm, blank = automatic)",
   "conveyor.accumulated_gap":"Accumulated gap (mm)",

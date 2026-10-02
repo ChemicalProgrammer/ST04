@@ -90,7 +90,7 @@ window.STAssistant = function(state,actions) {
       pending=true;progress('preparing');sync();
       try{await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;return;}
       if(originalCase!==caseId||originalSimulation!==simulationId)return;
-      var request={caseId:caseId,simulationId:simulationId,question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
+      var request={caseId:caseId,simulationId:simulationId,uiMode:basic()?'BASIC':'ADVANCE',question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
       pending=true;el('gemini-error').textContent='';messages.push({role:'user',text:question});el('gemini-question').value='';render();sync();
       progress('waiting');
       function finish(response){if(ticket!==sequence)return;pending=false;progress(response.ok?'done':'error');if(response.ok)messages.push({role:'model',text:response.data.text,proposals:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted});else {messages.pop();el('gemini-question').value=question;el('gemini-error').textContent=response.error.message;}render();sync();}

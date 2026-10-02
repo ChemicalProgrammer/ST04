@@ -92,3 +92,14 @@ test('Gemini rounded before values bind to exact saved inputs and survive the cr
  changed.ctx.withCaseWriteLock_=fn=>fn();changed.ctx.getOwnedCaseFile_=()=>({caseData:changed.record});changed.ctx.ensureCaseSimulations_=c=>c;
  assert.throws(()=>changed.ctx.createScenario_({caseId:'case-a',simulationId:'a',expectedRevision:1,origin:'GEMINI',sourceSignature:old.sourceSignature,proposal:old},user),e=>e.code==='SCENARIO_STALE');
 });
+
+test('Gemini honors the requested browser mode independently of the deployment default',()=>{
+ const fixture=setup(),project=fixture.ctx.STScenarioEngine_.plan(fixture.record.simulations[0]).projects.find(p=>p.canApply);
+ const answer=JSON.stringify({text:'Supported improvements.',proposals:[{...project,title:'Test conveyor changes',description:'Supported physical changes'}]});
+ const basic=setup({answer});basic.ctx.getInterfaceMode_=()=> 'ADVANCE';
+ assert.equal(basic.ctx.askGemini_({...request,uiMode:'BASIC'},user).proposals.length,0);
+ assert.match(JSON.parse(basic.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+ const advance=setup({answer});advance.ctx.getInterfaceMode_=()=> 'BASIC';
+ assert.equal(advance.ctx.askGemini_({...request,uiMode:'ADVANCE'},user).proposals.length,1);
+ assert.doesNotMatch(JSON.parse(advance.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+});

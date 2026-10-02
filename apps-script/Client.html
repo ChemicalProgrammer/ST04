@@ -524,7 +524,7 @@ async function openCase(caseId) {
       var grid = equipmentField(card, '.format-zone-grid');
       [
         ['speed-mode',__ST_TEXT__('conveyor.speed_mode'),__ST_TEXT__('conveyor.help_speed_mode'),'select'],
-        ['belt-speed',__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
+        ['belt-speed',window.STBasicMode?.isBasic()?__ST_TEXT__('conveyor.belt_speed_m_min'):__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
         ['moving-gap',__ST_TEXT__('conveyor.moving_gap'),__ST_TEXT__('conveyor.help_moving_gap'),'number'],
         ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number']
       ].concat(window.STBasicMode?.isBasic()?[
@@ -612,6 +612,11 @@ function populateFormatZoneInputs(card, equipment) {
         values.startup=firstDefinedValue(values.startup,up?.processData?.upstream?.startupTimeSeconds,0);
         values.infeed=firstDefinedValue(values.infeed,down?.processData?.downstream?.infeedPitchMm);
         values.downstreamRamp=firstDefinedValue(values.downstreamRamp,down?.processData?.downstream?.rampUpTimeSeconds,0);
+        if(formatZone.speedMode!=='MANUAL'||values.beltSpeed===undefined){
+          var audit=STScenarios.audit({equipment:state.activeCase.equipment}).find(function(item){return item.equipmentId===equipment.id;});
+          values.beltSpeed=audit?.engineering?.runtimeGeometry?.conveyorSpeedMmPerSecond;
+        }
+        if(values.beltSpeed!==undefined)values.beltSpeed=Number((values.beltSpeed*.06).toPrecision(15));
       }
       Object.keys(values).forEach(function(key) {
         var input = equipmentField(card, '.format-zone-' + kebabCase(key));
@@ -638,7 +643,7 @@ function updateFormatZoneVisibility(card) {
       var values = readFormatZoneInputs(card);
       var manual = values.speedMode === 'MANUAL';
       equipmentField(card, '.format-zone-belt-speed').disabled = !manual;
-      equipmentField(card, '.format-zone-speed-factor').disabled = manual;
+      equipmentField(card, '.format-zone-speed-factor').disabled = manual&&!window.STBasicMode?.isBasic();
       var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
       var index = Number(card.dataset.index);
       var upstreamMachine = state.activeCase?.equipment?.[index - 1];
@@ -685,14 +690,16 @@ function updateFormatZoneVisibility(card) {
     }
 
 function readFormatZoneInputs(card) {
+      var basic=window.STBasicMode?.isBasic(),beltSpeed=numericInputValue(equipmentField(card,'.format-zone-belt-speed'));
+      if(basic&&beltSpeed!==undefined)beltSpeed=Number((beltSpeed/.06).toPrecision(15));
       return {
         lactMm: numericInputValue(equipmentField(card, '.format-zone-lact')),
         lpPrimeMm: numericInputValue(equipmentField(card, '.format-zone-lp-prime')),
         packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
         dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
         conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
-        speedMode: equipmentField(card, '.format-zone-speed-mode').value || 'AUTO',
-        conveyorSpeedMmPerSecond: numericInputValue(equipmentField(card, '.format-zone-belt-speed')),
+        speedMode: basic?'MANUAL':equipmentField(card, '.format-zone-speed-mode').value || 'AUTO',
+        conveyorSpeedMmPerSecond: beltSpeed,
         movingGapMm: numericInputValue(equipmentField(card, '.format-zone-moving-gap')),
         accumulatedGapMm: numericInputValue(equipmentField(card, '.format-zone-accumulated-gap')),
         backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
@@ -746,10 +753,8 @@ function readFormatZoneInputs(card) {
       if(result.geometry.actualCodingMm!==undefined)result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
       if(window.STBasicMode?.isBasic()){
         result.accumulation.useNominalDesignSpeed=true;
-        result.accumulation.speedMode='AUTO';
-        delete result.accumulation.backupSensorPositionMm;
-        delete result.accumulation.movingGapMm;
-        delete result.accumulation.conveyorSpeedMmPerSecond;
+        result.accumulation.speedMode='MANUAL';
+        result.accumulation.conveyorSpeedMmPerSecond=values.conveyorSpeedMmPerSecond;
         result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
         result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
         result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;

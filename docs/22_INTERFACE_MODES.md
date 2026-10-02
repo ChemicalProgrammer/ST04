@@ -89,3 +89,5 @@ maintain a second draft. Its styling is scoped under `data-ui-mode=basic`.
 Gemini returns actionable validated What-If scenarios in Advance. Basic requests descriptive improvements and hides scenario creation cards. Proposals bind exact stored before values at generation time; creation verifies the original fingerprint instead of replacing it with a newer server fingerprint.
 
 Basic shows only Speed, MTBF, MTTR, calculated Buffer post and Avail in machine cards. Simulation cards omit equipment command controls and use the space for the speed chart. The advanced run configuration is hidden entirely in Basic because its visible choices have moved into the Basic speed/shift/round groups. Playback Play/Pause/Reset remains available for the whole simulation. V-Graph labels and legends use larger Basic-only text.
+
+Gemini requests carry the effective browser mode. The server uses that valid mode for text-only Basic responses or actionable Advance proposals, falling back to the deployment default for older clients. Basic conveyor speed is an independent m/min input, stored as manual mm/s. Existing moving-gap and Back-up overrides are preserved.
