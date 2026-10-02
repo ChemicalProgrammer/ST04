@@ -6,7 +6,7 @@ window.STBasicMode=(function(){
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
-  function button(label,icon,click){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=label;b.dataset.icon=icon;b.onclick=click;return b;}
+  function button(label,icon,click){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=label;if(icon)b.dataset.icon=icon;b.onclick=click;return b;}
   function init(current,callbacks){
     if(initialized)return;initialized=true;state=current;actions=callbacks;
     var header=document.querySelector('.topbar');
@@ -53,6 +53,7 @@ window.STBasicMode=(function(){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
     STPreferences.applyJsonFields(root.dataset.uiMode);
+    STPreferences.applyPalette(root.dataset.uiMode);
     if(!enabled){unmount();return;}mount();
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='whatif'?'whatif':'simulation';
@@ -137,7 +138,7 @@ window.STBasicMode=(function(){
         var next=equipment[index+1],audit=next?.type==='CONVEYOR'?audits.find(function(x){return x.equipmentId===next.id;}):null;
         var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits,downstream=equipment.find(function(x){return x.id===audit?.downstreamId;});
         var buffer=next?.type==='CONVEYOR'?capacity/(downstream?.nominalRatePerSecond*60):0;
-        var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail (%): '+number(a*100,1),'basic-availability'));
+        var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail (%): '+number(a*100,1)+(Number.isFinite(a)?'%':''),'basic-availability'));
       }else{
         var audit=audits.find(function(x){return x.equipmentId===e.id;}),calc=audit?.engineering?.calculated;
         var zone=Object.values(state.run.result?.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),loss=zone?.conveyorConstraintLossPercent??null;

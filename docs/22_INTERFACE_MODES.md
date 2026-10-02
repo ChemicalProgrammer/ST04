@@ -3,8 +3,17 @@
 The deployment opens in **Basic** unless its Apps Script Script Property
 `ST_UI_MODE` is set to `ADVANCE` (the alias `ADVANCED` is accepted).
 Set this in **Project Settings → Script properties** and reload the app.
-An absent, blank, or unrecognized value selects Basic. There is no mode
-switch in Settings, browser storage, or the case JSON.
+An absent, blank, or unrecognized value selects Basic. This is the initial default;
+`st.ui.v1.interfaceMode` in browser storage can override it without affecting other users.
+
+Open Settings, focus its heading or a button (outside editable fields), then press
+**M five times within three seconds**. This reveals Basic/Advance. Holding M does
+not unlock it, and typing inside a field does not count. The selection is applied
+when Settings closes, after pending settings and case edits are saved. The selector
+is hidden and its activation counter reset on every close/reopen. No reload is
+needed. Browser storage failure leaves Settings open with a visible error. Remove
+`st.ui.v1.interfaceMode` to use the deployment default again. This is a presentation
+preference, not authorization or an administrator privilege.
 
 Basic uses the existing controls and persistence pipeline:
 
@@ -50,7 +59,10 @@ selections and preserves the physical type (Blowmolder, Filler, etc.). Legacy
 PACEMAKER types reopen using their recorded machine type, or CUSTOM if that
 information is unavailable, while retaining the role.
 
-Settings displays the 57 named colors from
+Basic Settings displays seven accents: amparo blue, bath turquoise, ferntastic,
+tinted iris, fugitive flamingo, cadmium orange and astronomicon grey. An accent
+outside this selection resets to amparo blue upon entering Basic. Advance Settings
+displays all 57 named colors from
 [ChemicalApplications/ThemeColors.json](https://github.com/ChemicalProgrammer/ChemicalApplications/blob/main/ThemeColors.json)
 in a compact grid. `ThemeResources.html` retains each original name and hex;
 light/dark soft backgrounds and text colors are derived for contrast. Existing
@@ -75,3 +87,5 @@ The adapter moves the original field nodes; it does not clone inputs or
 maintain a second draft. Its styling is scoped under `data-ui-mode=basic`.
 
 Gemini returns actionable validated What-If scenarios in Advance. Basic requests descriptive improvements and hides scenario creation cards. Proposals bind exact stored before values at generation time; creation verifies the original fingerprint instead of replacing it with a newer server fingerprint.
+
+Basic shows only Speed, MTBF, MTTR, calculated Buffer post and Avail in machine cards. Simulation cards omit equipment command controls and use the space for the speed chart. The advanced run configuration is hidden entirely in Basic because its visible choices have moved into the Basic speed/shift/round groups. Playback Play/Pause/Reset remains available for the whole simulation. V-Graph labels and legends use larger Basic-only text.

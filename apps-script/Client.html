@@ -77,6 +77,15 @@
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
       STSettings.connectCaseFlush(flushCase);
+      STSettings.connectInterfaceMode(function(mode){
+        STEquipmentInspector.release();
+        document.getElementById('equipment-list').replaceChildren();
+        state.bootstrap.uiMode=mode;
+        STBasicMode.sync(state);
+        if(state.activeCase)renderEquipment();
+        shell.sync();
+        if(state.run.result)renderPlaybackFrame();
+      });
       STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});
       document.getElementById('retry-autosave').onclick = retryAutosave;
       document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
@@ -184,6 +193,7 @@
       document.documentElement.classList.remove('restoring-session');
       toggle('auth-panel', false); toggle('application', true);
       state.bootstrap = response.data;
+      state.bootstrap.uiMode=STPreferences.resolveInterfaceMode(response.data.uiMode);
       STSettings.configureGemini(response.data.gemini || {});
       document.getElementById('user-email').textContent = response.data.user.email;
       document.getElementById('workspace-folder-id').value = response.data.settings.workspaceRootFolderId || '';

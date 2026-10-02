@@ -1,10 +1,17 @@
 <script>
 window.STSettings = (function() {
-  var save, flushCase, removeKey, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, lastFocus, failure=null, waiters=[];
+  var save, flushCase, removeKey, applyMode, modeCount=0, modeStarted=0, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, lastFocus, failure=null, waiters=[];
   function el(id){return document.getElementById(id);}
   function request(){return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:{model:el('gemini-model').value,apiKey:el('gemini-api-key').value}};}
   function refresh(){el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
-  function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;refresh();dialog.showModal();}
+  function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();refresh();dialog.showModal();}
+  function resetModeSelector(){modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  function unlockMode(event){
+    if(!el('settings-dialog').open||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.target.closest('input,select,textarea,[contenteditable]'))return;
+    if(event.key.toLowerCase()!=='m'){modeCount=0;return;}
+    var now=Date.now();if(!modeCount||now-modeStarted>3000){modeCount=0;modeStarted=now;}
+    if(++modeCount===5){el('settings-interface-section').classList.remove('hidden');el('settings-interface-mode').focus();modeCount=0;}
+  }
   function settle(ok){waiters.splice(0).forEach(function(done){done(ok);});}
   function write(){
     clearTimeout(timer);if(sending)return;if(version===savedVersion){settle(true);return;}
@@ -25,7 +32,11 @@ window.STSettings = (function() {
       if(!el('case-editor-form').reportValidity())return;
       try{await flushCase();}catch(error){el('settings-error').textContent=error.message;return;}
     }
-    el('settings-error').textContent='';el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();
+    var changed=!el('settings-interface-section').classList.contains('hidden')&&el('settings-interface-mode').value!==(document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC');
+    var mode=el('settings-interface-mode').value;
+    if(changed&&!STPreferences.write('interfaceMode',mode)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
+    el('settings-error').textContent='';resetModeSelector();el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();
+    if(changed)applyMode?.(mode);
   }
   function keyStatus(){el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
   async function deleteKey(){
@@ -43,12 +54,14 @@ window.STSettings = (function() {
   function init(){
     el('settings-close').onclick=close;el('settings-cancel').onclick=close;el('settings-retry').onclick=write;
     el('gemini-delete-key').onclick=deleteKey;
+    el('settings-dialog').addEventListener('keydown',unlockMode);
+    el('settings-dialog').addEventListener('close',resetModeSelector);
     el('settings-dialog').addEventListener('cancel',function(e){e.preventDefault();close();});
     function change(){version++;failure=null;refresh();clearTimeout(timer);timer=setTimeout(write,600);}
     el('workspace-form').addEventListener('input',change);el('workspace-form').addEventListener('change',change);
   }
   function configureGemini(config){el('gemini-model').value=config.model||'gemini-2.5-flash';hasKey=Boolean(config.configured);keyStatus();}
   function setKeyConfigured(value){hasKey=Boolean(value);keyStatus();}
-  return {init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectCaseFlush:function(fn){flushCase=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(message){failure=true;el('settings-error').textContent=message;refresh();}};
+  return {init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectInterfaceMode:function(fn){applyMode=fn;},connectCaseFlush:function(fn){flushCase=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(message){failure=true;el('settings-error').textContent=message;refresh();}};
 })();
 </script>

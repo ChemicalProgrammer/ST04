@@ -19,7 +19,8 @@ window.STLinePerformance = (function() {
     var style=getComputedStyle(document.documentElement),height=parseFloat(style.getPropertyValue('--vgraph-height'))||260;
     var width=Math.max(parseFloat(style.getPropertyValue('--vgraph-min-width'))||580,target.clientWidth||740);
     var chart = svg('svg', {viewBox:'0 0 '+width+' '+height, role:'img', 'aria-label':__ST_TEXT__('performance.chart_label'), preserveAspectRatio:'xMidYMid meet'});
-    var left = 65, right = width-80, bottom = height-64, top = 24;
+    var basic=document.documentElement.dataset.uiMode==='basic';
+    var left = basic?95:65, right = width-80, bottom = height-(basic?78:64), top = 28;
     var x = function(i) { return left + (valid.length === 1 ? (right - left) / 2 : i * (right - left) / (valid.length - 1)); };
     var y = function(pct) { return bottom - (pct - minimum) / (maximum - minimum) * (bottom - top); };
     [minimum, (minimum + maximum) / 2, maximum].forEach(function(pct) {

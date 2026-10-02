@@ -1,5 +1,9 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "settings.interface_mode": "Interface mode",
+  "settings.interface_mode_note": "Applies to this browser when Settings closes. Other users keep their own mode.",
+  "settings.interface_mode_unlocked": "Mode selector unlocked",
+  "settings.interface_mode_storage_error": "This browser could not save the interface mode. Try again with browser storage enabled.",
   "settings.show_json_fields":"Show JSON fields",
   "equipment.pacemaker":"Pacemaker",
   "equipment.pacemaker_help":"Select the machine that sets the line reference rate. Only one machine can be selected; its physical equipment type stays unchanged.",

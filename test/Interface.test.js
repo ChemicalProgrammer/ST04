@@ -9,7 +9,7 @@ import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit,savedAccent}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  if(flowUnit)initial.unitOfFlow=flowUnit;
@@ -51,6 +51,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const dom=new JSDOM(renderAppsScript().html,{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
   if(remember)w.localStorage.setItem('st.ui.v1.remember','yes');
   if(savedAccent)w.localStorage.setItem('st.ui.v1.accent',savedAccent);
+  if(savedUiMode)w.localStorage.setItem('st.ui.v1.interfaceMode',savedUiMode);
   media={matches:false,addEventListener(_,fn){this.listener=fn;}};w.matchMedia=()=>media;
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
@@ -74,7 +75,7 @@ test('UI: cases-only entry, accessible navigation, theme settings and remembered
   h.media.matches=false;h.media.listener();assert.equal(h.d.documentElement.dataset.theme,'light');
   const field=h.d.getElementById('workspace-folder-id');field.value='new-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.match(h.d.getElementById('settings-unsaved').textContent,/pending/);
   h.d.getElementById('settings-dialog').dispatchEvent(new h.w.Event('cancel',{cancelable:true}));await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'new-folder');
-  await h.click('#cases-settings');field.value='saved-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#settings-cancel');assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'saved-folder');
+  await h.click('#cases-settings');field.value='saved-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'saved-folder');
   await h.click('#collapse-sidebar');assert(h.d.getElementById('application').classList.contains('sidebar-collapsed'));
   await h.click('#cases-sign-out');assert(h.visible('auth-panel'));assert.equal(h.w.localStorage.getItem('st.ui.v1.remember'),null);
   assert.deepEqual(h.errors,[]);
@@ -944,4 +945,46 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view="conveyors"]');h.d.querySelector('.equipment-card:not(.hidden)').click();await settle();
   fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');assert.equal(fields.querySelector('.format-zone-coding-factor').value,'20');assert.equal(fields.querySelector('.format-zone-startup').value,'2.4');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+test('UI Basic: compact machine fields remain visible, palette has seven colors and simulation space is reclaimed',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  await h.click('#sign-in-button');await h.click('.open-case');
+  const card=h.d.querySelector('.basic-machine');
+  for(const selector of ['.equipment-rate','.reliability-mtbfMinutes','.reliability-mttrMinutes']){
+   const input=card._fields.querySelector(selector);
+   for(let node=input.closest('label');node&&node!==card.parentNode;node=node.parentElement)assert.notEqual(h.w.getComputedStyle(node).display,'none',selector+' is hidden');
+  }
+  assert.equal(h.w.getComputedStyle(card._fields.querySelector('.equipment-name').closest('label')).display,'none');
+  assert.match(card.querySelector('.basic-availability').textContent,/Avail.*%/);
+  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,7);
+  assert(!h.d.querySelector('#accent-palette [data-accent="amparo-blue"]').classList.contains('hidden'));
+  assert.equal(h.d.querySelectorAll('#basic-run-controls [data-control] .icon').length,0);
+  await h.click('[data-basic-view="simulation"]');
+  assert.equal(h.w.getComputedStyle(h.d.getElementById('run-config')).display,'none');
+  const controls=h.d.createElement('div');controls.className='live-equipment-controls';h.d.getElementById('run-panel').appendChild(controls);
+  assert.equal(h.w.getComputedStyle(controls).display,'none');controls.remove();
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: hidden mode selector requires five deliberate M presses, saves pending edits and stays browser-local',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
+  const dialog=h.d.getElementById('settings-dialog'),section=h.d.getElementById('settings-interface-section'),picker=h.d.getElementById('settings-interface-mode');
+  const press=(target,key='m',extra={})=>target.dispatchEvent(new h.w.KeyboardEvent('keydown',{key,bubbles:true,...extra}));
+  for(let i=0;i<5;i++)press(h.d.getElementById('case-name'));assert(section.classList.contains('hidden'));
+  for(let i=0;i<5;i++)press(dialog,'m',{repeat:true});assert(section.classList.contains('hidden'));
+  for(let i=0;i<4;i++)press(dialog);assert(section.classList.contains('hidden'));press(dialog);assert(!section.classList.contains('hidden'));
+  await h.click('#settings-cancel');await h.click('#open-settings');assert(section.classList.contains('hidden'));
+  h.d.getElementById('case-name').value='Mode change preserves draft';h.d.getElementById('case-name').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  for(let i=0;i<5;i++)press(dialog);picker.value='ADVANCE';await h.click('#settings-cancel');
+  await waitFor(()=>!dialog.open);assert.equal(h.d.documentElement.dataset.uiMode,'advance',JSON.stringify({error:h.d.getElementById('settings-error').textContent,errors:h.errors,local:h.w.localStorage.getItem('st.ui.v1.interfaceMode')}));assert(section.classList.contains('hidden'));assert.equal(h.w.localStorage.getItem('st.ui.v1.interfaceMode'),'ADVANCE');
+  assert.equal(h.storedCases()[0].name,'Mode change preserves draft');
+  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,57);
+  await h.click('#open-settings');assert(section.classList.contains('hidden'));for(let i=0;i<5;i++)press(dialog);picker.value='BASIC';await h.click('#settings-cancel');
+  assert.equal(h.d.documentElement.dataset.uiMode,'basic');assert(h.d.querySelector('.basic-machine')._fields.querySelector('.reliability-mtbfMinutes'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+ const persisted=await setup({remember:true,uiMode:'BASIC',savedUiMode:'ADVANCE'});try{assert.equal(persisted.d.documentElement.dataset.uiMode,'advance');assert.deepEqual(persisted.errors,[]);}finally{persisted.dom.window.close();}
+ const other=await setup({remember:true,uiMode:'BASIC'});try{assert.equal(other.d.documentElement.dataset.uiMode,'basic');}finally{other.dom.window.close();}
 });
