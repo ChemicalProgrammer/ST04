@@ -114,3 +114,13 @@
 .scenario-audit-warnings { margin:var(--space-2) 0; }
 .scenario-candidate-details { margin:var(--space-3) 0; }
 </style>
+
+<style>
+.scenario-doe { margin:var(--space-2) 0; }
+.scenario-doe[hidden] { display:none; }
+.scenario-doe-factor { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-2); margin:var(--space-2) 0; }
+.scenario-doe-factor > label:first-child { grid-column:1 / -1; display:flex; align-items:center; gap:var(--space-2); }
+.scenario-doe-factor input[type=checkbox] { width:auto; min-height:0; }
+.scenario-doe-factor input[type=number] { width:100%; }
+.scenario-doe-results { max-height:300px; overflow:auto; }
+</style>

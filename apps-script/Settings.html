@@ -5,7 +5,7 @@ window.STSettings = (function() {
   function request(){return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:{model:el('gemini-model').value,apiKey:el('gemini-api-key').value}};}
   function refresh(){el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
   function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();refresh();dialog.showModal();}
-  function resetModeSelector(){modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  function resetModeSelector(){el('settings-scenario-doe').checked=STPreferences.read('scenarioDoe')==='yes';modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
   function unlockMode(event){
     if(!el('settings-dialog').open||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.target.closest('input,select,textarea,[contenteditable]'))return;
     if(event.key.toLowerCase()!=='m'){modeCount=0;return;}
@@ -33,10 +33,12 @@ window.STSettings = (function() {
       try{await flushCase();}catch(error){el('settings-error').textContent=error.message;return;}
     }
     var changed=!el('settings-interface-section').classList.contains('hidden')&&el('settings-interface-mode').value!==(document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC');
-    var mode=el('settings-interface-mode').value;
+    var mode=el('settings-interface-mode').value,doe=el('settings-scenario-doe').checked,doeChanged=!el('settings-interface-section').classList.contains('hidden')&&doe!==(STPreferences.read('scenarioDoe')==='yes');
+    if(doeChanged&&!STPreferences.write('scenarioDoe',doe?'yes':'no')){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     if(changed&&!STPreferences.write('interfaceMode',mode)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     el('settings-error').textContent='';resetModeSelector();el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();
     if(changed)applyMode?.(mode);
+    if(doeChanged)window.dispatchEvent(new Event('st-doe-change'));
   }
   function keyStatus(){el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
   async function deleteKey(){

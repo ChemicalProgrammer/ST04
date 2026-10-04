@@ -1,5 +1,7 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "settings.scenario_doe": "Include DOE in What-If searches",
+  "settings.scenario_doe_note": "Browser-local pilot: up to four factors, two levels, and at least three rounds per combination. Configure factors in What-If. Applied when Settings closes.",
   "settings.interface_mode": "Interface mode",
   "settings.interface_mode_note": "Applies to this browser when Settings closes. Other users keep their own mode.",
   "settings.interface_mode_unlocked": "Mode selector unlocked",

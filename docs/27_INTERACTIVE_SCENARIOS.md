@@ -58,3 +58,8 @@ Evidence is retained in the current browser session, including view navigation,
 but is not saved to Drive or restored after a full page reload. Export before
 reloading to retain it. JSON keeps full numeric precision; HTML/PDF use formatted
 values. PDF uses the same report HTML. Uncalculated proposals remain hypotheses.
+
+The optional browser-local DOE pilot adds up to four selected factors and a
+complete two-level factorial to category searches. See
+[29_SCENARIO_DOE.md](29_SCENARIO_DOE.md) for activation, replication, constraints,
+descriptive effects and export semantics.

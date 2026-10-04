@@ -96,3 +96,11 @@ test('What-If JSON follows visible proposals and includes baseline evidence and 
   h.w.STReports.bindWhatIf(h.sim,plan,data.projects);assert(!h.w.document.getElementById('export-whatif-json').disabled);
  }finally{h.dom.window.close();}
 });
+
+test('What-If exports incomplete DOE evidence as incomplete without inventing effects',()=>{
+ const h=setup();try{
+  h.w.STScenarioExplorer={evaluations:()=>[{title:'Interrupted DOE <test>',tier:'ZERO',status:'ERROR',updatedAt:'2026-10-04',run:{seed:17,rounds:3},unitOfFlow:'units',doe:{type:'FULL_FACTORIAL_TWO_LEVEL',factors:[],fixedChanges:[],observations:[],roundsPerCombination:3}}]};
+  const plan=h.w.STScenarios.plan(h.sim),html=h.w.STReports.whatIfHtml(h.sim,plan);
+  assert.match(html,/Incomplete design/);assert.match(html,/Interrupted DOE &lt;test&gt;/);assert.equal(h.w.STReports.whatIfData(h.sim,plan).evaluations[0].status,'ERROR');
+ }finally{h.dom.window.close();}
+});

@@ -11,7 +11,8 @@ const sourceFiles = [
   'src/simulation/LineSimulationEngine.js',
   'src/simulation/SimulationBatch.js',
   'src/analysis/LinePerformanceAnalysis.js',
-  'src/analysis/ScenarioPlanner.js'
+  'src/analysis/ScenarioPlanner.js',
+  'src/analysis/ScenarioDOE.js'
 ];
 const targetFile = path.join(repositoryRoot, 'apps-script', 'SimulationEngine.html');
 
@@ -35,6 +36,7 @@ window.SimulatorEngine = {
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance
 };
+window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE};
 window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS};
 })(window);
 </script>

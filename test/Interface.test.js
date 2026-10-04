@@ -987,7 +987,8 @@ test('UI: hidden mode selector requires five deliberate M presses, saves pending
   for(let i=0;i<5;i++)press(h.d.getElementById('case-name'));assert(section.classList.contains('hidden'));
   for(let i=0;i<5;i++)press(dialog,'m',{repeat:true});assert(section.classList.contains('hidden'));
   for(let i=0;i<4;i++)press(dialog);assert(section.classList.contains('hidden'));press(dialog);assert(!section.classList.contains('hidden'));
-  await h.click('#settings-cancel');await h.click('#open-settings');assert(section.classList.contains('hidden'));
+  const doe=h.d.getElementById('settings-scenario-doe');assert.equal(doe.checked,false);doe.checked=true;
+  await h.click('#settings-cancel');assert.equal(h.w.localStorage.getItem('st.ui.v1.scenarioDoe'),'yes');await h.click('#open-settings');assert(section.classList.contains('hidden'));assert.equal(doe.checked,true);
   h.d.getElementById('case-name').value='Mode change preserves draft';h.d.getElementById('case-name').dispatchEvent(new h.w.Event('input',{bubbles:true}));
   for(let i=0;i<5;i++)press(dialog);picker.value='ADVANCE';await h.click('#settings-cancel');
   await waitFor(()=>!dialog.open);assert.equal(h.d.documentElement.dataset.uiMode,'advance',JSON.stringify({error:h.d.getElementById('settings-error').textContent,errors:h.errors,local:h.w.localStorage.getItem('st.ui.v1.interfaceMode')}));assert(section.classList.contains('hidden'));assert.equal(h.w.localStorage.getItem('st.ui.v1.interfaceMode'),'ADVANCE');
@@ -1063,5 +1064,23 @@ test('UI: regressions and gains that fail independent seeds cannot create recomm
   second.querySelector('.scenario-evaluate').click();await waitFor(()=>second.querySelector('.scenario-preview-status').dataset.state==='rejected');
   assert.match(second.textContent,/did not reproduce/);assert(second.querySelector('.scenario-create').disabled);assert.equal(calls,4);assert.equal(created,false);
   evidence=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/NOT_REPRODUCED/);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: enabled DOE uses replicated factorial combinations and exports effects without changing baseline',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('scenarioDoe','yes');
+  const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig={durationSeconds:10,tickSeconds:.25,sampleEverySeconds:1,seed:42,rounds:1,commands:[]};
+  const e=sim.equipment[1];e.processData.geometry.lactMm=10000;e.processData.accumulation.speedMode='MANUAL';e.processData.accumulation.conveyorSpeedMmPerSecond=500;
+  const snapshot=JSON.stringify(sim),changes=[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:20000,unit:'mm'},{equipmentId:e.id,path:'processData.accumulation.conveyorSpeedMmPerSecond',before:500,after:550,unit:'mm/s'}];
+  const project={title:'DOE test',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',changes,explore:true},card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);
+  const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(JSON.parse(JSON.stringify(input)));const belt=input.case.equipment[1],gain=belt.processData.geometry.lactMm>10000&&belt.processData.accumulation.conveyorSpeedMmPerSecond>500?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  assert.equal(card.querySelector('.scenario-doe').hidden,false);card.querySelector('.scenario-change input[type=number]').value='15';
+  Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Search this category').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
+  assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify(sim),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
+  h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert(card.querySelector('.scenario-doe').hidden);assert(card.querySelector('.scenario-create').disabled);
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
