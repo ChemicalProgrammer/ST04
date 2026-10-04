@@ -37,3 +37,24 @@ intervention's CAPEX category must be reviewed; cost is not inferred by the mode
 
 Basic Results retains OEE, throughput, production and main loss information;
 round tables and technical plots remain in Advance and exports.
+
+## Exported evaluation evidence
+
+What-If JSON, HTML and PDF exports now include the current session's calculated
+evaluations for the exact source-input signature. They include line-wide searches
+and individual proposals, selected changes, physical limits, actual evaluated
+targets, baseline/candidate OEE and throughput, differences, run configuration,
+trial counts, independent seeds and their results, timestamps and engineering
+warnings. States distinguish no improvement, reproduced improvement, failed
+independent validation, engineering review, running, cancelled and errors.
+
+Exports read the evaluation registry when clicked, so bindings created before a
+calculation still include its completed evidence. Changing selections invalidates
+old approval; changing source inputs excludes mismatched evaluations. An independent
+seed comparison is simulation evidence, never plant validation. The saved baseline
+result remains separate from the matched baseline used by the scenario preview.
+
+Evidence is retained in the current browser session, including view navigation,
+but is not saved to Drive or restored after a full page reload. Export before
+reloading to retain it. JSON keeps full numeric precision; HTML/PDF use formatted
+values. PDF uses the same report HTML. Uncalculated proposals remain hypotheses.

@@ -70,7 +70,7 @@ window.STReports=(function(){
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
   function whatIfHtml(simulation,plan){
-    var body='';
+    var body=evaluationsHtml(simulation);
     STWhatIf.visibleProjects(plan).forEach(function(p){body+='<section><h2>'+escape(p.title||STScenarioText[p.titleKey]||p.kind)+'</h2><p>'+escape(STScenarioText[p.tier]||p.tier)+' · '+escape(STScenarioText[p.basis]||p.basis)+'</p><p>'+escape(p.description||'')+'</p>';
       body+=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.current'),__ST_TEXT__('exports.proposed'),__ST_TEXT__('exports.explanation')],p.changes.map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
       body+='<h3>'+escape(__ST_TEXT__('scenario.evidence'))+'</h3>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(p.evidence))+'</section>';
@@ -78,9 +78,26 @@ window.STReports=(function(){
     var checks=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.check'),__ST_TEXT__('exports.status')],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
     return documentHtml(__ST_TEXT__('exports.whatif_report'),{context:escape(simulation.name),proposals:body,checks:checks},'whatif');
   }
+  function evaluationsHtml(simulation){
+    var evaluations=window.STScenarioExplorer?.evaluations(simulation)||[];
+    var html='<section><h2>Calculated hypothesis evaluations</h2><p>Current browser session; matching source inputs only. Independent checks are simulation evidence, not plant validation.</p>';
+    if(!evaluations.length)return html+'<p>No calculated evaluations available for these inputs in this session.</p></section>';
+    evaluations.forEach(function(e){
+      html+='<section><h3>'+escape(e.title)+'</h3><p>'+escape(e.tier)+' · '+escape(e.status)+' · '+escape(e.updatedAt)+'</p>';
+      html+=table(['Evaluation setting','Value'],scalars({method:e.method,run:e.run,trials:e.trials,infeasibleTrials:e.infeasibleTrials,acceptance:e.acceptance,error:e.error}));
+      var rows=[];function comparison(label,base,next){if(!base||!next)return;rows.push([label,'OEE (%)',value(base.oee),value(next.oee),value(next.oee-base.oee)]);rows.push([label,'Throughput ('+e.unitOfFlow+'/min)',value(base.throughput),value(next.throughput),value(next.throughput-base.throughput)]);}
+      comparison('Screening',e.baseline,e.candidate);comparison('Independent seeds',e.independentCheck?.baseline,e.independentCheck?.candidate);
+      if(rows.length)html+=table(['Comparison','Metric','Baseline','Candidate','Difference'],rows);
+      if(e.independentCheck)html+='<p>Independent seed: '+escape(e.independentCheck.seed)+' · Rounds: '+escape(e.independentCheck.rounds)+' · Passed: '+escape(e.independentCheck.passed)+'</p>';
+      html+=table(['Equipment','Parameter','Before','Evaluated target'],(e.evaluatedChanges||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after];}));
+      html+=table(['Equipment','Parameter','Selected','Limit','Direction'],(e.selections||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,c.selected,c.limit==null?'No limit':value(c.limit)+' '+(c.unit||''),c.limitDirection];}));
+      if(e.warnings?.length)html+=table(['Equipment','Engineering check','Before','After'],e.warnings.map(w=>[w.equipmentId,w.rule,w.before,w.after]));
+      html+='</section>';
+    });return html+'</section>';
+  }
   function whatIfData(simulation,plan){
     var results=simulation.results;
-    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
+    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,evaluations:window.STScenarioExplorer?.evaluations(simulation)||[],evaluationScope:'Current browser session; matching source inputs only. Reproduced in simulation does not mean validated in plant.',projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
   }
   function batchWithoutReplay(batch){if(!batch)return null;var summary=Object.assign({},batch);delete summary.replays;return summary;}
   function comparisonData(activeCase,left,right){

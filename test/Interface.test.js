@@ -1035,11 +1035,14 @@ test('UI: scenario limits and checkboxes preserve physical inputs in bounded lin
   const run=h.w.SimulatorEngine.simulateBatch,calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push(JSON.parse(JSON.stringify(input)));const response=await run(input,options);if(response.ok){const changed=input.case.equipment[1].processData.geometry.lactMm>10000||input.case.equipment[1].processData.accumulation.conveyorSpeedMmPerSecond!==500;response.result.batch.statistics.lineOeePercent.mean=changed?51:50;response.result.batch.statistics.throughputPerMinute.mean=changed?101:100;}return response;};
   card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   assert.match(card.querySelector('.scenario-preview-status').textContent,/OEE.*Throughput/);card.querySelector('.scenario-create').click();assert.equal(created.changes[0].after,15000);assert.equal(created.reviewed,true);
+  const exported=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim));assert.equal(exported.evaluations.length,1);const evaluation=exported.evaluations[0];assert.equal(evaluation.status,'IMPROVEMENT_REPRODUCED');assert.equal(evaluation.evaluatedChanges[0].after,15000);assert.equal(evaluation.selections[0].limit,15000);assert.equal(evaluation.run.seed,42);assert.equal(evaluation.independentCheck.seed,1000045);assert.equal(evaluation.independentCheck.passed,true);assert.equal(evaluation.delta.throughputPerMinute,1);assert.equal(evaluation.plantValidated,false);
+  const report=h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim));assert.match(report,/IMPROVEMENT_REPRODUCED/);assert.match(report,/Independent seeds/);assert.match(report,/15000/);
+  const changed=JSON.parse(JSON.stringify(sim));changed.dynamicConfig.seed++;assert.equal(h.w.STReports.whatIfData(changed,h.w.STScenarios.plan(changed)).evaluations.length,0);
   const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
   checkbox.checked=true;calls.length=0;Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Search this category').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:')&&!card.querySelector('.scenario-create').disabled);
   assert(calls.length>3);assert(calls.every(c=>[42,1000045].includes(c.run.seed)&&c.run.durationSeconds===10));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/trials/);
   assert.equal(sim.equipment[1].processData.geometry.lactMm,10000);
-  const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert.match(card.querySelector('.scenario-preview-status').textContent,/Cancelled/);
+  const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert.match(card.querySelector('.scenario-preview-status').textContent,/Cancelled/);assert.equal(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].status,'CANCELLED');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1052,11 +1055,13 @@ test('UI: regressions and gains that fail independent seeds cannot create recomm
   const card=h.w.STWhatIf.card(project,()=>{created=true;},sim.equipment,sim);h.d.body.append(card);
   card.querySelector('.scenario-evaluate').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   assert(card.querySelector('.scenario-create').disabled);assert.match(card.textContent,/No demonstrated improvement/);assert.equal(calls,2);
+  let evidence=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(evidence.status,'NO_DEMONSTRATED_IMPROVEMENT');assert.equal(evidence.delta.throughputPerMinute,-1);assert.equal(evidence.independentCheck,undefined);
   // A fresh card has an independent baseline cache. The screening seeds improve,
   // the validation seeds regress. This must not become an approved recommendation.
   calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{const i=calls++,gain=i===1?2:i===3?-2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   const second=h.w.STWhatIf.card(project,()=>{created=true;},sim.equipment,sim);h.d.body.append(second);
   second.querySelector('.scenario-evaluate').click();await waitFor(()=>second.querySelector('.scenario-preview-status').dataset.state==='rejected');
   assert.match(second.textContent,/did not reproduce/);assert(second.querySelector('.scenario-create').disabled);assert.equal(calls,4);assert.equal(created,false);
+  evidence=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/NOT_REPRODUCED/);
  }finally{h.dom.window.close();}
 });
