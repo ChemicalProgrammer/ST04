@@ -4,7 +4,7 @@ window.STWhatIf = (function() {
   function label(key){return window.STScenarioText[key]||key;}
   function card(project,create,equipment,simulation){
     var item=node('article','','analysis-recommendation');
-    item.append(node('span',label(project.tier),'analysis-capex'),node('span',label(project.basis),'badge'),node('h4',project.title||label(project.titleKey)));
+    item.append(node('span',project.searchScope==='ALL'?'All CAPEX':label(project.tier),'analysis-capex'),node('span',label(project.basis),'badge'),node('h4',project.title||label(project.titleKey)));
     item.querySelector('.analysis-capex').dataset.tier=project.tier;
     if(project.description)item.append(node('p',project.description,'chart-note'));
     if(project.evidence){var detail=node('details','','analysis-checks');detail.append(node('summary',__ST_TEXT__('scenario.evidence')));Object.entries(project.evidence).forEach(function(pair){if(pair[1]!=null)detail.append(node('p',label(pair[0])+': '+pair[1]));});item.append(detail);}
@@ -13,7 +13,7 @@ window.STWhatIf = (function() {
   }
   function render(simulation,target,create){
     var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
-    var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});var candidates=node('details','','scenario-candidate-details');candidates.append(node('summary','Individual hypotheses ('+proposals.length+')'),grid);target.appendChild(candidates);STScenarioExplorer.tools(target,simulation,plan,create);
+    var proposals=visibleProjects(plan);if(document.documentElement.dataset.uiMode!=='basic'){proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});var candidates=node('details','','scenario-candidate-details');candidates.append(node('summary','Individual hypotheses ('+proposals.length+')'),grid);target.appendChild(candidates);}STScenarioExplorer.tools(target,simulation,plan,create);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
     var checks=node('details','','analysis-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));

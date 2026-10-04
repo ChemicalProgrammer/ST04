@@ -19,7 +19,7 @@ user's settings or the Apps Script deployment default.
    needed. DOE levels are intersected with those limits. Low must remain below
    High. Missing numeric baseline values and external reliability interventions
    are excluded from the pilot; ordinary search can still evaluate those changes.
-5. Press **Search this category**. The search first runs the existing joint,
+5. Press **Find best scenario**. The search first runs the existing joint,
    equipment-block and coordinate exploration, then adds a complete two-level
    factorial for the chosen factors. With four factors this is 16 design points;
    with two factors, four. More than four factors is rejected explicitly.
@@ -84,3 +84,26 @@ case stays untouched until a reviewed scenario clone is explicitly created.
 
 This pilot uses the existing simulation engine; Gemini is not asked to fabricate
 simulation outcomes or compute effect estimates.
+
+## Search controls and scope
+
+Zero, Medium and High searches now use separate candidate pools. An independent
+**All CAPEX** card explores the union; the lower-CAPEX checkbox has been removed.
+When tiers propose different targets for the same field, the higher-tier target
+is used as the exploration endpoint (the coordinate search also tests the baseline
+and midpoint). This is bounded exploration, not exhaustive enumeration of every
+target. The combined card retains HIGH as its conservative storage tier and exports
+`searchScope: ALL`. Creating it saves only the validated changes.
+
+Individual hypothesis cards are shown only in Advance. Both modes retain the
+category searches. **Calculate OEE & throughput** evaluates the current selection;
+**Find best scenario** runs a new optimization. Neither modifies the source case.
+
+While evaluating, scenario controls are locked across cards, including the external
+intervention form. Only the active card's Cancel can stop that search. Changing the
+global DOE preference applies to a subsequent run without cancelling this one.
+Progress shows the current stage, completed simulated configurations, an upper
+bound including baseline and independent confirmation, rounds per configuration,
+and elapsed wall time updated every second. Cached configurations and early
+convergence can make the search finish below that bound. It is not a percentage
+or a promise of completion time; no wall-time limit is imposed.

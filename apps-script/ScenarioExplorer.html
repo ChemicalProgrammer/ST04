@@ -2,7 +2,7 @@
 window.STScenarioExplorer=(function(){
   // Session evidence is separate from saved simulation results and never claims
   // plant validation. Reports read it at export time, not when the view is bound.
-  var records=new Map();
+  var records=new Map(),activeHost=null;
   function evaluations(simulation){var signature=STScenarios.signature(simulation);return JSON.parse(JSON.stringify(Array.from(records.values()).filter(r=>r.sourceSimulationId===simulation.id&&r.sourceSignature===signature)));}
 
   function el(tag,text,cls){var e=document.createElement(tag);e.textContent=text||'';if(cls)e.className=cls;return e;}
@@ -16,9 +16,9 @@ window.STScenarioExplorer=(function(){
   }
   function attach(host,project,create,simulation){
     var source=JSON.parse(JSON.stringify({id:simulation.id,equipment:simulation.equipment,dynamicConfig:simulation.dynamicConfig,unitOfFlow:simulation.unitOfFlow||simulation.results?.unitOfFlow})),rows=[],generation=0,timer,baseline,baselineRun,last=null;
-    var sourceSignature=STScenarios.signature(source),recordKey=JSON.stringify([source.id,sourceSignature,project.id||project.kind,project.tier,!!project.explore,project.changes]);
+    var sourceSignature=STScenarios.signature(source),recordKey=JSON.stringify([source.id,sourceSignature,project.id||project.kind,project.tier,project.searchScope||project.tier,!!project.explore,project.changes]);
     function record(state,details){
-      var entry=Object.assign({sourceSimulationId:source.id,sourceSignature:sourceSignature,title:project.title||STScenarioText[project.titleKey]||project.kind,tier:project.tier,kind:project.kind,status:state,updatedAt:new Date().toISOString(),unitOfFlow:source.unitOfFlow||'units',run:previewRun,proposedChanges:project.changes,selections:rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,selected:r.check.checked,limit:r.limit.value===''?null:Number(r.limit.value)/r.scale,limitDirection:r.change.after>=r.change.before?'MAXIMUM':'MINIMUM',unit:STScenarios.fields[r.change.path]?.[2]})),acceptance:{minimumThroughputRelativeGain:.001,minimumThroughputAbsoluteGain:.001,allowOeeRegression:false,independentSeedCheckRequired:true},plantValidated:false},details||{});
+      var entry=Object.assign({sourceSimulationId:source.id,sourceSignature:sourceSignature,title:project.title||STScenarioText[project.titleKey]||project.kind,searchScope:project.searchScope||project.tier,tier:project.tier,kind:project.kind,status:state,updatedAt:new Date().toISOString(),unitOfFlow:source.unitOfFlow||'units',run:previewRun,proposedChanges:project.changes,selections:rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,selected:r.check.checked,limit:r.limit.value===''?null:Number(r.limit.value)/r.scale,limitDirection:r.change.after>=r.change.before?'MAXIMUM':'MINIMUM',unit:STScenarios.fields[r.change.path]?.[2]})),acceptance:{minimumThroughputRelativeGain:.001,minimumThroughputAbsoluteGain:.001,allowOeeRegression:false,independentSeedCheckRequired:true},plantValidated:false},details||{});
       records.set(recordKey,JSON.parse(JSON.stringify(entry)));
     }
     var previewRun=config(source),context=el('p','','scenario-preview-context');host.append(context);function contextText(){context.textContent='Preview: '+previewRun.durationSeconds+' s · '+previewRun.rounds+' round(s) · seed '+previewRun.seed;}contextText();
@@ -30,7 +30,7 @@ window.STScenarioExplorer=(function(){
       label.append(check,document.createTextNode(info.equipment+' · '+info.parameter));row.append(label,el('p',(change.before==null?'—':Number((change.before*scale).toPrecision(8)))+' → '+Number((change.after*scale).toPrecision(8))+' '+unit));
       var limitLabel=el('label',(change.after>=change.before?'Maximum':'Minimum')+' feasible ('+unit+')'),limit=document.createElement('input');limit.type='number';limit.step='any';limit.min='0';limit.placeholder='No limit';limitLabel.append(limit);row.append(limitLabel);
       if(change.external)row.append(el('p',change.justification,'scenario-external'));
-      list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale});check.onchange=limit.oninput=function(){last=null;generation++;clearTimeout(timer);status.textContent='Recalculating…';save.disabled=true;record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});timer=setTimeout(function(){preview(false);},350);};
+      list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale});check.onchange=limit.oninput=function(){if(activeHost)return;last=null;generation++;clearTimeout(timer);status.textContent='Recalculating…';save.disabled=true;record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});timer=setTimeout(function(){preview(false);},350);};
     });
     var doePanel=el('details','','scenario-doe'),doeCount=0;
     doePanel.append(el('summary','DOE · choose up to 4 factors'),el('p','Two levels per factor; 1–4 factors = 2–16 combinations, each with at least 3 rounds. Other changes stay fixed at the current search winner. Missing baseline values and external reliability targets are excluded.','chart-note'));
@@ -48,7 +48,7 @@ window.STScenarioExplorer=(function(){
     host.append(doePanel);
     function doeEnabled(){return window.STPreferences?.read('scenarioDoe')==='yes';}
     function refreshDOE(){doePanel.hidden=!doeEnabled();}
-    function invalidateDOE(){generation++;clearTimeout(timer);last=null;save.disabled=true;status.textContent='DOE settings changed. Run Search this category to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
+    function invalidateDOE(){if(activeHost)return;generation++;clearTimeout(timer);last=null;save.disabled=true;status.textContent='DOE settings changed. Run Find best scenario to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
     function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}refreshDOE();invalidateDOE();}
     window.addEventListener('st-doe-change',settingChanged);refreshDOE();
     function doeFactors(){
@@ -61,13 +61,21 @@ window.STScenarioExplorer=(function(){
       });
     }
     var status=el('p','Hypothesis — improvement has not been demonstrated.','scenario-preview-status');status.setAttribute('role','status');host.append(status);
+    var progress=el('p','','scenario-search-progress');progress.setAttribute('role','status');host.append(progress);
     var actions=el('div','','button-row'),run=button('Calculate OEE & throughput',function(){preview(false);}),cancel=button('Cancel',function(){clearTimeout(timer);generation++;status.textContent='Cancelled — no final estimate.';save.disabled=true;last=null;record('CANCELLED');}),save=button('Create selected scenario',function(){if(last?.changes.length)create(Object.assign({},project,{reviewed:!!project.explore||JSON.stringify(last.changes)!==JSON.stringify(project.changes),title:project.title||STScenarioText[project.titleKey]||'Selected improvements',changes:last.changes,canApply:true}),save);});save.disabled=true;
     run.classList.add('scenario-evaluate');save.classList.add('scenario-create');actions.append(run,cancel,save);host.append(actions);
-    actions.prepend(button('Search this category',function(){preview(true);}));
+    var search=button('Find best scenario',function(){preview(true);});actions.prepend(search);
+    host.append(el('p','Find best scenario runs new simulations in this category. Calculate evaluates only your selected changes. Create saves a separate scenario after validation.','chart-note'));
     function selected(){return rows.filter(r=>r.check.checked).map(function(r){var c=Object.assign({},r.change);if(r.limit.value!==''){var bound=Number(r.limit.value)/r.scale;if(!Number.isFinite(bound)||bound<0)throw Error('Enter a valid physical limit.');c.after=c.after>=c.before?Math.min(c.after,bound):Math.max(c.after,bound);if(c.before!==null&&((r.change.after>=c.before&&c.after<c.before)||(r.change.after<c.before&&c.after>c.before)))throw Error('The limit contradicts the existing baseline.');}return c;}).filter(c=>c.before!==c.after);}
     function show(base,next){function n(value){return Number.isFinite(value)?value.toFixed(2):'—';}return 'OEE '+n(base.oee)+'% → '+n(next.oee)+'% · Throughput '+n(base.throughput)+' → '+n(next.throughput)+' '+(source.unitOfFlow||'units')+'/min';}
     function improves(base,next){return Number.isFinite(next.throughput)&&Number.isFinite(next.oee)&&next.throughput>base.throughput+Math.max(.001,Math.abs(base.throughput)*.001)&&next.oee>=base.oee-1e-9;}
     async function preview(all){
+      if(activeHost)return;activeHost=host;
+      var locked=Array.from(document.querySelectorAll('.analysis-recommendation input, .analysis-recommendation button, .scenario-explorer input, .scenario-explorer select, .scenario-explorer textarea, .scenario-explorer button')).filter(e=>e!==cancel).map(e=>({element:e,disabled:e.disabled}));locked.forEach(x=>x.element.disabled=true);
+      var started=Date.now(),stage='Preparing',completed=0,maximum=0;
+      function updateProgress(){var seconds=Math.floor((Date.now()-started)/1000);progress.textContent=stage+' · '+completed+' / up to '+maximum+' simulation batches (including baseline and confirmation) · '+previewRun.rounds+' round(s) each · Elapsed '+Math.floor(seconds/60)+'m '+seconds%60+'s.'+(stage==='Finished'||stage==='Stopped'?'':' The search may finish early; Cancel stops it.');}
+      var clock=setInterval(updateProgress,1000);
+      async function measured(changes,offset){updateProgress();var result=await evaluate(source,changes,cancelled,offset,previewRun);completed++;updateProgress();return result;}
       var ticket=++generation;clearTimeout(timer);save.disabled=true;last=null;host.querySelector('.scenario-audit-warnings')?.remove();host.querySelector('.scenario-doe-results')?.remove();status.dataset.state='pending';
       var cancelled=function(){return ticket!==generation||!host.isConnected;};
       var includeDOE=all&&doeEnabled(),method=includeDOE?'COORDINATE_SEARCH_WITH_DOE':all?'BOUNDED_COORDINATE_SEARCH':'SELECTED_CHANGES';
@@ -76,20 +84,21 @@ window.STScenarioExplorer=(function(){
       record('RUNNING',{method:method});
       var evidence={method:method};
       try{
-        var changes=selected(),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;evidence.requestedChanges=changes;if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
-        if(!baseline)baseline=await evaluate(source,[],cancelled,0,previewRun);if(cancelled())return;evidence.baseline=baseline;
+        var changes=selected(),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;evidence.maximumConfigurations=maximum;evidence.requestedChanges=changes;if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
+        stage='Baseline';if(!baseline)baseline=await measured([],0);if(cancelled())return;evidence.baseline=baseline;
         var best=baseline,bestChanges=[],done=0,invalid=0,cache=new Map();
         async function trial(proposal){
           if(cancelled())return null;
           var key=JSON.stringify(proposal);if(cache.has(key))return cache.get(key);
           var result;
-          try{result=proposal.length?await evaluate(source,proposal,cancelled,0,previewRun):baseline;}
+          try{result=proposal.length?await measured(proposal,0):baseline;}
           catch(error){if(cancelled())return null;if(!String(error.message).startsWith('SCENARIO_'))throw error;invalid++;result=null;}
           cache.set(key,result);done++;
           if(result&&!(result.warnings||[]).length&&improves(baseline,result)&&(result.throughput>best.throughput+1e-9||(result.throughput===best.throughput&&result.oee>best.oee))){best=result;bestChanges=proposal;}
-          if(!cancelled())status.textContent=done+' trials · '+invalid+' infeasible · '+show(baseline,best);
+          if(!cancelled())status.textContent=done+' candidates checked · '+invalid+' infeasible · '+show(baseline,best);
           await new Promise(function(resolve){setTimeout(resolve,0);});return result;
         }
+        stage=all?'Searching category':'Evaluating selection';
         if(!all){best=await trial(changes);bestChanges=changes;if(cancelled())return;}
         else{
           // Start with the joint proposal and per-equipment blocks so coupled
@@ -99,6 +108,7 @@ window.STScenarioExplorer=(function(){
           // Bounded coordinate search across the entire selected category.
           // Revisit coordinates to capture interactions; never claim a global optimum.
           for(var pass=0;pass<3;pass++){
+            stage='Refining · pass '+(pass+1)+' / 3';
             var previous=JSON.stringify(bestChanges);
             for(var c of changes){
               var alternatives=c.external?[c.after]:[c.before,(Number(c.before)+c.after)/2,c.after];
@@ -115,6 +125,7 @@ window.STScenarioExplorer=(function(){
           var factorKeys=new Set(design.factors.map(f=>f.equipmentId+':'+f.path)),fixed=bestChanges.filter(c=>!factorKeys.has(c.equipmentId+':'+c.path)),observations=[];
           evidence.doe={type:design.type,factors:design.factors,fixedChanges:fixed,combinations:design.designPoints.length,roundsPerCombination:previewRun.rounds,observations:observations};
           for(var point of design.designPoints){
+            stage='DOE · combination '+(observations.length+1)+' / '+design.designPoints.length;
             var response=await trial(fixed.concat(point.changes));if(cancelled())return;
             observations.push({index:point.index,levels:point.levels,changes:point.changes,oee:response?.oee??null,throughput:response?.throughput??null,warnings:response?.warnings||[],feasible:!!response});
             status.textContent='DOE '+observations.length+' / '+design.designPoints.length+' combinations · '+show(baseline,best);
@@ -130,13 +141,13 @@ window.STScenarioExplorer=(function(){
         evidence.trials=done;evidence.infeasibleTrials=invalid;evidence.evaluatedChanges=bestChanges;evidence.candidate=best;
         if(best)evidence.delta={oeePercentagePoints:best.oee-baseline.oee,throughputPerMinute:best.throughput-baseline.throughput};
         if(!best){record('INFEASIBLE',evidence);status.textContent='No physically valid candidate. Review the selected values and limits.';status.dataset.state='rejected';return;}
-        var text=(evidence.doeSkippedReason?evidence.doeSkippedReason+' ':'')+(all?'Complete: '+done+' trials, '+invalid+' infeasible. ':'')+show(baseline,best);
+        var text=(evidence.doeSkippedReason?evidence.doeSkippedReason+' ':'')+(all?'Complete: '+done+' candidates checked, '+invalid+' infeasible. ':'')+show(baseline,best);
         if(!bestChanges.length||!improves(baseline,best)){record('NO_DEMONSTRATED_IMPROVEMENT',evidence);status.textContent=text+' · No demonstrated improvement; scenario creation is disabled.';status.dataset.state='rejected';return;}
         // Independent seed block is not used to select the winner.
-        record('VALIDATING',evidence);status.textContent=text+' · Checking independent seeds…';
-        var offset=Math.max(1000003,Number(previewRun.rounds)+1),validationBase=await evaluate(source,[],cancelled,offset,previewRun);
+        stage='Independent confirmation';record('VALIDATING',evidence);status.textContent=text+' · Checking independent seeds…';
+        var offset=Math.max(1000003,Number(previewRun.rounds)+1),validationBase=await measured([],offset);
         if(cancelled())return;
-        var validation=await evaluate(source,bestChanges,cancelled,offset,previewRun);if(cancelled())return;
+        var validation=await measured(bestChanges,offset);if(cancelled())return;
         var warnings=best.warnings||[],validated=improves(validationBase,validation);
         evidence.independentCheck={seed:(Number(previewRun.seed)+offset)%2147483647,rounds:previewRun.rounds,baseline:validationBase,candidate:validation,passed:validated,delta:{oeePercentagePoints:validation.oee-validationBase.oee,throughputPerMinute:validation.throughput-validationBase.throughput}};
         evidence.warnings=warnings;record(warnings.length?'ENGINEERING_REVIEW_REQUIRED':validated?'IMPROVEMENT_REPRODUCED':'NOT_REPRODUCED',evidence);
@@ -149,25 +160,25 @@ window.STScenarioExplorer=(function(){
         if(!save.disabled)last={changes:bestChanges};
         if(all&&validated&&!includeDOE){rows.forEach(function(r){var found=bestChanges.find(c=>c.equipmentId===r.change.equipmentId&&c.path===r.change.path);r.check.checked=!!found;if(found&&found.after!==r.change.after)r.limit.value=Number((found.after*r.scale).toPrecision(8));});}
       }catch(error){if(!cancelled()){record('ERROR',Object.assign({},evidence,{error:error.message}));status.textContent='Cannot evaluate: '+error.message;status.dataset.state='rejected';}}
+      finally{clearInterval(clock);stage=cancelled()?'Stopped':'Finished';updateProgress();locked.forEach(x=>{if(x.element!==save)x.element.disabled=x.disabled;});activeHost=null;refreshDOE();}
     }
   }
 
   function tools(target,simulation,plan,create){
     var pool=(plan.candidates||[]).filter(p=>p.canApply).map(p=>({tier:p.tier,changes:p.changes})),container=el('section','','scenario-explorer'),combined=el('div');target.prepend(container);container.append(el('h3','Explore the whole line'),el('p','Search each CAPEX category across all eligible equipment. Compare matched simulations, then verify the winner with independent seeds. No improvement is a valid outcome.','chart-note'));
-    var includeLower=document.createElement('input');includeLower.type='checkbox';var scope=el('label','','scenario-scope');scope.append(includeLower,document.createTextNode('Include lower-CAPEX options in Medium / High searches'));container.append(scope);includeLower.onchange=rebuild;
     var form=el('details'),summary=el('summary','Add an external reliability improvement');form.append(summary);
     var machine=document.createElement('select');simulation.equipment.filter(e=>e.type!=='CONVEYOR').forEach(function(e){machine.add(new Option(e.name,e.id));});
     var parameter=document.createElement('select');parameter.add(new Option('Increase MTBF (min)','mtbfMinutes'));parameter.add(new Option('Reduce MTTR (min)','mttrMinutes'));
     var tier=document.createElement('select');tier.add(new Option('Medium CAPEX','MEDIUM'));tier.add(new Option('High CAPEX','HIGH'));
     var value=document.createElement('input');value.type='number';value.min='.001';value.step='any';var reason=document.createElement('textarea'),feedback=el('p');feedback.setAttribute('role','status');
     [['Equipment',machine],['External improvement',parameter],['CAPEX category (review cost)',tier],['Target (min)',value],['Intervention and evidence for the target',reason]].forEach(function(pair){var label=el('label',pair[0]);label.append(pair[1]);form.append(label);});
-    form.append(button('Add improvement',function(){try{var e=simulation.equipment.find(e=>e.id===machine.value),path='noiseProfile.reliability.'+parameter.value,c={equipmentId:e.id,path:path,before:e.noiseProfile?.reliability?.[parameter.value]??null,after:Number(value.value),external:true,justification:reason.value.trim(),unit:'min'};STScenarios.apply(simulation,[c]);pool=pool.map(p=>({tier:p.tier,changes:p.changes.filter(x=>!(x.equipmentId===c.equipmentId&&x.path===c.path))}));pool.push({tier:tier.value,changes:[c]});rebuild();feedback.textContent='Added as an external intervention hypothesis.';}catch(error){feedback.textContent=error.message;}}),feedback);container.append(form,combined);
+    form.append(button('Add improvement',function(){if(activeHost){feedback.textContent='Finish or cancel the current search before adding an intervention.';return;}try{var e=simulation.equipment.find(e=>e.id===machine.value),path='noiseProfile.reliability.'+parameter.value,c={equipmentId:e.id,path:path,before:e.noiseProfile?.reliability?.[parameter.value]??null,after:Number(value.value),external:true,justification:reason.value.trim(),unit:'min'};STScenarios.apply(simulation,[c]);pool=pool.map(p=>({tier:p.tier,changes:p.changes.filter(x=>!(x.equipmentId===c.equipmentId&&x.path===c.path))}));pool.push({tier:tier.value,changes:[c]});rebuild();feedback.textContent='Added as an external intervention hypothesis.';}catch(error){feedback.textContent=error.message;}}),feedback);container.append(form,combined);
     function rebuild(){
       combined.replaceChildren();combined.className='scenario-tier-grid';
-      ['ZERO','MEDIUM','HIGH'].forEach(function(tier){
-        var seen=new Set(),changes=pool.filter(p=>p.tier===tier||(includeLower.checked&&['ZERO','MEDIUM','HIGH'].indexOf(p.tier)<['ZERO','MEDIUM','HIGH'].indexOf(tier))).sort((a,b)=>Number(b.tier===tier)-Number(a.tier===tier)).flatMap(p=>p.changes).filter(function(c){var key=c.equipmentId+':'+c.path;if(seen.has(key))return false;seen.add(key);return true;});
-        if(!changes.length){var empty=el('article','','analysis-recommendation');empty.append(el('h4',STScenarioText[tier]),el('p','No supported targets. Add intervention evidence before evaluating.'));combined.append(empty);return;}
-        var project={title:'Line-wide '+STScenarioText[tier],kind:'CUSTOM',tier:tier,basis:'STATIC',sourceSimulationId:simulation.id,sourceSignature:STScenarios.signature(simulation),changes:changes,explore:true};combined.append(STWhatIf.card(project,create,simulation.equipment,simulation));
+      ['ZERO','MEDIUM','HIGH','ALL'].forEach(function(tier){
+        var seen=new Set(),changes=pool.filter(p=>p.tier===tier||tier==='ALL').sort((a,b)=>tier==='ALL'?['ZERO','MEDIUM','HIGH'].indexOf(b.tier)-['ZERO','MEDIUM','HIGH'].indexOf(a.tier):0).flatMap(p=>p.changes).filter(function(c){var key=c.equipmentId+':'+c.path;if(seen.has(key))return false;seen.add(key);return true;});
+        if(!changes.length){var empty=el('article','','analysis-recommendation');empty.append(el('h4',tier==='ALL'?'All CAPEX':STScenarioText[tier]),el('p','No supported targets. Add intervention evidence before evaluating.'));combined.append(empty);return;}
+        var project={title:tier==='ALL'?'All CAPEX · combined search':'Line-wide '+STScenarioText[tier],description:tier==='ALL'?'Explore Zero, Medium and High measures together. Only the validated selection is saved.':'Evaluate this category independently.',searchScope:tier,kind:'CUSTOM',tier:tier==='ALL'?'HIGH':tier,basis:'STATIC',sourceSimulationId:simulation.id,sourceSignature:STScenarios.signature(simulation),changes:changes,explore:true};combined.append(STWhatIf.card(project,create,simulation.equipment,simulation));
       });
     }
     rebuild();
