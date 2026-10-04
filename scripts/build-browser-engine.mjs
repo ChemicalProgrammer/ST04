@@ -42,7 +42,7 @@ window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:sc
 
 fs.writeFileSync(targetFile, output);
 
-const scenarioSources = ['src/simulation/ConveyorEngineering.js','src/simulation/FormatGeometryAdapter.js','src/simulation/SimulationValidation.js','src/analysis/ScenarioPlanner.js'];
+const scenarioSources = ['src/simulation/ConveyorEngineering.js','src/simulation/FormatGeometryAdapter.js','src/simulation/SimulationValidation.js','src/analysis/LinePerformanceAnalysis.js','src/analysis/ScenarioPlanner.js'];
 fs.writeFileSync(path.join(repositoryRoot,'apps-script','ScenarioEngine.gs'),
   '// GENERATED scenario validation and planning. Edit src/analysis/ScenarioPlanner.js.\nvar STScenarioEngine_ = (function(){\n'+
   scenarioSources.map(file=>removeModuleSyntax(fs.readFileSync(path.join(repositoryRoot,file),'utf8'))).join('\n')+

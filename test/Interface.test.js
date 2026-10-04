@@ -9,6 +9,14 @@ import selectorParser from 'postcss-selector-parser';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
+function stubScenarioGain(h){
+ let calls=0;
+ h.w.SimulatorEngine.simulateBatch=async()=>{
+  const gain=calls++%2;
+  return {ok:true,result:{summary:{lineOeePercent:50+gain,outputCount:100+gain},durationSeconds:60}};
+ };
+}
+
 async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
@@ -146,6 +154,7 @@ test('UI: automatic edits survive reload and simulation rename/delete uses reusa
 });
 test('UI: local and Gemini chat buttons clone only validated changes into persistent scenarios',async()=>{
  const h=await setup();try{
+  stubScenarioGain(h);
   h.api.createScenario=request=>{
     const source=h.storedCases()[0],simulation=source.simulations.find(s=>s.id===request.simulationId);
     assert.equal(request.sourceSignature,h.w.STScenarios.signature(simulation));
@@ -167,6 +176,7 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
 });
 test('UI: Gemini cannot rebind an old proposal to a different persisted server record',async()=>{
  const h=await setup();try{
+  stubScenarioGain(h);
   let expectedSignature;
   h.api.getScenarioSourceSignature=request=>{const record=h.storedCases()[0];assert.equal(request.expectedRevision,record.revision);expectedSignature='server-fingerprint-'+record.revision;return {revision:record.revision,simulationId:request.simulationId,signature:expectedSignature};};
   h.api.createScenario=request=>{assert.equal(request.sourceSignature,expectedSignature);const record=h.storedCases()[0],source=record.simulations.find(s=>s.id===request.simulationId);const clone=h.w.STScenarios.apply(source,request.proposal.changes);clone.id='verified-scenario';clone.name=request.proposal.title;record.simulations.push(clone);return {case:h.api.saveCase({...record,expectedRevision:record.revision}),simulationId:clone.id};};
@@ -181,6 +191,7 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
 });
 test('UI + Apps Script: a local proposal with a different fingerprint is regenerated from saved inputs',async()=>{
  const h=await setup({realScenarioServer:true,fingerprintMismatch:true});try{
+  stubScenarioGain(h);
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
@@ -1013,7 +1024,7 @@ test('UI: Basic conveyor speed round-trips m/min and preserves overrides while G
  }finally{h.dom.window.close();}
 });
 
-test('UI: scenario limits and checkboxes drive real previews and exhaustive subsets preserve seeds',async()=>{
+test('UI: scenario limits and checkboxes preserve physical inputs in bounded line-wide search',async()=>{
  const h=await setup({remember:true});try{
   const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig={durationSeconds:10,tickSeconds:.25,sampleEverySeconds:1,seed:42,rounds:1,commands:[]};
   const e=sim.equipment[1];e.processData.geometry.lactMm=10000;e.processData.accumulation.speedMode='MANUAL';e.processData.accumulation.conveyorSpeedMmPerSecond=500;
@@ -1021,14 +1032,31 @@ test('UI: scenario limits and checkboxes drive real previews and exhaustive subs
   let created;const project={title:'Limited geometry',tier:'HIGH',basis:'STATIC',changes,sourceSimulationId:sim.id,sourceSignature:h.w.STScenarios.signature(sim),explore:true};
   const card=h.w.STWhatIf.card(project,p=>{created=p;},sim.equipment,sim);h.d.body.append(card);
   const rows=card.querySelectorAll('.scenario-change'),limit=rows[0].querySelector('input[type=number]');limit.value='15';
-  const run=h.w.SimulatorEngine.simulateBatch,calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push(JSON.parse(JSON.stringify(input)));return run(input,options);};
+  const run=h.w.SimulatorEngine.simulateBatch,calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push(JSON.parse(JSON.stringify(input)));const response=await run(input,options);if(response.ok){const changed=input.case.equipment[1].processData.geometry.lactMm>10000||input.case.equipment[1].processData.accumulation.conveyorSpeedMmPerSecond!==500;response.result.batch.statistics.lineOeePercent.mean=changed?51:50;response.result.batch.statistics.throughputPerMinute.mean=changed?101:100;}return response;};
   card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   assert.match(card.querySelector('.scenario-preview-status').textContent,/OEE.*Throughput/);card.querySelector('.scenario-create').click();assert.equal(created.changes[0].after,15000);assert.equal(created.reviewed,true);
   const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
-  checkbox.checked=true;calls.length=0;Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Evaluate all combinations').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:'));
-  assert.equal(calls.length,3);assert(calls.every(c=>c.run.seed===42&&c.run.durationSeconds===10));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/3 combinations/);
+  checkbox.checked=true;calls.length=0;Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Search this category').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:')&&!card.querySelector('.scenario-create').disabled);
+  assert(calls.length>3);assert(calls.every(c=>[42,1000045].includes(c.run.seed)&&c.run.durationSeconds===10));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/trials/);
   assert.equal(sim.equipment[1].processData.geometry.lactMm,10000);
   const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert.match(card.querySelector('.scenario-preview-status').textContent,/Cancelled/);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: regressions and gains that fail independent seeds cannot create recommended scenarios',async()=>{
+ const h=await setup({remember:true});try{
+  const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
+  let calls=0,created=false;
+  h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50-(calls%2),outputCount:100-(calls++%2)}}});
+  const card=h.w.STWhatIf.card(project,()=>{created=true;},sim.equipment,sim);h.d.body.append(card);
+  card.querySelector('.scenario-evaluate').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  assert(card.querySelector('.scenario-create').disabled);assert.match(card.textContent,/No demonstrated improvement/);assert.equal(calls,2);
+  // A fresh card has an independent baseline cache. The screening seeds improve,
+  // the validation seeds regress. This must not become an approved recommendation.
+  calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{const i=calls++,gain=i===1?2:i===3?-2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  const second=h.w.STWhatIf.card(project,()=>{created=true;},sim.equipment,sim);h.d.body.append(second);
+  second.querySelector('.scenario-evaluate').click();await waitFor(()=>second.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  assert.match(second.textContent,/did not reproduce/);assert(second.querySelector('.scenario-create').disabled);assert.equal(calls,4);assert.equal(created,false);
  }finally{h.dom.window.close();}
 });

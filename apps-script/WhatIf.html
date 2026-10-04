@@ -13,7 +13,7 @@ window.STWhatIf = (function() {
   }
   function render(simulation,target,create){
     var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
-    var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});target.appendChild(grid);STScenarioExplorer.tools(target,simulation,plan,create);
+    var proposals=visibleProjects(plan);proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});var candidates=node('details','','scenario-candidate-details');candidates.append(node('summary','Individual hypotheses ('+proposals.length+')'),grid);target.appendChild(candidates);STScenarioExplorer.tools(target,simulation,plan,create);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
     var checks=node('details','','analysis-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));
@@ -27,6 +27,7 @@ window.STWhatIf = (function() {
     return {equipment:equipmentName,parameter:field?.[0]||change.path,before:value(change.before),after:value(change.after),explanation:field?.[1]||__ST_TEXT__('scenario.review_field')};
   }
   var fields={
+    'nominalRatePerSecond':['Machine speed','Within documented installed maximum','units/s'],
     'noiseProfile.reliability.mtbfMinutes':['MTBF','External reliability intervention','min'],
     'noiseProfile.reliability.mttrMinutes':['MTTR','External repair intervention','min'],
     'processData.accumulation.conveyorSpeedMmPerSecond':['Conveyor speed','Physical belt speed','mm/s'],
@@ -44,7 +45,7 @@ window.STWhatIf = (function() {
 window.STScenarioText = {
   ZERO:__ST_TEXT__('scenario.zero'),MEDIUM:__ST_TEXT__('scenario.medium'),HIGH:__ST_TEXT__('scenario.high'),
   STATIC:__ST_TEXT__('scenario.static'),DYNAMIC:__ST_TEXT__('scenario.dynamic'),HYBRID:__ST_TEXT__('scenario.hybrid'),
-  'scenario.speed_balance':__ST_TEXT__('scenario.speed_balance'),'scenario.sensor_debounce':__ST_TEXT__('scenario.sensor_debounce'),
+  'scenario.v_curve':'V-curve speed target','scenario.sensor_window':'Prime sensor window','scenario.sensor_position':'Sensor position · existing conveyor','scenario.speed_balance':__ST_TEXT__('scenario.speed_balance'),'scenario.sensor_debounce':__ST_TEXT__('scenario.sensor_debounce'),
   'scenario.buffer_recovery':__ST_TEXT__('scenario.buffer_recovery'),'scenario.no_proposal':__ST_TEXT__('scenario.no_proposal'),
   SCENARIO_INSUFFICIENT_EVIDENCE:__ST_TEXT__('scenario.insufficient'),SCENARIO_INVALID_PHYSICS:__ST_TEXT__('scenario.invalid_physics'),SCENARIO_AUDIT_REGRESSION:__ST_TEXT__('scenario.regression'),
   TURN_TRAP_AND_FILLED_DIAMETER:__ST_TEXT__('scenario.turn_diameter'),PACEMAKER_DESIRED_STATE_AND_V_GRAPH:__ST_TEXT__('scenario.desired_state'),

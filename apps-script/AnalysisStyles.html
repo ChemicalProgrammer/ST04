@@ -97,3 +97,20 @@
 .scenario-explorer textarea { min-height:70px; }
 .scenario-external { font-size:var(--font-secondary); color:var(--muted); }
 </style>
+<style>
+.scenario-scope { display:flex; align-items:center; gap:var(--space-2); margin:var(--space-2) 0; }
+.scenario-scope input { width:auto; min-height:0; }
+.scenario-tier-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:var(--space-3); }
+.scenario-edit-details { margin:var(--space-2) 0; }
+.scenario-changes { padding:0; max-height:360px; overflow:auto; }
+.scenario-change { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-2); padding:var(--space-2); margin:var(--space-2) 0; }
+.scenario-change > label:first-child { grid-column:1 / -1; font-weight:600; }
+.scenario-change p { margin:0; align-self:center; }
+.scenario-change > label:last-of-type { font-size:var(--font-caption); }
+.scenario-change input[type=number] { width:110px; display:block; }
+.scenario-explorer .scenario-changes { display:block; }
+.scenario-preview-status[data-state=rejected] { border-left:3px solid var(--muted); }
+.scenario-preview-status[data-state=improved] { border-left:3px solid var(--accent); }
+.scenario-audit-warnings { margin:var(--space-2) 0; }
+.scenario-candidate-details { margin:var(--space-3) 0; }
+</style>

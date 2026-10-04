@@ -1,3 +1,4 @@
+import { analyzeLinePerformance } from './LinePerformanceAnalysis.js';
 import { calculateConveyorEngineering } from '../simulation/ConveyorEngineering.js';
 import { resolveAccumulationZoneDefinition } from '../simulation/FormatGeometryAdapter.js';
 import { validateSimulationInput } from '../simulation/SimulationValidation.js';
@@ -5,6 +6,7 @@ import { validateSimulationInput } from '../simulation/SimulationValidation.js';
 // Scenario policy is separate from the unchanged simulation mathematics.
 export const SCENARIO_POLICY = Object.freeze({microstopLimitMinutes:4,maxChanges:64});
 export const SCENARIO_FIELDS = Object.freeze({
+  'nominalRatePerSecond':[0.001,1000000,'units/s'],
   'noiseProfile.reliability.mtbfMinutes':[0.001,1000000,'min'],
   'noiseProfile.reliability.mttrMinutes':[0.001,1000000,'min'],
   'processData.accumulation.conveyorSpeedMmPerSecond':[0.001,1000000,'mm/s'],
@@ -60,6 +62,10 @@ export function applyScenarioChanges(simulation,changes){
     if(!unit||!rule||seen.has(key)||typeof change.after!=='number'||!Number.isFinite(change.after)||change.after<rule[0]||change.after>rule[1])throw new Error('SCENARIO_INVALID_FIELD');
     if(!Object.hasOwn(change,'before')||(scenarioGet(unit,change.path)??null)!==change.before)throw new Error('SCENARIO_STALE');
     if((change.path.includes('accumulation')||change.path.includes('geometry'))&&unit.type!=='CONVEYOR')throw new Error('SCENARIO_INVALID_FIELD');
+    if(change.path==='nominalRatePerSecond'){
+      const maximum=Number(unit.processData?.equipment?.maximumSpeedBpm)/60;
+      if(unit.type==='CONVEYOR'||unit.id===analyzeLinePerformance(simulation.equipment,simulation.results).referenceId||!(maximum>0)||change.after>maximum)throw new Error('SCENARIO_INSTALLED_SPEED_LIMIT');
+    }
     if(change.path.startsWith('noiseProfile.reliability.')){
       if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true||typeof change.justification!=='string'||change.justification.trim().length<10)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
@@ -69,11 +75,12 @@ export function applyScenarioChanges(simulation,changes){
   if(changes.every(c=>c.before===c.after))throw new Error('SCENARIO_NO_CHANGE');
   const check=validateSimulationInput({case:{id:'scenario-preview',equipment:copy.equipment},run:Object.assign({durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,commands:[]},copy.dynamicConfig)});
   if(!check.ok)throw new Error('SCENARIO_INVALID_PHYSICS');
+  copy.scenarioWarnings=[];
   const before=scenarioAudit(simulation),after=scenarioAudit(copy);
   after.forEach((item,index)=>{
     (item.engineering?.audit?.goals||[]).forEach(goal=>{
       const previous=before[index]?.engineering?.audit?.goals?.find(g=>g.id===goal.id);
-      if(previous?.status==='PASS'&&goal.status!=='PASS')throw new Error('SCENARIO_AUDIT_REGRESSION');
+      if(previous?.status==='PASS'&&goal.status!=='PASS')copy.scenarioWarnings.push({equipmentId:item.equipmentId,rule:goal.id,before:previous.status,after:goal.status});
     });
   });
   copy.results=null;return copy;
@@ -117,6 +124,17 @@ export function planScenarios(simulation){
       const greater=v=>Math.ceil((v+.01)*100)/100;
       add('SENSOR_DEBOUNCE','ZERO',e,[scenarioChange(e,'processData.accumulation.blockedTimeDelaySeconds',Math.max(input.blockedTimeDelaySeconds,greater(c.packagePassSensorSeconds))),scenarioChange(e,'processData.accumulation.clearTimeDelaySeconds',Math.max(input.clearTimeDelaySeconds,greater(c.sensorClearGapSeconds)))],{pulseSeconds:c.packagePassSensorSeconds,gapSeconds:c.sensorClearGapSeconds},82,'STATIC');
     }
+    // Search existing sensor locations on every supported conveyor, even when
+    // worksheet targets pass. These are hypotheses, not promised gains.
+    const zone=resolveAccumulationZoneDefinition(simulation.equipment,simulation.equipment.indexOf(e)).definition;
+    if(zone?.usableLengthMm>0){
+      let backup=Math.min(c.recommendedBackupSensorPositionMm,zone.primeSensorPositionMm,zone.backupRestartPositionMm??Infinity);
+      if(backup===e.processData?.accumulation?.backupSensorPositionMm)backup=Math.min(zone.primeSensorPositionMm,zone.backupRestartPositionMm??Infinity)*.5;
+      if(Number.isFinite(backup)&&backup>=0)add('SENSOR_POSITION','ZERO',e,[scenarioChange(e,'processData.accumulation.backupSensorPositionMm',Number(backup.toFixed(2)))],{installedLengthMm:zone.usableLengthMm},75,'STATIC');
+    }
+    if(zone?.usableLengthMm>0&&e.processData?.geometry?.lpPrimeMm>0){
+      add('SENSOR_WINDOW','ZERO',e,[scenarioChange(e,'processData.geometry.lpPrimeMm',e.processData.geometry.lpPrimeMm*.5)],{installedLengthMm:zone.usableLengthMm},72,'STATIC');
+    }
     const upstream=simulation.equipment.find(x=>x.id===item.upstreamId),mttr=upstream?.noiseProfile?.reliability?.mttrMinutes;
     const microstop=mttr>0&&mttr<=SCENARIO_POLICY.microstopLimitMinutes;
     const coverage=microstop&&Number.isFinite(c.antiStarveSeconds)?c.antiStarveSeconds/(mttr*60):null;
@@ -135,6 +153,11 @@ export function planScenarios(simulation){
   (simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR').forEach(e=>{
     const r=e.noiseProfile?.reliability;if(!(r?.mtbfMinutes>0&&r?.mttrMinutes>0))return;
     if(r.mttrMinutes>SCENARIO_POLICY.microstopLimitMinutes)checks.push({equipmentId:e.id,rule:'MAJOR_FAILURE_OUTSIDE_MICROSTOP_BUFFER_TARGET',status:'REVIEW'});
+  });
+  analyzeLinePerformance(simulation.equipment,result).points.forEach(point=>{
+    if(point.isPacemaker||!(point.maximumBpm>0)||!(point.recommendedBpm>0))return;
+    const equipment=simulation.equipment.find(e=>e.id===point.id),target=Math.min(point.maximumBpm,point.recommendedBpm)/60;
+    add('V_CURVE','ZERO',equipment,[scenarioChange(equipment,'nominalRatePerSecond',target)],{maximumBpm:point.maximumBpm,recommendedBpm:point.recommendedBpm},70,'STATIC');
   });
   checks.push({rule:'PACEMAKER_DESIRED_STATE_AND_V_GRAPH',status:'NOT_EVALUATED'});
   const projects=['ZERO','MEDIUM','HIGH'].map(tier=>{

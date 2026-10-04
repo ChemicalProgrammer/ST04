@@ -52,3 +52,18 @@ test('external reliability changes require evidence and physically beneficial di
  assert.throws(()=>applyScenarioChanges(sim,[{...change,external:false}]),/SCENARIO_EXTERNAL_EVIDENCE_REQUIRED/);
  assert.equal(applyScenarioChanges(sim,[{...change,path:'noiseProfile.reliability.mttrMinutes',before:2,after:1}]).equipment[0].noiseProfile.reliability.mttrMinutes,1);
 });
+
+test('worksheet regressions are reviewable evidence while invalid sensor geometry is rejected',()=>{
+ const sim=fixture(),e=sim.equipment[1];e.processData.accumulation.blockedTimeDelaySeconds=10;e.processData.accumulation.clearTimeDelaySeconds=10;
+ const change={equipmentId:e.id,path:'processData.accumulation.blockedTimeDelaySeconds',before:10,after:0};
+ const copy=applyScenarioChanges(sim,[change]);assert(copy.scenarioWarnings.some(w=>w.rule==='SENSOR_DEBOUNCE'&&w.before==='PASS'));assert.equal(e.processData.accumulation.blockedTimeDelaySeconds,10);
+ assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:e.id,path:'processData.accumulation.backupSensorPositionMm',before:e.processData.accumulation.backupSensorPositionMm??null,after:999999}]),/SCENARIO_INVALID_PHYSICS/);
+});
+test('sensor hypotheses cover all eligible conveyors and machine targets respect documented maxima',()=>{
+ const sim=fixture(),plan=planScenarios(sim);
+ const conveyors=sim.equipment.filter(e=>e.type==='CONVEYOR'&&e.processData.geometry?.lpPrimeMm>0);
+ for(const e of conveyors)assert(plan.candidates.some(p=>p.equipmentId===e.id&&p.kind==='SENSOR_WINDOW'&&p.tier==='ZERO'));
+ const machine=sim.equipment[0],path='nominalRatePerSecond';machine.processData.equipment.maximumSpeedBpm=machine.nominalRatePerSecond*60;
+ assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:machine.id,path,before:machine.nominalRatePerSecond,after:machine.nominalRatePerSecond+1}]),/SCENARIO_INSTALLED_SPEED_LIMIT/);
+ const source=JSON.stringify(sim);for(const p of plan.candidates.filter(p=>p.kind==='V_CURVE'))assert(p.changes.every(c=>c.after*60<=sim.equipment.find(e=>e.id===c.equipmentId).processData.equipment.maximumSpeedBpm));assert.equal(JSON.stringify(sim),source);
+});
