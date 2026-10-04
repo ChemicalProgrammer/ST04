@@ -1119,7 +1119,7 @@ function renderRawJson() {
       STWhatIf.render(simulation,target,createWhatIfScenario);toggle('simulation-analysis',true);
     }
     async function createWhatIfScenario(proposal,button) {
-      await createProposedScenario(proposal,'LOCAL',button);
+      await createProposedScenario(proposal,proposal.reviewed?'REVIEWED':'LOCAL',button);
     }
     async function applyChatScenario(proposal,button) {
       await createProposedScenario(proposal,'GEMINI',button);
@@ -1153,7 +1153,7 @@ function renderRawJson() {
         // proposals keep their additional saved-source fingerprint check.
         var expectedRevision=state.activeCase.revision;
         var verified={revision:expectedRevision,simulationId:simulationId,signature:STScenarios.signature(source)};
-        if(origin==='GEMINI')verified=await new Promise(function(resolve,reject){
+        if(origin==='GEMINI'||origin==='REVIEWED')verified=await new Promise(function(resolve,reject){
           callServer('getScenarioSourceSignature',[{caseId:caseId,simulationId:simulationId,expectedRevision:expectedRevision}],function(response){
             response.ok?resolve(response.data):reject(Object.assign(new Error(response.error.message),{code:response.error.code}));
           });

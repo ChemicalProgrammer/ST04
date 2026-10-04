@@ -174,4 +174,14 @@ html[data-ui-mode=basic] .vgraph-reference { font-size:16px; }
 html[data-ui-mode=basic] .vgraph-value { font-size:18px; }
 @media(max-width:1260px){html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:repeat(2,minmax(0,1fr)); }}
 @media(max-width:760px){html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:1fr; }}
+html[data-ui-mode=basic][data-basic-view=results] #batch-results,
+html[data-ui-mode=basic][data-basic-view=results] #results-table,
+html[data-ui-mode=basic][data-basic-view=results] #results-body > h3,
+html[data-ui-mode=basic][data-basic-view=results] #results-reference,
+html[data-ui-mode=basic][data-basic-view=results] #results-body > .chart-layout,
+html[data-ui-mode=basic][data-basic-view=results] #results-body > .raw-viewer { display:none !important; }
+html[data-ui-mode=basic] .scenario-change > details,
+html[data-ui-mode=basic] .scenario-change > .chart-note,
+html[data-ui-mode=basic] .analysis-recommendation > .analysis-checks,
+html[data-ui-mode=basic] .analysis-recommendation > .chart-note { display:none; }
 </style>

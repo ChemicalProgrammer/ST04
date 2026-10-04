@@ -103,3 +103,10 @@ test('Gemini honors the requested browser mode independently of the deployment d
  assert.equal(advance.ctx.askGemini_({...request,uiMode:'ADVANCE'},user).proposals.length,1);
  assert.doesNotMatch(JSON.parse(advance.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
 });
+
+test('Gemini external reliability proposals preserve intervention evidence',()=>{
+ const fixture=setup(),e=fixture.record.simulations[0].equipment[0],before=e.noiseProfile.reliability.mttrMinutes;
+ const proposal={title:'Repair crew intervention',tier:'MEDIUM',basis:'STATIC',kind:'CUSTOM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true,justification:'Dedicated repair team with a target supported by repair trials'}]};
+ const h=setup({answer:JSON.stringify({text:'External intervention hypothesis.',proposals:[proposal]})});
+ const result=h.ctx.askGemini_({...request,uiMode:'ADVANCE'},user);assert.equal(result.proposals.length,1);assert.equal(result.proposals[0].changes[0].external,true);assert.match(result.proposals[0].changes[0].justification,/repair team/);
+});

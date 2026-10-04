@@ -7,13 +7,13 @@ test('static design produces three explicit categories without inventing dynamic
  const project=plan.projects.find(p=>p.canApply);assert(project);const copy=applyScenarioChanges(sim,project.changes);assert.equal(copy.dynamicConfig.seed,17);assert.equal(copy.results,null);assert.notDeepEqual(copy.equipment,sim.equipment);
  assert(plan.checks.some(c=>c.rule==='TURN_TRAP_AND_FILLED_DIAMETER'&&c.status==='NOT_EVALUATED'));
 });
-test('plant reliability is fixed in local and custom scenarios',()=>{
+test('plant reliability is not changed without explicit external evidence',()=>{
  const sim=fixture();sim.equipment[0].noiseProfile.reliability={mtbfMinutes:8,mttrMinutes:2};sim.results={summary:{},equipmentMetrics:{[sim.equipment[0].id]:{failureSeconds:45,availabilityPercent:80}},durationSeconds:60};
  const plan=planScenarios(sim),p=plan.projects.find(p=>p.tier==='MEDIUM');assert.equal(p.canApply,false);assert.equal(p.disabledReason,'SCENARIO_INSUFFICIENT_EVIDENCE');
  assert(!plan.candidates.some(candidate=>candidate.changes.some(change=>change.path.startsWith('noiseProfile.reliability.'))));
  for(const path of ['noiseProfile.reliability.mtbfMinutes','noiseProfile.reliability.mttrMinutes']){
   const before=path.endsWith('mtbfMinutes')?8:2;
-  assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:sim.equipment[0].id,path,before,after:before*1.2}]),/SCENARIO_INVALID_FIELD/);
+  assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:sim.equipment[0].id,path,before,after:before*1.2}]),/SCENARIO_EXTERNAL_EVIDENCE_REQUIRED/);
  }
  assert.equal(sim.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
 });
@@ -42,4 +42,13 @@ test('scenario fingerprint survives server equipment normalization and JSON key 
  assert.equal(scenarioSignature(browserCopy),signature);
  browserCopy.dynamicConfig.seed++;
  assert.notEqual(scenarioSignature(browserCopy),signature);
+});
+
+test('external reliability changes require evidence and physically beneficial directions',()=>{
+ const sim=fixture(),e=sim.equipment[0];e.noiseProfile.reliability={mtbfMinutes:8,mttrMinutes:2};
+ const change={equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before:8,after:12,external:true,justification:'Bearing replacement supported by vendor reliability target'};
+ const updated=applyScenarioChanges(sim,[change]);assert.equal(updated.equipment[0].noiseProfile.reliability.mtbfMinutes,12);assert.equal(sim.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
+ assert.throws(()=>applyScenarioChanges(sim,[{...change,after:4}]),/SCENARIO_RELIABILITY_DIRECTION/);
+ assert.throws(()=>applyScenarioChanges(sim,[{...change,external:false}]),/SCENARIO_EXTERNAL_EVIDENCE_REQUIRED/);
+ assert.equal(applyScenarioChanges(sim,[{...change,path:'noiseProfile.reliability.mttrMinutes',before:2,after:1}]).equipment[0].noiseProfile.reliability.mttrMinutes,1);
 });

@@ -72,3 +72,11 @@ test('scenario RPC errors identify the responding version without exposing input
  assert.match(response.error.message,/\[whatif-20260925-3 \/ CASE_CONFLICT\]/);
  assert.doesNotMatch(JSON.stringify(response),/equipment|noiseProfile/);
 });
+
+test('reviewed external interventions retain evidence and reject stale source signatures',()=>{
+ const h=setup(),source=h.record().simulations[0],e=source.equipment[0],before=e.noiseProfile.reliability.mttrMinutes;
+ const proposal={...h.request.proposal,tier:'MEDIUM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true,justification:'Dedicated repair crew and validated repair trial target'}]};
+ assert.throws(()=>h.ctx.createScenario_({...h.request,origin:'REVIEWED',sourceSignature:'stale',proposal},{email:'owner@test'}),e=>e.code==='SCENARIO_STALE');
+ const result=h.ctx.createScenario_({...h.request,origin:'REVIEWED',proposal},{email:'owner@test'});
+ assert.equal(result.case.simulations[1].scenario.changes[0].external,true);assert.match(result.case.simulations[1].scenario.changes[0].justification,/crew/);assert.equal(result.case.simulations[0].equipment[0].noiseProfile.reliability.mttrMinutes,before);
+});

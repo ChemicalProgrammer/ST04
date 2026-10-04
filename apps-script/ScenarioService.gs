@@ -18,7 +18,7 @@ function createScenario_(request,user) {
       // proposal is valid only if its exact edits still match a current candidate.
       // Browser fingerprints are not needed to establish that equivalence.
       submitted=resolveLocalScenarioProposal_(submitted,source);
-    }else if(request.origin==='GEMINI'){
+    }else if(['GEMINI','REVIEWED'].includes(request.origin)){
       if(request.sourceSignature!==sourceSignature)throw createSimulatorError_('SCENARIO_STALE','The simulation inputs changed. Request a new proposal.');
     }else throw createSimulatorError_('INVALID_SCENARIO','The scenario origin is invalid.');
     var proposal=normalizeScenarioProposal_(submitted,source),copy;
@@ -53,7 +53,7 @@ function normalizeScenarioProposal_(proposal,source) {
   if(!title)throw createSimulatorError_('INVALID_SCENARIO','A scenario title is required.');
   // Field allowlist, value bounds, expected before values, topology and audits are shared with the browser.
   try{STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The scenario contains an invalid or stale change.',[String(error.message)]);}
-  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,unit:STScenarioEngine_.fields[c.path][2]};});
+  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,justification:String(c.justification).slice(0,600)}:{})};});
   if(proposal.tier==='ZERO'&&changes.some(function(c){return /geometry|reliability/.test(c.path);}))throw createSimulatorError_('INVALID_SCENARIO','Geometry and maintenance changes cannot be labeled zero CAPEX.');
   var evidence={};
   if(proposal.evidence&&typeof proposal.evidence==='object'&&!Array.isArray(proposal.evidence))Object.keys(proposal.evidence).slice(0,12).forEach(function(key){

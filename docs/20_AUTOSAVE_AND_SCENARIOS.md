@@ -50,8 +50,9 @@ insufficient. Categories are not guaranteed cost estimates:
 | Medium CAPEX / OPEX | No supported automatic intervention with the current inputs; shown as insufficient evidence | None |
 | High CAPEX | Calculated accumulation/recovery length and Back-up position | Static geometry; hybrid when zone losses exist |
 
-Measured MTBF and MTTR remain fixed inputs to the failure model and are excluded
-from both local and Gemini scenario changes. The microstop screening limit is four
+Measured MTBF and MTTR remain the baseline. External interventions may increase
+MTBF or reduce MTTR, with `external:true` and a specific justification and target.
+They are never invented as side effects of conveyor tuning. The microstop screening limit is four
 minutes; longer repairs are flagged for separate review rather than absorbed by
 arbitrary buffer growth. A medium CAPEX intervention needs supported, editable
 engineering inputs before the planner can propose one.

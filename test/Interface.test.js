@@ -154,14 +154,14 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
   };
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   assert.equal(h.d.querySelectorAll('.scenario-grid>article').length,h.w.STWhatIf.visibleProjects(h.w.STScenarios.plan(h.storedCases()[0].simulations[0])).length);assert(!h.d.querySelector('.scenario-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-grid').textContent,/Static inputs only/);
-  await h.click('.scenario-grid button');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   assert(!h.storedCases()[0].simulations[0].results);assert.equal(h.storedCases()[0].simulations[1].results,null);
   h.api.askGemini=request=>{
     const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
     assert(proposal);return {text:'Review these input changes.',proposals:[{...proposal,title:'Chat proposal'}]};
   };
   await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .analysis-recommendation button');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
   assert.equal(h.storedCases()[0].simulations[2].name,'Chat proposal');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -174,7 +174,7 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#toggle-gemini');
   h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');
   await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .analysis-recommendation button');await h.click('.message-dialog button:last-child');
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.d.getElementById('status').textContent.includes('changed'));assert.equal(h.storedCases()[0].simulations.length,1);assert(!h.calls.includes('createScenario'));
   assert(h.calls.includes('getScenarioSourceSignature'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -182,7 +182,7 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
 test('UI + Apps Script: a local proposal with a different fingerprint is regenerated from saved inputs',async()=>{
  const h=await setup({realScenarioServer:true,fingerprintMismatch:true});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  await h.click('.scenario-grid button');await h.click('.message-dialog button:last-child');
+  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const simulations=h.storedCases()[0].simulations;
   assert.equal(simulations[1].clonedFromSimulationId,simulations[0].id);
@@ -1009,6 +1009,26 @@ test('UI: Basic conveyor speed round-trips m/min and preserves overrides while G
   const card=Array.from(h.d.querySelectorAll('.equipment-card')).find(c=>c.dataset.equipmentId===h.storedCases()[0].equipment[1].id);
   assert.equal(Number(card._fields.querySelector('.format-zone-belt-speed').value),1000);assert.equal(card._fields.querySelector('.format-zone-speed-mode').value,'MANUAL');
   await mode('BASIC');await h.click('[data-basic-view=conveyors]');assert.equal(Number(h.d.querySelector('#equipment-inspector .format-zone-belt-speed').value),60);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: scenario limits and checkboxes drive real previews and exhaustive subsets preserve seeds',async()=>{
+ const h=await setup({remember:true});try{
+  const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig={durationSeconds:10,tickSeconds:.25,sampleEverySeconds:1,seed:42,rounds:1,commands:[]};
+  const e=sim.equipment[1];e.processData.geometry.lactMm=10000;e.processData.accumulation.speedMode='MANUAL';e.processData.accumulation.conveyorSpeedMmPerSecond=500;
+  const changes=[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:20000,unit:'mm'},{equipmentId:e.id,path:'processData.accumulation.conveyorSpeedMmPerSecond',before:500,after:550,unit:'mm/s'}];
+  let created;const project={title:'Limited geometry',tier:'HIGH',basis:'STATIC',changes,sourceSimulationId:sim.id,sourceSignature:h.w.STScenarios.signature(sim),explore:true};
+  const card=h.w.STWhatIf.card(project,p=>{created=p;},sim.equipment,sim);h.d.body.append(card);
+  const rows=card.querySelectorAll('.scenario-change'),limit=rows[0].querySelector('input[type=number]');limit.value='15';
+  const run=h.w.SimulatorEngine.simulateBatch,calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push(JSON.parse(JSON.stringify(input)));return run(input,options);};
+  card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  assert.match(card.querySelector('.scenario-preview-status').textContent,/OEE.*Throughput/);card.querySelector('.scenario-create').click();assert.equal(created.changes[0].after,15000);assert.equal(created.reviewed,true);
+  const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
+  checkbox.checked=true;calls.length=0;Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Evaluate all combinations').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:'));
+  assert.equal(calls.length,3);assert(calls.every(c=>c.run.seed===42&&c.run.durationSeconds===10));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/3 combinations/);
+  assert.equal(sim.equipment[1].processData.geometry.lactMm,10000);
+  const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert.match(card.querySelector('.scenario-preview-status').textContent,/Cancelled/);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
