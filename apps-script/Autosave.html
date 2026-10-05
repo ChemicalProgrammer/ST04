@@ -3,14 +3,16 @@
 window.STAutosave = function(options) {
   var version = 0, saved = 0, sending = false, timer, failure = null, waiters = [];
   var firstEdit = null, lastEdit = null, immediateDue = false, epoch = 0;
+  var enabled = options.enabled !== false;
+  var intervalMs = null;
   var idleMs = options.idleMs == null ? 1500 : options.idleMs;
   var maxWaitMs = options.maxWaitMs == null ? 10000 : options.maxWaitMs;
   function notify() { options.status(failure ? 'error' : sending ? 'saving' : version > saved ? 'pending' : 'saved', failure); }
   function settle(error) { var pending = waiters.splice(0); pending.forEach(function(w) { error ? w.reject(error) : w.resolve(); }); }
   function schedule() {
     clearTimeout(timer);
-    if (sending || failure || version === saved) return;
-    var due = immediateDue ? Date.now() : Math.min(lastEdit + idleMs, firstEdit + maxWaitMs);
+    if (!enabled || sending || failure || version === saved) return;
+    var due = intervalMs !== null ? firstEdit + intervalMs : immediateDue ? Date.now() : Math.min(lastEdit + idleMs, firstEdit + maxWaitMs);
     timer = setTimeout(write, Math.max(0, due - Date.now()));
   }
   function write() {
@@ -52,7 +54,12 @@ window.STAutosave = function(options) {
       waiters.push({resolve:resolve,reject:reject}); write();
     });
   }
-  return {change:change,flush:flush,retry:flush,pending:function(){return sending || version > saved;},
+  function configure(policy) {
+    enabled = policy.enabled !== false;
+    intervalMs = Number.isFinite(policy.intervalMs) && policy.intervalMs > 0 ? policy.intervalMs : null;
+    schedule(); notify();
+  }
+  return {change:change,flush:flush,retry:flush,configure:configure,pending:function(){return sending || version > saved;},
     reset:function(){
       clearTimeout(timer); epoch++; sending=false; version=0; saved=0; failure=null;
       firstEdit=null; lastEdit=null; immediateDue=false;

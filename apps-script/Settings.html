@@ -5,7 +5,7 @@ window.STSettings = (function() {
   function request(){return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:{model:el('gemini-model').value,apiKey:el('gemini-api-key').value}};}
   function refresh(){el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
   function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();refresh();dialog.showModal();}
-  function resetModeSelector(){el('settings-seed-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-seed-policy').value=STPreferences.read('seedPolicy')||'FIXED';el('settings-scenario-doe').checked=STPreferences.read('scenarioDoe')==='yes';modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  function resetModeSelector(){el('settings-save-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=STPreferences.read('autosaveEnabled')!=='no';el('settings-autosave-seconds').value=STPreferences.read('autosaveSeconds')||'10';el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-seed-policy').value=STPreferences.read('seedPolicy')||'FIXED';el('settings-scenario-doe').checked=STPreferences.read('scenarioDoe')==='yes';modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
   function unlockMode(event){
     if(!el('settings-dialog').open||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.target.closest('input,select,textarea,[contenteditable]'))return;
     if(event.key.toLowerCase()!=='m'){modeCount=0;return;}
@@ -32,6 +32,11 @@ window.STSettings = (function() {
       if(!el('case-editor-form').reportValidity())return;
       try{await flushCase();}catch(error){el('settings-error').textContent=error.message;return;}
     }
+    if(!el('settings-save-section').classList.contains('hidden')){
+      var seconds=Number(el('settings-autosave-seconds').value);
+      if(!Number.isInteger(seconds)||seconds<1||seconds>3600){if(el('settings-autosave').checked){el('settings-error').textContent='Choose a save interval between 1 and 3600 seconds.';return;}seconds=10;}
+      if(!STPreferences.write('autosaveEnabled',el('settings-autosave').checked?'yes':'no')||!STPreferences.write('autosaveSeconds',String(seconds))){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
+    }
     if(!el('settings-seed-section').classList.contains('hidden')&&!STPreferences.write('seedPolicy',el('settings-seed-policy').value)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     var changed=!el('settings-interface-section').classList.contains('hidden')&&el('settings-interface-mode').value!==(document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC');
     var mode=el('settings-interface-mode').value,doe=el('settings-scenario-doe').checked,doeChanged=!el('settings-interface-section').classList.contains('hidden')&&doe!==(STPreferences.read('scenarioDoe')==='yes');
@@ -39,6 +44,7 @@ window.STSettings = (function() {
     if(changed&&!STPreferences.write('interfaceMode',mode)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     el('settings-error').textContent='';resetModeSelector();el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();
     if(changed)applyMode?.(mode);
+    window.dispatchEvent(new Event('st-save-policy-change'));
     if(doeChanged)window.dispatchEvent(new Event('st-doe-change'));
   }
   function keyStatus(){el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
@@ -55,6 +61,7 @@ window.STSettings = (function() {
     });
   }
   function init(){
+    el('settings-autosave').onchange=function(){el('settings-autosave-seconds').disabled=!this.checked;};
     el('settings-close').onclick=close;el('settings-cancel').onclick=close;el('settings-retry').onclick=write;
     el('gemini-delete-key').onclick=deleteKey;
     el('settings-dialog').addEventListener('keydown',unlockMode);

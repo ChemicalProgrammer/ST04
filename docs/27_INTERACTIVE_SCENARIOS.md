@@ -54,8 +54,10 @@ old approval; changing source inputs excludes mismatched evaluations. An indepen
 seed comparison is simulation evidence, never plant validation. The saved baseline
 result remains separate from the matched baseline used by the scenario preview.
 
-Evidence and card controls are saved under each simulation through case autosave.
-Wait for the normal saved indicator before closing the page. Reopening restores
+Evidence and card controls belong to each simulation and follow the case saving
+policy. Advance can save them automatically at its configured interval; Basic
+and manual Advance require the Save icon. Wait for the saved indicator before
+closing the page. Reopening restores
 matching evaluations, limits, DOE factors and external intervention options.
 Interrupted searches retain their latest checkpoint but require a new run; they
 do not resume automatically. Changed inputs keep the historical data in the case

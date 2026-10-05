@@ -112,6 +112,8 @@ test('modular application includes shared three-tier planning, dialogs and autom
   assert(index.includes('Global OEE'));
   assert(code.includes('function createScenario_'));
   assert(code.includes('function buildGeminiContext_'));
-  assert(!index.includes('id="save-case"'));
+  assert(index.includes('id="save-case"'));
+  assert(index.includes('id="settings-autosave"'));
+  assert(index.includes('id="settings-autosave-seconds"'));
   assert(!index.includes('id="reload-case"'));
 });

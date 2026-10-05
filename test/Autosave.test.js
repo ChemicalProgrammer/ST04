@@ -50,3 +50,22 @@ test('reset ignores stale responses and rejects outstanding flushes',async()=>{
  assert.equal(h.revision(),1);assert(h.queue.pending());
  h.sent[1].done({ok:true,data:{revision:2}});assert(!h.queue.pending());
 });
+
+test('manual mode retains all changes until explicit flush, including immediate edits',async()=>{
+ const c=clock(),h=setup(c);h.queue.configure({enabled:false,intervalMs:2000});h.edit('manual');h.queue.change(true);
+ c.advance(60000);assert.equal(h.sent.length,0);assert(h.queue.pending());
+ const saved=h.queue.flush();assert.equal(h.sent.length,1);assert.equal(h.sent[0].payload.value,'manual');
+ h.sent[0].done({ok:true,data:{revision:2}});await saved;assert(!h.queue.pending());
+});
+test('configured interval saves continuous edits on time, ignores immediate hints and stops when disabled',()=>{
+ const c=clock(),h=setup(c);h.queue.configure({enabled:true,intervalMs:5000});h.edit('a');h.queue.change(true);
+ c.advance(1500);h.edit('b');c.advance(3499);assert.equal(h.sent.length,0);c.advance(1);assert.equal(h.sent.length,1);
+ assert.equal(h.sent[0].payload.value,'b');h.edit('during request');h.queue.configure({enabled:false,intervalMs:5000});
+ h.sent[0].done({ok:true,data:{revision:2}});c.advance(30000);assert.equal(h.sent.length,1);assert(h.queue.pending());
+ h.queue.configure({enabled:true,intervalMs:1000});c.advance(0);assert.equal(h.sent.length,2);
+ h.sent[1].done({ok:true,data:{revision:3}});
+});
+test('disabling autosave cancels an already scheduled background write',()=>{
+ const c=clock(),h=setup(c);h.edit('pending');c.advance(1000);h.queue.configure({enabled:false,intervalMs:1000});c.advance(60000);
+ assert.equal(h.sent.length,0);assert(h.queue.pending());
+});

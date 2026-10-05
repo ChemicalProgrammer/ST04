@@ -17,7 +17,7 @@ function stubScenarioGain(h){
  };
 }
 
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  if(flowUnit)initial.unitOfFlow=flowUnit;
@@ -57,6 +57,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  let media;
  const dom=new JSDOM(renderAppsScript().html,{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
+  w.localStorage.setItem('st.ui.v1.autosaveSeconds',String(autosaveSeconds));
   if(remember)w.localStorage.setItem('st.ui.v1.remember','yes');
   if(savedAccent)w.localStorage.setItem('st.ui.v1.accent',savedAccent);
   if(savedUiMode)w.localStorage.setItem('st.ui.v1.interfaceMode',savedUiMode);
@@ -69,7 +70,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  }});
  await new Promise(r=>dom.window.addEventListener('load',r));await settle();
  const w=dom.window,d=w.document;
- return {w,d,dom,errors,calls,media,storedCases:()=>copy(cases),api,click:async selector=>{d.querySelector(selector).click();await settle();},visible:id=>!d.getElementById(id).classList.contains('hidden')};
+ return {w,d,dom,errors,calls,media,storedCases:()=>copy(cases),api,click:async selector=>{if(selector.startsWith('.message-dialog'))await waitFor(()=>d.querySelector(selector));d.querySelector(selector).click();await settle();},visible:id=>!d.getElementById(id).classList.contains('hidden')};
 }
 test('UI: cases-only entry, accessible navigation, theme settings and remembered access',async()=>{
  const h=await setup();try{
@@ -139,7 +140,7 @@ test('UI: network failure restores entry and reports the error',async()=>{
 test('UI: automatic edits survive reload and simulation rename/delete uses reusable dialogs',async()=>{
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
-  assert(!h.d.querySelector('#save-case,#save-workspace-case,#settings-save,#reload-case,.delete-case'));
+  assert(h.d.getElementById('save-case').classList.contains('hidden'));assert(!h.d.querySelector('#save-workspace-case,#settings-save,#reload-case,.delete-case'));
   const name=h.d.querySelector('.equipment-name');name.value='Automatically saved equipment';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await waitFor(()=>h.storedCases()[0].equipment[0].name==='Automatically saved equipment');assert.equal(h.d.activeElement===name,false);
   assert.equal(h.d.getElementById('autosave-status').textContent,'Saved');
@@ -163,14 +164,14 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
   };
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   assert.equal(h.d.querySelectorAll('.scenario-grid>article').length,h.w.STWhatIf.visibleProjects(h.w.STScenarios.plan(h.storedCases()[0].simulations[0])).length);assert(!h.d.querySelector('.scenario-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-grid').textContent,/Static inputs only/);
-  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   assert(!h.storedCases()[0].simulations[0].results);assert.equal(h.storedCases()[0].simulations[1].results,null);
   h.api.askGemini=request=>{
     const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
     assert(proposal);return {text:'Review these input changes.',proposals:[{...proposal,title:'Chat proposal'}]};
   };
   await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
   assert.equal(h.storedCases()[0].simulations[2].name,'Chat proposal');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -184,7 +185,7 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#toggle-gemini');
   h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');
   await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await h.click('.message-dialog button:last-child');
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.d.getElementById('status').textContent.includes('changed'));assert.equal(h.storedCases()[0].simulations.length,1);assert(!h.calls.includes('createScenario'));
   assert(h.calls.includes('getScenarioSourceSignature'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -193,7 +194,7 @@ test('UI + Apps Script: a local proposal with a different fingerprint is regener
  const h=await setup({realScenarioServer:true,fingerprintMismatch:true});try{
   stubScenarioGain(h);
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await h.click('.message-dialog button:last-child');
+  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const simulations=h.storedCases()[0].simulations;
   assert.equal(simulations[1].clonedFromSimulationId,simulations[0].id);
@@ -207,7 +208,7 @@ test('UI: invalid JSON remains visible and blocks closing until corrected; faile
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
   const json=h.d.querySelector('.equipment-noise-profile'),previous=json.value;json.value='{invalid';json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await h.click('#home-cases');assert(!h.visible('cases-panel'));assert.equal(json.value,'{invalid');assert.match(h.d.getElementById('status').textContent,/JSON/);
-  json.value=previous;json.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#home-cases');assert(h.visible('cases-panel'));assert.deepEqual(h.errors,[]);
+  json.value=previous;json.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#home-cases');await waitFor(()=>h.visible('cases-panel'));assert(h.visible('cases-panel'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
  const failed=await setup({remember:true,fail:true});try{assert(failed.visible('auth-panel'));assert(!failed.d.documentElement.classList.contains('restoring-session'));}finally{failed.dom.window.close();}
 });
@@ -234,7 +235,7 @@ test('UI: Gemini panel sends case questions, closes, and clears on sign out',asy
  const h=await setup();try{
  await h.click('#sign-in-button');await h.click('.open-case');assert(h.visible('case-sidebar'));
  await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));
- h.d.getElementById('gemini-question').value='Where is the bottleneck?';await h.click('#send-gemini');assert(h.calls.includes('askGemini'));assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
+ h.d.getElementById('gemini-question').value='Where is the bottleneck?';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case'));assert(h.calls.includes('askGemini'));assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
  await h.click('#close-gemini');assert(!h.visible('gemini-panel'));
  await h.click('#open-settings');await h.click('[data-accent="ocean-liner"].accent-choice');assert.equal(h.d.documentElement.dataset.accent,'ocean-liner');await h.click('#settings-close');
  await h.click('#sign-out');assert.equal(h.d.getElementById('gemini-messages').textContent,'');assert(!h.visible('gemini-panel'));assert.deepEqual(h.errors,[]);
@@ -708,7 +709,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   assert.equal(style(machines[0]._fields.querySelector('.equipment-id').closest('label')),'none');
   assert(machines[0]._fields.querySelector('.equipment-id').readOnly);
   const field=machines[0]._fields.querySelector('.equipment-rate');field.value='333';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
-  machines[0].click();assert.equal(machines[0]._fields.parentElement,machines[0]);
+  machines[0].click();assert.equal(machines[0]._fields.parentElement,machines[0]);await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].nominalRatePerSecond===333/60);
   await h.click('[data-basic-view="conveyors"]');
   const conveyors=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
@@ -719,7 +720,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
   assert.equal(style(h.d.getElementById('gemini-panel')),'none');
   conveyors[1].click();
   assert.equal(h.d.querySelector('#basic-conveyor-panel h3').textContent,conveyors[1].querySelector('.equipment-header strong').textContent);
-  const gap=conveyors[1]._fields.querySelector('.format-zone-coding-factor');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  const gap=conveyors[1]._fields.querySelector('.format-zone-coding-factor');gap.value='23';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[3].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===23);
   await h.click('[data-basic-view="equipment"]');assert.equal(h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-rate').value,'333');
   await h.click('[data-basic-view="vgraph"]');assert(h.d.querySelector('#vgraph-plot svg'));
@@ -745,7 +746,7 @@ test('UI: Basic hides units and modes, JSON visibility is a per-mode preference 
   const show=h.d.getElementById('settings-json-fields');show.checked=true;show.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   assert.equal(display(card._fields.querySelector('.equipment-json-details')),'block');
   assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),'yes');
-  const role=card._fields.querySelector('.equipment-pacemaker');role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  const role=card._fields.querySelector('.equipment-pacemaker');role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].processData.role==='PACEMAKER');
   const saved=h.storedCases()[0].equipment;assert.equal(saved[0].type,'BLOWMOLDER');assert.equal(saved.filter(e=>e.characteristics.isPacemaker).length,1);
   await h.click('[data-basic-view="conveyors"]');assert.equal(display(h.d.querySelector('#equipment-inspector .equipment-unit').closest('label')),'none');
@@ -777,7 +778,7 @@ test('UI Basic: a clean imported stopped machine starts automatically without re
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   const get=h.api.getCase;h.api.getCase=id=>{const c=get(id);for(const list of [c.equipment,c.simulations[0].equipment])list.forEach(e=>e.initialMode='STOP');return c;};
   await h.click('.open-case');assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');
+  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].simulations[0].results);
   const record=h.storedCases()[0];assert(record.equipment.every(e=>e.initialMode==='AUTO'));assert(record.simulations[0].results.equipmentMetrics['blowmolder-1'].outputCount>0);
   assert.deepEqual(h.errors,[]);
@@ -817,7 +818,7 @@ test('UI: shared simulation controls and case name in Settings preserve case res
    const name=h.d.getElementById('case-name');assert(h.d.getElementById('settings-dialog').contains(name));name.value='Renamed in Settings';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
    assert.equal(h.d.getElementById('breadcrumb-case').textContent,'Renamed in Settings');
    await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);
-   assert.equal(h.storedCases()[0].name,'Renamed in Settings');
+   if(uiMode==='BASIC')await h.click('#save-case');await waitFor(()=>h.storedCases()[0].name==='Renamed in Settings');
    await h.click('#home-cases');assert(!h.visible('settings-case-section'));assert(!h.visible('simulation-toolbar'));
    assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
@@ -859,7 +860,7 @@ test('UI Basic: Gemini is available in every section and resizes without hiding 
   }
   await h.click('[data-basic-view="conveyors"]');
   const inspector=h.d.getElementById('equipment-inspector');assert.equal(inspector.parentElement.id,'basic-conveyor-panel');assert(!inspector.classList.contains('hidden'));
-  const gap=inspector.querySelector('.format-zone-coding-factor');gap.value='29';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  const gap=inspector.querySelector('.format-zone-coding-factor');gap.value='29';gap.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===29);
   h.d.getElementById('gemini-question').value='Analyze the conveyors';await h.click('#send-gemini');await waitFor(()=>h.calls.includes('askGemini')&&/Analysis of the saved case/.test(h.d.getElementById('gemini-messages').textContent));
   assert.equal(h.storedCases()[0].equipment[1].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,29);
   const grip=h.d.getElementById('gemini-resize'),width=Number(grip.getAttribute('aria-valuenow'));
@@ -911,7 +912,7 @@ test('UI Basic: worksheet controls, calculated buffers, Results availability and
   await h.click('[data-basic-view="vgraph"]');assert.equal(display(h.d.getElementById('line-performance')),'block');assert.equal(h.w.getComputedStyle(h.d.documentElement).getPropertyValue('--vgraph-height'),'440px');
   assert.equal(h.d.querySelector('.vgraph-key-normal').textContent,'Current');assert.equal(h.d.querySelector('.vgraph-key-recommended').textContent,'Recommended');
   h.api.askGemini=request=>({text:'Describe suggested improvements.',proposals:[h.w.STScenarios.plan(h.storedCases()[0].simulations[0]).projects.find(p=>p.canApply)]});
-  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Describe suggested'));
+  await h.click('#save-case');await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Describe suggested'));
   assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
   await h.click('[data-basic-view="conveyors"]');assert(h.d.querySelector('.basic-conveyor-worksheet'));assert(h.d.getElementById('basic-conveyor-summary').textContent.includes('Tacc Antistarve'));
   await h.click('[data-conveyor-view="results"]');assert(h.d.getElementById('equipment-inspector').classList.contains('hidden'));
@@ -925,14 +926,14 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
   assert.equal(h.d.getElementById('basic-start-simulation'),null);
   const machine=h.d.querySelector('.basic-machine'),change=(control,value)=>{control.value=String(value);control.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
-  change(machine._fields.querySelector('.equipment-rate'),120);change(machine._fields.querySelector('.reliability-mtbfMinutes'),.2);change(machine._fields.querySelector('.reliability-mttrMinutes'),.1);
+  change(machine._fields.querySelector('.equipment-rate'),120);change(machine._fields.querySelector('.reliability-mtbfMinutes'),.2);change(machine._fields.querySelector('.reliability-mttrMinutes'),.1);await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].noiseProfile.reliability.mtbfMinutes===.2);
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
   assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,22);
   const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
-  Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
+  Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.overspeedVsInfeedScrewPercent===7);
   const saved=h.storedCases()[0].equipment[1].processData;
   assert.equal(saved.geometry.actualDischargeMm,300);assert.equal(saved.geometry.actualCodingMm,200);assert.equal(saved.upstream.startupTimeSeconds,2.4);assert.equal(saved.downstream.infeedPitchMm,125);assert.equal(saved.downstream.rampUpTimeSeconds,5);
@@ -946,10 +947,10 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert(results.textContent.includes('—'),'No invented dynamic losses before a run');
   await h.click('[data-conveyor-view="inputs"]');
   const second=h.d.querySelectorAll('.equipment-card:not(.hidden)')[1];second.click();await settle();
-  fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');change(fields.querySelector('.format-zone-coding-factor'),11);
+  fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');change(fields.querySelector('.format-zone-coding-factor'),11);await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[3].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===11);
   assert.equal(h.storedCases()[0].equipment[1].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,20);
-  await h.click('[data-basic-view="simulation"]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='60';await h.click('#run-simulation');
+  await h.click('[data-basic-view="simulation"]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='60';await h.click('#run-simulation');await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].simulations[0].results);await h.click('#pause-simulation');
   assert(h.storedCases()[0].simulations[0].results.equipmentMetrics['blowmolder-1'].failureCount>0);
   await h.click('[data-basic-view="conveyors"]');await h.click('[data-conveyor-view="results"]');results=h.d.getElementById('basic-conveyor-summary');assert(!Array.from(results.querySelectorAll('.basic-metric')).find(row=>row.querySelector('span').textContent==='Conv Loss (%)').querySelector('strong').textContent.includes('—'));
@@ -992,7 +993,7 @@ test('UI: hidden mode selector requires five deliberate M presses, saves pending
   h.d.getElementById('case-name').value='Mode change preserves draft';h.d.getElementById('case-name').dispatchEvent(new h.w.Event('input',{bubbles:true}));
   for(let i=0;i<5;i++)press(dialog);picker.value='ADVANCE';await h.click('#settings-cancel');
   await waitFor(()=>!dialog.open);assert.equal(h.d.documentElement.dataset.uiMode,'advance',JSON.stringify({error:h.d.getElementById('settings-error').textContent,errors:h.errors,local:h.w.localStorage.getItem('st.ui.v1.interfaceMode')}));assert(section.classList.contains('hidden'));assert.equal(h.w.localStorage.getItem('st.ui.v1.interfaceMode'),'ADVANCE');
-  assert.equal(h.storedCases()[0].name,'Mode change preserves draft');
+  await waitFor(()=>h.storedCases()[0].name==='Mode change preserves draft');
   assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,57);
   await h.click('#open-settings');assert(section.classList.contains('hidden'));for(let i=0;i<5;i++)press(dialog);picker.value='BASIC';await h.click('#settings-cancel');
   assert.equal(h.d.documentElement.dataset.uiMode,'basic');assert(h.d.querySelector('.basic-machine')._fields.querySelector('.reliability-mtbfMinutes'));assert.deepEqual(h.errors,[]);
@@ -1012,7 +1013,7 @@ test('UI: Basic conveyor speed round-trips m/min and preserves overrides while G
   await mode('BASIC');await h.click('[data-basic-view=conveyors]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields'),speed=fields.querySelector('.format-zone-belt-speed');
   assert.equal(speed.disabled,false);assert.equal(Number(speed.value),30);assert.match(speed.closest('label').textContent,/m\/min/);
-  speed.value='60';speed.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  speed.value='60';speed.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[1].processData.accumulation.conveyorSpeedMmPerSecond===1000);
   const stored=h.storedCases()[0].equipment[1].processData.accumulation;assert.equal(stored.movingGapMm,7);assert.equal(stored.backupSensorPositionMm,200);
   assert.equal(h.w.STScenarios.audit({equipment:h.storedCases()[0].equipment})[0].engineering.runtimeGeometry.conveyorSpeedMmPerSecond,1000);
@@ -1039,11 +1040,11 @@ test('UI: scenario limits and checkboxes preserve physical inputs in bounded lin
   const exported=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim));assert.equal(exported.evaluations.length,1);const evaluation=exported.evaluations[0];assert.equal(evaluation.status,'IMPROVEMENT_REPRODUCED');assert.equal(evaluation.evaluatedChanges[0].after,15000);assert.equal(evaluation.selections[0].limit,15000);assert.equal(evaluation.run.seed,42);assert.equal(evaluation.independentCheck.seed,1000045);assert.equal(evaluation.independentCheck.passed,true);assert.equal(evaluation.delta.throughputPerMinute,1);assert.equal(evaluation.plantValidated,false);
   const report=h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim));assert.match(report,/IMPROVEMENT_REPRODUCED/);assert.match(report,/Independent seeds/);assert.match(report,/15000/);
   const changed=JSON.parse(JSON.stringify(sim));changed.dynamicConfig.seed++;assert.equal(h.w.STReports.whatIfData(changed,h.w.STScenarios.plan(changed)).evaluations.length,0);
-  const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
-  checkbox.checked=true;calls.length=0;Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:')&&!card.querySelector('.scenario-create').disabled);
+  const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
+  checkbox.checked=true;calls.length=0;card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:')&&!card.querySelector('.scenario-create').disabled);
   assert(calls.length>3);assert(calls.every(c=>[42,1000045].includes(c.run.seed)&&c.run.durationSeconds===10));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/candidates checked/);
   assert.equal(sim.equipment[1].processData.geometry.lactMm,10000);
-  const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert.match(card.querySelector('.scenario-preview-status').textContent,/Cancelled/);assert.equal(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].status,'CANCELLED');
+  const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].status,'NOT_EVALUATED');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1077,7 +1078,7 @@ test('UI: enabled DOE uses replicated factorial combinations and exports effects
   const project={title:'DOE test',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',changes,explore:true},card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);
   const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(JSON.parse(JSON.stringify(input)));const belt=input.case.equipment[1],gain=belt.processData.geometry.lactMm>10000&&belt.processData.accumulation.conveyorSpeedMmPerSecond>500?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   assert.equal(card.querySelector('.scenario-doe').hidden,false);card.querySelector('.scenario-change input[type=number]').value='15';
-  Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
   assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify({...sim,whatIf:undefined}),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
   h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert(card.querySelector('.scenario-doe').hidden);assert(card.querySelector('.scenario-create').disabled);
@@ -1098,14 +1099,14 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   assert(target.querySelector('.scenario-candidate-details'));
   const card=target.querySelector('.scenario-tier-grid .analysis-recommendation:has(.scenario-evaluate)');
   let release,calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{calls++;await new Promise(resolve=>release=resolve);return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}};};
-  const search=Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario');search.click();
+  const search=card.querySelector('.scenario-search');search.click();
   await waitFor(()=>release);assert(search.disabled);assert(card.querySelector('input').disabled);
   assert.match(card.querySelector('.scenario-search-progress').textContent,/Baseline.*up to.*round.*Elapsed/);
   Array.from(target.querySelectorAll('button')).find(b=>b.textContent==='Add improvement').click();
   assert(card.isConnected);assert.equal(calls,1);
   h.w.STPreferences.write('scenarioDoe','yes');h.w.dispatchEvent(new h.w.Event('st-doe-change'));
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Simulating baseline/);
-  Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Cancel').click();release();
+  card.querySelector('.scenario-evaluate').click();release();
   await waitFor(()=>!search.disabled);assert.match(card.querySelector('.scenario-search-progress').textContent,/Stopped/);
   assert.equal(calls,1);assert(card.querySelector('.scenario-create').disabled);assert.equal(card.querySelector('input').disabled,false);
   assert.deepEqual(h.errors,[]);
@@ -1144,7 +1145,7 @@ test('UI: modal DOE selection exposes more than four factors and runs the user-s
   Array.from(dialog.querySelectorAll('button')).find(b=>b.textContent==='Done').click();assert.equal(dialog.open,false);
   h.w.STScenarios.apply=(source,changes)=>{const result=JSON.parse(JSON.stringify(source));for(const c of changes)result.equipment.find(e=>e.id===c.equipmentId).processData.accumulation[c.path.split('.').pop()]=c.after;return result;};
   h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});
-  Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.doe.combinations,4);assert.deepEqual(Array.from(evidence.doe.factors,f=>f.path),changes.slice(4).map(c=>c.path));assert.equal(evidence.doe.observations.length,4);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1172,7 +1173,7 @@ test('UI: stored DOE results survive serialization and stale inputs never restor
  const h=await setup({remember:true});try{
   h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
   h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});
-  let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
   card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert.match(card.textContent,/No demonstrated improvement/);assert.equal(h.w.STScenarioExplorer.evaluations(saved)[0].doe.observations.length,entry.doe.observations.length);
   saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert.equal(card.querySelector('.scenario-doe-results'),null);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
@@ -1183,7 +1184,7 @@ test('UI: stored DOE results survive serialization and stale inputs never restor
 test('UI: Gemini recovers from malformed callbacks and ignores answers arriving after timeout',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('#toggle-gemini');
-  h.api.askGemini=()=>null;h.d.getElementById('gemini-question').value='Retain this question';await h.click('#send-gemini');
+  h.api.askGemini=()=>null;h.d.getElementById('gemini-question').value='Retain this question';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-error').textContent.includes('GEMINI_BAD_RESPONSE'));
   assert.equal(h.d.getElementById('gemini-question').value,'Retain this question');assert.match(h.d.getElementById('gemini-error').textContent,/GEMINI_BAD_RESPONSE/);assert.equal(h.d.getElementById('send-gemini').disabled,false);
   let expire,late;const original=h.w.setTimeout;h.w.setTimeout=(fn,ms,...args)=>ms===180000?(expire=fn,900001):original(fn,ms,...args);
   h.w.google.script.run={withFailureHandler(){return this;},withSuccessHandler(fn){late=fn;return this;},askGemini(){}};
@@ -1215,7 +1216,7 @@ test('UI: target Population and manual LBA persist in both modes and Basic cards
    await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=conveyors]');else {await h.click('.sidebar [data-view="editor"]');h.d.querySelectorAll('.equipment-card')[1].click();}
    const field=key=>h.d.querySelector('#equipment-inspector .format-zone-'+key);
    const change=(key,value)=>{const n=field(key);if(n.type==='checkbox')n.checked=value;else n.value=value;n.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
-   change('population-enabled',true);change('population',50);change('lba-enabled',true);change('lba',1000);
+   change('population-enabled',true);change('population',50);change('lba-enabled',true);change('lba',1000);if(uiMode==='BASIC')await h.click('#save-case');
    await waitFor(()=>h.storedCases()[0].equipment[1].processData.accumulation.manualLbaMm===1000);
    const saved=h.storedCases()[0].equipment;
    assert.equal(saved[1].processData.accumulation.targetPopulationPercent,50);
@@ -1229,4 +1230,75 @@ test('UI: target Population and manual LBA persist in both modes and Basic cards
    assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
+});
+
+test('UI: Basic saves case edits and results only through the Save icon and protects unsaved exit',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');const original=h.storedCases()[0].name;
+  const n=h.d.getElementById('case-name');n.value='Manual draft';n.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  assert(!h.d.getElementById('save-case').classList.contains('hidden'));assert(!h.d.getElementById('save-case').disabled);
+  await new Promise(resolve=>setTimeout(resolve,1200));assert.equal(h.storedCases()[0].name,original);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  await h.click('#open-settings');assert(h.d.getElementById('settings-save-section').classList.contains('hidden'));await h.click('#settings-cancel');
+  assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  await h.click('#home-cases');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');
+  assert.equal(h.d.getElementById('case-name').value,'Manual draft');assert(!h.d.getElementById('case-sidebar').classList.contains('hidden'));
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].name==='Manual draft');
+  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await h.click('#pause-simulation');
+  const saves=h.calls.filter(c=>c==='saveCase').length;await new Promise(resolve=>setTimeout(resolve,1200));assert.equal(h.calls.filter(c=>c==='saveCase').length,saves);assert.equal(h.storedCases()[0].simulations[0].results,null);
+  await h.click('#save-case');await waitFor(()=>!!h.storedCases()[0].simulations[0].results);
+  n.value='Discard this draft';n.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#home-cases');await h.click('.message-dialog button:nth-child(2)');await h.click('.open-case');
+  assert.equal(h.d.getElementById('case-name').value,'Manual draft');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: Advance Settings controls autosave interval and manual saving without implicit Settings saves',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#open-settings');assert(!h.d.getElementById('settings-save-section').classList.contains('hidden'));
+  const enabled=h.d.getElementById('settings-autosave'),seconds=h.d.getElementById('settings-autosave-seconds');
+  enabled.checked=false;enabled.dispatchEvent(new h.w.Event('change'));assert(seconds.disabled);seconds.value=2;await h.click('#settings-cancel');
+  assert.equal(h.w.STPreferences.read('autosaveEnabled'),'no');
+  const name=h.d.getElementById('case-name');name.value='Manual Advance';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await new Promise(resolve=>setTimeout(resolve,1200));assert.notEqual(h.storedCases()[0].name,'Manual Advance');
+  await h.click('#open-settings');await h.click('#settings-cancel');assert.notEqual(h.storedCases()[0].name,'Manual Advance');
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].name==='Manual Advance');
+  await h.click('#open-settings');enabled.checked=true;enabled.dispatchEvent(new h.w.Event('change'));seconds.value=2;await h.click('#settings-cancel');
+  assert.equal(h.w.STPreferences.read('autosaveSeconds'),'2');assert(h.d.getElementById('save-case').classList.contains('hidden'));
+  name.value='Automatic Advance';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,500));assert.equal(h.storedCases()[0].name,'Manual Advance');await waitFor(()=>h.storedCases()[0].name==='Automatic Advance');
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: interrupted scenario restarts with clear status, icon actions and a working Stop control',async()=>{
+ const h=await setup({remember:true});try{
+  const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);let created;
+  let release;h.w.SimulatorEngine.simulateBatch=async()=>{await new Promise(resolve=>release=resolve);return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}};};
+  let card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-evaluate').click();await waitFor(()=>release);card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');card.remove();
+  sim.whatIf.evaluations[0].status='RUNNING';card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);
+  assert.match(card.querySelector('.scenario-preview-status').textContent,/Previous search interrupted/);
+  const actions=card.querySelector('.scenario-actions');assert.equal(actions.querySelectorAll('button').length,4);
+  for(const button of actions.querySelectorAll('button')){assert.equal(button.textContent,'');assert(button.getAttribute('aria-label'));assert(button.querySelector('svg'));}
+  release=null;card.querySelector('.scenario-search').click();await waitFor(()=>release);
+  assert.doesNotMatch(card.querySelector('.scenario-preview-status').textContent,/interrupted/);assert.equal(card.querySelector('.scenario-evaluate').dataset.icon,'stop');assert(!card.querySelector('.scenario-evaluate').disabled);assert(card.querySelector('.scenario-create').disabled);
+  card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');assert.equal(created,undefined);assert(card.querySelector('.scenario-create').disabled);
+  h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===JSON.stringify(sim.equipment)?50:51,outputCount:JSON.stringify(input.case.equipment)===JSON.stringify(sim.equipment)?100:101}}});card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  assert.equal(card.querySelector('.scenario-evaluate').dataset.icon,'search');card.querySelector('.scenario-create').click();assert(created.changes.length>0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI + Apps Script: All CAPEX creation saves the validated winner from manual Basic mode',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');const before=h.storedCases()[0],signature=JSON.stringify(before.simulations[0].equipment);
+  h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===signature?50:51,outputCount:JSON.stringify(input.case.equipment)===signature?100:101}}});
+  await h.click('[data-basic-view=whatif]');const card=h.d.querySelector('.scenario-tier-grid').lastElementChild;
+  let selection=0;for(const row of card.querySelectorAll('.scenario-change')){const input=row.querySelector('input[type=checkbox]');input.checked=selection++===0;input.dispatchEvent(new h.w.Event('change'));}
+  card.querySelector('.scenario-search').click();for(let i=0;i<400&&card.querySelector('.scenario-evaluate').dataset.icon!=='search';i++)await settle();assert.equal(card.querySelector('.scenario-evaluate').dataset.icon,'search');
+  if(card.querySelector('.scenario-audit-warnings input')){const ack=card.querySelector('.scenario-audit-warnings input');ack.checked=true;ack.dispatchEvent(new h.w.Event('change'));}
+  assert.equal(card.querySelector('.scenario-create').disabled,false,card.querySelector('.scenario-preview-status').textContent);
+  assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog button:last-child');
+  await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  const saved=h.storedCases()[0],scenario=saved.simulations[1];
+  assert.equal(scenario.scenario.origin,'REVIEWED');assert(scenario.scenario.changes.length>0);assert.equal(JSON.stringify(saved.simulations[0].equipment),signature);assert.equal(scenario.results,null);
+  assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='ALL'&&e.independentCheck?.passed));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

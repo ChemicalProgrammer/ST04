@@ -67,11 +67,12 @@ displays all 57 named colors from
 in a compact grid. `ThemeResources.html` retains each original name and hex;
 light/dark soft backgrounds and text colors are derived for contrast. Existing
 accent preferences migrate to the nearest source color. This is a bundled
-snapshot, so the app does not fetch the palette at startup. Closing Settings
-flushes a case-name edit through the existing case autosave flow.
+snapshot, so the app does not fetch the palette at startup. Closing Settings keeps case-name edits in the draft. Case persistence follows
+the selected Advance save interval or the manual Save icon in Basic.
 
 The Drive storage folder can be edited in Settings with a case open. Changing
-it flushes pending case edits to the original folder and closes that case before
+it saves pending automatic edits to the original folder, or offers Save/Discard/Cancel
+for a manual draft, and closes that case before
 saving the new folder setting. A failed case save prevents the switch. Existing
 cases stay in the original folder, and the gallery reloads from the new folder.
 

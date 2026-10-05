@@ -105,3 +105,21 @@ No debe llamarse «todas las combinaciones posibles» al espacio acotado actual.
    contrapresión; ubicación de sensores y lógica PLC reales para ciclos cortos.
 4. Comparación contra mediciones de una línea real y contra escenarios conocidos
    antes de utilizar las predicciones como compromisos de capacidad.
+
+## Card actions and creation state
+
+Cards group four icon-only controls with tooltips and accessible labels:
+configuration (gear), bounded category search (update), calculation (magnifier),
+and creation (copy). The magnifier becomes Stop throughout calculation, search,
+DOE and independent confirmation, and cancels the current operation. There is
+no separate Cancel button. Configuration changes invalidate evidence but do not
+start additional simulations automatically.
+
+A restarted evaluation clears the old interruption message, metrics and approval
+before displaying current progress. Creation remains disabled during the search
+and confirmation, after cancellation, or when the gain fails confirmation.
+Engineering warnings require the existing explicit acknowledgement before
+creating a review scenario. Restored approval also requires nonempty evaluated
+changes. Creation errors appear in the originating card as well as the global
+status. A completed validated selection can be created in either saving mode;
+creation explicitly commits the source and its new scenario after confirmation.
