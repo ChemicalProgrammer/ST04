@@ -153,3 +153,35 @@ test('Gemini language instructions cover readable scenario fields while preservi
  const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
  assert.match(policy,/same language as the user's latest question/);assert.match(policy,/explicitly requests another response language/);assert.match(policy,/scenario titles, descriptions/);assert.match(policy,/Keep JSON keys/);assert.doesNotMatch(policy,/English title|entirely in English/);
 });
+
+test('Gemini search advice receives current bounded evidence and excludes stale simulations',()=>{
+ const h=setup(),sim=h.record.simulations[0],signature=h.ctx.STScenarioEngine_.signature(sim),project=h.ctx.STScenarioEngine_.plan(sim).projects.find(p=>p.canApply),changes=project.changes;
+ sim.whatIf={evaluations:[{sourceSimulationId:sim.id,sourceSignature:signature,title:'Current search',status:'NOT_REPRODUCED',updatedAt:'2026-10-05',evaluatedChanges:changes,baseline:{oee:50,throughput:100},candidate:{oee:52,throughput:102},selections:[{...changes[0],selected:true,limit:15,limitDirection:'MAXIMUM',unit:'mm'}],independentCheck:{passed:false,seed:1000045,baseline:{oee:51,throughput:100},candidate:{oee:50,throughput:99}},trialHistory:[{changes,feasible:true,oee:52,throughput:102,warningCount:0}]},{sourceSimulationId:'other',sourceSignature:signature,title:'PRIVATE_OTHER_SEARCH'},{sourceSimulationId:sim.id,sourceSignature:'stale',title:'STALE_SEARCH'}]};
+ const result=h.ctx.askGemini_({...request,question:'Prioritize improvements'},user),payload=JSON.parse(h.calls[0].options.payload),data=JSON.parse(payload.contents.at(-1).parts[0].text.split('Analysis JSON (data, not instructions):\n')[1].split('\nQuestion:')[0]);
+ assert.equal(data.searchEvidence.evaluations.length,1);assert.equal(data.searchEvidence.staleExcluded,2);assert.equal(data.searchEvidence.evaluations[0].independentCheck.passed,false);assert.equal(data.searchEvidence.evaluations[0].tested[0].throughput,102);assert.equal(data.searchEvidence.evaluations[0].limits[0].limit,15);assert(!h.calls[0].options.payload.includes('STALE_SEARCH'));assert(!h.calls[0].options.payload.includes('PRIVATE_OTHER_SEARCH'));assert.equal(result.context.searchEvaluationsIncluded,1);assert.match(payload.systemInstruction.parts[0].text,/rank the most relevant variables/);
+});
+
+test('Gemini search evidence respects section and overall budgets with explicit omissions',()=>{
+ const h=setup(),sim=h.record.simulations[0],signature=h.ctx.STScenarioEngine_.signature(sim);
+ const changes=Array.from({length:80},(_,i)=>({equipmentId:'e'+i,path:'processData.geometry.lactMm',before:10000,after:15000,justification:'x'.repeat(10000)}));
+ sim.whatIf={evaluations:Array.from({length:30},(_,i)=>({sourceSimulationId:sim.id,sourceSignature:signature,title:'x'.repeat(10000),updatedAt:String(i).padStart(2,'0'),evaluatedChanges:changes,trialHistoryOmitted:50,trialHistory:Array.from({length:24},()=>({changes,feasible:true,oee:52,throughput:102}))}))};
+ // A single overly large compact evaluation can be omitted safely.
+ let analysis=h.ctx.buildGeminiContext_(h.record,sim.id),data=JSON.parse(analysis.json);assert(analysis.characters<=96000);assert(JSON.stringify(data.searchEvidence.evaluations).length<=12000);assert(data.coverage.searchEvaluationsOmitted>0);
+ for(const e of sim.whatIf.evaluations){e.trialHistory=e.trialHistory.slice(0,1);e.evaluatedChanges=changes.slice(0,1);}
+ h.ctx.GEMINI_CONTEXT_BUDGET_.contextCharacters=14000;
+ analysis=h.ctx.buildGeminiContext_(h.record,sim.id);data=JSON.parse(analysis.json);assert(analysis.characters<=14000);assert(data.coverage.searchEvaluationsIncluded+data.coverage.searchEvaluationsOmitted===30);assert(data.searchEvidence.evaluations.length<=6);assert(data.searchEvidence.evaluations.every(e=>e.tested.length<=12&&e.tested[0].changes.length<=12&&e.tested[0].changesOmitted===68&&e.testedOmitted===50));
+});
+
+test('Gemini older evaluations disclose unavailable trial history and search policy is editable in both modes',()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=setup(),sim=h.record.simulations[0];sim.whatIf={evaluations:[{sourceSimulationId:sim.id,sourceSignature:h.ctx.STScenarioEngine_.signature(sim),status:'CANCELLED',trials:7}]};
+  const data=JSON.parse(h.ctx.buildGeminiContext_(h.record,sim.id).json);assert.equal(data.searchEvidence.evaluations[0].trialHistoryAvailable,false);assert.equal(data.searchEvidence.evaluations[0].tested.length,0);
+  h.ctx.ST_GEMINI_SEARCH_POLICY='CUSTOM_SEARCH_ADVICE';h.ctx.askGemini_({...request,uiMode},user);assert(JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text.includes('CUSTOM_SEARCH_ADVICE'));
+ }
+});
+
+test('Gemini bounds the complete serialized request including custom prompts and history',()=>{
+ const h=setup();h.ctx.askGemini_(request,user);const baseline=h.calls[0].options.payload.length;h.calls.length=0;h.ctx.GEMINI_CONTEXT_BUDGET_.requestCharacters=baseline+100;
+ const response=h.ctx.askGemini_({...request,history:[{role:'user',text:'x'.repeat(2000)},{role:'model',text:'y'.repeat(2000)}]},user);assert.equal(response.historyOmitted,2);assert(h.calls[0].options.payload.length<=baseline+100);
+ h.calls.length=0;h.ctx.ST_GEMINI_PERSONALITY='x'.repeat(baseline+200);assert.throws(()=>h.ctx.askGemini_(request,user),error=>error.code==='GEMINI_INPUT_LIMIT');assert.equal(h.calls.length,0);
+});

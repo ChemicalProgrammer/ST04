@@ -125,6 +125,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       try{
         var changes=selected(),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;evidence.maximumConfigurations=maximum;evidence.requestedChanges=changes;if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
         stage='Baseline';if(!baseline)baseline=await measured([],0);if(cancelled())return;evidence.baseline=baseline;
+        var trialHistory=[];evidence.trialHistory=trialHistory;
         var best=baseline,bestChanges=[],done=0,invalid=0,cache=new Map(),reviewBest=null,reviewChanges=[];
         async function trial(proposal){
           if(cancelled())return null;
@@ -133,6 +134,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           try{result=proposal.length?await measured(proposal,0):baseline;}
           catch(error){if(cancelled())return null;if(!String(error.message).startsWith('SCENARIO_'))throw error;invalid++;result=null;}
           cache.set(key,result);done++;
+          trialHistory.push({changes:proposal,feasible:!!result,oee:result?.oee??null,throughput:result?.throughput??null,warningCount:(result?.warnings||[]).length});if(trialHistory.length>24)trialHistory.shift();evidence.trialHistoryOmitted=done-trialHistory.length;
           if(result&&(result.warnings||[]).length&&improves(baseline,result)&&(!reviewBest||result.throughput>reviewBest.throughput)){reviewBest=result;reviewChanges=proposal;}
           if(result&&!(result.warnings||[]).length&&improves(baseline,result)&&(result.throughput>best.throughput+1e-9||(result.throughput===best.throughput&&result.oee>best.oee))){best=result;bestChanges=proposal;}
           if(!cancelled()){status.textContent=done+' candidates checked · '+invalid+' infeasible · '+show(baseline,best);record('RUNNING',Object.assign({},evidence,{baseline:baseline,candidate:best,evaluatedChanges:bestChanges,trials:done,infeasibleTrials:invalid}));}

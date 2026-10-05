@@ -1309,7 +1309,7 @@ test('UI: finishing search validates the in-flight winner before creation in bot
     if(outcome==='cancel'){stop.click();await finishBatch();assert.equal(calls.length,3);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'CANCELLED');}
     else{
      await finishBatch();assert.equal(calls.length,4);assert(save.disabled);await finishBatch();
-     const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,outcome!=='pass');
+     const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.trialHistory.length,1);assert.equal(record.trialHistory[0].throughput,102);assert.equal(record.trialHistory[0].changes[0].after,15000);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,outcome!=='pass');
      if(outcome==='pass'){save.click();assert.equal(created.changes[0].after,15000);assert.match(card.textContent,/search finished early/);}
     }
    }
