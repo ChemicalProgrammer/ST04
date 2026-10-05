@@ -80,8 +80,8 @@ window.STReports=(function(){
   }
   function evaluationsHtml(simulation){
     var evaluations=window.STScenarioExplorer?.evaluations(simulation)||[];
-    var html='<section><h2>Calculated hypothesis evaluations</h2><p>Current browser session; matching source inputs only. Independent checks are simulation evidence, not plant validation.</p>';
-    if(!evaluations.length)return html+'<p>No calculated evaluations available for these inputs in this session.</p></section>';
+    var html='<section><h2>Calculated hypothesis evaluations</h2><p>Saved case evaluations; matching source inputs only. Independent checks are simulation evidence, not plant validation.</p>';
+    if(!evaluations.length)return html+'<p>No calculated evaluations available for these inputs for this case.</p></section>';
     evaluations.forEach(function(e){
       html+='<section><h3>'+escape(e.title)+'</h3><p>'+escape(e.tier)+' · '+escape(e.status)+' · '+escape(e.updatedAt)+'</p>';
       html+=table(['Evaluation setting','Value'],scalars({method:e.method,engineeringReviewAcknowledged:e.engineeringReviewAcknowledged,run:e.run,trials:e.trials,infeasibleTrials:e.infeasibleTrials,acceptance:e.acceptance,error:e.error}));
@@ -98,7 +98,7 @@ window.STReports=(function(){
   }
   function whatIfData(simulation,plan){
     var results=simulation.results;
-    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,evaluations:window.STScenarioExplorer?.evaluations(simulation)||[],evaluationScope:'Current browser session; matching source inputs only. Reproduced in simulation does not mean validated in plant.',projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
+    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,evaluations:window.STScenarioExplorer?.evaluations(simulation)||[],evaluationScope:'Saved case evaluations; matching source inputs only. Reproduced in simulation does not mean validated in plant.',projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
   }
   function batchWithoutReplay(batch){if(!batch)return null;var summary=Object.assign({},batch);delete summary.replays;return summary;}
   function comparisonData(activeCase,left,right){

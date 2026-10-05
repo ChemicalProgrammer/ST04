@@ -24,7 +24,7 @@ function createScenario_(request,user) {
     var proposal=normalizeScenarioProposal_(submitted,source),copy;
     try{copy=STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The proposed inputs did not pass the physical model checks.',[String(error.message)]);}
     copy.id=generateSimulationId_(record.simulations.length)+'-'+Utilities.getUuid().slice(0,8);
-    copy.name=proposal.title.slice(0,120);copy.clonedFromSimulationId=source.id;copy.results=null;
+    copy.name=proposal.title.slice(0,120);copy.clonedFromSimulationId=source.id;copy.results=null;delete copy.whatIf;
     copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
     copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
     record.simulations.push(copy);record.revision++;record.updatedAt=copy.createdAt;

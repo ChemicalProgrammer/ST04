@@ -1079,7 +1079,7 @@ test('UI: enabled DOE uses replicated factorial combinations and exports effects
   assert.equal(card.querySelector('.scenario-doe').hidden,false);card.querySelector('.scenario-change input[type=number]').value='15';
   Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
-  assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify(sim),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
+  assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify({...sim,whatIf:undefined}),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
   h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert(card.querySelector('.scenario-doe').hidden);assert(card.querySelector('.scenario-create').disabled);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1147,5 +1147,34 @@ test('UI: modal DOE selection exposes more than four factors and runs the user-s
   Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.doe.combinations,4);assert.deepEqual(Array.from(evidence.doe.factors,f=>f.path),changes.slice(4).map(c=>c.path));assert.equal(evidence.doe.observations.length,4);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: case autosave restores card evidence, metrics and controls without changing simulation inputs',async()=>{
+ const h=await setup({remember:true,realScenarioServer:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');stubScenarioGain(h);
+  const baseline=JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig);
+  let card=h.d.querySelector('.scenario-grid .analysis-recommendation');card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  await waitFor(()=>h.storedCases()[0].simulations[0].whatIf?.evaluations?.some(e=>e.status==='IMPROVEMENT_REPRODUCED'));
+  assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig),baseline);
+  const metric=card.querySelector('.scenario-metrics').textContent;assert.match(metric,/BaseProposedChange/);assert.equal(card.querySelectorAll('.scenario-metric-table').length,2);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
+  card=h.d.querySelector('.scenario-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-metrics').textContent,metric);assert.equal(card.querySelector('.scenario-create').disabled,false);
+  card.querySelector('.scenario-configure').click();const checkbox=card.querySelector('.scenario-change input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));
+  await waitFor(()=>h.storedCases()[0].simulations[0].whatIf.evaluations.some(e=>e.status==='NOT_EVALUATED'));
+  Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Done').click();await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
+  card=h.d.querySelector('.scenario-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);assert(card.querySelector('.scenario-create').disabled);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: stored DOE results survive serialization and stale inputs never restore approval',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
+  h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});
+  let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Find best scenario').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
+  card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert.match(card.textContent,/No demonstrated improvement/);assert.equal(h.w.STScenarioExplorer.evaluations(saved)[0].doe.observations.length,entry.doe.observations.length);
+  saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert.equal(card.querySelector('.scenario-doe-results'),null);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
  }finally{h.dom.window.close();}
 });

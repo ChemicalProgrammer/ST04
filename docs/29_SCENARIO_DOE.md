@@ -70,8 +70,8 @@ factors runs ordinary search and explicitly reports that DOE was skipped.
 
 JSON/HTML/PDF What-If exports include the design type, factor bounds, fixed changes,
 all design-point observations and feasibility, rounds per combination, descriptive
-effects, selected winner and independent validation. The browser-session evidence
-retention rules in `27_INTERACTIVE_SCENARIOS.md` apply: export before a full reload.
+effects, selected winner and independent validation. The case autosave retention rules in `27_INTERACTIVE_SCENARIOS.md` apply: saved
+evidence and factor selections are restored after reopening.
 
 Changing DOE settings invalidates prior approval on visible cards. The original
 case stays untouched until a reviewed scenario clone is explicitly created.
@@ -80,7 +80,7 @@ case stays untouched until a reviewed scenario clone is explicitly created.
 
 - `src/analysis/ScenarioDOE.js`: design matrix and complete-design contrasts.
 - `apps-script/ScenarioExplorer.html`: factor controls, replicated execution,
-  existing search integration, approval and session evidence.
+  existing search integration, approval and persisted evidence.
 - `apps-script/Settings.html` / `WebApp.html`: hidden browser-local checkbox.
 - `apps-script/Reports.html`: design and effect export.
 - `scripts/build-browser-engine.mjs`: bundles the DOE helpers for Apps Script.
@@ -126,5 +126,5 @@ Automatic search prefers a gain without new engineering warnings. If none was
 found but a warning-bearing gain exists, it confirms that candidate independently
 and offers review-only creation with explicit acknowledgement. No gain, failed
 confirmation, stale inputs and invalid physics do not gain a creation override.
-Acknowledgement and warning status are retained in session exports; persisted
+Acknowledgement and warning status are retained in case evaluations and exports; persisted
 clones carry the server's own warning list and review-required status.

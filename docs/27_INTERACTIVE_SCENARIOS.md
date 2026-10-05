@@ -40,7 +40,7 @@ round tables and technical plots remain in Advance and exports.
 
 ## Exported evaluation evidence
 
-What-If JSON, HTML and PDF exports now include the current session's calculated
+What-If JSON, HTML and PDF exports now include the case's saved calculated
 evaluations for the exact source-input signature. They include line-wide searches
 and individual proposals, selected changes, physical limits, actual evaluated
 targets, baseline/candidate OEE and throughput, differences, run configuration,
@@ -54,9 +54,13 @@ old approval; changing source inputs excludes mismatched evaluations. An indepen
 seed comparison is simulation evidence, never plant validation. The saved baseline
 result remains separate from the matched baseline used by the scenario preview.
 
-Evidence is retained in the current browser session, including view navigation,
-but is not saved to Drive or restored after a full page reload. Export before
-reloading to retain it. JSON keeps full numeric precision; HTML/PDF use formatted
+Evidence and card controls are saved under each simulation through case autosave.
+Wait for the normal saved indicator before closing the page. Reopening restores
+matching evaluations, limits, DOE factors and external intervention options.
+Interrupted searches retain their latest checkpoint but require a new run; they
+do not resume automatically. Changed inputs keep the historical data in the case
+but cannot restore a current approval or appear as current exported evidence.
+New simulation and scenario clones start without inherited card evaluations. JSON keeps full numeric precision; HTML/PDF use formatted
 values. PDF uses the same report HTML. Uncalculated proposals remain hypotheses.
 
 The optional browser-local DOE pilot adds up to four selected factors and a

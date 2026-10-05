@@ -115,6 +115,7 @@
       });
     }
 
+    var whatIfOnlySave=false;
     var autosave = STAutosave({capture:captureForSave,send:function(payload,done){callServer('saveCase',[payload],done);},accept:function(saved){
       if (!state.activeCase || state.activeCase.id !== saved.id) return;
       state.activeCase.revision=saved.revision;state.activeCase.updatedAt=saved.updatedAt;
@@ -128,6 +129,8 @@
       document.getElementById('retry-autosave').classList.toggle('hidden',status!=='error');
       if(shell)shell.sync();
     }});
+    var queueCaseSave=autosave.change;autosave.change=function(immediate){whatIfOnlySave=false;queueCaseSave(immediate);};
+    window.addEventListener('st-whatif-change',function(event){if(state.activeCase?.simulations?.includes(event.detail.simulation)){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();}});
     window.addEventListener('beforeunload',function(event){if(autosave.pending()||STSettings.pending()){event.preventDefault();event.returnValue='';}});
     window.addEventListener('online',function(){if(autosave.pending())autosave.retry().catch(function(){});});
     function flushCase(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return autosave.flush();}
@@ -307,7 +310,7 @@ async function openCase(caseId) {
       var copy=cloneJson(source), count=state.activeCase.simulations.length;
       copy.id='simulation-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
       copy.name=__ST_TEXT__('simulation.copy_name')+source.name;
-      copy.results=null;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
+      copy.results=null;delete copy.whatIf;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
       return copy;
     }
     async function cloneActiveSimulation() {
@@ -344,6 +347,7 @@ async function openCase(caseId) {
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
     }
     function captureForSave() {
+      if(whatIfOnlySave&&state.activeCase)return Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});
       var next=collectCaseEditor();if(!next)return null;
       if(!next.name.trim()||next.equipment.some(function(e){return !e.id||!e.name||!(e.nominalRatePerSecond>0);}))throw new Error(__ST_TEXT__('autosave.invalid'));
       var simulation=activePersistentSimulation(),run=readRunConfiguration();if(!run)return null;
@@ -1018,7 +1022,7 @@ function renderRawJson() {
 
     function syncPersistentSimulation() {
       // Rendering and navigation are read-only until an explicit edit is queued.
-      if (!autosave.pending()) return true;
+      if (!autosave.pending()||whatIfOnlySave) return true;
       var simulation = activePersistentSimulation();
       if (!simulation || !state.activeCase) return false;
       var before=JSON.stringify([simulation.equipment,simulation.dynamicConfig]);

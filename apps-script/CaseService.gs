@@ -146,6 +146,7 @@ function normalizeSimulations_(simulations, fallbackEquipment, fallbackConfig) {
       playbackRate: [0.5,1,2,5,10,20,50,100,200,500,1000].includes(Number(simulation.playbackRate))?Number(simulation.playbackRate):1,
       results: normalizeObject_(simulation.results),
       scenario: normalizeObject_(simulation.scenario),
+      whatIf: normalizeObject_(simulation.whatIf),
       sourceImport: normalizeObject_(simulation.sourceImport),
       clonedFromSimulationId: typeof simulation.clonedFromSimulationId === 'string' ? simulation.clonedFromSimulationId : null,
       createdAt: typeof simulation.createdAt === 'string' ? simulation.createdAt : new Date().toISOString(),

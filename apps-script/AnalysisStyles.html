@@ -142,3 +142,17 @@
 .scenario-configure { width:100%; margin-bottom:var(--space-2); }
 .scenario-audit-warnings input[type=checkbox] { flex-shrink:0; }
 </style>
+
+<style>
+.scenario-result-box { background:var(--accent-soft); border-radius:var(--radius-sm); padding:var(--space-3); margin:var(--space-2) 0; }
+.scenario-result-box .scenario-preview-status { background:transparent; padding:var(--space-2) 0; margin:0; font-size:var(--font-secondary); }
+.scenario-metric-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:var(--font-secondary); }
+.scenario-metric-table th:first-child { width:40%; }
+.scenario-metric-table caption { text-align:left; font-weight:600; padding:var(--space-2) 0; }
+.scenario-metric-table th, .scenario-metric-table td { padding:var(--space-2) var(--space-1); border-bottom:1px solid var(--line); }
+.scenario-metric-table th { text-align:left; font-weight:500; }
+.scenario-metric-table td, .scenario-metric-table thead th:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.scenario-metrics { overflow-x:auto; }
+.scenario-config-dialog .scenario-limit { display:flex; align-items:center; gap:var(--space-2); white-space:nowrap; }
+.scenario-config-dialog .scenario-limit input[type=number] { width:95px; }
+</style>
