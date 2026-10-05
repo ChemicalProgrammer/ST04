@@ -128,3 +128,13 @@ and offers review-only creation with explicit acknowledgement. No gain, failed
 confirmation, stale inputs and invalid physics do not gain a creation override.
 Acknowledgement and warning status are retained in case evaluations and exports; persisted
 clones carry the server's own warning list and review-required status.
+
+## Finish a search early
+
+Stop during Find best scenario finishes the current batch, retains its result,
+and validates the best candidate already evaluated with independent seeds.
+Remaining search and DOE combinations are skipped. If DOE has started but is
+incomplete, observations are preserved and effects are not estimated. If DOE
+has not started, the saved evidence explains why it was skipped. Stop during
+confirmation, or a second click while finishing a batch, cancels the operation
+and keeps creation disabled.

@@ -111,13 +111,19 @@ No debe llamarse «todas las combinaciones posibles» al espacio acotado actual.
 Cards group four icon-only controls with tooltips and accessible labels:
 configuration (gear), bounded category search (update), calculation (magnifier),
 and creation (copy). The magnifier becomes Stop throughout calculation, search,
-DOE and independent confirmation, and cancels the current operation. There is
+DOE and independent confirmation. During a search, Stop finishes the current
+batch and skips further exploration, then independently validates the best
+candidate found. A second click cancels; during calculation or confirmation,
+Stop cancels immediately. An early finish without a demonstrated gain does not
+enable creation. Incomplete DOE designs do not produce effect estimates. There is
 no separate Cancel button. Configuration changes invalidate evidence but do not
 start additional simulations automatically.
 
 A restarted evaluation clears the old interruption message, metrics and approval
 before displaying current progress. Creation remains disabled during the search
 and confirmation, after cancellation, or when the gain fails confirmation.
+An early-finished search can enable creation after the same independent checks
+as a completed search; evidence stores `searchStoppedEarly`.
 Engineering warnings require the existing explicit acknowledgement before
 creating a review scenario. Restored approval also requires nonempty evaluated
 changes. Creation errors appear in the originating card as well as the global

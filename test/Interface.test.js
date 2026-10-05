@@ -1106,7 +1106,7 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   assert(card.isConnected);assert.equal(calls,1);
   h.w.STPreferences.write('scenarioDoe','yes');h.w.dispatchEvent(new h.w.Event('st-doe-change'));
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Simulating baseline/);
-  card.querySelector('.scenario-evaluate').click();release();
+  card.querySelector('.scenario-evaluate').click();card.querySelector('.scenario-evaluate').click();release();
   await waitFor(()=>!search.disabled);assert.match(card.querySelector('.scenario-search-progress').textContent,/Stopped/);
   assert.equal(calls,1);assert(card.querySelector('.scenario-create').disabled);assert.equal(card.querySelector('input').disabled,false);
   assert.deepEqual(h.errors,[]);
@@ -1282,6 +1282,51 @@ test('UI: interrupted scenario restarts with clear status, icon actions and a wo
   card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');assert.equal(created,undefined);assert(card.querySelector('.scenario-create').disabled);
   h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===JSON.stringify(sim.equipment)?50:51,outputCount:JSON.stringify(input.case.equipment)===JSON.stringify(sim.equipment)?100:101}}});card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   assert.equal(card.querySelector('.scenario-evaluate').dataset.icon,'search');card.querySelector('.scenario-create').click();assert(created.changes.length>0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: finishing search validates the in-flight winner before creation in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE'])for(const outcome of ['pass','fail','cancel','empty']){
+  const h=await setup({remember:true,uiMode});try{
+   h.w.STPreferences.write('scenarioDoe','yes');
+   const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;
+   sim.dynamicConfig={durationSeconds:10,seed:42,rounds:5};
+   const project={title:'Early winner',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
+   let created,pending;const calls=[];
+   h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);await new Promise(resolve=>pending=resolve);const changed=input.case.equipment[1].processData.geometry.lactMm!==10000,gain=changed?(input.run.seed!==42&&outcome==='fail'?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);
+   const stop=card.querySelector('.scenario-evaluate'),save=card.querySelector('.scenario-create');
+   async function finishBatch(){const release=pending;pending=null;release();await waitFor(()=>pending||stop.dataset.icon==='search');}
+   card.querySelector('.scenario-search').click();await waitFor(()=>pending);
+   assert.match(stop.title,/Finish search/);
+   if(outcome!=='empty'){await finishBatch();assert.equal(calls.length,2);}
+   stop.click();assert.match(stop.title,/Cancel/);assert(save.disabled);
+   await finishBatch();
+   if(outcome==='empty'){
+    assert.equal(calls.length,1);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'NO_DEMONSTRATED_IMPROVEMENT');
+   }else{
+    assert.equal(calls.length,3);assert.equal(calls[2].run.seed,1000045);assert(save.disabled);assert.match(stop.title,/Cancel validation/);
+    if(outcome==='cancel'){stop.click();await finishBatch();assert.equal(calls.length,3);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'CANCELLED');}
+    else{
+     await finishBatch();assert.equal(calls.length,4);assert(save.disabled);await finishBatch();
+     const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,outcome!=='pass');
+     if(outcome==='pass'){save.click();assert.equal(created.changes[0].after,15000);assert.match(card.textContent,/search finished early/);}
+    }
+   }
+   assert.equal(stop.dataset.icon,'search');assert.equal(e.processData.geometry.lactMm,10000);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+test('UI: finishing during DOE preserves partial observations without estimating effects',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:10,seed:42,rounds:3};
+  const project={title:'Partial DOE',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
+  let release;const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const length=input.case.equipment[1].processData.geometry.lactMm;if(input.run.seed===42&&length===11000)await new Promise(resolve=>release=resolve);const gain=length>10000?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const levels=card.querySelectorAll('.scenario-doe-factor input[type=number]');levels[0].value=11;levels[1].value=14;
+  card.querySelector('.scenario-search').click();await waitFor(()=>release);assert.match(card.querySelector('.scenario-search-progress').textContent,/DOE/);
+  card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.doe.observations.length,1);assert.equal(record.doe.analysis.complete,false);assert.equal(record.doe.analysis.effects.length,0);assert(record.independentCheck.passed);assert(!calls.some(c=>c.case.equipment[1].processData.geometry.lactMm===14000));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
