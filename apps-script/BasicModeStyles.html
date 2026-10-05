@@ -81,18 +81,20 @@ html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
  html[data-ui-mode=basic] .gemini-panel { width:min(var(--assistant-width),calc(100% - var(--space-6))); }
 }
 
-/* Basic typography and worksheet layout are independent of Advance. */
+/* Basic typography and worksheet layout are independent of Advance.
+   Scale the enlarged Basic text here; preserve a 12px reading minimum. */
+html[data-ui-mode=basic] { --basic-font-scale:0.8; }
 html[data-ui-mode=basic] { --vgraph-height:440px; }
 #basic-run-controls,#basic-efficiencies,#basic-start-simulation,.basic-card-data,.basic-conveyor-tabs,#basic-conveyor-summary { display:none; }
-html[data-ui-mode=basic] body { font-size:16px; }
-html[data-ui-mode=basic] #basic-navigation button { font-size:16px; font-weight:700; }
+html[data-ui-mode=basic] body { font-size:max(12px,calc(16px * var(--basic-font-scale))); }
+html[data-ui-mode=basic] #basic-navigation button { font-size:max(12px,calc(16px * var(--basic-font-scale))); font-weight:700; }
 html[data-ui-mode=basic] .equipment-grid label,
 html[data-ui-mode=basic] .reliability-controls label,
-html[data-ui-mode=basic] .basic-card-data label { font-size:15px; font-weight:600; }
+html[data-ui-mode=basic] .basic-card-data label { font-size:max(12px,calc(15px * var(--basic-font-scale))); font-weight:600; }
 html[data-ui-mode=basic] .equipment-grid input,
-html[data-ui-mode=basic] .reliability-controls input { font-size:19px; font-weight:700; width:100%; min-width:0; }
+html[data-ui-mode=basic] .reliability-controls input { font-size:max(12px,calc(19px * var(--basic-font-scale))); font-weight:700; width:100%; min-width:0; }
 html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); overflow-x:auto; }
-html[data-ui-mode=basic] .basic-machine .equipment-header strong { font-size:17px; font-weight:700; }
+html[data-ui-mode=basic] .basic-machine .equipment-header strong { font-size:max(12px,calc(17px * var(--basic-font-scale))); font-weight:700; }
 html[data-ui-mode=basic] .basic-machine .equipment-header .button-row,
 html[data-ui-mode=basic] .basic-machine .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-rate)),
 html[data-ui-mode=basic] .reliability-controls label:has(> .reliability-enabled) { display:none !important; }
@@ -100,11 +102,11 @@ html[data-ui-mode=basic] .basic-machine .equipment-grid,
 html[data-ui-mode=basic] .basic-machine .reliability-controls { grid-template-columns:1fr; gap:var(--space-3); }
 html[data-ui-mode=basic] .basic-machine .reliability-controls { margin-top:var(--space-2); }
 html[data-ui-mode=basic] .basic-card-data { display:grid; gap:var(--space-3); margin-top:var(--space-3); }
-html[data-ui-mode=basic] .basic-buffer { display:block; text-align:right; font-size:20px; font-weight:700; padding:var(--space-2); min-height:var(--control-height); box-sizing:border-box; border:var(--border-width) solid var(--line-strong); border-radius:var(--radius-sm); color:var(--accent); }
-html[data-ui-mode=basic] .basic-availability { font-size:14px; color:var(--warning); }
+html[data-ui-mode=basic] .basic-buffer { display:block; text-align:right; font-size:max(12px,calc(20px * var(--basic-font-scale))); font-weight:700; padding:var(--space-2); min-height:var(--control-height); box-sizing:border-box; border:var(--border-width) solid var(--line-strong); border-radius:var(--radius-sm); color:var(--accent); }
+html[data-ui-mode=basic] .basic-availability { font-size:max(12px,calc(14px * var(--basic-font-scale))); color:var(--warning); }
 html[data-ui-mode=basic] #basic-efficiencies { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
 html[data-ui-mode=basic] #basic-efficiencies > div { border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); flex-direction:column; align-items:start; }
-html[data-ui-mode=basic] #basic-efficiencies strong { font-size:26px; }
+html[data-ui-mode=basic] #basic-efficiencies strong { font-size:max(12px,calc(26px * var(--basic-font-scale))); }
 html[data-ui-mode=basic] #basic-run-controls { display:grid; grid-template-columns:1.2fr 1.2fr .6fr; gap:var(--space-3); margin:var(--space-3) 0; }
 html[data-ui-mode=basic] #basic-run-controls > section { display:grid; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
 html[data-ui-mode=basic] #basic-run-controls .button-row { flex-wrap:wrap; }
@@ -118,7 +120,7 @@ html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { display:gr
 html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header .button-row { display:none; }
 html[data-ui-mode=basic] .basic-metric { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
 html[data-ui-mode=basic] .basic-conveyor-tabs { display:flex; justify-content:flex-end; margin-bottom:var(--space-3); }
-html[data-ui-mode=basic] #basic-conveyor-summary { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); font-size:16px; margin-bottom:var(--space-4); }
+html[data-ui-mode=basic] #basic-conveyor-summary { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); font-size:max(12px,calc(16px * var(--basic-font-scale))); margin-bottom:var(--space-4); }
 html[data-ui-mode=basic] #basic-conveyor-summary > h4 { grid-column:1/-1; }
 html[data-ui-mode=basic] #basic-conveyor-summary > .basic-metric { grid-column:1; }
 html[data-ui-mode=basic] #basic-conveyor-summary > .basic-metric strong { border:var(--border-width) solid var(--line); border-radius:var(--radius-sm); padding:var(--space-2); min-width:100px; text-align:right; }
@@ -143,18 +145,18 @@ html[data-ui-mode=basic] #run-config label:has(> #run-seed) { display:none !impo
 
 html[data-ui-mode=basic] .basic-conveyor-worksheet { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
 html[data-ui-mode=basic] .basic-worksheet-group { display:flex; flex-direction:column; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
-html[data-ui-mode=basic] .basic-worksheet-group h4 { margin:0 0 var(--space-2); font-size:16px; }
-html[data-ui-mode=basic] .basic-worksheet-group label { display:grid; grid-template-columns:minmax(0,1fr) minmax(85px,120px); align-items:center; gap:var(--space-2); font-size:14px; }
-html[data-ui-mode=basic] .basic-worksheet-group input { width:100%; min-width:0; font-size:16px; font-weight:600; height:var(--control-height); }
+html[data-ui-mode=basic] .basic-worksheet-group h4 { margin:0 0 var(--space-2); font-size:max(12px,calc(16px * var(--basic-font-scale))); }
+html[data-ui-mode=basic] .basic-worksheet-group label { display:grid; grid-template-columns:minmax(0,1fr) minmax(85px,120px); align-items:center; gap:var(--space-2); font-size:max(12px,calc(14px * var(--basic-font-scale))); }
+html[data-ui-mode=basic] .basic-worksheet-group input { width:100%; min-width:0; font-size:max(12px,calc(16px * var(--basic-font-scale))); font-weight:600; height:var(--control-height); }
 html[data-ui-mode=basic] .basic-worksheet-group output { display:block; padding:var(--space-2); text-align:right; font-weight:700; background:var(--surface-soft); border-radius:var(--radius-sm); }
 html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-heading,
 html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-setup > .format-zone-grid,
 html[data-ui-mode=basic] #basic-conveyor-panel .equipment-json-details { display:none !important; }
 html[data-ui-mode=basic] #basic-conveyor-summary > section { display:flex; flex-direction:column; gap:var(--space-3); }
-html[data-ui-mode=basic] #basic-conveyor-summary .basic-metric strong { font-size:16px; }
+html[data-ui-mode=basic] #basic-conveyor-summary .basic-metric strong { font-size:max(12px,calc(16px * var(--basic-font-scale))); }
 html[data-ui-mode=basic] .basic-metric[data-status=PASS] strong { color:var(--success); }
 html[data-ui-mode=basic] .basic-metric[data-status=FAIL] strong { color:var(--danger); }
-html[data-ui-mode=basic] .basic-population { display:grid; gap:var(--space-2); font-size:14px; }
+html[data-ui-mode=basic] .basic-population { display:grid; gap:var(--space-2); font-size:max(12px,calc(14px * var(--basic-font-scale))); }
 html[data-ui-mode=basic] .basic-population progress { width:100%; accent-color:var(--accent); }
 @media(max-width:1000px){html[data-ui-mode=basic] .basic-conveyor-worksheet { grid-template-columns:1fr; }}
 /* Basic machine fields stay visible independently of card collapse state. */
@@ -168,10 +170,10 @@ html[data-ui-mode=basic] .live-equipment-columns > :last-child,
 html[data-ui-mode=basic] .live-controls-help { display:none !important; }
 html[data-ui-mode=basic] .live-equipment-columns,
 html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:minmax(150px,1.15fr) minmax(140px,.92fr) minmax(100px,.65fr) minmax(220px,1.42fr) minmax(180px,1fr); }
-html[data-ui-mode=basic] .vgraph-legend { font-size:18px; font-weight:600; }
+html[data-ui-mode=basic] .vgraph-legend { font-size:max(12px,calc(18px * var(--basic-font-scale))); font-weight:600; }
 html[data-ui-mode=basic] .vgraph-label,
-html[data-ui-mode=basic] .vgraph-reference { font-size:16px; }
-html[data-ui-mode=basic] .vgraph-value { font-size:18px; }
+html[data-ui-mode=basic] .vgraph-reference { font-size:max(12px,calc(16px * var(--basic-font-scale))); }
+html[data-ui-mode=basic] .vgraph-value { font-size:max(12px,calc(18px * var(--basic-font-scale))); }
 @media(max-width:1260px){html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:repeat(2,minmax(0,1fr)); }}
 @media(max-width:760px){html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:1fr; }}
 html[data-ui-mode=basic][data-basic-view=results] #batch-results,
