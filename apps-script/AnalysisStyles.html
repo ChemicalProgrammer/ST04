@@ -126,13 +126,19 @@
 </style>
 
 <style>
-.scenario-config-dialog { width:min(1000px,calc(100vw - var(--space-6))); }
-.scenario-config-dialog .scenario-changes, .scenario-config-dialog .scenario-factor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:var(--space-3); max-height:none; overflow:visible; }
-.scenario-config-dialog .scenario-change, .scenario-config-dialog .scenario-doe-factor { margin:0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-sm); }
-.scenario-config-dialog .scenario-change input[type=number] { width:100%; }
-.scenario-config-dialog .scenario-change { grid-template-columns:1fr; }
+.scenario-config-dialog { width:min(1120px,calc(100vw - var(--space-6))); }
+.scenario-config-dialog .scenario-table-wrap { display:block; max-height:none; overflow-x:auto; margin-top:var(--space-3); }
+.scenario-config-dialog .scenario-parameter-table { width:100%; min-width:720px; border-collapse:collapse; font-size:var(--font-secondary); }
+.scenario-config-dialog .scenario-parameter-table th { text-align:left; font-weight:600; background:var(--surface); white-space:nowrap; }
+.scenario-config-dialog .scenario-parameter-table th, .scenario-config-dialog .scenario-parameter-table td { padding:var(--space-2) var(--space-3); border-bottom:1px solid var(--line); vertical-align:middle; }
+.scenario-config-dialog .scenario-change, .scenario-config-dialog .scenario-doe-factor { display:table-row; padding:0; margin:0; border:0; }
+.scenario-config-dialog .scenario-parameter-table th:first-child, .scenario-config-dialog .scenario-parameter-table td:first-child { width:44px; text-align:center; }
+.scenario-config-dialog .scenario-parameter-table input[type=number] { width:112px; min-width:90px; display:block; }
+.scenario-config-dialog .scenario-parameter-table input[type=checkbox] { margin:0; }
+.scenario-config-dialog .scenario-parameter-table label { font-size:var(--font-caption); }
+.scenario-config-dialog .scenario-number { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.scenario-config-dialog .scenario-external { margin-top:var(--space-1); max-width:320px; }
 .scenario-config-dialog .scenario-factor-count { font-weight:600; }
-.scenario-config-dialog .scenario-factor-grid { margin-top:var(--space-3); }
 .scenario-configure { width:100%; margin-bottom:var(--space-2); }
 .scenario-audit-warnings input[type=checkbox] { flex-shrink:0; }
 </style>

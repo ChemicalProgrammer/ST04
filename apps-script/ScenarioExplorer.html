@@ -25,14 +25,15 @@ window.STScenarioExplorer=(function(){
     var dialog=el('dialog','','scenario-config-dialog'),heading=el('div','','dialog-heading'),body=el('div','','dialog-body'),footer=el('div','','dialog-actions');
     dialog.setAttribute('aria-label','Scenario changes and DOE');heading.append(el('h2','Scenario configuration'),button('Close',function(){dialog.close();}));footer.append(button('Done',function(){dialog.close();}));dialog.append(heading,body,footer);host.append(dialog);
     var configure=button('Configure changes & DOE',function(){if(!activeHost){refreshDOE();refreshFactors();dialog.showModal();}});configure.classList.add('scenario-configure');host.append(configure);
-    var edits=el('details','','scenario-edit-details');edits.open=true;edits.append(el('summary',project.changes.length+' adjustable changes · select and set limits'));var list=el('div','','scenario-changes');edits.append(list);body.appendChild(edits);
+    function parameterTable(parent,headers,cls,title){var wrap=el('div','',cls+' scenario-table-wrap'),table=el('table','','scenario-parameter-table'),head=el('thead'),row=el('tr'),body=el('tbody');table.setAttribute('aria-label',title);headers.forEach(text=>{var cell=el('th',text);cell.scope='col';row.append(cell);});head.append(row);table.append(head,body);wrap.append(table);parent.append(wrap);return body;}
+    var edits=el('details','','scenario-edit-details');edits.open=true;edits.append(el('summary',project.changes.length+' adjustable changes · select and set limits'));var list=parameterTable(edits,['Use','Equipment','Parameter','Current','Proposed','Unit','Feasible limit'],'scenario-changes','Adjustable parameters');body.appendChild(edits);
     project.changes.forEach(function(change){
-      var info=STWhatIf.changeInfo(change,source.equipment),row=el('section','','scenario-change'),label=el('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;
+      var info=STWhatIf.changeInfo(change,source.equipment),row=el('tr','','scenario-change'),check=document.createElement('input');check.type='checkbox';check.checked=true;
       var scale=change.path==='nominalRatePerSecond'?60:change.path==='processData.geometry.lactMm'||change.path==='processData.geometry.lpPrimeMm'?.001:change.path.endsWith('conveyorSpeedMmPerSecond')?.06:1;
       var unit=scale===60?'BPM':scale===.001?'m':scale===.06?'m/min':change.unit||STScenarios.fields[change.path]?.[2]||'';
-      label.append(check,document.createTextNode(info.equipment+' · '+info.parameter));row.append(label,el('p',(change.before==null?'—':Number((change.before*scale).toPrecision(8)))+' → '+Number((change.after*scale).toPrecision(8))+' '+unit));
-      var limitLabel=el('label',(change.after>=change.before?'Maximum':'Minimum')+' feasible ('+unit+')'),limit=document.createElement('input');limit.type='number';limit.step='any';limit.min='0';limit.placeholder='No limit';limitLabel.append(limit);row.append(limitLabel);
-      if(change.external)row.append(el('p',change.justification,'scenario-external'));
+      check.setAttribute('aria-label','Use '+info.equipment+' · '+info.parameter);var choice=el('td'),parameter=el('td',info.parameter);choice.append(check);row.append(choice,el('td',info.equipment),parameter,el('td',change.before==null?'—':String(Number((change.before*scale).toPrecision(8))),'scenario-number'),el('td',String(Number((change.after*scale).toPrecision(8))),'scenario-number'),el('td',unit));
+      var limitLabel=el('label',(change.after>=change.before?'Maximum':'Minimum')+' feasible ('+unit+')'),limit=document.createElement('input');limit.type='number';limit.step='any';limit.min='0';limit.placeholder='No limit';limit.setAttribute('aria-label',info.equipment+' · '+info.parameter+' · '+limitLabel.textContent);limitLabel.append(limit);var limitCell=el('td');limitCell.append(limitLabel);row.append(limitCell);
+      if(change.external)parameter.append(el('p',change.justification,'scenario-external'));
       list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale});check.onchange=limit.oninput=function(){if(activeHost)return;last=null;generation++;clearTimeout(timer);status.textContent='Recalculating…';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();if(dialog.open){status.textContent='Changes updated. Calculate or search to evaluate.';}else timer=setTimeout(function(){preview(false);},350);};
     });
     var doePanel=el('details','','scenario-doe'),doeCount=0;
@@ -41,16 +42,16 @@ window.STScenarioExplorer=(function(){
     var clearFactors=button('Clear factor selection',function(){rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});refreshFactors();invalidateDOE();});
     doePanel.append(el('summary','DOE · choose up to 4 factors'),el('p','Two levels per factor; 1–4 factors = 2–16 combinations, each with at least 3 rounds. Other changes stay fixed at the current search winner. Missing baseline values and external reliability targets are excluded.','chart-note'));
     doePanel.append(factorCount,clearFactors);
-    var factorGrid=el('div','','scenario-factor-grid');doePanel.append(factorGrid);
+    var factorGrid=parameterTable(doePanel,['DOE','Equipment','Parameter','Unit','Low','High'],'scenario-factor-grid','DOE factors');
     rows.forEach(function(r){
       if(!Number.isFinite(r.change.before)||r.change.external)return;
-      var info=STWhatIf.changeInfo(r.change,source.equipment),field=el('section','','scenario-doe-factor'),label=el('label'),use=document.createElement('input');use.type='checkbox';use.checked=doeCount++<4;
-      label.append(use,document.createTextNode(info.equipment+' · '+info.parameter));field.append(label);
+      var info=STWhatIf.changeInfo(r.change,source.equipment),field=el('tr','','scenario-doe-factor'),use=document.createElement('input');use.type='checkbox';use.checked=doeCount++<4;
+      use.setAttribute('aria-label','DOE factor '+info.equipment+' · '+info.parameter);var choice=el('td');choice.append(use);field.append(choice,el('td',info.equipment),el('td',info.parameter));
       var low=document.createElement('input'),high=document.createElement('input');
       [low,high].forEach(function(input){input.type='number';input.step='any';input.min=STScenarios.fields[r.change.path][0]*r.scale;input.max=STScenarios.fields[r.change.path][1]*r.scale;});
       low.value=Number((Math.min(r.change.before,r.change.after)*r.scale).toPrecision(8));high.value=Number((Math.max(r.change.before,r.change.after)*r.scale).toPrecision(8));
       var units=r.scale===60?'BPM':r.scale===.001?'m':r.scale===.06?'m/min':r.change.unit||STScenarios.fields[r.change.path][2];
-      [['Low ('+units+')',low],['High ('+units+')',high]].forEach(function(pair){var l=el('label',pair[0]);l.append(pair[1]);field.append(l);});
+      field.append(el('td',units));[['Low',low],['High',high]].forEach(function(pair){pair[1].setAttribute('aria-label',info.equipment+' · '+info.parameter+' · '+pair[0]+' ('+units+')');var cell=el('td');cell.append(pair[1]);field.append(cell);});
       r.doe={use:use,low:low,high:high};use.onchange=function(){if(use.checked){r.check.checked=true;}refreshFactors();invalidateDOE();};[low,high].forEach(function(input){input.onchange=function(){invalidateDOE();};});factorGrid.append(field);
     });
     body.append(doePanel);
