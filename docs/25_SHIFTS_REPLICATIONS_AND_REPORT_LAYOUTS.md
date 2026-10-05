@@ -22,3 +22,14 @@ A 13-equipment demo spanning three eight-hour shifts took approximately 15 secon
 Keep `data-report` slot names when rearranging templates. Labels use `data-report-text` resource keys from the `templateText` map in `Reports.html`; add new resource keys to that map when extending a template. HTML/PDF snapshot the resolved light/dark theme and primary accent at export time; they need no external fonts or styles. PDF uses the browser print dialog. Enable background graphics in print settings to preserve theme fills.
 
 The equipment inspector remembers its own width, independent of Gemini chat, defaults to 760px where space permits, and distributes fields into one, two or three columns. Its minimum field width is a design token, `--equipment-field-width`.
+
+## Fixed and random seed policy
+
+Advance Settings exposes Fixed (default) or Random seed policy. This preference
+is stored in this browser and applies to fresh runs in either interface mode.
+Random selects one new unsigned 32-bit base seed using Web Crypto (Math.random
+fallback). The actual base seed is displayed and saved with run configuration
+and results. Round index i (starting at 0) uses (base seed + i) modulo 2^32.
+Fixed uses the current seed input; switching to Fixed keeps the last displayed
+seed so the run can be reproduced. Playback, recalculation, saved replay and
+What-If/DOE matched comparisons do not regenerate seeds.

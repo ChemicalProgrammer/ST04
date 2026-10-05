@@ -90,7 +90,8 @@ test('calculates FlowPilot velocity, population, overflow, recovery, and audit d
   assert.equal(result.calculated.primeSensorPositionMm, 18500);
   assert.equal(result.calculated.recommendedBackupSensorPositionMm, 1447.875);
   assert.equal(result.calculated.conveyorCapacityUnits, 224);
-  assert.equal(result.audit.status, 'PASS');
+  assert.equal(result.audit.status, 'WARNING');
+  assert.equal(result.audit.goals.find(goal=>goal.id==='POPULATION').status,'WARNING');
   assert.equal(result.audit.goals.find((goal) => goal.id === 'SENSOR_DEBOUNCE').status, 'PASS');
 });
 
@@ -126,7 +127,7 @@ test('uses the FlowPilot fields as the physical conveyor model instead of direct
   assert.equal(zone.modelOrigin, 'FLOWPILOT_ENGINEERING');
   assert.equal(zone.capacityUnits, 303);
   assert.equal(zone.accumulatedPitchMm, 66);
-  assert.equal(zone.engineering.audit.status, 'PASS');
+  assert.equal(zone.engineering.audit.status, 'WARNING');
   closeTo(zone.engineering.calculated.conveyorSpeedMmPerSecond, 624.75);
   assert.ok(response.result.events.some((event) => event.type === 'PRIME_SENSOR_TRIGGERED'));
 });
@@ -162,4 +163,30 @@ test('worksheet zone factors, actual lengths and overspeed produce dimensional d
   closeTo(c.overflowLengthMm,200+300+c.overflowProductLengthMm);closeTo(c.usefulAccumulationLengthMm,20000-1500-c.overflowLengthMm);
   closeTo(c.minimumRampAccumulationLengthMm,200*80/60*4/2);closeTo(c.minimumInstalledLengthMm,c.overflowLengthMm+1500+c.minimumRampAccumulationLengthMm);
   closeTo(c.recommendedInfeedConveyorSpeedMmPerSecond,200*90/60*1.07);closeTo(c.downstreamInfeedRateMmPerSecond,300);
+});
+
+
+test('target Population preserves flow and manual LBA changes the active Back-up sensor', () => {
+  const line=createFlowPilotLine();
+  Object.assign(line.equipment[1].processData.accumulation,{targetPopulationPercent:50,manualLbaMm:10000,speedMode:'MANUAL',conveyorSpeedMmPerSecond:1,movingGapMm:1});
+  const response=simulateLine({case:line,run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17}});
+  assert.equal(response.ok,true,JSON.stringify(response.error));
+  const zone=response.result.accumulationZoneMetrics['conveyor--physical-zone'];
+  const c=zone.engineering.calculated,r=zone.engineering.runtimeGeometry;
+  closeTo(c.populationPercent,50);
+  closeTo(r.conveyorSpeedMmPerSecond,924);
+  closeTo(r.movingPitchMm,132);
+  closeTo(r.transferCapacityPerSecond,7);
+  closeTo(c.usefulAccumulationLengthMm,10000);
+  closeTo(c.actualBackupSensorPositionMm,8500);
+  assert.equal(zone.capacityUnits,303);
+  assert.equal(zone.engineering.audit.goals.find(g=>g.id==='POPULATION').status,'PASS');
+});
+
+test('invalid Population or LBA cannot simulate impossible reserves', () => {
+  for(const overrides of [{targetPopulationPercent:0},{targetPopulationPercent:101},{manualLbaMm:19000},{manualLbaMm:-1}]){
+    const line=createFlowPilotLine();Object.assign(line.equipment[1].processData.accumulation,overrides);
+    const response=simulateLine({case:line,run:{durationSeconds:5,tickSeconds:.25,sampleEverySeconds:1,seed:17}});
+    assert.equal(response.ok,false,JSON.stringify(overrides));
+  }
 });

@@ -930,7 +930,7 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
-  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,18);
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,22);
   const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
   Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
   await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.overspeedVsInfeedScrewPercent===7);
@@ -1190,4 +1190,43 @@ test('UI: Gemini recovers from malformed callbacks and ignores answers arriving 
   await h.click('#send-gemini');assert(expire);expire();assert.match(h.d.getElementById('gemini-error').textContent,/GEMINI_TIMEOUT/);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-question').value,'Retain this question');
   late({ok:true,data:{text:'Late answer'}});assert(!h.d.getElementById('gemini-messages').textContent.includes('Late answer'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+test('UI: seed policy generates and saves a new base only for fresh runs',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#open-settings');
+  assert(!h.d.getElementById('settings-seed-section').classList.contains('hidden'));
+  h.d.getElementById('settings-seed-policy').value='RANDOM';await h.click('#settings-cancel');
+  assert.equal(h.w.STPreferences.read('seedPolicy'),'RANDOM');
+  let next=1234;h.w.crypto.getRandomValues=a=>{a[0]=next++;return a;};
+  h.d.getElementById('run-duration').value=5;await h.click('#run-simulation');await h.click('#pause-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.seed===1234);
+  await h.click('#run-simulation');await h.click('#pause-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.seed===1235);
+  await h.click('#open-settings');h.d.getElementById('settings-seed-policy').value='FIXED';await h.click('#settings-cancel');
+  await h.click('#run-simulation');await h.click('#pause-simulation');
+  assert.equal(Number(h.d.getElementById('run-seed').value),1235);assert.equal(next,1236);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: target Population and manual LBA persist in both modes and Basic cards show only names',async()=>{
+ for(const uiMode of ['ADVANCE','BASIC']){
+  const h=await setup({remember:true,uiMode});try{
+   await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=conveyors]');else {await h.click('.sidebar [data-view="editor"]');h.d.querySelectorAll('.equipment-card')[1].click();}
+   const field=key=>h.d.querySelector('#equipment-inspector .format-zone-'+key);
+   const change=(key,value)=>{const n=field(key);if(n.type==='checkbox')n.checked=value;else n.value=value;n.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+   change('population-enabled',true);change('population',50);change('lba-enabled',true);change('lba',1000);
+   await waitFor(()=>h.storedCases()[0].equipment[1].processData.accumulation.manualLbaMm===1000);
+   const saved=h.storedCases()[0].equipment;
+   assert.equal(saved[1].processData.accumulation.targetPopulationPercent,50);
+   const audit=h.w.STScenarios.audit({equipment:saved}).find(a=>a.equipmentId===saved[1].id);
+   assert.equal(audit.engineering.calculated.populationPercent,50);assert.equal(audit.engineering.calculated.usefulAccumulationLengthMm,1000);
+   if(uiMode==='BASIC'){
+    const card=h.d.querySelectorAll('.equipment-card')[1];assert.equal(card.querySelector('.equipment-header strong').textContent,saved[1].name);assert.equal(card.querySelector('.basic-card-data').textContent,'');
+    await h.click('#open-settings');assert(h.d.getElementById('settings-seed-section').classList.contains('hidden'));await h.click('#settings-cancel');
+   }
+   change('population',60);assert.match(h.d.querySelector('#equipment-inspector .format-zone-preview').textContent,/exceeds 50%/);
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
 });

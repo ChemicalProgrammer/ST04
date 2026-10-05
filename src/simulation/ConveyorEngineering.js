@@ -13,6 +13,8 @@ export function calculateConveyorEngineering(input = {}) {
 
 function normaliseInput(input) {
   return {
+    targetPopulationPercent: numberOrUndefined(input.targetPopulationPercent),
+    manualLbaMm: numberOrUndefined(input.manualLbaMm),
     installedLengthMm: numberOrUndefined(input.installedLengthMm),
     primeReserveMm: numberOrUndefined(input.primeReserveMm),
     packageLengthMm: numberOrUndefined(input.packageLengthMm),
@@ -53,7 +55,9 @@ function calculate(values) {
     ? upstreamDischargeVelocityMmPerSecond * (1 + values.conveyorSpeedFactorPercent / 100)
     : undefined;
   const codingZoneSpeedMmPerSecond = multiplyIfFinite(dischargeZoneSpeedMmPerSecond, 1 + values.codingSpeedFactorPercent / 100);
-  const conveyorSpeedMmPerSecond = multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
+  const conveyorSpeedMmPerSecond = values.targetPopulationPercent !== undefined
+    ? safeDivide(machineOutputRateMmPerSecond, values.targetPopulationPercent, 100)
+    : multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
   const dischargePopulationPercent = safeDivide(machineOutputRateMmPerSecond, dischargeZoneSpeedMmPerSecond, 100);
   const codingPopulationPercent = safeDivide(machineOutputRateMmPerSecond, codingZoneSpeedMmPerSecond, 100);
   const populationPercent = safeDivide(machineOutputRateMmPerSecond, conveyorSpeedMmPerSecond, 100);
@@ -88,13 +92,16 @@ function calculate(values) {
     values.rejectRunoutLengthMm,
     overflowProductLengthMm
   );
-  const usefulAccumulationLengthMm = subtractIfFinite(
+  const calculatedUsefulAccumulationLengthMm = subtractIfFinite(
     values.installedLengthMm,
     values.primeReserveMm,
     overflowLengthMm
   );
+  const usefulAccumulationLengthMm = values.manualLbaMm ?? calculatedUsefulAccumulationLengthMm;
   const primeSensorPositionMm = subtractIfFinite(values.installedLengthMm, values.primeReserveMm);
-  const actualBackupSensorPositionMm = firstDefined(values.backupSensorPositionMm, overflowLengthMm);
+  const actualBackupSensorPositionMm = values.manualLbaMm !== undefined
+    ? subtractIfFinite(primeSensorPositionMm, values.manualLbaMm)
+    : firstDefined(values.backupSensorPositionMm, overflowLengthMm);
   const conveyorCapacityUnits = safeFloorDivide(values.installedLengthMm, effectiveProductPitchMm);
   const primeTravelSeconds = safeDivide(primeSensorPositionMm, conveyorSpeedMmPerSecond);
   const totalTravelSeconds = safeDivide(values.installedLengthMm, conveyorSpeedMmPerSecond);
@@ -152,6 +159,7 @@ function calculate(values) {
     overflowProductLengthMm,
     overflowLengthMm,
     usefulAccumulationLengthMm,
+    calculatedUsefulAccumulationLengthMm,
     primeSensorPositionMm,
     recommendedBackupSensorPositionMm: overflowLengthMm,
     actualBackupSensorPositionMm,
@@ -197,6 +205,10 @@ function createAudit(values, calculated) {
     values.clearTimeDelaySeconds > calculated.sensorClearGapSeconds;
 
   const goals = [
+    goal('POPULATION', !isFiniteNumber(calculated.populationPercent) ? 'NOT_EVALUATED' : calculated.populationPercent > 100 || calculated.populationPercent <= 0 ? 'FAIL' : calculated.populationPercent > 50 ? 'WARNING' : 'PASS',
+      !isFiniteNumber(calculated.populationPercent) ? 'Population needs valid flow and belt-speed inputs.' : calculated.populationPercent > 100 || calculated.populationPercent <= 0 ? 'Population must be greater than 0 and no more than 100%.' : calculated.populationPercent > 50 ? 'Design occupancy above 50%: consider a target of 50% or less and verify the required belt speed and infeed capacity. This is a design recommendation, not a universal safety limit.' : 'Design occupancy is within the suggested 50% target.'),
+    goal('MANUAL_LBA', values.manualLbaMm === undefined ? 'PASS' : values.manualLbaMm > 0 && values.manualLbaMm <= calculated.calculatedUsefulAccumulationLengthMm ? 'PASS' : 'FAIL',
+      'Manual LBA must be positive and fit within installed length after Prime and required overflow reserves. It sets Back-up to Prime position minus LBA.'),
     goal(
       'INPUT_INTEGRITY',
       inputsReady ? 'PASS' : 'NOT_EVALUATED',

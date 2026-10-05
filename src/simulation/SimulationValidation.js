@@ -99,7 +99,9 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
   if (accumulation.speedMode !== undefined && !['AUTO', 'MANUAL'].includes(accumulation.speedMode)) details.push(invalid(path + '.processData.accumulation.speedMode', 'must be AUTO or MANUAL'));
   validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
   validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
+  if (accumulation.targetPopulationPercent !== undefined && !(positiveNumber(accumulation.targetPopulationPercent) && accumulation.targetPopulationPercent <= 100)) details.push(invalid(path + '.processData.accumulation.targetPopulationPercent', 'must be greater than 0 and at most 100%'));
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
+  if (accumulation.manualLbaMm !== undefined && !(positiveNumber(accumulation.manualLbaMm) && accumulation.manualLbaMm <= resolved.definition?.engineering?.calculated?.calculatedUsefulAccumulationLengthMm)) details.push(invalid(path + '.processData.accumulation.manualLbaMm', 'must be positive and fit after Prime and required overflow reserves'));
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);
 }
 

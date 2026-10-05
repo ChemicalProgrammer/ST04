@@ -66,3 +66,24 @@ independent of the design PASS/FAIL and design population bars.
 No current run means measured values are unavailable. Older saved results that
 lack the new counters also display unavailable values until rerun. Editing
 inputs invalidates the previous result through the existing autosave pipeline.
+
+## Optional Population and LBA inputs
+
+Both modes display the calculated accumulation Population and LBA. Enable the
+checkbox beside either value to supply a target Population or a manual LBA.
+`processData.accumulation.targetPopulationPercent` accepts values greater than
+0 through 100. The target overrides accumulation belt speed and moving gap:
+velocity = upstream BPM × package length / (60 × target/100), and moving pitch
+= package length / (target/100). Existing speed and gap values are retained
+for use when the target is disabled. Discharge/coding stage populations stay
+separate calculated references. Above 50%, an advisory suggests considering
+50% or less and checking belt speed/infeed capacity; this is not a universal
+safety limit or an automatic clamp.
+
+`processData.accumulation.manualLbaMm` must be positive and no greater than
+Lact − Prime reserve − required overflow. Back-up (including its restart
+position) becomes Prime position − manual LBA. Physical installed length and
+packed capacity stay unchanged. Disabling the checkbox restores calculated
+LBA. Both settings are persisted with conveyor inputs and simulation records.
+Basic conveyor cards display only the configured conveyor name; detailed
+outputs remain in the selected conveyor's Results tab.

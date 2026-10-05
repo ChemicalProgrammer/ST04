@@ -47,14 +47,14 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
-  if (format.speedMode === 'MANUAL') {
+  if (format.speedMode === 'MANUAL' && format.targetPopulationPercent === undefined) {
     resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
     resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
   const definition = resolved.definition;
-  if (format.movingGapMm !== undefined) {
+  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined) {
     definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
     definition.gapMm = format.movingGapMm;
     resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
@@ -114,6 +114,8 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     sourceValue(downstreamControl?.processData?.downstream?.rampUpTimeSeconds, 'downstream processData.downstream.rampUpTimeSeconds')
   ]);
   const calculation = calculateConveyorEngineering({
+    targetPopulationPercent: format.targetPopulationPercent,
+    manualLbaMm: format.manualLbaMm,
     installedLengthMm: installedLength.value,
     primeReserveMm: primeReserve.value,
     packageLengthMm: packageLength.value,
@@ -160,7 +162,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     'calculated: product pitch / conveyor speed');
   assignIfDefined(definition, 'primeSensorPositionMm', derived.primeSensorPositionMm, sources, 'calculated: L_act - L_p');
   assignIfDefined(definition, 'backupSensorPositionMm', derived.actualBackupSensorPositionMm, sources,
-    isDefined(format.backupSensorPositionMm) ? 'processData.accumulation.backupSensorPositionMm' : 'calculated: required overflow length L_bu');
+    format.manualLbaMm !== undefined ? 'calculated: Prime position minus manual LBA' : isDefined(format.backupSensorPositionMm) ? 'processData.accumulation.backupSensorPositionMm' : 'calculated: required overflow length L_bu');
   assignIfDefined(definition, 'backupRestartPositionMm', derived.actualBackupSensorPositionMm, sources,
     'same Back-up position; Clear Time Delay provides the restart debounce');
   assignIfDefined(definition, 'blockedTimeDelaySeconds', calculation.input.blockedTimeDelaySeconds, sources,
