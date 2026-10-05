@@ -13,6 +13,7 @@ export function calculateConveyorEngineering(input = {}) {
 
 function normaliseInput(input) {
   return {
+    targetOverspeedPercent: numberOrUndefined(input.targetOverspeedPercent),
     targetPopulationPercent: numberOrUndefined(input.targetPopulationPercent),
     manualLbaMm: numberOrUndefined(input.manualLbaMm),
     installedLengthMm: numberOrUndefined(input.installedLengthMm),
@@ -55,8 +56,10 @@ function calculate(values) {
     ? upstreamDischargeVelocityMmPerSecond * (1 + values.conveyorSpeedFactorPercent / 100)
     : undefined;
   const codingZoneSpeedMmPerSecond = multiplyIfFinite(dischargeZoneSpeedMmPerSecond, 1 + values.codingSpeedFactorPercent / 100);
+  const infeedVelocity=multiplyAndDivide(values.downstreamHighSpeedBpm,values.downstreamInfeedPitchMm,60);
   const conveyorSpeedMmPerSecond = values.targetPopulationPercent !== undefined
     ? safeDivide(machineOutputRateMmPerSecond, values.targetPopulationPercent, 100)
+    : values.targetOverspeedPercent !== undefined ? multiplyIfFinite(infeedVelocity,1+values.targetOverspeedPercent/100)
     : multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
   const dischargePopulationPercent = safeDivide(machineOutputRateMmPerSecond, dischargeZoneSpeedMmPerSecond, 100);
   const codingPopulationPercent = safeDivide(machineOutputRateMmPerSecond, codingZoneSpeedMmPerSecond, 100);
@@ -144,6 +147,7 @@ function calculate(values) {
     minimumRampAccumulationLengthMm,
     minimumInstalledLengthMm,
     downstreamInfeedRateMmPerSecond,
+    actualInfeedOverspeedPercent: isFiniteNumber(conveyorSpeedMmPerSecond)&&downstreamInfeedRateMmPerSecond>0?(conveyorSpeedMmPerSecond/downstreamInfeedRateMmPerSecond-1)*100:undefined,
     upstreamDischargeVelocityMmPerSecond,
     machineOutputRateMmPerSecond,
     conveyorSpeedMmPerSecond,

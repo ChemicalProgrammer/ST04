@@ -15,6 +15,7 @@ function calculateConveyorEngineering(input = {}) {
 
 function normaliseInput(input) {
   return {
+    targetOverspeedPercent: numberOrUndefined(input.targetOverspeedPercent),
     targetPopulationPercent: numberOrUndefined(input.targetPopulationPercent),
     manualLbaMm: numberOrUndefined(input.manualLbaMm),
     installedLengthMm: numberOrUndefined(input.installedLengthMm),
@@ -57,8 +58,10 @@ function calculate(values) {
     ? upstreamDischargeVelocityMmPerSecond * (1 + values.conveyorSpeedFactorPercent / 100)
     : undefined;
   const codingZoneSpeedMmPerSecond = multiplyIfFinite(dischargeZoneSpeedMmPerSecond, 1 + values.codingSpeedFactorPercent / 100);
+  const infeedVelocity=multiplyAndDivide(values.downstreamHighSpeedBpm,values.downstreamInfeedPitchMm,60);
   const conveyorSpeedMmPerSecond = values.targetPopulationPercent !== undefined
     ? safeDivide(machineOutputRateMmPerSecond, values.targetPopulationPercent, 100)
+    : values.targetOverspeedPercent !== undefined ? multiplyIfFinite(infeedVelocity,1+values.targetOverspeedPercent/100)
     : multiplyIfFinite(codingZoneSpeedMmPerSecond, 1 + values.accumulationSpeedFactorPercent / 100);
   const dischargePopulationPercent = safeDivide(machineOutputRateMmPerSecond, dischargeZoneSpeedMmPerSecond, 100);
   const codingPopulationPercent = safeDivide(machineOutputRateMmPerSecond, codingZoneSpeedMmPerSecond, 100);
@@ -146,6 +149,7 @@ function calculate(values) {
     minimumRampAccumulationLengthMm,
     minimumInstalledLengthMm,
     downstreamInfeedRateMmPerSecond,
+    actualInfeedOverspeedPercent: isFiniteNumber(conveyorSpeedMmPerSecond)&&downstreamInfeedRateMmPerSecond>0?(conveyorSpeedMmPerSecond/downstreamInfeedRateMmPerSecond-1)*100:undefined,
     upstreamDischargeVelocityMmPerSecond,
     machineOutputRateMmPerSecond,
     conveyorSpeedMmPerSecond,
@@ -373,14 +377,14 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
-  if (format.speedMode === 'MANUAL' && format.targetPopulationPercent === undefined) {
+  if (format.speedMode === 'MANUAL' && format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined) {
     resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
     resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
   const definition = resolved.definition;
-  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined) {
+  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined) {
     definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
     definition.gapMm = format.movingGapMm;
     resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
@@ -441,6 +445,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   ]);
   const calculation = calculateConveyorEngineering({
     targetPopulationPercent: format.targetPopulationPercent,
+    targetOverspeedPercent: format.targetOverspeedPercent,
     manualLbaMm: format.manualLbaMm,
     installedLengthMm: installedLength.value,
     primeReserveMm: primeReserve.value,
@@ -479,7 +484,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   assignIfDefined(definition, 'productLengthMm', packageLength.value, sources, packageLength.source);
   assignIfDefined(definition, 'gapMm', derived.productGapMm, sources, 'calculated: effective pitch - package length');
   assignIfDefined(definition, 'productPitchMm', derived.effectiveProductPitchMm, sources, 'calculated: package length / population');
-  assignIfDefined(definition, 'conveyorSpeedMmPerSecond', derived.conveyorSpeedMmPerSecond, sources, 'calculated: discharge velocity × (1 + speed factor)');
+  assignIfDefined(definition, 'conveyorSpeedMmPerSecond', derived.conveyorSpeedMmPerSecond, sources, format.targetOverspeedPercent!==undefined?'calculated: downstream infeed velocity × (1 + target overspeed)':format.targetPopulationPercent!==undefined?'calculated: packed material flow / target population':'calculated: discharge velocity × (1 + speed factor)');
   assignIfDefined(definition, 'packagePassSensorSeconds', derived.packagePassSensorSeconds, sources,
     'calculated: package length / conveyor speed');
   assignIfDefined(definition, 'sensorClearGapSeconds', derived.sensorClearGapSeconds, sources,
@@ -748,6 +753,8 @@ function validateConveyorGeometry(allEquipment, index, path, details) {
   validateOptionalNonNegative(accumulation.movingGapMm, path + '.processData.accumulation.movingGapMm', details);
   validateOptionalNonNegative(accumulation.accumulatedGapMm, path + '.processData.accumulation.accumulatedGapMm', details);
   if (accumulation.targetPopulationPercent !== undefined && !(positiveNumber(accumulation.targetPopulationPercent) && accumulation.targetPopulationPercent <= 100)) details.push(invalid(path + '.processData.accumulation.targetPopulationPercent', 'must be greater than 0 and at most 100%'));
+  if(accumulation.targetOverspeedPercent!==undefined&&!(Number.isFinite(accumulation.targetOverspeedPercent)&&accumulation.targetOverspeedPercent>=0&&accumulation.targetOverspeedPercent<=1000))details.push(invalid(path+'.processData.accumulation.targetOverspeedPercent','must be between 0 and 1000%'));
+  if(accumulation.targetOverspeedPercent!==undefined&&accumulation.targetPopulationPercent!==undefined)details.push(invalid(path+'.processData.accumulation','choose either target Population or target Overspeed, not both'));
   const resolved = resolveAccumulationZoneDefinition(allEquipment, index);
   if (accumulation.manualLbaMm !== undefined && !(positiveNumber(accumulation.manualLbaMm) && accumulation.manualLbaMm <= resolved.definition?.engineering?.calculated?.calculatedUsefulAccumulationLengthMm)) details.push(invalid(path + '.processData.accumulation.manualLbaMm', 'must be positive and fit after Prime and required overflow reserves'));
   validatePhysicalZone(resolved.definition, path + '.processData.accumulation', details);

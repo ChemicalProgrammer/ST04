@@ -190,3 +190,15 @@ test('invalid Population or LBA cannot simulate impossible reserves', () => {
     assert.equal(response.ok,false,JSON.stringify(overrides));
   }
 });
+
+test('target Overspeed sets active belt speed and pitch and rejects conflicting targets',()=>{
+ const line=createFlowPilotLine(),acc=line.equipment[1].processData.accumulation;
+ Object.assign(acc,{targetOverspeedPercent:20,speedMode:'MANUAL',conveyorSpeedMmPerSecond:1,movingGapMm:1});
+ const response=simulateLine({case:line,run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]}});assert(response.ok,JSON.stringify(response.error));
+ const zone=response.result.accumulationZoneMetrics;const metric=Object.values(zone)[0];
+ // 430 BPM × 90 mm / 60 × 1.20 = 774 mm/s.
+ const calculated=calculateConveyorEngineering({upstreamNominalSpeedBpm:420,upstreamDischargePitchMm:85,packageLengthMm:66,conveyorSpeedFactorPercent:5,downstreamHighSpeedBpm:430,downstreamInfeedPitchMm:90,targetOverspeedPercent:20}).calculated;
+ closeTo(calculated.conveyorSpeedMmPerSecond,774);closeTo(calculated.actualInfeedOverspeedPercent,20);closeTo(metric.conveyorSpeedMmPerSecond,774);
+ for(const invalid of [-1,1001,NaN]){acc.targetOverspeedPercent=invalid;assert.equal(simulateLine({case:line,run:{durationSeconds:1,tickSeconds:.25,sampleEverySeconds:1,seed:17}}).ok,false);}
+ acc.targetOverspeedPercent=20;acc.targetPopulationPercent=50;assert.equal(simulateLine({case:line,run:{durationSeconds:1,tickSeconds:.25,sampleEverySeconds:1,seed:17}}).ok,false);
+});

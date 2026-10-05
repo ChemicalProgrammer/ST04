@@ -47,14 +47,14 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   const resolved = hasFlowPilotInputs(owner, format)
     ? resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamControl)
     : resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstreamControl);
-  if (format.speedMode === 'MANUAL' && format.targetPopulationPercent === undefined) {
+  if (format.speedMode === 'MANUAL' && format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined) {
     resolved.definition.conveyorSpeedMmPerSecond = format.conveyorSpeedMmPerSecond;
     resolved.sources.conveyorSpeedMmPerSecond = 'processData.accumulation.conveyorSpeedMmPerSecond';
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete resolved.definition[key];
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
   const definition = resolved.definition;
-  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined) {
+  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined) {
     definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
     definition.gapMm = format.movingGapMm;
     resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
@@ -115,6 +115,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   ]);
   const calculation = calculateConveyorEngineering({
     targetPopulationPercent: format.targetPopulationPercent,
+    targetOverspeedPercent: format.targetOverspeedPercent,
     manualLbaMm: format.manualLbaMm,
     installedLengthMm: installedLength.value,
     primeReserveMm: primeReserve.value,
@@ -153,7 +154,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   assignIfDefined(definition, 'productLengthMm', packageLength.value, sources, packageLength.source);
   assignIfDefined(definition, 'gapMm', derived.productGapMm, sources, 'calculated: effective pitch - package length');
   assignIfDefined(definition, 'productPitchMm', derived.effectiveProductPitchMm, sources, 'calculated: package length / population');
-  assignIfDefined(definition, 'conveyorSpeedMmPerSecond', derived.conveyorSpeedMmPerSecond, sources, 'calculated: discharge velocity × (1 + speed factor)');
+  assignIfDefined(definition, 'conveyorSpeedMmPerSecond', derived.conveyorSpeedMmPerSecond, sources, format.targetOverspeedPercent!==undefined?'calculated: downstream infeed velocity × (1 + target overspeed)':format.targetPopulationPercent!==undefined?'calculated: packed material flow / target population':'calculated: discharge velocity × (1 + speed factor)');
   assignIfDefined(definition, 'packagePassSensorSeconds', derived.packagePassSensorSeconds, sources,
     'calculated: package length / conveyor speed');
   assignIfDefined(definition, 'sensorClearGapSeconds', derived.sensorClearGapSeconds, sources,

@@ -79,4 +79,8 @@
 .equipment-filters input:checked + span { color:var(--accent); background:var(--accent-soft); }
 .equipment-filters input:focus-visible + span { outline:var(--focus-width) solid var(--accent); outline-offset:var(--space-1); }
 .equipment-filters label:hover span { background:var(--surface-hover); }
+.switchable-value { display:flex; align-items:center; gap:var(--space-2); min-width:0; }
+.switchable-value > input[type=number] { flex:1; min-width:0; }
+.switchable-value > input[type=checkbox],html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input[type=checkbox] { width:16px; height:16px; min-height:16px; padding:0; flex:0 0 16px; }
+.switchable-value > .calculated-value { background:var(--surface-soft); border-color:transparent; font-weight:var(--weight-semibold); text-align:right; }
 </style>

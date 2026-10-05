@@ -97,9 +97,9 @@ window.STBasicMode=(function(){
         ['infeed','Infeed Pitch (mm)'],['downstream-ramp','Ramp Up Time (sec)'],[null,'Consumption Rate (m/min)','consumption']]],
       ['GEOMETRY','geometry',[
         ['lact','Lact = Total Length (mm)'],['lp-prime','Lp = Prime Zone (mm)'],['discharge-runout','Discharge Actual (mm)'],['reject-runout','Coding Actual (mm)'],
-        [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],['lba-enabled','Edit LBA'],['lba','LBA (mm)']]],
+        [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],['lba','LBA (mm)']]],
       ['Speed & Sensors','sensors',[
-        ['population-enabled','Set target Population'],['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
+        ['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
         ['clear-delay','Back up clear delay (sec)'],['insurance','Insurance factor (pkgs)'],['overspeed','Conveyor overspeed (%)']]]
     ];
     groups.forEach(function(group){var section=node('section','','basic-worksheet-group format-zone-grid'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);

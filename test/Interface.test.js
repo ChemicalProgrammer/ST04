@@ -1409,3 +1409,21 @@ test('UI + Apps Script: saving a large replicated result compacts replay and pre
   const saved=h.storedCases()[0].simulations[0].results;assert(payloadBytes<=800000);assert(saved.replay.samples.length<full.samples.length);assert.equal(saved.replay.samples[0].virtualSecond,0);assert.equal(saved.replay.samples.at(-1).virtualSecond,60);assert.deepEqual(saved.batch.statistics,full.batch.statistics);assert.deepEqual(saved.equipmentMetrics,full.equipmentMetrics);assert(saved.replay.detailCoverage.savedReplaySampled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: switchable conveyor fields retain inactive manual values through save and reload in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+ const h=await setup({remember:true,uiMode,realScenarioServer:true});try{
+  h.w.STPreferences.write('autosaveEnabled','no');h.w.dispatchEvent(new h.w.Event('st-save-policy-change'));
+  async function open(){await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=conveyors]');else{await h.click('.sidebar [data-view=editor]');h.d.querySelectorAll('.equipment-card')[1].click();}}
+  await open();const field=key=>h.d.querySelector('#equipment-inspector .format-zone-'+key);
+  function change(key,value){const input=field(key);if(input.type==='checkbox')input.checked=value;else input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));}
+  for(const key of ['population','lba','overspeed'])assert.equal(field(key+'-enabled').nextElementSibling,field(key));
+  change('population-enabled',true);change('population',50);change('population-enabled',false);assert(field('population').readOnly);assert(field('population').classList.contains('calculated-value'));
+  change('lba-enabled',true);change('lba',1000);change('lba-enabled',false);
+  change('overspeed-enabled',true);change('overspeed',20);assert(!field('population-enabled').checked);assert(field('belt-speed').disabled);assert(!field('overspeed').readOnly);change('overspeed-enabled',false);
+  const revision=h.storedCases()[0].revision;await h.click('#save-case');await waitFor(()=>h.storedCases()[0].revision>revision);
+  const acc=h.storedCases()[0].simulations[0].equipment[1].processData.accumulation;assert.equal(acc.inputValues.populationPercent,50);assert.equal(acc.inputValues.lbaMm,1000);assert.equal(acc.inputValues.overspeedPercent,20);assert.equal(acc.targetOverspeedPercent,undefined);assert.equal(acc.targetPopulationPercent,undefined);assert.equal(acc.manualLbaMm,undefined);
+  await h.click('#home-cases');await open();change('population-enabled',true);assert.equal(Number(field('population').value),50);change('lba-enabled',true);assert.equal(Number(field('lba').value),1000);change('overspeed-enabled',true);assert.equal(Number(field('overspeed').value),20);assert.equal(field('population-enabled').checked,false);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});

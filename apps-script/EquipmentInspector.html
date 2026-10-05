@@ -20,6 +20,7 @@ window.STEquipmentInspector=(function(){
     left.forEach(function(control,index){
       var other=right[index],value=control.value,checked=control.checked;
       var bpm=control.dataset.originalBpm,rate=control.dataset.originalRate;
+      ['manualValue','inputMode'].forEach(function(key){var value=control.dataset[key];if(other.dataset[key]===undefined)delete control.dataset[key];else control.dataset[key]=other.dataset[key];if(value===undefined)delete other.dataset[key];else other.dataset[key]=value;});
       control.value=other.value;control.checked=other.checked;
       other.value=value;other.checked=checked;
       if(control.classList.contains('equipment-rate')){

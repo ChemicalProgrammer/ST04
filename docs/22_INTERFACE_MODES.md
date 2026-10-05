@@ -100,3 +100,29 @@ combines server requests with local batch/scenario calculations. The header is
 sticky by default in both modes. Its pin button toggles stickiness and retains
 that browser preference. Basic conveyor title and Inputs/Results controls share
 one wrapping row; small screens can wrap controls without a large spacer.
+
+## Calculated and manual conveyor fields
+
+Population, LBA and Overspeed share a small checkbox before the number. Checked
+means manual input; unchecked means a readonly calculated value styled like
+other worksheet outputs. Manual values are retained independently in
+`processData.accumulation.inputValues` (`populationPercent`, `lbaMm`,
+`overspeedPercent`). Changing modes, selecting another conveyor, saving and
+reopening restores the manual value; automatic calculations never overwrite it.
+Existing active `targetPopulationPercent` and `manualLbaMm` values migrate
+without changing their meaning. Stored inactive values do not drive simulation.
+
+Overspeed automatic output is `(active belt speed / downstream infeed linear
+velocity - 1) * 100`. Manual `targetOverspeedPercent` sets belt speed to
+`downstream BPM * infeed pitch / 60 * (1 + target / 100)` and derives moving
+pitch from material flow. It overrides stored manual belt speed and moving gap,
+which remain available when the target is disabled. Basic uses nominal design
+speed; Advance follows the existing downstream design-speed policy. Missing
+infeed data produces an unavailable output rather than an invented percentage.
+
+Population and Overspeed both control belt speed. Enabling one disables the
+other's target, retains both manual values, and recalculates the inactive
+field. The engine rejects simultaneous targets and Overspeed targets outside
+0–1000%. The legacy `speedAndSensors.overspeedVsInfeedScrewPercent` remains the
+required audit margin (default 5%); the new target is a separate operating
+input. A target does not bypass capacity, spacing or engineering checks.
