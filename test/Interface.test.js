@@ -1302,3 +1302,32 @@ test('UI + Apps Script: All CAPEX creation saves the validated winner from manua
   assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='ALL'&&e.independentCheck?.passed));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: Gemini reveals complete paragraphs progressively and shows cards only after Advance text finishes',async()=>{
+ for(const uiMode of ['ADVANCE','BASIC']){
+  const h=await setup({remember:true,uiMode});try{
+   await h.click('.open-case');await h.click('#toggle-gemini');
+   const sim=h.storedCases()[0].simulations[0],proposal=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply),answer='Primer párrafo.\n\nSegundo párrafo.\n\nTercer párrafo.';
+   h.api.askGemini=()=>({text:answer,proposals:[proposal]});
+   const timers=[],original=h.w.setTimeout;h.w.ST_GEMINI_CHAT_PRESENTATION.paragraphDelayMs=5000;h.w.ST_GEMINI_CHAT_PRESENTATION.maxDurationMs=15000;
+   h.w.setTimeout=(fn,ms,...args)=>ms===5000?(timers.push(fn),900001):original(fn,ms,...args);
+   h.d.getElementById('gemini-question').value='¿Qué mejoras sugieres?';await h.click('#send-gemini');await waitFor(()=>timers.length===1);
+   const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.textContent,'Primer párrafo.\n\n');assert(h.d.getElementById('send-gemini').disabled);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
+   timers.shift()();assert.equal(body.textContent,'Primer párrafo.\n\nSegundo párrafo.\n\n');assert.equal(timers.length,1);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
+   timers.shift()();assert.equal(body.textContent,answer);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-messages').getAttribute('aria-busy'),'false');
+   assert.equal(!!h.d.querySelector('#gemini-messages .analysis-recommendation'),uiMode==='ADVANCE');assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+test('UI: Gemini paragraph reveal respects reduced motion and stops when leaving the source case',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');const answer='First paragraph.\n\nSecond paragraph.';h.api.askGemini=()=>({text:answer});
+  h.media.matches=true;h.d.getElementById('gemini-question').value='Explain';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-message[data-role=model]'));
+  assert.equal(h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body').textContent,answer);assert.equal(h.d.getElementById('send-gemini').disabled,false);
+  h.media.matches=false;const original=h.w.setTimeout;let reveal;
+  h.w.ST_GEMINI_CHAT_PRESENTATION.paragraphDelayMs=5000;h.w.ST_GEMINI_CHAT_PRESENTATION.maxDurationMs=15000;
+  h.w.setTimeout=(fn,ms,...args)=>ms===5000?(reveal=fn,900001):original(fn,ms,...args);
+  h.d.getElementById('gemini-question').value='Explain again';await h.click('#send-gemini');await waitFor(()=>reveal);
+  await h.click('#home-cases');assert(h.visible('cases-panel'));assert.equal(h.d.getElementById('gemini-messages').textContent,'');reveal();assert.equal(h.d.getElementById('gemini-messages').textContent,'');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

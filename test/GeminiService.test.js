@@ -21,7 +21,7 @@ test('Gemini sends compact selected-simulation context even when replay exceeds 
  const sent=calls[0],payload=sent.options.payload;
  assert.equal(sent.options.headers['x-goog-api-key'],'private-test-key');assert(!payload.includes('private-test-key'));assert(payload.includes('Filler'));assert(payload.includes('throughput'));
  assert(!payload.includes('privateReplay'));assert(payload.length<120000);assert.equal(result.context.replayIncluded,false);assert.equal(result.context.includedEquipment,13);
- assert(JSON.parse(payload).systemInstruction.parts[0].text.includes('entirely in English'));
+ assert(JSON.parse(payload).systemInstruction.parts[0].text.includes("same language as the user's latest question"));
 });
 test('Gemini rejects inaccessible cases and nonexistent selected simulations before HTTP',()=>{
  const {ctx,calls}=setup({denied:true});assert.throws(()=>ctx.askGemini_(request,user),error=>error.code==='GEMINI_CASE_READ');assert.equal(calls.length,0);
@@ -133,4 +133,23 @@ test('Gemini RPC classifies startup errors instead of returning the generic mess
  const h=setup();for(const file of ['ApiResponse.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),h.ctx);
  h.ctx.requireCurrentUser_=()=>{throw Error('private internal startup detail');};
  const result=h.ctx.askGemini(request);assert.equal(result.ok,false);assert.equal(result.error.code,'GEMINI_START_FAILED');assert(!JSON.stringify(result).includes('private internal'));assert.equal(h.calls.length,0);assert.equal(result.geminiVersion,'gemini-20261005-1');
+});
+
+test('Gemini prompt sections are independently editable and selected by interface mode',()=>{
+ for(const mode of ['ADVANCE','BASIC']){
+  const h=setup();
+  h.ctx.ST_GEMINI_PERSONALITY='CUSTOM_PERSONALITY';h.ctx.ST_GEMINI_LANGUAGE_POLICY='CUSTOM_LANGUAGE';
+  h.ctx.ST_GEMINI_ADVANCE_POLICY='ADVANCE_CARDS';h.ctx.ST_GEMINI_BASIC_POLICY='BASIC_TEXT';h.ctx.ST_GEMINI_RESPONSE_FORMAT='JSON_FORMAT';
+  h.ctx.askGemini_({...request,uiMode:mode,question:'¿Cómo puedo mejorar la línea?'},user);
+  const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
+  assert(policy.includes('CUSTOM_PERSONALITY'));assert(policy.includes('CUSTOM_LANGUAGE'));assert(policy.includes('Preserve seed and baseline'));
+  assert.equal(policy.includes('ADVANCE_CARDS'),mode==='ADVANCE');assert.equal(policy.includes('BASIC_TEXT'),mode==='BASIC');assert.equal(policy.includes('JSON_FORMAT'),mode==='ADVANCE');
+ }
+});
+test('Gemini language instructions cover readable scenario fields while preserving schema identifiers',()=>{
+ const h=setup({answer:JSON.stringify({text:'Revisa la acumulación antes de cambiar la velocidad.',proposals:[]})});
+ const response=h.ctx.askGemini_({...request,uiMode:'ADVANCE',question:'¿Qué podría mejorar?'},user);
+ assert.equal(response.text,'Revisa la acumulación antes de cambiar la velocidad.');
+ const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
+ assert.match(policy,/same language as the user's latest question/);assert.match(policy,/explicitly requests another response language/);assert.match(policy,/scenario titles, descriptions/);assert.match(policy,/Keep JSON keys/);assert.doesNotMatch(policy,/English title|entirely in English/);
 });

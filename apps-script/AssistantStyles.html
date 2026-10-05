@@ -8,6 +8,9 @@
 .gemini-message { white-space:pre-wrap; overflow-wrap:anywhere; margin:0; padding:var(--space-3); background:var(--surface-soft); border-radius:var(--radius-md); }
 .gemini-message[data-role=user] { background:var(--accent-soft); }
 .gemini-message strong { display:block; margin-bottom:var(--space-1); }
+.gemini-message[data-revealing=true]::after { content:""; display:inline-block; width:6px; height:1em; margin-left:4px; vertical-align:middle; background:currentColor; animation:gemini-cursor 1s ease-in-out infinite; }
+@keyframes gemini-cursor { 50% { opacity:0; } }
+@media(prefers-reduced-motion:reduce) { .gemini-message[data-revealing=true]::after { animation:none; } }
 .gemini-composer { display:grid; gap:var(--space-2); }
 .gemini-composer textarea { resize:vertical; max-height:var(--size-220); width:100%; }
 .gemini-actions { display:flex; justify-content:space-between; }

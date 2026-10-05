@@ -1,6 +1,8 @@
 <script>
+// EDITABLE CHAT PRESENTATION: visual reveal after the complete Apps Script response arrives.
+window.ST_GEMINI_CHAT_PRESENTATION = {enabled:true, paragraphDelayMs:180, maxDurationMs:3000};
 window.STAssistant = function(state,actions) {
-  var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null;
+  var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null;
   function el(id){return document.getElementById(id);}
   function basic(){return Boolean(window.STBasicMode?.isBasic());}
   function sideEditing(){return !basic()&&STEquipmentInspector.sync();}
@@ -9,24 +11,50 @@ window.STAssistant = function(state,actions) {
     var target=el('gemini-progress');target.textContent='';target.classList.toggle('hidden',next==='idle');
     if(next==='idle'){clearTimeout(responseTimer);responseTimer=null;return;}
     var labels=[__ST_TEXT__('assistant.progress_saved'),__ST_TEXT__('assistant.progress_waiting'),__ST_TEXT__('assistant.progress_ready')];
-    var active={preparing:0,waiting:1,done:3,error:1}[next];
+    var active={preparing:0,waiting:1,writing:2,done:3,error:1}[next];
     labels.forEach(function(label,index){if(next==='error'&&index>active)return;var row=document.createElement('li');row.dataset.state=next==='error'&&index===1?'error':index<active?'done':index===active?'active':'pending';row.textContent=next==='error'&&index===1?__ST_TEXT__('assistant.progress_failed'):label;target.appendChild(row);});
-    target.setAttribute('aria-busy',String(next==='preparing'||next==='waiting'));
+    target.setAttribute('aria-busy',String(next==='preparing'||next==='waiting'||next==='writing'));
     if(next==='waiting'){
       startedAt=Date.now();var elapsed=document.createElement('span');elapsed.className='chart-note';elapsed.setAttribute('aria-live','off');target.children[1].appendChild(elapsed);
       function tick(){elapsed.textContent=' · '+Math.floor((Date.now()-startedAt)/1000)+' '+__ST_TEXT__('assistant.progress_seconds');}
       tick();progressTimer=setInterval(tick,1000);
     }
   }
+  function attachments(m){
+    (basic()?[]:(m.proposals||[])).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment,(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;})));});
+    if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent=__ST_TEXT__('assistant.compact_context')+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+__ST_TEXT__('assistant.equipment_included')+(m.historyOmitted?__ST_TEXT__('assistant.history_omitted')+m.historyOmitted:'');el('gemini-messages').appendChild(note);}
+  }
+  function scrollMessages(){var host=el('gemini-messages');host.scrollTop=host.scrollHeight;}
   function render(){
     el('gemini-messages').textContent='';
-    messages.forEach(function(m){var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');p.appendChild(label);p.appendChild(document.createTextNode(m.text));el('gemini-messages').appendChild(p);(basic()?[]:(m.proposals||[])).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment,(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;})));});if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent=__ST_TEXT__('assistant.compact_context')+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+__ST_TEXT__('assistant.equipment_included')+(m.historyOmitted?__ST_TEXT__('assistant.history_omitted')+m.historyOmitted:'');el('gemini-messages').appendChild(note);}});
-    el('gemini-messages').scrollTop=el('gemini-messages').scrollHeight;
+    messages.forEach(function(m){
+      var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;
+      var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');
+      var body=document.createElement('span');body.className='gemini-message-body';body.textContent=m.revealing?m.visibleText:m.text;
+      p.dataset.revealing=String(!!m.revealing);p.append(label,body);el('gemini-messages').appendChild(p);m.node=p;m.body=body;
+      if(!m.revealing)attachments(m);
+    });scrollMessages();
   }
-  function reset(){progress('idle');sequence++;messages=[];pending=false;caseId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
+  function stopReveal(){clearTimeout(revealTimer);revealTimer=null;el('gemini-messages').setAttribute('aria-busy','false');}
+  function reveal(m){
+    stopReveal();
+    var options=window.ST_GEMINI_CHAT_PRESENTATION||{},chunks=m.text.match(/[\s\S]+?(?:\r?\n[ \t]*\r?\n|$)/g)||[m.text];
+    var animate=options.enabled!==false&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&chunks.length>1;
+    if(!animate){pending=false;render();progress('done');sync();return;}
+    var ticket=sequence,index=1,delay=Math.max(0,Math.min(Number(options.paragraphDelayMs)||180,(Number(options.maxDurationMs)||3000)/(chunks.length-1)));
+    m.revealing=true;m.visibleText=chunks[0];pending=true;render();progress('writing');sync();el('gemini-messages').setAttribute('aria-busy','true');
+    function next(){
+      revealTimer=null;if(ticket!==sequence||!m.node.isConnected)return;
+      m.visibleText+=chunks[index++];m.body.textContent=m.visibleText;scrollMessages();
+      if(index<chunks.length){revealTimer=setTimeout(next,delay);return;}
+      m.revealing=false;m.node.dataset.revealing='false';stopReveal();attachments(m);scrollMessages();pending=false;progress('done');sync();
+    }
+    revealTimer=setTimeout(next,delay);
+  }
+  function reset(){stopReveal();progress('idle');sequence++;messages=[];pending=false;caseId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
   function sync(){
     var active=state.activeCase;
-    if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=[];pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
+    if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){stopReveal();progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=[];pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
     var editing=sideEditing();
     var visible=Boolean(active&&(opened||editing));
     if(!basic())el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
@@ -82,7 +110,7 @@ window.STAssistant = function(state,actions) {
     el('close-gemini').onclick=function(){if(!basic())STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();if(!drag)syncWidthMode();window.dispatchEvent(new Event('resize'));});
-    el('clear-gemini').onclick=function(){progress('idle');messages=[];render();el('gemini-error').textContent='';};
+    el('clear-gemini').onclick=function(){stopReveal();sequence++;progress('idle');messages=[];render();el('gemini-error').textContent='';};
     el('gemini-form').onsubmit=async function(e){
       e.preventDefault();sync();if(el('send-gemini').disabled)return;
       var question=el('gemini-question').value.trim();if(!question)return;
@@ -97,9 +125,9 @@ window.STAssistant = function(state,actions) {
         if(ticket!==sequence)return;
         clearTimeout(responseTimer);responseTimer=null;sequence++;
         if(!response||typeof response.ok!=='boolean'||response.ok&&typeof response.data?.text!=='string')response={ok:false,error:{code:'GEMINI_BAD_RESPONSE',message:'The server returned an incomplete answer. Try again.'}};
-        pending=false;progress(response.ok?'done':'error');
-        if(response.ok)messages.push({role:'model',text:response.data.text,proposals:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted});
-        else{messages.pop();el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');}
+        if(response.ok){var answer={role:'model',text:response.data.text,proposals:basic()?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);reveal(answer);return;}
+        pending=false;progress('error');
+        messages.pop();el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');
         render();sync();
       }
       responseTimer=setTimeout(function(){finish({ok:false,error:{code:'GEMINI_TIMEOUT',message:'No response arrived within 3 minutes. Your question is retained; you can retry. The previous server request may still finish.'}});},180000);
