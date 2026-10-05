@@ -81,7 +81,9 @@ function executeServerAction_(action) {
 
 
 function askGemini(request) {
-  return executeServerAction_(function(user) { return askGemini_(request, user); });
+  var response=executeServerAction_(function(user) { return askGemini_(request, user); });
+  if(response.error?.code==='UNEXPECTED_ERROR')response.error={code:'GEMINI_START_FAILED',message:'Apps Script could not start the Gemini request. Reopen the case and try again; if it persists, sign out and back in.'};
+  response.geminiVersion='gemini-20261005-1';return response;
 }
 
 function previewSheetImport(request) {

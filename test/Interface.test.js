@@ -340,7 +340,7 @@ test('UI: failed Gemini requests stop progress without a pending response',async
   assert.equal(progress.getAttribute('aria-busy'),'false');
   assert.equal(progress.querySelectorAll('[data-state="pending"]').length,0);
   assert(!progress.textContent.includes('Response ready'));
-  assert.match(h.d.getElementById('gemini-error').textContent,/could not be reached/);
+  assert.match(h.d.getElementById('gemini-error').textContent,/connection to Apps Script failed/);
  }finally{h.dom.window.close();}
 });
 
@@ -1176,5 +1176,18 @@ test('UI: stored DOE results survive serialization and stale inputs never restor
   const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
   card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert.match(card.textContent,/No demonstrated improvement/);assert.equal(h.w.STScenarioExplorer.evaluations(saved)[0].doe.observations.length,entry.doe.observations.length);
   saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert.equal(card.querySelector('.scenario-doe-results'),null);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: Gemini recovers from malformed callbacks and ignores answers arriving after timeout',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');
+  h.api.askGemini=()=>null;h.d.getElementById('gemini-question').value='Retain this question';await h.click('#send-gemini');
+  assert.equal(h.d.getElementById('gemini-question').value,'Retain this question');assert.match(h.d.getElementById('gemini-error').textContent,/GEMINI_BAD_RESPONSE/);assert.equal(h.d.getElementById('send-gemini').disabled,false);
+  let expire,late;const original=h.w.setTimeout;h.w.setTimeout=(fn,ms,...args)=>ms===180000?(expire=fn,900001):original(fn,ms,...args);
+  h.w.google.script.run={withFailureHandler(){return this;},withSuccessHandler(fn){late=fn;return this;},askGemini(){}};
+  await h.click('#send-gemini');assert(expire);expire();assert.match(h.d.getElementById('gemini-error').textContent,/GEMINI_TIMEOUT/);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-question').value,'Retain this question');
+  late({ok:true,data:{text:'Late answer'}});assert(!h.d.getElementById('gemini-messages').textContent.includes('Late answer'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

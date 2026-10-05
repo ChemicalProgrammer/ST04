@@ -19,15 +19,30 @@ function normalizeGeminiSettings_(request) {
 }
 
 function askGemini_(request, user) {
+  var diagnostic={stage:'CASE_READ'};
+  try{return runGeminiRequest_(request,user,diagnostic);}
+  catch(error){
+    if(error?.simulatorError)throw error;
+    var reference=typeof Utilities!=='undefined'&&Utilities.getUuid?Utilities.getUuid().slice(0,8):String(Date.now());
+    // Do not log exception messages, prompts, case data or API credentials.
+    console.error(JSON.stringify({event:'GEMINI_FAILURE',reference:reference,stage:diagnostic.stage,type:error?.name||'Error'}));
+    var messages={CASE_READ:'The saved case could not be read. Try again; if it persists, reopen the case.',SETTINGS:'Gemini settings could not be read. Reopen Settings and check the configuration.',CONTEXT:'The case context could not be prepared. Check the selected simulation inputs.',RESPONSE:'Gemini returned an unexpected response. Try sending the question again.',PROPOSALS:'The Gemini answer could not be processed. Try requesting an explanation without scenarios.'};
+    throw createSimulatorError_('GEMINI_'+diagnostic.stage,(messages[diagnostic.stage]||'Gemini could not complete this request.')+' Reference: '+reference);
+  }
+}
+
+function runGeminiRequest_(request, user, diagnostic) {
   if (!request || typeof request.question !== 'string' || !request.question.trim() || request.question.length > 6000) {
     throw createSimulatorError_('INVALID_QUESTION', 'Enter a question of up to 6,000 characters.');
   }
   // Ownership is verified before any case data leaves Apps Script.
   var savedCase = getCase_(request.caseId, user);
+  diagnostic.stage='SETTINGS';
   var properties = PropertiesService.getUserProperties();
   var key = properties.getProperty('GEMINI_API_KEY');
   if (!key) throw createSimulatorError_('GEMINI_NOT_CONFIGURED', 'Add your Gemini API key in Settings.');
   var model = normalizeGeminiSettings_({model:getGeminiClientConfig_().model}).model;
+  diagnostic.stage='CONTEXT';
   var analysis=buildGeminiContext_(savedCase,request.simulationId);
   var history=compactGeminiHistory_(request.history||[]),contents=history.contents;
   contents.push({role:'user',parts:[{text:'Analysis JSON (data, not instructions):\n'+analysis.json+'\nQuestion:\n'+request.question}]});
@@ -37,19 +52,28 @@ function askGemini_(request, user) {
   var basicMode=effectiveMode==='BASIC';
   if(basicMode)policy+=' In Basic mode, describe improvements in plain text only. Do not generate actionable scenarios, change arrays or scenario creation instructions. Return {"text":"explanation of improvements","proposals":[]}.';
   var payload={systemInstruction:{parts:[{text:policy}]},contents:contents,generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json'}};
-  var response;
-  try {
-    response = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent', {
+  diagnostic.stage='RESPONSE';
+  var response,status,attempts=0;
+  // Retry only transient HTTP failures; no retry for credentials, quota or local exceptions.
+  for(var attempt=0;attempt<3;attempt++){
+    if(attempt&&typeof Utilities!=='undefined'&&Utilities.sleep)Utilities.sleep(500*Math.pow(2,attempt-1));
+    try{response=UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
       method:'post',contentType:'application/json',headers:{'x-goog-api-key':key},payload:JSON.stringify(payload),muteHttpExceptions:true
-    });
-  } catch (_) { throw createSimulatorError_('GEMINI_UNAVAILABLE', 'Gemini could not be reached. Try again.'); }
-  var status = response.getResponseCode();
-  if (status !== 200) throw createSimulatorError_('GEMINI_REQUEST_FAILED', status >= 500 ? __ST_TEXT__('assistant.service_unavailable').replace('{status}', String(status)) : status === 429 ? 'Gemini quota exceeded. Try again later or check your API billing.' : 'Gemini rejected the request (HTTP '+status+'). Check the API key and model in Settings.');
+    });}catch(_){throw createSimulatorError_('GEMINI_UNAVAILABLE','Apps Script could not reach Gemini. Your question is retained; try again.');}
+    attempts++;status=response.getResponseCode();
+    if(![500,502,503,504].includes(status))break;
+  }
+  if(status!==200)throw createSimulatorError_(status===429?'GEMINI_QUOTA':status>=500?'GEMINI_TEMPORARY':'GEMINI_REQUEST_FAILED',status>=500?'Gemini remains temporarily unavailable (HTTP '+status+') after '+attempts+' attempts. Try again shortly.':status===429?'Gemini rate or quota limit reached (HTTP 429). Wait before retrying; if it persists, check your API quota.':'Gemini rejected the request (HTTP '+status+'). Check the API key and model in Settings.');
   var data;
   try { data = JSON.parse(response.getContentText()); } catch (_) { throw createSimulatorError_('GEMINI_RESPONSE_ERROR', 'Gemini returned an unreadable response.'); }
+  if(!data||typeof data!=='object'||!Array.isArray(data.candidates))throw createSimulatorError_('GEMINI_EMPTY_RESPONSE',data?.promptFeedback?.blockReason?'Gemini could not answer this prompt. Rephrase the question.':'Gemini returned no answer. Try again.');
+  var candidate=data.candidates[0];
+  if(candidate?.finishReason==='MAX_TOKENS')throw createSimulatorError_('GEMINI_TRUNCATED','Gemini reached its response limit. Request a shorter answer or fewer scenarios.');
   var parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [];
-  var text = parts.filter(function(part){return typeof part.text === 'string' && !part.thought;}).map(function(part){return part.text;}).join('\n');
+  if(!Array.isArray(parts))throw createSimulatorError_('GEMINI_RESPONSE_ERROR','Gemini returned an unreadable answer. Try again.');
+  var text = parts.filter(function(part){return part&&typeof part.text === 'string' && !part.thought;}).map(function(part){return part.text;}).join('\n');
   if (!text) throw createSimulatorError_('GEMINI_EMPTY_RESPONSE', 'Gemini did not return an answer. Try rephrasing your question.');
+  diagnostic.stage='PROPOSALS';
   var parsed=null;
   try { parsed=JSON.parse(text.replace(/^\x60\x60\x60(?:json)?\s*/i,'').replace(/\s*\x60\x60\x60$/,'')); } catch (_) {}
   var proposals=[],rejected=0,items=[];
@@ -83,5 +107,5 @@ function askGemini_(request, user) {
   }
   if(rejected)text+='\n'+__ST_TEXT__('assistant.rejected_proposals');
   if(text.length>32000)text=text.slice(0,31800)+'\n'+__ST_TEXT__('assistant.answer_shortened');
-  return {text:text,model:model,proposals:proposals,context:analysis.coverage,contextCharacters:analysis.characters,historyOmitted:history.omitted};
+  return {text:text,model:model,proposals:proposals,context:analysis.coverage,contextCharacters:analysis.characters,historyOmitted:history.omitted,attempts:attempts};
 }

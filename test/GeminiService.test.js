@@ -5,7 +5,7 @@ import vm from 'node:vm';
 function setup({status=200,denied=false,answer='Observed throughput: 42.'}={}) {
  const values={GEMINI_API_KEY:'private-test-key'},calls=[];
  let record;
- const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]||null})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
+ const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]||null})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details,simulatorError:{code,message,details}}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
  vm.createContext(ctx);
  for(const file of ['TextResources.gs','PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
  const demo=JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_()));
@@ -24,7 +24,7 @@ test('Gemini sends compact selected-simulation context even when replay exceeds 
  assert(JSON.parse(payload).systemInstruction.parts[0].text.includes('entirely in English'));
 });
 test('Gemini rejects inaccessible cases and nonexistent selected simulations before HTTP',()=>{
- const {ctx,calls}=setup({denied:true});assert.throws(()=>ctx.askGemini_(request,user),/Access denied/);assert.equal(calls.length,0);
+ const {ctx,calls}=setup({denied:true});assert.throws(()=>ctx.askGemini_(request,user),error=>error.code==='GEMINI_CASE_READ');assert.equal(calls.length,0);
  assert.throws(()=>ctx.normalizeGeminiSettings_({model:'../../evil'}),/Check/);
  const other=setup();assert.throws(()=>other.ctx.askGemini_({...request,simulationId:'missing'},user),/Select an existing/);assert.equal(other.calls.length,0);
 });
@@ -62,7 +62,7 @@ test('Gemini server errors recommend retrying without blaming the saved key',()=
  for(const status of [500,502,503,504]){
   const {ctx}=setup({status});
   assert.throws(()=>ctx.askGemini_(request,user),error=>
-   error.code==='GEMINI_REQUEST_FAILED' &&
+   error.code==='GEMINI_TEMPORARY' &&
    error.message.includes('HTTP '+status) &&
    error.message.includes('temporarily unavailable') &&
    !error.message.includes('API key'));
@@ -109,4 +109,28 @@ test('Gemini external reliability proposals preserve intervention evidence',()=>
  const proposal={title:'Repair crew intervention',tier:'MEDIUM',basis:'STATIC',kind:'CUSTOM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true,justification:'Dedicated repair team with a target supported by repair trials'}]};
  const h=setup({answer:JSON.stringify({text:'External intervention hypothesis.',proposals:[proposal]})});
  const result=h.ctx.askGemini_({...request,uiMode:'ADVANCE'},user);assert.equal(result.proposals.length,1);assert.equal(result.proposals[0].changes[0].external,true);assert.match(result.proposals[0].changes[0].justification,/repair team/);
+});
+
+test('Gemini retries transient HTTP errors with bounded backoff but does not retry quota or credentials',()=>{
+ const h=setup(),sleeps=[];let count=0;h.ctx.Utilities={sleep:ms=>sleeps.push(ms)};
+ h.ctx.UrlFetchApp.fetch=()=>({getResponseCode:()=>++count<3?503:200,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:'Recovered'}]}}]})});
+ assert.equal(h.ctx.askGemini_(request,user).text,'Recovered');assert.equal(count,3);assert.deepEqual(sleeps,[500,1000]);
+ for(const status of [429,403]){const f=setup({status});assert.throws(()=>f.ctx.askGemini_(request,user));assert.equal(f.calls.length,1);}
+});
+
+test('Gemini identifies malformed, empty and truncated responses without exposing request data',()=>{
+ for(const [body,code] of [[null,'GEMINI_EMPTY_RESPONSE'],[{candidates:[{content:{parts:{text:'bad'}}}]},'GEMINI_RESPONSE_ERROR'],[{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[]}}]},'GEMINI_TRUNCATED']]){
+  const h=setup();h.ctx.UrlFetchApp.fetch=()=>({getResponseCode:()=>200,getContentText:()=>JSON.stringify(body)});
+  assert.throws(()=>h.ctx.askGemini_(request,user),e=>e.code===code&&!e.message.includes('private-test-key'));
+ }
+ const h=setup(),logs=[];h.ctx.console={error:line=>logs.push(line)};h.ctx.buildGeminiContext_=()=>{throw Error('private-test-key confidential case');};
+ assert.throws(()=>h.ctx.askGemini_(request,user),e=>e.code==='GEMINI_CONTEXT'&&!e.message.includes('private-test-key'));
+ assert(logs[0].includes('CONTEXT'));assert(!logs.join('').includes('private-test-key'));assert(!logs.join('').includes('confidential'));
+});
+
+
+test('Gemini RPC classifies startup errors instead of returning the generic message',()=>{
+ const h=setup();for(const file of ['ApiResponse.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),h.ctx);
+ h.ctx.requireCurrentUser_=()=>{throw Error('private internal startup detail');};
+ const result=h.ctx.askGemini(request);assert.equal(result.ok,false);assert.equal(result.error.code,'GEMINI_START_FAILED');assert(!JSON.stringify(result).includes('private internal'));assert.equal(h.calls.length,0);assert.equal(result.geminiVersion,'gemini-20261005-1');
 });
