@@ -124,3 +124,15 @@
 .scenario-doe-factor input[type=number] { width:100%; }
 .scenario-doe-results { max-height:300px; overflow:auto; }
 </style>
+
+<style>
+.scenario-config-dialog { width:min(1000px,calc(100vw - var(--space-6))); }
+.scenario-config-dialog .scenario-changes, .scenario-config-dialog .scenario-factor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:var(--space-3); max-height:none; overflow:visible; }
+.scenario-config-dialog .scenario-change, .scenario-config-dialog .scenario-doe-factor { margin:0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-sm); }
+.scenario-config-dialog .scenario-change input[type=number] { width:100%; }
+.scenario-config-dialog .scenario-change { grid-template-columns:1fr; }
+.scenario-config-dialog .scenario-factor-count { font-weight:600; }
+.scenario-config-dialog .scenario-factor-grid { margin-top:var(--space-3); }
+.scenario-configure { width:100%; margin-bottom:var(--space-2); }
+.scenario-audit-warnings input[type=checkbox] { flex-shrink:0; }
+</style>

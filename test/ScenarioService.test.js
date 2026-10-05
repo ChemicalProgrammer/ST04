@@ -80,3 +80,12 @@ test('reviewed external interventions retain evidence and reject stale source si
  const result=h.ctx.createScenario_({...h.request,origin:'REVIEWED',proposal},{email:'owner@test'});
  assert.equal(result.case.simulations[1].scenario.changes[0].external,true);assert.match(result.case.simulations[1].scenario.changes[0].justification,/crew/);assert.equal(result.case.simulations[0].equipment[0].noiseProfile.reliability.mttrMinutes,before);
 });
+
+test('saved scenarios retain server-derived engineering warnings and review status',()=>{
+ const h=setup(),apply=h.ctx.STScenarioEngine_.apply;
+ h.ctx.STScenarioEngine_.apply=(source,changes)=>{const result=apply(source,changes);result.scenarioWarnings=[{equipmentId:changes[0].equipmentId,rule:'BACKUP_POSITION',before:'PASS',after:'FAIL'}];return result;};
+ h.request.origin='REVIEWED';h.request.proposal.evidence={engineeringReview:'ACKNOWLEDGED_REQUIRES_REVIEW'};
+ const saved=h.ctx.createScenario_(h.request,{email:'owner@test'}).case.simulations[1];
+ assert.equal(saved.scenario.validation,'ENGINEERING_REVIEW_REQUIRED');assert.equal(saved.scenario.engineeringWarnings[0].rule,'BACKUP_POSITION');
+ assert.equal(saved.scenario.evidence.engineeringReview,'ACKNOWLEDGED_REQUIRES_REVIEW');assert.equal(saved.results,null);
+});

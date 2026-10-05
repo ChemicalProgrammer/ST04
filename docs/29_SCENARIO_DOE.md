@@ -11,7 +11,7 @@ user's settings or the Apps Script deployment default.
 ## Run
 
 1. Enable DOE and open What-If. Existing cards update without reloading.
-2. Expand **DOE · choose up to 4 factors** in the relevant category/card.
+2. Open **Configure changes & DOE** in the relevant category/card.
 3. Select one to four factors and edit their Low/High levels. The first four
    eligible factors are preselected for convenience, **not** ranked as most
    important. To study other equipment, change the selections explicitly.
@@ -53,8 +53,11 @@ contrasts, **not p-values, confidence intervals or a test of significance**.
 If any design point is physically infeasible, the observed outcomes are exported,
 but factorial effects are withheld: deleting failed rows would break the balanced
 design and make those simple contrasts misleading. Engineering audit warnings
-remain visible, and a candidate that worsens a previously passing check cannot
-be promoted by the card.
+remain visible. A candidate that worsens a previously passing check cannot be
+promoted as an approved recommendation. If its gain passes independent seeds,
+the user may acknowledge the listed trade-offs and save a separate scenario for
+engineering review. The server persists the recalculated warnings and
+`ENGINEERING_REVIEW_REQUIRED` status; acknowledging does not resolve the checks.
 
 The same throughput/OEE acceptance rules remain in force. The selected winner
 must also pass the independent seed block. Neither a DOE nor three rounds alone
@@ -107,3 +110,21 @@ bound including baseline and independent confirmation, rounds per configuration,
 and elapsed wall time updated every second. Cached configurations and early
 convergence can make the search finish below that bound. It is not a percentage
 or a promise of completion time; no wall-time limit is imposed.
+
+## Configuration dialog and review scenarios
+
+The modal organizes adjustable changes and DOE factors in responsive columns.
+All eligible candidate variables appear, including those beyond the first four.
+The counter shows selected and available counts; **Clear factor selection**
+allows choosing another subset. At four selections, deselect a factor to enable
+other choices. Unselected Low/High fields are disabled. The experiment still
+uses at most four factors. Missing baselines and external reliability hypotheses
+remain ineligible. Edits in the dialog invalidate the old evaluation; closing it
+keeps the edits, and Calculate/Search explicitly evaluates them.
+
+Automatic search prefers a gain without new engineering warnings. If none was
+found but a warning-bearing gain exists, it confirms that candidate independently
+and offers review-only creation with explicit acknowledgement. No gain, failed
+confirmation, stale inputs and invalid physics do not gain a creation override.
+Acknowledgement and warning status are retained in session exports; persisted
+clones carry the server's own warning list and review-required status.

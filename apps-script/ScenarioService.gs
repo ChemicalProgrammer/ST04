@@ -26,7 +26,7 @@ function createScenario_(request,user) {
     copy.id=generateSimulationId_(record.simulations.length)+'-'+Utilities.getUuid().slice(0,8);
     copy.name=proposal.title.slice(0,120);copy.clonedFromSimulationId=source.id;copy.results=null;
     copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
-    copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:'INPUTS_VALIDATED_NOT_SIMULATED',createdAt:copy.createdAt};
+    copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
     record.simulations.push(copy);record.revision++;record.updatedAt=copy.createdAt;
     owned.file.setContent(JSON.stringify(record,null,2));return {case:record,simulationId:copy.id};
   });

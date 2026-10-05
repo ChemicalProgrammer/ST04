@@ -84,7 +84,7 @@ window.STReports=(function(){
     if(!evaluations.length)return html+'<p>No calculated evaluations available for these inputs in this session.</p></section>';
     evaluations.forEach(function(e){
       html+='<section><h3>'+escape(e.title)+'</h3><p>'+escape(e.tier)+' · '+escape(e.status)+' · '+escape(e.updatedAt)+'</p>';
-      html+=table(['Evaluation setting','Value'],scalars({method:e.method,run:e.run,trials:e.trials,infeasibleTrials:e.infeasibleTrials,acceptance:e.acceptance,error:e.error}));
+      html+=table(['Evaluation setting','Value'],scalars({method:e.method,engineeringReviewAcknowledged:e.engineeringReviewAcknowledged,run:e.run,trials:e.trials,infeasibleTrials:e.infeasibleTrials,acceptance:e.acceptance,error:e.error}));
       var rows=[];function comparison(label,base,next){if(!base||!next)return;rows.push([label,'OEE (%)',value(base.oee),value(next.oee),value(next.oee-base.oee)]);rows.push([label,'Throughput ('+e.unitOfFlow+'/min)',value(base.throughput),value(next.throughput),value(next.throughput-base.throughput)]);}
       comparison('Screening',e.baseline,e.candidate);comparison('Independent seeds',e.independentCheck?.baseline,e.independentCheck?.candidate);
       if(rows.length)html+=table(['Comparison','Metric','Baseline','Candidate','Difference'],rows);
