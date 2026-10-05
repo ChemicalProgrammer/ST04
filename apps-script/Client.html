@@ -117,6 +117,10 @@
       });
     }
 
+    window.ST_CASE_SAVE_LIMITS={maxBytes:3*1024*1024};
+    var localCalculations=0;
+    function activity(){document.getElementById('request-progress').classList.toggle('hidden',!(state.pendingRequests||localCalculations));}
+    window.addEventListener('st-calculation-activity',function(event){localCalculations=Math.max(0,localCalculations+(event.detail.active?1:-1));activity();});
     var whatIfOnlySave=false;
     var autosave = STAutosave({capture:captureForSave,send:function(payload,done){callServer('saveCase',[payload],done);},accept:function(saved){
       if (!state.activeCase || state.activeCase.id !== saved.id) return;
@@ -366,14 +370,29 @@ async function openCase(caseId) {
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
     }
     function captureForSave() {
-      if(whatIfOnlySave&&state.activeCase)return Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});
+      if(whatIfOnlySave&&state.activeCase){var evidenceDraft=Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});return fitCaseSave(evidenceDraft);}
       var next=collectCaseEditor();if(!next)return null;
       if(!next.name.trim()||next.equipment.some(function(e){return !e.id||!e.name||!(e.nominalRatePerSecond>0);}))throw new Error(__ST_TEXT__('autosave.invalid'));
       var simulation=activePersistentSimulation(),run=readRunConfiguration();if(!run)return null;
       if(simulation){simulation.equipment=cloneJson(next.equipment);simulation.dynamicConfig=cloneJson(run);simulation.updatedAt=new Date().toISOString();}
       compactStoredReplays(state.activeCase.simulations);
       next.simulations=cloneJson(state.activeCase.simulations);
-      return cloneJson(next);
+      return fitCaseSave(cloneJson(next));
+    }
+    function fitCaseSave(draft){
+      compactStoredReplays(draft.simulations);
+      function bytes(){return new Blob([JSON.stringify(draft)]).size;}
+      while(bytes()>window.ST_CASE_SAVE_LIMITS.maxBytes){
+        var changed=false;(draft.simulations||[]).forEach(function(simulation){
+          var result=simulation.results;if(!result)return;
+          [result.replay].concat(result.batch?.replays||[]).filter(Boolean).forEach(function(replay){
+            if(replay.samples?.length>2){var previous=replay.samples.length;replay.samples=retainedReplaySamples(replay.samples,Math.max(2,Math.floor(previous/2)));replay.detailCoverage=Object.assign({},replay.detailCoverage,{savedReplaySampled:true});changed=true;}
+            if(replay.events?.length){replay.detailCoverage=Object.assign({},replay.detailCoverage,{savedEventsOmitted:replay.events.length+(replay.detailCoverage?.savedEventsOmitted||0)});replay.events=[];changed=true;}
+          });
+        });
+        if(!changed)throw Object.assign(new Error('The case exceeds the save size budget even after compacting replay. Export the full results and remove unneeded simulations before saving. Your draft remains open.'),{code:'CASE_SAVE_SIZE'});
+      }
+      return draft;
     }
     function saveActiveCase(afterSave) {
       autosave.change(true);
@@ -1321,7 +1340,7 @@ function renderRawJson() {
       var dialog=document.getElementById('batch-dialog'),cancelled=false;
       document.getElementById('batch-cancel').onclick=function(){cancelled=true;};
       dialog.oncancel=function(event){event.preventDefault();cancelled=true;};
-      document.getElementById('batch-progress').value=0;dialog.showModal();
+      document.getElementById('batch-progress').value=0;dialog.showModal();window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       stopPlaybackTimer();
       try {
         var response=await SimulatorEngine.simulateBatch({case:cloneJson(state.activeCase),run:run},{cancelled:function(){return cancelled;},progress:function(value,round,total){document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=round+' / '+total+' · '+Math.round(value*100)+'%';}});
@@ -1331,7 +1350,7 @@ function renderRawJson() {
         syncPlaybackRounds();toggle('simulation-results',true);
         document.getElementById('simulation-json-preview').value=JSON.stringify(response.result,null,2);shell.sync();renderPlaybackFrame();return true;
       }catch(error){if(error.message==='BATCH_CANCELLED')setStatus(__ST_TEXT__('batch.cancelled'));else showError({message:error.message});return false;}
-      finally{dialog.close();}
+      finally{dialog.close();window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));}
     }
 
     async function runSimulation() {
@@ -1933,10 +1952,10 @@ function summarizeGeometrySources(sources, assumptions) {
     function callServer(name, args, onSuccess) {
       var epoch = state.requestEpoch;
       state.pendingRequests += 1;
-      document.getElementById('request-progress').classList.remove('hidden');
+      activity();
       function done() {
         state.pendingRequests = Math.max(0,state.pendingRequests-1);
-        document.getElementById('request-progress').classList.toggle('hidden',state.pendingRequests===0);
+        activity();
       }
       var runner = google.script.run
         .withFailureHandler(function(error) {

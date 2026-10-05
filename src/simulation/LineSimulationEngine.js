@@ -20,10 +20,12 @@ export async function simulateLineAsync(input, options = {}) {
   if (!validation.ok) return validation;
   if(input.run.shiftSeconds!==undefined&&(!Number.isFinite(input.run.shiftSeconds)||input.run.shiftSeconds<=0||input.run.shiftSeconds%input.run.tickSeconds!==0))throw new Error('INVALID_SHIFT_DURATION');
   const runtime = createRuntime(input);
-  let omittedEvents = 0;
+  runtime.summaryOnly=options.summaryOnly===true;
+  let omittedEvents = runtime.summaryOnly?runtime.events.length:0;
+  if(runtime.summaryOnly)runtime.events.length=0;
   const push = runtime.events.push.bind(runtime.events);
   runtime.events.push = (...items) => {
-    if (options.detail && runtime.events.length < 2000) return push(...items);
+    if (!runtime.summaryOnly && options.detail && runtime.events.length < 2000) return push(...items);
     omittedEvents += items.length; return runtime.events.length;
   };
   applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
@@ -1011,12 +1013,14 @@ function getZoneInventory(zone) {
 }
 
 function addSampleIfDue(runtime) {
+  if(runtime.summaryOnly)return;
   const interval = runtime.run.sampleEverySeconds || runtime.run.tickSeconds;
   if (runtime.virtualSecond !== runtime.run.durationSeconds && runtime.virtualSecond % interval !== 0) return;
   addSample(runtime);
 }
 
 function addSample(runtime) {
+  if(runtime.summaryOnly)return;
   const visibleZones = runtime.zones.filter((zone) => zone.visible);
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,

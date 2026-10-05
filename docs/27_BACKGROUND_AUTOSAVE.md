@@ -21,3 +21,22 @@ Resetting an editing session invalidates old callbacks and rejects outstanding f
 ## Verification
 
 Controlled-clock tests cover manual saving, configured deadlines during continuous edits, mode changes, cancellation of scheduled timers, one request at a time, revision advancement, explicit flush, failed saves, conflict handling and stale callbacks. Interface tests verify Basic and Advance policies, settings persistence, manual result/evidence saving, unsaved-exit choices, and creation of validated All CAPEX scenarios.
+
+## Large results and save diagnostics
+
+The save RPC already returns a small acknowledgement, not a full case. Draft
+capture now also applies `window.ST_CASE_SAVE_LIMITS.maxBytes` (default 3 MiB) to
+the serialized request. If needed, saved replay samples across simulations are
+halved down to at least first/last frames and saved event logs removed. Full
+summary metrics, per-equipment metrics, rounds, seeds and search evidence remain
+intact. Local live results and full-result exports are not thinned; the stored
+replay marks its sampling coverage. Reloaded playback has fewer frames. This is
+an application budget, not a documented Google transport quota.
+
+If inputs and preserved evidence alone exceed the budget, saving stops with a
+specific message and retains the draft. Exports remain available. Drive errors
+report READ, NORMALIZE or WRITE plus a safe reference logged without case data.
+Revision conflicts still prevent blind overwrites. Network failures can remain
+ambiguous (the write may have completed); this change does not automatically
+retry them or bypass revision checks. The original generic transport error is
+not sufficient to establish a single cause.

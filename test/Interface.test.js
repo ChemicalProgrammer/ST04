@@ -1376,3 +1376,36 @@ test('UI: Gemini paragraph reveal respects reduced motion and stops when leaving
   await h.click('#home-cases');assert(h.visible('cases-panel'));assert.equal(h.d.getElementById('gemini-messages').textContent,'');reveal();assert.equal(h.d.getElementById('gemini-messages').textContent,'');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: pinned header contains activity at its lower edge and Basic conveyor controls share the title row',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  const header=h.d.querySelector('.topbar'),pin=h.d.getElementById('pin-header');assert.equal(header.dataset.pinned,'true');assert.equal(h.d.getElementById('request-progress').parentNode,header);
+  await h.click('#pin-header');assert.equal(header.dataset.pinned,'false');assert.equal(h.w.localStorage.getItem('st.ui.v1.headerPinned'),'no');await h.click('#pin-header');assert.equal(header.dataset.pinned,'true');
+  h.w.dispatchEvent(new h.w.CustomEvent('st-calculation-activity',{detail:{active:true}}));assert(h.visible('request-progress'));h.w.dispatchEvent(new h.w.CustomEvent('st-calculation-activity',{detail:{active:false}}));assert(!h.visible('request-progress'));
+  await h.click('.open-case');await h.click('[data-basic-view=conveyors]');assert.equal(h.d.querySelector('.basic-conveyor-tabs').parentNode,h.d.querySelector('#basic-conveyor-panel h3').parentNode);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: scenario budgets and stagnation finish with full-round independent confirmation',async()=>{
+ for(const reason of ['budget','stagnation']){
+ const h=await setup({remember:true});try{
+  h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:reason==='budget'?1:40,maxSearchMs:600000,maxWithoutImprovement:reason==='stagnation'?1:12};
+  const sim=h.storedCases()[0].simulations[0],belts=sim.equipment.filter(e=>e.type==='CONVEYOR').slice(0,2);belts.forEach(e=>e.processData.geometry.lactMm=10000);sim.dynamicConfig={seed:42,durationSeconds:60,rounds:5};
+  const project={title:'Budget search',kind:'CUSTOM',tier:'HIGH',basis:'STATIC',explore:true,changes:belts.map(e=>({equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}))};
+  const calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push({input,options});const gain=input.case.equipment.some(e=>belts.some(b=>b.id===e.id)&&e.processData.geometry.lactMm>10000)?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.match(record.stopReason,reason==='budget'?/budget/:/No meaningful improvement/);assert(record.independentCheck.passed);assert(calls.every(c=>c.input.run.rounds===5&&c.options.summaryOnly));assert.equal(calls.filter(c=>c.input.run.seed!==42).length,2);assert(calls.length<=5);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});
+
+test('UI + Apps Script: saving a large replicated result compacts replay and preserves full metrics',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=60;h.d.getElementById('run-rounds').value=2;h.d.getElementById('run-sample-interval').value=1;
+  const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);for(const replay of [response.result,...response.result.batch.replays])for(const sample of replay.samples)sample.extraDetail='x'.repeat(8000);return response;};
+  await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await waitFor(()=>!h.d.getElementById('batch-dialog').open&&h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');
+  const full=JSON.parse(h.d.getElementById('simulation-json-preview').value),originalSave=h.api.saveCase;let payloadBytes;
+  h.api.saveCase=request=>{payloadBytes=new h.w.Blob([JSON.stringify(request)]).size;return originalSave(request);};h.w.ST_CASE_SAVE_LIMITS.maxBytes=800000;
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results||h.d.getElementById('autosave-status').dataset.state==='error');assert(h.storedCases()[0].simulations[0].results,h.d.getElementById('status').textContent+' '+h.d.getElementById('autosave-status').title);
+  const saved=h.storedCases()[0].simulations[0].results;assert(payloadBytes<=800000);assert(saved.replay.samples.length<full.samples.length);assert.equal(saved.replay.samples[0].virtualSecond,0);assert.equal(saved.replay.samples.at(-1).virtualSecond,60);assert.deepEqual(saved.batch.statistics,full.batch.statistics);assert.deepEqual(saved.equipmentMetrics,full.equipmentMetrics);assert(saved.replay.detailCoverage.savedReplaySampled);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

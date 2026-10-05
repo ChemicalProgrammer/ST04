@@ -62,15 +62,25 @@ function saveCaseUnlocked_(request, user) {
     throw createSimulatorError_('INVALID_CASE', 'The case must be an object.');
   }
 
+  var stage='READ';
+  try {
   var owned = getOwnedCaseFile_(request.id, user);
   var current = owned.caseData;
   if (Number(request.expectedRevision) !== Number(current.revision)) {
     throw createSimulatorError_('CASE_CONFLICT', 'This Case was changed elsewhere. Reload it before saving.');
   }
 
+  stage='NORMALIZE';
   var next = buildUpdatedCase_(request, current, user);
-  owned.file.setContent(JSON.stringify(next, null, 2));
+  stage='WRITE';
+  owned.file.setContent(JSON.stringify(next));
   return next;
+  }catch(error){
+    if(error&&error.simulatorError)throw error;
+    var reference='SAVE-'+new Date().getTime().toString(36);
+    console.error(JSON.stringify({event:'CASE_SAVE_FAILURE',reference:reference,stage:stage,type:error?.name||'Error'}));
+    throw createSimulatorError_('CASE_SAVE_FAILED','The case could not be saved at stage '+stage+'. Your draft is retained. Retry or reopen after exporting your data. Reference: '+reference);
+  }
 }
 
 function createNewCaseRecord_(request, user) {

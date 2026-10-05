@@ -37,3 +37,11 @@ test('100 short replications record distinct reproducible seeds with bounded rep
  assert.equal(r.result.batch.rows.length,100);assert.equal(new Set(r.result.batch.rows.map(r=>r.seed)).size,100);
  assert(r.result.samples.length<=121);assert(r.result.events.length<=2000);
 });
+test('summary-only batches preserve every numerical output and omit replay and events',async()=>{
+ const data=input();data.run={...data.run,durationSeconds:60,rounds:3};
+ const full=await simulateBatch(data),compact=await simulateBatch(data,{summaryOnly:true});
+ for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts'])assert.deepEqual(compact.result[key],full.result[key]);
+ for(const key of ['statistics','equipmentStatistics','rows'])assert.deepEqual(compact.result.batch[key],full.result.batch[key]);
+ assert.equal(compact.result.samples.length,0);assert.equal(compact.result.events.length,0);assert.equal(compact.result.batch.replays.length,0);
+ let cancel=false;await assert.rejects(simulateBatch(data,{summaryOnly:true,cancelled:()=>cancel,progress:()=>cancel=true}),/BATCH_CANCELLED/);
+});

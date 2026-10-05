@@ -129,3 +129,33 @@ creating a review scenario. Restored approval also requires nonempty evaluated
 changes. Creation errors appear in the originating card as well as the global
 status. A completed validated selection can be created in either saving mode;
 creation explicitly commits the source and its new scenario after confirmation.
+
+## Interactive search budgets and exact summary evaluation
+
+Scenario previews use `summaryOnly` batches: identical ticks, duration, commands,
+rounds, seeds, physical dynamics and numerical metrics, with no replay frames or
+retained event log. Normal simulations still retain replay. Full configured
+rounds are used for exploration and both independent confirmation batches.
+There is no short-run or fewer-round screening in this implementation.
+
+`window.ST_SCENARIO_SEARCH_LIMITS` at the top of `ScenarioExplorer.html` defaults
+to 40 candidate evaluations, ten minutes of exploration and 12 candidates
+without a meaningful throughput gain (greater than 0.1% of the previous best,
+or 0.001 flow units/min, whichever is larger). These are exploration limits;
+the current batch finishes and confirmation can add time beyond the limit.
+Time includes baseline calculation. Limits can finish before finding any gain.
+
+Exhaustion or Stop ends exploration and validates the best evaluated candidate.
+Incomplete DOE is explicitly reported and effects are not estimated. The
+progress maximum reflects the candidate budget and additional baseline/check
+batches. Evidence retains the stop reason, budget, trial of the last meaningful
+gain and stagnation count. Proposal keys are sorted by equipment and field to
+reuse the same combination regardless of change order. Pass completion uses
+that same key. These bounded searches do not establish a global optimum and
+may miss improvements requiring further exploration.
+
+Local demo benchmark (13 equipment records, 600 simulated seconds, three rounds,
+seed 17, tick 0.25 s): normal batch 1,154 ms / 19,597,688 serialized characters;
+summary-only 988 ms / 110,065 characters, with equal batch statistics. This is a
+single local observation, not a guarantee of laptop performance or a two-hour
+search speedup. Numerical equivalence and cancellation are also tested.

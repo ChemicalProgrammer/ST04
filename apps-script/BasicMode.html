@@ -23,9 +23,9 @@ window.STBasicMode=(function(){
     list=document.getElementById('equipment-list');listHome=list.parentNode;
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
     panel=document.createElement('aside');panel.id='basic-conveyor-panel';panel.setAttribute('aria-label',__ST_TEXT__('basic.conveyor_configuration'));
-    title=document.createElement('h3');panel.appendChild(title);layout.appendChild(panel);
+    var heading=document.createElement('div');heading.className='basic-conveyor-heading';panel.appendChild(heading);title=document.createElement('h3');heading.appendChild(title);layout.appendChild(panel);
     conveyorTabs=document.createElement('div');conveyorTabs.className='button-row basic-conveyor-tabs';
-    ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});panel.appendChild(conveyorTabs);
+    ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});heading.appendChild(conveyorTabs);
     conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
     efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';document.querySelector('#editor-panel > .editor-subheading').before(efficiencies);
     setupControls=document.createElement('div');setupControls.id='basic-run-controls';efficiencies.after(setupControls);

@@ -1,4 +1,6 @@
 <script>
+// Editable exploration limits; confirmation always uses the full configured rounds.
+window.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:40,maxSearchMs:600000,maxWithoutImprovement:12};
 window.STScenarioExplorer=(function(){
   // Evidence belongs to the simulation and is saved through the case autosave.
   var activeHost=null,activeRecordKey=null;
@@ -14,7 +16,7 @@ window.STScenarioExplorer=(function(){
   function config(sim){var r=Object.assign({durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1},sim.dynamicConfig||{});if(r.durationMode==='SHIFTS')r.durationSeconds=(r.shiftHours||8)*(r.shiftCount||1)*3600;return r;}
   async function evaluate(sim,changes,cancelled,seedOffset,runConfig){
     var candidate=changes.length?STScenarios.apply(sim,changes):sim;
-    var response=await SimulatorEngine.simulateBatch({case:{id:sim.id||'scenario-preview',equipment:candidate.equipment},run:Object.assign({},runConfig||config(sim),seedOffset?{seed:(Number((runConfig||config(sim)).seed)+seedOffset)%2147483647}:{})},{cancelled:cancelled});
+    var response=await SimulatorEngine.simulateBatch({case:{id:sim.id||'scenario-preview',equipment:candidate.equipment},run:Object.assign({},runConfig||config(sim),seedOffset?{seed:(Number((runConfig||config(sim)).seed)+seedOffset)%2147483647}:{})},{cancelled:cancelled,summaryOnly:true});
     if(!response.ok)throw Error(response.error?.message||JSON.stringify(response.errors||response));return Object.assign(metric(response.result),{warnings:candidate.scenarioWarnings||[]});
   }
   function attach(host,project,create,simulation){
@@ -108,11 +110,11 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     }
     function improves(base,next){return Number.isFinite(next.throughput)&&Number.isFinite(next.oee)&&next.throughput>base.throughput+Math.max(.001,Math.abs(base.throughput)*.001)&&next.oee>=base.oee-1e-9;}
     async function preview(all){
-      if(activeHost)return;activeHost=host;activeRecordKey=recordKey;searchCanFinish=!!all;finishRequested=false;
+      if(activeHost)return;activeHost=host;activeRecordKey=recordKey;searchCanFinish=!!all;finishRequested=false;window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       var locked=Array.from(document.querySelectorAll('.analysis-recommendation input, .analysis-recommendation button, .scenario-explorer input, .scenario-explorer select, .scenario-explorer textarea, .scenario-explorer button')).filter(e=>e!==run).map(e=>({element:e,disabled:e.disabled}));locked.forEach(x=>x.element.disabled=true);
       setIcon(run,all?'Finish search and validate best found':'Cancel evaluation','stop');run.setAttribute('aria-pressed','true');dialog.close();
       var started=Date.now(),stage='Preparing',completed=0,maximum=0;
-      function updateProgress(){var seconds=Math.floor((Date.now()-started)/1000);progress.textContent=stage+' · '+completed+' / up to '+maximum+' simulation batches (including baseline and confirmation) · '+previewRun.rounds+' round(s) each · Elapsed '+Math.floor(seconds/60)+'m '+seconds%60+'s.'+(stage==='Finished'||stage==='Stopped'?'':(searchCanFinish?(finishRequested?' Finishing the current batch; Stop now cancels.':' Use Stop to finish searching and validate the best found.'):' Use Stop to cancel validation.')+' Create becomes available after confirmation.');}
+      function updateProgress(){var seconds=Math.floor((Date.now()-started)/1000);progress.textContent=stage+' · '+completed+' / up to '+maximum+' simulation batches (including baseline and confirmation) · '+previewRun.rounds+' round(s) each · Elapsed '+Math.floor(seconds/60)+'m '+seconds%60+'s.'+(stage==='Finished'||stage==='Stopped'?'':(searchCanFinish?(finishRequested?' Finishing the current batch; Stop now cancels.':' Use Stop to finish searching and validate the best found.'):' Use Stop to cancel validation.')+' Create becomes available after confirmation.'+(all?' Last meaningful gain: '+Math.floor((Date.now()-lastGainAt)/1000)+'s ago.':''));}
       var clock=setInterval(updateProgress,1000);
       async function measured(changes,offset){updateProgress();var result=await evaluate(source,changes,cancelled,offset,previewRun);completed++;updateProgress();return result;}
       var ticket=++generation;clearTimeout(timer);save.disabled=true;setIcon(save,'Create selected scenario','copy');last=null;status.textContent='Starting a new evaluation — creation is unavailable until confirmation finishes.';metrics.replaceChildren();host.querySelector('.scenario-audit-warnings')?.remove();host.querySelector('.scenario-doe-results')?.remove();status.dataset.state='pending';
@@ -121,15 +123,19 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       previewRun=config(source);if(includeDOE)previewRun.rounds=Math.max(3,Number(previewRun.rounds)||1);contextText();
       if(baselineRun!==JSON.stringify(previewRun)){baseline=null;baselineRun=JSON.stringify(previewRun);}
       record('RUNNING',{method:method});
-      var evidence={method:method};
+      var limits=Object.assign({},window.ST_SCENARIO_SEARCH_LIMITS),stopReason=null,lastGainAt=Date.now(),bestAtTrial=0,stagnant=0;
+      var evidence={method:method,searchLimits:limits};
+      function keyOf(changes){return JSON.stringify(changes.slice().sort(function(a,b){return (a.equipmentId+':'+a.path).localeCompare(b.equipmentId+':'+b.path);}));}
+      function finishSearch(reason){finishRequested=true;stopReason=reason;setIcon(run,'Cancel evaluation','stop');}
+      function exhausted(){if(!all||finishRequested)return; if(done>=limits.maxCandidates)finishSearch('Evaluation budget reached');else if(Date.now()-started>=limits.maxSearchMs)finishSearch('Search time budget reached');else if(stagnant>=limits.maxWithoutImprovement)finishSearch('No meaningful improvement in '+stagnant+' evaluated candidates');}
       try{
-        var changes=selected(),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;evidence.maximumConfigurations=maximum;evidence.requestedChanges=changes;if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
+        var changes=selected(),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;if(all)maximum=Math.min(maximum-(baseline?0:1)-2,limits.maxCandidates)+(baseline?0:1)+2;evidence.maximumConfigurations=maximum;evidence.requestedChanges=changes;if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
         stage='Baseline';if(!baseline)baseline=await measured([],0);if(cancelled())return;evidence.baseline=baseline;
         var trialHistory=[];evidence.trialHistory=trialHistory;
         var best=baseline,bestChanges=[],done=0,invalid=0,cache=new Map(),reviewBest=null,reviewChanges=[];
         async function trial(proposal){
           if(cancelled())return null;
-          var key=JSON.stringify(proposal);if(cache.has(key))return cache.get(key);
+          var key=keyOf(proposal);if(cache.has(key))return cache.get(key);exhausted();if(finishRequested)return null;var previousThroughput=best.throughput;
           var result;
           try{result=proposal.length?await measured(proposal,0):baseline;}
           catch(error){if(cancelled())return null;if(!String(error.message).startsWith('SCENARIO_'))throw error;invalid++;result=null;}
@@ -137,6 +143,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           trialHistory.push({changes:proposal,feasible:!!result,oee:result?.oee??null,throughput:result?.throughput??null,warningCount:(result?.warnings||[]).length});if(trialHistory.length>24)trialHistory.shift();evidence.trialHistoryOmitted=done-trialHistory.length;
           if(result&&(result.warnings||[]).length&&improves(baseline,result)&&(!reviewBest||result.throughput>reviewBest.throughput)){reviewBest=result;reviewChanges=proposal;}
           if(result&&!(result.warnings||[]).length&&improves(baseline,result)&&(result.throughput>best.throughput+1e-9||(result.throughput===best.throughput&&result.oee>best.oee))){best=result;bestChanges=proposal;}
+          if(best.throughput>previousThroughput+Math.max(.001,Math.abs(previousThroughput)*.001)){stagnant=0;bestAtTrial=done;lastGainAt=Date.now();}else stagnant++;evidence.bestAtTrial=bestAtTrial;evidence.candidatesSinceMeaningfulGain=stagnant;exhausted();
           if(!cancelled()){status.textContent=done+' candidates checked · '+invalid+' infeasible · '+show(baseline,best);record('RUNNING',Object.assign({},evidence,{baseline:baseline,candidate:best,evaluatedChanges:bestChanges,trials:done,infeasibleTrials:invalid}));}
           await new Promise(function(resolve){setTimeout(resolve,0);});return result;
         }
@@ -152,7 +159,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           // Revisit coordinates to capture interactions; never claim a global optimum.
           for(var pass=0;pass<3;pass++){
             stage='Refining · pass '+(pass+1)+' / 3';
-            var previous=JSON.stringify(bestChanges);
+            var previous=keyOf(bestChanges);
             for(var c of changes){
               var alternatives=c.external?[c.after]:[c.before,(Number(c.before)+c.after)/2,c.after];
               for(var value of alternatives){
@@ -161,7 +168,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
                 await trial(proposal);if(cancelled())return;if(finishRequested)break searchPhase;
               }
             }
-            if(previous===JSON.stringify(bestChanges))break;
+            if(previous===keyOf(bestChanges))break;
           }
         }
         if(design&&finishRequested)evidence.doeSkippedReason='DOE skipped because the search was finished early.';
@@ -183,12 +190,12 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           status.after(doeResults);
         }
         if(cancelled())return;
-        searchCanFinish=false;setIcon(run,'Cancel validation','stop');evidence.searchStoppedEarly=all&&finishRequested;
+        searchCanFinish=false;setIcon(run,'Cancel validation','stop');evidence.searchStoppedEarly=all&&finishRequested;evidence.stopReason=finishRequested?(stopReason||'Finished by user'):'Search completed';
         if(all&&!bestChanges.length&&reviewBest){best=reviewBest;bestChanges=reviewChanges;}
         evidence.trials=done;evidence.infeasibleTrials=invalid;evidence.evaluatedChanges=bestChanges;evidence.candidate=best;
         if(best)evidence.delta={oeePercentagePoints:best.oee-baseline.oee,throughputPerMinute:best.throughput-baseline.throughput};
         if(!best){record('INFEASIBLE',evidence);status.textContent='No physically valid candidate. Review the selected values and limits.';status.dataset.state='rejected';return;}
-        var text=(evidence.doeSkippedReason?evidence.doeSkippedReason+' ':'')+(all?'Complete: '+(finishRequested?'search finished early · ':'')+done+' candidates checked, '+invalid+' infeasible. ':'')+show(baseline,best);
+        var text=(evidence.doeSkippedReason?evidence.doeSkippedReason+' ':'')+(all?'Complete: '+(finishRequested?'search finished early ('+evidence.stopReason+') · ':'')+done+' candidates checked, '+invalid+' infeasible. ':'')+show(baseline,best);
         if(!bestChanges.length||!improves(baseline,best)){record('NO_DEMONSTRATED_IMPROVEMENT',evidence);status.textContent=text+' · No demonstrated improvement; scenario creation is disabled.';status.dataset.state='rejected';return;}
         // Independent seed block is not used to select the winner.
         stage='Independent confirmation';record('VALIDATING',evidence);status.textContent=text+' · Checking independent seeds…';
@@ -206,7 +213,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
         if(!save.disabled)last={changes:bestChanges};
         if(all&&validated&&!includeDOE){rows.forEach(function(r){var found=bestChanges.find(c=>c.equipmentId===r.change.equipmentId&&c.path===r.change.path);r.check.checked=!!found;if(found&&found.after!==r.change.after)r.limit.value=Number((found.after*r.scale).toPrecision(8));});}
       }catch(error){if(!cancelled()){record('ERROR',Object.assign({},evidence,{error:error.message}));status.textContent='Cannot evaluate: '+error.message;status.dataset.state='rejected';}}
-      finally{searchCanFinish=false;clearInterval(clock);setIcon(run,'Calculate OEE & throughput','search');run.setAttribute('aria-pressed','false');stage=cancelled()?'Stopped':'Finished';updateProgress();locked.forEach(x=>{if(x.element!==save)x.element.disabled=x.disabled;});activeHost=null;activeRecordKey=null;refreshDOE();refreshFactors();if(latest)record(latest.status,latest);}
+      finally{window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));searchCanFinish=false;clearInterval(clock);setIcon(run,'Calculate OEE & throughput','search');run.setAttribute('aria-pressed','false');stage=cancelled()?'Stopped':'Finished';updateProgress();locked.forEach(x=>{if(x.element!==save)x.element.disabled=x.disabled;});activeHost=null;activeRecordKey=null;refreshDOE();refreshFactors();if(latest)record(latest.status,latest);}
     }
     if(restored){
       latest=restored;previewRun=restored.run||config(source);contextText();

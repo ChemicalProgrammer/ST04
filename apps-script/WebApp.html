@@ -63,6 +63,8 @@
         <button id="toggle-gemini" class="secondary hidden" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"><?= __ST_TEXT__('assistant.gemini') ?></button>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
         <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button></span>
+        <button id="pin-header" class="ghost icon-button" type="button" data-icon="pin" aria-label="Unpin header" title="Unpin header" aria-pressed="true"></button>
+      <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       </header>
       <div class="workspace-content">
       <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
@@ -71,7 +73,6 @@
             <button id="rename-simulation" type="button" class="secondary" data-icon="edit"><?= __ST_TEXT__('simulation.rename') ?></button><button id="clone-case" data-icon="copy" class="secondary" type="button"><?= __ST_TEXT__('view.clone_simulation') ?></button><button id="delete-simulation" type="button" class="secondary" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"><?= __ST_TEXT__('simulation.delete') ?></button>
           </div>
       </section>
-      <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       <section id="status" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
 
       <section id="cases-panel" class="card hidden">

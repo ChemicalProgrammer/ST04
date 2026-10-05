@@ -14,13 +14,13 @@ export async function simulateBatch(input, options={}) {
     // Round 1 retains the requested display interval. Later rounds keep a
     // bounded replay so they can still be inspected without storing every tick.
     if(index>0)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
-    const response=await simulateLineAsync({case:input.case,run},{detail:index===0,cancelled:options.cancelled,progress:f=>options.progress?.((index+f)/count,index+1,count)});
+    const response=await simulateLineAsync({case:input.case,run},{detail:index===0&&!options.summaryOnly,summaryOnly:options.summaryOnly,cancelled:options.cancelled,progress:f=>options.progress?.((index+f)/count,index+1,count)});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok)return response;
     const result=response.result;
     rows.push({round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts});
     if(index===0)representative=result;
-    else replays.push({round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage});
+    else if(!options.summaryOnly)replays.push({round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage});
   }
   const statistics={};
   for(const key of Object.keys(rows[0].summary)) {

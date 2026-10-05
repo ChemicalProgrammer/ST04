@@ -196,3 +196,10 @@ test('clones a complete case into an independent owned record and denies other o
  assert.deepEqual(toPlainObject(runtime.getCase_(summary.id,owner)),toPlainObject(before));
  assert.throws(()=>runtime.cloneCase_(summary.id,{email:'other@example.com'}),e=>e.simulatorError?.code==='CASE_NOT_FOUND');
 });
+
+test('save failures report the storage stage and safe reference without exposing case data',()=>{
+ const runtime=createCaseRuntime(),logs=[];runtime.console={error:line=>logs.push(JSON.parse(line))};
+ runtime.getOwnedCaseFile_=()=>({caseData:{id:'a',revision:1,name:'Private case',ownerEmail:owner.email},file:{setContent:()=>{throw Error('private storage details');}}});
+ assert.throws(()=>runtime.saveCase_({id:'a',expectedRevision:1,name:'Private case',equipment:[]},owner),error=>error.simulatorError?.code==='CASE_SAVE_FAILED'&&/WRITE/.test(error.message)&&/SAVE-/.test(error.message));assert.equal(logs[0].stage,'WRITE');assert(!JSON.stringify(logs).includes('Private case'));assert(!JSON.stringify(logs).includes('private storage'));
+ runtime.getOwnedCaseFile_=()=>{throw Error('private folder');};assert.throws(()=>runtime.saveCase_({id:'a'},owner),error=>error.simulatorError?.code==='CASE_SAVE_FAILED'&&/READ/.test(error.message));
+});
