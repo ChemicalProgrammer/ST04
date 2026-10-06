@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createHash} from 'node:crypto';
 
 const owner={email:'owner@example.test'};
 function runtime(){
@@ -27,7 +28,7 @@ function runtime(){
    }};
   folders.set(id,result);return result;
  }
- const ctx=vm.createContext({console:{error:line=>logs.push(line)},Utilities:{getUuid:()=>String(++uuid)},
+ const ctx=vm.createContext({console:{error:line=>logs.push(line)},Utilities:{getUuid:()=>String(++uuid),DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(algorithm,value)=>Array.from(createHash(algorithm).update(value,'utf8').digest())},
   MimeType:{PLAIN_TEXT:'text/plain'},LockService:{getUserLock:()=>({tryLock:()=>true,releaseLock:()=>{}})}});
  for(const name of ['TextResources.gs','ApiResponse.gs','CaseService.gs','CaseIndex.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),ctx);
  ctx.getUserSettings_=()=>({workspaceRootFolderId:workspace});ctx.getWorkspaceFolders_=()=>({cases:folder(workspace)});
@@ -154,4 +155,27 @@ test('failed automatic migration keeps a legacy case accessible and retries on t
  h.folder().createFolder=()=>{throw Error('private conversion details');};const first=h.ctx.getCase('retry-migration');assert(first.ok);assert(first.data.storageMigrationPending);assert(!legacy.trashed);assert.equal(first.data.revision,1);assert(!h.logs.join('').includes('private conversion details'));
  h.folder().createFolder=create;const second=h.ctx.getCase('retry-migration');assert(second.ok);assert(!second.data.storageMigrationPending);assert(legacy.trashed);assert.equal(second.data.revision,1);
  const foreign=h.seed('foreign-open','other@example.test');assert.equal(h.ctx.getCase('foreign-open').ok,false);assert(!foreign.trashed);assert(!h.folder().getFoldersByName('foreign-open').hasNext());
+});
+
+
+test('Save fingerprints avoid simulation reads and rewrite only the edited JSON',()=>{
+ const h=runtime();h.ctx.createCase_({id:'dirty-only',name:'Original',simulations:[{id:'a',name:'A'},{id:'b',name:'B'}]},owner);
+ const child=h.folder().getFoldersByName('dirty-only').next(),manifest=child.files.get('case.json');
+ const before=JSON.parse(manifest.content).simulationFiles,record=h.ctx.getCase_('dirty-only',owner);h.reads.length=0;
+ record.expectedRevision=1;record.name='Renamed';
+ const saved=h.ctx.saveCase_(record,owner);assert.equal(saved.revision,2);
+ assert.deepEqual(JSON.parse(manifest.content).simulationFiles,before);assert(!h.reads.some(name=>name.startsWith('simulation-')));
+ record.expectedRevision=2;record.simulations[1].name='Changed B';h.reads.length=0;h.ctx.saveCase_(record,owner);
+ const after=JSON.parse(manifest.content).simulationFiles;
+ assert.equal(after[0].fileName,before[0].fileName);assert.notEqual(after[1].fileName,before[1].fileName);assert(!h.reads.some(name=>name.startsWith('simulation-')));
+ assert.equal(h.ctx.getCase_('dirty-only',owner).simulations[1].name,'Changed B');
+});
+
+test('Older manifests gain fingerprints without rewriting unchanged simulation JSON',()=>{
+ const h=runtime();h.ctx.createCase_({id:'old-digest',name:'Old'},owner);
+ const child=h.folder().getFoldersByName('old-digest').next(),manifest=child.files.get('case.json'),general=JSON.parse(manifest.content);
+ const fileName=general.simulationFiles[0].fileName;delete general.simulationFiles[0].digest;manifest.setContent(JSON.stringify(general));
+ const record=h.ctx.getCase_('old-digest',owner);record.expectedRevision=1;h.reads.length=0;h.ctx.saveCase_(record,owner);
+ const saved=JSON.parse(manifest.content).simulationFiles[0];assert.equal(saved.fileName,fileName);assert.match(saved.digest,/^[a-f0-9]{64}$/);
+ assert.equal(h.reads.filter(name=>name===fileName).length,1);
 });

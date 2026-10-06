@@ -385,19 +385,20 @@ async function openCase(caseId) {
       var next=collectCaseEditor();if(!next)return null;
       if(!next.name.trim()||next.equipment.some(function(e){return !e.id||!e.name||!(e.nominalRatePerSecond>0);}))throw new Error(__ST_TEXT__('autosave.invalid'));
       var simulation=activePersistentSimulation(),run=readRunConfiguration();if(!run)return null;
-      if(simulation){simulation.equipment=cloneJson(next.equipment);simulation.dynamicConfig=cloneJson(run);simulation.updatedAt=new Date().toISOString();}
+      if(simulation){var before=JSON.stringify([simulation.equipment,simulation.dynamicConfig]);simulation.equipment=cloneJson(next.equipment);simulation.dynamicConfig=cloneJson(run);if(before!==JSON.stringify([simulation.equipment,simulation.dynamicConfig]))simulation.updatedAt=new Date().toISOString();captureSimulationView();}
       compactStoredReplays(state.activeCase.simulations);
       next.simulations=cloneJson(state.activeCase.simulations);
       return fitCaseSave(cloneJson(next));
     }
     function fitCaseSave(draft){
+      draft.activeSimulationId=state.activeSimulationId;
       compactStoredReplays(draft.simulations);
       function bytes(){return new Blob([JSON.stringify(draft)]).size;}
       while(bytes()>window.ST_CASE_SAVE_LIMITS.maxBytes){
         var changed=false;(draft.simulations||[]).forEach(function(simulation){
           var result=simulation.results;if(!result)return;
           [result.replay].concat(result.batch?.replays||[]).filter(Boolean).forEach(function(replay){
-            if(replay.samples?.length>2){var previous=replay.samples.length;replay.samples=retainedReplaySamples(replay.samples,Math.max(2,Math.floor(previous/2)));replay.detailCoverage=Object.assign({},replay.detailCoverage,{savedReplaySampled:true});changed=true;}
+            if(replay.samples?.length>6){var previous=replay.samples.length;compactReplay(replay,Math.max(6,Math.floor(previous/2)),result.view?.virtualSecond);changed=changed||replay.samples.length<previous;}
             if(replay.events?.length){replay.detailCoverage=Object.assign({},replay.detailCoverage,{savedEventsOmitted:replay.events.length+(replay.detailCoverage?.savedEventsOmitted||0)});replay.events=[];changed=true;}
           });
         });
@@ -1167,7 +1168,8 @@ function renderRawJson() {
       if (!Array.isArray(state.activeCase.simulations) || !state.activeCase.simulations.length) {
         state.activeCase.simulations = [{ id: 'simulation-a', name: __ST_TEXT__('client.simulation_a'), equipment: cloneJson(state.activeCase.equipment || []), dynamicConfig: {}, results: null }];
       }
-      state.activeSimulationId = state.activeCase.simulations[0].id;
+      state.activeCase.simulations.forEach(function(sim){if(!sim.createdAt)sim.createdAt=new Date().toISOString();if(!sim.updatedAt)sim.updatedAt=sim.createdAt;});
+      state.activeSimulationId = state.activeCase.simulations.some(function(sim){return sim.id===state.activeCase.activeSimulationId;})?state.activeCase.activeSimulationId:state.activeCase.simulations[0].id;
       activatePersistentSimulation(state.activeSimulationId, true);
     }
 
@@ -1190,11 +1192,12 @@ function renderRawJson() {
       simulation.equipment = cloneJson(state.activeCase.equipment || []);
       var config=readRunConfiguration();if(!config)return false;
       simulation.dynamicConfig = cloneJson(config);
-      if(before!==JSON.stringify([simulation.equipment,simulation.dynamicConfig]))autosave.change();
+      if(before!==JSON.stringify([simulation.equipment,simulation.dynamicConfig])){simulation.updatedAt=new Date().toISOString();autosave.change();}
       return true;
     }
 
     function activatePersistentSimulation(simulationId, initial) {
+      captureSimulationView();
       var hadUnsavedChanges = state.isDirty;
       if (!initial && !syncPersistentSimulation()) return;
       var simulation = (state.activeCase.simulations || []).find(function(item) { return item.id === simulationId; });
@@ -1210,15 +1213,22 @@ function renderRawJson() {
       applyScenarioRunInputs(simulation.dynamicConfig);
       state.run.configuration=simulation.results?copyRunConfiguration(simulation.dynamicConfig||{}):null;
       document.getElementById('run-playback-rate').value=String([1,5,10,50,100].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
-      state.run.result = simulation.results?.replay ? cloneJson(simulation.results.replay) : null;
+      state.run.result = simulation.results?.replay ? expandStoredReplay(simulation.results.replay,simulation.results) : null;
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();
+      var view=simulation.results?.view;
+      if(view?.roundIndex>0&&state.run.representative?.batch?.replays?.[view.roundIndex-1])selectPlaybackRound(view.roundIndex,false);
+      state.run.active=false;state.run.playing=false;
+      state.liveZoneDetails=cloneJson(view?.zoneDetails||{});
+      if(state.run.result?.samples.length)state.run.sampleIndex=view?findSampleIndexAtOrBefore(state.run.result.samples,view.virtualSecond):state.run.result.samples.length-1;
       state.isDirty = autosave.pending() || hadUnsavedChanges;
+      document.querySelectorAll('.live-equipment-card').forEach(function(card){card.dataset.losses='closed';card.classList.remove('show-losses');card.querySelector('.loss-toggle').setAttribute('aria-expanded','false');});
       renderEditor();
       if (state.run.result) {
         document.getElementById('simulation-json-preview').value = JSON.stringify(state.run.result, null, 2);
         toggle('simulation-results', true);
         renderPlaybackFrame();
+        (view?.lossesOpen||[]).forEach(function(id){var card=Array.from(document.querySelectorAll('.live-equipment-card')).find(function(c){return c.dataset.equipmentId===id;});if(card){card.dataset.losses='open';card.classList.add('show-losses');card.querySelector('.loss-toggle').setAttribute('aria-expanded','true');}});
       }
       renderSimulationAnalysis();
       shell.sync();
@@ -1232,13 +1242,56 @@ function renderRawJson() {
       return retained;
     }
 
+    // Persist chart history, not exhaustive engine traces. Static zone descriptions
+    // live once per replay; exact totals and replication statistics stay untouched.
+    function compactReplay(replay,limit,viewTime) {
+      if(!replay||!Array.isArray(replay.samples)||!replay.samples.length)return replay;
+      var original=replay.samples,definitions=replay.zoneDefinitions||{};
+      var tail=original.filter(function(sample){return sample.virtualSecond>=original.at(-1).virtualSecond-60;});
+      tail=retainedReplaySamples(tail,Math.min(120,Math.floor(limit/3)));
+      var viewIndex=viewTime===undefined?-1:findSampleIndexAtOrBefore(original,viewTime);
+      var exact=viewIndex<0?original.slice(-2):original.slice(Math.max(0,viewIndex-1),viewIndex+1).concat(original.slice(-2));
+      var samples=original.length<=limit?original:retainedReplaySamples(original,Math.max(2,limit-tail.length-exact.length)).concat(tail,exact);
+      samples=samples.filter(function(sample,index,list){return list.findIndex(function(other){return other.virtualSecond===sample.virtualSecond;})===index;}).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
+      replay.samples=samples.map(function(sample){
+        var frame={virtualSecond:sample.virtualSecond,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
+        frame.accumulationZones=(sample.accumulationZones||[]).map(function(zone){
+          var dynamic=Object.assign({},zone),staticKeys=['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry'];
+          var definition=definitions[zone.id]||{};
+          staticKeys.forEach(function(key){if(zone[key]!==undefined)definition[key]=zone[key];delete dynamic[key];});definitions[zone.id]=definition;return dynamic;
+        });
+        return frame;
+      });
+      replay.zoneDefinitions=definitions;
+      replay.detailCoverage=Object.assign({},replay.detailCoverage,{storageFormat:'chart-history-1',savedReplaySampled:Boolean(replay.detailCoverage?.savedReplaySampled||samples.length<original.length),savedEventsOmitted:(replay.detailCoverage?.savedEventsOmitted||0)+(replay.events?.length||0)});
+      replay.events=[];
+      return replay;
+    }
+    function expandStoredReplay(replay,saved) {
+      var expanded=cloneJson(replay);
+      ['summary','equipmentMetrics','accumulationZoneMetrics'].forEach(function(key){if(saved?.[key]!==undefined)expanded[key]=cloneJson(saved[key]);});
+      expanded.samples=(expanded.samples||[]).map(function(sample){sample.accumulationZones=(sample.accumulationZones||[]).map(function(zone){return Object.assign({},expanded.zoneDefinitions?.[zone.id],zone);});return sample;});
+      return expanded;
+    }
+    function captureSimulationView() {
+      var simulation=activePersistentSimulation(),result=state.run.result;
+      if(!simulation?.results||!result||result.provisional)return;
+      var sample=result.samples?.[state.run.sampleIndex];if(!sample)return;
+      // Keep the displayed frame and preceding frame exact even when history is sampled.
+      var replay=simulation.results.replay;if(replay&&state.run.roundIndex===0){
+        [result.samples[Math.max(0,state.run.sampleIndex-1)],sample].forEach(function(frame){if(!replay.samples.some(function(saved){return saved.virtualSecond===frame.virtualSecond;}))replay.samples.push(cloneJson(frame));});
+        replay.samples.sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
+      }
+      simulation.results.view={virtualSecond:sample.virtualSecond,roundIndex:state.run.roundIndex,zoneDetails:cloneJson(state.liveZoneDetails),lossesOpen:Array.from(document.querySelectorAll('.live-equipment-card.show-losses')).map(function(card){return card.dataset.equipmentId;})};
+    }
     function compactStoredReplays(simulations) {
       (simulations||[]).forEach(function(simulation){
         var saved=simulation.results;if(!saved)return;
-        if(saved.replay?.samples)saved.replay.samples=retainedReplaySamples(saved.replay.samples,600);
+        compactReplay(saved.replay,600,saved.view?.virtualSecond);
+        ['summary','equipmentMetrics','accumulationZoneMetrics'].forEach(function(key){if(saved.replay&&saved[key]!==undefined&&JSON.stringify(saved[key])===JSON.stringify(saved.replay[key]))delete saved.replay[key];});
         if(saved.batch?.replays){
           var laterLimit=Math.max(2,Math.min(120,Math.floor(600/Math.max(1,saved.batch.rounds-1))));
-          saved.batch.replays.forEach(function(replay){replay.samples=retainedReplaySamples(replay.samples,laterLimit);});
+          saved.batch.replays.forEach(function(replay){compactReplay(replay,laterLimit);});
         }
       });
     }
@@ -1251,8 +1304,8 @@ function renderRawJson() {
           return Object.assign({},replay,{samples:retainedReplaySamples(replay.samples,laterLimit)});
         })});
       }
-      var replaySamples=retainedReplaySamples(result.samples,600);
-      return {
+      var replaySamples=result.samples||[];
+      var stored = {
         seed: run.seed,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
@@ -1267,9 +1320,11 @@ function renderRawJson() {
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
           shifts:result.shifts,detailCoverage:result.detailCoverage,replicationStatus:cloneJson(result.replicationStatus||null),
-          samples: cloneJson(replaySamples), events: cloneJson(result.events || [])
+          samples: replaySamples, events: result.events || []
         }
       };
+      compactStoredReplays([{results:stored}]);
+      return cloneJson(stored);
     }
 
     function renderSimulationAnalysis() {
@@ -1424,7 +1479,7 @@ function renderRawJson() {
       stopPlaybackTimer();state.run.roundIndex=index;
       if(index===0)state.run.result=first;
       else {
-        var row=batch.rows[index],replay=batch.replays[index-1];
+        var row=batch.rows[index],replay=expandStoredReplay(batch.replays[index-1]);
         state.run.result={caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
       }
       state.run.sampleIndex=0;document.getElementById('playback-round').value=String(index);
@@ -1633,6 +1688,7 @@ function renderRawJson() {
       if(roundSession?.firstUpdating)roundSession.resumeAfterEdit=false;
       stopPlaybackTimer();
       setPlaybackStatus('Paused');
+      if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}
     }
 
     function resetPlayback() {
@@ -1641,6 +1697,7 @@ function renderRawJson() {
       state.run.sampleIndex = 0;
       renderPlaybackFrame();
       setPlaybackStatus(__ST_TEXT__('client.reset'));
+      captureSimulationView();
     }
 
     function schedulePlaybackStep() {
@@ -1654,6 +1711,8 @@ function renderRawJson() {
         state.run.playing = false;
         state.run.active=false;syncRunControls();
         setPlaybackStatus('Completed');
+        captureSimulationView();
+        autosave.change();
         finishRoundSession();
         return;
       }
@@ -1811,7 +1870,7 @@ function renderRawJson() {
       card.innerHTML = ("<div class=\"live-equipment-card__row\"><div class=\"live-equipment-identity live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.equipment') + "\"><strong></strong><span class=\"live-command\"></span></div><div class=\"live-equipment-operation live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.state_rate') + "\"><span class=\"live-state\"></span><b class=\"live-rate\"></b><span class=\"live-nominal-rate\"></span></div><div class=\"live-equipment-flow live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.units_oee') + "\"><span class=\"live-flow-label\"></span><b class=\"live-processed\"></b><span class=\"live-oee-label\" title=\"" + __ST_HTML_TEXT__('client.oee_availability_performance_quality_quality_is_assumed_100_until_the_model') + "\">" + __ST_HTML_TEXT__('client.oee') + "</span><b class=\"live-oee\"></b></div><div class=\"live-equipment-stats live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.time_losses') + "\"><div><span>" + __ST_HTML_TEXT__('client.starved') + "</span><b class=\"live-starved\"></b></div><div><span>" + __ST_HTML_TEXT__('client.blocked_2') + "</span><b class=\"live-blocked\"></b></div><div><span>" + __ST_HTML_TEXT__('client.waiting_prime') + "</span><b class=\"live-waiting-prime\"></b></div><div><span>" + __ST_HTML_TEXT__('client.back_up_stop') + "</span><b class=\"live-backup-stop\"></b></div><div><span>" + __ST_HTML_TEXT__('client.failure_2') + "</span><b class=\"live-failure\"></b></div><div><span>" + __ST_HTML_TEXT__('client.emergency') + "</span><b class=\"live-emergency\"></b></div></div><div class=\"live-speed-cell live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.speed_trend') + "\"><div class=\"equipment-speed-sparkline-heading\"><span>" + __ST_HTML_TEXT__('client.actual_last_60_s') + "</span><b class=\"live-sparkline-nominal-rate\"></b></div><canvas class=\"equipment-speed-sparkline\" height=\"56\" aria-label=\"" + __ST_HTML_TEXT__('client.rolling_actual_speed_chart') + "\"></canvas></div><div class=\"live-equipment-controls live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.scenario_controls') + "\"><button class=\"secondary live-control-run\" type=\"button\">" + __ST_HTML_TEXT__('client.run_resume') + "</button><button class=\"live-control-pause\" type=\"button\">" + __ST_HTML_TEXT__('client.pause') + "</button><button class=\"live-control-stop\" type=\"button\">" + __ST_HTML_TEXT__('client.planned_stop') + "</button><button class=\"live-control-emergency\" type=\"button\">" + __ST_HTML_TEXT__('client.emergency_stop') + "</button><button class=\"secondary live-control-reset\" type=\"button\">" + __ST_HTML_TEXT__('client.reset_run') + "</button></div></div><div class=\"live-equipment-zone\"></div>");
       var meta=document.createElement('span');meta.className='critical-label';card.querySelector('.live-equipment-identity').appendChild(meta);
       var reliability=document.createElement('span');reliability.className='case-description reliability-label';card.querySelector('.live-equipment-identity').appendChild(reliability);
-      var losses=document.createElement('button');losses.className='ghost loss-toggle';losses.type='button';losses.innerHTML=STIcons.svg('chart');losses.title=__ST_TEXT__('client.time_losses');losses.setAttribute('aria-label',__ST_TEXT__('client.time_losses'));losses.setAttribute('aria-expanded','false');losses.onclick=function(){var open=card.dataset.losses!=='open';card.dataset.losses=open?'open':'closed';card.classList.toggle('show-losses',open);losses.setAttribute('aria-expanded',String(open));};card.querySelector('.live-equipment-controls').appendChild(losses);
+      var losses=document.createElement('button');losses.className='ghost loss-toggle';losses.type='button';losses.innerHTML=STIcons.svg('chart');losses.title=__ST_TEXT__('client.time_losses');losses.setAttribute('aria-label',__ST_TEXT__('client.time_losses'));losses.setAttribute('aria-expanded','false');losses.onclick=function(){var open=card.dataset.losses!=='open';card.dataset.losses=open?'open':'closed';card.classList.toggle('show-losses',open);losses.setAttribute('aria-expanded',String(open));if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}};card.querySelector('.live-equipment-controls').appendChild(losses);
       [['run','play',__ST_TEXT__('client.run_resume')],['pause','pause',__ST_TEXT__('client.pause')],['stop','stop',__ST_TEXT__('client.planned_stop')],['emergency','warning',__ST_TEXT__('client.emergency_stop')],['reset','refresh',__ST_TEXT__('client.reset_run')]].forEach(function(pair){var button=card.querySelector('.live-control-'+pair[0]);button.innerHTML=STIcons.svg(pair[1]);button.setAttribute('aria-label',pair[2]);button.dataset.actionLabel=pair[2];button.title=pair[2];});
       bindLiveEquipmentControl(card.querySelector('.live-control-run'), equipmentId, 'RUN');
       bindLiveEquipmentControl(card.querySelector('.live-control-pause'), equipmentId, 'PAUSE');
@@ -1858,7 +1917,9 @@ function renderRawJson() {
       details.innerHTML = ("<summary><span class=\"accumulation-zone-summary-name\"></span><span class=\"accumulation-zone-summary-reading\"></span></summary>");
       details.appendChild(createAccumulationZonePanel(zone));
       details.addEventListener('toggle', function() {
+        var changed=Boolean(state.liveZoneDetails[zone.ownerEquipmentId])!==details.open;
         state.liveZoneDetails[zone.ownerEquipmentId] = details.open;
+        if(changed&&activePersistentSimulation()?.results){captureSimulationView();autosave.change();}
       });
       updateAccumulationZoneDetailsContent(details, zone);
       return details;

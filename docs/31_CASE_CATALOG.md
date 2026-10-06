@@ -75,3 +75,32 @@ failures do not turn an already committed save into a failure response.
 Case deletion, from the gallery or Settings, requires confirmation and moves the
 whole case folder to Drive Trash. Legacy cases move their flat file to Trash.
 Ownership and revision checks continue to run under the per-user write lock.
+
+
+## Changed-file saves and compact simulation state
+
+Full editor saves read only `case.json`. Each simulation reference carries a SHA-256
+fingerprint of its normalized JSON. Unchanged simulations keep their original file;
+a changed simulation is staged as a new version before the manifest commits. Older
+manifests without fingerprints read each old simulation once for comparison and gain
+fingerprints without rewriting identical files. Ownership, revision conflict checks
+and failed-write rollback still apply. The save RPC continues returning only metadata
+instead of sending the complete case back. `case.json` and the gallery index
+still update when a revision commits because they contain current references and dates.
+
+Simulation JSON preserves exact summaries, equipment/accumulation metrics, seeds,
+scheduled commands, all replication statistics and compact chart history. Replay
+keeps at most approximately 600 frames for round one, including first/last frames,
+the exact displayed frame and its preceding frame, plus the recent 60-second trend.
+Totals are stored once rather than duplicated inside replay. Conveyor geometry and descriptions are stored once and restored into frames on load.
+Exhaustive engine event logs and arbitrary per-frame diagnostic fields are omitted;
+the omission count and chart sampling flag remain explicit. This storage format is
+separate from the AI summary/export; AI analysis does not need chart frames.
+
+The case remembers its selected simulation. The saved view retains virtual time, selected round (for legacy detailed batches),
+expanded conveyor details and equipment loss panels. Opening restores metrics and
+charts at that point without resuming playback. Older results with no view restore
+the last frame. A finished run marks this state for saving according to the existing
+policy: manual in Basic, configured manual/automatic in Advance. Unsaved changes do
+not persist after closing. Replay histories may be further reduced to fit the
+existing save-size budget while preserving exact displayed and final values.

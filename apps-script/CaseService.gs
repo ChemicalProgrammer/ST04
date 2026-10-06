@@ -72,7 +72,8 @@ function saveCaseUnlocked_(request, user) {
 
   var stage='READ';
   try {
-  var owned = getOwnedCaseFile_(request.id, user);
+  // Full editor requests already contain simulations; read only the manifest.
+  var owned = getOwnedCaseFile_(request.id, user, Array.isArray(request.simulations));
   var current = owned.caseData;
   if (Number(request.expectedRevision) !== Number(current.revision)) {
     throw createSimulatorError_('CASE_CONFLICT', 'This Case was changed elsewhere. Reload it before saving.');
@@ -110,6 +111,7 @@ function createNewCaseRecord_(request, user) {
     equipment: equipment,
     engineConfig: normalizeObject_(request.engineConfig),
     simulations: simulations,
+    activeSimulationId: simulations.some(function(sim){return sim.id===request.activeSimulationId;})?request.activeSimulationId:simulations[0].id,
     metadata: normalizeCaseMetadata_(request.metadata),
     stateIds: normalizeStringList_(request.stateIds),
     ownerEmail: user.email,
@@ -130,6 +132,7 @@ function buildUpdatedCase_(request, current, user) {
     equipment: activeEquipment,
     engineConfig: normalizeObject_(request.engineConfig || current.engineConfig),
     simulations: simulations,
+    activeSimulationId: simulations.some(function(sim){return sim.id===request.activeSimulationId;})?request.activeSimulationId:simulations[0].id,
     metadata: request.metadata === undefined ? normalizeCaseMetadata_(current.metadata) : normalizeCaseMetadata_(request.metadata),
     stateIds: normalizeStringList_(current.stateIds),
     ownerEmail: user.email,
@@ -212,10 +215,10 @@ function persistCaseRecord_(record,owned) {
   if(manifest&&(!owned||!owned.folder))throw createSimulatorError_('CASE_CONFLICT','A case folder already contains a saved case. Reload before saving.');
   try {
     record.simulations.forEach(function(simulation,index){
-      var json=JSON.stringify(simulation),old=previous.find(function(e){return e.id===simulation.id;}),oldFiles=old?folder.getFilesByName(old.fileName):null,oldFile=oldFiles&&oldFiles.hasNext()?oldFiles.next():null;
-      if(oldFile&&oldFile.getBlob().getDataAsString()===json){refs.push(old);return;}
+      var json=JSON.stringify(simulation),digest=simulationContentDigest_(json),old=previous.find(function(e){return e.id===simulation.id;}),oldFiles=old?folder.getFilesByName(old.fileName):null,oldFile=oldFiles&&oldFiles.hasNext()?oldFiles.next():null;
+      if(oldFile&&(old.digest&&digest?old.digest===digest:oldFile.getBlob().getDataAsString()===json)){refs.push({id:old.id,fileName:old.fileName,digest:digest});return;}
       var name='simulation-'+index+'-'+Utilities.getUuid()+'.json';
-      staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name});
+      staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name,digest:digest});
     });
     var general=Object.assign({},record,{storageVersion:'case-folder-1',simulationFiles:refs});delete general.simulations;
     var json=JSON.stringify(general);
@@ -227,6 +230,12 @@ function persistCaseRecord_(record,owned) {
     if(owned&&!owned.folder)owned.file.setTrashed(true);
   }catch(error){console.error(JSON.stringify({event:'CASE_STORAGE_CLEANUP_FAILED',type:error.name||'Error'}));}
   return manifest;
+}
+
+// SHA-256 fingerprints avoid downloading unchanged simulation files on Save.
+function simulationContentDigest_(json) {
+  if(typeof Utilities.computeDigest!=='function')return null;
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,json,Utilities.Charset.UTF_8).map(function(byte){return ('0'+((byte+256)%256).toString(16)).slice(-2);}).join('');
 }
 
 function requireCaseId_(id) {

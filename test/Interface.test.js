@@ -497,8 +497,8 @@ test('UI: a live control in round one recalculates every round with the same eve
   await h.click('#sign-in-button');await h.click('.open-case');
   for(const [id,value] of [['run-duration','60'],['run-sample-interval','1'],['run-rounds','2']]){const el=h.d.getElementById(id);el.value=value;el.dispatchEvent(new h.w.Event('input',{bubbles:true}));}
   await h.click('#run-simulation');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);
-  await h.click('#pause-simulation');await h.click('#home-cases');await h.click('.open-case');
-  await h.click('#reset-playback');await h.click('.live-control-stop');
+  await h.click('#pause-simulation');await h.click('#home-cases');await waitFor(()=>h.visible('cases-panel'));await h.click('.open-case');await waitFor(()=>!h.visible('cases-panel')&&h.visible('simulation-results'));
+  await h.click('#reset-playback');assert.equal(h.d.getElementById('metric-time').textContent,'0 s');await h.click('.live-control-stop');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands?.length===1);
   const saved=h.storedCases()[0].simulations[0];assert.equal(saved.dynamicConfig.commands[0].atVirtualSecond,0);
   assert.equal(saved.results.batch,undefined,'event changes invalidate old replica statistics');
@@ -1425,7 +1425,7 @@ test('UI + Apps Script: saving a large replicated result compacts replay and pre
   const full=JSON.parse(h.d.getElementById('simulation-json-preview').value),originalSave=h.api.saveCase;let payloadBytes;
   h.api.saveCase=request=>{payloadBytes=new h.w.Blob([JSON.stringify(request)]).size;return originalSave(request);};h.w.ST_CASE_SAVE_LIMITS.maxBytes=800000;
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results||h.d.getElementById('autosave-status').dataset.state==='error');assert(h.storedCases()[0].simulations[0].results,h.d.getElementById('status').textContent+' '+h.d.getElementById('autosave-status').title);
-  const saved=h.storedCases()[0].simulations[0].results;assert(payloadBytes<=800000);assert(saved.replay.samples.length<full.samples.length);assert.equal(saved.replay.samples[0].virtualSecond,0);assert.equal(saved.replay.samples.at(-1).virtualSecond,60);assert.deepEqual(saved.batch.statistics,full.batch.statistics);assert.deepEqual(saved.equipmentMetrics,full.equipmentMetrics);assert(saved.replay.detailCoverage.savedReplaySampled);assert.deepEqual(h.errors,[]);
+  const saved=h.storedCases()[0].simulations[0].results;assert(payloadBytes<=800000);assert.equal(saved.replay.samples.length,full.samples.length);assert(saved.replay.samples.every(sample=>sample.extraDetail===undefined));assert.equal(saved.replay.samples[0].virtualSecond,0);assert.equal(saved.replay.samples.at(-1).virtualSecond,60);assert.deepEqual(saved.batch.statistics,full.batch.statistics);assert.deepEqual(saved.equipmentMetrics,full.equipmentMetrics);assert.equal(saved.replay.detailCoverage.storageFormat,'chart-history-1');assert.equal(saved.replay.events.length,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -1620,6 +1620,37 @@ test('UI: V-graph reacts to draft fields without simulation and Basic sections f
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),saved,'preview does not save or mutate stored inputs');
    if(uiMode==='BASIC')await h.click('[data-basic-view=vgraph]');else await h.click('.sidebar [data-view=results]');
    assert(h.visible('results-body'));assert(h.d.querySelector('#vgraph-plot svg'));assert.equal(h.d.getElementById('vgraph-plot')._vgraphPoints.find(p=>p.isPacemaker).id,id);assert(h.d.getElementById('export-results').disabled);assert.equal(simulated,0);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+
+test('UI: completed simulation reload restores exact metrics, chart history and conveyor details in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode,realScenarioServer:true});try{
+   h.w.STPreferences.write('autosaveEnabled','no');h.w.dispatchEvent(new h.w.Event('st-save-policy-change'));
+   await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;h.d.getElementById('run-rounds').value=2;h.d.getElementById('run-sample-interval').value=1;
+   h.d.getElementById('run-playback-rate').value=100;h.d.getElementById('run-playback-rate').dispatchEvent(new h.w.Event('change',{bubbles:true}));
+   await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('playback-status').textContent==='Completed');
+   const loss=h.d.querySelector('.loss-toggle');loss.click();
+   const details=h.d.querySelector('.live-equipment-zone details');if(details){details.open=true;details.dispatchEvent(new h.w.Event('toggle'));}
+   const ids=['metric-time','metric-output','metric-rate','metric-instant-rate','metric-line-oee','metric-buffer','metric-overflow','metric-backup-stop'];
+   const metrics=ids.map(id=>h.d.getElementById(id).textContent),cards=Array.from(h.d.querySelectorAll('.live-equipment-card')).map(card=>[card.querySelector('.live-rate').textContent,card.querySelector('.live-processed').textContent,card.querySelector('.live-oee').textContent]);
+   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
+   const saved=h.storedCases()[0].simulations[0].results;assert.equal(saved.view.virtualSecond,5);assert.equal(saved.replay.events.length,0);assert.equal(saved.batch.rows.length,2);
+   const zone=saved.replay.samples.at(-1).accumulationZones[0];assert.equal(zone.geometry,undefined);assert(saved.replay.zoneDefinitions[zone.id].geometry);
+   assert.equal(saved.replay.summary,undefined);assert.equal(saved.replay.equipmentMetrics,undefined);
+   const unchanged=JSON.stringify(h.storedCases()[0].simulations[0]);h.d.getElementById('case-name').value='Renamed case';h.d.getElementById('case-name').dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');const beforeSim=JSON.parse(unchanged),afterSim=h.storedCases()[0].simulations[0];for(const key of Object.keys(beforeSim))assert.equal(JSON.stringify(afterSim[key]),JSON.stringify(beforeSim[key]),'case-only edit changed '+key);
+   const record=h.storedCases()[0],second=JSON.parse(JSON.stringify(record.simulations[0]));second.id='completed-b';second.name='Completed B';delete second.results.view;
+   record.simulations.push(second);record.activeSimulationId=second.id;record.expectedRevision=record.revision;h.api.saveCase(record);
+   await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.getElementById('simulation-selector').value,'completed-b');
+   assert.deepEqual(ids.map(id=>h.d.getElementById(id).textContent),metrics,'older completed results without a saved view open at the final frame');
+   h.d.getElementById('simulation-selector').value='simulation-a';h.d.getElementById('simulation-selector').dispatchEvent(new h.w.Event('change'));await settle();
+   assert.deepEqual(ids.map(id=>h.d.getElementById(id).textContent),metrics);
+   assert.deepEqual(Array.from(h.d.querySelectorAll('.live-equipment-card')).map(card=>[card.querySelector('.live-rate').textContent,card.querySelector('.live-processed').textContent,card.querySelector('.live-oee').textContent]),cards);
+   const restored=JSON.parse(h.d.getElementById('simulation-json-preview').value);assert(restored.samples.length>2);assert.equal(restored.samples.at(-1).virtualSecond,5);assert(restored.samples.at(-1).accumulationZones[0].geometry);
+   assert(h.d.querySelector('.live-equipment-card.show-losses'));if(details)assert(h.d.querySelector('.live-equipment-zone details').open);
+   assert.equal(h.d.getElementById('run-playback-rate').value,'100');assert.equal(h.d.getElementById('autosave-status').dataset.state,'saved');assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
 });
