@@ -484,12 +484,9 @@ test('UI: shift replications save compact results, reopen and expose statistics 
   assert(saved.results.replay.samples.length>=2&&saved.results.replay.samples.length<=361);
   assert.equal(saved.results.replay.samples[0].virtualSecond,0);assert.equal(saved.results.replay.samples.at(-1).virtualSecond,1800);
   if(saved.results.replay.samples.length<361)assert(saved.results.replay.detailCoverage.savedReplaySampled);
-  assert(saved.results.batch.replays[0].samples.length<=121);
-  await h.click('.sidebar [data-view="simulation"]');assert(!h.d.getElementById('playback-round-control').classList.contains('hidden'));
-  const selector=h.d.getElementById('playback-round');assert.equal(selector.options.length,2);
-  selector.value='1';selector.dispatchEvent(new h.w.Event('change'));assert.match(h.d.getElementById('playback-status').textContent,/Round 2 \/ 2/);
-  assert(h.d.querySelector('.live-control-stop').disabled);
-  selector.value='0';selector.dispatchEvent(new h.w.Event('change'));assert(!h.d.querySelector('.live-control-stop').disabled);
+  assert.equal(saved.results.batch.replays.length,0);
+  await h.click('.sidebar [data-view="simulation"]');assert(h.d.getElementById('playback-round-control').classList.contains('hidden'));
+  assert(!h.d.querySelector('.live-control-stop').disabled);
   await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="results"]');
   assert(h.visible('batch-results'));assert.equal(h.d.getElementById('run-rounds').value,'2');assert.equal(h.d.getElementById('run-shift-count').value,'2');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -503,17 +500,18 @@ test('UI: a live control in round one recalculates every round with the same eve
   await h.click('#reset-playback');await h.click('.live-control-stop');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands?.length===1);
   const saved=h.storedCases()[0].simulations[0];assert.equal(saved.dynamicConfig.commands[0].atVirtualSecond,0);
-  assert(saved.results.batch.rows.every(r=>r.summary.outputCount===0));assert.equal(saved.results.batch.replays[0].samples.at(-1).outputCount,0);
+  assert(saved.results.batch.rows.every(r=>r.summary.outputCount===0));assert.equal(saved.results.batch.replays.length,0);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
-test('UI: playback advances to the next round automatically',async()=>{
+test('UI: later rounds calculate metrics without advancing playback away from round one',async()=>{
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');
   for(const [id,value] of [['run-duration','2'],['run-sample-interval','1'],['run-rounds','2']]){const el=h.d.getElementById(id);el.value=value;el.dispatchEvent(new h.w.Event('input',{bubbles:true}));}
-  await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('playback-round').value==='1');
-  assert.match(h.d.getElementById('playback-status').textContent,/Round 2 \/ 2/);
-  assert(h.d.querySelector('.live-control-stop').disabled);assert.deepEqual(h.errors,[]);
+  await h.click('#run-simulation');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);
+  await h.click('#reset-playback');
+  assert.equal(h.d.getElementById('playback-round').value,'0');assert(h.d.getElementById('playback-round-control').classList.contains('hidden'));
+  assert(!h.d.querySelector('.live-control-stop').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 

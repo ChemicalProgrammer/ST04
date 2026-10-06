@@ -33,3 +33,48 @@ and results. Round index i (starting at 0) uses (base seed + i) modulo 2^32.
 Fixed uses the current seed input; switching to Fixed keeps the last displayed
 seed so the run can be reproduced. Playback, recalculation, saved replay and
 What-If/DOE matched comparisons do not regenerate seeds.
+
+## Parallel calculation of rounds
+
+Browser batches retain detailed playback only for round 1. Later rounds calculate
+all physical ticks, shifts, equipment metrics and summaries with `summaryOnly`,
+without samples or event logs. Their metrics, recorded seeds and statistics remain
+saved. Legacy saved batches with later replays remain readable.
+
+The browser bundle creates a shared Web Worker pool of at most four workers,
+limited further by reported logical processors (leaving one available where
+possible). All scenario cards share the pool. The first detailed round calculates
+on the interface thread with cooperative yields; subsequent rounds execute in
+workers. Summary-only scenario batches also use a worker for round 1. Within a
+worker the engine skips UI yields while preserving exactly the same tick logic.
+
+Workers receive only the equipment model, case ID/unit and run configuration;
+other saved simulations and replays are excluded. Each round keeps its original
+`(baseSeed + index) >>> 0` seed and the same ordered scheduled commands. Results
+are assembled by round index, regardless of completion order, before statistics
+are calculated. Progress combines fractions from all rounds. Cancellation ends
+active workers and queued tasks without accepting partial results. Idle workers
+are released after five seconds and leaving the page closes the pool.
+
+Live controls still apply to round 1 at the displayed virtual second. Adding a
+command recalculates the entire batch with that same command for every seed.
+Later rounds offer no interactive playback. They do not inherit random failures
+from round 1; each uses its own reproducible seed.
+
+If workers are unavailable, blocked by browser policy, or fail to start, the
+batch recalculates sequentially with the same inputs and metrics. No Apps Script
+server simulation calls or third-party computing services are added. Worker
+compatibility in the deployed Apps Script iframe depends on browser policy;
+the fallback remains available there. Short runs may spend more time starting
+workers than calculating; the pool is reused across nearby batches.
+
+Validation uses actual Node worker threads executing the generated browser worker
+code, including exact parity, wrapped seeds, scheduled stop/run events, concurrent
+card limits, cancellation, stale messages and blocked-worker fallback. This does
+not substitute for measuring throughput in the user's deployed browser.
+
+A local synthetic reference-line benchmark (1,800 simulated seconds, 0.25-second
+ticks, eight summary-only rounds, worker startup included) measured 7.48 seconds
+sequentially versus 3.51 seconds with four workers, approximately 2.13x faster,
+with identical statistics. This measures Node worker threads in the development
+environment, not the deployed browser or the user's equipment.

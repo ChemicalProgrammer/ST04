@@ -84,7 +84,7 @@ var ST_TEXT_RESOURCES = {
   "batch.shift_count":"Shifts per round",
   "batch.rounds":"Rounds (1–100)",
   "batch.title":"Replication results",
-  "batch.note":"Each round starts from the same inputs and scheduled events with a distinct recorded seed. Shifts are continuous; inventory and failures carry across shift boundaries. Summaries describe model variability, not measured plant performance. Round 1 uses the selected display interval until the page is reloaded or another simulation is opened; saved replays are reduced to keep the Case small. Live controls in round 1 recalculate every round. Later rounds have reduced replays and their controls are disabled.",
+  "batch.note":"Round 1 keeps playback and live controls. Other rounds calculate metrics in the background using the same scheduled events and independent seeds.",
   "batch.later_controls":"Live controls are available in round 1. Scheduled events apply to every round.",
   "batch.sampled_speed":"Actual · sampled trend",
   "batch.invalid":"Choose 1–100 whole rounds, 1–3 shifts and 0.25–24 hours per shift in quarter-hour increments.",

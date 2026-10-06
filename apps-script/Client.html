@@ -1414,7 +1414,7 @@ function renderRawJson() {
       document.getElementById('batch-progress').value=0;dialog.showModal();window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       stopPlaybackTimer();
       try {
-        var response=await SimulatorEngine.simulateBatch({case:cloneJson(state.activeCase),run:run},{cancelled:function(){return cancelled;},progress:function(value,round,total){document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=round+' / '+total+' · '+Math.round(value*100)+'%';}});
+        var response=await SimulatorEngine.simulateBatch({case:cloneJson(state.activeCase),run:run},{cancelled:function(){return cancelled;},progress:function(value,round,total){document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=Math.floor(value*total)+' / '+total+' · '+Math.round(value*100)+'%';}});
         if(!response.ok){showError(response.error);return false;}
         state.run.result=response.result;state.run.representative=response.result;state.run.roundIndex=0;
         state.run.sampleIndex=findSampleIndexAtOrBefore(response.result.samples,resumeAtVirtualSecond);

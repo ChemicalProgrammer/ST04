@@ -46,7 +46,7 @@ export async function simulateLineAsync(input, options = {}) {
       previous=summary; nextShift+=shiftSeconds;
     }
     options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
-    await new Promise(resolve=>setTimeout(resolve,0));
+    if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
   const result=createResult(runtime); result.shifts=shifts; result.detailCoverage={omittedEvents};
@@ -1134,7 +1134,7 @@ function createResult(runtime) {
       zone.id,
       createZoneMetrics(zone, runtime.run.durationSeconds)
     ])),
-    events: runtime.events,
+    events: runtime.events.slice(),
     samples: runtime.samples
   };
 }
