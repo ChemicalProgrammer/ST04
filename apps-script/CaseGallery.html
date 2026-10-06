@@ -28,6 +28,10 @@ window.STCaseGallery = (function() {
       row.querySelector('.open-case').onclick=function(){openCase(item.id);};
       var clone=document.createElement('button');clone.type='button';clone.className='clone-case ghost icon-button';clone.innerHTML=STIcons.svg('copy');clone.title=__ST_TEXT__('casegallery.clone');clone.setAttribute('aria-label',__ST_TEXT__('casegallery.clone')+' '+item.name);
       clone.onclick=function(){requestCaseClone(item.id,clone);};row.querySelector('.case-actions').appendChild(clone);
+      if(options?.deleteCase){
+        var remove=document.createElement('button');remove.type='button';remove.className='delete-gallery-case ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title=__ST_TEXT__('dialog.delete_case');remove.setAttribute('aria-label',remove.title+' '+item.name);
+        remove.onclick=function(){options.deleteCase(item.id,item.name,remove);};row.querySelector('.case-actions').appendChild(remove);
+      }
       target.appendChild(row);
     });
     if(items.length>pageSize) {

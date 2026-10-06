@@ -137,8 +137,12 @@ function equipment(id, type, rate, capacity) {
 }
 
 function createCaseRuntime() {
-  const files = new Map();
+  function makeFolder() {
+  const files = new Map(),children=new Map();
   const folder = {
+    getFolders:()=>iterator([...children.values()]),
+    getFoldersByName:name=>iterator(children.has(name)?[children.get(name)]:[]),
+    createFolder(name){const child=makeFolder();children.set(name,child);return child;},
     getFiles: () => iterator([...files.values()]),
     getFilesByName: (name) => iterator(files.has(name) ? [files.get(name)] : []),
     createFile: (name, content) => {
@@ -147,7 +151,11 @@ function createCaseRuntime() {
       return file;
     }
   };
+  return folder;
+  }
+  const folder=makeFolder();
   const context = vm.createContext({
+    Utilities:{getUuid:()=>crypto.randomUUID()},
     JSON,
     Error,
     Date,
@@ -169,7 +177,7 @@ function createFile(name, content) {
     getId: () => 'file-' + name,
     getName: () => name,
     getBlob: () => ({ getDataAsString: () => fileContent }),
-    setContent: (nextContent) => { fileContent = nextContent; }
+    setContent: (nextContent) => { fileContent = nextContent; },setTrashed:()=>{}
   };
 }
 
@@ -199,7 +207,9 @@ test('clones a complete case into an independent owned record and denies other o
 
 test('save failures report the storage stage and safe reference without exposing case data',()=>{
  const runtime=createCaseRuntime(),logs=[];runtime.console={error:line=>logs.push(JSON.parse(line))};
+ runtime.persistCaseRecord_=(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;};
  runtime.getOwnedCaseFile_=()=>({caseData:{id:'a',revision:1,name:'Private case',ownerEmail:owner.email},file:{setContent:()=>{throw Error('private storage details');}}});
  assert.throws(()=>runtime.saveCase_({id:'a',expectedRevision:1,name:'Private case',equipment:[]},owner),error=>error.simulatorError?.code==='CASE_SAVE_FAILED'&&/WRITE/.test(error.message)&&/SAVE-/.test(error.message));assert.equal(logs[0].stage,'WRITE');assert(!JSON.stringify(logs).includes('Private case'));assert(!JSON.stringify(logs).includes('private storage'));
+ runtime.persistCaseRecord_=(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;};
  runtime.getOwnedCaseFile_=()=>{throw Error('private folder');};assert.throws(()=>runtime.saveCase_({id:'a'},owner),error=>error.simulatorError?.code==='CASE_SAVE_FAILED'&&/READ/.test(error.message));
 });

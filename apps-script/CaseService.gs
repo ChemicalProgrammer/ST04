@@ -4,12 +4,10 @@ function createCase_(request, user) { return withCaseWriteLock_(function(){retur
 function createCaseUnlocked_(request, user) {
   var caseData = createNewCaseRecord_(request, user);
   var folders = getWorkspaceFolders_();
-  var fileName = caseData.id + '.case.json';
-  if (folders.cases.getFilesByName(fileName).hasNext()) {
+  if (folders.cases.getFilesByName(caseData.id+'.case.json').hasNext() || folders.cases.getFoldersByName(caseData.id).hasNext()) {
     throw createSimulatorError_('CASE_ALREADY_EXISTS', 'A case with this identifier already exists.');
   }
-
-  var file = folders.cases.createFile(fileName, JSON.stringify(caseData, null, 2), MimeType.PLAIN_TEXT);
+  var file = persistCaseRecord_(caseData, null);
   if(typeof updateCaseIndex_==='function')updateCaseIndex_(caseData,file,user);
   return toCaseSummary_(caseData, file);
 }
@@ -34,9 +32,14 @@ function getCase_(caseId, user) {
 
 function deleteCase_(caseId, user) { return withCaseWriteLock_(function(){return deleteCaseUnlocked_(caseId,user);}); }
 function deleteCaseUnlocked_(caseId, user) {
-  var owned = getOwnedCaseFile_(caseId, user);
+  var owned = getOwnedCaseFile_(caseId, user, true);
   var summary = { id: owned.caseData.id, name: owned.caseData.name };
-  owned.file.setTrashed(true);
+  if(owned.folder) {
+    // A legacy file may remain if migration cleanup previously failed.
+    var legacy=getWorkspaceFolders_().cases.getFilesByName(owned.caseData.id+'.case.json');
+    while(legacy.hasNext()) {var file=legacy.next(),record=tryReadCaseFile_(file);if(record&&record.id===owned.caseData.id&&record.ownerEmail===user.email)file.setTrashed(true);}
+  }
+  (owned.folder || owned.file).setTrashed(true);
   if(typeof updateCaseIndex_==='function')updateCaseIndex_(owned.caseData,owned.file,user,true);
   return summary;
 }
@@ -63,7 +66,7 @@ function saveCaseUnlocked_(request, user) {
   stage='NORMALIZE';
   var next = buildUpdatedCase_(request, current, user);
   stage='WRITE';
-  owned.file.setContent(JSON.stringify(next));
+  owned.file = persistCaseRecord_(next, owned);
   if(typeof updateCaseIndex_==='function')updateCaseIndex_(next,owned.file,user);
   return next;
   }catch(error){
@@ -159,19 +162,56 @@ function normalizeSimulations_(simulations, fallbackEquipment, fallbackConfig) {
 function generateSimulationId_(index) { return 'simulation-' + simulationLetter_(index).toLowerCase() + '-' + new Date().getTime(); }
 function simulationLetter_(index) { return String.fromCharCode(65 + index); }
 
-function getOwnedCaseFile_(caseId, user) {
+function getOwnedCaseFile_(caseId, user, metadataOnly) {
   var normalizedId = requireCaseId_(caseId);
-  var files = getWorkspaceFolders_().cases.getFilesByName(normalizedId + '.case.json');
-  if (!files.hasNext()) {
-    throw createSimulatorError_('CASE_NOT_FOUND', 'The requested Case could not be found.');
+  var root=getWorkspaceFolders_().cases,folders=root.getFoldersByName(normalizedId);
+  if(folders.hasNext()) {
+    var folder=folders.next(),manifests=folder.getFilesByName('case.json');
+    if(manifests.hasNext()) {
+      var manifest=manifests.next(),record=tryReadCaseFile_(manifest);
+      if(!record||record.id!==normalizedId||record.ownerEmail!==user.email)throw createSimulatorError_('CASE_NOT_FOUND','The requested Case could not be found.');
+      if(metadataOnly)return {file:manifest,folder:folder,caseData:record};
+      if(record.storageVersion!=='case-folder-1'||!Array.isArray(record.simulationFiles))throw createSimulatorError_('INVALID_CASE','The case manifest is invalid.');
+      record.simulations=record.simulationFiles.map(function(entry){
+        if(!entry||!/^simulation-[a-z0-9-]+\.json$/i.test(entry.fileName))throw createSimulatorError_('INVALID_CASE','The simulation manifest is invalid.');
+        var matches=folder.getFilesByName(entry.fileName),simulation=matches.hasNext()?tryReadCaseFile_(matches.next()):null;
+        if(!simulation||simulation.id!==entry.id)throw createSimulatorError_('INVALID_CASE','A saved simulation could not be read.');
+        return simulation;
+      });
+      return {file:manifest,folder:folder,caseData:record};
+    }
   }
+  var files=root.getFilesByName(normalizedId+'.case.json'),file=files.hasNext()?files.next():null;
+  var caseData=file?tryReadCaseFile_(file):null;
+  if(!caseData||caseData.id!==normalizedId||caseData.ownerEmail!==user.email)throw createSimulatorError_('CASE_NOT_FOUND','The requested Case could not be found.');
+  return {file:file,caseData:caseData};
+}
 
-  var file = files.next();
-  var caseData = tryReadCaseFile_(file);
-  if (!caseData || caseData.ownerEmail !== user.email) {
-    throw createSimulatorError_('CASE_NOT_FOUND', 'The requested Case could not be found.');
-  }
-  return { file: file, caseData: caseData };
+// Stage immutable simulation files, then commit their references in case.json.
+// A failed write leaves the previous manifest and simulations readable.
+function persistCaseRecord_(record,owned) {
+  var root=getWorkspaceFolders_().cases,folder=owned&&owned.folder;
+  if(!folder){var matches=root.getFoldersByName(record.id);folder=matches.hasNext()?matches.next():root.createFolder(record.id);}
+  var previous=owned&&owned.folder?owned.caseData.simulationFiles||[]:[],staged=[],refs=[];
+  var manifestFiles=folder.getFilesByName('case.json'),manifest=manifestFiles.hasNext()?manifestFiles.next():null;
+  if(manifest&&(!owned||!owned.folder))throw createSimulatorError_('CASE_CONFLICT','A case folder already contains a saved case. Reload before saving.');
+  try {
+    record.simulations.forEach(function(simulation,index){
+      var json=JSON.stringify(simulation),old=previous.find(function(e){return e.id===simulation.id;}),oldFiles=old?folder.getFilesByName(old.fileName):null,oldFile=oldFiles&&oldFiles.hasNext()?oldFiles.next():null;
+      if(oldFile&&oldFile.getBlob().getDataAsString()===json){refs.push(old);return;}
+      var name='simulation-'+index+'-'+Utilities.getUuid()+'.json';
+      staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name});
+    });
+    var general=Object.assign({},record,{storageVersion:'case-folder-1',simulationFiles:refs});delete general.simulations;
+    var json=JSON.stringify(general);
+    if(manifest)manifest.setContent(json);else manifest=folder.createFile('case.json',json,MimeType.PLAIN_TEXT);
+  }catch(error){staged.forEach(function(file){try{file.setTrashed(true);}catch(ignore){}});throw error;}
+  // Cleanup is best effort after the authoritative manifest has committed.
+  try {
+    previous.forEach(function(entry){if(!refs.some(function(e){return e.fileName===entry.fileName;})){var files=folder.getFilesByName(entry.fileName);if(files.hasNext())files.next().setTrashed(true);}});
+    if(owned&&!owned.folder)owned.file.setTrashed(true);
+  }catch(error){console.error(JSON.stringify({event:'CASE_STORAGE_CLEANUP_FAILED',type:error.name||'Error'}));}
+  return manifest;
 }
 
 function requireCaseId_(id) {

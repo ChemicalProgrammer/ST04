@@ -28,7 +28,7 @@ Local saves and clones created during scanning survive a late, older response.
 
 ## Consistency and access
 
-The existing case JSON remains authoritative. The catalog is not a replacement for
+The saved case manifest and its referenced simulation files remain authoritative. The catalog is not a replacement for
 ownership checks or revision checks. Its owner is verified; scan entries must be
 owned by the current user and match the case file's name. Deleted or moved files
 are omitted, and a stale file ID is not used to load a file outside the case folder.
@@ -42,12 +42,32 @@ still returns success. Reconciliation can repair the catalog from the case's Dri
 modification timestamp. No existing case files are migrated, deleted or rewritten
 by catalog building.
 
-## Possible next storage version
+## Folder storage
 
-A folder per case, a small `case.json` for general data/default configuration and
-one JSON per simulation could reduce opening and saving large multi-simulation
-cases. That is a separate change to the persistence contract. It requires lazy
-simulation fetching, careful handling of comparison and Gemini context, migration
-of existing cases, and a committed manifest/revision so a failed multi-file save
-cannot expose a mixture of old and new simulations. The current change addresses
-start-page loading without requiring that migration or changing case exports.
+Each case now uses `SimulatorTemplate Cases/<case-id>/`:
+
+| File | Contents |
+| --- | --- |
+| `case.json` | General data, initial equipment/configuration, ownership, revision and simulation file references |
+| `simulation-<position>-<version>.json` | One simulation's inputs, results, suggested scenarios and saved search evidence |
+
+The catalog remains in `SimulatorTemplate Cases`, outside individual case folders.
+Reconciliation reads only `case.json` for folder cases; simulation blobs are loaded
+when opening the case. The existing `getCase` response and exports still contain
+complete simulations, so the browser contract does not change.
+
+New cases and clones use folders immediately. Legacy `<id>.case.json` cases remain
+readable and listed. Their first successful save, including scenario creation,
+migrates them automatically; catalog building does not migrate anything. The old
+flat file goes to Drive Trash only after the new manifest commits.
+
+Saving reuses unchanged simulation files. Changed simulations receive new version
+filenames before `case.json` commits the full reference list. A failed staging or
+manifest write leaves the previous committed version readable. After committing,
+obsolete simulation files are moved to Trash as best-effort cleanup. This keeps
+multi-file failures from exposing partly updated simulations. Cleanup and catalog
+failures do not turn an already committed save into a failure response.
+
+Case deletion, from the gallery or Settings, requires confirmation and moves the
+whole case folder to Drive Trash. Legacy cases move their flat file to Trash.
+Ownership and revision checks continue to run under the per-user write lock.

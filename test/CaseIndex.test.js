@@ -9,8 +9,12 @@ function runtime(){
  const iterator=values=>{let i=0;return {hasNext:()=>i<values.length,next:()=>values[i++]};};
  function folder(id){
   if(folders.has(id))return folders.get(id);
-  const files=new Map();
-  const result={files,
+  const files=new Map(),children=new Map();
+  const result={files,getName:()=>id.split('/').at(-1),trashed:false,
+   getFolders:()=>iterator([...children.values()].filter(f=>!f.trashed)),
+   getFoldersByName:name=>iterator([...children.values()].filter(f=>f.getName()===name&&!f.trashed)),
+   createFolder(name){const child=folder(id+'/'+name);children.set(name,child);return child;},
+   setTrashed(value){result.trashed=value;},
    getFiles:()=>iterator([...files.values()].filter(f=>!f.trashed)),
    getFilesByName:name=>iterator([...files.values()].filter(f=>f.name===name&&!f.trashed)),
    createFile(name,content){
@@ -95,4 +99,44 @@ test('workspace catalogs are isolated and a missing or corrupt index can be rebu
  const index=h.folder().files.get(h.ctx.caseIndexName_(owner));index.setContent(JSON.stringify({schemaVersion:'case-index-1',ownerEmail:owner.email,entries:[null]}));
  assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.refresh();assert.equal(h.ctx.listCases_(owner)[0].id,'one');
  const catalog=JSON.parse(index.content);catalog.scan={id:'bad',queue:[null],position:0};index.setContent(JSON.stringify(catalog));h.refresh();assert.equal(h.ctx.listCases_(owner)[0].id,'one');
+});
+
+test('folder storage keeps general data separate, reuses unchanged simulations and rebuilds only manifests',()=>{
+ const h=runtime();h.ctx.createCase_({id:'split',name:'Separate files',simulations:[{id:'a',name:'A',results:{largeReplay:'x'.repeat(100000)}},{id:'b',name:'B'}]},owner);
+ const child=h.folder().getFoldersByName('split').next(),manifest=child.files.get('case.json'),general=JSON.parse(manifest.content);
+ assert.equal(general.simulations,undefined);assert.equal(general.simulationFiles.length,2);assert(!manifest.content.includes('largeReplay'));
+ const before=general.simulationFiles.map(e=>e.fileName),record=h.ctx.getCase_('split',owner);record.name='Renamed';record.expectedRevision=1;
+ h.ctx.saveCase_(record,owner);assert.deepEqual(JSON.parse(manifest.content).simulationFiles.map(e=>e.fileName),before);
+ h.folder().files.get(h.ctx.caseIndexName_(owner)).setTrashed(true);h.reads.length=0;h.refresh();assert.equal(h.ctx.listCases_(owner)[0].name,'Renamed');
+ assert(h.reads.includes('case.json'));assert(!h.reads.some(n=>n.startsWith('simulation-')));
+ h.ctx.deleteCase_('split',owner);assert(child.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,0);assert.throws(()=>h.ctx.getCase_('split',owner));
+});
+
+test('legacy cases migrate on save and a failed manifest commit retains the previous simulations',()=>{
+ const h=runtime(),legacy=h.seed('legacy');const record=h.ctx.getCase_('legacy',owner);record.expectedRevision=1;
+ h.ctx.saveCase_(record,owner);assert(legacy.trashed);const child=h.folder().getFoldersByName('legacy').next(),manifest=child.files.get('case.json');
+ const original=manifest.content;const next=h.ctx.getCase_('legacy',owner);next.expectedRevision=2;next.name='Failed draft';next.simulations[0].name='New simulation';manifest.fail=true;
+ assert.throws(()=>h.ctx.saveCase_(next,owner),e=>e.simulatorError.code==='CASE_SAVE_FAILED');assert.equal(manifest.content,original);
+ const recovered=h.ctx.getCase_('legacy',owner);assert.equal(recovered.revision,2);assert.equal(recovered.simulations[0].name,'A');
+ assert.equal([...child.files.values()].filter(f=>!f.trashed&&f.name.startsWith('simulation-')).length,1);
+ manifest.fail=false;h.ctx.saveCase_(next,owner);assert.equal(h.ctx.getCase_('legacy',owner).name,'Failed draft');assert.equal(h.ctx.getCase_('legacy',owner).simulations[0].name,'New simulation');
+});
+
+test('failed legacy migration leaves the old file usable and foreign folder ownership is enforced',()=>{
+ const h=runtime(),legacy=h.seed('a');const original=h.folder().createFolder;
+ h.folder().createFolder=function(name){const child=original.call(this,name),create=child.createFile;child.createFile=function(name,content){if(name==='case.json')throw Error('commit failed');return create.call(this,name,content);};return child;};
+ const record=h.ctx.getCase_('a',owner);record.expectedRevision=1;assert.throws(()=>h.ctx.saveCase_(record,owner));assert(!legacy.trashed);assert.equal(h.ctx.getCase_('a',owner).revision,1);
+ h.folder().createFolder=original;h.ctx.createCase_({id:'foreign-folder',name:'Private'}, {email:'another@example.test'});
+ assert.throws(()=>h.ctx.getCase_('foreign-folder',owner),e=>e.simulatorError.code==='CASE_NOT_FOUND');assert.throws(()=>h.ctx.deleteCase_('foreign-folder',owner));h.refresh();assert(!h.ctx.listCases_(owner).some(c=>c.id==='foreign-folder'));
+});
+
+test('deletion removes a leftover owned legacy file so migration cleanup errors cannot resurrect a case',()=>{
+ const h=runtime(),legacy=h.seed('leftover'),trash=legacy.setTrashed;legacy.setTrashed=()=>{throw Error('cleanup failed');};
+ const record=h.ctx.getCase_('leftover',owner);record.expectedRevision=1;h.ctx.saveCase_(record,owner);assert(!legacy.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,1);assert.equal(h.ctx.listCases_(owner)[0].revision,2);
+ legacy.setTrashed=trash;h.ctx.deleteCase_('leftover',owner);assert(legacy.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,0);
+});
+
+test('deleting an owned folder uses its manifest without requiring valid simulation results',()=>{
+ const h=runtime();h.ctx.createCase_({id:'broken',name:'Broken simulation'},owner);const child=h.folder().getFoldersByName('broken').next();const manifest=JSON.parse(child.files.get('case.json').content);child.files.get(manifest.simulationFiles[0].fileName).setContent('{bad');
+ assert.throws(()=>h.ctx.getCase_('broken',owner));h.reads.length=0;h.ctx.deleteCase_('broken',owner);assert(child.trashed);assert(!h.reads.some(n=>n.startsWith('simulation-')));
 });

@@ -143,7 +143,7 @@
     window.addEventListener('beforeunload',function(event){if(autosave.pending()||STSettings.pending()){event.preventDefault();event.returnValue='';}});
     window.addEventListener('online',function(){if(automaticSaving()&&autosave.pending())autosave.retry().catch(function(){});});
     function automaticSaving(){return ['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode||document.documentElement.dataset.uiMode).toUpperCase())&&STPreferences.read('autosaveEnabled')!=='no';}
-    function syncSaveButton(){var b=document.getElementById('save-case');if(!b)return;b.classList.toggle('hidden',!state.activeCase||automaticSaving());b.disabled=state.saving||!state.isDirty;}
+    function syncSaveButton(){var b=document.getElementById('save-case');if(!b)return;b.classList.toggle('hidden',!state.activeCase||automaticSaving());b.disabled=state.saving||!state.isDirty;b.classList.toggle('has-changes',state.isDirty);}
     function configureSaving(){var seconds=Number(STPreferences.read('autosaveSeconds')||10);autosave.configure({enabled:automaticSaving(),intervalMs:Math.max(1,Math.min(3600,seconds||10))*1000});syncSaveButton();}
     window.addEventListener('st-save-policy-change',configureSaving);
     function prepareCaseDraft(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
@@ -455,7 +455,7 @@ async function openCase(caseId) {
       });
     }
 
-    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone,{loading:state.catalogLoading}); }
+    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone,{loading:state.catalogLoading,deleteCase:requestCaseDeletion}); }
     var catalogGeneration=0,catalogTimer;
     function cancelCaseCatalog(){
       catalogGeneration++;clearTimeout(catalogTimer);state.catalogLoading=false;

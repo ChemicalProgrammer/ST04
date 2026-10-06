@@ -1,4 +1,4 @@
-// The index is a rebuildable catalog; .case.json files remain authoritative.
+// Rebuildable catalog of folder manifests and legacy flat cases.
 var ST_CASE_INDEX_LIMITS = {maxReadsPerBatch:8,maxBatchMs:4000};
 
 function caseIndexName_(user) { return 'cases-index-'+encodeURIComponent(user.email.toLowerCase())+'.json'; }
@@ -8,7 +8,7 @@ function readCaseIndex_(folder,user) {
   if(!data||data.schemaVersion!=='case-index-1'||data.ownerEmail!==user.email||!Array.isArray(data.entries)||!data.entries.every(function(e){return e&&typeof e.id==='string'&&/^[a-z0-9-]+$/i.test(e.id)&&typeof e.name==='string'&&typeof e.fileId==='string';})) {
     data={schemaVersion:'case-index-1',ownerEmail:user.email,entries:[],complete:false};
   }
-  if(data.scan&&!(typeof data.scan.id==='string'&&Array.isArray(data.scan.queue)&&Number.isInteger(data.scan.position)&&data.scan.position>=0&&data.scan.position<=data.scan.queue.length&&data.scan.queue.every(function(e){return e&&typeof e.fileId==='string'&&typeof e.name==='string'&&/^[a-z0-9-]+\.case\.json$/i.test(e.name);}))) {delete data.scan;data.complete=false;}
+  if(data.scan&&!(typeof data.scan.id==='string'&&Array.isArray(data.scan.queue)&&Number.isInteger(data.scan.position)&&data.scan.position>=0&&data.scan.position<=data.scan.queue.length&&data.scan.queue.every(function(e){return e&&typeof e.fileId==='string'&&typeof e.name==='string'&&/^[a-z0-9-]+\.case\.json$/i.test(e.name)&&(!e.folderName||/^[a-z0-9-]+$/i.test(e.folderName));}))) {delete data.scan;data.complete=false;}
   return {file:file,data:data};
 }
 function writeCaseIndex_(folder,index,user) {
@@ -46,19 +46,33 @@ function refreshCaseCatalog_(user,cursor) {
         liveIds.add(id);
         if(known.get(id)!==modified)queue.push({fileId:id,name:name,modifiedAt:modified});
       }
+      var children=folder.getFolders();
+      while(children.hasNext()) {
+        var child=children.next(),childName=child.getName();if(!/^[a-z0-9-]+$/i.test(childName))continue;
+        var manifests=child.getFilesByName('case.json');if(!manifests.hasNext())continue;
+        var manifest=manifests.next(),manifestId=manifest.getId(),modified=caseFileModifiedAt_(manifest);
+        liveIds.add(manifestId);
+        if(known.get(manifestId)!==modified)queue.push({fileId:manifestId,name:childName+'.case.json',folderName:childName,modifiedAt:modified});
+      }
       data.entries=data.entries.filter(function(e){return liveIds.has(e.fileId);});
       queue.sort(function(a,b){return b.modifiedAt-a.modifiedAt;});
       data.scan={id:Utilities.getUuid(),queue:queue,position:0};
     }
     var scan=data.scan,started=Date.now(),reads=0;
     while(scan.position<scan.queue.length&&reads<ST_CASE_INDEX_LIMITS.maxReadsPerBatch&&(reads===0||Date.now()-started<ST_CASE_INDEX_LIMITS.maxBatchMs)) {
-      var item=scan.queue[scan.position++],matches=folder.getFilesByName(item.name),current=matches.hasNext()?matches.next():null;
+      var item=scan.queue[scan.position++],container=folder;
+      if(item.folderName){var children=folder.getFoldersByName(item.folderName);if(!children.hasNext())continue;container=children.next();}
+      var matches=container.getFilesByName(item.folderName?'case.json':item.name),current=matches.hasNext()?matches.next():null;
       // A moved/deleted file is not read through its stale ID.
       if(!current||current.getId()!==item.fileId)continue;
       var record=tryReadCaseFile_(current);reads++;
       data.entries=data.entries.filter(function(e){return e.fileId!==item.fileId;});
       if(record&&record.ownerEmail===user.email&&record.id+'.case.json'===item.name&&typeof record.name==='string') {
-        data.entries.push(Object.assign(toCaseSummary_(record,current),{fileModifiedAt:caseFileModifiedAt_(current,record.updatedAt)}));
+        var existing=data.entries.find(function(e){return e.id===record.id;});
+        if(item.folderName||!existing?.folderName){
+          data.entries=data.entries.filter(function(e){return e.id!==record.id;});
+          data.entries.push(Object.assign(toCaseSummary_(record,current),{folderName:item.folderName||null,fileModifiedAt:caseFileModifiedAt_(current,record.updatedAt)}));
+        }
       }
     }
     var hasMore=scan.position<scan.queue.length;
@@ -74,7 +88,7 @@ function updateCaseIndex_(caseData,file,user,removed) {
   try {
     var folder=getWorkspaceFolders_().cases,index=readCaseIndex_(folder,user);
     index.data.entries=index.data.entries.filter(function(e){return e.id!==caseData.id&&e.fileId!==file.getId();});
-    if(!removed)index.data.entries.push(Object.assign(toCaseSummary_(caseData,file),{fileModifiedAt:caseFileModifiedAt_(file,caseData.updatedAt)}));
+    if(!removed)index.data.entries.push(Object.assign(toCaseSummary_(caseData,file),{folderName:file.getName()==='case.json'?caseData.id:null,fileModifiedAt:caseFileModifiedAt_(file,caseData.updatedAt)}));
     writeCaseIndex_(folder,index,user);
   }catch(error){console.error(JSON.stringify({event:'CASE_INDEX_UPDATE_FAILED',type:error?.name||'Error'}));}
 }

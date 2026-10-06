@@ -84,6 +84,7 @@ test('Gemini rounded before values bind to exact saved inputs and survive the cr
  const response=h.ctx.askGemini_(request,user),accepted=JSON.parse(JSON.stringify(response.proposals[0]));assert(accepted);
  assert.notEqual(accepted.changes[0].before,999.123);
  let saved=h.record,writes=0;
+ h.ctx.persistCaseRecord_=(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;};
  h.ctx.withCaseWriteLock_=fn=>fn();h.ctx.getOwnedCaseFile_=()=>({caseData:JSON.parse(JSON.stringify(saved)),file:{setContent:value=>{saved=JSON.parse(value);writes++;}}});h.ctx.ensureCaseSimulations_=c=>c;h.ctx.generateSimulationId_=()=> 'scenario';h.ctx.Utilities={getUuid:()=> 'unique-clone'};
  const created=h.ctx.createScenario_({caseId:saved.id,simulationId:'a',expectedRevision:1,origin:'GEMINI',sourceSignature:accepted.sourceSignature,proposal:accepted},user);
  assert.equal(writes,1);assert.equal(created.case.simulations.length,2);assert.equal(created.case.simulations[0].dynamicConfig.seed,7);assert.equal(created.case.simulations[1].results,null);

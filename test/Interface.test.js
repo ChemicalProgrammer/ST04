@@ -49,6 +49,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   context.requireCurrentUser_=()=>({email:'preview@example.test'});
   context.Utilities={getUuid:()=> 'scenario-uuid'};
   context.LockService={getUserLock:()=>({tryLock:()=>true,releaseLock:()=>{}})};
+  context.persistCaseRecord_=(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;};
   context.getOwnedCaseFile_=(id,user)=>{assert.equal(user.email,'preview@example.test');const record=cases.find(c=>c.id===id);assert(record);return {caseData:copy(record),file:{setContent:value=>{cases=cases.map(c=>c.id===id?JSON.parse(value):c);}}};};
   for(const name of ['getCase','saveCase','getScenarioSourceSignature','createScenario'])api[name]=(...args)=>{
    args=copy(args);if(name==='createScenario'&&fingerprintMismatch)args[0].sourceSignature='different-client-fingerprint';
@@ -1473,5 +1474,17 @@ test('UI: a case clone made during catalog refresh survives a stale background r
   await h.click('#refresh-case-catalog');await waitFor(()=>complete);h.w.google.script.run=runner;await h.click('#cases-sign-out');
   complete({ok:true,data:{cases:[{id:'old',name:'Old session case'}],hasMore:false,cursor:null}});assert(h.visible('auth-panel'));assert.equal(h.d.getElementById('cases-list').children.length,0);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: gallery deletion requires confirmation and saves show dirty theme color without visible status text',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  const trash=h.d.querySelector('.delete-gallery-case');assert(trash);assert(trash.querySelector('svg'));assert.equal(trash.textContent,'');assert(trash.getAttribute('aria-label'));
+  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
+  await h.click('.open-case');const save=h.d.getElementById('save-case');assert(!save.classList.contains('has-changes'));assert(save.disabled);
+  const name=h.d.getElementById('case-name');name.value='Changed';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(save.classList.contains('has-changes'));
+  assert(h.d.getElementById('autosave-status').classList.contains('sr-only'));
+  await h.click('#save-case');await waitFor(()=>!save.classList.contains('has-changes'));assert(save.disabled);
+  await h.click('#home-cases');await h.click('.delete-gallery-case');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases().length===0);assert(h.visible('cases-panel'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
