@@ -479,7 +479,10 @@ test('UI: shift replications save compact results, reopen and expose statistics 
   await h.click('#pause-simulation');await h.click('.sidebar [data-view="results"]');
   assert(h.visible('batch-results'));assert.match(h.d.getElementById('batch-results').textContent,/Standard deviation/);
   const saved=h.storedCases()[0].simulations[0];assert.equal(saved.results.durationSeconds,1800);assert.equal(saved.results.batch.rows[0].shifts.length,2);assert(!saved.results.replay.batch);
-  assert.equal(saved.results.replay.samples.length,361);assert(saved.results.batch.replays[0].samples.length<=121);
+  assert(saved.results.replay.samples.length>=2&&saved.results.replay.samples.length<=361);
+  assert.equal(saved.results.replay.samples[0].virtualSecond,0);assert.equal(saved.results.replay.samples.at(-1).virtualSecond,1800);
+  if(saved.results.replay.samples.length<361)assert(saved.results.replay.detailCoverage.savedReplaySampled);
+  assert(saved.results.batch.replays[0].samples.length<=121);
   await h.click('.sidebar [data-view="simulation"]');assert(!h.d.getElementById('playback-round-control').classList.contains('hidden'));
   const selector=h.d.getElementById('playback-round');assert.equal(selector.options.length,2);
   selector.value='1';selector.dispatchEvent(new h.w.Event('change'));assert.match(h.d.getElementById('playback-status').textContent,/Round 2 \/ 2/);
@@ -746,7 +749,7 @@ test('UI: Basic hides units and modes, JSON visibility is a per-mode preference 
   const show=h.d.getElementById('settings-json-fields');show.checked=true;show.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   assert.equal(display(card._fields.querySelector('.equipment-json-details')),'block');
   assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),'yes');
-  const role=card._fields.querySelector('.equipment-pacemaker');role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
+  const role=card._fields.querySelector('.equipment-pacemaker');assert.match(role.closest('label').textContent,/Critical machine/);role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].processData.role==='PACEMAKER');
   const saved=h.storedCases()[0].equipment;assert.equal(saved[0].type,'BLOWMOLDER');assert.equal(saved.filter(e=>e.characteristics.isPacemaker).length,1);
   await h.click('[data-basic-view="conveyors"]');assert.equal(display(h.d.querySelector('#equipment-inspector .equipment-unit').closest('label')),'none');
@@ -931,11 +934,15 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
-  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,22);
-  const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2,'overspeed':7};
-  Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));await h.click('#save-case');
-  await waitFor(()=>h.storedCases()[0].equipment[1].processData.speedAndSensors.overspeedVsInfeedScrewPercent===7);
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,23);
+  const requiredInfeedMargin=h.storedCases()[0].equipment[1].processData.speedAndSensors?.overspeedVsInfeedScrewPercent;
+  const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2};
+  Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
+  const overspeedMode=fields.querySelector('.format-zone-overspeed-enabled');overspeedMode.checked=true;overspeedMode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  change(fields.querySelector('.format-zone-overspeed'),7);overspeedMode.checked=false;overspeedMode.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
+  await waitFor(()=>h.storedCases()[0].equipment[1].processData.accumulation.inputValues.overspeedPercent===7);
   const saved=h.storedCases()[0].equipment[1].processData;
+  assert.equal(saved.accumulation.targetOverspeedPercent,undefined);assert.equal(saved.speedAndSensors.overspeedVsInfeedScrewPercent,requiredInfeedMargin);
   assert.equal(saved.geometry.actualDischargeMm,300);assert.equal(saved.geometry.actualCodingMm,200);assert.equal(saved.upstream.startupTimeSeconds,2.4);assert.equal(saved.downstream.infeedPitchMm,125);assert.equal(saved.downstream.rampUpTimeSeconds,5);
   assert.equal(saved.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent,20);assert.equal(saved.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent,30);
   assert.equal(saved.accumulation.speedMode,'MANUAL');assert.equal(saved.accumulation.conveyorSpeedMmPerSecond,500);assert.equal(saved.accumulation.movingGapMm,undefined);
@@ -1102,7 +1109,9 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   const search=card.querySelector('.scenario-search');search.click();
   await waitFor(()=>release);assert(search.disabled);assert(card.querySelector('input').disabled);
   assert.match(card.querySelector('.scenario-search-progress').textContent,/Baseline.*up to.*round.*Elapsed/);
-  Array.from(target.querySelectorAll('button')).find(b=>b.textContent==='Add improvement').click();
+  assert(!Array.from(target.querySelectorAll('button')).some(b=>b.textContent==='Add improvement'));
+  assert(!target.textContent.includes('Explore the whole line'));
+  assert.equal(target.querySelector('.scenario-explorer > details'),null);
   assert(card.isConnected);assert.equal(calls,1);
   h.w.STPreferences.write('scenarioDoe','yes');h.w.dispatchEvent(new h.w.Event('st-doe-change'));
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Simulating baseline/);
@@ -1132,6 +1141,8 @@ test('UI: reproduced gains with audit warnings require acknowledgement and remai
 
 test('UI: modal DOE selection exposes more than four factors and runs the user-selected later variables',async()=>{
  const h=await setup({remember:true});try{
+  // This test covers the complete DOE; search-limit behavior has its own tests.
+  h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
   h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];
   const paths=['conveyorSpeedFactorPercent','blockedTimeDelaySeconds','clearTimeDelaySeconds','backupSensorPositionMm','downstreamRampUpSeconds','conveyorSpeedMmPerSecond'];
   const changes=paths.map(key=>{e.processData.accumulation[key]=10;return {equipmentId:e.id,path:'processData.accumulation.'+key,before:10,after:12,unit:'test'};});
@@ -1159,7 +1170,9 @@ test('UI: case autosave restores card evidence, metrics and controls without cha
   let card=h.d.querySelector('.scenario-grid .analysis-recommendation');card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   await waitFor(()=>h.storedCases()[0].simulations[0].whatIf?.evaluations?.some(e=>e.status==='IMPROVEMENT_REPRODUCED'));
   assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig),baseline);
-  const metric=card.querySelector('.scenario-metrics').textContent;assert.match(metric,/BaseProposedChange/);assert.equal(card.querySelectorAll('.scenario-metric-table').length,2);
+  const metric=card.querySelector('.scenario-metrics').textContent;assert.match(metric,/BaseProposedChange/);assert.equal(card.querySelectorAll('.scenario-metric-table').length,1);
+  assert.equal(card.querySelector('.scenario-verification'),null);
+  assert(h.storedCases()[0].simulations[0].whatIf.evaluations.some(e=>e.independentCheck?.passed));
   await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   card=h.d.querySelector('.scenario-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-metrics').textContent,metric);assert.equal(card.querySelector('.scenario-create').disabled,false);
   card.querySelector('.scenario-configure').click();const checkbox=card.querySelector('.scenario-change input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));
@@ -1418,6 +1431,14 @@ test('UI: switchable conveyor fields retain inactive manual values through save 
   await open();const field=key=>h.d.querySelector('#equipment-inspector .format-zone-'+key);
   function change(key,value){const input=field(key);if(input.type==='checkbox')input.checked=value;else input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));}
   for(const key of ['population','lba','overspeed'])assert.equal(field(key+'-enabled').nextElementSibling,field(key));
+  if(uiMode==='BASIC'){
+   const output=h.d.querySelector('#equipment-inspector .basic-worksheet-group output');
+   const outputStyle=h.w.getComputedStyle(output);
+   for(const key of ['population','lba','overspeed']){
+    const calculatedStyle=h.w.getComputedStyle(field(key));
+    for(const property of ['backgroundColor','color','fontSize','fontWeight','padding','height','borderRadius','textAlign'])assert.equal(calculatedStyle[property],outputStyle[property],key+' '+property);
+   }
+  }
   change('population-enabled',true);change('population',50);change('population-enabled',false);assert(field('population').readOnly);assert(field('population').classList.contains('calculated-value'));
   change('lba-enabled',true);change('lba',1000);change('lba-enabled',false);
   change('overspeed-enabled',true);change('overspeed',20);assert(!field('population-enabled').checked);assert(field('belt-speed').disabled);assert(!field('overspeed').readOnly);change('overspeed-enabled',false);

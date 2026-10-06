@@ -54,10 +54,10 @@ var STConfigurationEditor=(function(){
       if(!['BLOWER','BLOWMOLDER','CONVEYOR','PACEMAKER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'].includes(e.type))throw Error('equipment['+index+'].type is unsupported.');
       ['characteristics','noiseProfile','processData'].forEach(function(key){if(e[key]===undefined)e[key]={};if(!object(e[key]))throw Error('equipment['+index+'].'+key+' must be an object.');});
       ['maximumSpeedBpm','recoveryTimeSeconds'].forEach(function(key){var value=e.processData.equipment?.[key];if(value!=null&&(typeof value!=='number'||!Number.isFinite(value)||value<=0))throw Error('equipment['+index+'].processData.equipment.'+key+' must be a positive number.');});
-      if(e.type==='CONVEYOR'&&(e.processData.role==='PACEMAKER'||e.characteristics.isPacemaker===true))throw Error('A conveyor cannot be the Pacemaker.');
+      if(e.type==='CONVEYOR'&&(e.processData.role==='PACEMAKER'||e.characteristics.isPacemaker===true))throw Error('A conveyor cannot be the critical machine.');
       if(e.noiseProfile.reliability){e.processData.equipment=Object.assign({},e.processData.equipment,e.noiseProfile.reliability);}
     });
-    if(source.equipment.filter(function(e){return e.type==='PACEMAKER'||e.processData.role==='PACEMAKER'||e.characteristics.isPacemaker===true;}).length>1)throw Error('Select only one machine as the Pacemaker.');
+    if(source.equipment.filter(function(e){return e.type==='PACEMAKER'||e.processData.role==='PACEMAKER'||e.characteristics.isPacemaker===true;}).length>1)throw Error('Select only one machine as the critical machine.');
     var result=SimulatorEngine.validateSimulationInput({case:{equipment:source.equipment},run:run});
     if(!result.ok)throw Error(result.error.details.map(function(d){return d.path+': '+d.reason;}).join('\n'));
     return {equipment:source.equipment,dynamicConfig:run};

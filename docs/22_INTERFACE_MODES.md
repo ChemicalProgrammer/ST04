@@ -54,7 +54,7 @@ defaults to visible. The preference is remembered separately for each mode
 in this browser. It hides the equipment JSON sections and the Line Setup JSON
 viewer, without affecting Import JSON or exports.
 
-Advance exposes the Pacemaker checkbox; Basic retains the configured role without adding it to the compact card. Selecting it clears other machine
+Advance exposes the Critical machine checkbox; Basic retains the configured role without adding it to the compact card. Selecting it clears other machine
 selections and preserves the physical type (Blowmolder, Filler, etc.). Legacy
 PACEMAKER types reopen using their recorded machine type, or CUSTOM if that
 information is unavailable, while retaining the role.
@@ -126,3 +126,19 @@ field. The engine rejects simultaneous targets and Overspeed targets outside
 0–1000%. The legacy `speedAndSensors.overspeedVsInfeedScrewPercent` remains the
 required audit margin (default 5%); the new target is a separate operating
 input. A target does not bypass capacity, spacing or engineering checks.
+
+Scenario cards show a single OEE/throughput comparison using the search seed block,
+so creating and rerunning the same inputs remains reproducible. Independent seed
+confirmation still runs, controls creation and remains saved as evidence; its second
+comparison table is no longer shown. The whole-line heading and external reliability
+entry form above the CAPEX cards are removed. Existing saved intervention hypotheses
+remain available in those cards.
+
+“Critical machine” replaces “Pacemaker” in interface labels, validation messages,
+reports and assistant wording. Legacy PACEMAKER enum values and property names are
+retained for compatibility with saved cases and imports.
+
+In Basic simulation rows, the speed graph uses the remaining desktop width and spans
+the full row on tablet layouts. Read-only Population, LBA and Overspeed fields use
+the same background, typography, padding and height as the worksheet's other outputs;
+manual mode restores the standard numeric input appearance and its retained value.

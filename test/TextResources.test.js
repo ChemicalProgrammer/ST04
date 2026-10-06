@@ -47,3 +47,10 @@ test('dictionary edits reach static views and dynamic messages through the same 
   assert(!/__ST_(?:HTML_)?TEXT__\('/.test(controller));
   new Function(controller.replace(/<\/?script>/g,''));
 });
+
+
+test('critical machine terminology replaces the legacy name in all interface text',()=>{
+  const ctx=resources();
+  assert.equal(ctx.ST_TEXT_RESOURCES['equipment.pacemaker'],'Critical machine');
+  for(const [key,value] of Object.entries(ctx.ST_TEXT_RESOURCES))assert(!/pacemaker/i.test(value),key);
+});

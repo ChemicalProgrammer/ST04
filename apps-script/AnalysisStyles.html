@@ -63,7 +63,7 @@
   .comparison-row span { background: var(--surface); padding: var(--size-6); }
   .comparison-changed { border-left: var(--state-border-width) solid var(--warning); background: var(--warning-soft); }
   .scenario-tab { background: var(--surface-soft); border: var(--size-1) solid var(--line); color: var(--muted); font-size: var(--text-12); margin: 0; padding: var(--size-8) var(--size-11); }
-  .scenario-tab-active { background: var(--selected); border-color: var(--accent); color: var(--info); font-weight: var(--weight-bold); }
+  .scenario-tab-active { background: var(--selected); border-color: var(--accent); color: var(--selected-text); font-weight: var(--weight-bold); }
   .equipment-json-details { border-top: var(--size-1) solid var(--line); margin-top: var(--size-12); padding-top: var(--size-10); }
   .equipment-json-details summary { color: var(--muted); cursor: pointer; font-size: var(--text-12); font-weight: var(--weight-bold); }
   .equipment-json-details .characteristics-label { margin-top: var(--size-10); }
@@ -157,14 +157,12 @@
 .scenario-metric-table caption { text-align:left; font-weight:600; padding:var(--space-2) 0; }
 .scenario-metric-table th, .scenario-metric-table td { padding:var(--space-2) var(--space-1); border-bottom:1px solid var(--line); }
 .scenario-metric-table th { text-align:left; font-weight:500; }
+.scenario-metric-table thead th { background:var(--surface-soft); color:var(--ink); }
+.scenario-metric-table tbody th, .scenario-metric-table tbody td { background:transparent; color:var(--ink); }
+.scenario-metric-table tbody tr:hover > * { background:var(--surface-hover); }
+.scenario-metric-table ::selection { background:var(--selected); color:var(--selected-text); }
 .scenario-metric-table td, .scenario-metric-table thead th:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .scenario-metrics { overflow-x:auto; }
 .scenario-config-dialog .scenario-limit { display:flex; align-items:center; gap:var(--space-2); white-space:nowrap; }
 .scenario-config-dialog .scenario-limit input[type=number] { width:95px; }
-</style>
-
-<style>
-.scenario-verification { margin-top:var(--space-2); font-size:var(--font-secondary); }
-.scenario-verification summary { cursor:pointer; font-weight:600; }
-.scenario-verification .chart-note { margin-top:var(--space-2); }
 </style>
