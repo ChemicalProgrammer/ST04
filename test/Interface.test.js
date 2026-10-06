@@ -1707,3 +1707,34 @@ test('UI: case chart colors and DOE survive save and reopening while Basic keeps
   assert.equal(h.errors.length,0);
  }finally{h.dom.window.close();}
 });
+
+
+test('UI: shared error icons preserve details, render safe dialogs and disappear after clearing',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('#cases-settings');
+  for(const id of ['settings-error','gemini-error','sheet-import-error','configuration-error']){
+   const source=h.d.getElementById(id);source.textContent='Unable to complete '+id;h.w.STErrors.capture(source,{message:'Request failed <script>bad()</script>',code:'TEST_FAILURE',details:[{field:'MTBF',message:'Must be positive'}],stack:'RangeError: Invalid string length\n at calculate (Client:123)'});
+   await settle();assert.equal(h.w.getComputedStyle(source).display,'none');const notice=source.nextElementSibling;assert(!notice.classList.contains('hidden'));assert.equal(notice.querySelector('button').textContent,'');
+   notice.querySelector('button').click();await waitFor(()=>h.d.querySelector('.error-details-dialog[open]'));
+   const dialog=h.d.querySelector('.error-details-dialog');assert.match(dialog.textContent,/TEST_FAILURE/);assert.match(dialog.textContent,/MTBF/);assert.match(dialog.textContent,/Client:123/);assert(dialog.textContent.includes('<script>'));assert(!dialog.querySelector('script'));
+   await h.click('.error-details-dialog button');assert.equal(h.d.activeElement,notice.querySelector('button'));source.textContent='';await settle();assert(notice.classList.contains('hidden'));
+  }
+  const source=h.d.getElementById('settings-error');source.textContent='Only a message';await settle();source.nextElementSibling.querySelector('button').click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/No additional details/);await h.click('.error-details-dialog button');
+  source.textContent='';await settle();assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+test('UI: runtime exceptions show an error icon and retain the available technical trace',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');const error=new h.w.RangeError('Invalid string length');h.w.dispatchEvent(new h.w.ErrorEvent('error',{error,message:error.message}));await settle();
+  const source=h.d.getElementById('status');assert.equal(h.w.getComputedStyle(source).display,'none');const button=source.nextElementSibling.querySelector('button');assert(!button.closest('.error-notice').classList.contains('hidden'));button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);
+  await h.click('.error-details-dialog button');source.className='status';source.textContent='Simulation ready';await settle();assert(source.nextElementSibling.classList.contains('hidden'));assert.notEqual(h.w.getComputedStyle(source).display,'none');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: scenario evaluation failures use the shared icon with the original error trace',async()=>{
+ const h=await setup({remember:true});try{
+  const simulation=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(simulation).projects.find(p=>p.canApply),card=h.w.STWhatIf.card(project,()=>{},simulation.equipment,simulation);h.d.body.append(card);
+  h.w.SimulatorEngine.simulateBatch=async()=>{throw new h.w.RangeError('Invalid string length');};card.querySelector('.scenario-evaluate').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.includes('Cannot evaluate'));
+  const source=card.querySelector('.scenario-preview-status');await settle();assert.equal(h.w.getComputedStyle(source).display,'none');const button=card.querySelector('.error-details-trigger');assert(!button.closest('.error-notice').classList.contains('hidden'));button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);assert(card.querySelector('.scenario-create').disabled);await h.click('.error-details-dialog button');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

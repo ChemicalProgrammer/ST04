@@ -95,7 +95,7 @@
       });
       STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});
       document.getElementById('retry-autosave').onclick = retryAutosave;
-      document.getElementById('save-case').onclick = function(){flushCase(true).catch(function(error){showError({message:error.message});});};
+      document.getElementById('save-case').onclick = function(){flushCase(true).catch(function(error){showError(error);});};
       document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
       document.getElementById('create-public-demo-case').addEventListener('click', createPublicDemoCase);
       document.getElementById('clone-case').addEventListener('click', cloneActiveSimulation);
@@ -139,7 +139,7 @@
       syncSaveButton();
       var label=document.getElementById('autosave-status');if(!label)return;
       label.textContent={saved:__ST_TEXT__('autosave.saved'),pending:__ST_TEXT__('autosave.pending'),saving:__ST_TEXT__('autosave.saving'),error:__ST_TEXT__('autosave.error')}[status];
-      label.title=error?error.message:'';label.dataset.state=status;
+      label.title=error?error.message:'';label.dataset.state=status;if(error)STErrors.capture(label,error);
       document.getElementById('retry-autosave').classList.toggle('hidden',status!=='error');
       if(shell)shell.sync();
     }});
@@ -172,7 +172,7 @@
             var url=URL.createObjectURL(new Blob([JSON.stringify(draft,null,2)],{type:'application/json'}));var link=document.createElement('a');link.href=url;link.download='case-draft.json';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);
             var id=state.activeCase.id;autosave.reset();state.isDirty=false;openCase(id);
           }
-        }else showError({message:error.message});
+        }else showError(error);
       }
     }
     function signIn() {
@@ -182,7 +182,7 @@
     }
 
     async function showCaseHome() {
-      try { if(!await leaveCase())return false; } catch(error) { showError({message:error.message}); return false; }
+      try { if(!await leaveCase())return false; } catch(error) { showError(error); return false; }
       state.openSequence += 1;
       cancelRoundSession();stopPlaybackTimer();
       sheetImport.close();
@@ -293,7 +293,7 @@ function createPublicDemoCase() {
 
     async function requestCaseDeletion(caseId, caseName, button) {
       if (!await STDialog.confirm(__ST_TEXT__('dialog.delete_case'),__ST_TEXT__('client.move_case') + caseName + __ST_TEXT__('client.to_the_drive_trash'),true)) return;
-      try{await flushCase();}catch(error){showError({message:error.message});return;}
+      try{await flushCase();}catch(error){showError(error);return;}
       if (button) button.disabled = true;
       callServer('deleteCase', [caseId], function(response) {
         if (button) button.disabled = false;
@@ -318,7 +318,7 @@ function createPublicDemoCase() {
     }
 
 async function openCase(caseId) {
-      try{if(!await leaveCase())return;}catch(error){showError({message:error.message});return;}
+      try{if(!await leaveCase())return;}catch(error){showError(error);return;}
       var sequence = ++state.openSequence;
       callServer('getCase', [caseId], function(response) {
         if(sequence !== state.openSequence) return;
@@ -349,7 +349,7 @@ async function openCase(caseId) {
     }
     async function cloneActiveSimulation() {
       if(!state.activeCase)return;
-      try{await flushCase();}catch(error){showError({message:error.message});return;}
+      try{await flushCase();}catch(error){showError(error);return;}
       var copy=makeSimulationClone(activePersistentSimulation());
       state.activeCase.simulations.push(copy);
       activatePersistentSimulation(copy.id,true);state.uiView='editor';shell.sync();autosave.change(true);
@@ -364,7 +364,7 @@ async function openCase(caseId) {
       var source=activePersistentSimulation();if(!source)return;
       if(state.activeCase.simulations.length<2){await STDialog.alert(__ST_TEXT__('simulation.delete'),__ST_TEXT__('simulation.keep_one'));return;}
       if(!await STDialog.confirm(__ST_TEXT__('simulation.delete'),__ST_TEXT__('simulation.delete_message')+source.name,true))return;
-      try{await flushCase();}catch(error){showError({message:error.message});return;}
+      try{await flushCase();}catch(error){showError(error);return;}
       state.activeCase.simulations=state.activeCase.simulations.filter(function(s){return s.id!==source.id;});
       activatePersistentSimulation(state.activeCase.simulations[0].id,true);state.uiView='editor';shell.sync();autosave.change(true);
     }
@@ -410,7 +410,7 @@ async function openCase(caseId) {
     }
     function saveActiveCase(afterSave) {
       autosave.change(true);
-      return prepareCaseDraft().then(function(){if(typeof afterSave==='function')afterSave(state.activeCase);}).catch(function(error){showError({message:error.message});});
+      return prepareCaseDraft().then(function(){if(typeof afterSave==='function')afterSave(state.activeCase);}).catch(function(error){showError(error);});
     }
 
     function captureSheetImport() {
@@ -483,7 +483,7 @@ async function openCase(caseId) {
         if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
         callServer('refreshCaseCatalog',[{cursor:cursor}],function(response){
           if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
-          if(!response.ok){state.catalogLoading=false;status.textContent=__ST_TEXT__('cases.catalog_failed');status.classList.add('error');document.getElementById('refresh-case-catalog').disabled=false;renderCases(state.bootstrap.cases);return;}
+          if(!response.ok){state.catalogLoading=false;status.textContent=__ST_TEXT__('cases.catalog_failed');status.classList.add('error');STErrors.capture(status,response.error);document.getElementById('refresh-case-catalog').disabled=false;renderCases(state.bootstrap.cases);return;}
           var incoming=new Map(response.data.cases.map(function(c){return [c.id,c];}));
           // Keep local saves and clones made while this background scan was running.
           (state.bootstrap.cases||[]).forEach(function(c){if(original.get(c.id)!==JSON.stringify(c)&&Number(incoming.get(c.id)?.revision||0)<=Number(c.revision||0))incoming.set(c.id,c);});
@@ -1386,7 +1386,7 @@ function renderRawJson() {
           state.activeCase=response.data.case;autosave.reset();activatePersistentSimulation(response.data.simulationId,true);state.uiView='editor';shell.sync();resolve();
         });});
         setStatus(__ST_TEXT__('scenario.created'));
-      }catch(error){showError({message:error.message});var feedback=button?.closest('.analysis-recommendation')?.querySelector('.scenario-preview-status');if(feedback){feedback.textContent='Cannot create scenario: '+error.message;feedback.dataset.state='rejected';}}finally{document.getElementById('application').inert=false;if(button?.isConnected)button.disabled=false;}
+      }catch(error){showError(error);var feedback=button?.closest('.analysis-recommendation')?.querySelector('.scenario-preview-status');if(feedback){feedback.textContent='Cannot create scenario: '+error.message;feedback.dataset.state='rejected';STErrors.capture(feedback,error);}}finally{document.getElementById('application').inert=false;if(button?.isConnected)button.disabled=false;}
     }
 
     function syncDurationControls(){
@@ -1540,7 +1540,7 @@ function renderRawJson() {
       }).catch(function(error){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         session.pending=false;session.streaming=false;state.run.active=false;stopPlaybackTimer();syncRunControls();session.resolveFirst?.(false);toggle('batch-dialog',false);
-        if(error.message!=='BATCH_CANCELLED')showError({message:error.message});
+        if(error.message!=='BATCH_CANCELLED')showError(error);
       }).finally(function(){window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));});
     }
     function finishRoundSession(){
@@ -2148,7 +2148,7 @@ function summarizeGeometrySources(sources, assumptions) {
           session.first=first.result;state.run.sampleIndex=findSampleIndexAtOrBefore(first.result.samples,sample.virtualSecond);persistRoundResult(session,first.result,run.rounds>1?'STALE':'PENDING');
           if(run.rounds<=1)computeRoundSession(session,first.result);
           wasPlaying=session.resumeAfterEdit;
-        }catch(error){if(error.message!=='BATCH_CANCELLED')showError({message:error.message});return;}
+        }catch(error){if(error.message!=='BATCH_CANCELLED')showError(error);return;}
         finally{session.firstUpdating=false;if(roundSessionActive(session))renderPlaybackFrame();}
       }else if(!calculateSimulation(run,sample.virtualSecond))return;
       state.run.commands=cloneJson(run.commands);renderControlEvents();
@@ -2226,9 +2226,9 @@ function summarizeGeometrySources(sources, assumptions) {
       }
       document.documentElement.classList.remove('restoring-session');
       if(!state.bootstrap)toggle('auth-panel',true);
-      document.getElementById('auth-status').textContent = message;
+      document.getElementById('auth-status').textContent = message;STErrors.capture(target,error);STErrors.capture('auth-status',error);
       document.getElementById('sign-in-button').disabled = false;
-      if (document.getElementById('settings-dialog').open) STSettings.error(message);
+      if (document.getElementById('settings-dialog').open) STSettings.error(error);
     }
     function setBusy(targetId, busy) { var target = document.getElementById(targetId); var button = target.tagName === 'FORM' ? target.querySelector('button') : target; button.disabled = busy; button.dataset.busy=String(busy); button.setAttribute("aria-busy",String(busy)); }
   })();

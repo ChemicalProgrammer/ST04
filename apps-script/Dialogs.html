@@ -13,8 +13,8 @@ window.STDialog = (function() {
     dialog.setAttribute('aria-describedby','message-dialog-message');
     var heading = document.createElement('header'); heading.className = 'dialog-heading';
     var title = document.createElement('h2'); title.id = 'message-dialog-title'; title.textContent = options.title || __ST_TEXT__('dialog.notice'); heading.appendChild(title);
-    var body = document.createElement('div'); body.className = 'dialog-body';
-    var message = document.createElement('p'); message.id = 'message-dialog-message'; message.textContent = options.message || ''; body.appendChild(message);
+    var body = document.createElement('div'); body.className = 'dialog-body';if(options.error)dialog.classList.add('error-details-dialog');
+    var message = document.createElement('p'); message.id = 'message-dialog-message'; message.textContent = options.message || ''; body.appendChild(message);if(options.details){var detail=document.createElement('pre');detail.className='error-detail-text';detail.textContent=options.details;body.appendChild(detail);}
     var input;
     if (options.input) {
       var label = document.createElement('label'); label.textContent = options.input.label || title.textContent;
@@ -48,5 +48,40 @@ window.STDialog = (function() {
   }
   function confirm(title,message,destructive){return open({title:title,message:message,destructive:destructive,buttons:[{id:'cancel',label:__ST_TEXT__('view.cancel')},{id:'ok',label:destructive?__ST_TEXT__('dialog.delete'):__ST_TEXT__('dialog.ok'),destructive:destructive}]}).then(function(r){return r.action==='ok';});}
   return {open:open,confirm:confirm,alert:function(title,message){return open({title:title,message:message});}};
+})();
+// Shared compact error notices. Existing message nodes remain the source of truth.
+window.STErrors=(function(){
+  var entries=new WeakMap();
+  function limited(value,max){return String(value??'').slice(0,max||16000);}
+  function detailsText(value){
+    if(value==null)return '';var seen=new WeakSet(),budget=16000;
+    function walk(item,depth){if(budget<=0)return '…';if(item==null||typeof item!=='object'){var text=limited(item,2000);budget-=text.length;return text;}if(seen.has(item))return '[Repeated reference]';if(depth>4)return '[Additional nested details]';seen.add(item);return Object.keys(item).slice(0,60).map(function(key){return limited(key,100)+': '+walk(item[key],depth+1);}).join('\n');}
+    return limited(walk(value,0),16000);
+  }
+  function normalize(error){if(typeof error==='string')error={message:error};error=error||{};return {message:limited(error.message||__ST_TEXT__('client.the_request_failed')),code:limited(error.code,160),details:detailsText(error.details),stack:limited(error.stack,16000)};}
+  function isError(source){var text=source.textContent.trim(),mode=source.dataset.errorNotice;if(!text)return false;if(mode==='status')return source.classList.contains('error');if(mode==='auth')return /^[A-Z_]+:/.test(text);if(mode==='save')return source.dataset.state==='error';if(mode==='scenario')return /^Cannot (evaluate|create)/.test(text);return true;}
+  function refresh(entry){
+    var source=entry.source,text=source.textContent;
+    if(text!==entry.last){entry.last=text;entry.value=normalize(text);}
+    var visible=isError(source)&&!source.classList.contains('hidden');if(visible&&!entry.value)entry.value=normalize(text);
+    if(source.classList.contains('error-source')!==visible)source.classList.toggle('error-source',visible);
+    source.setAttribute('aria-hidden',String(visible));entry.notice.classList.toggle('hidden',!visible);
+    if(!visible)entry.value=null;
+  }
+  function register(source,title,anchor){
+    if(typeof source==='string')source=document.getElementById(source);if(!source||entries.has(source))return entries.get(source);
+    var notice=document.createElement('span');notice.className='error-notice hidden';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
+    var button=document.createElement('button');button.type='button';button.className='ghost icon-button error-details-trigger';button.innerHTML=STIcons.svg('error');button.title=__ST_TEXT__('errors.view_details');button.setAttribute('aria-label',(title||__ST_TEXT__('errors.title'))+' — '+__ST_TEXT__('errors.view_details'));button.setAttribute('aria-haspopup','dialog');
+    var announced=document.createElement('span');announced.className='sr-only';announced.textContent=button.getAttribute('aria-label');notice.append(button,announced);(anchor||source).after(notice);
+    var entry={source:source,notice:notice,title:title||__ST_TEXT__('errors.title'),value:null,last:source.textContent,open:false};entries.set(source,entry);
+    button.onclick=function(){if(entry.open||!entry.value)return;button.focus();var value=entry.value;entry.open=true;var details=[value.code?__ST_TEXT__('errors.code')+': '+value.code:'',value.details||(!value.stack?__ST_TEXT__('errors.no_details'):''),value.stack?__ST_TEXT__('errors.trace')+'\n'+value.stack:''].filter(Boolean).join('\n\n')||__ST_TEXT__('errors.no_details');STDialog.open({title:entry.title,message:value.message,details:details,error:true}).finally(function(){entry.open=false;});};
+    new MutationObserver(function(){refresh(entry);}).observe(source,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','data-state']});refresh(entry);return entry;
+  }
+  function capture(source,error,display){if(typeof source==='string')source=document.getElementById(source);if(!source)return;var entry=entries.get(source)||register(source);if(display!==undefined)source.textContent=display;entry.last=source.textContent;entry.value=normalize(error);refresh(entry);}
+  document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('[data-error-notice]').forEach(function(source){register(source,source.dataset.errorTitle,source.id==='autosave-status'?document.getElementById('autosave-indicator'):undefined);});});
+  function unexpected(error){var target=document.getElementById('status');if(!target)return;target.className='status error';capture(target,error,(error?.message||__ST_TEXT__('client.the_request_failed')));}
+  window.addEventListener('error',function(event){if(event.error)unexpected(event.error);});
+  window.addEventListener('unhandledrejection',function(event){unexpected(event.reason);});
+  return {register:register,capture:capture};
 })();
 </script>

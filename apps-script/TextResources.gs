@@ -1,5 +1,10 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "errors.title":"Error details",
+  "errors.view_details":"View error details",
+  "errors.code":"Error code",
+  "errors.trace":"Technical trace",
+  "errors.no_details":"No additional details were provided.",
   "cases.refresh":"Refresh cases",
   "cases.catalog_loading":"Updating case list… You can open any case already shown.",
   "cases.catalog_failed":"The case list could not be refreshed. Cached cases remain available; use Refresh cases to retry.",

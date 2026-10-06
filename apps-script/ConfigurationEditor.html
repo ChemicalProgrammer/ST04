@@ -76,11 +76,11 @@ var STConfigurationEditor=(function(){
     document.getElementById('configuration-import').onclick=function(){file.click();};
     document.getElementById('configuration-close').onclick=close;
     document.getElementById('configuration-cancel').onclick=close;dialog.addEventListener('cancel',function(event){event.preventDefault();close();});
-    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;document.getElementById('configuration-filename').textContent=selected.name||'';error.textContent='';}catch(e){if(token===serial)error.textContent=e.message;}finally{if(token===serial)apply.disabled=false;}};
+    file.onchange=async function(){var selected=file.files[0],token=++serial;if(!selected)return;apply.disabled=true;try{if(selected.size>6*1024*1024)throw Error('JSON file exceeds 6 MB.');var text=await selected.text();if(token!==serial||!context)return;draft.value=text;document.getElementById('configuration-filename').textContent=selected.name||'';error.textContent='';}catch(e){if(token===serial){error.textContent=e.message;STErrors.capture(error,e);}}finally{if(token===serial)apply.disabled=false;}};
     apply.onclick=function(){try{
       if(!context||state.activeCase?.id!==context.caseId||state.activeSimulationId!==context.simulationId)throw Error('The active simulation changed. Reopen the editor.');
       var configuration=validate(draft.value,context.current);callbacks.apply(configuration);close();
-    }catch(e){error.textContent=e.message;}};
+    }catch(e){{error.textContent=e.message;STErrors.capture(error,e);}}};
   }
   return {init:init,validate:validate};
 })();

@@ -116,7 +116,7 @@ window.STAssistant = function(state,actions) {
       var question=el('gemini-question').value.trim();if(!question)return;
       var originalCase=caseId,originalSimulation=simulationId;
       pending=true;progress('preparing');sync();
-      try{await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;return;}
+      try{await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
       if(originalCase!==caseId||originalSimulation!==simulationId)return;
       var request={caseId:caseId,simulationId:simulationId,uiMode:basic()?'BASIC':'ADVANCE',question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
       pending=true;el('gemini-error').textContent='';messages.push({role:'user',text:question});el('gemini-question').value='';render();sync();
@@ -127,7 +127,7 @@ window.STAssistant = function(state,actions) {
         if(!response||typeof response.ok!=='boolean'||response.ok&&typeof response.data?.text!=='string')response={ok:false,error:{code:'GEMINI_BAD_RESPONSE',message:'The server returned an incomplete answer. Try again.'}};
         if(response.ok){var answer={role:'model',text:response.data.text,proposals:basic()?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);reveal(answer);return;}
         pending=false;progress('error');
-        messages.pop();el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');
+        messages.pop();el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');STErrors.capture('gemini-error',response.error);
         render();sync();
       }
       responseTimer=setTimeout(function(){finish({ok:false,error:{code:'GEMINI_TIMEOUT',message:'No response arrived within 3 minutes. Your question is retained; you can retry. The previous server request may still finish.'}});},180000);

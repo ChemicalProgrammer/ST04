@@ -32,7 +32,7 @@
           <label class="remember"><input type="checkbox" id="remember-session"><?= __ST_TEXT__('view.keep_me_signed_in_on_this_browser') ?></label>
           <button id="sign-in-button" type="submit"><?= __ST_TEXT__('view.continue_with_google') ?></button>
         </form>
-        <p id="auth-status" role="status" aria-live="polite"></p>
+        <p id="auth-status" data-error-notice="auth" data-error-title="Sign-in error" role="status" aria-live="polite"></p>
         <p class="auth-note"><?= __ST_TEXT__('view.uses_the_google_account_authorized_for_this_app') ?> </p>
       </div>
     </section>
@@ -70,12 +70,12 @@
         <button id="toggle-gemini" class="secondary icon-button hidden" aria-label="<?= __ST_TEXT__('assistant.gemini') ?>" title="<?= __ST_TEXT__('assistant.gemini') ?>" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"></button>
         </div>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
-        <span id="autosave-indicator" class="sr-only hidden" role="status"><span id="autosave-status" class="sr-only"></span></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button>
+        <span id="autosave-indicator" class="sr-only hidden" role="status"><span id="autosave-status" data-error-notice="save" data-error-title="Case saving error" class="sr-only"></span></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button>
         <button id="pin-header" class="ghost icon-button" type="button" data-icon="pin" aria-label="Unpin header" title="Unpin header" aria-pressed="true"></button>
       <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       </header>
       <div class="workspace-content">
-      <section id="status" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
+      <section id="status" data-error-notice="status" data-error-title="Application error" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
 
       <section id="cases-panel" class="card hidden">
         <div class="section-heading">
@@ -102,7 +102,7 @@
           <button id="refresh-case-catalog" class="ghost icon-button" data-icon="refresh" aria-label="<?= __ST_TEXT__('cases.refresh') ?>" title="<?= __ST_TEXT__('cases.refresh') ?>" type="button"></button>
           <span id="case-count" class="case-count" role="status"></span>
         </div>
-        <p id="case-catalog-status" class="catalog-status" role="status"></p>
+        <p id="case-catalog-status" data-error-notice="status" data-error-title="Case gallery error" class="catalog-status" role="status"></p>
         <div id="cases-list" class="cases-list"></div><div id="case-pagination" class="case-pagination"></div>
       </section>
 
@@ -265,7 +265,7 @@
         <p id="gemini-notice" class="gemini-notice"><?= __ST_TEXT__('view.ask_about_the_saved_case_equipment_and_simulation_results') ?></p>
         <ol id="gemini-progress" class="gemini-progress hidden" role="status" aria-live="polite"></ol>
         <div id="gemini-messages" class="gemini-messages" role="log" aria-label="<?= __ST_TEXT__('view.case_conversation') ?>" aria-live="polite"></div>
-        <form id="gemini-form" class="gemini-composer"><label class="sr-only" for="gemini-question"><?= __ST_TEXT__('view.question_for_gemini') ?></label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="<?= __ST_TEXT__('view.ask_about_this_case') ?>" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="ghost icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('view.clear_case_conversation') ?>" title="<?= __ST_TEXT__('view.clear_case_conversation') ?>"></button><button id="send-gemini" type="submit" data-icon="send"><?= __ST_TEXT__('view.send') ?></button></div><p id="gemini-error" class="chart-note" role="alert"></p><p class="chart-note"><?= __ST_TEXT__('view.sending_shares_this_saved_case_with_google_gemini_conversations_clear_when_') ?></p></form>
+        <form id="gemini-form" class="gemini-composer"><label class="sr-only" for="gemini-question"><?= __ST_TEXT__('view.question_for_gemini') ?></label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="<?= __ST_TEXT__('view.ask_about_this_case') ?>" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="ghost icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('view.clear_case_conversation') ?>" title="<?= __ST_TEXT__('view.clear_case_conversation') ?>"></button><button id="send-gemini" type="submit" data-icon="send"><?= __ST_TEXT__('view.send') ?></button></div><p id="gemini-error" data-error-notice="message" data-error-title="Gemini error" class="chart-note" role="alert"></p><p class="chart-note"><?= __ST_TEXT__('view.sending_shares_this_saved_case_with_google_gemini_conversations_clear_when_') ?></p></form>
         </div>
       </aside>
     </main>
@@ -303,7 +303,7 @@
         <div id="settings-page-storage" class="hidden" role="tabpanel" aria-labelledby="settings-tab-storage">
           <section id="workspace-panel" class="settings-section"><h3>Drive workspace</h3><p><?= __ST_TEXT__('view.choose_a_drive_folder_you_can_access_cases_and_results_are_saved_in_this_wo') ?></p><form id="workspace-form"><label for="workspace-folder-id"><?= __ST_TEXT__('view.drive_folder_id') ?></label><input id="workspace-folder-id" autocomplete="off" required><p id="workspace-folder-note" class="chart-note hidden"><?= __ST_TEXT__('settings.close_case_storage') ?></p></form></section>
         </div>
-        <p id="settings-error" role="alert"></p>
+        <p id="settings-error" data-error-notice="message" data-error-title="Settings error" role="alert"></p>
       </div>
       <div class="dialog-actions"><span id="settings-unsaved" role="status"></span><button id="settings-retry" type="button" class="ghost hidden"><?= __ST_TEXT__('autosave.retry') ?></button><button id="settings-cancel" type="button" class="ghost"><?= __ST_TEXT__('dialog.done') ?></button></div>
     </dialog>
@@ -312,7 +312,7 @@
       <div class="dialog-body">
         <p><?= __ST_TEXT__('view.read_c1_c7_and_equipment_rows_a10_w_na_and_n_a_mean_not_applicable_import_u') ?></p>
         <form id="sheet-import-form"><label><?= __ST_TEXT__('view.google_sheets_url_or_id') ?><input id="sheet-import-url" required autocomplete="off" placeholder="<?= __ST_TEXT__('view.https_docs_google_com_spreadsheets_d') ?>"></label><label><?= __ST_TEXT__('view.worksheet_name_optional') ?><input id="sheet-import-tab" autocomplete="off" placeholder="<?= __ST_TEXT__('view.uses_the_url_tab_or_the_first_worksheet') ?>"></label><button id="sheet-import-read" data-icon="refresh" type="submit"><?= __ST_TEXT__('view.preview_import') ?></button></form>
-        <p id="sheet-import-error" role="alert"></p><div id="sheet-import-preview" aria-live="polite"></div>
+        <p id="sheet-import-error" data-error-notice="message" data-error-title="Sheet import error" role="alert"></p><div id="sheet-import-preview" aria-live="polite"></div>
       </div>
       <footer class="dialog-actions"><span id="sheet-import-summary" role="status"></span><label class="remember"><input id="sheet-import-ack" type="checkbox"><?= __ST_TEXT__('view.i_reviewed_the_mapping_assumptions_and_warnings') ?></label><button id="sheet-import-cancel" class="ghost" type="button"><?= __ST_TEXT__('view.cancel') ?></button><button id="sheet-import-apply" data-icon="check" type="button" disabled><?= __ST_TEXT__('view.apply_selected_changes') ?></button></footer>
     </dialog>
@@ -356,7 +356,7 @@
         <p class="chart-note"><?= __ST_TEXT__('json.file') ?></p>
         <label for="configuration-draft"><?= __ST_TEXT__('json.draft') ?></label>
         <textarea id="configuration-draft" spellcheck="false"></textarea>
-        <pre id="configuration-error" role="alert"></pre>
+        <pre id="configuration-error" data-error-notice="message" data-error-title="Configuration error" role="alert"></pre>
       </div>
       <footer class="dialog-actions"><button id="configuration-cancel" class="secondary" type="button"><?= __ST_TEXT__('json.cancel') ?></button><button id="configuration-apply" type="button"><?= __ST_TEXT__('json.apply') ?></button></footer>
     </dialog>
