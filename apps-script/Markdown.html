@@ -1,0 +1,52 @@
+<script>
+// Local Markdown subset: create DOM nodes, never interpret model HTML or load images.
+window.STMarkdown=(function(){
+  function inline(text,host,depth){
+    if((depth||0)>8){host.append(document.createTextNode(text));return;}
+    var pattern=/\\([\\`*{}\[\]()#+.!_>~-])|(`+)([^`]+)\2|\[([^\]\n]+)\]\(([^\s)]+)\)|(\*\*|__)([^\n]+?)\6|(\*|_)([^\n]+?)\8|~~([^\n]+?)~~/g,match,last=0;
+    while((match=pattern.exec(text))){
+      host.append(document.createTextNode(text.slice(last,match.index)));
+      if(match[1])host.append(document.createTextNode(match[1]));
+      else if(match[2]){var code=document.createElement('code');code.textContent=match[3];host.append(code);}
+      else if(match[4]){
+        var href=match[5],safe=/^(https?:\/\/|mailto:)/i.test(href)||/^(\/[^/]|#)/.test(href);
+        var link=document.createElement(safe?'a':'span');if(safe){link.href=href;link.target='_blank';link.rel='noopener noreferrer';}inline(match[4],link,(depth||0)+1);host.append(link);
+      }else{var tag=document.createElement(match[6]?'strong':match[8]?'em':'del');inline(match[7]||match[9]||match[10],tag,(depth||0)+1);host.append(tag);}
+      last=pattern.lastIndex;
+    }
+    host.append(document.createTextNode(text.slice(last)));
+  }
+  function cells(line){return line.trim().replace(/^\|/,'').replace(/\|$/,'').split(/(?<!\\)\|/).map(function(cell){return cell.trim().replace(/\\\|/g,'|');});}
+  function render(text,host){
+    host.replaceChildren();var lines=String(text||'').replace(/\r\n?/g,'\n').split('\n'),i=0;
+    function block(tag,value){var node=document.createElement(tag);inline(value,node);host.append(node);return node;}
+    function newline(){if(i<lines.length)host.append(document.createTextNode('\n'));}
+    function isTable(index){return index+1<lines.length&&lines[index].includes('|')&&/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index+1]);}
+    function starts(line){return /^\s*(?:#{1,6}\s|```|~~~|>\s?|[-+*]\s|\d+[.)]\s)/.test(line);}
+    while(i<lines.length){
+      var line=lines[i],fence=line.match(/^\s*(`{3,}|~{3,})(.*)$/),heading=line.match(/^\s*(#{1,6})\s+(.+)$/),list=line.match(/^\s*(?:([-+*])|(\d+)[.)])\s+(.+)$/);
+      if(!line.trim()){i++;newline();continue;}
+      if(fence){
+        var pre=document.createElement('pre'),code=document.createElement('code'),body=[];i++;
+        while(i<lines.length&&!lines[i].trim().startsWith(fence[1]))body.push(lines[i++]);if(i<lines.length)i++;
+        code.textContent=body.join('\n');pre.append(code);host.append(pre);newline();continue;
+      }
+      if(isTable(i)){
+        var wrapper=document.createElement('div');wrapper.className='markdown-table';var table=document.createElement('table'),head=document.createElement('thead'),row=document.createElement('tr');
+        cells(line).forEach(function(value){var th=document.createElement('th');th.scope='col';inline(value,th);row.append(th);});head.append(row);table.append(head);i+=2;
+        var tbody=document.createElement('tbody');while(i<lines.length&&lines[i].trim()&&lines[i].includes('|')){var tr=document.createElement('tr');cells(lines[i++]).forEach(function(value){var td=document.createElement('td');inline(value,td);tr.append(td);});tbody.append(tr);}table.append(tbody);wrapper.append(table);host.append(wrapper);newline();continue;
+      }
+      if(heading){block('h'+heading[1].length,heading[2].replace(/\s+#+\s*$/,''));i++;newline();continue;}
+      if(/^\s*(?:---+|\*\*\*+|___+)\s*$/.test(line)){host.append(document.createElement('hr'));i++;newline();continue;}
+      if(list){
+        var ordered=!!list[2],node=document.createElement(ordered?'ol':'ul');if(ordered)node.start=Number(list[2]);
+        while(i<lines.length){var item=lines[i].match(/^\s*(?:([-+*])|(\d+)[.)])\s+(.+)$/);if(!item||!!item[2]!==ordered)break;var li=document.createElement('li');inline(item[3],li);node.append(li);i++;}
+        host.append(node);newline();continue;
+      }
+      if(/^\s*>/.test(line)){var quoted=[];while(i<lines.length&&/^\s*>/.test(lines[i]))quoted.push(lines[i++].replace(/^\s*>\s?/,''));block('blockquote',quoted.join('\n'));newline();continue;}
+      var paragraph=[line];i++;while(i<lines.length&&lines[i].trim()&&!starts(lines[i])&&!isTable(i))paragraph.push(lines[i++]);block('p',paragraph.join('\n'));newline();
+    }
+  }
+  return {render:render};
+})();
+</script>

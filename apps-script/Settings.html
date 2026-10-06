@@ -39,7 +39,7 @@ window.STSettings = (function() {
     }
     if(!el('settings-seed-section').classList.contains('hidden')&&!STPreferences.write('seedPolicy',el('settings-seed-policy').value)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     var changed=!el('settings-interface-section').classList.contains('hidden')&&el('settings-interface-mode').value!==(document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC');
-    var mode=el('settings-interface-mode').value,doe=el('settings-scenario-doe').checked,doeChanged=!el('settings-interface-section').classList.contains('hidden')&&doe!==(STPreferences.read('scenarioDoe')==='yes');
+    var mode=el('settings-interface-mode').value,doe=el('settings-scenario-doe').checked,doeChanged=doe!==(STPreferences.read('scenarioDoe')==='yes');
     if(doeChanged&&!STPreferences.write('scenarioDoe',doe?'yes':'no')){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     if(changed&&!STPreferences.write('interfaceMode',mode)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     el('settings-error').textContent='';resetModeSelector();el('settings-dialog').close();if(lastFocus?.isConnected)lastFocus.focus();

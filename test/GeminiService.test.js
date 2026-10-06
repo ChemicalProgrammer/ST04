@@ -186,3 +186,14 @@ test('Gemini bounds the complete serialized request including custom prompts and
  const response=h.ctx.askGemini_({...request,history:[{role:'user',text:'x'.repeat(2000)},{role:'model',text:'y'.repeat(2000)}]},user);assert.equal(response.historyOmitted,2);assert(h.calls[0].options.payload.length<=baseline+100);
  h.calls.length=0;h.ctx.ST_GEMINI_PERSONALITY='x'.repeat(baseline+200);assert.throws(()=>h.ctx.askGemini_(request,user),error=>error.code==='GEMINI_INPUT_LIMIT');assert.equal(h.calls.length,0);
 });
+
+
+test('Gemini keeps proposal rationales when text is omitted, blank or generic',()=>{
+ const fixture=setup(),project=fixture.ctx.STScenarioEngine_.plan(fixture.record.simulations[0]).projects.find(p=>p.canApply);
+ const proposal={...project,title:'Revisar acumulación',description:'La acumulación disponible limita la recuperación. Verifica el bloqueo antes de extender el conveyor.'};
+ for(const text of [undefined,'','Review the proposed scenario below before creating a simulation.']){
+  const h=setup({answer:JSON.stringify({text,proposals:[proposal]})}),result=h.ctx.askGemini_({...request,question:'¿Qué mejoras propones?'},user);
+  assert.equal(result.proposals.length,1);assert.match(result.text,/La acumulación disponible/);assert(!result.text.includes('Review the proposed scenario'));
+ }
+ const h=setup({answer:JSON.stringify({proposals:[{...proposal,description:''}]})});assert.match(h.ctx.askGemini_(request,user).text,/no explanation/);
+});

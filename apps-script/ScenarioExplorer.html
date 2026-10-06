@@ -48,11 +48,13 @@ window.STScenarioExplorer=(function(){
       list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale});check.onchange=limit.oninput=function(){if(activeHost)return;last=null;generation++;clearTimeout(timer);status.textContent='Changes updated. Use the magnifier to calculate, or update to search.';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();};
     });
     var doePanel=el('details','','scenario-doe'),doeCount=0;
+    var doeToggle=document.createElement('input');doeToggle.type='checkbox';doeToggle.className='scenario-doe-enabled';var doeChoice=el('label','','scenario-scope');doeChoice.append(doeToggle,document.createTextNode(' Include DOE in this search'));
+    doeToggle.onchange=function(){if(activeHost){refreshDOE();return;}if(!STPreferences.write('scenarioDoe',doeToggle.checked?'yes':'no')){refreshDOE();return;}window.dispatchEvent(new Event('st-doe-change'));};
     doePanel.open=true;
     var factorCount=el('p','','scenario-factor-count');factorCount.setAttribute('role','status');
     var clearFactors=button('Clear factor selection',function(){rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});refreshFactors();invalidateDOE();});
     doePanel.append(el('summary','DOE · choose up to 4 factors'),el('p','Two levels per factor; 1–4 factors = 2–16 combinations, each with at least 3 rounds. Other changes stay fixed at the current search winner. Missing baseline values and external reliability targets are excluded.','chart-note'));
-    doePanel.append(factorCount,clearFactors);
+    doePanel.append(doeChoice,factorCount,clearFactors);
     var factorGrid=parameterTable(doePanel,['DOE','Equipment','Parameter','Unit','Low','High'],'scenario-factor-grid','DOE factors');
     rows.forEach(function(r){
       if(!Number.isFinite(r.change.before)||r.change.external)return;
@@ -68,14 +70,14 @@ window.STScenarioExplorer=(function(){
     body.append(doePanel);
     function refreshFactors(){
       if(activeHost)return;var available=rows.filter(r=>r.doe),count=available.filter(r=>r.check.checked&&r.doe.use.checked).length;
-      factorCount.textContent=count+' / 4 selected · '+available.length+' eligible variables. Uncheck a selected factor or clear the selection to choose others. The initial selection is not an importance ranking.';
-      available.forEach(r=>{if(!r.check.checked)r.doe.use.checked=false;r.doe.use.disabled=count>=4&&!r.doe.use.checked;r.doe.low.disabled=r.doe.high.disabled=!r.doe.use.checked;});
+      factorCount.textContent=available.length?count+' / 4 selected · '+available.length+' eligible variables. Uncheck a selected factor or clear the selection to choose others. The initial selection is not an importance ranking.':'No eligible DOE factors in this card. A factor needs a numeric baseline value; external reliability targets are excluded.';
+      available.forEach(r=>{if(!r.check.checked)r.doe.use.checked=false;r.doe.use.disabled=!doeEnabled()||count>=4&&!r.doe.use.checked;r.doe.low.disabled=r.doe.high.disabled=!doeEnabled()||!r.doe.use.checked;});
     }
     refreshFactors();
     function doeEnabled(){return window.STPreferences?.read('scenarioDoe')==='yes';}
-    function refreshDOE(){doePanel.hidden=!doeEnabled();}
+    function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();refreshFactors();clearFactors.disabled=!doeEnabled();}
     function invalidateDOE(){if(activeHost)return;generation++;clearTimeout(timer);last=null;save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();status.textContent='DOE settings changed. Run Find best scenario to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
-    function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}refreshDOE();invalidateDOE();}
+    function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}if(activeHost)return;refreshDOE();invalidateDOE();}
     window.addEventListener('st-doe-change',settingChanged);refreshDOE();
     function doeFactors(){
       return rows.filter(r=>r.check.checked&&r.doe?.use.checked).map(function(r){

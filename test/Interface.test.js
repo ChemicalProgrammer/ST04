@@ -1091,7 +1091,7 @@ test('UI: enabled DOE uses replicated factorial combinations and exports effects
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
   assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify({...sim,whatIf:undefined}),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
-  h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert(card.querySelector('.scenario-doe').hidden);assert(card.querySelector('.scenario-create').disabled);
+  h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert.equal(card.querySelector('.scenario-doe').hidden,false);assert(card.querySelector('.scenario-doe-factor input').disabled);assert(card.querySelector('.scenario-create').disabled);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1653,4 +1653,23 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
    assert.equal(h.d.getElementById('run-playback-rate').value,'100');assert.equal(h.d.getElementById('autosave-status').dataset.state,'saved');assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
+});
+
+
+test('UI: DOE factors remain visible when disabled and can be enabled without unlocking Settings',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
+  const card=Array.from(h.d.querySelectorAll('.scenario-grid .analysis-recommendation')).find(card=>card.querySelector('.scenario-doe-factor'));assert(card);card.querySelector('.scenario-configure').click();
+  const panel=card.querySelector('.scenario-doe'),toggle=card.querySelector('.scenario-doe-enabled');assert.equal(panel.hidden,false);assert.equal(toggle.checked,false);assert(card.querySelectorAll('.scenario-doe-factor').length>0);assert(card.querySelector('.scenario-doe-factor input').disabled);
+  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STPreferences.read('scenarioDoe'),'yes');assert(!card.querySelector('.scenario-doe-factor input').disabled);
+  card.querySelector('.scenario-config-dialog').close();await h.click('#open-settings');assert(h.d.getElementById('settings-interface-section').classList.contains('hidden'));assert(!h.d.getElementById('settings-scenario-doe').closest('section').classList.contains('hidden'));
+  h.d.getElementById('settings-scenario-doe').checked=false;await h.click('#settings-cancel');assert.equal(h.w.STPreferences.read('scenarioDoe'),'no');assert.equal(panel.hidden,false);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+test('UI: Gemini formats Markdown during paragraph reveal and preserves Advance scenario cards',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');const sim=h.storedCases()[0].simulations[0],proposal=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
+  h.api.askGemini=()=>({text:'## Mejoras\n\n**Acumulación**: revisar bloqueo.\n\n- Validar con simulación\n- Comparar OEE',proposals:[proposal]});h.d.getElementById('gemini-question').value='Sugiere mejoras';await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled&&h.d.querySelector('#gemini-messages .analysis-recommendation'));
+  const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.querySelector('h2').textContent,'Mejoras');assert.equal(body.querySelector('strong').textContent,'Acumulación');assert.equal(body.querySelectorAll('li').length,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

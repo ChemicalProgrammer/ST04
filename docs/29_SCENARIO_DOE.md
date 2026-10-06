@@ -2,10 +2,9 @@
 
 ## Enable
 
-Open Settings, focus outside text fields, and press **M five times within three
-seconds**. The existing hidden interface section also reveals **Include DOE in
-What-If searches**. It is off by default. Closing Settings saves this preference
-in the current browser and hides the section again. It does not change another
+Use **Include DOE in this search** in a scenario configuration dialog, or
+**Include DOE in What-If searches** in the regular What-If DOE section of Settings. It is off by default. Closing Settings saves this preference
+in the current browser. It does not change another
 user's settings or the Apps Script deployment default.
 
 ## Run
@@ -81,7 +80,7 @@ case stays untouched until a reviewed scenario clone is explicitly created.
 - `src/analysis/ScenarioDOE.js`: design matrix and complete-design contrasts.
 - `apps-script/ScenarioExplorer.html`: factor controls, replicated execution,
   existing search integration, approval and persisted evidence.
-- `apps-script/Settings.html` / `WebApp.html`: hidden browser-local checkbox.
+- `apps-script/Settings.html` / `WebApp.html`: visible browser-local checkbox.
 - `apps-script/Reports.html`: design and effect export.
 - `scripts/build-browser-engine.mjs`: bundles the DOE helpers for Apps Script.
 
@@ -138,3 +137,15 @@ incomplete, observations are preserved and effects are not estimated. If DOE
 has not started, the saved evidence explains why it was skipped. Stop during
 confirmation, or a second click while finishing a batch, cancels the operation
 and keeps creation disabled.
+
+
+## Finding and enabling factor selection
+
+The scenario configuration dialog always shows the eligible-factor table. The
+`Include DOE in this search` checkbox enables the existing browser-local DOE
+preference; while disabled, the table remains visible with inactive inputs.
+The same preference is available in the regular What-If DOE section of Settings,
+independently of the hidden interface-mode selector. A maximum of four selected
+factors, two levels per factor and at least three rounds per combination still
+apply. Changing the global preference during an active evaluation takes effect
+on later searches and does not cancel the running calculation.

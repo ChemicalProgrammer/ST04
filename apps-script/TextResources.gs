@@ -174,6 +174,7 @@ var ST_TEXT_RESOURCES = {
   "inspector.json_infeed": "Center-to-center package pitch at the downstream machine infeed, in millimeters.",
   "inspector.json_ramp": "Ramp-up duration including the Prime delay, in seconds, used by the conveyor engineering calculations.",
 
+  "assistant.missing_explanation": "Gemini returned no explanation. Ask it to explain the selected variables, assumptions and supporting evidence before evaluating these proposals.",
   "assistant.review_proposals": "Review the proposed scenario below before creating a simulation.",
   "assistant.incomplete_response": "Gemini returned incomplete scenario data. Please try again.",
   "assistant.progress_saved": "Check the saved case",

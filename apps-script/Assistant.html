@@ -28,9 +28,9 @@ window.STAssistant = function(state,actions) {
   function render(){
     el('gemini-messages').textContent='';
     messages.forEach(function(m){
-      var p=document.createElement('p');p.className='gemini-message';p.dataset.role=m.role;
+      var p=document.createElement('article');p.className='gemini-message';p.dataset.role=m.role;
       var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');
-      var body=document.createElement('span');body.className='gemini-message-body';body.textContent=m.revealing?m.visibleText:m.text;
+      var body=document.createElement('div');body.className='gemini-message-body';if(m.role==='model')STMarkdown.render(m.revealing?m.visibleText:m.text,body);else body.textContent=m.text;
       p.dataset.revealing=String(!!m.revealing);p.append(label,body);el('gemini-messages').appendChild(p);m.node=p;m.body=body;
       if(!m.revealing)attachments(m);
     });scrollMessages();
@@ -45,7 +45,7 @@ window.STAssistant = function(state,actions) {
     m.revealing=true;m.visibleText=chunks[0];pending=true;render();progress('writing');sync();el('gemini-messages').setAttribute('aria-busy','true');
     function next(){
       revealTimer=null;if(ticket!==sequence||!m.node.isConnected)return;
-      m.visibleText+=chunks[index++];m.body.textContent=m.visibleText;scrollMessages();
+      m.visibleText+=chunks[index++];STMarkdown.render(m.visibleText,m.body);scrollMessages();
       if(index<chunks.length){revealTimer=setTimeout(next,delay);return;}
       m.revealing=false;m.node.dataset.revealing='false';stopReveal();attachments(m);scrollMessages();pending=false;progress('done');sync();
     }

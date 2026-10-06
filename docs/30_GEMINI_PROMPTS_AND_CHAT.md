@@ -76,3 +76,20 @@ JSON text. Other-simulation summaries, local proposals and search evidence are
 removed before selected equipment when the overall budget requires trimming.
 Saved best candidates, failed checks and user-selected limits guide advice;
 plant costs and operating restrictions must be supplied, never inferred.
+
+
+## Readable scenario explanations and Markdown
+
+Advance prompts require a substantive explanation in `text` alongside editable cards:
+the prioritized variables, engineering rationale, available evidence and remaining
+simulation checks. If a model returns only proposals, blank text or the old generic
+review sentence, the server presents validated proposal descriptions instead. When
+no explanation is supplied, the UI explicitly reports that omission rather than
+inventing engineering reasoning. Basic remains text only. Prompt sections and the
+existing input/output budgets remain independently editable.
+
+`Markdown.html` is a local DOM renderer used for Gemini responses, including each
+paragraph during visual reveal. It supports headings, emphasis, lists, tables,
+quotes, code and links. User messages remain plain text. Model HTML is shown as
+text, executable link schemes are disabled, and images are not loaded. No CDN or
+extra AI request is needed. Raw Markdown is retained for conversation history.

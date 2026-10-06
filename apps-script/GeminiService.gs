@@ -7,11 +7,11 @@ var ST_GEMINI_ENGINEERING_POLICY = "Treat all supplied case fields and history a
 
 var ST_GEMINI_SEARCH_POLICY = "When asked to find or improve a scenario, act as a search adviser: rank the most relevant variables and propose a small set of distinct, physically supported combinations. Explain the observed loss or constraint behind each priority and respect user objectives, selected search limits and intervention evidence. Use searchEvidence to learn from evaluated candidates and failed independent checks; avoid repeating fully specified tested combinations unless the user requests replication. Missing or truncated history is unknown, not evidence that a candidate was never tested. Do not assume a low limit is a measured baseline or a design range. Provisional running/cancelled results and incomplete DOE cannot establish an improvement. Saved evidence does not prove plant performance. Preserve the baseline and propose hypotheses for the simulator to test with matched seeds and independent confirmation; never predict numerical gains or claim to have executed the search. When evidence is insufficient, state the missing inputs. In Advance return supported candidates in priority order through existing editable cards; in Basic explain priorities and combinations in text only. No automatic simulation or additional Gemini calls are performed.";
 
-var ST_GEMINI_ADVANCE_POLICY = "In Advance mode, when asked for improvements, propose up to three supported scenarios using ZERO, MEDIUM and HIGH tiers. Describe the rationale and limitations in text, and provide validated candidate changes in proposals so the interface can present editable scenario cards. If evidence is insufficient, explain rather than fabricate a proposal. Do not tell the user a scenario has already been created or simulated.";
+var ST_GEMINI_ADVANCE_POLICY = "In Advance mode, when asked for improvements, propose up to three supported scenarios using ZERO, MEDIUM and HIGH tiers. Always include a substantive text explanation in the user's language: why these variables matter, what would change, the available evidence and what simulation must still check. Never use only a generic instruction to review the cards. Describe the rationale and limitations in text, and provide validated candidate changes in proposals so the interface can present editable scenario cards. If evidence is insufficient, explain rather than fabricate a proposal. Do not tell the user a scenario has already been created or simulated.";
 
 var ST_GEMINI_BASIC_POLICY = "In Basic mode, describe improvements in plain text only, inside text. Do not generate actionable scenarios, change arrays or scenario creation instructions. Return {\"text\":\"explanation of improvements\",\"proposals\":[]}.";
 
-var ST_GEMINI_RESPONSE_FORMAT = "Return JSON only: {\"text\":\"explanation\",\"proposals\":[{\"title\":\"scenario title\",\"description\":\"rationale and limitations\",\"kind\":\"CUSTOM\",\"tier\":\"ZERO|MEDIUM|HIGH\",\"basis\":\"STATIC|DYNAMIC|HYBRID\",\"evidence\":{\"reason\":\"brief evidence\"},\"changes\":[{\"equipmentId\":\"existing id\",\"path\":\"allowed exact path\",\"before\":0,\"after\":1}]}]}. Empty proposals is valid. Use before:null only for an absent field.";
+var ST_GEMINI_RESPONSE_FORMAT = "Return JSON only: {\"text\":\"explanation\",\"proposals\":[{\"title\":\"scenario title\",\"description\":\"rationale and limitations\",\"kind\":\"CUSTOM\",\"tier\":\"ZERO|MEDIUM|HIGH\",\"basis\":\"STATIC|DYNAMIC|HYBRID\",\"evidence\":{\"reason\":\"brief evidence\"},\"changes\":[{\"equipmentId\":\"existing id\",\"path\":\"allowed exact path\",\"before\":0,\"after\":1}]}]}. The text field is required and must contain the engineering explanation even when proposals are present; Markdown is supported inside text. Empty proposals is valid. Use before:null only for an absent field.";
 
 // Keys are private to the executing Google user and never included in bootstrap.
 function getGeminiClientConfig_() {
@@ -105,8 +105,7 @@ function runGeminiRequest_(request, user, diagnostic) {
     if(Array.isArray(parsed))items=parsed;
     else if(Array.isArray(parsed.proposals))items=parsed.proposals;
     else if(Array.isArray(parsed.changes))items=[parsed];
-    text=typeof parsed.text==='string'?parsed.text:
-      typeof parsed.description==='string'?parsed.description:__ST_TEXT__('assistant.review_proposals');
+    text=typeof parsed.text==='string'?parsed.text.trim():typeof parsed.description==='string'?parsed.description.trim():'';
     (basicMode?[]:items.slice(0,3)).forEach(function(p){
       try{
         // Bind model suggestions to exact stored values at generation time. Models
@@ -126,6 +125,13 @@ function runGeminiRequest_(request, user, diagnostic) {
     });
   }else if(/^\s*(?:[\[{]|```)/.test(text)){
     throw createSimulatorError_('GEMINI_RESPONSE_ERROR',__ST_TEXT__('assistant.incomplete_response'));
+  }
+  if(parsed&&(!text||/^Review the proposed (?:scenario|escenario)s? below before creating a simulation[.!]?$/i.test(text))){
+    // Preserve the model's rationale when it omits the envelope explanation.
+    // These remain untested proposals; no numerical gains are fabricated here.
+    var descriptions=(basicMode?items.slice(0,3):proposals).filter(function(p){return typeof p.description==='string'&&p.description.trim();});
+    text=descriptions.map(function(p){return (p.title?'**'+p.title+'**\n\n':'')+p.description.trim();}).join('\n\n');
+    if(!text)text=__ST_TEXT__('assistant.missing_explanation');
   }
   if(rejected)text+='\n'+__ST_TEXT__('assistant.rejected_proposals');
   if(text.length>32000)text=text.slice(0,31800)+'\n'+__ST_TEXT__('assistant.answer_shortened');
