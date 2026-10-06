@@ -80,6 +80,8 @@
       document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
+      STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STSettings.connectCaseFlush(function(){return prepareCaseDraft();});
       STSettings.connectInterfaceMode(function(mode){
         STEquipmentInspector.release();
@@ -247,12 +249,12 @@
       if(changingFolder && !await showCaseHome()){done({ok:false,error:{message:__ST_TEXT__('autosave.invalid')}});return;}
       callServer('saveUserSettings', [request], function(response) {
         if(response.ok){
-          cancelCaseCatalog();
+          if(changingFolder)cancelCaseCatalog();
           state.bootstrap.settings=response.data;
-          state.bootstrap.gemini={model:request.gemini.model,configured:Boolean(request.gemini.apiKey||state.bootstrap.gemini?.configured)};
+          state.bootstrap.gemini=Object.assign({},state.bootstrap.gemini,{model:request.gemini.model,configured:Boolean(request.gemini.apiKey||state.bootstrap.gemini?.configured)},request.gemini.prompts===undefined?{}:{promptOverrides:request.gemini.prompts});
           STSettings.setKeyConfigured(state.bootstrap.gemini.configured);
           shell.sync();
-          if(!state.activeCase)callServer('getBootstrap',[],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();if(r.data.caseCatalog?.refreshRequired)refreshCaseCatalog();}});
+          if(changingFolder&&!state.activeCase)callServer('getBootstrap',[],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();if(r.data.caseCatalog?.refreshRequired)refreshCaseCatalog();}});
         }
         done(response);
       });

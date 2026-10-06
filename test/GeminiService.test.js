@@ -5,7 +5,7 @@ import vm from 'node:vm';
 function setup({status=200,denied=false,answer='Observed throughput: 42.'}={}) {
  const values={GEMINI_API_KEY:'private-test-key'},calls=[];
  let record;
- const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]||null})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details,simulatorError:{code,message,details}}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
+ const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]??null,setProperties:entries=>Object.assign(values,entries),deleteProperty:k=>delete values[k]})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details,simulatorError:{code,message,details}}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
  vm.createContext(ctx);
  for(const file of ['TextResources.gs','PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
  const demo=JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_()));
@@ -196,4 +196,31 @@ test('Gemini keeps proposal rationales when text is omitted, blank or generic',(
   assert.equal(result.proposals.length,1);assert.match(result.text,/La acumulación disponible/);assert(!result.text.includes('Review the proposed scenario'));
  }
  const h=setup({answer:JSON.stringify({proposals:[{...proposal,description:''}]})});assert.match(h.ctx.askGemini_(request,user).text,/no explanation/);
+});
+
+
+test('Gemini account prompts keep disabled text, use source defaults and respect mode boundaries',()=>{
+ const h=setup();h.ctx.saveGeminiPrompts_(h.ctx.normalizeGeminiPrompts_({personality:{enabled:true,text:'PERSONAL_ACCOUNT_TONE'},zeroCapex:{enabled:true,text:'ZERO_ACCOUNT_CRITERIA'},mediumCapex:{enabled:false,text:'RETAINED_MEDIUM_CRITERIA'},engineering:{enabled:false,text:'RETAINED_ENGINEERING'},basic:{enabled:false,text:'RETAINED_BASIC'}}));
+ h.ctx.ST_GEMINI_HIGH_CAPEX_POLICY='HIGH_SOURCE_DEFAULT';
+ const config=h.ctx.getGeminiClientConfig_();assert.equal(config.prompts.length,10);assert.equal(config.promptOverrides.mediumCapex.text,'RETAINED_MEDIUM_CRITERIA');assert(!JSON.stringify(config).includes('private-test-key'));
+ for(const uiMode of ['ADVANCE','BASIC']){
+  h.ctx.askGemini_({...request,uiMode},user);const policy=JSON.parse(h.calls.at(-1).options.payload).systemInstruction.parts[0].text;
+  for(const text of ['PERSONAL_ACCOUNT_TONE','ZERO_ACCOUNT_CRITERIA','HIGH_SOURCE_DEFAULT'])assert(policy.includes(text));
+  for(const text of ['RETAINED_MEDIUM_CRITERIA','RETAINED_ENGINEERING','RETAINED_BASIC'])assert(!policy.includes(text));
+  if(uiMode==='BASIC')assert(policy.includes('Basic returns explanation text only'));
+ }
+ const other=setup();assert(!other.ctx.geminiPolicy_(false).includes('PERSONAL_ACCOUNT_TONE'));
+ h.ctx.saveGeminiPrompts_({});assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getGeminiPrompts_())),{});assert(h.ctx.geminiPolicy_(false).includes(h.ctx.ST_GEMINI_PERSONALITY));
+});
+test('Gemini persists long Unicode prompts in bounded properties and cleans obsolete chunks',()=>{
+ const h=setup(),prompts={};for(const id of ['personality','language','zeroCapex','mediumCapex','highCapex'])prompts[id]={enabled:true,text:'語'.repeat(8000)};
+ h.ctx.saveGeminiPrompts_(h.ctx.normalizeGeminiPrompts_(prompts));
+ assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getGeminiPrompts_())),prompts);
+ const parts=()=>Object.keys(h.values).filter(k=>k.startsWith('GEMINI_PROMPTS_PART_'));
+ assert(parts().length>20);assert(parts().every(k=>Buffer.byteLength(h.values[k],'utf8')<=8000));
+ h.ctx.saveGeminiPrompts_({personality:{enabled:false,text:'Keep for later'}});assert.equal(parts().length,1);assert.equal(h.ctx.getGeminiPrompts_().personality.text,'Keep for later');
+ delete h.values.GEMINI_PROMPTS_PART_0;assert.throws(()=>h.ctx.getGeminiPrompts_(),e=>e.code==='INVALID_GEMINI_PROMPTS');
+});
+test('Gemini rejects unknown sections, malformed toggles and oversized prompts before storing them',()=>{
+ const {ctx}=setup();for(const prompts of [{unknown:{enabled:true,text:'x'}},{personality:{enabled:'no',text:'x'}},{personality:{enabled:true,text:'x'.repeat(8001)}},Object.fromEntries(['personality','language','zeroCapex','mediumCapex','highCapex','engineering'].map(id=>[id,{enabled:true,text:'x'.repeat(8000)}]))])assert.throws(()=>ctx.normalizeGeminiPrompts_(prompts),e=>e.code==='INVALID_GEMINI_PROMPTS');
 });

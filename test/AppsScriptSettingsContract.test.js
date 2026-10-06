@@ -54,7 +54,9 @@ function createAppsScriptRuntime(options = {}) {
     PropertiesService: {
       getUserProperties: () => ({
         getProperty: (key) => userProperties[key] || null,
-        setProperty: (key, value) => { userProperties[key] = value; }
+        setProperty: (key, value) => { userProperties[key] = value; },
+        setProperties: entries => Object.assign(userProperties,entries),
+        deleteProperty: key => delete userProperties[key]
       }),
       getScriptProperties: () => ({
         getProperty: (key) => scriptProperties[key] || null
@@ -68,7 +70,7 @@ function createAppsScriptRuntime(options = {}) {
     }
   });
 
-  ['ApiResponse.gs', 'ConfigService.gs', 'DriveService.gs'].forEach((file) => {
+  ['ApiResponse.gs', 'ConfigService.gs', 'DriveService.gs', 'GeminiService.gs'].forEach((file) => {
     vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script', file), 'utf8'), context, { filename: file });
   });
   context.userProperties = userProperties;
@@ -78,3 +80,14 @@ function createAppsScriptRuntime(options = {}) {
 function toPlainObject(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+
+test('saves account prompt overrides without exposing credentials and rejects invalid drafts before writing',()=>{
+ const runtime=createAppsScriptRuntime({accessibleFolderIds:['workspace-1']}),prompts={personality:{enabled:false,text:'Use later'},mediumCapex:{enabled:true,text:'Defined local retrofit scope'}};
+ runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'private-test-key',prompts}});
+ assert.deepEqual(toPlainObject(runtime.getGeminiClientConfig_().promptOverrides),prompts);assert(!JSON.stringify(runtime.getGeminiClientConfig_()).includes('private-test-key'));
+ const previous=JSON.stringify(runtime.userProperties);
+ assert.throws(()=>runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'changed-key',prompts:{personality:{enabled:true,text:'x'.repeat(8001)}}}}),e=>e.simulatorError.code==='INVALID_GEMINI_PROMPTS');
+ assert.equal(JSON.stringify(runtime.userProperties),previous);
+ runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash'}});assert.deepEqual(toPlainObject(runtime.getGeminiPrompts_()),prompts);
+});

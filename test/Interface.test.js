@@ -18,18 +18,18 @@ function stubScenarioGain(h){
 }
 
 async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false}={}) {
- const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
+ const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);vm.runInContext(read('GeminiService.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  if(flowUnit)initial.unitOfFlow=flowUnit;
  Object.assign(initial,{id:'demo',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
  const sourceEquipment=JSON.parse(JSON.stringify(initial.equipment));
  if(empty)initial.equipment=[];
- initial.simulations=[{id:'simulation-a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(initial.equipment)),dynamicConfig:{},results:null,playbackRate:1}];
+ initial.simulations=[{id:'simulation-a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(initial.equipment)),dynamicConfig:{},results:null,playbackRate:1,createdAt:initial.updatedAt,updatedAt:initial.updatedAt}];
  let cases=[initial], stored={workspaceRootFolderId:'preview',preferredPlaybackRate:10}, calls=[], geminiConfigured=true;
  if(many) cases=Array.from({length:60},(_,i)=>({...initial,id:'case-'+i,name:'Line '+String(i).padStart(2,'0')}));
  const copy=x=>JSON.parse(JSON.stringify(x));
  const api={
-  getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:indexedCatalog==='cold'?[]:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),caseCatalog:indexedCatalog?{refreshRequired:true}:undefined}),
+  getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash',prompts:context.geminiPromptDefinitions_(),promptOverrides:stored.gemini?.prompts||{}},cases:indexedCatalog==='cold'?[]:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),caseCatalog:indexedCatalog?{refreshRequired:true}:undefined}),
   refreshCaseCatalog:()=>({cases:cases.map(c=>({id:c.id,name:c.name,revision:c.revision,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),hasMore:false,cursor:null}),
   askGemini:()=>({text:'Analysis of the saved case.'}),
   previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((unit,index)=>({...unit,characteristics:{...unit.characteristics,criticalMachine:index===0,isPacemaker:index===0},processData:{...unit.processData,role:unit.type==='CONVEYOR'?'CONVEYOR':index===0?'CRITICAL_MACHINE':'MACHINE'}})).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
@@ -37,7 +37,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   saveCase:c=>{c=copy(c);c.revision=c.expectedRevision+1;cases=cases.map(x=>x.id===c.id?c:x);return c;},
   getScenarioSourceSignature:request=>{const record=cases.find(c=>c.id===request.caseId),simulation=record?.simulations.find(s=>s.id===request.simulationId);if(!simulation||record.revision!==request.expectedRevision)throw Error('Stale scenario source');return {revision:record.revision,simulationId:simulation.id,signature:dom.window.STScenarios.signature(simulation)};},
   saveUserSettings:s=>{if(s.gemini?.apiKey)geminiConfigured=true;return stored=s;},
-  deleteGeminiApiKey:()=>{geminiConfigured=false;return {configured:false,model:'gemini-2.5-flash'};},
+  deleteGeminiApiKey:()=>{geminiConfigured=false;return {configured:false,model:'gemini-2.5-flash',prompts:context.geminiPromptDefinitions_(),promptOverrides:stored.gemini?.prompts||{}};},
   cloneCase:id=>{const source=cases.find(c=>c.id===id),record=copy(source);record.id='copy-'+id;record.name='Copy of '+source.name;record.revision=1;record.updatedAt=new Date().toISOString();cases.push(record);return {id:record.id,name:record.name,equipmentCount:record.equipment.length,isSimulationReady:record.equipment.length>1,updatedAt:record.updatedAt};},
   deleteCase:id=>{cases=cases.filter(c=>c.id!==id);return {id};},
   createCase:c=>{c={...c,id:'new',equipment:[],revision:1,updatedAt:new Date().toISOString()};cases.push(c);return c;}
@@ -1102,7 +1102,7 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   const sim=h.storedCases()[0].simulations[0],target=h.d.createElement('section');h.d.body.append(target);
   h.d.documentElement.dataset.uiMode='basic';h.w.STWhatIf.render(sim,target,()=>{});
   assert.equal(target.querySelector('.scenario-candidate-details'),null);
-  assert.equal(target.querySelector('.scenario-scope'),null);
+  assert.equal(target.querySelector('.scenario-explorer > .scenario-scope'),null);assert(!target.textContent.includes('Include lower-CAPEX'));
   assert.equal(target.querySelector('.scenario-tier-grid').children.length,4);
   assert.match(target.querySelector('.scenario-tier-grid').lastElementChild.textContent,/All CAPEX/);
   h.d.documentElement.dataset.uiMode='advance';h.w.STWhatIf.render(sim,target,()=>{});
@@ -1671,5 +1671,39 @@ test('UI: Gemini formats Markdown during paragraph reveal and preserves Advance 
   await h.click('.open-case');await h.click('#toggle-gemini');const sim=h.storedCases()[0].simulations[0],proposal=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
   h.api.askGemini=()=>({text:'## Mejoras\n\n**Acumulación**: revisar bloqueo.\n\n- Validar con simulación\n- Comparar OEE',proposals:[proposal]});h.d.getElementById('gemini-question').value='Sugiere mejoras';await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled&&h.d.querySelector('#gemini-messages .analysis-recommendation'));
   const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.querySelector('h2').textContent,'Mejoras');assert.equal(body.querySelector('strong').textContent,'Acumulación');assert.equal(body.querySelectorAll('li').length,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: Settings groups options, supports keyboard tabs and preserves excluded Gemini prompt drafts',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('#cases-settings');assert.equal(h.d.querySelectorAll('[data-settings-tab]').length,5);
+  const caseTab=h.d.getElementById('settings-tab-case');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  assert.equal(h.d.activeElement.id,'settings-tab-appearance');assert(h.visible('settings-page-appearance'));assert(!h.visible('settings-page-gemini'));
+  const size=h.d.getElementById('settings-font-scale');size.value='110';size.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'17.6px');assert.equal(h.w.localStorage.getItem('st.ui.v1.fontScale'),'110');
+  await h.click('#settings-tab-gemini');assert.equal(h.d.querySelectorAll('.gemini-prompt-card').length,10);assert.equal(h.d.getElementById('gemini-model').form.id,'workspace-form');
+  assert(h.d.getElementById('settings-page-gemini').contains(h.d.getElementById('gemini-api-key')));assert(h.d.getElementById('settings-page-storage').contains(h.d.getElementById('workspace-folder-id')));
+  let saved;const save=h.api.saveUserSettings;h.api.saveUserSettings=s=>{saved=s;return save(s);};
+  const card=h.d.getElementById('gemini-prompt-personality'),text=card.querySelector('textarea'),toggle=card.querySelector('input');text.value='Explica las decisiones con claridad.';text.dispatchEvent(new h.w.Event('input',{bubbles:true}));toggle.checked=false;toggle.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  const medium=h.d.querySelector('#gemini-prompt-mediumCapex textarea');medium.value='Retrofitting local basado en evidencia.';medium.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  assert.equal(card.dataset.included,'false');assert(!text.disabled);assert.match(h.d.getElementById('gemini-prompt-budget').textContent,/40,000/);
+  await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);
+  assert.equal(saved.gemini.prompts.personality.enabled,false);assert.equal(saved.gemini.prompts.personality.text,text.value);assert.equal(saved.gemini.prompts.mediumCapex.enabled,true);assert(!('language' in saved.gemini.prompts));
+  await h.click('#cases-settings');assert.equal(text.value,'Explica las decisiones con claridad.');assert(!toggle.checked);
+  await h.click('#gemini-prompt-personality button');toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!('personality' in saved.gemini.prompts));assert.equal(h.errors.length,0);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: case chart colors and DOE survive save and reopening while Basic keeps manual saving',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-case');
+  const colors=h.d.querySelectorAll('#settings-chart-colors input');assert.equal(colors.length,13);assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);
+  colors[0].value='#123456';colors[0].dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456');
+  h.d.getElementById('settings-scenario-doe').checked=true;await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert.equal(h.w.STScenarioExplorer.doeEnabled(),true);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.includeDOE===true);
+  assert.equal(h.storedCases()[0].metadata.chartColors[0],'#123456');assert.equal(h.storedCases()[0].simulations[0].results,null);
+  await h.click('#home-cases');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');await h.click('.open-case');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456');assert(h.w.STScenarioExplorer.doeEnabled());
+  await h.click('#open-settings');await h.click('#settings-chart-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');assert.equal(h.calls.filter(x=>x==='saveCase').length,1);
+  assert.equal(h.errors.length,0);
  }finally{h.dom.window.close();}
 });

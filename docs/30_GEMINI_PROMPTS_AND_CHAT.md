@@ -7,6 +7,9 @@ agent instructions without editing HTTP requests or scenario validation.
 | --- | --- |
 | `ST_GEMINI_PERSONALITY` | Role, tone, explanation style and paragraph structure. |
 | `ST_GEMINI_LANGUAGE_POLICY` | Use the latest question's language, or an explicitly requested language. Human-readable scenario fields follow it; schema identifiers remain unchanged. |
+| `ST_GEMINI_ZERO_CAPEX_POLICY` | Installed speed/sensor/delay adjustments without purchases or accumulation extensions. |
+| `ST_GEMINI_MEDIUM_CAPEX_POLICY` | Evidenced local retrofits or external reliability interventions. |
+| `ST_GEMINI_HIGH_CAPEX_POLICY` | Accumulation extensions and replacement projects with physical/capacity evidence. |
 | `ST_GEMINI_ENGINEERING_POLICY` | Engineering evidence, model limits, physical checks, reliability interventions and baseline preservation. |
 | `ST_GEMINI_SEARCH_POLICY` | Prioritize variables and combinations using compact saved search evidence; respect omissions and keep numerical evaluation in the simulator. |
 | `ST_GEMINI_ADVANCE_POLICY` | Supported improvement suggestions include structured proposals for editable scenario cards. |
@@ -18,6 +21,30 @@ not send the opposite mode's rules. Exact allowed parameter paths come from the
 scenario engine. Model output still passes the existing server validation, and
 Basic suppresses proposals on both the server and the client. Editing prompts
 does not bypass scenario validation.
+
+## Settings editor
+
+**Settings → Gemini** shows ten editable prompt sections. Each has its own
+inclusion checkbox, character count and **Reset text** button. Disabled sections
+retain their text but are omitted from requests. Basic rules only apply in Basic;
+Advance rules and the Advance response format only apply in Advance. The HTTP
+JSON transport, allowed-field validation and Basic suppression of proposals remain
+application behavior even when optional prompt sections are disabled.
+
+Overrides belong to the executing Google account, alongside its model and key;
+they are not stored in a case or sent as browser-authoritative instructions.
+Only customized or disabled sections are persisted. Unmodified enabled sections
+continue to use the source variables above, including subsequent manual edits.
+Reset text restores a section's source text and keeps its current checkbox state;
+resetting and enabling it removes its override on the next settings save.
+
+The editor allows 8,000 characters per section and 40,000 across all sections,
+including excluded text. Server validation limits persisted overrides as well.
+Unicode text is stored in ASCII-escaped chunks no larger than 8,000 bytes per
+User Property, with a small manifest and obsolete-chunk cleanup. Prompt settings
+are validated before any settings write. As before, the complete serialized
+Gemini request must fit its separate existing budget; larger prompts leave less
+room for history. No extra Gemini call is needed to edit or save prompts.
 
 ## Paragraph reveal
 

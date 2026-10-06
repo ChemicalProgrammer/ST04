@@ -30,6 +30,8 @@ window.STPreferences = (function() {
     write('theme', theme); apply();
     document.querySelectorAll('[data-theme-picker]').forEach(function(select) { select.value = theme; });
   }
+  function setFontScale(value,persist){value=Number(value);if(![80,90,100,110,125].includes(value))value=100;if(persist!==false)write('fontScale',String(value));document.documentElement.style.fontSize=(16*value/100)+'px';document.documentElement.style.setProperty('--basic-font-scale',String(.8*value/100));var picker=document.getElementById('settings-font-scale');if(picker)picker.value=String(value);}
+  setFontScale(read('fontScale')||100,false);
   if (media.addEventListener) media.addEventListener('change', apply);
   apply();
   function applyJsonFields(mode) {
@@ -39,6 +41,8 @@ window.STPreferences = (function() {
     var checkbox=document.getElementById('settings-json-fields');if(checkbox)checkbox.checked=visible;
   }
   document.addEventListener('DOMContentLoaded', function() {
+    setFontScale(read('fontScale')||100,false);
+    document.getElementById('settings-font-scale')?.addEventListener('change',function(event){setFontScale(event.target.value);window.dispatchEvent(new Event('resize'));});
     applyJsonFields(document.documentElement.dataset.uiMode);
     document.getElementById('settings-json-fields')?.addEventListener('change',function(event){
       var mode=document.documentElement.dataset.uiMode==='advance'?'advance':'basic';
@@ -51,6 +55,6 @@ window.STPreferences = (function() {
       select.addEventListener('change', function() { setTheme(select.value); });
     });
   });
-  return { read: read, write: write, setTheme: setTheme, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
+  return { read: read, write: write, setTheme: setTheme,setFontScale:setFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>

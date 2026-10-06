@@ -3,7 +3,9 @@
 window.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:40,maxSearchMs:600000,maxWithoutImprovement:12};
 window.STScenarioExplorer=(function(){
   // Evidence belongs to the simulation and is saved through the case autosave.
-  var activeHost=null,activeRecordKey=null;
+  var activeHost=null,activeRecordKey=null,caseProvider,caseChanged;
+  function doeEnabled(){var record=caseProvider?.();return typeof record?.metadata?.includeDOE==='boolean'?record.metadata.includeDOE:window.STPreferences?.read('scenarioDoe')==='yes';}
+  function setDOE(enabled){if(!STPreferences.write('scenarioDoe',enabled?'yes':'no'))return false;var record=caseProvider?.();if(record){record.metadata=record.metadata||{};record.metadata.includeDOE=enabled;caseChanged?.();}window.dispatchEvent(new Event('st-doe-change'));return true;}
   function savedEntries(simulation){return simulation.whatIf?.evaluations||[];}
   function changed(simulation){window.dispatchEvent(new CustomEvent('st-whatif-change',{detail:{simulation:simulation}}));}
   function evaluations(simulation){var signature=STScenarios.signature(simulation);return JSON.parse(JSON.stringify(savedEntries(simulation).filter(r=>r.sourceSimulationId===simulation.id&&r.sourceSignature===signature).map(r=>['RUNNING','VALIDATING'].includes(r.status)&&r.recordKey!==activeRecordKey?Object.assign({},r,{status:'INTERRUPTED'}):r)));}
@@ -49,7 +51,7 @@ window.STScenarioExplorer=(function(){
     });
     var doePanel=el('details','','scenario-doe'),doeCount=0;
     var doeToggle=document.createElement('input');doeToggle.type='checkbox';doeToggle.className='scenario-doe-enabled';var doeChoice=el('label','','scenario-scope');doeChoice.append(doeToggle,document.createTextNode(' Include DOE in this search'));
-    doeToggle.onchange=function(){if(activeHost){refreshDOE();return;}if(!STPreferences.write('scenarioDoe',doeToggle.checked?'yes':'no')){refreshDOE();return;}window.dispatchEvent(new Event('st-doe-change'));};
+    doeToggle.onchange=function(){if(activeHost){refreshDOE();return;}if(!setDOE(doeToggle.checked)){refreshDOE();return;}};
     doePanel.open=true;
     var factorCount=el('p','','scenario-factor-count');factorCount.setAttribute('role','status');
     var clearFactors=button('Clear factor selection',function(){rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});refreshFactors();invalidateDOE();});
@@ -74,7 +76,6 @@ window.STScenarioExplorer=(function(){
       available.forEach(r=>{if(!r.check.checked)r.doe.use.checked=false;r.doe.use.disabled=!doeEnabled()||count>=4&&!r.doe.use.checked;r.doe.low.disabled=r.doe.high.disabled=!doeEnabled()||!r.doe.use.checked;});
     }
     refreshFactors();
-    function doeEnabled(){return window.STPreferences?.read('scenarioDoe')==='yes';}
     function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();refreshFactors();clearFactors.disabled=!doeEnabled();}
     function invalidateDOE(){if(activeHost)return;generation++;clearTimeout(timer);last=null;save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();status.textContent='DOE settings changed. Run Find best scenario to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
     function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}if(activeHost)return;refreshDOE();invalidateDOE();}
@@ -245,6 +246,6 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     }
     rebuild();
   }
-  return {attach:attach,tools:tools,evaluate:evaluate,evaluations:evaluations};
+  return {doeEnabled:doeEnabled,setDOE:setDOE,connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},attach:attach,tools:tools,evaluate:evaluate,evaluations:evaluations};
 })();
 </script>
