@@ -1,5 +1,8 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "cases.refresh":"Refresh cases",
+  "cases.catalog_loading":"Updating case list… You can open any case already shown.",
+  "cases.catalog_failed":"The case list could not be refreshed. Cached cases remain available; use Refresh cases to retry.",
   "settings.scenario_doe": "Include DOE in What-If searches",
   "settings.scenario_doe_note": "Browser-local pilot: up to four factors, two levels, and at least three rounds per combination. Configure factors in What-If. Applied when Settings closes.",
   "settings.interface_mode": "Interface mode",

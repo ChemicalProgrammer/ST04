@@ -2,6 +2,7 @@
   (function() {
     var state = {
       bootstrap: null,
+      catalogLoading: false,
       requestEpoch: 0,
       pendingRequests: 0,
       openSequence: 0,
@@ -73,6 +74,7 @@
       document.getElementById('show-new-case').addEventListener('click', function() {
         toggle('new-case-form', true); document.getElementById('new-case-name').focus();
       });
+      document.getElementById('refresh-case-catalog').onclick=refreshCaseCatalog;
       document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
@@ -126,7 +128,7 @@
       if (!state.activeCase || state.activeCase.id !== saved.id) return;
       state.activeCase.revision=saved.revision;state.activeCase.updatedAt=saved.updatedAt;
       var item=(state.bootstrap?.cases||[]).find(function(x){return x.id===saved.id;});
-      if(item){item.name=saved.name;item.updatedAt=saved.updatedAt;item.equipmentCount=saved.equipmentCount??saved.equipment?.length??item.equipmentCount;item.isSimulationReady=item.equipmentCount>=2;}
+      if(item){item.revision=saved.revision;item.name=saved.name;item.updatedAt=saved.updatedAt;item.equipmentCount=saved.equipmentCount??saved.equipment?.length??item.equipmentCount;item.isSimulationReady=item.equipmentCount>=2;}
     },status:function(status,error){
       state.saving=status==='saving';state.isDirty=status!=='saved';
       syncSaveButton();
@@ -193,6 +195,7 @@
     async function lockWorkspace() {
       if (!await showCaseHome()) return;
       if (!await STSettings.flush()) return;
+      cancelCaseCatalog();
       state.requestEpoch += 1;
       cloningCases.clear();
       STPreferences.write('remember', null);
@@ -206,6 +209,7 @@
     }
 
     function initialize() {
+      cancelCaseCatalog();
       setStatus(__ST_TEXT__('client.loading_console'));
       callServer('getBootstrap', [], renderBootstrap);
     }
@@ -232,6 +236,7 @@
       renderCases(response.data.cases);
       setStatus(state.activeCase ? '' : (hasWorkspace ? '' : __ST_TEXT__('client.open_settings_to_connect_a_drive_folder_before_creating_a_case')));
       shell.sync();
+      if(response.data.caseCatalog?.refreshRequired)refreshCaseCatalog();
     }
 
     async function saveWorkspace(request, done) {
@@ -239,11 +244,12 @@
       if(changingFolder && !await showCaseHome()){done({ok:false,error:{message:__ST_TEXT__('autosave.invalid')}});return;}
       callServer('saveUserSettings', [request], function(response) {
         if(response.ok){
+          cancelCaseCatalog();
           state.bootstrap.settings=response.data;
           state.bootstrap.gemini={model:request.gemini.model,configured:Boolean(request.gemini.apiKey||state.bootstrap.gemini?.configured)};
           STSettings.setKeyConfigured(state.bootstrap.gemini.configured);
           shell.sync();
-          if(!state.activeCase)callServer('getBootstrap',[],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();}});
+          if(!state.activeCase)callServer('getBootstrap',[],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();if(r.data.caseCatalog?.refreshRequired)refreshCaseCatalog();}});
         }
         done(response);
       });
@@ -449,7 +455,38 @@ async function openCase(caseId) {
       });
     }
 
-    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone); }
+    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone,{loading:state.catalogLoading}); }
+    var catalogGeneration=0,catalogTimer;
+    function cancelCaseCatalog(){
+      catalogGeneration++;clearTimeout(catalogTimer);state.catalogLoading=false;
+      document.getElementById('refresh-case-catalog').disabled=false;
+      document.getElementById('case-catalog-status').textContent='';
+    }
+    function refreshCaseCatalog(){
+      if(!state.bootstrap?.settings?.workspaceRootFolderId)return;
+      cancelCaseCatalog();state.catalogLoading=true;
+      var generation=catalogGeneration,folderId=state.bootstrap.settings.workspaceRootFolderId;
+      var original=new Map((state.bootstrap.cases||[]).map(function(c){return [c.id,JSON.stringify(c)];}));
+      var status=document.getElementById('case-catalog-status');status.classList.remove('error');
+      status.textContent=__ST_TEXT__('cases.catalog_loading');document.getElementById('refresh-case-catalog').disabled=true;
+      renderCases(state.bootstrap.cases);
+      function load(cursor){
+        if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
+        callServer('refreshCaseCatalog',[{cursor:cursor}],function(response){
+          if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
+          if(!response.ok){state.catalogLoading=false;status.textContent=__ST_TEXT__('cases.catalog_failed');status.classList.add('error');document.getElementById('refresh-case-catalog').disabled=false;renderCases(state.bootstrap.cases);return;}
+          var incoming=new Map(response.data.cases.map(function(c){return [c.id,c];}));
+          // Keep local saves and clones made while this background scan was running.
+          (state.bootstrap.cases||[]).forEach(function(c){if(original.get(c.id)!==JSON.stringify(c)&&Number(incoming.get(c.id)?.revision||0)<=Number(c.revision||0))incoming.set(c.id,c);});
+          state.bootstrap.cases=Array.from(incoming.values());state.catalogLoading=!!response.data.hasMore;
+          renderCases(state.bootstrap.cases);
+          status.textContent=state.catalogLoading?__ST_TEXT__('cases.catalog_loading'):'';
+          document.getElementById('refresh-case-catalog').disabled=state.catalogLoading;
+          if(response.data.hasMore)catalogTimer=setTimeout(function(){load(response.data.cursor);},150);
+        });
+      }
+      catalogTimer=setTimeout(function(){load(null);},150);
+    }
 
     function renderEditor() {
       if (!state.activeCase) return;
@@ -1995,9 +2032,11 @@ function summarizeGeometrySources(sources, assumptions) {
         .withFailureHandler(function(error) {
           done();
           if(epoch !== state.requestEpoch) return;
-          state.saving=false;
-          document.querySelectorAll('[data-busy="true"]').forEach(function(button){button.disabled=false;delete button.dataset.busy;});
-          shell.sync();
+          if(name!=='refreshCaseCatalog'){
+            state.saving=false;
+            document.querySelectorAll('[data-busy="true"]').forEach(function(button){button.disabled=false;delete button.dataset.busy;});
+            shell.sync();
+          }
           var detail=name==='saveCase'&&typeof error?.message==='string'?error.message.slice(0,300):'';
           onSuccess({ok:false,error:{ code: 'NETWORK_ERROR', message: __ST_TEXT__('client.the_server_request_could_not_be_completed_please_try_again')+(detail?' '+detail:'') }});
         })

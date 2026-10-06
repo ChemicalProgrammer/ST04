@@ -10,14 +10,20 @@ function include_(filename) {
 
 function getBootstrap() {
   return executeServerAction_(function(user) {
+    var catalog=getCaseCatalog_(user);
     return {
       user: user,
       settings: getUserSettings_(),
       gemini: getGeminiClientConfig_(),
       uiMode: getInterfaceMode_(),
-      cases: listCases_(user)
+      cases: catalog.cases,
+      caseCatalog: {refreshRequired:catalog.refreshRequired,complete:catalog.complete}
     };
   });
+}
+
+function refreshCaseCatalog(request) {
+  return executeServerAction_(function(user){return refreshCaseCatalog_(user,request?.cursor||null);});
 }
 
 function saveUserSettings(request) {

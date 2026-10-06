@@ -17,7 +17,7 @@ function stubScenarioGain(h){
  };
 }
 
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
  if(flowUnit)initial.unitOfFlow=flowUnit;
@@ -29,7 +29,8 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  if(many) cases=Array.from({length:60},(_,i)=>({...initial,id:'case-'+i,name:'Line '+String(i).padStart(2,'0')}));
  const copy=x=>JSON.parse(JSON.stringify(x));
  const api={
-  getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt}))}),
+  getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:indexedCatalog==='cold'?[]:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),caseCatalog:indexedCatalog?{refreshRequired:true}:undefined}),
+  refreshCaseCatalog:()=>({cases:cases.map(c=>({id:c.id,name:c.name,revision:c.revision,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),hasMore:false,cursor:null}),
   askGemini:()=>({text:'Analysis of the saved case.'}),
   previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
   getCase:id=>copy(cases.find(c=>c.id===id)),
@@ -813,7 +814,7 @@ test('UI: shared simulation controls and case name in Settings preserve case res
    await h.click('.open-case');
    assert(h.visible('simulation-toolbar'));assert(h.visible('settings-case-section'));
    for(const id of ['simulation-selector','rename-simulation','clone-case','delete-simulation'])assert(h.d.getElementById('simulation-toolbar').contains(h.d.getElementById(id)));
-   const remove=h.d.getElementById('delete-simulation');assert.match(remove.textContent,/Delete/);assert(remove.classList.contains('secondary'));assert(remove.querySelector('svg'));
+   const remove=h.d.getElementById('delete-simulation');assert.equal(remove.textContent,'');assert.match(remove.getAttribute('aria-label'),/Delete/);assert(remove.classList.contains('secondary'));assert(remove.querySelector('svg'));
    const selector=h.d.getElementById('simulation-selector');assert.equal(selector.options.length,1);
    await h.click('#clone-case');await waitFor(()=>selector.options.length===2);
    const first=selector.options[0].value;selector.value=first;selector.dispatchEvent(new h.w.Event('change'));await settle();assert.equal(selector.value,first);
@@ -853,7 +854,7 @@ test('UI: source color names and hex values populate compact Settings and work i
 test('UI Basic: Gemini is available in every section and resizes without hiding conveyor fields',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');
-  const toggle=h.d.getElementById('toggle-gemini');assert.equal(toggle.parentElement.id,'basic-section-row');assert.equal(h.d.getElementById('basic-navigation').parentElement,toggle.parentElement);assert(!h.d.getElementById('basic-navigation').contains(toggle));
+  const toggle=h.d.getElementById('toggle-gemini');assert.equal(toggle.parentElement.id,'header-case-actions');assert.equal(toggle.parentElement.parentElement.id,'basic-section-row');assert.equal(h.d.getElementById('basic-navigation').parentElement,toggle.parentElement.parentElement);assert(!h.d.getElementById('basic-navigation').contains(toggle));
   await h.click('#toggle-gemini');
   for(const section of ['equipment','conveyors','simulation','vgraph','whatif']){
    await h.click('[data-basic-view="'+section+'"]');
@@ -874,18 +875,16 @@ test('UI Basic: Gemini is available in every section and resizes without hiding 
  }finally{h.dom.window.close();}
 });
 
-test('UI Advance: simulation actions align right without a selector or enclosing frame',async()=>{
+test('UI Advance: header simulation picker and icon actions remain beside Gemini across sections',async()=>{
  const h=await setup({remember:true,uiMode:'ADVANCE'});try{
   await h.click('.open-case');
-  const toolbar=h.d.getElementById('simulation-toolbar'),style=h.w.getComputedStyle(toolbar);
-  assert.equal(h.w.getComputedStyle(h.d.querySelector('.simulation-picker')).display,'none');
-  assert.equal(style.justifyContent,'flex-end');assert.equal(style.borderTopWidth,'0px');assert.equal(style.backgroundColor,'rgba(0, 0, 0, 0)');
-  assert.equal(h.d.querySelectorAll('#simulation-toolbar button').length,3);assert(h.visible('case-sidebar'));
-  assert.equal(h.d.getElementById('toggle-gemini').parentElement.className,'topbar');
-  for(const [view,panel] of [['editor','editor'],['simulation','run'],['results','results'],['whatif','whatif']]){
-   await h.click('.sidebar [data-view="'+view+'"]');
-   assert.equal(toolbar.parentElement,h.d.querySelector('#'+panel+'-panel > .section-heading'));
-   assert.equal(h.w.getComputedStyle(toolbar).marginTop,'0px');
+  const toolbar=h.d.getElementById('simulation-toolbar'),cluster=h.d.getElementById('header-case-actions');
+  assert.equal(toolbar.parentElement,cluster);assert.equal(toolbar.nextElementSibling,h.d.getElementById('toggle-gemini'));
+  assert(cluster.closest('header'));assert.equal(h.w.getComputedStyle(h.d.querySelector('.simulation-picker')).display,'flex');
+  for(const id of ['rename-simulation','clone-case','delete-simulation']){const b=h.d.getElementById(id);assert.equal(b.textContent,'');assert(b.querySelector('svg'));assert(b.getAttribute('aria-label'));assert(b.title);}
+  assert(h.visible('case-sidebar'));
+  for(const view of ['editor','simulation','results','whatif']){
+   await h.click('.sidebar [data-view="'+view+'"]');assert.equal(toolbar.parentElement,cluster);assert(cluster.closest('header'));
   }
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1447,4 +1446,32 @@ test('UI: switchable conveyor fields retain inactive manual values through save 
   await h.click('#home-cases');await open();change('population-enabled',true);assert.equal(Number(field('population').value),50);change('lba-enabled',true);assert.equal(Number(field('lba').value),1000);change('overspeed-enabled',true);assert.equal(Number(field('overspeed').value),20);assert.equal(field('population-enabled').checked,false);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
+});
+
+
+test('UI: cold case index loads incrementally without preloading case results and retries errors',async()=>{
+ const h=await setup({remember:true,indexedCatalog:'cold'});try{
+  assert.match(h.d.getElementById('cases-list').textContent,/Updating case list/);assert(!h.calls.includes('getCase'));
+  let pages=0;h.api.refreshCaseCatalog=request=>{pages++;if(pages===1)return {cases:[{id:'demo',name:'Indexed demo',revision:1,equipmentCount:13,isSimulationReady:true,updatedAt:'2026-10-06'}],hasMore:true,cursor:'next'};throw Error('temporary failure');};
+  await waitFor(()=>h.d.querySelector('.open-case'));assert(!h.calls.includes('getCase'));await waitFor(()=>h.d.getElementById('case-catalog-status').classList.contains('error'));
+  assert.equal(h.d.querySelector('.case-name').textContent,'Indexed demo');assert.equal(h.d.getElementById('refresh-case-catalog').disabled,false);
+  h.api.refreshCaseCatalog=()=>({cases:[{id:'demo',name:'Current demo',revision:2,equipmentCount:13,isSimulationReady:true,updatedAt:'2026-10-06'}],hasMore:false,cursor:null});await h.click('#refresh-case-catalog');await waitFor(()=>h.d.querySelector('.case-name').textContent==='Current demo');
+  await h.click('.open-case');assert.equal(h.calls.filter(n=>n==='getCase').length,1);assert(h.visible('run-panel'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: a case clone made during catalog refresh survives a stale background response',async()=>{
+ const h=await setup({remember:true,indexedCatalog:'warm'});try{
+  await waitFor(()=>!h.d.getElementById('refresh-case-catalog').disabled);
+  const runner=h.w.google.script.run;let complete;
+  h.w.google.script.run={withFailureHandler(){return this;},withSuccessHandler(callback){complete=callback;return this;},refreshCaseCatalog(){}};
+  await h.click('#refresh-case-catalog');await waitFor(()=>complete);h.w.google.script.run=runner;
+  await h.click('.clone-case');await waitFor(()=>h.d.querySelectorAll('.case-row').length===2);
+  complete({ok:true,data:{cases:[{id:'demo',name:'Original',revision:1,equipmentCount:13,isSimulationReady:true,updatedAt:'2026-09-15'}],hasMore:false,cursor:null}});
+  assert.equal(h.d.querySelectorAll('.case-row').length,2);assert(h.d.getElementById('cases-list').textContent.includes('Copy of'));
+  complete=null;h.w.google.script.run={withFailureHandler(){return this;},withSuccessHandler(callback){complete=callback;return this;},refreshCaseCatalog(){}};
+  await h.click('#refresh-case-catalog');await waitFor(()=>complete);h.w.google.script.run=runner;await h.click('#cases-sign-out');
+  complete({ok:true,data:{cases:[{id:'old',name:'Old session case'}],hasMore:false,cursor:null}});assert(h.visible('auth-panel'));assert.equal(h.d.getElementById('cases-list').children.length,0);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

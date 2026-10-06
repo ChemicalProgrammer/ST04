@@ -1,19 +1,7 @@
-function listCases_(user) {
-  var settings = getUserSettings_();
-  if (!settings.workspaceRootFolderId) return [];
+function listCases_(user) { return getCaseCatalog_(user).cases; }
 
-  var files = getWorkspaceFolders_().cases.getFiles();
-  var cases = [];
-  while (files.hasNext()) {
-    var file = files.next();
-    if (!/\.case\.json$/i.test(file.getName())) continue;
-    var caseData = tryReadCaseFile_(file);
-    if (caseData && caseData.ownerEmail === user.email) cases.push(toCaseSummary_(caseData, file));
-  }
-  return cases.sort(function(left, right) { return right.updatedAt.localeCompare(left.updatedAt); });
-}
-
-function createCase_(request, user) {
+function createCase_(request, user) { return withCaseWriteLock_(function(){return createCaseUnlocked_(request,user);}); }
+function createCaseUnlocked_(request, user) {
   var caseData = createNewCaseRecord_(request, user);
   var folders = getWorkspaceFolders_();
   var fileName = caseData.id + '.case.json';
@@ -22,6 +10,7 @@ function createCase_(request, user) {
   }
 
   var file = folders.cases.createFile(fileName, JSON.stringify(caseData, null, 2), MimeType.PLAIN_TEXT);
+  if(typeof updateCaseIndex_==='function')updateCaseIndex_(caseData,file,user);
   return toCaseSummary_(caseData, file);
 }
 
@@ -48,6 +37,7 @@ function deleteCaseUnlocked_(caseId, user) {
   var owned = getOwnedCaseFile_(caseId, user);
   var summary = { id: owned.caseData.id, name: owned.caseData.name };
   owned.file.setTrashed(true);
+  if(typeof updateCaseIndex_==='function')updateCaseIndex_(owned.caseData,owned.file,user,true);
   return summary;
 }
 
@@ -74,6 +64,7 @@ function saveCaseUnlocked_(request, user) {
   var next = buildUpdatedCase_(request, current, user);
   stage='WRITE';
   owned.file.setContent(JSON.stringify(next));
+  if(typeof updateCaseIndex_==='function')updateCaseIndex_(next,owned.file,user);
   return next;
   }catch(error){
     if(error&&error.simulatorError)throw error;

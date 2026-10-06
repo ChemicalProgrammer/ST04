@@ -60,19 +60,21 @@
         <div class="breadcrumb"><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
         <span id="user-email" class="user-chip"></span>
         <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost" data-icon="settings"><?= __ST_TEXT__('shell.settings') ?></button><button id="cases-sign-out" class="ghost" data-icon="logout"><?= __ST_TEXT__('view.sign_out') ?></button></div>
+        <div id="header-case-actions" class="header-case-actions hidden">
+        <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
+        <label class="simulation-picker" for="simulation-selector"><span class="sr-only"><?= __ST_TEXT__('view.simulations') ?></span><select id="simulation-selector"></select></label>
+          <div class="simulation-actions">
+            <button id="rename-simulation" aria-label="<?= __ST_TEXT__('simulation.rename') ?>" title="<?= __ST_TEXT__('simulation.rename') ?>" type="button" class="secondary icon-button" data-icon="edit"></button><button id="clone-case" aria-label="<?= __ST_TEXT__('view.clone_simulation') ?>" title="<?= __ST_TEXT__('view.clone_simulation') ?>" data-icon="copy" class="secondary icon-button" type="button"></button><button id="delete-simulation" type="button" class="secondary icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"></button>
+          </div>
+        </section>
         <button id="toggle-gemini" class="secondary hidden" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"><?= __ST_TEXT__('assistant.gemini') ?></button>
+        </div>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
         <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button></span>
         <button id="pin-header" class="ghost icon-button" type="button" data-icon="pin" aria-label="Unpin header" title="Unpin header" aria-pressed="true"></button>
       <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       </header>
       <div class="workspace-content">
-      <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
-        <label class="simulation-picker" for="simulation-selector"><?= __ST_TEXT__('view.simulations') ?><select id="simulation-selector"></select></label>
-          <div class="simulation-actions">
-            <button id="rename-simulation" type="button" class="secondary" data-icon="edit"><?= __ST_TEXT__('simulation.rename') ?></button><button id="clone-case" data-icon="copy" class="secondary" type="button"><?= __ST_TEXT__('view.clone_simulation') ?></button><button id="delete-simulation" type="button" class="secondary" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"><?= __ST_TEXT__('simulation.delete') ?></button>
-          </div>
-      </section>
       <section id="status" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
 
       <section id="cases-panel" class="card hidden">
@@ -97,8 +99,10 @@
           <select id="case-filter" aria-label="<?= __ST_TEXT__('view.filter_cases') ?>"><option value="all"><?= __ST_TEXT__('view.all_cases') ?></option><option value="ready"><?= __ST_TEXT__('view.ready_to_simulate') ?></option><option value="draft"><?= __ST_TEXT__('view.drafts') ?></option></select>
           <select id="case-sort" aria-label="<?= __ST_TEXT__('view.sort_cases') ?>"><option value="updated"><?= __ST_TEXT__('view.recently_updated') ?></option><option value="name"><?= __ST_TEXT__('view.name_a_z') ?></option></select>
           <button id="case-layout" class="ghost icon-button" data-icon="grid" aria-label="<?= __ST_TEXT__('view.switch_to_grid_view') ?>" title="<?= __ST_TEXT__('view.switch_to_grid_view') ?>"></button>
+          <button id="refresh-case-catalog" class="ghost icon-button" data-icon="refresh" aria-label="<?= __ST_TEXT__('cases.refresh') ?>" title="<?= __ST_TEXT__('cases.refresh') ?>" type="button"></button>
           <span id="case-count" class="case-count" role="status"></span>
         </div>
+        <p id="case-catalog-status" class="catalog-status" role="status"></p>
         <div id="cases-list" class="cases-list"></div><div id="case-pagination" class="case-pagination"></div>
       </section>
 

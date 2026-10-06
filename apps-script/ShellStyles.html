@@ -76,21 +76,24 @@
 #autosave-indicator { display:flex; align-items:center; gap:var(--space-2); color:var(--muted); font-size:var(--font-caption); }
 #autosave-status[data-state=error] { color:var(--danger); }
 @media(max-width:760px){.sidebar,.sidebar-simulations{scrollbar-width:none;}.sidebar::-webkit-scrollbar,.sidebar-simulations::-webkit-scrollbar{display:none;}}
-/* Active simulation controls share one toolbar in both interface modes. */
-.simulation-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-3); padding:var(--space-3); margin-top:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
-.simulation-picker { display:flex; align-items:center; gap:var(--space-3); min-width:0; font-size:var(--font-secondary); }
-#simulation-selector { width:var(--size-220); max-width:100%; }
-.simulation-actions { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-2); }
-.simulation-actions button { white-space:nowrap; }
-@media(max-width:760px){
- .simulation-picker { flex:1; }
- #simulation-selector { flex:1; width:auto; }
- .simulation-actions { flex-basis:100%; }
-}
-html[data-ui-mode=advance] .simulation-picker { display:none; }
-html[data-ui-mode=advance] .simulation-toolbar { justify-content:flex-end; padding:0; margin:0 0 0 auto; border:0; border-radius:0; background:transparent; }
-html[data-ui-mode=advance] .simulation-actions { justify-content:flex-end; }
+/* Header simulation selector and icon actions stay beside Gemini in both modes. */
+.header-case-actions { display:flex; align-items:center; gap:var(--space-3); min-width:0; margin-left:auto; }
+.simulation-toolbar { display:flex; align-items:center; gap:var(--space-2); min-width:0; }
+.simulation-picker { display:flex; align-items:center; min-width:0; }
+#simulation-selector { width:clamp(140px,18vw,260px); max-width:100%; }
+.simulation-actions { display:flex; align-items:center; gap:var(--space-1); }
+.simulation-actions .icon-button { width:var(--control-height); padding:var(--space-2); }
 html[data-ui-mode=advance] .workspace-content > .card > .section-heading { flex-wrap:wrap; }
+@media(max-width:900px){
+ .topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-2); padding-bottom:var(--space-2); }
+ .header-case-actions { flex-wrap:wrap; }
+}
+@media(max-width:600px){
+ .header-case-actions { width:100%; margin-left:0; }
+ .simulation-toolbar { flex:1; }
+ .simulation-picker { flex:1; }
+ #simulation-selector { width:100%; }
+}
 .topbar { position:sticky; top:0; z-index:30; }
 .topbar[data-pinned=false] { position:relative; }
 .topbar > .request-progress { position:absolute; left:0; right:0; bottom:0; pointer-events:none; }

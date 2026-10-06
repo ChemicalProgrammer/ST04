@@ -1,7 +1,7 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,geminiToggle,geminiHome,geminiNext,setupControls,efficiencies,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['results',__ST_TEXT__('shell.results'),'chart','results']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
@@ -18,7 +18,7 @@ window.STBasicMode=(function(){
     });b.dataset.basicView=s[0];nav.appendChild(b);});sectionRow.appendChild(nav);
     tools=document.createElement('div');tools.id='basic-case-actions';tools.className='basic-utilities';
     var utilityRow=document.createElement('div');utilityRow.className='button-row';tools.appendChild(utilityRow);
-    geminiToggle=document.getElementById('toggle-gemini');geminiHome=geminiToggle.parentNode;geminiNext=geminiToggle.nextSibling;
+    headerActions=document.getElementById('header-case-actions');headerActionsHome=headerActions.parentNode;headerActionsNext=headerActions.nextSibling;
     [['open-settings',__ST_TEXT__('shell.settings'),'settings'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0]).click();});b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
     list=document.getElementById('equipment-list');listHome=list.parentNode;
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
@@ -47,8 +47,8 @@ window.STBasicMode=(function(){
     window.addEventListener('st:inspector',function(){if(basic()){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
     sync(current);
   }
-  function mount(){if(mounted)return;sectionRow.appendChild(geminiToggle);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});geminiHome.insertBefore(geminiToggle,geminiNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function mount(){if(mounted)return;sectionRow.appendChild(headerActions);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
+  function unmount(){if(!mounted)return;controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';

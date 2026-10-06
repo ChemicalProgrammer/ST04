@@ -142,3 +142,8 @@ In Basic simulation rows, the speed graph uses the remaining desktop width and s
 the full row on tablet layouts. Read-only Population, LBA and Overspeed fields use
 the same background, typography, padding and height as the worksheet's other outputs;
 manual mode restores the standard numeric input appearance and its retained value.
+
+The simulation selector and rename/clone/delete icon actions live beside Gemini in
+the header in both modes. Basic moves their entire group into its navigation row,
+so the selector and Gemini stay together when changing modes. Accessible names and
+button tooltips retain the action names.
