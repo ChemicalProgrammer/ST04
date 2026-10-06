@@ -500,7 +500,11 @@ test('UI: a live control in round one recalculates every round with the same eve
   await h.click('#reset-playback');await h.click('.live-control-stop');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands?.length===1);
   const saved=h.storedCases()[0].simulations[0];assert.equal(saved.dynamicConfig.commands[0].atVirtualSecond,0);
-  assert(saved.results.batch.rows.every(r=>r.summary.outputCount===0));assert.equal(saved.results.batch.replays.length,0);
+  assert.equal(saved.results.batch,undefined,'event changes invalidate old replica statistics');
+  assert.equal(saved.results.replicationStatus.state,'STALE');
+  h.d.getElementById('run-playback-rate').value=100;await h.click('#play-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rows.every(r=>r.summary.outputCount===0));
+  assert(!h.d.getElementById('rounds-warning').classList.contains('hidden'));assert.equal(h.storedCases()[0].simulations[0].results.batch.replays.length,0);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1492,8 +1496,39 @@ test('UI Basic: live cards use four columns and let the graph fill the removed c
   await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;h.d.getElementById('run-rounds').value=1;await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await waitFor(()=>h.d.querySelector('.live-equipment-card'));await h.click('#pause-simulation');
   const card=h.d.querySelector('.live-equipment-card'),row=card.querySelector('.live-equipment-card__row'),graph=card.querySelector('.live-speed-cell'),canvas=graph.querySelector('canvas');
   assert.equal(h.w.getComputedStyle(row).gridTemplateColumns,'minmax(0,1.15fr) minmax(0,.92fr) minmax(0,.65fr) minmax(0,2fr)');
-  assert.equal(h.w.getComputedStyle(graph).gridColumn,'4');assert.equal(h.w.getComputedStyle(graph).gridRow,'auto');assert.equal(h.w.getComputedStyle(graph).alignSelf,'stretch');assert.equal(h.w.getComputedStyle(canvas).flexGrow,'1');assert.equal(h.w.getComputedStyle(card.querySelector('.live-equipment-controls')).display,'none');
+  assert.equal(h.w.getComputedStyle(graph).gridColumn,'4');assert.equal(h.w.getComputedStyle(graph).gridRow,'auto');assert.equal(h.w.getComputedStyle(graph).alignSelf,'stretch');assert.equal(h.w.getComputedStyle(canvas).flexGrow,'0');assert.equal(h.w.getComputedStyle(canvas).height,'var(--basic-spark-height)');assert.equal(h.w.getComputedStyle(canvas).maxHeight,'var(--basic-spark-height)');assert.equal(h.w.getComputedStyle(card.querySelector('.live-equipment-controls')).display,'none');
   const css=postcss.parse(read('BasicModeStyles.html').replace(/<\/?style>/g,''));let responsive=0;
   css.walkAtRules(rule=>{if((rule.name==='media'&&rule.params==='(max-width:1260px)')||(rule.name==='container'&&rule.params==='(max-width:900px)')){rule.walkRules(item=>{if(item.selector.includes('.live-speed-cell')){assert(item.nodes.some(d=>d.prop==='grid-column'&&d.value==='1 / -1'));assert(item.nodes.some(d=>d.prop==='grid-row'&&d.value==='auto'));responsive++;}});}});assert.equal(responsive,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: first round starts before background completion and final events replace stale replica statistics',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');h.d.getElementById('run-duration').value=5;h.d.getElementById('run-sample-interval').value=1;h.d.getElementById('run-rounds').value=3;
+  const original=h.w.SimulatorEngine.simulateBatch,requests=[];let release;
+  h.w.SimulatorEngine.simulateBatch=async(input,options)=>{
+    requests.push(JSON.parse(JSON.stringify(input)));
+    if(!options.firstResult){const first=await h.w.SimulatorEngine.simulateLineAsync(input,{detail:true});options.onFirstRound(first.result);const response=await original(input,{...options,onFirstRound:undefined,cancelled:()=>false});await new Promise(resolve=>release=resolve);return response;}
+    return original(input,options);
+  };
+  await h.click('#run-simulation');await waitFor(()=>release&&h.d.querySelector('.live-equipment-card'));await h.click('#pause-simulation');
+  assert.equal(h.d.getElementById('batch-dialog').tagName,'SECTION');assert(!h.d.getElementById('batch-dialog').classList.contains('hidden'));await waitFor(()=>h.storedCases()[0].simulations[0].results?.replicationStatus.state==='PENDING');assert.equal(h.storedCases()[0].simulations[0].results.replicationStatus.state,'PENDING');assert.equal(h.storedCases()[0].simulations[0].results.batch,undefined);
+  await h.click('#reset-playback');await h.click('.live-control-stop');await waitFor(()=>h.storedCases()[0].simulations[0].results?.replicationStatus.state==='STALE');assert.equal(requests.length,1,'events do not restart later rounds before playback finishes');
+  h.d.getElementById('run-playback-rate').value=100;await h.click('#play-simulation');await waitFor(()=>requests.length===2&&h.storedCases()[0].simulations[0].results?.batch);
+  assert(!h.d.getElementById('rounds-warning').classList.contains('hidden'));assert(requests[1].run.commands.some(command=>command.action==='STOP'));assert(h.storedCases()[0].simulations[0].results.batch.rows.every(row=>row.summary.outputCount===0));
+  release();await settle();assert(h.storedCases()[0].simulations[0].results.batch.rows.every(row=>row.summary.outputCount===0),'a late initial batch cannot overwrite recomputed events');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: header icon spacing has no empty save-status slot and Basic graphs remain bounded across redraws',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');const gemini=h.d.getElementById('toggle-gemini');assert.equal(gemini.textContent,'');assert(gemini.classList.contains('icon-button'));assert.equal(gemini.getAttribute('aria-label'),'Gemini');assert(gemini.querySelector('svg'));
+  assert(h.d.getElementById('autosave-indicator').classList.contains('sr-only'));assert.equal(h.d.getElementById('retry-autosave').parentElement,h.d.getElementById('save-case').parentElement);
+  h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=10;await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await h.click('#pause-simulation');
+  const canvas=h.d.querySelector('.equipment-speed-sparkline');let observed=[];const ctx={scale:()=>{},clearRect:()=>{},beginPath:()=>{},moveTo:()=>{},lineTo:()=>{},stroke:()=>{},setLineDash:()=>{},fillText:()=>{},fillRect:()=>{}};
+  canvas.getContext=()=>ctx;canvas.getBoundingClientRect=()=>({width:500,height:Math.max(80,canvas.height*2)});
+  const state={run:{result:{samples:[],summary:{},durationSeconds:10},sampleIndex:0}};const charts=h.w.STCharts(state,String);
+  for(let i=0;i<10;i++){charts.drawEquipmentSpeedSparkline(canvas,0,{nominalRatePerSecond:1});observed.push(canvas.height);}
+  assert(observed.every(height=>height===80*(h.w.devicePixelRatio||1)));assert.equal(h.w.getComputedStyle(canvas).flexGrow,'0');assert.equal(h.w.getComputedStyle(canvas).maxHeight,'var(--basic-spark-height)');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

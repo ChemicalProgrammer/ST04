@@ -124,7 +124,7 @@ window.STCharts=function(state,formatNumber){
       if (!canvas) return;
       var samples = getRollingSpeedSamples();
       var height=parseFloat(token('--chart-spark-height'));
-      if(window.STBasicMode?.isBasic())height=Math.max(height,Math.round(canvas.getBoundingClientRect().height));
+      if(window.STBasicMode?.isBasic())height=parseFloat(token('--basic-spark-height'))||80;
       var drawing = prepareLineCanvas(canvas,height);
       if (!drawing) return;
       var context = drawing.context;

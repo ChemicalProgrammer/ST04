@@ -45,3 +45,12 @@ test('summary-only batches preserve every numerical output and omit replay and e
  assert.equal(compact.result.samples.length,0);assert.equal(compact.result.events.length,0);assert.equal(compact.result.batch.replays.length,0);
  let cancel=false;await assert.rejects(simulateBatch(data,{summaryOnly:true,cancelled:()=>cancel,progress:()=>cancel=true}),/BATCH_CANCELLED/);
 });
+
+test('round one is published while later rounds are running, without attaching premature batch statistics',async()=>{
+ const data=input();data.run={...data.run,durationSeconds:10,rounds:3};let first,release;const gate=new Promise(resolve=>release=resolve),started=[];
+ const pending=simulateBatch(data,{laterSummaryOnly:true,onFirstRound:result=>first=result,concurrency:2,runRound:async(input,options)=>{started.push(input.run.seed);await gate;return simulateLineAsync(input,options);}});
+ for(let i=0;i<50&&!first;i++)await new Promise(resolve=>setTimeout(resolve,2));
+ assert(first);assert.equal(first.batch,undefined);assert.deepEqual(started,[18,19]);release();const full=await pending;assert(full.ok);assert.equal(full.result.batch.rows.length,3);assert.equal(first.batch,undefined,'publishing the final batch never mutates the earlier round-one result');
+ let calledFirst=false;const revised=await simulateBatch(data,{firstResult:first,laterSummaryOnly:true,runRound:async(input,options)=>{if(input.run.seed===17)calledFirst=true;return simulateLineAsync(input,options);}});assert(!calledFirst);assert.deepEqual(revised.result.batch.statistics,full.result.batch.statistics);
+ await assert.rejects(simulateBatch(data,{firstResult:{...first,seed:18}}),/BATCH_FIRST_RESULT_MISMATCH/);
+});

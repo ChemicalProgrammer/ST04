@@ -41,7 +41,9 @@ if(workerMode){
 }
 let workerPool,workersUnavailable=false;
 async function simulateBrowserBatch(input,options={}){
-  const settings={...options,laterSummaryOnly:options.laterSummaryOnly!==false};
+  let published=false;
+  const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
+  const settings={...options,onFirstRound,laterSummaryOnly:options.laterSummaryOnly!==false};
   const count=input.run.rounds||1;
   if(count<2||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
   if(!workerPool){
@@ -51,7 +53,7 @@ async function simulateBrowserBatch(input,options={}){
       try{return new window.Worker(url);}finally{window.URL.revokeObjectURL(url);}
     },size);
   }
-  try{return await simulateBatch(input,{...settings,runRound:workerPool.run,concurrency:workerPool.size});}
+  try{return await simulateBatch(input,{...settings,runRound:workerPool.run,workerFirstRound:true,concurrency:workerPool.size});}
   catch(error){
     if(error.message!=='SIMULATION_WORKER_UNAVAILABLE')throw error;
     workersUnavailable=true;workerPool?.close(new Error('SIMULATION_WORKER_UNAVAILABLE'));workerPool=null;

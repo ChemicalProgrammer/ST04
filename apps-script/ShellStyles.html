@@ -15,7 +15,7 @@
 .sidebar-collapsed .nav-label,.sidebar-collapsed .nav-caption,.sidebar-collapsed .brand-name { display: none; }
 .sidebar-collapsed .nav-item { justify-content: center; padding: var(--space-2); }
 .sidebar-collapsed .nav-item:hover::after,.sidebar-collapsed .nav-item:focus-visible::after { content: attr(aria-label); position: absolute; left: calc(100% + var(--space-3)); border: var(--border-width) solid var(--line); background: var(--surface); color: var(--ink); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); z-index: var(--z-overlay); box-shadow: var(--shadow-dialog); }
-.topbar { height: var(--header-height); padding: 0 var(--page-padding); display: flex; align-items: center; gap: var(--space-3); border-bottom: var(--border-width) solid var(--line); background: var(--surface); }
+.topbar { --header-action-gap:var(--space-3); height: var(--header-height); padding: 0 var(--page-padding); display: flex; align-items: center; gap: var(--header-action-gap); border-bottom: var(--border-width) solid var(--line); background: var(--surface); }
 .breadcrumb { color: var(--muted); display: flex; gap: var(--space-2); align-items: center; min-width: 0; flex: 1; }
 #breadcrumb-case { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } #breadcrumb-view { color: var(--ink); }
 .user-chip { max-width: var(--size-220); overflow: hidden; text-overflow: ellipsis; font-size: var(--font-secondary); color: var(--muted); }
@@ -55,7 +55,7 @@
 .sidebar-simulations { flex-shrink:1; }
 .topbar { min-width:0; }
 @media(max-width:600px) {
- .topbar { gap:var(--space-1); flex-wrap:wrap; height:auto; min-height:var(--header-height); padding-top:var(--space-2); padding-bottom:var(--space-2); }
+ .topbar { --header-action-gap:var(--space-1); gap:var(--header-action-gap); flex-wrap:wrap; height:auto; min-height:var(--header-height); padding-top:var(--space-2); padding-bottom:var(--space-2); }
  .topbar .breadcrumb { flex-basis:100%; }
  .topbar .button-row { flex-wrap:wrap; }
  .app-shell:not(.case-open) { padding:0; }
@@ -73,15 +73,15 @@
 #session-restore { display:none; }
 .restoring-session #auth-panel { display:none; }
 .restoring-session #session-restore { display:grid; }
-#autosave-indicator { display:flex; align-items:center; gap:var(--space-2); color:var(--muted); font-size:var(--font-caption); }
+#autosave-indicator { color:var(--muted); font-size:var(--font-caption); }
 #autosave-status[data-state=error] { color:var(--danger); }
 @media(max-width:760px){.sidebar,.sidebar-simulations{scrollbar-width:none;}.sidebar::-webkit-scrollbar,.sidebar-simulations::-webkit-scrollbar{display:none;}}
 /* Header simulation selector and icon actions stay beside Gemini in both modes. */
-.header-case-actions { display:flex; align-items:center; gap:var(--space-3); min-width:0; margin-left:auto; }
-.simulation-toolbar { display:flex; align-items:center; gap:var(--space-2); min-width:0; }
+.header-case-actions { display:flex; align-items:center; gap:var(--header-action-gap); min-width:0; margin-left:auto; }
+.simulation-toolbar { display:flex; align-items:center; gap:var(--header-action-gap); min-width:0; }
 .simulation-picker { display:flex; align-items:center; min-width:0; }
 #simulation-selector { width:clamp(140px,18vw,260px); max-width:100%; }
-.simulation-actions { display:flex; align-items:center; gap:var(--space-1); }
+.simulation-actions { display:flex; align-items:center; gap:var(--header-action-gap); }
 .simulation-actions .icon-button { width:var(--control-height); padding:var(--space-2); }
 html[data-ui-mode=advance] .workspace-content > .card > .section-heading { flex-wrap:wrap; }
 @media(max-width:900px){
@@ -100,4 +100,8 @@ html[data-ui-mode=advance] .workspace-content > .card > .section-heading { flex-
 #save-case { color:var(--muted); }
 #save-case.has-changes { color:var(--accent); opacity:1; background:var(--selected); }
 #pin-header[aria-pressed=true] { color:var(--accent); background:var(--selected); }
+.round-background { display:grid; grid-template-columns:auto minmax(100px,1fr) auto auto; align-items:center; gap:var(--space-3); margin:var(--space-3) 0; }
+.round-background progress { width:100%; }
+.round-warning { color:var(--warning); padding:var(--space-2) 0; margin:0; }
+@media(max-width:760px){.round-background { grid-template-columns:1fr auto; }.round-background progress { grid-column:1; grid-row:2; }.round-background #batch-cancel { grid-column:2; grid-row:1/3; }}
 </style>

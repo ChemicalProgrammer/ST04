@@ -83,7 +83,7 @@ html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
 
 /* Basic typography and worksheet layout are independent of Advance.
    Scale the enlarged Basic text here; preserve a 12px reading minimum. */
-html[data-ui-mode=basic] { --basic-font-scale:0.8; }
+html[data-ui-mode=basic] { --basic-font-scale:0.8; --basic-spark-height:80px; }
 html[data-ui-mode=basic] { --vgraph-height:440px; }
 #basic-run-controls,#basic-efficiencies,#basic-start-simulation,.basic-card-data,.basic-conveyor-tabs,#basic-conveyor-summary { display:none; }
 html[data-ui-mode=basic] body { font-size:max(12px,calc(16px * var(--basic-font-scale))); }
@@ -180,8 +180,8 @@ html[data-ui-mode=basic] .live-controls-help { display:none !important; }
 html[data-ui-mode=basic] .live-equipment-columns,
 html[data-ui-mode=basic] .live-equipment-card__row { grid-template-columns:minmax(0,1.15fr) minmax(0,.92fr) minmax(0,.65fr) minmax(0,2fr); }
 html[data-ui-mode=basic] .live-equipment-columns > :nth-child(4) { display:none; }
-html[data-ui-mode=basic] .live-speed-cell { grid-column:4; grid-row:auto; align-self:stretch; display:flex; flex-direction:column; }
-html[data-ui-mode=basic] .live-speed-cell .equipment-speed-sparkline { flex:1; min-height:var(--size-56); height:auto; }
+html[data-ui-mode=basic] .live-speed-cell { grid-column:4; grid-row:auto; align-self:stretch; display:flex; flex-direction:column; justify-content:center; }
+html[data-ui-mode=basic] .live-speed-cell .equipment-speed-sparkline { flex:none; height:var(--basic-spark-height); min-height:var(--basic-spark-height); max-height:var(--basic-spark-height); box-sizing:border-box; }
 html[data-ui-mode=basic] .vgraph-legend { font-size:max(12px,calc(18px * var(--basic-font-scale))); font-weight:600; }
 html[data-ui-mode=basic] .vgraph-label,
 html[data-ui-mode=basic] .vgraph-reference { font-size:max(12px,calc(16px * var(--basic-font-scale))); }

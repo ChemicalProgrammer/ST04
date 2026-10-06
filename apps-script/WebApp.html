@@ -67,10 +67,10 @@
             <button id="rename-simulation" aria-label="<?= __ST_TEXT__('simulation.rename') ?>" title="<?= __ST_TEXT__('simulation.rename') ?>" type="button" class="secondary icon-button" data-icon="edit"></button><button id="clone-case" aria-label="<?= __ST_TEXT__('view.clone_simulation') ?>" title="<?= __ST_TEXT__('view.clone_simulation') ?>" data-icon="copy" class="secondary icon-button" type="button"></button><button id="delete-simulation" type="button" class="secondary icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('simulation.delete') ?>" title="<?= __ST_TEXT__('simulation.delete') ?>"></button>
           </div>
         </section>
-        <button id="toggle-gemini" class="secondary hidden" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"><?= __ST_TEXT__('assistant.gemini') ?></button>
+        <button id="toggle-gemini" class="secondary icon-button hidden" aria-label="<?= __ST_TEXT__('assistant.gemini') ?>" title="<?= __ST_TEXT__('assistant.gemini') ?>" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"></button>
         </div>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
-        <span id="autosave-indicator" class="hidden" role="status"><span id="autosave-status" class="sr-only"></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button></span>
+        <span id="autosave-indicator" class="sr-only hidden" role="status"><span id="autosave-status" class="sr-only"></span></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button>
         <button id="pin-header" class="ghost icon-button" type="button" data-icon="pin" aria-label="Unpin header" title="Unpin header" aria-pressed="true"></button>
       <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       </header>
@@ -179,6 +179,7 @@
           <div id="control-events" class="control-events"></div>
         </details>
 
+    <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
         <div id="simulation-results" class="hidden">
           <div class="playback-toolbar">
             <label id="playback-round-control" class="hidden"><?= __ST_TEXT__('batch.round') ?> <select id="playback-round" aria-label="<?= __ST_TEXT__('batch.round') ?>"></select></label>
@@ -304,7 +305,7 @@
       </div>
       <footer class="dialog-actions"><span id="sheet-import-summary" role="status"></span><label class="remember"><input id="sheet-import-ack" type="checkbox"><?= __ST_TEXT__('view.i_reviewed_the_mapping_assumptions_and_warnings') ?></label><button id="sheet-import-cancel" class="ghost" type="button"><?= __ST_TEXT__('view.cancel') ?></button><button id="sheet-import-apply" data-icon="check" type="button" disabled><?= __ST_TEXT__('view.apply_selected_changes') ?></button></footer>
     </dialog>
-    <dialog id="batch-dialog" aria-labelledby="batch-title"><header class="dialog-heading"><h2 id="batch-title"><?= __ST_TEXT__('batch.title') ?></h2></header><div class="dialog-body"><p><?= __ST_TEXT__('batch.note') ?></p><progress id="batch-progress" max="1" value="0"></progress><p id="batch-status" role="status" aria-live="polite"></p></div><footer class="dialog-actions"><button id="batch-cancel" type="button"><?= __ST_TEXT__('view.cancel') ?></button></footer></dialog>
+
     <dialog id="command-dialog" aria-label="<?= __ST_TEXT__('view.command_palette') ?>"><input id="command-search" class="command-search" type="search" placeholder="<?= __ST_TEXT__('view.search_commands') ?>" aria-label="<?= __ST_TEXT__('view.search_commands_2') ?>"><div id="command-list" class="command-list"></div></dialog>
     <div id="toast" class="hidden" role="status"></div>
     <?!= include_('SimulationEngine'); ?>

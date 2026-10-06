@@ -43,9 +43,11 @@ saved. Legacy saved batches with later replays remain readable.
 
 The browser bundle creates a shared Web Worker pool of at most four workers,
 limited further by reported logical processors (leaving one available where
-possible). All scenario cards share the pool. The first detailed round calculates
-on the interface thread with cooperative yields; subsequent rounds execute in
-workers. Summary-only scenario batches also use a worker for round 1. Within a
+possible). All scenario cards share the pool. The first detailed round and the subsequent rounds start concurrently in
+workers. Round 1 publishes its result through `onFirstRound` as soon as available,
+while the final batch promise waits for all metrics. Without workers, cooperative
+yields keep the interface responsive. Summary-only scenario batches also use
+a worker for round 1. Within a
 worker the engine skips UI yields while preserving exactly the same tick logic.
 
 Workers receive only the equipment model, case ID/unit and run configuration;
@@ -56,8 +58,14 @@ are calculated. Progress combines fractions from all rounds. Cancellation ends
 active workers and queued tasks without accepting partial results. Idle workers
 are released after five seconds and leaving the page closes the pool.
 
-Live controls still apply to round 1 at the displayed virtual second. Adding a
-command recalculates the entire batch with that same command for every seed.
+Live controls apply to round 1 at the displayed virtual second. Adding a command
+recalculates only its detailed path immediately and marks other statistics stale.
+When round 1 playback reaches its end, an inline warning appears and later rounds
+recalculate with the final command timeline and their original seeds. The new
+batch reuses the already recalculated first result (`firstResult`). Pending or
+stale results contain no batch averages; `replicationStatus` records their state.
+Version checks discard old completions after events, new runs, or switching
+case/simulation. Pausing playback alone does not add an equipment event.
 Later rounds offer no interactive playback. They do not inherit random failures
 from round 1; each uses its own reproducible seed.
 
@@ -78,3 +86,19 @@ ticks, eight summary-only rounds, worker startup included) measured 7.48 seconds
 sequentially versus 3.51 seconds with four workers, approximately 2.13x faster,
 with identical statistics. This measures Node worker threads in the development
 environment, not the deployed browser or the user's equipment.
+
+## Progressive round results and chart stability
+
+The simulation panel uses a non-modal progress section instead of blocking
+playback behind the replication dialog. Round 1 becomes playable as soon as its
+calculation finishes; the result is not promised literally instantly. Background
+completion adds verified full batch metrics without resetting playback. New
+events invalidate old batch statistics immediately, and final playback triggers
+recalculation. Closing/changing a simulation cancels its old session. Cancelling
+a background batch after round 1 keeps only that first result, marked cancelled.
+
+Basic card charts use a fixed 80px CSS height and the same drawing height. They
+do not derive drawing size from their own intrinsic canvas dimensions, avoiding
+the repeated growth loop after frame redraws. Header controls share one spacing
+variable, the accessible save status has no layout slot, and Gemini uses an
+icon-only button with an accessible label and tooltip.
