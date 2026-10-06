@@ -9,11 +9,12 @@ window.STResults=(function(){
   ];}
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary&&!result.provisional);
+    var designReady=Boolean(activeCase?.equipment?.length);
     var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
 
-    document.getElementById('results-empty').classList.toggle('hidden',ready);document.getElementById('results-body').classList.toggle('hidden',!ready);document.getElementById('export-results').disabled=!ready;
+    document.getElementById('results-empty').classList.toggle('hidden',ready||designReady);document.getElementById('results-body').classList.toggle('hidden',!ready&&!designReady);document.getElementById('results-body').classList.toggle('results-design-only',!ready);document.getElementById('export-results').disabled=!ready;
     STReports.bindResults(ready?result:null,activeCase,simulation);
-    if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');return;}
+    if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
     if(result.batch)document.getElementById('results-meta').textContent+=' · '+__ST_TEXT__('batch.representative');
     var target=document.getElementById('results-kpis');target.textContent='';

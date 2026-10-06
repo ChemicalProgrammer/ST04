@@ -10,6 +10,7 @@ window.STLinePerformance = (function() {
   }
   function plot(target, points) {
     target.textContent = '';
+    target._vgraphPoints=points;
     var valid = points.filter(function(p) { return Number.isFinite(p.normalBpm); });
     if (!valid.length) return;
     var all = valid.flatMap(function(p) { return [p.normalBpm, p.recommendedBpm].filter(Number.isFinite); });
@@ -41,7 +42,6 @@ window.STLinePerformance = (function() {
       if (p.isPacemaker) chart.appendChild(svg('text', {x:x(i), y:height-22, class:'vgraph-reference', 'text-anchor':'middle'}, __ST_TEXT__('performance.reference_short')));
     });
     target.appendChild(chart);
-    target._vgraphPoints=points;
     if(window.ResizeObserver&&!target._vgraphObserver){target._vgraphWidth=target.clientWidth;target._vgraphObserver=new ResizeObserver(function(){if(target.clientWidth!==target._vgraphWidth){target._vgraphWidth=target.clientWidth;plot(target,target._vgraphPoints);}});target._vgraphObserver.observe(target);}
   }
   function render(result, equipment) {
@@ -66,6 +66,7 @@ window.STLinePerformance = (function() {
       __ST_TEXT__('performance.method') + ' ' + value(analysis.outputCount) + ' ' + analysis.unitOfFlow + ' ÷ ' +
       value(analysis.durationSeconds / 60, 3) + ' min = ' + value(analysis.outletBpm) + ' ' + analysis.unitOfFlow + '/min. ' +
       __ST_TEXT__('performance.equipment_note');
+    document.getElementById('throughput-method').classList.toggle('hidden',!result||Boolean(result.provisional));
   }
   return {render:render};
 })();

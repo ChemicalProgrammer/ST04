@@ -1586,3 +1586,40 @@ test('UI: an event during streamed calculation invalidates old frames and recalc
   release();await settle();assert(h.storedCases()[0].simulations[0].results.batch.rows.every(row=>row.summary.outputCount===0));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: gallery tools share the title row in cards while delete keeps its confirmation',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('#case-layout');assert(h.d.getElementById('cases-list').classList.contains('grid'));
+  const card=h.d.querySelector('.case-row'),tools=card.querySelector('.case-tools'),meta=card.querySelector('.case-actions');
+  assert.equal(h.w.getComputedStyle(card).display,'grid');assert.equal(h.w.getComputedStyle(tools).gridRow,'1');assert.equal(h.w.getComputedStyle(tools).gridColumn,'2');assert.equal(h.w.getComputedStyle(meta).gridColumn,'1 / -1');
+  assert.equal(tools.querySelectorAll('button').length,2);assert(!meta.querySelector('button'));assert.equal(tools.querySelector('.delete-gallery-case').textContent,'');
+  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
+  await h.click('#case-layout');assert(!h.d.getElementById('cases-list').classList.contains('grid'));assert.equal(h.d.querySelector('.case-row').querySelector('.case-tools').children.length,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: V-graph reacts to draft fields without simulation and Basic sections follow the requested order',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});try{
+   await h.click('.open-case');const saved=JSON.stringify(h.storedCases()[0].equipment);let simulated=0;
+   for(const key of ['simulateLine','simulateLineAsync','simulateBatch'])h.w.SimulatorEngine[key]=()=>{simulated++;throw Error('Design edits must not run simulation');};
+   if(uiMode==='BASIC'){
+    assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button')).map(b=>b.dataset.basicView),['equipment','conveyors','vgraph','simulation','results','whatif']);
+    await h.click('[data-basic-view=equipment]');
+   }else {await h.click('#open-settings');h.d.getElementById('settings-autosave').checked=false;h.d.getElementById('settings-autosave').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');await h.click('.sidebar [data-view=editor]');}
+   const first=h.d.querySelector('.equipment-card'),id=first.dataset.equipmentId;
+   const change=(control,value)=>{if(control.type==='checkbox')control.checked=value;else control.value=String(value);control.dispatchEvent(new h.w.Event(control.type==='checkbox'?'change':'input',{bubbles:true}));};
+   change(first._fields.querySelector('.equipment-pacemaker'),true);change(first._fields.querySelector('.equipment-rate'),300);
+   let points=h.d.getElementById('vgraph-plot')._vgraphPoints;assert.equal(points.find(p=>p.isPacemaker).id,id);assert.equal(points.find(p=>p.id===id).normalBpm,300);
+   const target=Array.from(h.d.querySelectorAll('.equipment-card')).find(card=>card.dataset.equipmentId==='pucker-1');
+   change(target._fields.querySelector('.equipment-maximum-speed'),500);change(target._fields.querySelector('.reliability-mtbfMinutes'),100);change(target._fields.querySelector('.reliability-mttrMinutes'),1);change(target._fields.querySelector('.equipment-recovery-time'),60);
+   points=h.d.getElementById('vgraph-plot')._vgraphPoints;const before=points.find(p=>p.id==='pucker-1');assert.equal(before.maximumBpm,500);assert.equal(before.recoveryTimeSeconds,60);assert(before.recommendedBpm>before.normalBpm);
+   change(target._fields.querySelector('.reliability-mttrMinutes'),.1);points=h.d.getElementById('vgraph-plot')._vgraphPoints;assert(points.find(p=>p.id==='pucker-1').recommendedBpm<before.recommendedBpm);
+   const conveyor=h.d.querySelector('[data-equipment-id="conveyor-1"]');change(conveyor._fields.querySelector('.format-zone-lba-enabled'),true);change(conveyor._fields.querySelector('.format-zone-lba'),60);
+   points=h.d.getElementById('vgraph-plot')._vgraphPoints;assert(points.find(p=>p.id==='pucker-1').recommendedBpm<=301,'conveyor draft geometry reaches the design calculation');
+   assert.equal(JSON.stringify(h.storedCases()[0].equipment),saved,'preview does not save or mutate stored inputs');
+   if(uiMode==='BASIC')await h.click('[data-basic-view=vgraph]');else await h.click('.sidebar [data-view=results]');
+   assert(h.visible('results-body'));assert(h.d.querySelector('#vgraph-plot svg'));assert.equal(h.d.getElementById('vgraph-plot')._vgraphPoints.find(p=>p.isPacemaker).id,id);assert(h.d.getElementById('export-results').disabled);assert.equal(simulated,0);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});

@@ -378,6 +378,7 @@ async function openCase(caseId) {
       if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
       else invalidateActiveResult();
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
+      refreshDesignGraph();
     }
     function captureForSave() {
       if(whatIfOnlySave&&state.activeCase){var evidenceDraft=Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});return fitCaseSave(evidenceDraft);}
@@ -541,6 +542,7 @@ async function openCase(caseId) {
       assistant.sync();
       renderRawJson();
       window.STBasicMode?.sync(state);
+      refreshDesignGraph();
     }
 
     function equipmentField(card, selector) { return card.querySelector(selector) || card._fields?.querySelector(selector); }
@@ -996,11 +998,19 @@ function numericInputValue(input) {
     function basicEquipmentPreview(){
       return Array.from(document.querySelectorAll('#equipment-list .equipment-card')).map(function(card){
         var type=equipmentField(card,'.equipment-type').value,data=parseJsonForPreview(equipmentField(card,'.equipment-process-data').value);
+        var characteristics=parseJsonForPreview(equipmentField(card,'.equipment-characteristics').value),noise=parseJsonForPreview(equipmentField(card,'.equipment-noise-profile').value);
+        var critical=type!=='CONVEYOR'&&equipmentField(card,'.equipment-pacemaker').checked;
+        characteristics.isPacemaker=critical;data.role=type==='CONVEYOR'?'CONVEYOR':critical?'PACEMAKER':'MACHINE';data.machineType=type;
+        data.equipment=Object.assign({},data.equipment);
+        [['maximum-speed','maximumSpeedBpm'],['recovery-time','recoveryTimeSeconds']].forEach(function(spec){var input=equipmentField(card,'.equipment-'+spec[0]);if(input.value==='')delete data.equipment[spec[1]];else data.equipment[spec[1]]=Number(input.value);});
+        if(equipmentField(card,'.reliability-enabled').checked||window.STBasicMode?.isBasic()&&type!=='CONVEYOR')noise.reliability=Object.assign({},noise.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
+        else delete noise.reliability;
         if(type==='CONVEYOR')data=mergeFormatZoneData(data,readFormatZoneInputs(card));
         return {id:equipmentField(card,'.equipment-id').value,type:type,name:equipmentField(card,'.equipment-name').value,
-          nominalRatePerSecond:readEquipmentRate(card),processData:data,noiseProfile:parseJsonForPreview(equipmentField(card,'.equipment-noise-profile').value)};
+          nominalRatePerSecond:readEquipmentRate(card),characteristics:characteristics,processData:data,noiseProfile:noise};
       });
     }
+    function refreshDesignGraph(){if(state.activeCase)STLinePerformance.render(null,basicEquipmentPreview());}
     function readEquipmentRate(card){
       var input=equipmentField(card,'.equipment-rate');
       return input.value!==''&&Number(input.value)===Number(input.dataset.originalBpm)&&input.dataset.originalRate!==''?Number(input.dataset.originalRate):Number(input.value)/60;
