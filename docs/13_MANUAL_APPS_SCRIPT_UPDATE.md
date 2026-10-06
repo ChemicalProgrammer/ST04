@@ -24,4 +24,17 @@ when clean. Gallery trash actions use the existing confirmation dialog.
 
 Use the same workspace root ID. The application creates per-case folders and
 separates general data and simulations automatically. Existing flat cases migrate
-on their next successful save; see `31_CASE_CATALOG.md`.
+when opened from the gallery or successfully saved; see `31_CASE_CATALOG.md`.
+
+## Legacy case migration on open and Basic graph spacing fix
+
+Update `CaseService.gs`, `Main.gs`, `Client.html`, `TextResources.gs`,
+`BasicModeStyles.html` and `Charts.html` together, then publish a new deployment
+version. Open each existing case from the gallery to convert its old flat JSON
+without needing to edit or save it. Cases not opened remain compatible legacy
+files; catalog scanning does not convert them in the background.
+
+Basic live cards have four visible columns instead of reserving a controls column.
+At narrow viewport/container widths, flow metrics and the graph each fill their
+row, with automatic row placement. The graph stretches into the available card
+height and renders at that height. Advance layout and controls remain available.

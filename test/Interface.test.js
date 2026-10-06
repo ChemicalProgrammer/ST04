@@ -1486,3 +1486,14 @@ test('UI: gallery deletion requires confirmation and saves show dirty theme colo
   await h.click('#home-cases');await h.click('.delete-gallery-case');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases().length===0);assert(h.visible('cases-panel'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI Basic: live cards use four columns and let the graph fill the removed controls area',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;h.d.getElementById('run-rounds').value=1;await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await waitFor(()=>h.d.querySelector('.live-equipment-card'));await h.click('#pause-simulation');
+  const card=h.d.querySelector('.live-equipment-card'),row=card.querySelector('.live-equipment-card__row'),graph=card.querySelector('.live-speed-cell'),canvas=graph.querySelector('canvas');
+  assert.equal(h.w.getComputedStyle(row).gridTemplateColumns,'minmax(0,1.15fr) minmax(0,.92fr) minmax(0,.65fr) minmax(0,2fr)');
+  assert.equal(h.w.getComputedStyle(graph).gridColumn,'4');assert.equal(h.w.getComputedStyle(graph).gridRow,'auto');assert.equal(h.w.getComputedStyle(graph).alignSelf,'stretch');assert.equal(h.w.getComputedStyle(canvas).flexGrow,'1');assert.equal(h.w.getComputedStyle(card.querySelector('.live-equipment-controls')).display,'none');
+  const css=postcss.parse(read('BasicModeStyles.html').replace(/<\/?style>/g,''));let responsive=0;
+  css.walkAtRules(rule=>{if((rule.name==='media'&&rule.params==='(max-width:1260px)')||(rule.name==='container'&&rule.params==='(max-width:900px)')){rule.walkRules(item=>{if(item.selector.includes('.live-speed-cell')){assert(item.nodes.some(d=>d.prop==='grid-column'&&d.value==='1 / -1'));assert(item.nodes.some(d=>d.prop==='grid-row'&&d.value==='auto'));responsive++;}});}});assert.equal(responsive,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

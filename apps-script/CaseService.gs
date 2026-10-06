@@ -26,8 +26,23 @@ function cloneCase_(caseId, user) {
   return createCase_(copy, user);
 }
 
-function getCase_(caseId, user) {
-  return ensureCaseSimulations_(getOwnedCaseFile_(caseId, user).caseData);
+function getCase_(caseId, user, migrateOnOpen) {
+  function load() {
+    var owned=getOwnedCaseFile_(caseId,user),record=ensureCaseSimulations_(owned.caseData);
+    if(migrateOnOpen&&!owned.folder) {
+      try {
+        var file=persistCaseRecord_(record,owned);
+        record.storageVersion='case-folder-1';
+        if(typeof updateCaseIndex_==='function')updateCaseIndex_(record,file,user);
+      }catch(error){
+        // Keep legacy data usable if Drive conversion fails; retry on open/save.
+        record.storageMigrationPending=true;
+        console.error(JSON.stringify({event:'CASE_MIGRATION_FAILURE',type:error?.name||'Error'}));
+      }
+    }
+    return record;
+  }
+  return migrateOnOpen?withCaseWriteLock_(load):load();
 }
 
 function deleteCase_(caseId, user) { return withCaseWriteLock_(function(){return deleteCaseUnlocked_(caseId,user);}); }

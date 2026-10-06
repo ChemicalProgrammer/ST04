@@ -123,7 +123,9 @@ window.STCharts=function(state,formatNumber){
     function drawEquipmentSpeedSparkline(canvas, equipmentIndex, model) {
       if (!canvas) return;
       var samples = getRollingSpeedSamples();
-      var drawing = prepareLineCanvas(canvas, parseFloat(token('--chart-spark-height')));
+      var height=parseFloat(token('--chart-spark-height'));
+      if(window.STBasicMode?.isBasic())height=Math.max(height,Math.round(canvas.getBoundingClientRect().height));
+      var drawing = prepareLineCanvas(canvas,height);
       if (!drawing) return;
       var context = drawing.context;
       var padding = {left:numeric('--chart-spark-x'),right:numeric('--chart-spark-x'),top:numeric('--chart-spark-y'),bottom:numeric('--chart-spark-y')};

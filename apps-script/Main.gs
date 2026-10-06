@@ -46,7 +46,7 @@ function createCase(request) {
 
 function getCase(caseId) {
   return executeServerAction_(function(user) {
-    return getCase_(caseId, user);
+    return getCase_(caseId, user, true);
   });
 }
 

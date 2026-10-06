@@ -57,8 +57,12 @@ when opening the case. The existing `getCase` response and exports still contain
 complete simulations, so the browser contract does not change.
 
 New cases and clones use folders immediately. Legacy `<id>.case.json` cases remain
-readable and listed. Their first successful save, including scenario creation,
-migrates them automatically; catalog building does not migrate anything. The old
+readable and listed. Opening a legacy case from the gallery or successfully saving it (including
+scenario creation) migrates it automatically; catalog building does not migrate
+anything. Opening converts storage under the write lock without changing the
+revision, timestamps, inputs or results. If Drive conversion fails, the legacy
+case still opens, the interface reports that conversion is pending, and opening
+or saving retries it. The old
 flat file goes to Drive Trash only after the new manifest commits.
 
 Saving reuses unchanged simulation files. Changed simulations receive new version

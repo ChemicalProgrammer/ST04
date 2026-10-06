@@ -140,3 +140,18 @@ test('deleting an owned folder uses its manifest without requiring valid simulat
  const h=runtime();h.ctx.createCase_({id:'broken',name:'Broken simulation'},owner);const child=h.folder().getFoldersByName('broken').next();const manifest=JSON.parse(child.files.get('case.json').content);child.files.get(manifest.simulationFiles[0].fileName).setContent('{bad');
  assert.throws(()=>h.ctx.getCase_('broken',owner));h.reads.length=0;h.ctx.deleteCase_('broken',owner);assert(child.trashed);assert(!h.reads.some(n=>n.startsWith('simulation-')));
 });
+
+test('opening through the RPC migrates an unchanged legacy case without editing its revision or data',()=>{
+ const h=runtime(),legacy=h.seed('open-migration'),original=JSON.parse(legacy.content);
+ const response=h.ctx.getCase('open-migration');assert(response.ok);assert(legacy.trashed);assert.equal(response.data.storageVersion,'case-folder-1');assert.equal(response.data.revision,original.revision);assert.equal(response.data.updatedAt,original.updatedAt);
+ const child=h.folder().getFoldersByName('open-migration').next(),manifest=JSON.parse(child.files.get('case.json').content);assert.equal(manifest.revision,1);assert.equal(manifest.simulations,undefined);assert.equal(manifest.simulationFiles.length,1);
+ assert.deepEqual(JSON.parse(JSON.stringify(response.data.simulations)),original.simulations);assert.equal(h.ctx.listCases_(owner)[0].fileId,child.files.get('case.json').getId());
+ const before=child.files.size;const next=h.ctx.getCase('open-migration');assert(next.ok);assert.equal(child.files.size,before,'opening a migrated case creates no additional simulation files');
+});
+
+test('failed automatic migration keeps a legacy case accessible and retries on the next open',()=>{
+ const h=runtime(),legacy=h.seed('retry-migration'),create=h.folder().createFolder;
+ h.folder().createFolder=()=>{throw Error('private conversion details');};const first=h.ctx.getCase('retry-migration');assert(first.ok);assert(first.data.storageMigrationPending);assert(!legacy.trashed);assert.equal(first.data.revision,1);assert(!h.logs.join('').includes('private conversion details'));
+ h.folder().createFolder=create;const second=h.ctx.getCase('retry-migration');assert(second.ok);assert(!second.data.storageMigrationPending);assert(legacy.trashed);assert.equal(second.data.revision,1);
+ const foreign=h.seed('foreign-open','other@example.test');assert.equal(h.ctx.getCase('foreign-open').ok,false);assert(!foreign.trashed);assert(!h.folder().getFoldersByName('foreign-open').hasNext());
+});

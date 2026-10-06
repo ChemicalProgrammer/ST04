@@ -331,7 +331,7 @@ async function openCase(caseId) {
         state.run.result = null;
         state.run.configuration = null;
         initializePersistentSimulations();
-        setStatus(__ST_TEXT__('client.case_loaded'));
+        setStatus(response.data.storageMigrationPending?__ST_TEXT__('client.case_loaded_migration_pending'):__ST_TEXT__('client.case_loaded'));
       });
     }
 
