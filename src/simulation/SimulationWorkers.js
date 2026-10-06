@@ -14,6 +14,7 @@ export function createSimulationWorkerPool(factory, size) {
         if(message.type==='ready'){clearTimeout(slot.startup);slot.ready=true;dispatch(slot);return;}
         const job=slot.job;if(!job||message.id!==job.id)return;
         if(message.type==='progress'){job.options.progress?.(message.value);return;}
+        if(message.type==='partial'){job.options.onPartial?.(message.result);return;}
         slot.job=null;
         if(message.type==='error')job.reject(new Error(message.message));else job.resolve(message.response);
         pump();
@@ -22,7 +23,7 @@ export function createSimulationWorkerPool(factory, size) {
   }
   function dispatch(slot){
     if(!slot.ready||!slot.job)return;
-    try{slot.worker.postMessage({id:slot.job.id,input:slot.job.input,summaryOnly:slot.job.options.summaryOnly,detail:slot.job.options.detail});}
+    try{slot.worker.postMessage({id:slot.job.id,input:slot.job.input,summaryOnly:slot.job.options.summaryOnly,detail:slot.job.options.detail,stream:Boolean(slot.job.options.onPartial)});}
     catch(error){fail(slot,new Error('SIMULATION_WORKER_UNAVAILABLE'));}
   }
   function pump(){

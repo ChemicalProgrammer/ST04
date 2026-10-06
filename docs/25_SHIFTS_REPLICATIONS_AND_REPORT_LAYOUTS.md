@@ -44,8 +44,11 @@ saved. Legacy saved batches with later replays remain readable.
 The browser bundle creates a shared Web Worker pool of at most four workers,
 limited further by reported logical processors (leaving one available where
 possible). All scenario cards share the pool. The first detailed round and the subsequent rounds start concurrently in
-workers. Round 1 publishes its result through `onFirstRound` as soon as available,
-while the final batch promise waits for all metrics. Without workers, cooperative
+workers. Round 1 streams incremental frames through `onFirstProgress` (worker
+`partial` messages) from the initial frame, before its full calculation completes.
+The first streaming chunk is 32 ticks; later chunks retain the 1,000-tick calculation
+budget. `onFirstRound` publishes the completed first round, while the final batch
+promise waits for all metrics. Without workers, cooperative
 yields keep the interface responsive. Summary-only scenario batches also use
 a worker for round 1. Within a
 worker the engine skips UI yields while preserving exactly the same tick logic.
@@ -90,15 +93,34 @@ environment, not the deployed browser or the user's equipment.
 ## Progressive round results and chart stability
 
 The simulation panel uses a non-modal progress section instead of blocking
-playback behind the replication dialog. Round 1 becomes playable as soon as its
-calculation finishes; the result is not promised literally instantly. Background
+playback behind the replication dialog. Round 1 becomes playable from its first
+streamed frame; playback waits briefly if it reaches the end of the available
+frames, then continues without declaring completion. The progress label is
+“Calculating rounds.” Thread startup and the next frame still require calculation
+time; the result is not promised literally instantly. Background
 completion adds verified full batch metrics without resetting playback. New
 events invalidate old batch statistics immediately, and final playback triggers
 recalculation. Closing/changing a simulation cancels its old session. Cancelling
 a background batch after round 1 keeps only that first result, marked cancelled.
+Provisional first-round frames are never saved or exported as final results.
+Duration mode, shifts, rounds, seed and sampling interval are locked during
+calculation and playback, including paused playback. Playback speed remains
+editable. Settings unlock after playback and background work finish, or after
+cancelling the run. The Basic shift buttons honor the same lock as the inputs.
 
 Basic card charts use a fixed 80px CSS height and the same drawing height. They
 do not derive drawing size from their own intrinsic canvas dimensions, avoiding
 the repeated growth loop after frame redraws. Header controls share one spacing
 variable, the accessible save status has no layout slot, and Gemini uses an
 icon-only button with an accessible label and tooltip.
+
+## Worksheet critical-machine selection
+
+Column C accepts Y/N. Y sets both the import flag and the existing engine's
+explicit reference flag (`characteristics.isPacemaker`); N clears both, including
+the previous explicit role when that row is imported. This preserves the legacy
+internal schema while making the Line setup checkbox, OEE reference and V-graph
+agree. Missing/NA cells remain unselected for existing equipment in selective
+imports. Multiple Y selections or a Y on a conveyor require correction before
+applying the import. Historical generic `CRITICAL_MACHINE` labels are not counted
+as an explicit reference unless the reference flag is set.

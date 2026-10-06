@@ -135,8 +135,9 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
     var mtbf=values.mtbfMinutes,mttr=values.mttrMinutes;
     if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or mark both NA.');
     if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'No reliability data: random failures are disabled for this equipment.');
-    var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',rateBasis:'bottles per minute',sourceSheetRow:rowNumber},noiseProfile:{},processData:{
-      role:conveyor?'CONVEYOR':legacyPacemaker?'PACEMAKER':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
+    if(conveyor&&flag==='Y')issue(errors,'C'+rowNumber,'A conveyor cannot be the critical machine. Use Y for one machine only.');
+    var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',isPacemaker:flag==='Y'&&!conveyor,rateBasis:'bottles per minute',sourceSheetRow:rowNumber},noiseProfile:{},processData:{
+      role:conveyor?'CONVEYOR':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
       equipment:{mtbfMinutes:mtbf,mttrMinutes:mttr,maximumSpeedBpm:values.maximumSpeedBpm},
       geometry:{lactMm:values.lactMm,lpPrimeMm:values.lpPrimeMm,actualDischargeMm:values.actualDischargeMm,actualCodingMm:values.actualCodingMm},
       upstream:{packageLengthMm:values.packageLengthMm,dischargePitchMm:values.dischargePitchMm,startupTimeSeconds:values.startupTimeSeconds,bottlesDischargedAtStop:values.bottlesDischargedAtStop},
@@ -154,6 +155,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
   });
   equipment.forEach(function(unit,index){if(unit.type==='CONVEYOR'&&unit.nominalRatePerSecond===null){var upstream=equipment[index-1];if(upstream&&upstream.type!=='CONVEYOR'&&upstream.nominalRatePerSecond>0){unit.nominalRatePerSecond=upstream.nominalRatePerSecond;issue(warnings,'F'+unit.characteristics.sourceSheetRow,'Conveyor has no bpm value: using upstream machine bpm as its nominal reference. Physical belt speed still comes from geometry and Q.');}else issue(errors,'F'+unit.characteristics.sourceSheetRow,'Missing conveyor bpm and no valid upstream machine reference.');}});
   if(!equipment.length)issue(errors,'A10:W','No equipment rows found.');
+  if(equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).length>1)equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).forEach(function(unit){issue(errors,'C'+unit.characteristics.sourceSheetRow,'Use Y for only one critical machine; mark the other machines N.');});
   var notes=[
     'Maximum speed F initializes nominal running speed. All flows use bottle-equivalent units; pack pattern is metadata, not a bottles-to-cases conversion.',
     'MTBF uses seeded exponential intervals; MTTR is a fixed repair duration. The current failure clock counts AUTO/MANUAL time, including starving/blocking, and excludes manual stops and micro-stops. No extra micro-stop noise is added by import.',

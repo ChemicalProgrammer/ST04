@@ -18,12 +18,13 @@ export async function simulateBatch(input, options={}) {
     if(index>0&&!summaryOnly)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
     const runner=options.runRound&&(index>0||summaryOnly||options.workerFirstRound)?options.runRound:simulateLineAsync;
     const caseModel=runner===options.runRound?{id:input.case.id,unitOfFlow:input.case.unitOfFlow,equipment:input.case.equipment}:input.case;
-    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
+    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
       fractions[index]=Math.max(fractions[index],f);
       options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count);
     }});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok){failed=true;return response;}
+    if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
     rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts};
     if(index===0){representative=result;options.onFirstRound?.(result);}

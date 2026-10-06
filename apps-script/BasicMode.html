@@ -36,6 +36,7 @@ window.STBasicMode=(function(){
         var row=document.createElement('div');row.className='button-row';group.appendChild(row);
         var values=spec[0]==='run-playback-rate'?[1,5,10,50,100]:[1,2,3];
         values.forEach(function(value){var b=button(spec[0]==='run-playback-rate'?value+'×':value+' shift'+(value===1?'':'s'),'',function(){
+          if(control.disabled)return;
           control.value=String(value);
           if(spec[0]==='run-shift-count'){document.getElementById('run-shift-hours').value='8';var mode=document.getElementById('duration-mode');mode.value='SHIFTS';mode.dispatchEvent(new Event('change',{bubbles:true}));}
           control.dispatchEvent(new Event(spec[0]==='run-playback-rate'?'change':'input',{bubbles:true}));refreshData();
@@ -141,8 +142,8 @@ window.STBasicMode=(function(){
         var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail (%): '+number(a*100,1)+(Number.isFinite(a)?'%':''),'basic-availability'));
       }
     });
-    efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(state.run.result?.summary?.lineOeePercent,1)+(state.run.result?'%':''));
-    setupControls.querySelectorAll('[data-control]').forEach(function(b){b.setAttribute('aria-pressed',String(document.getElementById(b.dataset.control).value===b.dataset.value));});
+    efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',state.run.result?.provisional?__ST_TEXT__('batch.calculating_first'):number(state.run.result?.summary?.lineOeePercent,1)+(state.run.result?'%':''));
+    setupControls.querySelectorAll('[data-control]').forEach(function(b){var control=document.getElementById(b.dataset.control);b.setAttribute('aria-pressed',String(control.value===b.dataset.value));b.disabled=control.disabled;});
     var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;}),c=audit?.engineering?.calculated,unit=equipment.find(function(e){return e.id===audit?.downstreamId;});
     if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;
     if(chosen)updateWorksheet(chosen,audit,equipment);

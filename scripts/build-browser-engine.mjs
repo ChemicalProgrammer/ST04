@@ -33,7 +33,7 @@ if(workerMode){
   window.onmessage=async function(event){
     const task=event.data;
     try {
-      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,progress:value=>window.postMessage({type:'progress',id:task.id,value})});
+      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>window.postMessage({type:'partial',id:task.id,result}):undefined,progress:value=>window.postMessage({type:'progress',id:task.id,value})});
       window.postMessage({type:'result',id:task.id,response});
     }catch(error){window.postMessage({type:'error',id:task.id,message:error.message});}
   };

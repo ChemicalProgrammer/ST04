@@ -17,6 +17,7 @@
       scrollRestoreFrame: null,
       scrollRestoreUntil: 0,
       run: {
+        active: false,
         commands: [],
         result: null,
         representative: null,
@@ -114,6 +115,7 @@
       document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
       ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
       document.getElementById('duration-mode').addEventListener('change', function(event) {
+        if(runControlsLocked()){applyScenarioRunInputs(state.run.configuration);return;}
         state.run.durationMode = event.target.value;
         syncDurationControls();
         markCaseDirty();
@@ -372,6 +374,7 @@ async function openCase(caseId) {
     }
     function markCaseDirty(event) {
       if (!state.activeCase) return;
+      if(runControlsLocked()&&['duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].includes(event?.target?.id)){applyScenarioRunInputs(state.run.configuration);return;}
       if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
       else invalidateActiveResult();
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
@@ -418,6 +421,7 @@ async function openCase(caseId) {
       syncPersistentSimulation();
       simulation.sourceImport=cloneJson(result.sourceImport);
       if(result.equipmentChanged){
+        cancelRoundSession();
         stopPlaybackTimer();
         state.activeCase.equipment=cloneJson(result.equipment);
         simulation.equipment=cloneJson(result.equipment);
@@ -1091,6 +1095,7 @@ function renderRawJson() {
       document.getElementById('run-case-meta').textContent = state.activeCase.name + (state.isDirty ? __ST_TEXT__('client.scenario_edits_not_yet_saved_to_drive') : '');
       toggle('run-not-ready', !ready);
       document.getElementById('run-simulation').disabled = !ready;
+      syncRunControls();
       renderControlEvents();
       renderWorkspaceTabs();
       if (!state.run.result) {
@@ -1319,8 +1324,17 @@ function renderRawJson() {
 
     function syncDurationControls(){
       var shifts=document.getElementById('duration-mode').value==='SHIFTS';
-      document.getElementById('run-duration').disabled=shifts;
+      document.getElementById('run-duration').disabled=shifts||runControlsLocked();
       ['run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).closest('label').classList.toggle('hidden',!shifts);});
+      syncRunControls();
+    }
+    function runControlsLocked(){return Boolean(state.run.active||state.run.playing||roundSession?.pending||roundSession?.firstUpdating||roundSession?.dirty);}
+    function syncRunControls(){
+      var locked=runControlsLocked();
+      ['duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
+      document.querySelectorAll('#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
+      document.querySelectorAll('[data-control]').forEach(function(button){button.disabled=document.getElementById(button.dataset.control).disabled;});
+      document.getElementById('run-simulation').disabled=locked||!isRunReady();
     }
     function applyScenarioRunInputs(run) {
       if (!run) return;
@@ -1411,6 +1425,7 @@ function renderRawJson() {
     function roundSessionActive(session){return roundSession===session&&!session.cancelled&&state.activeCase?.id===session.caseId&&state.activeSimulationId===session.simulationId;}
     function cancelRoundSession(){
       if(roundSession){roundSession.cancelled=true;roundSession.resolveFirst?.(false);roundSession=null;}
+      state.run.active=false;syncRunControls();
       toggle('batch-dialog',false);toggle('rounds-warning',false);
     }
     function persistRoundResult(session,result,status){
@@ -1423,26 +1438,41 @@ function renderRawJson() {
     }
     function computeRoundSession(session,firstResult){
       var generation=++session.generation,version=session.version;
-      session.pending=true;toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
+      session.pending=true;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
       window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       var input={case:cloneJson(session.caseModel),run:cloneJson(session.run)};
-      SimulatorEngine.simulateBatch(input,{firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstRound:firstResult?undefined:function(result){
+      SimulatorEngine.simulateBatch(input,{firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult?undefined:function(partial){
         if(!roundSessionActive(session)||generation!==session.generation)return;
+        if(session.first&&!session.streaming)return;
+        var previous=session.streaming?state.run.result:null;
+        if(previous&&partial.calculatedThroughSeconds<=previous.calculatedThroughSeconds)return;
+        var last=previous?.samples.at(-1)?.virtualSecond??-1;
+        partial.samples=(previous?.samples||[]).concat(partial.samples.filter(function(sample){return sample.virtualSecond>last;}));
+        partial.replicationStatus={state:'CALCULATING',rounds:session.run.rounds,baseSeed:session.run.seed};
+        session.streaming=true;state.run.result=partial;state.run.representative=partial;state.run.roundIndex=0;
+        if(!previous)state.run.sampleIndex=0;
+        syncPlaybackRounds();toggle('simulation-results',true);renderPlaybackFrame();
+        if(session.resolveFirst){shell.sync();session.resolveFirst(true);session.resolveFirst=null;}
+      },onFirstRound:firstResult?undefined:function(result){
+        if(!roundSessionActive(session)||generation!==session.generation)return;
+        var streaming=session.streaming;session.streaming=false;
         result.replicationStatus={state:'PENDING',rounds:session.run.rounds,baseSeed:session.run.seed};
-        session.first=result;state.run.result=result;state.run.representative=result;state.run.roundIndex=0;state.run.sampleIndex=0;
+        session.first=result;state.run.result=result;state.run.representative=result;state.run.roundIndex=0;if(!streaming)state.run.sampleIndex=0;
         syncPlaybackRounds();toggle('simulation-results',true);document.getElementById('simulation-json-preview').value=JSON.stringify(result,null,2);shell.sync();renderPlaybackFrame();
-        session.resolveFirst(true);session.resolveFirst=null;
+        if(session.resolveFirst){session.resolveFirst(true);session.resolveFirst=null;}
+        else persistRoundResult(session,result,'PENDING');
       },progress:function(value,round,total){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=Math.floor(value*total)+' / '+total+' · '+Math.round(value*100)+'%';}}).then(function(response){
         if(!roundSessionActive(session)||generation!==session.generation)return;
-        session.pending=false;
-        if(!response.ok){showError(response.error);session.resolveFirst?.(false);toggle('batch-dialog',false);return;}
+        session.pending=false;syncRunControls();
+        if(!response.ok){state.run.active=false;syncRunControls();showError(response.error);session.resolveFirst?.(false);toggle('batch-dialog',false);return;}
         if(session.resolveFirst){state.run.result=response.result;state.run.representative=response.result;state.run.roundIndex=0;state.run.sampleIndex=0;session.first=response.result;session.resolveFirst(true);session.resolveFirst=null;}
         if(session.dirty||session.version!==version){document.getElementById('batch-status').textContent=__ST_TEXT__('batch.wait_for_events');return;}
+        if(session.run.rounds===1&&!session.run.shiftSeconds)delete response.result.batch;
         persistRoundResult(session,response.result,'COMPLETE');session.first=response.result;toggle('batch-dialog',false);
         if(firstResult)document.getElementById('rounds-warning').textContent=__ST_TEXT__('batch.events_recalculated');
       }).catch(function(error){
         if(!roundSessionActive(session)||generation!==session.generation)return;
-        session.pending=false;session.resolveFirst?.(false);toggle('batch-dialog',false);
+        session.pending=false;session.streaming=false;state.run.active=false;stopPlaybackTimer();syncRunControls();session.resolveFirst?.(false);toggle('batch-dialog',false);
         if(error.message!=='BATCH_CANCELLED')showError({message:error.message});
       }).finally(function(){window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));});
     }
@@ -1458,34 +1488,36 @@ function renderRawJson() {
         var session={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson(state.activeCase),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false,resolveFirst:resolve};roundSession=session;
         document.getElementById('batch-cancel').onclick=function(){
           if(!roundSessionActive(session))return;
+          var playing=state.run.active;
+          if(state.run.result?.provisional){stopPlaybackTimer();state.run.result=null;state.run.representative=null;toggle('simulation-results',false);playing=false;}
           if(session.first&&state.run.result){delete state.run.result.batch;persistRoundResult(session,state.run.result,'CANCELLED');}
-          cancelRoundSession();setStatus(__ST_TEXT__('batch.background_cancelled'));
+          cancelRoundSession();state.run.active=playing;syncRunControls();setStatus(session.first?__ST_TEXT__('batch.background_cancelled'):__ST_TEXT__('batch.cancelled'));
         };
         computeRoundSession(session);
       });
     }
 
     async function runSimulation() {
+      if(runControlsLocked())return;
       if ((state.isDirty || window.STBasicMode?.isBasic()) && !collectCaseEditor()) return;
       var run = readRunConfiguration();
       if (!run) return;
       if(STPreferences.read('seedPolicy')==='RANDOM'){var seedArray=new Uint32Array(1);if(window.crypto?.getRandomValues)window.crypto.getRandomValues(seedArray);else seedArray[0]=Math.floor(Math.random()*4294967296);run.seed=seedArray[0];document.getElementById('run-seed').value=run.seed;}
       cancelRoundSession();
       state.run.configuration = copyRunConfiguration(run);
-      if(run.rounds>1||run.durationMode==='SHIFTS') {
-        if(!await calculateBatch(run))return;
-      } else if (!calculateSimulation(run, 0)) return;
+      state.run.active=true;syncRunControls();
+      if(!await calculateBatch(run)){state.run.active=false;syncRunControls();return;}
       var tab = activePersistentSimulation();
       if (tab) {
         tab.dynamicConfig=cloneJson(run);
         tab.run = cloneJson(run);
-        tab.results = createStoredSimulationResult(state.run.result, run);
+        tab.results = state.run.result.provisional?null:createStoredSimulationResult(state.run.result, run);
         state.isDirty = true;
         saveActiveCase();
       }
       renderWorkspaceTabs();
       renderSimulationAnalysis();
-      setStatus(roundSession?.pending?__ST_TEXT__('batch.first_ready'):state.run.durationMode === 'INDEFINITE'
+      setStatus(roundSession?.streaming?__ST_TEXT__('batch.streaming'):roundSession?.pending?__ST_TEXT__('batch.first_ready'):state.run.durationMode === 'INDEFINITE'
         ? __ST_TEXT__('client.simulation_completed_at_its_virtual_safety_ceiling_playback_is_starting')
         : __ST_TEXT__('client.simulation_completed_playback_is_starting'));
       startPlayback();
@@ -1581,6 +1613,7 @@ function renderRawJson() {
 
     function startPlayback() {
       if (!state.run.result || state.run.playing) return;
+      state.run.active=true;syncRunControls();
       state.run.playing = true;
       schedulePlaybackStep();
     }
@@ -1604,10 +1637,12 @@ function renderRawJson() {
       renderPlaybackFrame();
       var samples = state.run.result.samples;
       if (state.run.sampleIndex >= samples.length - 1) {
+        if(roundSession?.streaming){state.run.timer=window.setTimeout(function(){if(state.run.playing)schedulePlaybackStep();},50);return;}
         if(state.run.representative?.batch?.replays?.[state.run.roundIndex]){
           selectPlaybackRound(state.run.roundIndex+1,true);return;
         }
         state.run.playing = false;
+        state.run.active=false;syncRunControls();
         setPlaybackStatus('Completed');
         finishRoundSession();
         return;
@@ -1642,6 +1677,7 @@ function renderRawJson() {
     }
 
     function renderPlaybackFrame() {
+      syncRunControls();
       if (!state.run.result || !state.run.result.samples.length) return;
       var scrollAnchor = captureLiveEquipmentScrollAnchor();
       var sample = state.run.result.samples[state.run.sampleIndex];
@@ -2028,6 +2064,7 @@ function summarizeGeometrySources(sources, assumptions) {
       if(!roundSession&&(run.rounds>1||run.shiftSeconds))roundSession={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson(state.activeCase),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false};
       if(roundSession&&roundSessionActive(roundSession)){
         var session=roundSession;session.run=cloneJson(run);session.version++;session.dirty=run.rounds>1;session.finishing=false;session.firstUpdating=true;session.resumeAfterEdit=wasPlaying;
+        if(session.streaming){session.generation++;session.streaming=false;session.pending=false;}
         state.run.commands=cloneJson(run.commands);delete state.run.result.batch;state.run.result.replicationStatus={state:'STALE',rounds:run.rounds,baseSeed:run.seed};
         var active=activePersistentSimulation();if(active)active.results=null;
         stopPlaybackTimer();renderPlaybackFrame();

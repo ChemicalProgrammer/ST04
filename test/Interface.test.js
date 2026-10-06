@@ -32,7 +32,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   getBootstrap:()=>({uiMode,user:{email:'preview@example.test'},settings:stored,gemini:{configured:geminiConfigured,model:'gemini-2.5-flash'},cases:indexedCatalog==='cold'?[]:cases.map(c=>({id:c.id,name:c.name,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),caseCatalog:indexedCatalog?{refreshRequired:true}:undefined}),
   refreshCaseCatalog:()=>({cases:cases.map(c=>({id:c.id,name:c.name,revision:c.revision,equipmentCount:c.equipment.length,isSimulationReady:c.equipment.length>1,updatedAt:c.updatedAt})),hasMore:false,cursor:null}),
   askGemini:()=>({text:'Analysis of the saved case.'}),
-  previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
+  previewSheetImport:()=>({canImport:!invalidSheet,source:{schemaVersion:'plant-sheet-v1',sheetName:'Synthetic sheet',readAt:'2026-09-16',spreadsheetId:'synthetic-id'},metadata:{site:'Synthetic site',formatName:'Imported format'},equipment:copy(sourceEquipment.slice(0,3)).map((unit,index)=>({...unit,characteristics:{...unit.characteristics,criticalMachine:index===0,isPacemaker:index===0},processData:{...unit.processData,role:unit.type==='CONVEYOR'?'CONVEYOR':index===0?'CRITICAL_MACHINE':'MACHINE'}})).map((e,i)=>({...e,noiseProfile:{...e.noiseProfile,reliability:{...e.noiseProfile.reliability,mtbfMinutes:e.noiseProfile.reliability.mtbfMinutes+60}},processData:{...e.processData,equipment:{...e.processData.equipment,mtbfMinutes:e.processData.equipment.mtbfMinutes+60}},characteristics:{...e.characteristics,sourceSheetRow:i+10}})),sourceRows:[],errors:invalidSheet?[{cell:'D10:E10',message:'Supply both MTBF and MTTR.'}]:[],warnings:[],notes:['Review model assumptions.']}),
   getCase:id=>copy(cases.find(c=>c.id===id)),
   saveCase:c=>{c=copy(c);c.revision=c.expectedRevision+1;cases=cases.map(x=>x.id===c.id?c:x);return c;},
   getScenarioSourceSignature:request=>{const record=cases.find(c=>c.id===request.caseId),simulation=record?.simulations.find(s=>s.id===request.simulationId);if(!simulation||record.revision!==request.expectedRevision)throw Error('Stale scenario source');return {revision:record.revision,simulationId:simulation.id,signature:dom.window.STScenarios.signature(simulation)};},
@@ -123,7 +123,7 @@ test('UI: run, edit, clone, compare, and delete retain the existing engine workf
   await h.click('.sidebar [data-view="whatif"]');assert(h.visible('whatif-panel'));assert(!h.visible('comparison-panel'));await h.click('.workspace-tab-comparison');assert(h.visible('comparison-panel'));assert(!h.visible('whatif-panel'));assert(h.d.querySelector('#case-comparison-content .comparison-context'));
   await h.click('.sidebar [data-view="simulation"]');await h.click('#run-simulation');await settle();await h.click('#pause-simulation');
   await h.click('.workspace-tab-comparison');assert(h.d.querySelector('#case-comparison-content table'));assert.match(h.d.getElementById('case-comparison-content').textContent,/Absolute Δ/);
-  await h.click('.sidebar [data-view="simulation"]');h.d.getElementById('run-duration').value='90';h.d.getElementById('run-duration').dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.visible('simulation-results'),'changing run inputs hides stale results immediately');
+  await h.click('.sidebar [data-view="simulation"]');assert(h.d.getElementById('run-duration').disabled);h.d.getElementById('run-duration').value='90';h.d.getElementById('run-duration').dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(h.visible('simulation-results'),'run settings cannot invalidate a paused simulation');assert.equal(h.d.getElementById('run-duration').value,'60');
   await h.click('#open-settings');await h.click('#delete-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .danger');await waitFor(()=>h.d.querySelectorAll('.case-row').length===0);assert(h.visible('cases-panel'));
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -260,10 +260,11 @@ test('UI: compact editor reorders equipment with keyboard and preserves values',
 
 test('UI: selective Sheet reload updates the active simulation, preserves other runs and saves selection',async()=>{
  const h=await setup();try{
- async function waitFor(predicate){for(let i=0;i<30;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
+ async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
  await h.click('#sign-in-button');await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value='30';await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);await h.click('#run-simulation');await h.click('#pause-simulation');await h.click('.sidebar [data-view="editor"]');
  let before=h.storedCases()[0];assert.equal(before.simulations.length,2,JSON.stringify({calls:h.calls,errors:h.errors,status:h.d.getElementById('status').textContent}));const simId=before.simulations[1].id,firstId=before.equipment[0].id,oldMTBF=before.equipment[0].noiseProfile.reliability.mtbfMinutes;
  const field=h.d.querySelector('.equipment-name');field.value='Local equipment name';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+ await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
  await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
  assert.match(h.d.getElementById('sheet-import-preview').textContent,/Current/);assert.match(h.d.getElementById('sheet-import-preview').textContent,/Local equipment name/);
  const target=h.d.querySelector('.sheet-target');target.value=firstId;target.dispatchEvent(new h.w.Event('change'));
@@ -1217,8 +1218,11 @@ test('UI: seed policy generates and saves a new base only for fresh runs',async(
   let next=1234;h.w.crypto.getRandomValues=a=>{a[0]=next++;return a;};
   h.d.getElementById('run-duration').value=5;await h.click('#run-simulation');await h.click('#pause-simulation');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.seed===1234);
+  assert(h.d.getElementById('run-simulation').disabled);await h.click('#run-simulation');assert.equal(next,1235,'a paused run cannot consume a new seed');
+  h.d.getElementById('run-playback-rate').value=100;await h.click('#play-simulation');await waitFor(()=>!h.d.getElementById('run-simulation').disabled);
   await h.click('#run-simulation');await h.click('#pause-simulation');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.seed===1235);
+  await h.click('#play-simulation');await waitFor(()=>!h.d.getElementById('run-simulation').disabled);
   await h.click('#open-settings');h.d.getElementById('settings-seed-policy').value='FIXED';await h.click('#settings-cancel');
   await h.click('#run-simulation');await h.click('#pause-simulation');
   assert.equal(Number(h.d.getElementById('run-seed').value),1235);assert.equal(next,1236);assert.deepEqual(h.errors,[]);
@@ -1530,5 +1534,55 @@ test('UI: header icon spacing has no empty save-status slot and Basic graphs rem
   const state={run:{result:{samples:[],summary:{},durationSeconds:10},sampleIndex:0}};const charts=h.w.STCharts(state,String);
   for(let i=0;i<10;i++){charts.drawEquipmentSpeedSparkline(canvas,0,{nominalRatePerSecond:1});observed.push(canvas.height);}
   assert(observed.every(height=>height===80*(h.w.devicePixelRatio||1)));assert.equal(h.w.getComputedStyle(canvas).flexGrow,'0');assert.equal(h.w.getComputedStyle(canvas).maxHeight,'var(--basic-spark-height)');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: round-one playback streams before calculation finishes and run settings stay locked in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});try{
+   await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;h.d.getElementById('run-sample-interval').value=1;h.d.getElementById('run-rounds').value=3;
+   if(uiMode==='BASIC')await h.click('[data-basic-view=simulation]');
+   const original=h.w.SimulatorEngine.simulateBatch,first=h.w.SimulatorEngine.simulateLine({case:h.storedCases()[0],run:{durationSeconds:5,tickSeconds:.25,sampleEverySeconds:1,seed:20260909,commands:[]}}).result;
+   let release,sendFrames;
+   h.w.SimulatorEngine.simulateBatch=async(input,options)=>{
+    const snapshot=(samples,time)=>({...first,samples,provisional:true,calculatedThroughSeconds:time});
+    options.onFirstProgress(snapshot([first.samples[0]],0));
+    sendFrames=()=>options.onFirstProgress(snapshot(first.samples.slice(1,3),2));
+    await new Promise(resolve=>release=resolve);if(options.cancelled())throw Error('BATCH_CANCELLED');
+    options.onFirstRound(first);return original(input,{...options,onFirstProgress:undefined,onFirstRound:undefined});
+   };
+   await h.click('#run-simulation');await waitFor(()=>release&&h.d.querySelector('.live-equipment-card'));
+   assert(h.visible('simulation-results'));assert(h.visible('batch-dialog'));assert.match(h.d.getElementById('batch-title').textContent,/Calculating rounds/);
+   for(const id of ['duration-mode','run-duration','run-shift-hours','run-shift-count','run-rounds','run-sample-interval','run-seed','run-simulation'])assert(h.d.getElementById(id).disabled,id);
+   assert(!h.d.getElementById('run-playback-rate').disabled);assert(!h.d.getElementById('pause-simulation').disabled);
+   const shifts=h.d.querySelector('[data-control=run-shift-count][data-value="2"]');if(shifts){assert(shifts.disabled);shifts.click();assert.equal(h.d.getElementById('run-shift-count').value,'1');}
+   h.d.getElementById('run-rounds').value=9;h.d.getElementById('run-rounds').dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.getElementById('run-rounds').value,'3');
+   h.d.getElementById('run-playback-rate').value=100;h.d.getElementById('run-playback-rate').dispatchEvent(new h.w.Event('change'));sendFrames();
+   await waitFor(()=>h.d.getElementById('metric-time').textContent==='2 s');assert.equal(h.d.getElementById('playback-status').textContent.startsWith('Completed'),false,'waiting for more frames is not completion');
+   assert.equal(h.storedCases()[0].simulations[0].results,null,'partial output is never saved as a completed simulation');
+   await h.click('#pause-simulation');assert(h.d.getElementById('run-rounds').disabled,'pausing playback keeps run settings locked');
+   release();await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#play-simulation');await waitFor(()=>h.d.getElementById('playback-status').textContent==='Completed');
+   assert(!h.d.getElementById('run-rounds').disabled);assert(!h.d.getElementById('run-shift-count').disabled);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+test('UI: an event during streamed calculation invalidates old frames and recalculates replicas at playback end',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');h.d.getElementById('run-duration').value=5;h.d.getElementById('run-sample-interval').value=1;h.d.getElementById('run-rounds').value=3;
+  const original=h.w.SimulatorEngine.simulateBatch;let release,stalePartial,calls=0;
+  h.w.SimulatorEngine.simulateBatch=async(input,options)=>{
+   calls++;if(options.firstResult)return original(input,options);
+   const first=h.w.SimulatorEngine.simulateLine(input).result;
+   stalePartial=()=>options.onFirstProgress({...first,samples:first.samples,provisional:true,calculatedThroughSeconds:5});
+   options.onFirstProgress({...first,samples:[first.samples[0]],provisional:true,calculatedThroughSeconds:0});
+   await new Promise(resolve=>release=resolve);
+   options.onFirstRound(first);return original(input,{...options,onFirstProgress:undefined,onFirstRound:undefined,cancelled:()=>false});
+  };
+  await h.click('#run-simulation');await waitFor(()=>release&&h.d.querySelector('.live-control-stop'));await h.click('#pause-simulation');await h.click('.live-control-stop');
+  await waitFor(()=>h.storedCases()[0].simulations[0].results?.replicationStatus.state==='STALE');stalePartial();assert.equal(h.d.getElementById('metric-output').textContent,'0');assert.equal(calls,1);
+  h.d.getElementById('run-playback-rate').value=100;await h.click('#play-simulation');await waitFor(()=>calls===2&&h.storedCases()[0].simulations[0].results?.batch);
+  const batch=h.storedCases()[0].simulations[0].results.batch;assert(batch.rows.every(row=>row.summary.outputCount===0));assert(h.visible('rounds-warning'));
+  release();await settle();assert(h.storedCases()[0].simulations[0].results.batch.rows.every(row=>row.summary.outputCount===0));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

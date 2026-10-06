@@ -32,6 +32,19 @@ test('real worker threads preserve ordered seeds, events, statistics and metrics
 test('blocked workers fall back to sequential calculation with identical results',async()=>{
  const h=browser({blocked:true});try{const input=data(),expected=await simulateBatch(input,{laterSummaryOnly:true});const [actual,other]=await Promise.all([h.engine.simulateBatch(input),h.engine.simulateBatch(input)]);assert.deepEqual(plain(actual),plain(expected));assert.deepEqual(plain(other),plain(expected));assert.equal(h.maxActive(),0);}finally{h.close();}
 });
+test('worker and fallback stream round-one frames before its final result without changing calculations',async()=>{
+ for(const blocked of [false,true]){
+  const h=browser({blocked});try{
+   const input=data();input.run.durationSeconds=600;let firstReady=false;const chunks=[];
+   const result=await h.engine.simulateBatch(input,{onFirstProgress:partial=>{assert(!firstReady);assert(partial.provisional);assert.equal(partial.batch,undefined);chunks.push(plain(partial));},onFirstRound:()=>firstReady=true});
+   assert(chunks.length>1);assert.equal(chunks[0].calculatedThroughSeconds,0);assert.deepEqual(chunks[0].samples.map(s=>s.virtualSecond),[0]);
+   const samples=chunks.flatMap(chunk=>chunk.samples);
+   assert.equal(new Set(samples.map(s=>s.virtualSecond)).size,samples.length,'frames are deltas, not repeated full replays');
+   const expected=await simulateBatch(input,{laterSummaryOnly:true});assert.deepEqual(plain(result.result),plain(expected.result));
+   assert.deepEqual(samples,plain(result.result.samples));
+  }finally{h.close();}
+ }
+});
 test('cancelling active worker rounds returns no partial batch and permits a new batch',async()=>{
  const h=browser();try{const input=data();input.run.durationSeconds=36000;let cancelled=false;await assert.rejects(h.engine.simulateBatch(input,{summaryOnly:true,cancelled:()=>cancelled,progress:()=>cancelled=true}),/BATCH_CANCELLED/);const next=await h.engine.simulateBatch(data(),{summaryOnly:true});assert(next.ok);assert.equal(next.result.batch.rows.length,5);}finally{h.close();}
 });

@@ -29,12 +29,24 @@ export async function simulateLineAsync(input, options = {}) {
     omittedEvents += items.length; return runtime.events.length;
   };
   applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
+  // Stream only new frames. Provisional snapshots never become final statistics.
+  let publishedSamples=0;
+  function publishPartial(){
+    if(!options.onPartial||runtime.summaryOnly)return;
+    const partial=createResult(runtime);
+    partial.samples=runtime.samples.slice(publishedSamples);publishedSamples=runtime.samples.length;
+    partial.events=[]; // The bounded event log is sent once with the completed result.
+    partial.provisional=true;partial.calculatedThroughSeconds=runtime.virtualSecond;
+    options.onPartial(partial);
+  }
+  publishPartial();
   const shifts = []; let previous = {outputCount:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
   const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
   let nextShift = shiftSeconds;
   while (runtime.virtualSecond < input.run.durationSeconds) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
-    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * 1000, nextShift, input.run.durationSeconds);
+    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:1000;
+    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
     if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
       const summary = createSummary(runtime);
@@ -46,6 +58,7 @@ export async function simulateLineAsync(input, options = {}) {
       previous=summary; nextShift+=shiftSeconds;
     }
     options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    publishPartial();
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);

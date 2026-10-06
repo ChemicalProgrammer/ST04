@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {simulateLine} from '../src/simulation/LineSimulationEngine.js';
+import {analyzeLinePerformance} from '../src/analysis/LinePerformanceAnalysis.js';
 function runtime(extra={}){
  const c={Date,Utilities:{formatDate:()=> '2026-09-16'},...extra};vm.createContext(c);
  for(const file of ['ApiResponse.gs','CaseService.gs','SheetImportService.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),c);
@@ -27,6 +28,19 @@ test('fixed Sheet mapping preserves every A–W value and C1:C7 metadata, with n
  assert.equal(b.processData.accumulation.blockedTimeDelaySeconds,.5);assert.equal(b.processData.accumulation.insuranceFactorUnits,2);
  assert.equal(b.processData.speedAndSensors.overspeedVsInfeedScrewPercent,5);assert.equal(b.processData.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent,8);
  assert.equal(Object.keys(out.sourceRows[1].values).length,23);assert(out.notes.some(s=>s.includes('I/J and R/S/W')));
+});
+test('column C Y selects Blowmolder as the OEE and V-graph reference and N removes an earlier reference',()=>{
+ const r=runtime(),f=fixture();f.rows[0][1]='Blowmolder';const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);
+ assert.equal(out.equipment[0].characteristics.isPacemaker,true);assert.equal(out.equipment[2].characteristics.isPacemaker,false);
+ r.window={};vm.runInContext(fs.readFileSync('apps-script/TextResources.gs','utf8'),r);vm.runInContext(fs.readFileSync('apps-script/SheetImportMerge.html','utf8').replace(/<\/?script>/g,''),r);
+ const current=plain(out.equipment);current[0].characteristics={criticalMachine:true};current[0].processData.role='CRITICAL_MACHINE';current[2].characteristics={criticalMachine:false,isPacemaker:true};current[2].processData.role='PACEMAKER';
+ out.source={spreadsheetId:'fixture',sheetId:0};const merge=r.window.STSheetImportMerge,plan=merge.create(out,current,{}),merged=merge.build(out,plan,current,{});
+ assert(plan.records[0].selected.critical,'a previously imported Y tag must still update the missing engine reference flag');
+ assert.deepEqual(plain(merged.errors),[]);assert(merged.equipment[0].characteristics.isPacemaker);assert(!merged.equipment[2].characteristics.isPacemaker);assert.equal(merged.equipment[2].processData.role,'MACHINE');
+ const result=simulateLine({case:{equipment:plain(merged.equipment)},run:{durationSeconds:60,tickSeconds:1,seed:1}});assert(result.ok);assert.equal(result.result.summary.lineOeePacemakerEquipmentId,'sheet-row-10');
+ assert.equal(analyzeLinePerformance(plain(merged.equipment),result.result).points.find(point=>point.isPacemaker).id,'sheet-row-10');
+ f.rows[2][2]='Y';let invalid=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);assert(invalid.errors.some(e=>e.cell==='C12'));assert(!invalid.canImport);
+ f.rows[2][2]='N';f.rows[1][2]='Y';invalid=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);assert(invalid.errors.some(e=>e.cell==='C11'));
 });
 test('percentage cells and plain percentage points normalize without changing seconds or geometry',()=>{
  const r=runtime(),f=fixture();f.rows[1][16]=.1;f.formats[1][16]='0.00%';f.rows[1][17]='7%';

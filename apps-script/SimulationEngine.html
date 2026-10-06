@@ -994,12 +994,24 @@ async function simulateLineAsync(input, options = {}) {
     omittedEvents += items.length; return runtime.events.length;
   };
   applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
+  // Stream only new frames. Provisional snapshots never become final statistics.
+  let publishedSamples=0;
+  function publishPartial(){
+    if(!options.onPartial||runtime.summaryOnly)return;
+    const partial=createResult(runtime);
+    partial.samples=runtime.samples.slice(publishedSamples);publishedSamples=runtime.samples.length;
+    partial.events=[]; // The bounded event log is sent once with the completed result.
+    partial.provisional=true;partial.calculatedThroughSeconds=runtime.virtualSecond;
+    options.onPartial(partial);
+  }
+  publishPartial();
   const shifts = []; let previous = {outputCount:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
   const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
   let nextShift = shiftSeconds;
   while (runtime.virtualSecond < input.run.durationSeconds) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
-    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * 1000, nextShift, input.run.durationSeconds);
+    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:1000;
+    const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
     if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
       const summary = createSummary(runtime);
@@ -1011,6 +1023,7 @@ async function simulateLineAsync(input, options = {}) {
       previous=summary; nextShift+=shiftSeconds;
     }
     options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    publishPartial();
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
@@ -2304,12 +2317,13 @@ async function simulateBatch(input, options={}) {
     if(index>0&&!summaryOnly)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
     const runner=options.runRound&&(index>0||summaryOnly||options.workerFirstRound)?options.runRound:simulateLineAsync;
     const caseModel=runner===options.runRound?{id:input.case.id,unitOfFlow:input.case.unitOfFlow,equipment:input.case.equipment}:input.case;
-    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
+    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
       fractions[index]=Math.max(fractions[index],f);
       options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count);
     }});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok){failed=true;return response;}
+    if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
     rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts};
     if(index===0){representative=result;options.onFirstRound?.(result);}
@@ -2358,6 +2372,7 @@ function createSimulationWorkerPool(factory, size) {
         if(message.type==='ready'){clearTimeout(slot.startup);slot.ready=true;dispatch(slot);return;}
         const job=slot.job;if(!job||message.id!==job.id)return;
         if(message.type==='progress'){job.options.progress?.(message.value);return;}
+        if(message.type==='partial'){job.options.onPartial?.(message.result);return;}
         slot.job=null;
         if(message.type==='error')job.reject(new Error(message.message));else job.resolve(message.response);
         pump();
@@ -2366,7 +2381,7 @@ function createSimulationWorkerPool(factory, size) {
   }
   function dispatch(slot){
     if(!slot.ready||!slot.job)return;
-    try{slot.worker.postMessage({id:slot.job.id,input:slot.job.input,summaryOnly:slot.job.options.summaryOnly,detail:slot.job.options.detail});}
+    try{slot.worker.postMessage({id:slot.job.id,input:slot.job.input,summaryOnly:slot.job.options.summaryOnly,detail:slot.job.options.detail,stream:Boolean(slot.job.options.onPartial)});}
     catch(error){fail(slot,new Error('SIMULATION_WORKER_UNAVAILABLE'));}
   }
   function pump(){
@@ -2698,7 +2713,7 @@ if(workerMode){
   window.onmessage=async function(event){
     const task=event.data;
     try {
-      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,progress:value=>window.postMessage({type:'progress',id:task.id,value})});
+      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>window.postMessage({type:'partial',id:task.id,result}):undefined,progress:value=>window.postMessage({type:'progress',id:task.id,value})});
       window.postMessage({type:'result',id:task.id,response});
     }catch(error){window.postMessage({type:'error',id:task.id,message:error.message});}
   };

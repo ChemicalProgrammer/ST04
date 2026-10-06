@@ -8,12 +8,12 @@ window.STResults=(function(){
     [__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
   function render(result,activeCase,simulation){
-    var ready=Boolean(result&&result.summary);
+    var ready=Boolean(result&&result.summary&&!result.provisional);
     var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
 
     document.getElementById('results-empty').classList.toggle('hidden',ready);document.getElementById('results-body').classList.toggle('hidden',!ready);document.getElementById('export-results').disabled=!ready;
-    STReports.bindResults(result,activeCase,simulation);
-    if(!ready){document.getElementById('results-meta').textContent=__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');return;}
+    STReports.bindResults(ready?result:null,activeCase,simulation);
+    if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
     if(result.batch)document.getElementById('results-meta').textContent+=' · '+__ST_TEXT__('batch.representative');
     var target=document.getElementById('results-kpis');target.textContent='';
