@@ -256,3 +256,17 @@ test('General Gemini questions do not read cases or include simulation data and 
  const result=h.ctx.askGemini_({scope:'GENERAL',question:'¿Qué es MTBF?',uiMode:'ADVANCE',history:[]},user);assert.equal(reads,0);assert.equal(result.text,'Explicación general.');assert.equal(result.proposals.length,0);assert.equal(result.context,undefined);
  const payload=h.calls[0].options.payload;assert(!payload.includes('Filler'));assert(!payload.includes('Case A'));assert(payload.includes('caseContextIncluded'));assert.match(JSON.parse(payload).systemInstruction.parts[0].text,/no case or simulation context/);
 });
+
+
+test('Product-support role survives restrictive saved prompts and earlier assistant refusals in both modes',()=>{
+ for(const uiMode of ['BASIC','ADVANCE'])for(const scope of ['GENERAL','CASE']){
+  const h=setup({answer:JSON.stringify({text:'Sí. Puedo guiarte con Settings, casos y simulaciones.',proposals:[]})});
+  h.ctx.saveGeminiPrompts_({personality:{enabled:true,text:'CUSTOM: only engineering; app navigation is outside your role.'},engineering:{enabled:true,text:'CUSTOM_ENGINEERING_ONLY'},basic:{enabled:true,text:'CUSTOM_BASIC_ONLY'}});
+  h.ctx.askGemini_({...request,scope,uiMode,question:'¿Sabes cómo funciona la app?',history:[{role:'user',text:'Help with the app'},{role:'model',text:'My role is not to guide app use.'}]},user);
+  const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
+  assert.match(policy,/two supported responsibilities/);assert.match(policy,/BOTH Basic and Advance/);assert.match(policy,/outdated refusal/);assert.match(policy,/For app guidance return JSON/);
+  assert(policy.indexOf('assistant role contract')>policy.indexOf('CUSTOM: only engineering'));
+  assert.equal(policy.includes('CUSTOM_ENGINEERING_ONLY'),scope==='CASE');assert.equal(policy.includes('CUSTOM_BASIC_ONLY'),scope==='CASE'&&uiMode==='BASIC');
+  assert.match(h.ctx.ST_GEMINI_PERSONALITY,/web-app guidance/);
+ }
+});

@@ -2023,7 +2023,7 @@ test('UI: console options are isolated per case and survive saving and reopening
 });
 
 
-test('UI: guided equipment options validate, cancel, preserve imported metadata and save in both modes',async()=>{
+test('UI: guided equipment options validate and save in Advance while Basic preserves imported values',async()=>{
  for(const uiMode of ['BASIC','ADVANCE']){
   const h=await setup({remember:true,uiMode});try{
    h.w.STPreferences.write('autosaveEnabled','no');const get=h.api.getCase;
@@ -2031,7 +2031,8 @@ test('UI: guided equipment options validate, cancel, preserve imported metadata 
    await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=equipment]');else await h.click('.sidebar [data-view=editor]');
    let card=h.d.querySelector('.equipment-card');if(uiMode==='ADVANCE')card.click();
    assert.equal(h.w.getComputedStyle(card._fields.querySelector('.equipment-json-details')).display,'none');assert.equal(h.w.getComputedStyle(h.d.getElementById('settings-json-fields').closest('label')).display,'none');
-   const button=card._fields.querySelector('.equipment-options-button');assert.notEqual(h.w.getComputedStyle(button).display,'none');button.click();
+   const button=card._fields.querySelector('.equipment-options-button');assert.equal(h.w.getComputedStyle(button).display==='none',uiMode==='BASIC');button.click();
+   if(uiMode==='BASIC'){assert.equal(h.d.querySelector('.equipment-options-dialog'),null);assert.equal(JSON.parse(card._fields.querySelector('.equipment-process-data').value).customImported.value,123);assert.deepEqual(h.errors,[]);continue;}
    const dialog=h.d.querySelector('.equipment-options-dialog'),field=path=>dialog.querySelector('[data-path="'+path+'"]');assert(dialog.open);assert.equal(field('upstream.startupTimeSeconds').value,'3');assert.match(field('microStop.probabilityPerMinute').placeholder,/Example/);
    field('microStop.probabilityPerMinute').value='2';field('microStop.minDurationSeconds').value='3';field('microStop.maxDurationSeconds').value='2';
    dialog.querySelector('form').dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));assert(dialog.open);assert.match(dialog.querySelector('[role=alert]').textContent,/Maximum/);
@@ -2062,5 +2063,15 @@ test('UI: general Gemini questions work with unsaved edits and without a case; B
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.some(m=>m.scope==='GENERAL'));
   await h.click('[data-basic-view=whatif]');const interventions=h.d.querySelector('.scenario-interventions');assert(interventions);assert.equal(h.w.getComputedStyle(interventions).display,'none');
   await h.click('[data-basic-view=equipment]');const plot=h.d.getElementById('vgraph-plot');Object.defineProperty(plot,'clientWidth',{value:320,configurable:true});h.w.dispatchEvent(new h.w.Event('resize'));const chart=plot.querySelector('svg');assert(chart);assert.equal(parseFloat(chart.style.minWidth),0);assert.equal(chart.getAttribute('viewBox').split(' ')[2],'320');assert.equal(h.w.getComputedStyle(plot).overflow,'hidden');assert.equal(h.w.getComputedStyle(h.d.querySelector('.auth-card .brand-mark')).width,'64px');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: Additional options is exposed only in Advance and follows mode changes',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=equipment]');const machine=h.d.querySelector('.equipment-card'),button=machine._fields.querySelector('.equipment-options-button');assert.equal(h.w.getComputedStyle(button).display,'none');
+  await h.click('[data-basic-view=conveyors]');const conveyor=h.d.querySelectorAll('.equipment-card')[1];assert.equal(h.w.getComputedStyle(conveyor._fields.querySelector('.equipment-options-button')).display,'none');
+  h.d.documentElement.dataset.uiMode='advance';assert.notEqual(h.w.getComputedStyle(button).display,'none');assert.notEqual(h.w.getComputedStyle(conveyor._fields.querySelector('.equipment-options-button')).display,'none');
+  h.d.documentElement.dataset.uiMode='basic';assert.equal(h.w.getComputedStyle(button).display,'none');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

@@ -18,7 +18,7 @@ window.STEquipmentOptions=(function(){
       card._fields.querySelector('.equipment-noise-profile').dispatchEvent(new Event('change',{bubbles:true}));card._fields.querySelector('.equipment-process-data').dispatchEvent(new Event('change',{bubbles:true}));card._refreshFormatPreview?.();cancel();
     };
   }
-  function open(card,button){ensure();target={card:card,button:button};fields.replaceChildren();dialog.querySelector('.equipment-options-error').textContent='';
+  function open(card,button){if(document.documentElement.dataset.uiMode!=='advance')return;ensure();target={card:card,button:button};fields.replaceChildren();dialog.querySelector('.equipment-options-error').textContent='';
     var conveyor=card._fields.querySelector('.equipment-type').value==='CONVEYOR',data=read(card,'.equipment-process-data'),noise=read(card,'.equipment-noise-profile');
     var definitions=[['microStop.probabilityPerMinute','Microstop frequency (/min)','2','Expected incidents per operating minute in AUTO. Set 0 to disable.'],['microStop.minDurationSeconds','Minimum microstop (s)','0.5','Shortest interruption; example: 0.5 seconds.'],['microStop.maxDurationSeconds','Maximum microstop (s)','2','Longest interruption; must be at least the minimum.']];
     if(!conveyor)definitions=definitions.concat([['upstream.startupTimeSeconds','Startup delay (s)','3','Delay before processing starts after a restart.'],['downstream.rampUpTimeSeconds','Acceleration ramp (s)','5','Machine default time to rise from zero to configured speed; a connected conveyor may specify its own ramp.'],['downstream.infeedPitchMm','Infeed pitch (mm)','120','Machine inlet pitch used by connected conveyor calculations; millimeters between successive products.']]);
