@@ -80,6 +80,13 @@
       document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
+      STSettings.connectSimulation(activePersistentSimulation,function(engineId){
+        var simulation=activePersistentSimulation();if(!simulation||runControlsLocked())return;
+        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});simulation.results=null;
+        cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;
+        toggle('simulation-results',false);markCaseDirty();renderSimulationAnalysis();shell.sync();
+      },runControlsLocked);
+      window.addEventListener('st-simpy-status',function(event){if(roundSession?.pending)document.getElementById('batch-status').textContent=event.detail.message;});
       STPreferences.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
@@ -1304,6 +1311,7 @@ function renderRawJson() {
       }
       var replaySamples=result.samples||[];
       var stored = {
+        engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
         seed: run.seed,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
@@ -1314,6 +1322,7 @@ function renderRawJson() {
         accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
         replay: {
           caseId: result.caseId, unitOfFlow: result.unitOfFlow, engineVersion: result.engineVersion,
+          engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
           seed: result.seed, durationSeconds: result.durationSeconds,
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
@@ -1328,6 +1337,7 @@ function renderRawJson() {
     function renderSimulationAnalysis() {
       var simulation=activePersistentSimulation(),target=document.getElementById('simulation-analysis-content');
       if(!simulation){target.textContent='';toggle('simulation-analysis',false);return;}
+      if(simulation.dynamicConfig?.engineId==='DES_SIMPY_EXPERIMENTAL'){target.textContent='What-If is not yet validated for the experimental SimPy model. Use Results to compare throughput and equipment states, or choose the current engine for What-If.';toggle('simulation-analysis',true);return;}
       STWhatIf.render(simulation,target,createWhatIfScenario);toggle('simulation-analysis',true);
     }
     async function createWhatIfScenario(proposal,button) {
@@ -1478,7 +1488,7 @@ function renderRawJson() {
       if(index===0)state.run.result=first;
       else {
         var row=batch.rows[index],replay=expandStoredReplay(batch.replays[index-1]);
-        state.run.result={caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
+        state.run.result={caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
       }
       state.run.sampleIndex=0;document.getElementById('playback-round').value=String(index);
       renderResultJsonPreview(state.run.result);
@@ -1605,6 +1615,7 @@ function renderRawJson() {
         return null;
       }
       return {
+        engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
@@ -1622,6 +1633,7 @@ function renderRawJson() {
 
     function copyRunConfiguration(run) {
       return {
+        engineId:run.engineId,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         tickSeconds: run.tickSeconds,
@@ -1634,6 +1646,7 @@ function renderRawJson() {
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
+        engineId:configuration.engineId,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,
         tickSeconds: configuration.tickSeconds,
@@ -1649,12 +1662,12 @@ function renderRawJson() {
       };
     }
 
-    function calculateSimulation(run, resumeAtVirtualSecond) {
+    async function calculateSimulation(run, resumeAtVirtualSecond) {
       var input = {
         case: JSON.parse(JSON.stringify(state.activeCase)),
         run: run
       };
-      var response = window.SimulatorEngine.simulateLine(input);
+      var response = await window.SimulatorEngine.simulateLineAsync(input);
       if (!response.ok) {
         showError(response.error);
         return false;
@@ -1824,6 +1837,7 @@ function renderRawJson() {
     }
 
     function formatLineOeeAtSample(sample) {
+      if(state.run.result?.engineId==='DES_SIMPY_EXPERIMENTAL')return '—';
       var pacemakerRate = state.run.result?.summary?.lineOeePacemakerRatePerSecond;
       if (!(sample.virtualSecond > 0) || !isFiniteNumber(pacemakerRate) || pacemakerRate <= 0) return '—';
       return formatPercent(Math.min(1, sample.outputCount / (pacemakerRate * sample.virtualSecond)));
@@ -1897,7 +1911,7 @@ function renderRawJson() {
       card.querySelector('.live-command').textContent = __ST_TEXT__('client.command') + unit.mode;
       card.querySelector('.live-flow-label').textContent = index === 0 ? 'Produced' : 'Processed';
       card.querySelector('.live-processed').textContent = formatNumber(unit.processedUnits === undefined ? unit.outputCount : unit.processedUnits);
-      card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 ? formatPercent(unit.oeePercent / 100) : '—';
+      card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 && Number.isFinite(unit.oeePercent) ? formatPercent(unit.oeePercent / 100) : '—';
       card.querySelector('.live-rate').textContent = formatRatePerMinute(unit.actualRatePerSecond);
       card.querySelector('.live-starved').textContent = formatMinutes(unit.starvedSeconds);
       card.querySelector('.live-blocked').textContent = formatMinutes(unit.blockedSeconds);
@@ -2023,7 +2037,7 @@ function renderRawJson() {
         ? formatNumber(geometry.travelSeconds) + ' s'
         : '—';
       panel.querySelector('.zone-sensor-timing').textContent = formatSensorTiming(geometry);
-      panel.querySelector('.zone-overflow').textContent = formatNumber(zone.overflowUnits);
+      panel.querySelector('.zone-overflow').textContent = zone.overflowUnits===null?'—':formatNumber(zone.overflowUnits);
       panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + __ST_TEXT__('conveyor.capacity_formula') +
         formatNumber(zone.capacityUnits) + __ST_TEXT__('client.units_controls_upstream') + zone.upstreamControlEquipmentId +
         __ST_TEXT__('client.starts_downstream') + zone.downstreamControlEquipmentId;
@@ -2109,6 +2123,7 @@ function summarizeGeometrySources(sources, assumptions) {
     }
 
     function updateLiveEquipmentControl(button) {
+      if(state.run.result?.engineId==='DES_SIMPY_EXPERIMENTAL'&&state.activeCase.equipment.find(function(e){return e.id===button.closest('.live-equipment-card')?.dataset.equipmentId;})?.type==='CONVEYOR'){button.disabled=true;button.title='Conveyor controls are not supported by the experimental SimPy engine.';return;}
       var sample = state.run.result && state.run.result.samples[state.run.sampleIndex];
       var isAtRunEnd = !sample || sample.virtualSecond >= state.run.result.durationSeconds;
       if(state.run.result?.batch&&state.run.roundIndex!==0){button.disabled=true;button.title=__ST_TEXT__('batch.later_controls');return;}
@@ -2154,7 +2169,7 @@ function summarizeGeometrySources(sources, assumptions) {
           wasPlaying=session.resumeAfterEdit;
         }catch(error){if(error.message!=='BATCH_CANCELLED')showError(error);return;}
         finally{session.firstUpdating=false;if(roundSessionActive(session))renderPlaybackFrame();}
-      }else if(!calculateSimulation(run,sample.virtualSecond))return;
+      }else if(!await calculateSimulation(run,sample.virtualSecond))return;
       state.run.commands=cloneJson(run.commands);renderControlEvents();
       var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(run);tab.run=cloneJson(run);tab.results=createStoredSimulationResult(state.run.result,run);state.isDirty=true;saveActiveCase();}
       var equipment = state.activeCase.equipment.find(function(item) { return item.id === equipmentId; });
@@ -2189,7 +2204,7 @@ function summarizeGeometrySources(sources, assumptions) {
     }
 
     function formatMinutes(seconds) {
-      return formatNumber(Number(seconds || 0) / 60) + __ST_TEXT__('client.min');
+      return seconds===null?'—':formatNumber(Number(seconds || 0) / 60) + __ST_TEXT__('client.min');
     }
 
     function callServer(name, args, onSuccess) {

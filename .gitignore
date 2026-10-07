@@ -3,3 +3,5 @@
 
 node_modules/
 .task-baseline/
+__pycache__/
+*.pyc

@@ -140,6 +140,7 @@
       </section>
 
       <section id="run-panel" class="card hidden" aria-labelledby="run-title">
+        <p id="simulation-engine-notice" class="notice hidden" role="status">DES · SimPy (experimental). FIFO item conveyors; spatial queues, sensors, ramps and runout are omitted. OEE is not validated.</p>
         <div class="section-heading">
           <div>
             <p class="eyebrow"><?= __ST_TEXT__('view.run_workspace') ?></p>
@@ -292,6 +293,7 @@
           <section id="settings-interface-section" class="settings-section hidden"><div class="settings-row"><label for="settings-interface-mode"><?= __ST_TEXT__('settings.interface_mode') ?></label><select id="settings-interface-mode"><option value="BASIC">Basic</option><option value="ADVANCE">Advance</option></select></div><p><?= __ST_TEXT__('settings.interface_mode_note') ?></p></section>
         </div>
         <div id="settings-page-simulation" class="hidden" role="tabpanel" aria-labelledby="settings-tab-simulation">
+          <section id="settings-engine-section" class="settings-section hidden"><h3>Simulation engine</h3><label for="settings-simulation-engine">Engine for the selected simulation</label><select id="settings-simulation-engine"><option value="ST_CURRENT">Current engine (default)</option><option value="DES_SIMPY_EXPERIMENTAL">DES · Python / SimPy (experimental)</option></select><p id="settings-engine-note" class="chart-note">SimPy runs in this browser. Its first run downloads Pyodide over HTTPS. Supports alternating machine–conveyor lines; omits spatial queues, sensors, ramps and runout. OEE and What-If are not validated for this engine. Changing the engine clears this simulation’s previous results.</p></section>
           <p id="settings-basic-simulation-note" class="chart-note hidden">Basic uses manual saving with the Save icon. Choose the seed policy below; duration, rounds and playback speed are set in Simulation.</p>
           <section id="settings-save-section" class="settings-section"><h3>Case saving</h3><label class="scenario-scope"><input id="settings-autosave" type="checkbox"> Autosave</label><label>Save interval (seconds)<input id="settings-autosave-seconds" type="number" min="1" max="3600" step="1" value="10"></label><p>Save pending case changes after the selected interval. Basic always uses the Save icon. Preferences apply in this browser.</p></section>
           <section id="settings-seed-section" class="settings-section"><h3>Simulation seeds</h3><label>Seed policy <select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM">Random — new base seed for each run</option></select></label><p>Rounds use base seed + round index. The actual seed is saved with results. This browser preference also applies in Basic. What-If comparisons keep matched seeds.</p></section>

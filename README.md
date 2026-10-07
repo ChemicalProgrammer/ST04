@@ -9,7 +9,9 @@ Aplicación web con Apps Script, almacenamiento en Drive e integración con Gemi
 - Documentación histórica: `docs/`.
 - Reconstrucción con Gemini Code Assist: [Visual Code](Visual%20Code/docs/README.md).
 
-`npm run build:apps-script` actualiza los adaptadores del motor (`SimulationEngine.html` y `ScenarioEngine.gs`). El despliegue usa todos los módulos `.gs` y `.html` de `apps-script/` y su manifiesto. Si existen `Code.gs` e `Index.html` en un proyecto de Apps Script anterior, elimínalos: ya no forman parte del despliegue. `npm test` ejecuta las pruebas.
+`npm run build:apps-script` actualiza los adaptadores del motor (`SimulationEngine.html` y `ScenarioEngine.gs`); requiere Python 3 en la máquina de desarrollo para incluir el paquete SimPy. El despliegue usa todos los módulos `.gs` y `.html` de `apps-script/` y su manifiesto. Si existen `Code.gs` e `Index.html` en un proyecto de Apps Script anterior, elimínalos: ya no forman parte del despliegue. `npm test` ejecuta las pruebas.
+
+En **Advance → Settings → Simulation**, el motor actual permanece por defecto y se puede elegir **DES · Python / SimPy (experimental)** por simulación. Se ejecuta en el navegador con Pyodide, sin Google Cloud, y necesita descargar el runtime por HTTPS la primera vez. El OEE y What-If del prototipo aún no están validados. [Alcance, límites y pruebas](docs/35_BROWSER_SIMPY_ENGINE.md).
 
 En **Line Setup**, cada equipo permite editar **MTBF (min)** y **MTTR (min)** y activar/desactivar **Failures enabled**. Los valores alimentan `noiseProfile.reliability` y se conservan en `processData.equipment`; desactivar fallas conserva los tiempos para volver a activarlas.
 

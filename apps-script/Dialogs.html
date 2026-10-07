@@ -1,4 +1,8 @@
 <script>
+window.STMotion={
+  reduced:function(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;},
+  reveal:function(element){if(!element||this.reduced()||!element.animate)return;element._stReveal?.cancel();element._stReveal=element.animate([{opacity:.65,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:160,easing:'ease-out'});}
+};
 window.STDialog = (function() {
   var queue = [], active = false;
   function open(options) {
@@ -32,7 +36,7 @@ window.STDialog = (function() {
     var buttons = options.buttons || [{id:'ok',label:__ST_TEXT__('dialog.ok')}];
     function finish(id) {
       if (id !== 'cancel' && input && (!input.checkValidity() || !input.value.trim())) { input.reportValidity(); input.focus(); return; }
-      dialog.close(); dialog.remove(); active = false;
+      dialog.close();if(!STMotion.reduced()&&dialog.animate&&CSS.supports('transition-behavior','allow-discrete'))setTimeout(function(){dialog.remove();},160);else dialog.remove();active = false;
       if (focus && focus.isConnected) focus.focus();
       task.resolve({action:id,value:input ? input.value.trim() : null}); next();
     }

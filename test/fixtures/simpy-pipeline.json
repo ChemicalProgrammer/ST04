@@ -1,0 +1,58 @@
+{
+  "case": {
+    "id": "synthetic-60-60",
+    "unitOfFlow": "bottles",
+    "equipment": [
+      {
+        "id": "m0",
+        "name": "Machine 1",
+        "type": "CUSTOM",
+        "nominalRatePerSecond": 1,
+        "initialMode": "AUTO",
+        "characteristics": {},
+        "noiseProfile": {}
+      },
+      {
+        "id": "c0",
+        "name": "Conveyor 1",
+        "type": "CONVEYOR",
+        "nominalRatePerSecond": 1,
+        "initialMode": "AUTO",
+        "characteristics": {},
+        "noiseProfile": {},
+        "processData": {
+          "geometry": {
+            "lactMm": 1000,
+            "lpPrimeMm": 0
+          },
+          "upstream": {
+            "packageLengthMm": 100,
+            "dischargePitchMm": 100
+          },
+          "speedAndSensors": {
+            "conveyorSpeedFactorVsDischargeVelocityPercent": 900
+          },
+          "accumulation": {
+            "conveyorSpeedFactorPercent": 900
+          }
+        }
+      },
+      {
+        "id": "m1",
+        "name": "Machine 2",
+        "type": "PACEMAKER",
+        "nominalRatePerSecond": 1,
+        "initialMode": "AUTO",
+        "characteristics": {},
+        "noiseProfile": {}
+      }
+    ]
+  },
+  "run": {
+    "durationSeconds": 600,
+    "tickSeconds": 0.25,
+    "sampleEverySeconds": 5,
+    "seed": 73,
+    "commands": []
+  }
+}

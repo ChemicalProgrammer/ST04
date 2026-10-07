@@ -18,6 +18,7 @@ window.STScenarioExplorer=(function(){
   function metric(result){return {oee:result.batch?.statistics?.lineOeePercent?.mean??result.summary.lineOeePercent,throughput:result.batch?.statistics?.throughputPerMinute?.mean??result.summary.outputCount/result.durationSeconds*60};}
   function config(sim){var r=Object.assign({durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1},sim.dynamicConfig||{});if(r.durationMode==='SHIFTS')r.durationSeconds=(r.shiftHours||8)*(r.shiftCount||1)*3600;return r;}
   async function evaluate(sim,changes,cancelled,seedOffset,runConfig){
+    if((runConfig||config(sim)).engineId==='DES_SIMPY_EXPERIMENTAL')throw Error('What-If is not validated for the experimental SimPy engine.');
     var candidate=changes.length?STScenarios.apply(sim,changes):sim;
     var response=await SimulatorEngine.simulateBatch({case:{id:sim.id||'scenario-preview',equipment:candidate.equipment},run:Object.assign({},runConfig||config(sim),seedOffset?{seed:(Number((runConfig||config(sim)).seed)+seedOffset)%2147483647}:{})},{cancelled:cancelled,summaryOnly:true});
     if(!response.ok)throw Error(response.error?.message||JSON.stringify(response.errors||response));return Object.assign(metric(response.result),{warnings:candidate.scenarioWarnings||[]});

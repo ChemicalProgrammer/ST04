@@ -969,7 +969,7 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
  }finally{h.dom.window.close();}
 });
 
-test('UI Basic: compact machine fields remain visible, palette has seven colors and simulation space is reclaimed',async()=>{
+test('UI Basic: compact machine fields remain visible, palette has fourteen colors and simulation space is reclaimed',async()=>{
  const h=await setup({uiMode:'BASIC'});try{
   await h.click('#sign-in-button');await h.click('.open-case');
   const card=h.d.querySelector('.basic-machine');
@@ -979,8 +979,8 @@ test('UI Basic: compact machine fields remain visible, palette has seven colors 
   }
   assert.equal(h.w.getComputedStyle(card._fields.querySelector('.equipment-name').closest('label')).display,'none');
   assert.match(card.querySelector('.basic-availability').textContent,/Avail.*%/);
-  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,7);
-  assert(!h.d.querySelector('#accent-palette [data-accent="amparo-blue"]').classList.contains('hidden'));
+  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,14);
+  assert(!h.d.querySelector('#accent-palette [data-accent="a-lorange"]').classList.contains('hidden'));
   assert.equal(h.d.querySelectorAll('#basic-run-controls [data-control] .icon').length,0);
   await h.click('[data-basic-view="simulation"]');
   assert.equal(h.w.getComputedStyle(h.d.getElementById('run-config')).display,'none');
@@ -1849,5 +1849,37 @@ test('UI: mode switches rebuild isolated What-If cards and unified DOE rows pres
   await switchMode('BASIC');assert(grid().querySelector('.scenario-current'));assert.equal(grid().children.length,4);card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);
   card.querySelector('.scenario-configure').click();const dialog=card.querySelector('dialog');assert.equal(dialog.querySelectorAll('table').length,1);const factor=dialog.querySelector('.scenario-doe-select');assert(factor.disabled);dialog.querySelector('.scenario-doe-enabled').checked=true;dialog.querySelector('.scenario-doe-enabled').dispatchEvent(new h.w.Event('change'));assert(!factor.disabled);assert.equal(dialog.querySelector('thead tr').children.length,10);assert.equal(dialog.querySelector('.scenario-doe-factor').children.length,10);assert(!/\([^)]*\)/.test(dialog.querySelector('.scenario-doe-factor').children[2].textContent));dialog.close();
   await h.click('#open-settings');assert.equal(h.d.getElementById('settings-json-fields').closest('section'),h.d.getElementById('settings-scenario-doe').closest('section'));assert.equal(h.d.getElementById('settings-doe-section').querySelector('h3'),null);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: Advanced selects SimPy per simulation, clears stale results and preserves the default in a new simulation',async()=>{
+ const h=await setup({uiMode:'ADVANCE'});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
+  const picker=h.d.getElementById('settings-simulation-engine');
+  assert(!h.d.getElementById('settings-engine-section').classList.contains('hidden'));
+  assert.equal(picker.value,'ST_CURRENT');assert(!picker.disabled);
+  picker.value='DES_SIMPY_EXPERIMENTAL';picker.dispatchEvent(new h.w.Event('change'));
+  await h.click('#settings-close');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.engineId==='DES_SIMPY_EXPERIMENTAL');
+  assert.equal(h.storedCases()[0].simulations[0].results,null);
+  assert(h.visible('simulation-engine-notice'));
+  assert.match(h.d.getElementById('simulation-analysis-content').textContent,/not yet validated/);
+  await h.click('#open-settings');assert.equal(picker.value,'DES_SIMPY_EXPERIMENTAL');
+  picker.value='ST_CURRENT';picker.dispatchEvent(new h.w.Event('change'));await h.click('#settings-close');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.engineId==='ST_CURRENT');
+  assert(!h.visible('simulation-engine-notice'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: Basic has precisely the requested fourteen palettes and hides the engine selector',async()=>{
+ const h=await setup({uiMode:'BASIC',savedAccent:'amparo-blue'});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
+  assert(h.d.getElementById('settings-engine-section').classList.contains('hidden'));
+  const colors=Array.from(h.d.querySelectorAll('.accent-choice:not(.hidden)')).map(b=>b.dataset.accent);
+  assert.deepEqual(colors,['a-lorange','adamite-green','boat-house','encore','football-field','glaucous','hole-in-one','imperial-yellow','mermaid-dreams','ocean-liner','poinsettia','redcurrant','thirsty-thursday','aegean-sea']);
+  assert.equal(h.d.documentElement.dataset.accent,'a-lorange');
+  assert.equal(h.d.querySelector('[data-accent="boat-house"]').title,'boat blues');
+  await h.click('[data-accent="aegean-sea"]');assert.equal(h.d.documentElement.dataset.accent,'aegean-sea');
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

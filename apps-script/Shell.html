@@ -1,6 +1,6 @@
 <script>
 window.STShell = function(state,actions) {
-  var collapsed=STPreferences.read('sidebar')==='collapsed', toastTimer;
+  var collapsed=STPreferences.read('sidebar')==='collapsed', toastTimer,lastMotionView;
   var simulationToolbar=document.getElementById('simulation-toolbar');
   function sync() {
     STSettings.applyCaseCharts();
@@ -30,6 +30,10 @@ window.STShell = function(state,actions) {
     if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
     window.STBasicMode?.sync(state);
+    var motionView=view+':'+(document.documentElement.dataset.headerView||'');
+    if(motionView!==lastMotionView){lastMotionView=motionView;STMotion.reveal(document.getElementById(({simulation:'run',editor:'editor',results:'results',whatif:'whatif',comparison:'comparison',cases:'cases'}[view]||'run')+'-panel'));}
+    var engineNotice=document.getElementById('simulation-engine-notice'),simulation=(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
+    engineNotice.classList.toggle('hidden',simulation?.dynamicConfig?.engineId!=='DES_SIMPY_EXPERIMENTAL');
   }
   function toast(message) {var el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.add('hidden');},4000);}
   function init(){

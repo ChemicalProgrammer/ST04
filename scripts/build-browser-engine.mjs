@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceFiles = [
@@ -11,11 +12,19 @@ const sourceFiles = [
   'src/simulation/LineSimulationEngine.js',
   'src/simulation/SimulationBatch.js',
   'src/simulation/SimulationWorkers.js',
+  'src/simulation/SimPyBrowserEngine.js',
   'src/analysis/LinePerformanceAnalysis.js',
   'src/analysis/ScenarioPlanner.js',
   'src/analysis/ScenarioDOE.js'
 ];
 const targetFile = path.join(repositoryRoot, 'apps-script', 'SimulationEngine.html');
+const pythonRoot=path.join(repositoryRoot,'src/simulation/python');
+// Include the audited pure Python wheel, including its MIT license. Users only
+// download the pinned Pyodide runtime; no package lookup or PyPI request occurs.
+const pythonFiles=JSON.parse(execFileSync('python3',['-c',
+  'import json,sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))',
+  path.join(pythonRoot,'vendor/simpy-4.1.2-py3-none-any.whl')],{encoding:'utf8'}));
+for(const name of ['st_des_engine.py','st_simpy_engine.py'])pythonFiles[name]=fs.readFileSync(path.join(pythonRoot,name),'utf8');
 
 const source = sourceFiles
   .map((relativePath) => fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8'))
@@ -40,7 +49,17 @@ if(workerMode){
   window.postMessage({type:'ready'});return;
 }
 let workerPool,workersUnavailable=false;
+const simPyRuntime=createSimPyBrowserEngine(window,${JSON.stringify(pythonFiles).replace(/</g,'\\u003c')});
+function selectedEngine(input){
+  const id=input.run.engineId||CURRENT_ENGINE_ID;
+  if(![CURRENT_ENGINE_ID,SIMPY_ENGINE_ID].includes(id))throw new Error('Unknown simulation engine: '+id);
+  return id;
+}
+async function simulateSelectedLine(input,options={}){
+  return selectedEngine(input)===SIMPY_ENGINE_ID?simPyRuntime.run(input,options):simulateLineAsync(input,options);
+}
 async function simulateBrowserBatch(input,options={}){
+  if(selectedEngine(input)===SIMPY_ENGINE_ID)return simulateBatch(input,{...options,runRound:simPyRuntime.run,workerFirstRound:true,concurrency:1,laterSummaryOnly:options.laterSummaryOnly!==false});
   let published=false;
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
   const settings={...options,onFirstRound,laterSummaryOnly:options.laterSummaryOnly!==false};
@@ -63,9 +82,9 @@ async function simulateBrowserBatch(input,options={}){
 }
 window.addEventListener?.('pagehide',()=>{workerPool?.close();workerPool=null;});
 window.SimulatorEngine = {
-  simulateLine: simulateLine,
+  simulateLine: function(input){if(selectedEngine(input)===SIMPY_ENGINE_ID)return {ok:false,error:{code:'ASYNC_ENGINE_REQUIRED',message:'SimPy requires simulateLineAsync.'}};return simulateLine(input);},
   simulateBatch: simulateBrowserBatch,
-  simulateLineAsync: simulateLineAsync,
+  simulateLineAsync: simulateSelectedLine,
   validateSimulationInput: validateSimulationInput,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance
