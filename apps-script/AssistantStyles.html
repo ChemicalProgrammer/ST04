@@ -1,7 +1,7 @@
 <style>
-.app-shell.case-open { transition:padding-right 180ms ease-out; }
-.app-shell.case-open.assistant-resizing { transition:none; }
-.app-shell.case-open.assistant-open { padding-right:var(--assistant-width); }
+.app-shell { transition:padding-right 180ms ease-out; }
+.app-shell.assistant-resizing { transition:none; }
+.app-shell.assistant-open { padding-right:var(--assistant-width); }
 .gemini-panel { position:fixed; inset:0 0 0 auto; width:var(--assistant-width); z-index:var(--z-sidebar); border-left:var(--border-width) solid var(--line); background:var(--surface); display:flex; flex-direction:column; padding:var(--space-4); gap:var(--space-3); }
 .gemini-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-2); }
 .gemini-heading h2 { margin:0; } .gemini-heading p { margin:var(--space-1) 0 0; }
@@ -16,7 +16,7 @@
 .gemini-composer { display:grid; gap:var(--space-2); }
 .gemini-composer textarea { resize:vertical; max-height:var(--size-220); width:100%; }
 .gemini-actions { display:flex; justify-content:space-between; }
-@media(max-width:1100px) { .app-shell.case-open.assistant-open { padding-right:0; } .gemini-panel { width:min(var(--assistant-width),calc(100% - var(--sidebar-collapsed))); box-shadow:var(--shadow-dialog); z-index:var(--z-overlay); } }
+@media(max-width:1100px) { .app-shell.assistant-open { padding-right:0; } .gemini-panel { width:min(var(--assistant-width),calc(100% - var(--sidebar-collapsed))); box-shadow:var(--shadow-dialog); z-index:var(--z-overlay); } }
 
 #gemini-resize { position:absolute; z-index:1; top:0; bottom:0; left:calc(-1 * var(--space-2)); width:var(--space-4); cursor:col-resize; touch-action:none; }
 #gemini-resize { background:transparent; outline:none; }
@@ -59,4 +59,6 @@
 .math-formula math { font-size:1.12em; max-width:100%; color:var(--ink); }
 .math-formula[data-display=true] { display:block; margin:var(--space-3) 0; max-width:100%; overflow:auto; }
 .math-invalid { color:var(--muted); white-space:pre-wrap; }
+.gemini-scope-control { display:flex; align-items:center; gap:var(--space-2); margin:0; font-size:var(--font-secondary); }
+.gemini-scope-control input { width:auto; margin:0; flex-shrink:0; accent-color:var(--accent); }
 </style>

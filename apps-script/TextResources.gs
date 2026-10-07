@@ -1,5 +1,8 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "assistant.general_history":"Messages are saved with this simulation. No case data is sent while Case context is unchecked.",
+  "assistant.case_context":"Case context",
+  "assistant.gallery_history":"This conversation is temporary and is not saved. No case data is sent.",
   "settings.factory_title":"Factory reset",
   "settings.factory_button":"Reset app",
   "settings.factory_note":"Clears this account's Drive connection, Gemini key and settings, and this browser's app preferences. Drive cases, results and index are retained. Keep your folder ID so you can reconnect.",

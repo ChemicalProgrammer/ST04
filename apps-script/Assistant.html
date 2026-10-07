@@ -3,9 +3,9 @@
 window.ST_GEMINI_CHAT_PRESENTATION = {enabled:true, paragraphDelayMs:80, maxDurationMs:900};
 window.STAssistant = function(state,actions) {
   var panelAnimation=null,panelVisible=false;
-  var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null,progressHideTimer=null;
+  var opened=false,caseId=null,simulationId=null,messages=[],galleryMessages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null,progressHideTimer=null;
   function el(id){return document.getElementById(id);}
-  function general(){return el('gemini-scope').value==='GENERAL';}
+  function general(){return !state.activeCase||!el('gemini-scope').checked;}
   function basic(){return Boolean(window.STBasicMode?.isBasic());}
   function sideEditing(){return !basic()&&STEquipmentInspector.sync();}
   function progress(next){
@@ -49,7 +49,7 @@ window.STAssistant = function(state,actions) {
     editor.className='gemini-message-editor';text.value=messages[questionIndex].text;text.rows=4;text.maxLength=6000;text.required=true;text.setAttribute('aria-label','Edit question and regenerate');
     note.className='chart-note';note.textContent='Regenerating replaces this question and all later messages. Cancel keeps the conversation.';
     buttons.className='button-row';var cancel=document.createElement('button'),submit=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Cancel';cancel.onclick=function(){editor.remove();};submit.type='submit';submit.textContent='Regenerate';buttons.append(cancel,submit);editor.append(note,text,buttons);message.node.append(editor);text.focus();
-    editor.onsubmit=function(event){event.preventDefault();var question=text.value.trim();if(!question)return;editor.remove();el('gemini-scope').value=messages[questionIndex].scope||'CASE';submitQuestion(question,questionIndex);};
+    editor.onsubmit=function(event){event.preventDefault();var question=text.value.trim();if(!question)return;editor.remove();el('gemini-scope').checked=(messages[questionIndex].scope||'CASE')==='CASE';submitQuestion(question,questionIndex);};
   }
   function attachments(m){
     (basic()?[]:(m.proposals||[])).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment,(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;})));});
@@ -83,7 +83,7 @@ window.STAssistant = function(state,actions) {
     }
     revealTimer=setTimeout(next,delay);
   }
-  function reset(){stopReveal();progress('idle');sequence++;messages=[];pending=false;caseId=null;simulationId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
+  function reset(){stopReveal();progress('idle');sequence++;messages=[];galleryMessages=[];pending=false;caseId=null;simulationId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
   function showPanel(visible){
     var panel=el('gemini-panel'),shell=el('application');
     if(visible===panelVisible)return;panelVisible=visible;
@@ -95,9 +95,10 @@ window.STAssistant = function(state,actions) {
     else panel.classList.add('hidden');
   }
   function sync(){
-    var active=state.activeCase;
-    if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){stopReveal();progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;el('gemini-scope').value=active?'CASE':'GENERAL';messages=JSON.parse(JSON.stringify(simulation()?.geminiHistory||[]));pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
-    if(!active)el('gemini-scope').value='GENERAL';el('gemini-scope').querySelector('[value=CASE]').disabled=!active;
+    var active=state.activeCase,currentSimulationId=active?state.activeSimulationId:null;
+    if(caseId!==(active?.id||null)||simulationId!==currentSimulationId){stopReveal();progress('idle');sequence++;if(!caseId)galleryMessages=messages;caseId=active?.id||null;simulationId=currentSimulationId;el('gemini-scope').checked=!!active;messages=active?JSON.parse(JSON.stringify(simulation()?.geminiHistory||[])):galleryMessages;pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
+    if(!active)el('gemini-scope').checked=false;el('gemini-scope-control').classList.toggle('hidden',!active);
+    el('gemini-history-note').textContent=active?(general()?__ST_TEXT__('assistant.general_history'):__ST_TEXT__('assistant.history_saved')):__ST_TEXT__('assistant.gallery_history');
     var editing=sideEditing();
     var visible=Boolean(state.bootstrap&&(opened||editing));
     if(!basic())el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
@@ -106,8 +107,8 @@ window.STAssistant = function(state,actions) {
     el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
-    el('gemini-scope').disabled=pending;el('gemini-question').placeholder=general()?'Ask about using Flow Pilot or general concepts':'Ask about the current simulation';
-    el('gemini-notice').textContent=!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):general()?'General questions do not send case data and do not require saving.':pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?'Save changes before asking about this simulation, or choose General question.':__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
+    el('gemini-scope').disabled=pending||!active;el('gemini-question').placeholder=general()?'Ask about using Flow Pilot or general concepts':'Ask about the current simulation';
+    el('gemini-notice').textContent=!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):general()?'General questions do not send case data and do not require saving.':pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?'Save changes before asking about this simulation, or uncheck Case context.':__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
     el('send-gemini').disabled=pending||state.saving||!configured||!active&&!general();el('send-gemini').setAttribute('aria-busy',String(pending));
     el('clear-gemini').disabled=pending||state.saving;
     el('gemini-messages').querySelectorAll('.gemini-message-actions button').forEach(function(button){button.disabled=button.dataset.action==='edit'&&(pending||state.saving);});

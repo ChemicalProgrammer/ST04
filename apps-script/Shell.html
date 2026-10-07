@@ -10,7 +10,9 @@ window.STShell = function(state,actions) {
     document.getElementById('application').classList.toggle('case-open',active);
     document.getElementById('case-sidebar').classList.toggle('hidden',!active);
     document.getElementById('cases-top-actions').classList.toggle('hidden',active);
-    document.getElementById('toggle-gemini').classList.toggle('hidden',!state.bootstrap);
+    var geminiToggle=document.getElementById('toggle-gemini'),geminiHost=document.getElementById(active?'header-case-actions':'cases-top-actions');
+    if(geminiToggle.parentElement!==geminiHost){if(active)geminiHost.appendChild(geminiToggle);else geminiHost.prepend(geminiToggle);}
+    geminiToggle.classList.toggle('hidden',!state.bootstrap);
     actions.assistant();
     document.getElementById('workspace-tabs').classList.toggle('hidden',!active);
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
