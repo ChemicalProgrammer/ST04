@@ -124,7 +124,7 @@ test('UI: run, edit, clone, compare, and delete retain the existing engine workf
   await h.click('.sidebar [data-view="simulation"]');await h.click('#run-simulation');await settle();await h.click('#pause-simulation');
   await h.click('.workspace-tab-comparison');assert(h.d.querySelector('#case-comparison-content table'));assert.match(h.d.getElementById('case-comparison-content').textContent,/Absolute Δ/);
   await h.click('.sidebar [data-view="simulation"]');assert(h.d.getElementById('run-duration').disabled);h.d.getElementById('run-duration').value='90';h.d.getElementById('run-duration').dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(h.visible('simulation-results'),'run settings cannot invalidate a paused simulation');assert.equal(h.d.getElementById('run-duration').value,'60');
-  await h.click('#open-settings');await h.click('#delete-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .danger');await waitFor(()=>h.d.querySelectorAll('.case-row').length===0);assert(h.visible('cases-panel'));
+  await h.click('#home-cases');await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .danger');await waitFor(()=>h.d.querySelectorAll('.case-row').length===0);assert(h.visible('cases-panel'));
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1694,8 +1694,9 @@ test('UI: Settings groups options, supports keyboard tabs and preserves excluded
  }finally{h.dom.window.close();}
 });
 
-test('UI: case chart colors and DOE survive save and reopening while Basic keeps manual saving',async()=>{
- const h=await setup({remember:true,uiMode:'BASIC'});try{
+test('UI: Advance case chart colors and DOE survive manual save and reopening',async()=>{
+ const h=await setup({remember:true,uiMode:'ADVANCE'});try{
+  h.w.STPreferences.write('autosaveEnabled','no');
   await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-case');
   const colors=h.d.querySelectorAll('#settings-chart-colors button');assert.equal(colors.length,13);assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);
   colors[0].click();const hex=h.d.getElementById('series-color-hex');hex.value='#123456';hex.dispatchEvent(new h.w.Event('input'));assert.equal(h.d.getElementById('series-color-r').value,'18');h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456'.toUpperCase());
@@ -1765,7 +1766,7 @@ test('UI: Settings has stable dimensions, Basic has two prompts and case VGraph 
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');await h.click('#open-settings');const size=h.w.getComputedStyle(h.d.getElementById('settings-dialog')).height;
   for(const tab of ['case','appearance','simulation','gemini','storage']){await h.click('#settings-tab-'+tab);assert.equal(h.w.getComputedStyle(h.d.getElementById('settings-dialog')).height,size);}
-  assert(size.includes('720px'));assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-json-fields')));
+  assert(size.includes('720px'));assert(!h.visible('settings-chart-section'));assert(!h.d.getElementById('delete-case'));assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-json-fields')));
   assert.deepEqual(Array.from(h.d.querySelectorAll('.gemini-prompt-card:not(.hidden)')).map(c=>c.id),['gemini-prompt-personality','gemini-prompt-basicCapex']);
   await h.click('#settings-tab-simulation');assert(h.visible('settings-seed-section'));assert(!h.visible('settings-save-section'));h.d.getElementById('settings-seed-policy').value='RANDOM';
   await h.click('#settings-tab-case');await h.click('#settings-vgraph-colors button');const r=h.d.getElementById('series-color-r');r.value='17';h.d.getElementById('series-color-g').value='34';h.d.getElementById('series-color-b').value='51';r.dispatchEvent(new h.w.Event('input'));assert.equal(h.d.getElementById('series-color-hex').value,'#112233');await h.click('#series-color-cancel');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');
@@ -1776,4 +1777,14 @@ test('UI: Settings has stable dimensions, Basic has two prompts and case VGraph 
 });
 test('UI Advance: shared header reaches conveyors, static VGraph and utilities without Basic worksheet',async()=>{
  const h=await setup({remember:true});try{await h.click('.open-case');assert.equal(h.w.getComputedStyle(h.d.getElementById('case-sidebar')).display,'none');assert.equal(h.d.getElementById('header-case-actions').parentElement.id,'basic-section-row');await h.click('[data-basic-view=conveyors]');assert(h.visible('editor-panel'));assert(!h.d.querySelector('.basic-conveyor-worksheet'));await h.click('[data-basic-view=vgraph]');assert(h.visible('results-body'));assert(h.d.getElementById('vgraph-plot')._vgraphPoints?.length>0);await h.click('[data-basic-view=simulation]');assert(h.visible('run-panel'));await h.click('#basic-case-actions [aria-label="Settings"]');assert(h.d.getElementById('settings-dialog').open);assert.deepEqual(h.errors,[]);}finally{h.dom.window.close();}
+});
+
+test('UI: color map, RGB and HEX stay synchronized with full equipment names and independent resets',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('autosaveEnabled','no');const get=h.api.getCase,longName='Blowmolder with a complete long equipment name that must wrap onto multiple lines';h.api.getCase=id=>{const c=get(id);c.equipment[0].name=longName;c.simulations[0].equipment[0].name=longName;return c;};
+  await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-case');assert(!h.d.getElementById('delete-case'));assert(h.visible('settings-chart-section'));assert(h.visible('settings-vgraph-section'));assert.notEqual(h.d.getElementById('settings-chart-section'),h.d.getElementById('settings-vgraph-colors').closest('section'));const names=h.d.querySelectorAll('#settings-chart-colors .settings-color-name');assert.equal(names.length,13);assert.equal(names[0].textContent,'1. '+longName);assert.equal(h.w.getComputedStyle(names[0]).whiteSpace,'normal');
+  await h.click('#settings-chart-colors button');const hex=h.d.getElementById('series-color-hex'),hue=h.d.getElementById('series-color-hue'),map=h.d.getElementById('series-color-map');hex.value='0000ff';hex.dispatchEvent(new h.w.Event('input'));assert.equal(hex.value,'#0000FF');assert.equal(Number(hue.value),240);hue.value='0';hue.dispatchEvent(new h.w.Event('input'));assert.equal(hex.value,'#FF0000');map.getBoundingClientRect=()=>({left:0,top:0,width:200,height:100});map.dispatchEvent(new h.w.MouseEvent('pointerdown',{clientX:50,clientY:50,buttons:1}));assert.equal(hex.value,'#806060');assert.equal(h.d.getElementById('series-color-r').value,'128');map.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowUp'}));assert.equal(hex.value,'#826262');
+  let copied;Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}}});await h.click('#series-color-copy');assert.equal(copied,hex.value);assert.match(h.d.getElementById('series-color-copy-status').textContent,/copied/);h.w.navigator.clipboard.writeText=async()=>{throw Error('Blocked');};let fallback=false;h.d.execCommand=command=>{fallback=command==='copy';return fallback;};await h.click('#series-color-copy');assert(fallback);assert.match(h.d.getElementById('series-color-copy-status').textContent,/copied/);h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.querySelector('#settings-chart-colors .settings-color-hex').textContent,'#826262');
+  await h.click('#settings-vgraph-colors button');hex.value='#112233';hex.dispatchEvent(new h.w.Event('input'));h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));await h.click('#settings-chart-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');await h.click('#settings-vgraph-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

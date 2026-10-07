@@ -100,7 +100,6 @@
       document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
       document.getElementById('create-public-demo-case').addEventListener('click', createPublicDemoCase);
       document.getElementById('clone-case').addEventListener('click', cloneActiveSimulation);
-      document.getElementById('delete-case').addEventListener('click', deleteActiveCase);
       document.getElementById('rename-simulation').onclick = renameSimulation;
       document.getElementById('simulation-selector').onchange=function(){activatePersistentSimulation(this.value);this.value=state.activeSimulationId||'';};
       document.getElementById('delete-simulation').onclick = deleteSimulation;
@@ -285,11 +284,6 @@ function createPublicDemoCase() {
         openCase(response.data.id);
         initialize();
       });
-    }
-
-    function deleteActiveCase() {
-      if (!state.activeCase) return;
-      requestCaseDeletion(state.activeCase.id, state.activeCase.name, document.getElementById('delete-case'));
     }
 
     async function requestCaseDeletion(caseId, caseName, button) {

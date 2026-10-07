@@ -6,7 +6,7 @@ close icon or Escape applies pending settings through the existing save pipeline
 
 | Tab | Options | Scope |
 | --- | --- | --- |
-| Case | Name, include What-If DOE, equipment and VGraph colors, JSON-field visibility, delete case | Case JSON; normal case save policy |
+| Case | Name, include What-If DOE, equipment and VGraph colors, JSON-field visibility | Case JSON; normal case save policy |
 | Appearance | Theme, accent palette, text size; existing restricted interface-mode selector | Browser preferences |
 | Simulation | Autosave and interval, fixed/random seed policy | Browser preferences; seed policy in both modes; autosave only in Advance, Basic saves manually |
 | Gemini | Model, private API key, mode-specific prompt sections and inclusion checkboxes | Google account User Properties |
@@ -37,9 +37,15 @@ and closing Settings does not implicitly save a Basic case. See
 
 Settings has a fixed 920px maximum width and 720px height, capped to the viewport.
 Its content scrolls inside the dialog without changing size between tabs.
-Circular swatches open a separate RGB/HEX editor; changes remain a draft until Apply.
-VGraph stores current/recommended colors in `metadata.vgraphColors`. Reset removes
-both chart and VGraph overrides. JSON visibility uses `metadata.showJsonFields`,
+In Advance, equipment chart colors appear in a table in line order with complete
+wrapping names, circular swatches and HEX values. Only actual equipment is listed.
+V-Graph Series Colors is a separate Case section, available in both modes, with
+its own reset. Each reset clears only its respective color overrides. Circular
+swatches open a color map (saturation/brightness plus hue), synchronized with
+RGB and HEX fields. HEX accepts six digits with or without # and can be copied
+with the clipboard icon; edits remain a draft until Apply. Case deletion is
+available only from the gallery, with the existing confirmation dialog.
+VGraph stores current/recommended colors in `metadata.vgraphColors`. Each section resets its own overrides. JSON visibility uses `metadata.showJsonFields`,
 shared across modes; older cases use the legacy browser preference until set.
 
 Both modes use the six-section header navigation. Advance retains its own equipment
