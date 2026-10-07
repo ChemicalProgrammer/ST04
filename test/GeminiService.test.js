@@ -227,3 +227,13 @@ test('Gemini rejects unknown sections, malformed toggles and oversized prompts b
 });
 
 test('Basic CAPEX prompt is independently editable without changing Advance tiers',()=>{const h=setup();h.ctx.saveGeminiPrompts_({basicCapex:{enabled:true,text:'BASIC_COMBINED_CAPEX'}});assert(h.ctx.geminiPolicy_(true).includes('BASIC_COMBINED_CAPEX'));assert(!h.ctx.geminiPolicy_(false).includes('BASIC_COMBINED_CAPEX'));h.ctx.saveGeminiPrompts_({basicCapex:{enabled:false,text:'KEEP_BASIC_DRAFT'}});assert(!h.ctx.geminiPolicy_(true).includes('KEEP_BASIC_DRAFT'));assert(!h.ctx.geminiPolicy_(true).includes(h.ctx.ST_GEMINI_ZERO_CAPEX_POLICY));});
+
+test('Gemini generation options reach the API with model-compatible fast reasoning and no secret exposure',()=>{
+ const h=setup();h.values.GEMINI_GENERATION_JSON=JSON.stringify({temperature:0,responseMode:'FAST',maxOutputTokens:4096,displayMode:'IMMEDIATE'});h.ctx.askGemini_(request,user);const generation=JSON.parse(h.calls[0].options.payload).generationConfig;assert.equal(generation.temperature,0);assert.equal(generation.thinkingConfig.thinkingBudget,0);assert.equal(generation.maxOutputTokens,4096);assert.equal(generation.responseMimeType,'application/json');assert(!Object.hasOwn(generation,'displayMode'));assert.equal(h.ctx.getGeminiClientConfig_().generation.displayMode,'IMMEDIATE');
+ assert.equal(h.ctx.geminiGenerationConfig_('gemini-2.5-pro',{responseMode:'FAST'}).thinkingConfig.thinkingBudget,128);
+ assert.equal(h.ctx.geminiGenerationConfig_('gemini-3-flash-preview',{responseMode:'FAST'}).thinkingConfig.thinkingLevel,'LOW');
+ assert.equal(h.ctx.geminiGenerationConfig_('gemini-2.5-pro',{responseMode:'THOROUGH',maxOutputTokens:2048}).thinkingConfig.thinkingBudget,1024);
+ const defaults=h.ctx.geminiGenerationConfig_('gemini-custom',{});assert(!Object.hasOwn(defaults,'temperature'));assert(!Object.hasOwn(defaults,'thinkingConfig'));
+ assert.throws(()=>h.ctx.geminiGenerationConfig_('gemini-custom',{responseMode:'FAST'}),/Model default/);
+ for(const invalid of [{temperature:3},{temperature:'0.2'},{responseMode:'INVALID'},{maxOutputTokens:1},{displayMode:'STREAM'}])assert.throws(()=>h.ctx.normalizeGeminiGeneration_(invalid),e=>e.code==='INVALID_GEMINI_SETTINGS');
+});

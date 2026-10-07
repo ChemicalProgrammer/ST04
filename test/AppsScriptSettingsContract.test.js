@@ -91,3 +91,10 @@ test('saves account prompt overrides without exposing credentials and rejects in
  assert.equal(JSON.stringify(runtime.userProperties),previous);
  runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash'}});assert.deepEqual(toPlainObject(runtime.getGeminiPrompts_()),prompts);
 });
+
+test('account generation options survive reload, omitted updates and invalid drafts without partial writes',()=>{
+ const runtime=createAppsScriptRuntime({accessibleFolderIds:['workspace-1']}),generation={temperature:.2,responseMode:'FAST',maxOutputTokens:4096,displayMode:'IMMEDIATE'};
+ runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'private-key',generation}});assert.deepEqual(toPlainObject(runtime.getGeminiClientConfig_().generation),generation);
+ runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash'}});assert.deepEqual(toPlainObject(runtime.getGeminiClientConfig_().generation),generation);
+ const snapshot=JSON.stringify(runtime.userProperties);assert.throws(()=>runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'changed-key',generation:{temperature:3}}}),e=>e.simulatorError.code==='INVALID_GEMINI_SETTINGS');assert.equal(JSON.stringify(runtime.userProperties),snapshot);
+});

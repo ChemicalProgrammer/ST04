@@ -1,5 +1,7 @@
 # Catálogo completo de variables y DOE elegido por el usuario
 
+**Versión anterior, sustituida por `38_SEARCH_DERIVED_DOE_AND_AGENT_RESPONSE.md`.** La lista actual de DOE en las tarjetas de categoría se deriva de pruebas factibles de Find best scenario, según las reglas CAPEX. Este documento conserva el registro de la implementación anterior.
+
 El catálogo anterior contenía únicamente cambios propuestos por el planificador. Se preparaba antes de **Search best scenario**; no era una lista de variables importantes descubiertas por la búsqueda. DOE seleccionaba los primeros cuatro factores y bloqueaba los demás. Los objetivos externos de MTBF/MTTR no podían ser factores de DOE.
 
 ## Comportamiento

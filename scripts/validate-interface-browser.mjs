@@ -18,12 +18,12 @@ try{
  const context=await browser.newContext({viewport:{width:1500,height:1000}});
  await context.addInitScript(initial=>{
   if(!localStorage.getItem('synthetic-case'))localStorage.setItem('synthetic-case',JSON.stringify(initial));
-  localStorage.setItem('st.ui.v1.remember','yes');localStorage.setItem('st.ui.v1.autosaveSeconds','1');
+  localStorage.setItem('st.ui.v1.remember','yes');localStorage.setItem('st.ui.v1.interfaceMode','ADVANCE');localStorage.setItem('st.ui.v1.autosaveSeconds','1');
   const copy=x=>JSON.parse(JSON.stringify(x)),read=()=>JSON.parse(localStorage.getItem('synthetic-case'));
   const api={
-   getBootstrap:()=>({uiMode:'ADVANCE',user:{email:'test@example.test'},settings:{workspaceRootFolderId:'preview'},gemini:{configured:true,model:'synthetic'},cases:[{id:initial.id,name:initial.name,equipmentCount:initial.equipment.length,isSimulationReady:true,revision:read().revision}]}),
+   getBootstrap:()=>({uiMode:'ADVANCE',user:{email:'test@example.test'},settings:{workspaceRootFolderId:'preview'},gemini:{configured:true,model:'gemini-2.5-flash',generation:JSON.parse(localStorage.getItem('synthetic-generation')||'{}')},cases:[{id:initial.id,name:initial.name,equipmentCount:initial.equipment.length,isSimulationReady:true,revision:read().revision}]}),
    getCase:()=>read(),saveCase:request=>{const result={...copy(request),revision:request.expectedRevision+1};localStorage.setItem('synthetic-case',JSON.stringify(result));return result;},
-   askGemini:request=>({text:'**Answer:** '+request.question}),saveUserSettings:request=>request
+   askGemini:request=>({text:'**Answer:** '+request.question}),saveUserSettings:request=>{localStorage.setItem('synthetic-generation',JSON.stringify(request.gemini.generation));return request;}
   };
   function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>setTimeout(()=>{try{success({ok:true,data:api[key](...args)});}catch(error){failure(error);}},20))});}
   window.google={script:{run:runner()}};
@@ -32,6 +32,8 @@ try{
  const app=page.frameLocator('iframe');await app.locator('.open-case').click();await app.locator('#toggle-gemini').click();
  let frame=page.frames().find(f=>f.url().endsWith('/app'));
  assert.equal(await frame.evaluate(()=>document.documentElement.dataset.accent),'boat-house');
+ await app.locator('#close-gemini').click();assert(await frame.evaluate(()=>document.getElementById('gemini-panel').inert));await app.locator('#gemini-panel').waitFor({state:'hidden'});await app.locator('#toggle-gemini').click();assert(await frame.evaluate(()=>document.getElementById('gemini-panel').getAnimations().length>0));
+ await page.emulateMedia({reducedMotion:'reduce'});await app.locator('#close-gemini').click();assert(await frame.evaluate(()=>document.getElementById('gemini-panel').classList.contains('hidden')));await app.locator('#toggle-gemini').click();await page.emulateMedia({reducedMotion:'no-preference'});
  // Actual pointer capture must end after mouseup; ordinary hover cannot resize.
  const grip=app.locator('#gemini-resize');let bounds=await grip.boundingBox();await page.mouse.move(bounds.x+bounds.width/2,450);await page.mouse.down();await page.mouse.move(bounds.x-100,450);await page.mouse.up();
  const released=await grip.getAttribute('aria-valuenow');bounds=await grip.boundingBox();await page.mouse.move(bounds.x+2,450);await page.mouse.move(bounds.x-40,450);assert.equal(await grip.getAttribute('aria-valuenow'),released);
@@ -50,20 +52,19 @@ try{
  assert.equal(columns.count,2);assert.equal(columns.autosave,'settings-page-case');assert.equal(columns.grid.split(' ').length,2);
  await app.locator('#settings-close').click();
  await frame.evaluate(()=>document.querySelector(document.documentElement.dataset.uiMode==='basic'?'[data-basic-view=whatif]':'.sidebar [data-view=whatif]').click());
- const scenario=app.locator('.scenario-tier-grid .analysis-recommendation:has(.scenario-configure)').nth(2);
- await scenario.locator('.scenario-configure').click();
- await scenario.locator('.scenario-doe-enabled').check();
- const factors=scenario.locator('.scenario-doe-select');assert(await factors.count()>4);assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),0);
- for(let i=0;i<5;i++)await factors.nth(i).click();
- assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),4);assert(await factors.nth(4).isEnabled());
- await scenario.getByRole('button',{name:'Clear factor selection'}).click();
- const reliability=scenario.locator('tr:has(.scenario-intervention-evidence):has(.scenario-doe-select)').first();
- await reliability.locator('.scenario-doe-select').check();
- await reliability.locator('textarea').fill('Preventive maintenance; reliability target from supplier trial.');
- assert.equal(await reliability.locator('.scenario-doe-select').isChecked(),true);
- assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),1);
- assert(await scenario.locator('.scenario-unavailable').count()>0);
+ await frame.evaluate(()=>{window.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});});
+ const scenario=app.locator('.scenario-tier-grid > .analysis-recommendation').nth(0);
+ await scenario.locator('.scenario-configure').click();await scenario.locator('.scenario-doe-enabled').check();
+ const factors=scenario.locator('.scenario-doe-select');assert(await factors.count()>4);assert.equal(await scenario.locator('.scenario-doe-select:enabled').count(),0);
+ await scenario.getByRole('button',{name:'Done',exact:true}).click();await scenario.locator('.scenario-search').click();await frame.waitForFunction(()=>document.querySelector('.scenario-tier-grid .scenario-preview-status')?.dataset.state==='rejected');
+ await scenario.locator('.scenario-configure').click();assert(await scenario.locator('.scenario-doe-select:enabled').count()>4);assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),0);
+ for(let i=0;i<5;i++)await factors.nth(i).click();assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),4);assert(await factors.nth(4).isEnabled());await scenario.getByRole('button',{name:'Done',exact:true}).click();
+ const interventions=app.locator('.scenario-interventions');await interventions.locator('summary').click();await interventions.locator('[aria-label="Intervention target (minutes)"]').fill('800');await interventions.locator('textarea').fill('Preventive maintenance; target from supplier reliability trial.');await interventions.locator('.scenario-add-intervention').click();
+ const medium=app.locator('.scenario-tier-grid > .analysis-recommendation').nth(1);assert.equal(await medium.locator('.scenario-change').count(),1);assert.equal(await medium.locator('.scenario-doe-select:enabled').count(),0);await medium.locator('.scenario-search').click();await frame.waitForFunction(()=>document.querySelectorAll('.scenario-tier-grid > .analysis-recommendation')[1].querySelector('.scenario-preview-status')?.dataset.state==='rejected');await medium.locator('.scenario-configure').click();assert.equal(await medium.locator('.scenario-doe-select:enabled').count(),1);await medium.locator('.scenario-doe-select').check();await medium.getByRole('button',{name:'Done',exact:true}).click();
+ await frame.evaluate(()=>STSettings.open());await app.locator('#settings-tab-gemini').click();assert(await app.locator('#gemini-generation-section').isVisible());await app.locator('#gemini-temperature').fill('0.2');await app.locator('#gemini-response-mode').selectOption('FAST');await app.locator('#gemini-display-mode').selectOption('IMMEDIATE');await app.locator('#settings-close').click();await frame.waitForFunction(()=>localStorage.getItem('synthetic-generation')!==null&&!document.getElementById('settings-dialog').open);assert.equal(await frame.evaluate(()=>JSON.parse(localStorage.getItem('synthetic-generation')).responseMode),'FAST');
+ assert.equal(await app.locator('.gemini-message[data-role=model] [data-action=edit]').count(),0);
+ await frame.evaluate(()=>STSettings.open());await app.locator('#settings-tab-gemini').click();
  await page.screenshot({path:option('--screenshot')||'/tmp/st-interface-browser.png',fullPage:true});
- const report={ok:true,browser:browser.version(),checks:['real mouse drag and release','hover after release','lost pointerup recovery','saved chat after page reload','edit and regenerate truncates later messages','progress disappears','two chart color columns','autosave under Case','boat blue default','complete DOE catalog includes machine reliability','no preselected DOE factors','any four factors with fifth-selection feedback','justified machine reliability factor','unavailable parameter reasons'],liveAppsScriptTested:false};
+ const report={ok:true,browser:browser.version(),checks:['real mouse drag and release','hover after release','lost pointerup recovery','saved chat after page reload','edit and regenerate truncates later messages','progress disappears','two chart color columns','autosave under Case','boat blue default','DOE unavailable before category search','DOE factors from feasible category trials','no preselected DOE factors','any four factors with fifth-selection feedback','explicit reliability intervention in Medium CAPEX','Advance response settings persist','no edit button on Gemini answers','panel open and close animation','panel reduced motion'],liveAppsScriptTested:false};
  console.log(JSON.stringify(report,null,2));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

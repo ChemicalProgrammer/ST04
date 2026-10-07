@@ -1,0 +1,58 @@
+{
+  "sourceBaseCommit": "f738308338e17b688237f7e1f017c7dfe563f81b",
+  "nonInterface": {
+    "tests": 204,
+    "passed": 204,
+    "failed": 0
+  },
+  "interface": {
+    "tests": 115,
+    "passed": 111,
+    "failed": 4,
+    "groups": [
+      {
+        "group": 0,
+        "tests": 29,
+        "passed": 25,
+        "failed": 4
+      },
+      {
+        "group": 1,
+        "tests": 29,
+        "passed": 29,
+        "failed": 0
+      },
+      {
+        "group": 2,
+        "tests": 29,
+        "passed": 29,
+        "failed": 0
+      },
+      {
+        "group": 3,
+        "tests": 28,
+        "passed": 28,
+        "failed": 0
+      }
+    ]
+  },
+  "finalUniqueOutcomes": {
+    "tests": 319,
+    "passed": 316,
+    "failed": 3
+  },
+  "followup": {
+    "tests": 2,
+    "passed": 2,
+    "scope": "Separate Medium/High targets for the same reliability input and feasible nonwinner DOE variables after the final category isolation change."
+  },
+  "remainingPreExistingFailures": [
+    "UI + Apps Script: a local proposal with a different fingerprint is regenerated from saved inputs",
+    "UI: JSON dialog uses shared spacing and import action; revision stays internal",
+    "UI: target Population and manual LBA persist in both modes and Basic cards show only names"
+  ],
+  "browserArtifact": "2026-10-07-agent-response-browser.json",
+  "liveAppsScriptTested": false,
+  "liveGeminiTested": false,
+  "latencyMeasured": false
+}

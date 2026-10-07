@@ -1,4 +1,6 @@
 <style>
+.app-shell.case-open { transition:padding-right 180ms ease-out; }
+.app-shell.case-open.assistant-resizing { transition:none; }
 .app-shell.case-open.assistant-open { padding-right:var(--assistant-width); }
 .gemini-panel { position:fixed; inset:0 0 0 auto; width:var(--assistant-width); z-index:var(--z-sidebar); border-left:var(--border-width) solid var(--line); background:var(--surface); display:flex; flex-direction:column; padding:var(--space-4); gap:var(--space-3); }
 .gemini-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-2); }
@@ -26,7 +28,7 @@
  .gemini-progress li { padding: var(--space-1) 0; }
  .gemini-progress li::before { content: '○'; margin-right: var(--space-2); }
  .gemini-progress [data-state="active"] { color: var(--accent); font-weight: var(--weight-medium); }
- .gemini-progress [data-state="active"]::before { content: '◉'; }
+ .gemini-progress [data-state="active"]::before { display:inline-block; animation:gemini-wait-pulse 1s ease-in-out infinite; content: '◉'; }
  .gemini-progress [data-state="done"]::before { content: '✓'; color: var(--success); }
  .gemini-progress [data-state="error"] { color: var(--danger); }
  .gemini-progress [data-state="error"]::before { content: '!'; }
@@ -50,5 +52,8 @@
 .gemini-message-editor { display:grid; gap:var(--space-2); margin-top:var(--space-3); white-space:normal; }
 .gemini-message-editor textarea { width:100%; min-height:100px; resize:vertical; }
 .clipboard-fallback { position:fixed; left:-10000px; top:0; }
+.gemini-activity { flex-shrink:0; display:flex; align-items:center; gap:var(--space-2); margin:0; color:var(--accent); font-size:var(--font-caption); }
+.gemini-activity::before { content:""; flex-shrink:0; width:8px; height:8px; border-radius:50%; background:currentColor; animation:gemini-wait-pulse 1s ease-in-out infinite; }
+@keyframes gemini-wait-pulse { 50% { opacity:.3; } }
 #gemini-messages > .gemini-progress { flex-shrink:0; }
 </style>

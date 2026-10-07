@@ -17,6 +17,7 @@ function saveUserSettings_(request) {
   if (gemini) {
     var props=PropertiesService.getUserProperties();
     props.setProperty('GEMINI_MODEL',gemini.model);
+    if(gemini.generation!==undefined)props.setProperty('GEMINI_GENERATION_JSON',JSON.stringify(gemini.generation));
     if(gemini.prompts!==undefined)saveGeminiPrompts_(gemini.prompts);
     if(gemini.clearKey) props.deleteProperty('GEMINI_API_KEY');
     else if(gemini.key) props.setProperty('GEMINI_API_KEY',gemini.key);

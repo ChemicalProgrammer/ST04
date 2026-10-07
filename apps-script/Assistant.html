@@ -1,7 +1,8 @@
 <script>
 // EDITABLE CHAT PRESENTATION: visual reveal after the complete Apps Script response arrives.
-window.ST_GEMINI_CHAT_PRESENTATION = {enabled:true, paragraphDelayMs:180, maxDurationMs:3000};
+window.ST_GEMINI_CHAT_PRESENTATION = {enabled:true, paragraphDelayMs:80, maxDurationMs:900};
 window.STAssistant = function(state,actions) {
+  var panelAnimation=null,panelVisible=false;
   var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null,progressHideTimer=null;
   function el(id){return document.getElementById(id);}
   function basic(){return Boolean(window.STBasicMode?.isBasic());}
@@ -9,6 +10,7 @@ window.STAssistant = function(state,actions) {
   function progress(next){
     phase=next;clearInterval(progressTimer);progressTimer=null;clearTimeout(progressHideTimer);progressHideTimer=null;
     var target=el('gemini-progress');target.textContent='';target.classList.toggle('hidden',next==='idle');
+    el('gemini-activity').classList.toggle('hidden',!['preparing','waiting','writing'].includes(next));el('gemini-activity').textContent=next==='preparing'?'Preparing saved case…':next==='waiting'?'Waiting for Gemini…':next==='writing'?'Displaying received answer…':'';
     if(next==='idle'){target.setAttribute('aria-busy','false');clearTimeout(responseTimer);responseTimer=null;return;}
     var labels=[__ST_TEXT__('assistant.progress_saved'),__ST_TEXT__('assistant.progress_waiting'),__ST_TEXT__('assistant.progress_ready')];
     var active={preparing:0,waiting:1,writing:2,done:3,error:1}[next];
@@ -17,7 +19,7 @@ window.STAssistant = function(state,actions) {
     if(next==='done'||next==='error')progressHideTimer=setTimeout(function(){progress('idle');},next==='done'?900:2500);
     if(next==='waiting'){
       startedAt=Date.now();var elapsed=document.createElement('span');elapsed.className='chart-note';elapsed.setAttribute('aria-live','off');target.children[1].appendChild(elapsed);
-      function tick(){elapsed.textContent=' · '+Math.floor((Date.now()-startedAt)/1000)+' '+__ST_TEXT__('assistant.progress_seconds');}
+      function tick(){var seconds=Math.floor((Date.now()-startedAt)/1000);elapsed.textContent=' · '+seconds+' '+__ST_TEXT__('assistant.progress_seconds');el('gemini-activity').textContent='Waiting for Gemini · '+seconds+' s'+(seconds>=15?' · The app is responsive; still awaiting the server response.':'');}
       tick();progressTimer=setInterval(tick,1000);
     }
     scrollMessages();
@@ -59,7 +61,7 @@ window.STAssistant = function(state,actions) {
       var p=document.createElement('article');p.className='gemini-message';p.dataset.role=m.role;
       var label=document.createElement('strong');label.textContent=m.role==='user'?'You':__ST_TEXT__('assistant.gemini');
       var body=document.createElement('div');body.className='gemini-message-body';if(m.role==='model')STMarkdown.render(m.revealing?m.visibleText:m.text,body);else body.textContent=m.text;
-      var controls=document.createElement('div');controls.className='gemini-message-actions';[['copy','Copy message',function(button){copyMessage(m,button);}],['edit',m.role==='user'?'Edit and regenerate':'Edit preceding question and regenerate',function(){editMessage(index);}]].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='secondary icon-button';button.innerHTML=STIcons.svg(spec[0]);button.setAttribute('aria-label',spec[1]);button.title=spec[1];button.dataset.action=spec[0];button.disabled=spec[0]==='edit'&&(pending||state.saving||!!m.revealing);button.onclick=function(){spec[2](button);};controls.append(button);});
+      var controls=document.createElement('div');controls.className='gemini-message-actions';[['copy','Copy message',function(button){copyMessage(m,button);}]].concat(m.role==='user'?[['edit','Edit and regenerate',function(){editMessage(index);}]]:[]).forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='secondary icon-button';button.innerHTML=STIcons.svg(spec[0]);button.setAttribute('aria-label',spec[1]);button.title=spec[1];button.dataset.action=spec[0];button.disabled=spec[0]==='edit'&&(pending||state.saving||!!m.revealing);button.onclick=function(){spec[2](button);};controls.append(button);});
       p.dataset.revealing=String(!!m.revealing);p.append(label,body,controls);el('gemini-messages').appendChild(p);m.node=p;m.body=body;
       if(!m.revealing)attachments(m);
     });el('gemini-messages').appendChild(progressNode);scrollMessages();
@@ -68,7 +70,7 @@ window.STAssistant = function(state,actions) {
   function reveal(m){
     stopReveal();
     var options=window.ST_GEMINI_CHAT_PRESENTATION||{},chunks=m.text.match(/[\s\S]+?(?:\r?\n[ \t]*\r?\n|$)/g)||[m.text];
-    var animate=options.enabled!==false&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&chunks.length>1;
+    var animate=state.bootstrap?.gemini?.generation?.displayMode!=='IMMEDIATE'&&options.enabled!==false&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&chunks.length>1;
     if(!animate){pending=false;render();progress('done');sync();return;}
     var ticket=sequence,index=1,delay=Math.max(0,Math.min(Number(options.paragraphDelayMs)||180,(Number(options.maxDurationMs)||3000)/(chunks.length-1)));
     m.revealing=true;m.visibleText=chunks[0];pending=true;render();progress('writing');sync();el('gemini-messages').setAttribute('aria-busy','true');
@@ -81,6 +83,16 @@ window.STAssistant = function(state,actions) {
     revealTimer=setTimeout(next,delay);
   }
   function reset(){stopReveal();progress('idle');sequence++;messages=[];pending=false;caseId=null;simulationId=null;opened=false;render();el('gemini-question').value='';el('gemini-error').textContent='';sync();}
+  function showPanel(visible){
+    var panel=el('gemini-panel'),shell=el('application');
+    if(visible===panelVisible)return;panelVisible=visible;
+    panelAnimation?.cancel();panelAnimation=null;
+    var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches||typeof panel.animate!=='function';
+    shell.classList.toggle('assistant-open',visible);panel.setAttribute('aria-hidden',String(!visible));panel.inert=!visible;
+    if(visible){panel.classList.remove('hidden');if(!reduced)panelAnimation=panel.animate([{transform:'translateX(18px)',opacity:.25},{transform:'translateX(0)',opacity:1}],{duration:180,easing:'ease-out'});}
+    else if(!reduced&&!panel.classList.contains('hidden')){var animation=panel.animate([{transform:'translateX(0)',opacity:1},{transform:'translateX(18px)',opacity:0}],{duration:150,easing:'ease-in'});panelAnimation=animation;animation.onfinish=function(){if(!panelVisible){panel.classList.add('hidden');window.dispatchEvent(new Event('resize'));}if(panelAnimation===animation)panelAnimation=null;};}
+    else panel.classList.add('hidden');
+  }
   function sync(){
     var active=state.activeCase;
     if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){stopReveal();progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=JSON.parse(JSON.stringify(simulation()?.geminiHistory||[]));pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
@@ -88,7 +100,7 @@ window.STAssistant = function(state,actions) {
     var visible=Boolean(active&&(opened||editing));
     if(!basic())el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
     el('gemini-title').textContent=editing?__ST_TEXT__('inspector.equipment'):__ST_TEXT__('assistant.gemini');
-    el('application').classList.toggle('assistant-open',visible);el('gemini-panel').classList.toggle('hidden',!visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
+    showPanel(visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
     el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
@@ -120,7 +132,7 @@ window.STAssistant = function(state,actions) {
     resize.onkeydown=function(e){if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();width(currentWidth+(e.key==='ArrowLeft'?24:-24),true);window.dispatchEvent(new Event('resize'));}};
     resize.onpointerdown=function(e){
       if(e.button!==0||drag)return;
-      e.preventDefault();drag={id:e.pointerId,x:e.clientX,width:el('gemini-panel').getBoundingClientRect().width||currentWidth};
+      e.preventDefault();el('application').classList.add('assistant-resizing');drag={id:e.pointerId,x:e.clientX,width:el('gemini-panel').getBoundingClientRect().width||currentWidth};
       try{resize.setPointerCapture?.(e.pointerId);}catch(_){}
     };
     resize.onpointermove=function(e){
@@ -131,7 +143,7 @@ window.STAssistant = function(state,actions) {
     };
     function finish(e){
       if(!drag||e.pointerId!==drag.id)return;
-      drag=null;
+      drag=null;el('application').classList.remove('assistant-resizing');
       if(resize.hasPointerCapture?.(e.pointerId))resize.releasePointerCapture(e.pointerId);
       STPreferences.write(preference(),String(currentWidth));window.dispatchEvent(new Event('resize'));
     }

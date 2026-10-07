@@ -62,10 +62,35 @@ function geminiPolicy_(basicMode) {
   return geminiPromptDefinitions_().filter(function(def){return basicMode?!['advance','responseFormat','zeroCapex','mediumCapex','highCapex'].includes(def.id):!['basic','basicCapex'].includes(def.id);}).map(function(def){var value=overrides[def.id];return value?(value.enabled?value.text:''):def.defaultText;}).filter(Boolean).join('\n\n');
 }
 
+// Generation settings are per Google user; defaults preserve the model policy.
+function normalizeGeminiGeneration_(value) {
+  if(!value||typeof value!=='object'||Array.isArray(value))throw createSimulatorError_('INVALID_GEMINI_SETTINGS','Check the agent generation options.');
+  var temperature=value.temperature==null||value.temperature===''?null:value.temperature;
+  var responseMode=value.responseMode||'DEFAULT',maxOutputTokens=value.maxOutputTokens??8192,displayMode=value.displayMode||'PROGRESSIVE';
+  if(temperature!==null&&(typeof temperature!=='number'||!isFinite(temperature)||temperature<0||temperature>2)||!['DEFAULT','FAST','THOROUGH'].includes(responseMode)||![2048,4096,8192].includes(maxOutputTokens)||!['IMMEDIATE','PROGRESSIVE'].includes(displayMode))throw createSimulatorError_('INVALID_GEMINI_SETTINGS','Choose temperature 0–2, a supported response mode and output limit.');
+  return {temperature:temperature,responseMode:responseMode,maxOutputTokens:maxOutputTokens,displayMode:displayMode};
+}
+function getGeminiGeneration_(){
+  var raw=PropertiesService.getUserProperties().getProperty('GEMINI_GENERATION_JSON');
+  try{return normalizeGeminiGeneration_(raw?JSON.parse(raw):{});}catch(_){throw createSimulatorError_('INVALID_GEMINI_SETTINGS','The saved agent generation options could not be read. Restore them in Settings.');}
+}
+function geminiGenerationConfig_(model,options){
+  var value=normalizeGeminiGeneration_(options),config={maxOutputTokens:value.maxOutputTokens,responseMimeType:'application/json'};
+  if(value.temperature!==null)config.temperature=value.temperature;
+  if(value.responseMode!=='DEFAULT'){
+    var fast=value.responseMode==='FAST';
+    if(/^gemini-2\.5-flash(?:-|$)/.test(model))config.thinkingConfig={thinkingBudget:fast?0:Math.min(4096,value.maxOutputTokens-1024)};
+    else if(/^gemini-2\.5-pro(?:-|$)/.test(model))config.thinkingConfig={thinkingBudget:fast?128:Math.min(8192,value.maxOutputTokens-1024)};
+    else if(/^gemini-3(?:[.-]|$)/.test(model))config.thinkingConfig={thinkingLevel:fast?'LOW':'HIGH'};
+    else throw createSimulatorError_('INVALID_GEMINI_SETTINGS','Response modes are supported for Gemini 2.5 Flash/Pro and Gemini 3 models. Choose Model default for another model.');
+  }
+  return config;
+}
+
 // Keys are private to the executing Google user and never included in bootstrap.
 function getGeminiClientConfig_() {
   var properties = PropertiesService.getUserProperties();
-  return {configured: Boolean(properties.getProperty('GEMINI_API_KEY')), model: properties.getProperty('GEMINI_MODEL') || 'gemini-2.5-flash',prompts:geminiPromptDefinitions_(),promptOverrides:getGeminiPrompts_()};
+  return {configured: Boolean(properties.getProperty('GEMINI_API_KEY')), model: properties.getProperty('GEMINI_MODEL') || 'gemini-2.5-flash',prompts:geminiPromptDefinitions_(),promptOverrides:getGeminiPrompts_(),generation:getGeminiGeneration_()};
 }
 
 function deleteGeminiApiKey_() {
@@ -79,7 +104,8 @@ function normalizeGeminiSettings_(request) {
   if (!/^gemini-[a-zA-Z0-9.-]{1,90}$/.test(model) || key.length > 256 || /[\r\n]/.test(key)) {
     throw createSimulatorError_('INVALID_GEMINI_SETTINGS', 'Check the Gemini model and API key.');
   }
-  return {model:model, key:key, clearKey:request.clearKey === true,prompts:request.prompts===undefined?undefined:normalizeGeminiPrompts_(request.prompts)};
+  var generation=request.generation===undefined?undefined:normalizeGeminiGeneration_(request.generation);geminiGenerationConfig_(model,generation===undefined?getGeminiGeneration_():generation);
+  return {generation:generation,model:model, key:key, clearKey:request.clearKey === true,prompts:request.prompts===undefined?undefined:normalizeGeminiPrompts_(request.prompts)};
 }
 
 function askGemini_(request, user) {
@@ -114,7 +140,7 @@ function runGeminiRequest_(request, user, diagnostic) {
   var effectiveMode=['BASIC','ADVANCE','ADVANCED'].includes(requestedMode)?requestedMode:(typeof getInterfaceMode_==='function'?getInterfaceMode_():'ADVANCE');
   var basicMode=effectiveMode==='BASIC';
   var policy=geminiPolicy_(basicMode)+'\n\n'+(basicMode?'Application contract: Basic returns explanation text only, with no actionable proposals.':'Application contract: use only these scenario paths: '+JSON.stringify(STScenarioEngine_.fields));
-  var payload={systemInstruction:{parts:[{text:policy}]},contents:contents,generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json'}};
+  var payload={systemInstruction:{parts:[{text:policy}]},contents:contents,generationConfig:geminiGenerationConfig_(model,getGeminiGeneration_())};
   var requestJson=JSON.stringify(payload);
   // Also bound the serialized request, including prompts, escaping and history.
   while(requestJson.length>GEMINI_CONTEXT_BUDGET_.requestCharacters&&contents.length>1){contents.shift();history.omitted++;while(contents.length>1&&contents[0].role!=='user'){contents.shift();history.omitted++;}requestJson=JSON.stringify(payload);}

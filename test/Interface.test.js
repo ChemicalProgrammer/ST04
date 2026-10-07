@@ -1114,7 +1114,7 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   assert.match(card.querySelector('.scenario-search-progress').textContent,/Baseline.*up to.*round.*Elapsed/);
   assert(!Array.from(target.querySelectorAll('button')).some(b=>b.textContent==='Add improvement'));
   assert(!target.textContent.includes('Explore the whole line'));
-  assert.equal(target.querySelector('.scenario-explorer > details'),null);
+  assert(target.querySelector('.scenario-explorer > .scenario-interventions'));
   assert(card.isConnected);assert.equal(calls,1);
   h.w.STPreferences.write('scenarioDoe','yes');h.w.dispatchEvent(new h.w.Event('st-doe-change'));
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Simulating baseline/);
@@ -1847,7 +1847,7 @@ test('UI: mode switches rebuild isolated What-If cards and unified DOE rows pres
   let card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');const choice=card.querySelector('.scenario-change input[type=checkbox]');choice.checked=false;choice.dispatchEvent(new h.w.Event('change'));assert(card.querySelector('.scenario-create').disabled);
   await switchMode('ADVANCE');assert(!grid().querySelector('.scenario-current'));assert.equal(grid().children.length,4);assert(!h.d.querySelector('.scenario-candidate-details'));card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');assert(card.querySelector('.scenario-change input[type=checkbox]').checked);
   await switchMode('BASIC');assert(grid().querySelector('.scenario-current'));assert.equal(grid().children.length,4);card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);
-  card.querySelector('.scenario-configure').click();const dialog=card.querySelector('dialog');assert.equal(dialog.querySelectorAll('table').length,1);const factor=dialog.querySelector('.scenario-doe-select');assert(factor.disabled);dialog.querySelector('.scenario-doe-enabled').checked=true;dialog.querySelector('.scenario-doe-enabled').dispatchEvent(new h.w.Event('change'));assert(!factor.disabled);assert.equal(dialog.querySelector('thead tr').children.length,10);assert.equal(dialog.querySelector('.scenario-doe-factor').children.length,10);assert(!/\([^)]*\)/.test(dialog.querySelector('.scenario-doe-factor').children[2].textContent));dialog.close();
+  card.querySelector('.scenario-configure').click();const dialog=card.querySelector('dialog');assert.equal(dialog.querySelectorAll('table').length,1);const factor=dialog.querySelector('.scenario-doe-select');assert(factor.disabled);dialog.querySelector('.scenario-doe-enabled').checked=true;dialog.querySelector('.scenario-doe-enabled').dispatchEvent(new h.w.Event('change'));assert(factor.disabled,'DOE stays unavailable until a category search evaluates the variable');assert.equal(dialog.querySelector('thead tr').children.length,10);assert.equal(dialog.querySelector('.scenario-doe-factor').children.length,10);assert(!/\([^)]*\)/.test(dialog.querySelector('.scenario-doe-factor').children[2].textContent));dialog.close();
   await h.click('#open-settings');assert.equal(h.d.getElementById('settings-json-fields').closest('section'),h.d.getElementById('settings-scenario-doe').closest('section'));assert.equal(h.d.getElementById('settings-doe-section').querySelector('h3'),null);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1899,7 +1899,7 @@ test('UI: chat histories persist per simulation in Basic and Advance, copy sourc
    await h.click('.gemini-message[data-role=user] button[aria-label="Edit and regenerate"]');let editor=h.d.querySelector('.gemini-message-editor');editor.querySelector('textarea').value='Changed question';editor.dispatchEvent(new h.w.Event('submit',{cancelable:true}));
    await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.[1]?.text==='**Answer:** Changed question'&&!h.d.getElementById('send-gemini').disabled);
    assert.equal(requests.at(-1).question,'Changed question');assert.equal(requests.at(-1).history.length,0);assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,2);
-   await h.click('.gemini-message[data-role=model] button[aria-label="Edit preceding question and regenerate"]');editor=h.d.querySelector('.gemini-message-editor');assert.equal(editor.querySelector('textarea').value,'Changed question');editor.querySelector('button[type=button]').click();assert.equal(h.d.querySelector('.gemini-message-editor'),null);assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,2);
+   assert.equal(h.d.querySelector('.gemini-message[data-role=model] button[data-action=edit]'),null);assert(h.d.querySelector('.gemini-message[data-role=user] button[data-action=edit]'));
    await h.click('#clone-case');await waitFor(()=>h.d.getElementById('simulation-selector').options.length===2);
    assert.equal(h.d.querySelectorAll('.gemini-message').length,0);const selector=h.d.getElementById('simulation-selector'),other=selector.value;
    await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');question.value='Other simulation';await h.click('#send-gemini');await waitFor(()=>h.storedCases()[0].simulations[1].geminiHistory?.length===2&&!h.d.getElementById('send-gemini').disabled);
@@ -1947,25 +1947,56 @@ test('UI: failed regeneration preserves the original saved conversation and rest
  }finally{h.dom.window.close();}
 });
 
-test('UI: every CAPEX card exposes the complete catalog and reliability DOE keeps user evidence',async()=>{
+test('UI: DOE derives factors from feasible category searches and keeps explicit reliability targets',async()=>{
  const h=await setup({remember:true});try{
   h.w.STPreferences.write('scenarioDoe','yes');h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
   const sim=h.storedCases()[0].simulations[0],machine=sim.equipment.find(e=>e.type!=='CONVEYOR');machine.noiseProfile.reliability={mtbfMinutes:30,mttrMinutes:3};
   const snapshot=JSON.stringify(sim.equipment),host=h.d.createElement('section');h.d.body.append(host);h.w.STScenarioExplorer.tools(host,sim,h.w.STScenarios.plan(sim),()=>{});
+  const intervention=host.querySelector('.scenario-interventions');intervention.querySelector('[aria-label="Intervention equipment"]').value=machine.id;intervention.querySelector('[aria-label="Intervention target (minutes)"]').value='60';intervention.querySelector('textarea').value='Dedicated maintenance; reliability target from vendor trial.';intervention.querySelector('.scenario-add-intervention').click();
+  assert(sim.whatIf.externalOptions[0].tier==='MEDIUM');intervention.querySelector('[aria-label="Intervention CAPEX"]').value='HIGH';intervention.querySelector('[aria-label="Intervention target (minutes)"]').value='90';intervention.querySelector('.scenario-add-intervention').click();assert.equal(sim.whatIf.externalOptions.length,2);assert.equal(sim.whatIf.externalOptions.find(p=>p.tier==='MEDIUM').changes[0].after,60);assert.equal(sim.whatIf.externalOptions.find(p=>p.tier==='HIGH').changes[0].after,90);
   const cards=Array.from(host.querySelectorAll('.scenario-tier-grid > .analysis-recommendation'));assert.equal(cards.length,4);
-  const rowsFor=card=>Array.from(card.querySelectorAll('.scenario-change'));
-  assert(cards.every(card=>rowsFor(card).length===h.w.STScenarios.catalog(sim).length));assert(cards[0].querySelector('.scenario-intervention-evidence').disabled);assert.match(cards[0].textContent,/Use Medium or High CAPEX/);
-  const card=cards[2],rows=rowsFor(card),row=rows.find(r=>r.querySelector('.scenario-doe-select')?.getAttribute('aria-label').includes(machine.name+' · MTBF'));
-  assert(row);assert.equal(row.querySelector('input[type=checkbox]').checked,false);assert(Array.from(card.querySelectorAll('.scenario-doe-select')).every(input=>!input.checked));
-  rows.forEach(r=>{const use=r.querySelector('input[type=checkbox]');use.checked=false;use.dispatchEvent(new h.w.Event('change'));});
-  const factor=row.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));row.querySelectorAll('.scenario-doe-level')[0].value=30;row.querySelectorAll('.scenario-doe-level')[1].value=60;
-  card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.includes('DOE_EXTERNAL_EVIDENCE_REQUIRED'));
-  const evidence=row.querySelector('textarea');evidence.value='Replace worn drive; reliability target from vendor trial.';evidence.dispatchEvent(new h.w.Event('input'));
-  const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const gain=input.case.equipment.find(e=>e.id===machine.id).noiseProfile.reliability.mtbfMinutes>30?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  assert(!cards[0].querySelector('textarea'));assert(cards[1].querySelector('textarea'));assert.equal(cards[1].querySelectorAll('.scenario-change').length,1);assert(Array.from(cards[1].querySelectorAll('.scenario-doe-select')).every(input=>input.disabled&&!input.checked));
+  const card=cards[1],calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const gain=input.case.equipment.find(e=>e.id===machine.id).noiseProfile.reliability.mtbfMinutes>30?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
-  const saved=sim.whatIf.evaluations.find(e=>e.tier==='HIGH'&&e.searchScope==='HIGH');assert.equal(saved.doe.combinations,2);assert.equal(saved.doe.factors[0].justification,evidence.value);assert(saved.evaluatedChanges[0].external);assert(saved.independentCheck.passed);assert.equal(JSON.stringify(sim.equipment),snapshot);
-  host.remove();const reopened=h.d.createElement('section');h.d.body.append(reopened);h.w.STScenarioExplorer.tools(reopened,sim,h.w.STScenarios.plan(sim),()=>{});
-  const restored=Array.from(reopened.querySelectorAll('textarea')).find(input=>input.value===evidence.value);assert(restored);assert(restored.closest('tr').querySelector('.scenario-doe-select').checked);
+  const factor=card.querySelector('.scenario-doe-select');assert(!factor.disabled);assert(!factor.checked);const levels=card.querySelectorAll('.scenario-doe-level');assert.equal(levels[0].value,'30');assert.equal(levels[1].value,'60');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));
+  card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const saved=sim.whatIf.evaluations.find(e=>e.searchScope==='MEDIUM');assert.equal(saved.doe.combinations,2);assert.equal(saved.searchVariables.length,1);assert(saved.evaluatedChanges[0].external);assert(saved.independentCheck.passed);assert.equal(JSON.stringify(sim.equipment),snapshot);
+  host.remove();const reopened=h.d.createElement('section');h.d.body.append(reopened);h.w.STScenarioExplorer.tools(reopened,sim,h.w.STScenarios.plan(sim),()=>{});const restored=reopened.querySelector('.scenario-tier-grid > .analysis-recommendation:nth-child(2)');assert(restored.querySelector('.scenario-doe-select').checked);assert.equal(restored.querySelector('textarea').value,intervention.querySelector('textarea').value);
+  const target=restored.querySelector('.scenario-target');target.value='70';target.dispatchEvent(new h.w.Event('input'));assert(restored.querySelector('.scenario-doe-select').disabled);assert.equal(sim.whatIf.evaluations.find(e=>e.searchScope==='MEDIUM').searchVariables.length,0);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: feasible search alternatives populate DOE even when they lose; infeasible inputs stay unavailable',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('scenarioDoe','yes');h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1],keys=['backupSensorPositionMm','clearTimeDelaySeconds','blockedTimeDelaySeconds'];keys.forEach(key=>e.processData.accumulation[key]=10);
+  const changes=keys.map(key=>({equipmentId:e.id,path:'processData.accumulation.'+key,before:10,after:20,unit:'test'}));
+  h.w.STScenarios.apply=(source,changes)=>{if(changes.some(c=>c.path.endsWith('blockedTimeDelaySeconds')))throw Error('SCENARIO_INVALID_PHYSICS');const result=JSON.parse(JSON.stringify(source));changes.forEach(c=>result.equipment.find(e=>e.id===c.equipmentId).processData.accumulation[c.path.split('.').pop()]=c.after);return result;};
+  h.w.SimulatorEngine.simulateBatch=async input=>{const a=input.case.equipment[1].processData.accumulation,gain=a.clearTimeDelaySeconds>10?-1:a.backupSensorPositionMm>10?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100+gain}}};};
+  const card=h.w.STWhatIf.card({title:'Feasible category',kind:'CUSTOM',tier:'ZERO',changes,explore:true,searchDerivedDOE:true},()=>{},sim.equipment,sim);h.d.body.append(card);assert(Array.from(card.querySelectorAll('.scenario-doe-select')).every(input=>input.disabled));card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const saved=sim.whatIf.evaluations[0];assert.equal(saved.searchVariables.length,2);assert(saved.searchVariables.some(v=>v.path.endsWith('clearTimeDelaySeconds')));assert(!saved.evaluatedChanges.some(v=>v.path.endsWith('clearTimeDelaySeconds')));
+  const factors=card.querySelectorAll('.scenario-doe-select');assert(!factors[0].disabled&&!factors[1].disabled&&factors[2].disabled);factors[1].checked=true;factors[1].dispatchEvent(new h.w.Event('change'));const levels=factors[1].closest('tr').querySelectorAll('.scenario-doe-level');levels[1].value=21;card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.includes('evaluated search range'));assert(card.querySelector('.scenario-create').disabled);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: agent response settings stay in Advance and apply saved immediate display while waiting stays visible',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-gemini');assert(h.visible('gemini-generation-section'));
+  const writes=[];h.api.saveUserSettings=request=>{writes.push(JSON.parse(JSON.stringify(request)));return request;};
+  const set=(id,value)=>{const field=h.d.getElementById(id);field.value=value;field.dispatchEvent(new h.w.Event('input',{bubbles:true}));};set('gemini-temperature','.2');set('gemini-response-mode','FAST');set('gemini-max-output','4096');set('gemini-display-mode','IMMEDIATE');await h.click('#settings-close');assert.deepEqual(writes.at(-1).gemini.generation,{temperature:.2,responseMode:'FAST',maxOutputTokens:4096,displayMode:'IMMEDIATE'});
+  await h.click('#toggle-gemini');let success;const originalRpc=h.w.google.script.run;h.w.google.script.run={withFailureHandler(){return this;},withSuccessHandler(fn){success=fn;return this;},askGemini(){}};
+  h.d.getElementById('gemini-question').value='Explain';await h.click('#send-gemini');assert(h.visible('gemini-activity'));assert.match(h.d.getElementById('gemini-activity').textContent,/Waiting for Gemini/);await new Promise(resolve=>setTimeout(resolve,1100));assert.match(h.d.getElementById('gemini-activity').textContent,/1 s/);assert.equal(h.d.getElementById('gemini-progress').getAttribute('aria-busy'),'true');
+  h.w.google.script.run=originalRpc;success({ok:true,data:{text:'First paragraph.\n\nSecond paragraph.'}});assert.match(h.d.querySelector('.gemini-message[data-role=model]').textContent,/Second paragraph/);assert.equal(h.d.querySelector('.gemini-message[data-role=model]').dataset.revealing,'false');assert(!h.visible('gemini-activity'));assert.equal(h.d.querySelector('.gemini-message[data-role=model] [data-action=edit]'),null);
+  await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.length===2&&!h.d.getElementById('send-gemini').disabled);h.d.documentElement.dataset.uiMode='basic';h.w.STSettings.open();assert(!h.visible('gemini-generation-section'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: Gemini panel animations cancel safely on rapid toggles and respect reduced motion',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');const panel=h.d.getElementById('gemini-panel'),animations=[];panel.animate=(frames,options)=>{const animation={frames,options,cancelled:false,cancel(){this.cancelled=true;}};animations.push(animation);return animation;};
+  await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));assert.equal(panel.inert,false);assert.equal(animations[0].options.duration,180);await h.click('#close-gemini');assert.equal(panel.inert,true);assert.equal(panel.getAttribute('aria-hidden'),'true');assert(h.visible('gemini-panel'));const close=animations.at(-1);
+  await h.click('#toggle-gemini');assert(close.cancelled);close.onfinish();assert(h.visible('gemini-panel'));assert.equal(panel.inert,false);await h.click('#close-gemini');animations.at(-1).onfinish();assert(!h.visible('gemini-panel'));
+  h.media.matches=true;const count=animations.length;await h.click('#toggle-gemini');await h.click('#close-gemini');assert.equal(animations.length,count);assert(!h.visible('gemini-panel'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
