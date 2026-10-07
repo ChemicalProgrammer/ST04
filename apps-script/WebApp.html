@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= __ST_TEXT__('view.st_line_studio') ?></title>
+    <title><?= __ST_TEXT__('view.fp_flow_pilot') ?></title>
     <base target="_top">
     <?!= include_('DesignTokens'); ?>
     <?!= include_('Fonts'); ?>
@@ -25,7 +25,7 @@
     <div id="session-restore" class="auth-shell" role="status"><?= __ST_TEXT__('auth.restoring') ?></div>
     <section id="auth-panel" class="auth-shell" aria-labelledby="auth-title">
       <div class="auth-card">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"><?= __ST_TEXT__('brand.initials') ?></span><span><?= __ST_TEXT__('view.line_studio') ?></span></div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span><?= __ST_TEXT__('view.flow_pilot') ?></span></div>
         <p class="eyebrow"><?= __ST_TEXT__('view.a_clearer_view_of_your_line') ?></p>
         <h1 id="auth-title"><?= __ST_TEXT__('view.welcome_to_your_workspace') ?></h1>
         <p><?= __ST_TEXT__('view.explore_your_cases_test_possibilities_and_build_confidence_in_your_next_dec') ?></p>
@@ -39,7 +39,7 @@
     </section>
     <main id="application" class="app-shell hidden">
       <aside id="case-sidebar" class="sidebar hidden" aria-label="<?= __ST_TEXT__('view.case_navigation') ?>">
-        <div class="sidebar-heading"><div class="brand"><span class="brand-mark"><?= __ST_TEXT__('brand.initials') ?></span><span class="brand-name"><?= __ST_TEXT__('view.line_studio') ?></span></div><button id="collapse-sidebar" class="ghost icon-button" data-icon="collapse" aria-label="<?= __ST_TEXT__('shell.collapse_sidebar') ?>" title="<?= __ST_TEXT__('shell.collapse_sidebar') ?>" aria-expanded="true"></button></div>
+        <div class="sidebar-heading"><div class="brand"><span class="brand-mark"><?!= include_('FlowPilotIcon'); ?></span><span class="brand-name"><?= __ST_TEXT__('view.flow_pilot') ?></span></div><button id="collapse-sidebar" class="ghost icon-button" data-icon="collapse" aria-label="<?= __ST_TEXT__('shell.collapse_sidebar') ?>" title="<?= __ST_TEXT__('shell.collapse_sidebar') ?>" aria-expanded="true"></button></div>
         <section class="sidebar-section sidebar-simulations" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
           <p class="nav-caption"><?= __ST_TEXT__('view.simulations_2') ?></p>
           <nav id="workspace-tabs" class="simulation-navigation" aria-label="<?= __ST_TEXT__('view.simulations_and_comparison') ?>"></nav>

@@ -1,4 +1,4 @@
-# Line Studio interface
+# Flow Pilot interface
 
 Current persistence and What-If behavior is documented in
 [Automatic persistence and scenario analysis](20_AUTOSAVE_AND_SCENARIOS.md).

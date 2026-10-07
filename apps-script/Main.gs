@@ -1,7 +1,8 @@
 function doGet() {
   return HtmlService.createTemplateFromFile('WebApp')
     .evaluate()
-    .setTitle('SimulatorTemplate');
+    .setTitle(__ST_TEXT__('view.fp_flow_pilot'))
+    .setFaviconUrl('https://www.svgrepo.com/show/374890/flow-alt.svg');
 }
 
 function include_(filename) {

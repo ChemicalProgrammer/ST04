@@ -1,0 +1,11 @@
+# Flow Pilot (FP) branding
+
+Replace these Apps Script files: `Main.gs`, `TextResources.gs`, `WebApp.html`, `Client.html`, `ShellStyles.html`. Add `FlowPilotIcon.html` as an HTML file named `FlowPilotIcon`. Then save and update the web app deployment to a new version.
+
+The browser title is set by `doGet()` using the `view.fp_flow_pilot` text resource. The favicon is set by `HtmlOutput.setFaviconUrl()`, because Apps Script ignores favicon links in the HTML template. Change the HTTPS URL in `Main.gs` to change it later; the image must remain publicly reachable.
+
+The supplied URL (344890) returns HTTP 404. SVG Repo lists Flow Alt at https://www.svgrepo.com/show/374890/flow-alt.svg (CC0). The application embeds its path locally, inheriting the theme foreground through `currentColor`. The browser favicon uses the public original and remains static. Desktop tab colors belong to the browser; Apps Script does not allow `theme-color` through its supported meta tags. No tab-color control is promised.
+
+Technical ST identifiers and existing Drive folder names remain stable to preserve saved cases and integrations.
+
+All changed files: the six Apps Script files above, `docs/18_INTERFACE.md`, this document, and `test/FlowPilotBranding.test.js`.
