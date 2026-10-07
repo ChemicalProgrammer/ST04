@@ -72,3 +72,17 @@ Results export offers JSON (the existing bounded AI summary), HTML and PDF. Full
 replay JSON export is removed from that menu. Native result storage is unchanged.
 Basic presents generic units; Advance displays the specified flow unit. New demo
 cases use units. Import dropdown options share the same menu style as exports.
+
+What-If mode changes rebuild the view immediately. Evaluation keys and saved
+controls include the originating Basic/Advance mode so selections and metrics
+restore independently. Legacy evaluations without a mode can be adopted by the
+first mode that saves them; no old record is deleted. Basic keeps Current/Zero/
+Medium/High and colors the lateral borders green/blue/violet by CAPEX tier.
+Individual hypotheses are removed from both modes; category searches remain.
+
+Scenario configuration uses one adjustable-parameter table. DOE adds selection,
+Low and High columns to each eligible row (maximum four factors), shown when DOE
+is enabled. Units appear in one column; parameter labels omit the duplicate unit
+suffix. Physical limits and DOE range validation are unchanged. Settings groups
+JSON fields and Include DOE checkboxes without a repeated title; Appearance uses
+adjacent label/control columns instead of opposite edges of the dialog.

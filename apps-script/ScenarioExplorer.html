@@ -24,11 +24,11 @@ window.STScenarioExplorer=(function(){
   }
   function attach(host,project,create,simulation){
     var source=JSON.parse(JSON.stringify({id:simulation.id,equipment:simulation.equipment,dynamicConfig:simulation.dynamicConfig,unitOfFlow:simulation.unitOfFlow||simulation.results?.unitOfFlow})),rows=[],generation=0,timer,baseline,baselineRun,last=null,searchCanFinish=false,finishRequested=false;
-    var sourceSignature=STScenarios.signature(source),recordKey=JSON.stringify([source.id,sourceSignature,project.id||project.kind,project.tier,project.searchScope||project.tier,!!project.explore,project.changes]);
-    var restored=savedEntries(simulation).find(r=>r.recordKey===recordKey),latest=null;
+    var viewMode=document.documentElement.dataset.uiMode==='basic'?'basic':'advance',sourceSignature=STScenarios.signature(source),baseRecordKey=JSON.stringify([source.id,sourceSignature,project.id||project.kind,project.tier,project.searchScope||project.tier,!!project.explore,project.changes]),recordKey=JSON.stringify([baseRecordKey,viewMode]);
+    var restored=savedEntries(simulation).find(r=>r.recordKey===recordKey)||(!savedEntries(simulation).some(r=>r.baseRecordKey===baseRecordKey)&&savedEntries(simulation).find(r=>!r.uiMode&&r.recordKey===baseRecordKey)),latest=null;
     function record(state,details){
-      var entry=Object.assign({recordKey:recordKey,sourceSimulationId:source.id,sourceSignature:sourceSignature,title:project.title||STScenarioText[project.titleKey]||project.kind,searchScope:project.searchScope||project.tier,tier:project.tier,kind:project.kind,status:state,updatedAt:new Date().toISOString(),unitOfFlow:source.unitOfFlow||'units',run:previewRun,proposedChanges:project.changes,selections:rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,selected:r.check.checked,limit:r.limit.value===''?null:Number(r.limit.value)/r.scale,limitDirection:r.change.after>=r.change.before?'MAXIMUM':'MINIMUM',unit:STScenarios.fields[r.change.path]?.[2]})),acceptance:{minimumThroughputRelativeGain:.001,minimumThroughputAbsoluteGain:.001,allowOeeRegression:false,independentSeedCheckRequired:true},plantValidated:false},details||{});
-      entry.status=state;entry.updatedAt=new Date().toISOString();
+      var entry=Object.assign({recordKey:recordKey,baseRecordKey:baseRecordKey,uiMode:viewMode,sourceSimulationId:source.id,sourceSignature:sourceSignature,title:project.title||STScenarioText[project.titleKey]||project.kind,searchScope:project.searchScope||project.tier,tier:project.tier,kind:project.kind,status:state,updatedAt:new Date().toISOString(),unitOfFlow:source.unitOfFlow||'units',run:previewRun,proposedChanges:project.changes,selections:rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,selected:r.check.checked,limit:r.limit.value===''?null:Number(r.limit.value)/r.scale,limitDirection:r.change.after>=r.change.before?'MAXIMUM':'MINIMUM',unit:STScenarios.fields[r.change.path]?.[2]})),acceptance:{minimumThroughputRelativeGain:.001,minimumThroughputAbsoluteGain:.001,allowOeeRegression:false,independentSeedCheckRequired:true},plantValidated:false},details||{});
+      entry.recordKey=recordKey;entry.baseRecordKey=baseRecordKey;entry.uiMode=viewMode;entry.status=state;entry.updatedAt=new Date().toISOString();
       entry.controls=rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,checked:r.check.checked,limit:r.limit.value,doe:r.doe?{selected:r.doe.use.checked,low:r.doe.low.value,high:r.doe.high.value}:null}));
       entry.message=status?.textContent||'';entry.progress=progress?.textContent||'';
       latest=JSON.parse(JSON.stringify(entry));simulation.whatIf=simulation.whatIf||{};
@@ -45,10 +45,10 @@ window.STScenarioExplorer=(function(){
       var info=STWhatIf.changeInfo(change,source.equipment),row=el('tr','','scenario-change'),check=document.createElement('input');check.type='checkbox';check.checked=true;
       var scale=change.path==='nominalRatePerSecond'?60:change.path==='processData.geometry.lactMm'||change.path==='processData.geometry.lpPrimeMm'?.001:change.path.endsWith('conveyorSpeedMmPerSecond')?.06:1;
       var unit=scale===60?'BPM':scale===.001?'m':scale===.06?'m/min':change.unit||STScenarios.fields[change.path]?.[2]||'';
-      check.setAttribute('aria-label','Use '+info.equipment+' · '+info.parameter);var choice=el('td'),parameter=el('td',info.parameter);choice.append(check);row.append(choice,el('td',info.equipment),parameter,el('td',change.before==null?'—':String(Number((change.before*scale).toPrecision(8))),'scenario-number'),el('td',String(Number((change.after*scale).toPrecision(8))),'scenario-number'),el('td',unit));
+      check.setAttribute('aria-label','Use '+info.equipment+' · '+info.parameter);var choice=el('td'),parameter=el('td',info.parameter.replace(/\s*\([^)]*\)\s*$/,''));choice.append(check);row.append(choice,el('td',info.equipment),parameter,el('td',change.before==null?'—':String(Number((change.before*scale).toPrecision(8))),'scenario-number'),el('td',String(Number((change.after*scale).toPrecision(8))),'scenario-number'),el('td',unit));
       var limitLabel=el('label',change.after>=change.before?'Max':'Min'),limit=document.createElement('input');limit.type='number';limit.step='any';limit.min='0';limit.placeholder='No limit';limit.setAttribute('aria-label',info.equipment+' · '+info.parameter+' · '+limitLabel.textContent+' ('+unit+')');limitLabel.className='scenario-limit';limitLabel.append(limit);var limitCell=el('td');limitCell.append(limitLabel);row.append(limitCell);
       if(change.external)parameter.append(el('p',change.justification,'scenario-external'));
-      list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale});check.onchange=limit.oninput=function(){if(activeHost)return;last=null;generation++;clearTimeout(timer);status.textContent='Changes updated. Use the magnifier to calculate, or update to search.';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();};
+      list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale,row:row});check.onchange=limit.oninput=function(){if(activeHost)return;last=null;generation++;clearTimeout(timer);status.textContent='Changes updated. Use the magnifier to calculate, or update to search.';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();};
     });
     var doePanel=el('details','','scenario-doe'),doeCount=0;
     var doeToggle=document.createElement('input');doeToggle.type='checkbox';doeToggle.className='scenario-doe-enabled';var doeChoice=el('label','','scenario-scope');doeChoice.append(doeToggle,document.createTextNode(' Include DOE in this search'));
@@ -58,26 +58,26 @@ window.STScenarioExplorer=(function(){
     var clearFactors=button('Clear factor selection',function(){rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});refreshFactors();invalidateDOE();});
     doePanel.append(el('summary','DOE · choose up to 4 factors'),el('p','Two levels per factor; 1–4 factors = 2–16 combinations, each with at least 3 rounds. Other changes stay fixed at the current search winner. Missing baseline values and external reliability targets are excluded.','chart-note'));
     doePanel.append(doeChoice,factorCount,clearFactors);
-    var factorGrid=parameterTable(doePanel,['DOE','Equipment','Parameter','Unit','Low','High'],'scenario-factor-grid','DOE factors');
+    ['DOE','Low','High'].forEach(function(text){var header=el('th',text);header.scope='col';header.dataset.doeColumn='';list.closest('table').querySelector('thead tr').append(header);});
     rows.forEach(function(r){
-      if(!Number.isFinite(r.change.before)||r.change.external)return;
-      var info=STWhatIf.changeInfo(r.change,source.equipment),field=el('tr','','scenario-doe-factor'),use=document.createElement('input');use.type='checkbox';use.checked=doeCount++<4;
-      use.setAttribute('aria-label','DOE factor '+info.equipment+' · '+info.parameter);var choice=el('td');choice.append(use);field.append(choice,el('td',info.equipment),el('td',info.parameter));
+      if(!Number.isFinite(r.change.before)||r.change.external){for(var i=0;i<3;i++){var unavailable=el('td','—');unavailable.dataset.doeColumn='';r.row.append(unavailable);}return;}
+      var info=STWhatIf.changeInfo(r.change,source.equipment),field=r.row,use=document.createElement('input');use.type='checkbox';use.checked=doeCount++<4;
+      use.setAttribute('aria-label','DOE factor '+info.equipment+' · '+info.parameter);use.className='scenario-doe-select';field.classList.add('scenario-doe-factor');var choice=el('td');choice.dataset.doeColumn='';choice.append(use);field.append(choice);
       var low=document.createElement('input'),high=document.createElement('input');
       [low,high].forEach(function(input){input.type='number';input.step='any';input.min=STScenarios.fields[r.change.path][0]*r.scale;input.max=STScenarios.fields[r.change.path][1]*r.scale;});
       low.value=Number((Math.min(r.change.before,r.change.after)*r.scale).toPrecision(8));high.value=Number((Math.max(r.change.before,r.change.after)*r.scale).toPrecision(8));
       var units=r.scale===60?'BPM':r.scale===.001?'m':r.scale===.06?'m/min':r.change.unit||STScenarios.fields[r.change.path][2];
-      field.append(el('td',units));[['Low',low],['High',high]].forEach(function(pair){pair[1].setAttribute('aria-label',info.equipment+' · '+info.parameter+' · '+pair[0]+' ('+units+')');var cell=el('td');cell.append(pair[1]);field.append(cell);});
-      r.doe={use:use,low:low,high:high};use.onchange=function(){if(use.checked){r.check.checked=true;}refreshFactors();invalidateDOE();};[low,high].forEach(function(input){input.onchange=function(){invalidateDOE();};});factorGrid.append(field);
+      [['Low',low],['High',high]].forEach(function(pair){pair[1].setAttribute('aria-label',info.equipment+' · '+info.parameter+' · '+pair[0]+' ('+units+')');var cell=el('td');cell.dataset.doeColumn='';pair[1].className='scenario-doe-level';cell.append(pair[1]);field.append(cell);});
+      r.doe={use:use,low:low,high:high};use.onchange=function(){if(use.checked){r.check.checked=true;}refreshFactors();invalidateDOE();};[low,high].forEach(function(input){input.onchange=function(){invalidateDOE();};});
     });
-    body.append(doePanel);
+    body.prepend(doePanel);
     function refreshFactors(){
       if(activeHost)return;var available=rows.filter(r=>r.doe),count=available.filter(r=>r.check.checked&&r.doe.use.checked).length;
       factorCount.textContent=available.length?count+' / 4 selected · '+available.length+' eligible variables. Uncheck a selected factor or clear the selection to choose others. The initial selection is not an importance ranking.':'No eligible DOE factors in this card. A factor needs a numeric baseline value; external reliability targets are excluded.';
       available.forEach(r=>{if(!r.check.checked)r.doe.use.checked=false;r.doe.use.disabled=!doeEnabled()||count>=4&&!r.doe.use.checked;r.doe.low.disabled=r.doe.high.disabled=!doeEnabled()||!r.doe.use.checked;});
     }
     refreshFactors();
-    function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();refreshFactors();clearFactors.disabled=!doeEnabled();}
+    function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();dialog.querySelectorAll('[data-doe-column]').forEach(function(cell){cell.hidden=!doeEnabled();});refreshFactors();clearFactors.disabled=!doeEnabled();}
     function invalidateDOE(){if(activeHost)return;generation++;clearTimeout(timer);last=null;save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();status.textContent='DOE settings changed. Run Find best scenario to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
     function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}if(activeHost)return;refreshDOE();invalidateDOE();}
     window.addEventListener('st-doe-change',settingChanged);refreshDOE();

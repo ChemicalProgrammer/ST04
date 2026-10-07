@@ -92,6 +92,7 @@
         STBasicMode.sync(state);
         if(state.activeCase)renderEquipment();
         shell.sync();
+        if(state.activeCase)renderSimulationAnalysis();
         if(state.run.result)renderPlaybackFrame();
       });
       STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});

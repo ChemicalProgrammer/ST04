@@ -172,4 +172,17 @@ html[data-ui-mode=basic] #run-panel > .section-heading { display:none; }
 .basic-options-heading #basic-run-options-title { margin:0; }
 .scenario-activity { overflow:hidden; border-radius:var(--radius-sm); }
 .scenario-activity > span { display:block; width:30%; height:100%; background:var(--accent); animation:loading-progress var(--duration-loading) ease-in-out infinite alternate; }
+
+#settings-dialog .settings-case-options { display:grid; gap:var(--space-3); }
+#settings-dialog .settings-case-options label { margin:0; }
+#settings-page-appearance .settings-row { grid-template-columns:160px minmax(160px,260px); justify-content:start; gap:var(--space-3); }
+#settings-page-appearance .settings-colors { grid-template-columns:160px minmax(0,1fr); }
+#settings-page-appearance .settings-colors .accent-heading { align-self:center; }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation:has(.analysis-capex[data-tier=ZERO]) { border-left-color:var(--capex-zero); }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation:has(.analysis-capex[data-tier=MEDIUM]) { border-left-color:var(--capex-medium); }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation:has(.analysis-capex[data-tier=HIGH]) { border-left-color:var(--capex-high); }
+.scenario-config-dialog [data-doe-column][hidden] { display:none; }
+.scenario-config-dialog .scenario-parameter-table { min-width:100%; }
+.scenario-config-dialog .scenario-doe { margin:0 0 var(--space-3); }
+@media(max-width:480px) { #settings-page-appearance .settings-row,#settings-page-appearance .settings-colors { grid-template-columns:1fr; } }
 </style>

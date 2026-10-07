@@ -13,7 +13,7 @@ window.STWhatIf = (function() {
   }
   function render(simulation,target,create){
     var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
-    var proposals=visibleProjects(plan);if(document.documentElement.dataset.uiMode!=='basic'){proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});var candidates=node('details','','scenario-candidate-details');candidates.append(node('summary','Individual hypotheses ('+proposals.length+')'),grid);target.appendChild(candidates);}STScenarioExplorer.tools(target,simulation,plan,create);
+    var proposals=visibleProjects(plan);STScenarioExplorer.tools(target,simulation,plan,create);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
     var checks=node('details','','analysis-checks scenario-design-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));

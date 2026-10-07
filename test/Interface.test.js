@@ -165,8 +165,8 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
     source.simulations.push(copy);const saved=h.api.saveCase({...source,expectedRevision:source.revision});return {case:saved,simulationId:copy.id};
   };
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  assert.equal(h.d.querySelectorAll('.scenario-grid>article').length,h.w.STWhatIf.visibleProjects(h.w.STScenarios.plan(h.storedCases()[0].simulations[0])).length);assert(!h.d.querySelector('.scenario-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-grid').textContent,/Static inputs only/);
-  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  assert.equal(h.d.querySelectorAll('.scenario-tier-grid>article').length,4);assert(!h.d.querySelector('.scenario-tier-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-tier-grid').textContent,/Static inputs only/);
+  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   assert(!h.storedCases()[0].simulations[0].results);assert.equal(h.storedCases()[0].simulations[1].results,null);
   h.api.askGemini=request=>{
     const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
@@ -196,7 +196,7 @@ test('UI + Apps Script: a local proposal with a different fingerprint is regener
  const h=await setup({realScenarioServer:true,fingerprintMismatch:true});try{
   stubScenarioGain(h);
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  await h.click('.scenario-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-grid .scenario-create').disabled);await h.click('.scenario-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
+  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const simulations=h.storedCases()[0].simulations;
   assert.equal(simulations[1].clonedFromSimulationId,simulations[0].id);
@@ -1091,7 +1091,7 @@ test('UI: enabled DOE uses replicated factorial combinations and exports effects
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
   assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify({...sim,whatIf:undefined}),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
-  h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert.equal(card.querySelector('.scenario-doe').hidden,false);assert(card.querySelector('.scenario-doe-factor input').disabled);assert(card.querySelector('.scenario-create').disabled);
+  h.w.STPreferences.write('scenarioDoe','no');h.w.dispatchEvent(new h.w.Event('st-doe-change'));assert.equal(card.querySelector('.scenario-doe').hidden,false);assert(card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled);assert(card.querySelector('.scenario-create').disabled);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1104,9 +1104,9 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   assert.equal(target.querySelector('.scenario-candidate-details'),null);
   assert.equal(target.querySelector('.scenario-explorer > .scenario-scope'),null);assert(!target.textContent.includes('Include lower-CAPEX'));
   assert.equal(target.querySelector('.scenario-tier-grid').children.length,4);
-  assert.match(target.querySelector('.scenario-tier-grid').lastElementChild.textContent,/All CAPEX/);
+  assert.match(target.querySelector('.scenario-tier-grid').firstElementChild.textContent,/Current scenario/);
   h.d.documentElement.dataset.uiMode='advance';h.w.STWhatIf.render(sim,target,()=>{});
-  assert(target.querySelector('.scenario-candidate-details'));
+  assert.equal(target.querySelector('.scenario-candidate-details'),null);
   const card=target.querySelector('.scenario-tier-grid .analysis-recommendation:has(.scenario-evaluate)');
   let release,calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{calls++;await new Promise(resolve=>release=resolve);return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}};};
   const search=card.querySelector('.scenario-search');search.click();
@@ -1152,7 +1152,7 @@ test('UI: modal DOE selection exposes more than four factors and runs the user-s
   const card=h.w.STWhatIf.card({title:'All factors',kind:'CUSTOM',tier:'HIGH',changes,explore:true},()=>{},sim.equipment,sim);h.d.body.append(card);
   const dialog=card.querySelector('dialog');assert.equal(dialog.open,false);card.querySelector('.scenario-configure').click();assert(dialog.open);
   assert.equal(dialog.querySelectorAll('.scenario-doe-factor').length,6);assert.match(dialog.querySelector('.scenario-factor-count').textContent,/4 \/ 4 selected · 6 eligible/);
-  const uses=Array.from(dialog.querySelectorAll('.scenario-doe-factor input[type=checkbox]'));assert(uses[4].disabled);
+  const uses=Array.from(dialog.querySelectorAll('.scenario-doe-factor .scenario-doe-select'));assert(uses[4].disabled);
   Array.from(dialog.querySelectorAll('button')).find(b=>b.textContent==='Clear factor selection').click();
   for(const i of [4,5]){uses[i].checked=true;uses[i].dispatchEvent(new h.w.Event('change'));}
   assert.match(dialog.querySelector('.scenario-factor-count').textContent,/2 \/ 4 selected/);
@@ -1170,18 +1170,18 @@ test('UI: case autosave restores card evidence, metrics and controls without cha
  const h=await setup({remember:true,realScenarioServer:true});try{
   await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');stubScenarioGain(h);
   const baseline=JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig);
-  let card=h.d.querySelector('.scenario-grid .analysis-recommendation');card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  let card=h.d.querySelector('.scenario-tier-grid .analysis-recommendation');card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   await waitFor(()=>h.storedCases()[0].simulations[0].whatIf?.evaluations?.some(e=>e.status==='IMPROVEMENT_REPRODUCED'));
   assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig),baseline);
   const metric=card.querySelector('.scenario-metrics').textContent;assert.match(metric,/BaseProposedChange/);assert.equal(card.querySelectorAll('.scenario-metric-table').length,1);
   assert.equal(card.querySelector('.scenario-verification'),null);
   assert(h.storedCases()[0].simulations[0].whatIf.evaluations.some(e=>e.independentCheck?.passed));
   await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  card=h.d.querySelector('.scenario-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-metrics').textContent,metric);assert.equal(card.querySelector('.scenario-create').disabled,false);
+  card=h.d.querySelector('.scenario-tier-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-metrics').textContent,metric);assert.equal(card.querySelector('.scenario-create').disabled,false);
   card.querySelector('.scenario-configure').click();const checkbox=card.querySelector('.scenario-change input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));
   await waitFor(()=>h.storedCases()[0].simulations[0].whatIf.evaluations.some(e=>e.status==='NOT_EVALUATED'));
   Array.from(card.querySelectorAll('button')).find(b=>b.textContent==='Done').click();await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  card=h.d.querySelector('.scenario-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);assert(card.querySelector('.scenario-create').disabled);assert.deepEqual(h.errors,[]);
+  card=h.d.querySelector('.scenario-tier-grid .analysis-recommendation');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);assert(card.querySelector('.scenario-create').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -1342,7 +1342,7 @@ test('UI: finishing during DOE preserves partial observations without estimating
   h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:10,seed:42,rounds:3};
   const project={title:'Partial DOE',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
   let release;const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const length=input.case.equipment[1].processData.geometry.lactMm;if(input.run.seed===42&&length===11000)await new Promise(resolve=>release=resolve);const gain=length>10000?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const levels=card.querySelectorAll('.scenario-doe-factor input[type=number]');levels[0].value=11;levels[1].value=14;
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const levels=card.querySelectorAll('.scenario-doe-factor .scenario-doe-level');levels[0].value=11;levels[1].value=14;
   card.querySelector('.scenario-search').click();await waitFor(()=>release);assert.match(card.querySelector('.scenario-search-progress').textContent,/DOE/);
   card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.doe.observations.length,1);assert.equal(record.doe.analysis.complete,false);assert.equal(record.doe.analysis.effects.length,0);assert(record.independentCheck.passed);assert(!calls.some(c=>c.case.equipment[1].processData.geometry.lactMm===14000));assert.deepEqual(h.errors,[]);
@@ -1659,9 +1659,9 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
 test('UI: DOE factors remain visible when disabled and can be enabled without unlocking Settings',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  const card=Array.from(h.d.querySelectorAll('.scenario-grid .analysis-recommendation')).find(card=>card.querySelector('.scenario-doe-factor'));assert(card);card.querySelector('.scenario-configure').click();
-  const panel=card.querySelector('.scenario-doe'),toggle=card.querySelector('.scenario-doe-enabled');assert.equal(panel.hidden,false);assert.equal(toggle.checked,false);assert(card.querySelectorAll('.scenario-doe-factor').length>0);assert(card.querySelector('.scenario-doe-factor input').disabled);
-  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STPreferences.read('scenarioDoe'),'yes');assert(!card.querySelector('.scenario-doe-factor input').disabled);
+  const card=Array.from(h.d.querySelectorAll('.scenario-tier-grid .analysis-recommendation')).find(card=>card.querySelector('.scenario-doe-factor'));assert(card);card.querySelector('.scenario-configure').click();
+  const panel=card.querySelector('.scenario-doe'),toggle=card.querySelector('.scenario-doe-enabled');assert.equal(panel.hidden,false);assert.equal(toggle.checked,false);assert(card.querySelectorAll('.scenario-doe-factor').length>0);assert(card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled);
+  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STPreferences.read('scenarioDoe'),'yes');assert(!card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled);
   card.querySelector('.scenario-config-dialog').close();await h.click('#open-settings');assert(h.d.getElementById('settings-interface-section').classList.contains('hidden'));assert(!h.d.getElementById('settings-scenario-doe').closest('section').classList.contains('hidden'));
   h.d.getElementById('settings-scenario-doe').checked=false;await h.click('#settings-cancel');assert.equal(h.w.STPreferences.read('scenarioDoe'),'no');assert.equal(panel.hidden,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1837,4 +1837,17 @@ test('UI: Comparison is an Advance section and file exports keep only AI JSON',a
   assert.equal(h.w.STBasicMode.unitLabel('equivalent bottles'),mode==='BASIC'?'units':'equivalent bottles');assert.equal(h.d.getElementById('export-results'),null);assert.equal(h.d.getElementById('export-ai').textContent,'JSON');
   await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('run-title').classList.contains('sr-only'),true);if(mode==='BASIC')assert.equal(h.d.getElementById('run-simulation').parentElement.className,'basic-options-heading');for(const id of ['play-simulation','pause-simulation','reset-playback'])assert.equal(h.d.getElementById(id).textContent,'');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
+});
+
+
+test('UI: mode switches rebuild isolated What-If cards and unified DOE rows preserve factor selection',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=whatif]');const grid=()=>h.d.querySelector('#simulation-analysis-content .scenario-tier-grid');assert(grid().querySelector('.scenario-current'));
+  const switchMode=async mode=>{await h.click('#open-settings');const dialog=h.d.getElementById('settings-dialog');for(let i=0;i<5;i++)dialog.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'m',bubbles:true}));h.d.getElementById('settings-interface-mode').value=mode;await h.click('#settings-cancel');};
+  let card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');const choice=card.querySelector('.scenario-change input[type=checkbox]');choice.checked=false;choice.dispatchEvent(new h.w.Event('change'));assert(card.querySelector('.scenario-create').disabled);
+  await switchMode('ADVANCE');assert(!grid().querySelector('.scenario-current'));assert.equal(grid().children.length,4);assert(!h.d.querySelector('.scenario-candidate-details'));card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');assert(card.querySelector('.scenario-change input[type=checkbox]').checked);
+  await switchMode('BASIC');assert(grid().querySelector('.scenario-current'));assert.equal(grid().children.length,4);card=grid().querySelector('.analysis-recommendation:has(.scenario-evaluate)');assert.equal(card.querySelector('.scenario-change input[type=checkbox]').checked,false);
+  card.querySelector('.scenario-configure').click();const dialog=card.querySelector('dialog');assert.equal(dialog.querySelectorAll('table').length,1);const factor=dialog.querySelector('.scenario-doe-select');assert(factor.disabled);dialog.querySelector('.scenario-doe-enabled').checked=true;dialog.querySelector('.scenario-doe-enabled').dispatchEvent(new h.w.Event('change'));assert(!factor.disabled);assert.equal(dialog.querySelector('thead tr').children.length,10);assert.equal(dialog.querySelector('.scenario-doe-factor').children.length,10);assert(!/\([^)]*\)/.test(dialog.querySelector('.scenario-doe-factor').children[2].textContent));dialog.close();
+  await h.click('#open-settings');assert.equal(h.d.getElementById('settings-json-fields').closest('section'),h.d.getElementById('settings-scenario-doe').closest('section'));assert.equal(h.d.getElementById('settings-doe-section').querySelector('h3'),null);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });
