@@ -2,6 +2,11 @@ function doGet() {
   var output = HtmlService.createTemplateFromFile('WebApp')
     .evaluate()
     .setTitle(__ST_TEXT__('view.fp_flow_pilot'));
+  try {
+    output.setFaviconUrl('https://www.salesforceicons.com/SLDS/icons/utility/flow_alt_120.png');
+  } catch (error) {
+    console.warn('Flow Pilot favicon could not be configured: ' + error.message);
+  }
   return output;
 }
 
