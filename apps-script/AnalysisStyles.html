@@ -3,7 +3,7 @@
   :root[data-theme=dark] { --vgraph-current:#4ade80; --vgraph-recommended:#e879f9; }
   .line-performance { margin-top: var(--space-5); border-top: var(--border-width) solid var(--line); padding-top: var(--space-4); }
   .line-performance h3 { font-size: var(--font-card); }
-  .vgraph-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--font-secondary); color: var(--muted); }
+  .vgraph-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: calc(var(--font-secondary) * 1.5); color: var(--muted); }
   .vgraph-key { display: inline-flex; align-items: center; gap: var(--space-2); }
   .vgraph-key-normal { color:var(--vgraph-current); }
   .vgraph-key-recommended { color:var(--vgraph-recommended); }
@@ -12,13 +12,13 @@
   .vgraph-plot { width: 100%; overflow-x: auto; }
   .vgraph-plot svg { display: block; width: 100%; height: var(--vgraph-height); min-width: var(--vgraph-min-width); }
   .vgraph-grid { stroke: var(--chart-grid); stroke-width: var(--border-width); }
-  .vgraph-label { fill: var(--muted); font-size: var(--font-caption); }
-  .vgraph-reference { fill: var(--accent); font-size: var(--font-caption); font-weight: var(--weight-bold); }
+  .vgraph-label { fill: var(--muted); font-size: calc(var(--font-caption) * 1.5); }
+  .vgraph-reference { fill: var(--accent); font-size: calc(var(--font-caption) * 1.5); font-weight: var(--weight-bold); }
   .vgraph-normal, .vgraph-recommended { fill: none; stroke-width: var(--focus-width); stroke-linecap: round; stroke-linejoin: round; }
   .vgraph-normal { stroke: var(--vgraph-current); }
   .vgraph-recommended { stroke: var(--vgraph-recommended); stroke-dasharray:6 4; }
   .vgraph-normal-dot { fill:var(--surface); stroke:var(--vgraph-current); stroke-width:2; }
-  .vgraph-value { font-size:var(--font-caption); font-weight:var(--weight-bold); }
+  .vgraph-value { font-size:calc(var(--font-caption) * 1.5); font-weight:var(--weight-bold); }
   .vgraph-normal-value { fill:var(--vgraph-current); }
   .vgraph-recommended-value { fill:var(--vgraph-recommended); }
   .vgraph-recommended-dot { fill: var(--vgraph-recommended); }

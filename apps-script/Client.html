@@ -157,9 +157,9 @@
     window.addEventListener('st-whatif-change',function(event){if(state.activeCase?.simulations?.includes(event.detail.simulation)){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();}});
     window.addEventListener('beforeunload',function(event){if(autosave.pending()||STSettings.pending()){event.preventDefault();event.returnValue='';}});
     window.addEventListener('online',function(){if(automaticSaving()&&autosave.pending())autosave.retry().catch(function(){});});
-    function automaticSaving(){return ['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode||document.documentElement.dataset.uiMode).toUpperCase())&&STPreferences.read('autosaveEnabled')!=='no';}
+    function automaticSaving(){return ['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode||document.documentElement.dataset.uiMode).toUpperCase())&&STPreferences.caseOptions().autosaveEnabled;}
     function syncSaveButton(){var b=document.getElementById('save-case');if(!b)return;b.classList.toggle('hidden',!state.activeCase||automaticSaving());b.disabled=state.saving||!state.isDirty;b.classList.toggle('has-changes',state.isDirty);}
-    function configureSaving(){var seconds=Number(STPreferences.read('autosaveSeconds')||10);autosave.configure({enabled:automaticSaving(),intervalMs:Math.max(1,Math.min(3600,seconds||10))*1000});syncSaveButton();}
+    function configureSaving(){var seconds=STPreferences.caseOptions().autosaveSeconds;autosave.configure({enabled:automaticSaving(),intervalMs:Math.max(1,Math.min(3600,seconds||10))*1000});syncSaveButton();}
     window.addEventListener('st-save-policy-change',configureSaving);
     function prepareCaseDraft(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
     function flushCase(force){return prepareCaseDraft().then(function(){return force===true||automaticSaving()?autosave.flush():undefined;});}
@@ -331,6 +331,7 @@ async function openCase(caseId) {
         cancelRoundSession();stopPlaybackTimer();
         state.activeCase = response.data;
         autosave.reset();
+        STPreferences.initializeCaseOptions();configureSaving();
         toggle('cases-panel', false);
 
         state.isDirty = false;
@@ -1583,7 +1584,7 @@ function renderRawJson() {
       if ((state.isDirty || window.STBasicMode?.isBasic()) && !collectCaseEditor()) return;
       var run = readRunConfiguration();
       if (!run) return;
-      if(STPreferences.read('seedPolicy')==='RANDOM'){var seedArray=new Uint32Array(1);if(window.crypto?.getRandomValues)window.crypto.getRandomValues(seedArray);else seedArray[0]=Math.floor(Math.random()*4294967296);run.seed=seedArray[0];document.getElementById('run-seed').value=run.seed;}
+      if(STPreferences.caseOptions().seedPolicy==='RANDOM'){var seedArray=new Uint32Array(1);if(window.crypto?.getRandomValues)window.crypto.getRandomValues(seedArray);else seedArray[0]=Math.floor(Math.random()*4294967296);run.seed=seedArray[0];document.getElementById('run-seed').value=run.seed;}
       cancelRoundSession();
       state.run.configuration = copyRunConfiguration(run);
       state.run.active=true;syncRunControls();

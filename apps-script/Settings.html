@@ -21,7 +21,7 @@ window.STSettings = (function() {
   function renderCaseCharts(){var record=activeCase();applyCaseCharts();el('settings-case-note').classList.toggle('hidden',!!record);el('settings-doe-section').classList.toggle('hidden',!record);el('settings-chart-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-vgraph-section').classList.toggle('hidden',!record);el('settings-chart-colors').replaceChildren();el('settings-vgraph-colors').replaceChildren();STPreferences.applyJsonFields(document.documentElement.dataset.uiMode);if(!record)return;var equipmentList=record.equipment||[],columns=colorColumns(el('settings-chart-colors'),'Equipment'),split=Math.ceil(equipmentList.length/2),graphColumns=colorColumns(el('settings-vgraph-colors'),'Series');equipmentList.forEach(function(equipment,index){colorButton(columns[index<split?0:1],(index+1)+'. '+equipment.name,'--series-'+(index%13),index%13,'chartColors');});colorButton(graphColumns[0],__ST_TEXT__('performance.normal'),'--vgraph-current','current','vgraphColors');colorButton(graphColumns[1],__ST_TEXT__('performance.recommended'),'--vgraph-recommended','recommended','vgraphColors');}
   function refresh(){el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
   function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();renderEngine();renderCaseCharts();refresh();dialog.showModal();}
-  function resetModeSelector(){el('settings-save-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=STPreferences.read('autosaveEnabled')!=='no';el('settings-autosave-seconds').value=STPreferences.read('autosaveSeconds')||'10';el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.remove('hidden');promptVisibility();el('settings-seed-policy').value=STPreferences.read('seedPolicy')||'FIXED';el('settings-scenario-doe').checked=STScenarioExplorer.doeEnabled();el('settings-basic-simulation-note').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='basic');modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  function resetModeSelector(){var options=STPreferences.caseOptions(),record=activeCase();el('settings-save-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=options.autosaveEnabled;el('settings-autosave-seconds').value=String(options.autosaveSeconds);el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.toggle('hidden',!record);promptVisibility();el('settings-seed-policy').value=options.seedPolicy;el('settings-scenario-doe').checked=STScenarioExplorer.doeEnabled();el('settings-basic-simulation-note').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='basic');modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
   function unlockMode(event){
     if(!el('settings-dialog').open||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.target.closest('input,select,textarea,[contenteditable]'))return;
     if(event.key.toLowerCase()!=='m'){modeCount=0;return;}
@@ -45,16 +45,19 @@ window.STSettings = (function() {
   function flush(){return new Promise(function(resolve){waiters.push(resolve);write();});}
   async function close(){
     if(removing||!await flush())return;
+    if(activeCase()) {
+      var options=STPreferences.caseOptions(),seconds=Number(el('settings-autosave-seconds').value);
+      if(!el('settings-save-section').classList.contains('hidden')) {
+        if(!Number.isInteger(seconds)||seconds<1||seconds>3600){el('settings-error').textContent='Choose a save interval between 1 and 3600 seconds.';return;}
+        options.autosaveEnabled=el('settings-autosave').checked;options.autosaveSeconds=seconds;
+      }
+      options.seedPolicy=el('settings-seed-policy').value;
+      STPreferences.setCaseOptions(options);
+    }
     if(flushCase && !el('settings-case-section').classList.contains('hidden')){
       if(!el('case-editor-form').checkValidity()){selectTab('case');el('case-editor-form').reportValidity();return;}
       try{await flushCase();}catch(error){el('settings-error').textContent=error.message;STErrors.capture('settings-error',error);return;}
     }
-    if(!el('settings-save-section').classList.contains('hidden')){
-      var seconds=Number(el('settings-autosave-seconds').value);
-      if(!Number.isInteger(seconds)||seconds<1||seconds>3600){if(el('settings-autosave').checked){el('settings-error').textContent='Choose a save interval between 1 and 3600 seconds.';return;}seconds=10;}
-      if(!STPreferences.write('autosaveEnabled',el('settings-autosave').checked?'yes':'no')||!STPreferences.write('autosaveSeconds',String(seconds))){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
-    }
-    if(!el('settings-seed-section').classList.contains('hidden')&&!STPreferences.write('seedPolicy',el('settings-seed-policy').value)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}
     var changed=!el('settings-interface-section').classList.contains('hidden')&&el('settings-interface-mode').value!==(document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC');
     var mode=el('settings-interface-mode').value,doe=el('settings-scenario-doe').checked,doeChanged=doe!==STScenarioExplorer.doeEnabled();
     if(doeChanged&&!STScenarioExplorer.setDOE(doe)){el('settings-error').textContent=__ST_TEXT__('settings.interface_mode_storage_error');return;}

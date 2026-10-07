@@ -28,7 +28,8 @@ the generated HTML, so DES needs no PyPI lookup or package resolution at runtime
   discharge headways; constant belt speed.
 - Deterministic processing times and repair times; exponential MTBF with
   independent seeded streams per machine.
-- Machine start delay, pause, stop, run, emergency latch and reset; conveyor
+- Machine start delay and linear acceleration ramps with analytical work integration, pause, stop, run, emergency latch and reset. Partial work survives interruption.
+- Machine microstops: exponential intervals, uniformly distributed durations and an independent seeded stream. Conveyor
   controls and conveyor failures are rejected explicitly.
 - Rounds use base seed + index. Shifts are sampled at exact boundaries. Replay
   frames and event logs are bounded. Cancellation terminates Python's Worker;
@@ -36,7 +37,7 @@ the generated HTML, so DES needs no PyPI lookup or package resolution at runtime
 
 The geometry adapter uses ST's own geometry calculations, but **this is not the
 same physical model**. Spatial queue tails, Prime/Back-up sensors, belt stop
-control, ramps, discharge runout, microstops and rejects are not simulated.
+control, discharge runout, conveyor microstops and rejects are not simulated.
 Unsupported inputs are rejected. Omitted features and library provenance are
 saved with the result, replay, HTML/PDF report and bounded AI export/context.
 

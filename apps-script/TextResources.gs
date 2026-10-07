@@ -576,7 +576,7 @@ var ST_TEXT_RESOURCES = {
   "sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection": ": MTBF and MTTR must both be positive or both NA. Adjust the field selection.",
   "sheetimportmerge.new_updated_equipment_needs_a_name_and_positive_nominal_speed_select_those_": ": new/updated equipment needs a name and positive nominal speed. Select those fields or skip the row.",
   "sheetimportmerge.fix_or_deselect_the_metadata_field": ": fix or deselect the metadata field.",
-  "view.fp_flow_pilot": "FP · Flow Pilot",
+  "view.fp_flow_pilot": "Flow Pilot",
   "brand.initials": "FP",
   "view.flow_pilot": "Flow Pilot",
   "view.a_clearer_view_of_your_line": "A CLEARER VIEW OF YOUR LINE",

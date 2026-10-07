@@ -37,6 +37,29 @@ window.STPreferences = (function() {
   applyFontScale();
   if (media.addEventListener) media.addEventListener('change', apply);
   apply();
+  function caseOptions() {
+    var saved=caseProvider?.()?.metadata?.consoleOptions||{};
+    var seconds=Number(saved.autosaveSeconds??read('autosaveSeconds')??10);
+    return {autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')!=='no',
+      autosaveSeconds:Number.isInteger(seconds)&&seconds>=1&&seconds<=3600?seconds:10,
+      seedPolicy:(saved.seedPolicy??read('seedPolicy'))==='RANDOM'?'RANDOM':'FIXED'};
+  }
+  function setCaseOptions(value) {
+    var record=caseProvider?.();if(!record)return false;
+    record.metadata=record.metadata||{};
+    var previous=record.metadata.consoleOptions;
+    if(JSON.stringify(previous)===JSON.stringify(value))return true;
+    record.metadata.consoleOptions=Object.assign({},value);
+    window.dispatchEvent(new Event('st-save-policy-change'));
+    caseChanged?.();return true;
+  }
+  function initializeCaseOptions() {
+    var record=caseProvider?.();if(!record)return;
+    record.metadata=record.metadata||{};
+    // Migrate browser defaults into the draft; persist on the next user save.
+    if(!record.metadata.consoleOptions)record.metadata.consoleOptions=caseOptions();
+    if(typeof record.metadata.includeDOE!=='boolean')record.metadata.includeDOE=read('scenarioDoe')==='yes';
+  }
   function applyJsonFields(mode) {
     mode=mode==='basic'?'basic':'advance';
     var record=caseProvider?.(),stored=read('jsonFields.'+mode),visible=typeof record?.metadata?.showJsonFields==='boolean'?record.metadata.showJsonFields:stored===null?mode==='advance':stored==='yes';
@@ -58,6 +81,6 @@ window.STPreferences = (function() {
       select.addEventListener('change', function() { setTheme(select.value); });
     });
   });
-  return { connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
+  return {caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>

@@ -214,6 +214,25 @@
           "items": {
             "type": "string"
           }
+        },
+        "consoleOptions": {
+          "type": "object",
+          "properties": {
+            "autosaveEnabled": {
+              "type": "boolean"
+            },
+            "autosaveSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600
+            },
+            "seedPolicy": {
+              "enum": [
+                "FIXED",
+                "RANDOM"
+              ]
+            }
+          }
         }
       }
     },

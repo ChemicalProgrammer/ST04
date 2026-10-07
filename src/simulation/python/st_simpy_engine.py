@@ -26,7 +26,7 @@ except ImportError:
 
 from st_des_engine import EPS, InputError, Simulation, validate
 
-VERSION = "0.2.0-experimental"
+VERSION = "0.3.0-experimental"
 TESTED_SIMPY_VERSION = "4.1.2"
 
 

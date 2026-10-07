@@ -2,7 +2,7 @@
 """ST experimental discrete-event engine, Python 3.10+, standard library only.
 
 Model: serial single-item processors, finite FIFO delay/accumulation conveyors,
-blocking after service, preempt/resume downtime. This is NOT a spatial conveyor
+blocking after service, preempt/resume downtime, linear ramps and machine microstops. This is NOT a spatial conveyor
 or sensor model and NOT an interchangeable implementation of ST's fluid engine.
 See README.md for supported physics, adapter restrictions and comparison rules.
 Public API: simulate_line(payload), returning {ok, result} or {ok, error}.
@@ -23,10 +23,10 @@ import statistics
 import sys
 import time
 
-VERSION = "0.1.0-experimental"
+VERSION = "0.2.0-experimental"
 SCHEMA = "st-des/1"
 EPS = 1e-10
-STATES = ("RUNNING", "STARVED", "BLOCKED", "FAILED", "PAUSED", "STOPPED", "STARTING")
+STATES = ("RUNNING", "STARVED", "BLOCKED", "FAILED", "PAUSED", "STOPPED", "STARTING", "MICRO_STOP")
 ACTIONS = ("RUN", "AUTO", "MANUAL", "PAUSE", "STOP", "EMERGENCY_STOP", "RESET")
 
 
@@ -81,7 +81,7 @@ def validate(payload):
     ids = set()
     for i, model in enumerate(machines):
         p = f"machines[{i}]"
-        keys(model, ("id", "name", "rateBpm", "critical", "initialMode", "startupSeconds", "reliability", "failures"), p)
+        keys(model, ("id", "name", "rateBpm", "critical", "initialMode", "startupSeconds", "rampUpSeconds", "microStop", "reliability", "failures"), p)
         uid = model.get("id")
         if not isinstance(uid, str) or not uid or uid in ids:
             raise InputError(f"{p}.id: unique nonempty string required")
@@ -90,6 +90,15 @@ def validate(payload):
         if model.get("initialMode", "AUTO") not in ("AUTO", "MANUAL", "PAUSE", "STOP"):
             raise InputError(p + ".initialMode: unsupported")
         number(model.get("startupSeconds", 0), p + ".startupSeconds")
+        number(model.get("rampUpSeconds", 0), p + ".rampUpSeconds")
+        micro = model.get("microStop")
+        if micro is not None:
+            keys(micro, ("probabilityPerMinute", "minDurationSeconds", "maxDurationSeconds"), p + ".microStop")
+            number(micro.get("probabilityPerMinute", 0), p + ".microStop.probabilityPerMinute")
+            low = number(micro.get("minDurationSeconds", 0), p + ".microStop.minDurationSeconds")
+            high = number(micro.get("maxDurationSeconds", low), p + ".microStop.maxDurationSeconds")
+            if high < low:
+                raise InputError(p + ".microStop: maximum duration must be at least minimum")
         rel = model.get("reliability")
         if rel is not None:
             keys(rel, ("mtbfMinutes", "mttrMinutes"), p + ".reliability")
@@ -169,6 +178,7 @@ class Machine:
     item: int | None = None
     remaining: float = 0
     finish_at: float | None = None
+    service_started_at: float | None = None
     process_token: int = 0
     failure_token: int = 0
     failure_due: float | None = None
@@ -179,6 +189,13 @@ class Machine:
     output: int = 0
     processed: int = 0
     failure_count: int = 0
+    micro_stopped: bool = False
+    micro_started_at: float = 0
+    micro_profile_origin: float = 0
+    micro_token: int = 0
+    micro_due: float | None = None
+    micro_remaining: float | None = None
+    micro_count: int = 0
 
     @property
     def enabled(self):
@@ -242,6 +259,7 @@ class Simulation:
         self.item_sequence = 0
         self.wakes = set()
         self.machines = [Machine(m, i, RandomStream(self.run.get("seed", 1), m["id"]), mode=m.get("initialMode", "AUTO")) for i, m in enumerate(payload["machines"])]
+        self.micro_rng = {m.index: RandomStream(self.run.get("seed", 1), m.model["id"] + ":microstop") for m in self.machines}
         self.conveyors = [Conveyor(c, i) for i, c in enumerate(payload["conveyors"])]
         for belt in self.conveyors:
             for _ in range(belt.model.get("initialReadyUnits", 0)):
@@ -258,6 +276,7 @@ class Simulation:
                 self.arm_failure(machine)
             for window in machine.model.get("failures", []):
                 self.schedule(window["atSecond"], 2, "FAILURE", (machine.index, None, window["durationSeconds"]))
+            self.arm_microstop(machine)
         ids = {m.model["id"]: m.index for m in self.machines}
         for command in self.run.get("commands", []):
             self.schedule(command["atSecond"], 0, "COMMAND", (ids[command["equipmentId"]], command["action"]))
@@ -306,14 +325,51 @@ class Simulation:
 
     def suspend_service(self, machine):
         if machine.finish_at is not None:
-            machine.remaining = max(0.0, machine.finish_at - self.now)
+            machine.remaining = max(0.0, machine.remaining - self.service_work(machine, machine.service_started_at, self.now))
             machine.finish_at = None
+            machine.service_started_at = None
             machine.process_token += 1
+
+    def service_work(self, machine, start, end):
+        ramp = machine.model.get("rampUpSeconds", 0)
+        origin = machine.startup_until
+        def integral(at):
+            elapsed = max(0.0, at - origin)
+            if ramp <= EPS:
+                return machine.rate * elapsed
+            return machine.rate * (elapsed * elapsed / (2 * ramp) if elapsed < ramp else elapsed - ramp / 2)
+        return integral(end) - integral(start)
 
     def resume_service(self, machine):
         machine.process_token += 1
-        machine.finish_at = self.now + machine.remaining
+        ramp = machine.model.get("rampUpSeconds", 0)
+        elapsed = max(0.0, self.now - machine.startup_until)
+        work_seconds = machine.remaining / machine.rate
+        if ramp > EPS and elapsed < ramp:
+            available = (ramp * ramp - elapsed * elapsed) / (2 * ramp)
+            delay = math.sqrt(elapsed * elapsed + 2 * ramp * work_seconds) - elapsed if work_seconds <= available else ramp - elapsed + work_seconds - available
+        else:
+            delay = work_seconds
+        machine.service_started_at = self.now
+        machine.finish_at = self.now + delay
         self.schedule(machine.finish_at, 3, "COMPLETE", (machine.index, machine.process_token))
+
+    def suspend_microstop_clock(self, machine):
+        if machine.micro_due is not None:
+            machine.micro_remaining = max(0.0, machine.micro_due - self.now)
+            machine.micro_due = None
+            machine.micro_token += 1
+
+    def arm_microstop(self, machine):
+        profile = machine.model.get("microStop") or {}
+        rate = profile.get("probabilityPerMinute", 0)
+        if rate <= 0 or machine.mode != "AUTO" or not machine.enabled or machine.failed or machine.micro_stopped or machine.micro_due is not None:
+            return
+        if machine.micro_remaining is None:
+            machine.micro_remaining = self.micro_rng[machine.index].exponential(60 / rate)
+        machine.micro_token += 1
+        machine.micro_due = self.now + machine.micro_remaining
+        self.schedule(machine.micro_due, 2, "MICRO_STOP", (machine.index, machine.micro_token))
 
     def dispatch(self, kind, data):
         if kind == "WAKE":
@@ -330,6 +386,10 @@ class Simulation:
                 machine.emergency = False  # preserves AUTO/PAUSE/STOP selection
             else:
                 machine.mode = action
+            if not machine.enabled or machine.mode != "AUTO":
+                self.suspend_microstop_clock(machine)
+            else:
+                self.arm_microstop(machine)
             if was_enabled and not machine.enabled:
                 self.suspend_failure(machine)
                 self.suspend_service(machine)
@@ -348,6 +408,7 @@ class Simulation:
             machine.failure_due = None
             machine.failure_remaining = None
             machine.failed = True
+            self.suspend_microstop_clock(machine)
             machine.failure_count += 1
             self.suspend_service(machine)
             self.schedule(self.now + repair_seconds, 1, "REPAIR", index)
@@ -361,6 +422,35 @@ class Simulation:
                 machine.failure_remaining = machine.rng.exponential(machine.model["reliability"]["mtbfMinutes"] * 60)
                 self.arm_failure(machine)
             self.log("REPAIR_COMPLETED", machine.model["id"])
+            self.arm_microstop(machine)
+        elif kind == "MICRO_STOP":
+            index, token = data
+            machine = self.machines[index]
+            if token != machine.micro_token or machine.failed or not machine.enabled or machine.mode != "AUTO":
+                return
+            machine.micro_due = None
+            machine.micro_remaining = None
+            machine.micro_stopped = True
+            machine.micro_started_at = self.now
+            machine.micro_profile_origin = machine.startup_until
+            machine.micro_count += 1
+            self.suspend_service(machine)
+            profile = machine.model["microStop"]
+            low = profile.get("minDurationSeconds", 0)
+            high = profile.get("maxDurationSeconds", low)
+            length = low + (high - low) * self.micro_rng[index].uniform()
+            self.schedule(self.now + length, 1, "MICRO_STOP_END", index)
+            self.log("MICRO_STOP_STARTED", machine.model["id"], durationSeconds=length)
+        elif kind == "MICRO_STOP_END":
+            machine = self.machines[data]
+            # Freeze the unfinished start profile during a microstop. A repair
+            # or explicit restart already establishes a new profile instead.
+            if not machine.failed and machine.startup_until == machine.micro_profile_origin:
+                machine.startup_until += self.now - machine.micro_started_at
+                self.wake(machine.startup_until)
+            machine.micro_stopped = False
+            self.arm_microstop(machine)
+            self.log("MICRO_STOP_COMPLETED", machine.model["id"])
         elif kind == "COMPLETE":
             index, token = data
             machine = self.machines[index]
@@ -369,6 +459,7 @@ class Simulation:
             machine.busy = False
             machine.completed = True
             machine.finish_at = None
+            machine.service_started_at = None
             machine.remaining = 0
             machine.processed += 1
             self.log("PROCESS_COMPLETED", machine.model["id"], itemId=machine.item)
@@ -387,7 +478,7 @@ class Simulation:
         for _ in range(2 * len(self.machines) + 2):
             changed = False
             for machine in reversed(self.machines):
-                operational = machine.enabled and not machine.failed and self.now >= machine.startup_until - EPS
+                operational = machine.enabled and not machine.failed and not machine.micro_stopped and self.now >= machine.startup_until - EPS
                 if not operational:
                     continue
                 if machine.completed:
@@ -431,7 +522,7 @@ class Simulation:
                         belt.released += 1
                         belt.next_exit = self.now + belt.exit_headway
                     machine.busy = True
-                    machine.remaining = 1 / machine.rate
+                    machine.remaining = 1.0
                     self.resume_service(machine)
                     changed = True
             if not changed:
@@ -443,6 +534,8 @@ class Simulation:
                 state = "FAILED"
             elif not machine.enabled:
                 state = "PAUSED" if machine.mode == "PAUSE" and not machine.emergency else "STOPPED"
+            elif machine.micro_stopped:
+                state = "MICRO_STOP"
             elif self.now < machine.startup_until - EPS:
                 state = "STARTING"
             elif machine.completed:
@@ -514,6 +607,8 @@ class Simulation:
                 "runningSeconds": machine.state_seconds["RUNNING"], "starvedSeconds": machine.state_seconds["STARVED"],
                 "blockedSeconds": machine.state_seconds["BLOCKED"], "failureSeconds": machine.state_seconds["FAILED"],
                 "failureCount": machine.failure_count,
+                "microStopCount": machine.micro_count, "microStopSeconds": machine.state_seconds["MICRO_STOP"],
+                "startupSeconds": machine.state_seconds["STARTING"],
                 "processingUtilizationPercent": 100 * machine.state_seconds["RUNNING"] / self.duration,
                 "productiveCapacityPercent": 100 * machine.output / (machine.rate * self.duration)})
         zones = [{"id": b.model["id"], "capacityUnits": b.capacity, "inventoryUnits": b.inventory,
@@ -538,9 +633,11 @@ class Simulation:
                   "fixedTimeStep": None, "physicalEventHorizon": "inclusive",
                   "failureClock": "enabled non-failed elapsed time, including starvation/blocking",
                   "repairDistribution": "deterministic MTTR", "failureDistribution": "exponential MTBF",
+                  "rampModel": "linear rate ramp, analytical work integral and next-completion inversion",
+                  "microStopClock": "AUTO enabled non-failed time, exponential interval, uniform duration, separate random stream",
                   "sameTimeOrder": "commands, repairs, failures, processing completions, arrivals; downstream-first transfers"},
                 "limitations": ["No spatial queue-tail, Prime/Back-up sensors or belt stop logic.",
-                  "No ramps, microstops, overflow runout, rejects, batches, conversion ratios, merges or splits.",
+                  "No overflow runout, conveyor downtime, rejects, batches, conversion ratios, merges or splits.",
                   "Constant full-length travel delay; queue growth does not shorten incoming travel.",
                   "No spatial occupied-length constraint; packed capacity plus admission/exit headway only.",
                   "Machine holds one item; blocking after service; pause/failure resumes remaining work.",

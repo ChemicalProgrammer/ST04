@@ -1081,7 +1081,7 @@ test('UI: regressions and gains that fail independent seeds cannot create recomm
 
 test('UI: enabled DOE uses replicated factorial combinations and exports effects without changing baseline',async()=>{
  const h=await setup({remember:true});try{
-  h.w.STPreferences.write('scenarioDoe','yes');
+  h.w.STScenarioExplorer.setDOE(true);
   const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig={durationSeconds:10,tickSeconds:.25,sampleEverySeconds:1,seed:42,rounds:1,commands:[]};
   const e=sim.equipment[1];e.processData.geometry.lactMm=10000;e.processData.accumulation.speedMode='MANUAL';e.processData.accumulation.conveyorSpeedMmPerSecond=500;
   const snapshot=JSON.stringify(sim),changes=[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:20000,unit:'mm'},{equipmentId:e.id,path:'processData.accumulation.conveyorSpeedMmPerSecond',before:500,after:550,unit:'mm/s'}];
@@ -1116,7 +1116,7 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
   assert(!target.textContent.includes('Explore the whole line'));
   assert(target.querySelector('.scenario-explorer > .scenario-interventions'));
   assert(card.isConnected);assert.equal(calls,1);
-  h.w.STPreferences.write('scenarioDoe','yes');h.w.dispatchEvent(new h.w.Event('st-doe-change'));
+  h.w.STScenarioExplorer.setDOE(true);h.w.dispatchEvent(new h.w.Event('st-doe-change'));
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Simulating baseline/);
   card.querySelector('.scenario-evaluate').click();card.querySelector('.scenario-evaluate').click();release();
   await waitFor(()=>!search.disabled);assert.match(card.querySelector('.scenario-search-progress').textContent,/Stopped/);
@@ -1146,7 +1146,7 @@ test('UI: modal DOE selection exposes more than four factors and runs the user-s
  const h=await setup({remember:true});try{
   // This test covers the complete DOE; search-limit behavior has its own tests.
   h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
-  h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];
+  h.w.STScenarioExplorer.setDOE(true);const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];
   const paths=['conveyorSpeedFactorPercent','blockedTimeDelaySeconds','clearTimeDelaySeconds','backupSensorPositionMm','downstreamRampUpSeconds','conveyorSpeedMmPerSecond'];
   const changes=paths.map(key=>{e.processData.accumulation[key]=10;return {equipmentId:e.id,path:'processData.accumulation.'+key,before:10,after:12,unit:'test'};});
   const card=h.w.STWhatIf.card({title:'All factors',kind:'CUSTOM',tier:'HIGH',changes,explore:true},()=>{},sim.equipment,sim);h.d.body.append(card);
@@ -1187,7 +1187,7 @@ test('UI: case autosave restores card evidence, metrics and controls without cha
 
 test('UI: stored DOE results survive serialization and stale inputs never restore approval',async()=>{
  const h=await setup({remember:true});try{
-  h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
+  h.w.STScenarioExplorer.setDOE(true);const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
   h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});
   let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelectorAll('.scenario-doe-select').forEach(input=>{input.checked=true;input.dispatchEvent(new h.w.Event('change'));});card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
@@ -1214,7 +1214,7 @@ test('UI: seed policy generates and saves a new base only for fresh runs',async(
   await h.click('.open-case');await h.click('#open-settings');
   assert(!h.d.getElementById('settings-seed-section').classList.contains('hidden'));
   h.d.getElementById('settings-seed-policy').value='RANDOM';await h.click('#settings-cancel');
-  assert.equal(h.w.STPreferences.read('seedPolicy'),'RANDOM');
+  assert.equal(h.w.STPreferences.caseOptions().seedPolicy,'RANDOM');
   let next=1234;h.w.crypto.getRandomValues=a=>{a[0]=next++;return a;};
   h.d.getElementById('run-duration').value=5;await h.click('#run-simulation');await h.click('#pause-simulation');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.seed===1234);
@@ -1275,13 +1275,13 @@ test('UI: Advance Settings controls autosave interval and manual saving without 
   await h.click('.open-case');await h.click('#open-settings');assert(!h.d.getElementById('settings-save-section').classList.contains('hidden'));
   const enabled=h.d.getElementById('settings-autosave'),seconds=h.d.getElementById('settings-autosave-seconds');
   enabled.checked=false;enabled.dispatchEvent(new h.w.Event('change'));assert(seconds.disabled);seconds.value=2;await h.click('#settings-cancel');
-  assert.equal(h.w.STPreferences.read('autosaveEnabled'),'no');
+  assert.equal(h.w.STPreferences.caseOptions().autosaveEnabled,false);
   const name=h.d.getElementById('case-name');name.value='Manual Advance';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await new Promise(resolve=>setTimeout(resolve,1200));assert.notEqual(h.storedCases()[0].name,'Manual Advance');
   await h.click('#open-settings');await h.click('#settings-cancel');assert.notEqual(h.storedCases()[0].name,'Manual Advance');
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].name==='Manual Advance');
   await h.click('#open-settings');enabled.checked=true;enabled.dispatchEvent(new h.w.Event('change'));seconds.value=2;await h.click('#settings-cancel');
-  assert.equal(h.w.STPreferences.read('autosaveSeconds'),'2');assert(h.d.getElementById('save-case').classList.contains('hidden'));
+  assert.equal(h.w.STPreferences.caseOptions().autosaveSeconds,2);assert(h.d.getElementById('save-case').classList.contains('hidden'));
   name.value='Automatic Advance';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,500));assert.equal(h.storedCases()[0].name,'Manual Advance');await waitFor(()=>h.storedCases()[0].name==='Automatic Advance');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1307,7 +1307,7 @@ test('UI: interrupted scenario restarts with clear status, icon actions and a wo
 test('UI: finishing search validates the in-flight winner before creation in both modes',async()=>{
  for(const uiMode of ['BASIC','ADVANCE'])for(const outcome of ['pass','fail','cancel','empty']){
   const h=await setup({remember:true,uiMode});try{
-   h.w.STPreferences.write('scenarioDoe','yes');
+   h.w.STScenarioExplorer.setDOE(true);
    const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;
    sim.dynamicConfig={durationSeconds:10,seed:42,rounds:5};
    const project={title:'Early winner',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
@@ -1339,7 +1339,7 @@ test('UI: finishing search validates the in-flight winner before creation in bot
 
 test('UI: finishing during DOE preserves partial observations without estimating effects',async()=>{
  const h=await setup({remember:true});try{
-  h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:10,seed:42,rounds:3};
+  h.w.STScenarioExplorer.setDOE(true);const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:10,seed:42,rounds:3};
   const project={title:'Partial DOE',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
   let release;const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const length=input.case.equipment[1].processData.geometry.lactMm;if(input.run.seed===42&&length===11000)await new Promise(resolve=>release=resolve);const gain=length>10000?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const factor=card.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));const levels=card.querySelectorAll('.scenario-doe-factor .scenario-doe-level');levels[0].value=11;levels[1].value=14;
@@ -1771,7 +1771,7 @@ test('UI: Settings has stable dimensions, Basic has two prompts and case VGraph 
   await h.click('#settings-tab-simulation');assert(h.visible('settings-seed-section'));assert(!h.visible('settings-save-section'));h.d.getElementById('settings-seed-policy').value='RANDOM';
   await h.click('#settings-tab-case');await h.click('#settings-vgraph-colors button');const r=h.d.getElementById('series-color-r');r.value='17';h.d.getElementById('series-color-g').value='34';h.d.getElementById('series-color-b').value='51';r.dispatchEvent(new h.w.Event('input'));assert.equal(h.d.getElementById('series-color-hex').value,'#112233');await h.click('#series-color-cancel');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');
   await h.click('#settings-vgraph-colors button');h.d.getElementById('series-color-hex').value='#112233';h.d.getElementById('series-color-hex').dispatchEvent(new h.w.Event('input'));h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');
-  h.d.getElementById('settings-json-fields').checked=true;h.d.getElementById('settings-json-fields').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');assert.equal(h.w.STPreferences.read('seedPolicy'),'RANDOM');assert.equal(h.calls.filter(x=>x==='saveCase').length,0);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.vgraphColors?.current==='#112233');assert.equal(h.storedCases()[0].metadata.showJsonFields,true);
+  h.d.getElementById('settings-json-fields').checked=true;h.d.getElementById('settings-json-fields').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');assert.equal(h.w.STPreferences.caseOptions().seedPolicy,'RANDOM');assert.equal(h.calls.filter(x=>x==='saveCase').length,0);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.vgraphColors?.current==='#112233');assert.equal(h.storedCases()[0].metadata.showJsonFields,true);
   await h.click('#home-cases');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');await h.click('.open-case');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');assert.equal(h.d.documentElement.dataset.showJson,'true');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1949,7 +1949,7 @@ test('UI: failed regeneration preserves the original saved conversation and rest
 
 test('UI: DOE derives factors from feasible category searches and keeps explicit reliability targets',async()=>{
  const h=await setup({remember:true});try{
-  h.w.STPreferences.write('scenarioDoe','yes');h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
+  h.w.STScenarioExplorer.setDOE(true);h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
   const sim=h.storedCases()[0].simulations[0],machine=sim.equipment.find(e=>e.type!=='CONVEYOR');machine.noiseProfile.reliability={mtbfMinutes:30,mttrMinutes:3};
   const snapshot=JSON.stringify(sim.equipment),host=h.d.createElement('section');h.d.body.append(host);h.w.STScenarioExplorer.tools(host,sim,h.w.STScenarios.plan(sim),()=>{});
   const intervention=host.querySelector('.scenario-interventions');intervention.querySelector('[aria-label="Intervention equipment"]').value=machine.id;intervention.querySelector('[aria-label="Intervention target (minutes)"]').value='60';intervention.querySelector('textarea').value='Dedicated maintenance; reliability target from vendor trial.';intervention.querySelector('.scenario-add-intervention').click();
@@ -1969,7 +1969,7 @@ test('UI: DOE derives factors from feasible category searches and keeps explicit
 
 test('UI: feasible search alternatives populate DOE even when they lose; infeasible inputs stay unavailable',async()=>{
  const h=await setup({remember:true});try{
-  h.w.STPreferences.write('scenarioDoe','yes');h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1],keys=['backupSensorPositionMm','clearTimeDelaySeconds','blockedTimeDelaySeconds'];keys.forEach(key=>e.processData.accumulation[key]=10);
+  h.w.STScenarioExplorer.setDOE(true);h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1],keys=['backupSensorPositionMm','clearTimeDelaySeconds','blockedTimeDelaySeconds'];keys.forEach(key=>e.processData.accumulation[key]=10);
   const changes=keys.map(key=>({equipmentId:e.id,path:'processData.accumulation.'+key,before:10,after:20,unit:'test'}));
   h.w.STScenarios.apply=(source,changes)=>{if(changes.some(c=>c.path.endsWith('blockedTimeDelaySeconds')))throw Error('SCENARIO_INVALID_PHYSICS');const result=JSON.parse(JSON.stringify(source));changes.forEach(c=>result.equipment.find(e=>e.id===c.equipmentId).processData.accumulation[c.path.split('.').pop()]=c.after);return result;};
   h.w.SimulatorEngine.simulateBatch=async input=>{const a=input.case.equipment[1].processData.accumulation,gain=a.clearTimeDelaySeconds>10?-1:a.backupSensorPositionMm>10?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100+gain}}};};
@@ -1998,5 +1998,26 @@ test('UI: Gemini panel animations cancel safely on rapid toggles and respect red
   await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));assert.equal(panel.inert,false);assert.equal(animations[0].options.duration,180);await h.click('#close-gemini');assert.equal(panel.inert,true);assert.equal(panel.getAttribute('aria-hidden'),'true');assert(h.visible('gemini-panel'));const close=animations.at(-1);
   await h.click('#toggle-gemini');assert(close.cancelled);close.onfinish();assert(h.visible('gemini-panel'));assert.equal(panel.inert,false);await h.click('#close-gemini');animations.at(-1).onfinish();assert(!h.visible('gemini-panel'));
   h.media.matches=true;const count=animations.length;await h.click('#toggle-gemini');await h.click('#close-gemini');assert.equal(animations.length,count);assert(!h.visible('gemini-panel'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: console options are isolated per case and survive saving and reopening',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#open-settings');
+  assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-seed-section')));
+  h.d.getElementById('settings-seed-policy').value='RANDOM';h.d.getElementById('settings-autosave-seconds').value=3;
+  await h.click('#settings-cancel');await h.click('#save-case');
+  await waitFor(()=>h.storedCases()[0].metadata.consoleOptions?.seedPolicy==='RANDOM');
+  assert.equal(h.storedCases()[0].metadata.consoleOptions.autosaveSeconds,3);
+  assert.equal(h.w.STPreferences.read('seedPolicy'),null);assert.equal(h.w.STPreferences.read('autosaveSeconds'),'1');
+  await h.click('#home-cases');await h.click('.open-case');await h.click('#open-settings');
+  assert.equal(h.d.getElementById('settings-seed-policy').value,'RANDOM');assert.equal(h.d.getElementById('settings-autosave-seconds').value,'3');
+  await h.click('#settings-cancel');
+  let record={metadata:{consoleOptions:{autosaveEnabled:false,autosaveSeconds:8,seedPolicy:'FIXED'}}},changes=0;
+  h.w.STPreferences.connectCase(()=>record,()=>changes++);
+  assert.equal(h.w.STPreferences.caseOptions().seedPolicy,'FIXED');assert.equal(h.w.STPreferences.caseOptions().autosaveSeconds,8);
+  h.w.STPreferences.setCaseOptions({autosaveEnabled:false,autosaveSeconds:5,seedPolicy:'RANDOM'});
+  assert.equal(changes,1);assert.equal(h.storedCases()[0].metadata.consoleOptions.autosaveSeconds,3);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

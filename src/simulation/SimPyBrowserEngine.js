@@ -28,12 +28,13 @@ export function adaptSimPyInput(input) {
         restart:d.backupRestartPositionMm,blockedDelay:d.blockedTimeDelaySeconds,clearDelay:d.clearTimeDelaySeconds,
         stopResponse:d.upstreamStopResponseSeconds,runoutUnits:d.bottlesDischargedAtStop,ramp:d.downstreamRampUpSeconds}});
     } else {
-      if(Object.keys(model.noiseProfile||{}).some(key=>key!=='reliability'))throw new Error('SimPy does not support machine microstops or other noise: '+model.name);
+      if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       machines.push({id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
+        rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,
+        ...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{}),
         ...(model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{})});
-      if((model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0)>0)ignored.push({equipmentId:model.id,feature:'MACHINE_RAMP'});
     }
   }
   const ids=new Set(machines.map(m=>m.id));
@@ -46,7 +47,7 @@ export function adaptSimPyInput(input) {
       sampleEverySeconds:Math.max(input.run.sampleEverySeconds||5,input.run.durationSeconds/(9998-(shift?Math.ceil(input.run.durationSeconds/shift):0))),
       ...(input.run.shiftSeconds?{shiftSeconds:input.run.shiftSeconds}:{}),commands},
     metadata:{adaptedFrom:'ST',allowSimplifications:true,ignoredFeatures:ignored,stochasticSchedulesPaired:false,
-      scope:'Experimental FIFO item model; spatial queues, sensors, ramps and runout are omitted.'}};
+      scope:'Experimental FIFO item model; machine ramps and microstops are simulated; spatial queues, sensors and runout are omitted.'}};
 }
 
 export function normalizeSimPyResult(raw, input, payload) {
@@ -54,7 +55,7 @@ export function normalizeSimPyResult(raw, input, payload) {
   const beltById=new Map(payload.conveyors.map(b=>[b.id,b]));
   function machineMetrics(m) {
     return {...m,pausedSeconds:m.stateSeconds.PAUSED,stoppedSeconds:m.stateSeconds.STOPPED,
-      processingCapacityPercent:m.productiveCapacityPercent,productiveEquivalentSeconds:m.outputCount/(input.case.equipment.find(e=>e.id===m.id).nominalRatePerSecond),
+      microStopSeconds:m.microStopSeconds,startupSeconds:m.startupSeconds,processingCapacityPercent:m.productiveCapacityPercent,productiveEquivalentSeconds:m.outputCount/(input.case.equipment.find(e=>e.id===m.id).nominalRatePerSecond),
       // Unvalidated fields stay unavailable; never manufacture OEE or sensor losses.
       oeePercent:null,waitingForPrimeSeconds:null,backupStopSeconds:null,emergencyStopSeconds:null,
       partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
@@ -79,13 +80,13 @@ export function normalizeSimPyResult(raw, input, payload) {
         const output=m?m.outputCount:z.releasedUnits,priorOutput=m?prior?.outputCount:priorZone?.releasedUnits;
         return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||'RUNNING',outputCount:output,processedUnits:output,
           actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
-          starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??null,
+          microStopSeconds:m?.stateSeconds.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??null,
           waitingForPrimeSeconds:null,backupStopSeconds:null,emergencyStopSeconds:null,partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
       })};
   });
   const total=field=>raw.equipment.reduce((sum,m)=>sum+m[field],0);
   const summary={...raw.summary,averageOutputRatePerSecond:raw.summary.outputCount/duration,
-    totalBlockedSeconds:total('blockedSeconds'),totalStarvedSeconds:total('starvedSeconds'),totalFailureSeconds:total('failureSeconds'),
+    totalMicroStopSeconds:total('microStopSeconds'),totalStartupSeconds:total('startupSeconds'),totalBlockedSeconds:total('blockedSeconds'),totalStarvedSeconds:total('starvedSeconds'),totalFailureSeconds:total('failureSeconds'),
     totalOverflowUnits:null,totalEmergencyStopSeconds:null,totalBackupStopSeconds:null,totalWaitingForPrimeSeconds:null,
     totalPartialStarvationLossSeconds:null,totalPartialBlockingLossSeconds:null,
     lineOeePacemakerEquipmentId:null,lineOeePacemakerRatePerSecond:null,lineOeeReference:'NOT_VALIDATED_DES',qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'};
