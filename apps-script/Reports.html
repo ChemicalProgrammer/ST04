@@ -1,6 +1,7 @@
 <script>
 window.STReports=(function(){
   var characterBudget=64000;
+  function basic(){return document.documentElement.dataset.uiMode==='basic'||Boolean(window.STBasicMode?.isBasic());}
   var templateText={
     'exports.equipment_results':__ST_TEXT__('exports.equipment_results'),
     'scenario.unverified':__ST_TEXT__('scenario.unverified'),
@@ -46,10 +47,10 @@ window.STReports=(function(){
     var palette=':root{color-scheme:'+ (theme==='dark'?'dark':'light')+';';Object.entries(tokens).forEach(function(pair){var value=style.getPropertyValue(pair[1]).trim();if(value&&/^[#(),.%\s\w-]+$/.test(value))palette+=pair[0]+':'+value+';';});palette+='}';
     var root=document.getElementById('report-document-template').content.cloneNode(true);
     root.querySelector('[data-report="brand"]').textContent=__ST_TEXT__('reports.brand');root.querySelector('[data-report="title"]').textContent=title;
-    root.querySelector('[data-report="subtitle"]').textContent=__ST_TEXT__('reports.subtitle');root.querySelector('[data-report="footer"]').textContent=__ST_TEXT__('reports.footer')+' · '+new Date().toISOString();
-    var section=document.getElementById('report-'+(kind||'results')+'-template').content.cloneNode(true);Object.entries(slots).forEach(function(pair){var slot=section.querySelector('[data-report="'+pair[0]+'"]');if(slot)slot.innerHTML=pair[1];});section.querySelectorAll('[data-report-text]').forEach(function(node){node.textContent=templateText[node.dataset.reportText]||node.dataset.reportText;});root.querySelector('[data-report="body"]').append(section);
+    root.querySelector('[data-report="subtitle"]').textContent=__ST_TEXT__('reports.subtitle')+' · '+(basic()?'Basic':'Advance');root.querySelector('[data-report="footer"]').textContent=__ST_TEXT__('reports.footer')+' · '+new Date().toISOString();
+    var section=document.getElementById('report-'+(kind||'results')+'-template').content.cloneNode(true);Object.entries(slots).forEach(function(pair){var slot=section.querySelector('[data-report="'+pair[0]+'"]');if(slot)slot.innerHTML=pair[1];});section.querySelectorAll('[data-report-text]').forEach(function(node){node.textContent=templateText[node.dataset.reportText]||node.dataset.reportText;});if(basic())section.querySelectorAll('[data-report-advance]').forEach(function(node){node.remove();});root.querySelector('[data-report="body"]').append(section);
     var container=document.createElement('div');container.append(root);
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+palette+'</style></head><body>'+container.innerHTML+'</body></html>';
+    return '<!doctype html><html lang="en" data-ui-mode="'+(basic()?'basic':'advance')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>'+css+palette+'</style></head><body>'+container.innerHTML+'</body></html>';
   }
   function batchHtml(batch){
     if(!batch)return '';
@@ -57,7 +58,7 @@ window.STReports=(function(){
   }
   function chartsHtml(){
     var surface=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(),html='';
-    [['simulation-chart',__ST_TEXT__('view.cumulative_production')],['equipment-speed-chart',__ST_TEXT__('view.actual_speed_by_equipment')]].forEach(function(pair){var canvas=document.getElementById(pair[0]);if(!canvas)return;try{var image=canvas.toDataURL('image/png');if(image&&image!=='data:,')html+='<figure><figcaption>'+escape(pair[1])+'</figcaption><img style="background:'+escape(surface)+'" src="'+image+'" alt="'+escape(pair[1])+'"></figure>';}catch(_){} });
+    (basic()?[]:[['simulation-chart',__ST_TEXT__('view.cumulative_production')],['equipment-speed-chart',__ST_TEXT__('view.actual_speed_by_equipment')]]).forEach(function(pair){var canvas=document.getElementById(pair[0]);if(!canvas)return;try{var image=canvas.toDataURL('image/png');if(image&&image!=='data:,')html+='<figure><figcaption>'+escape(pair[1])+'</figcaption><img style="background:'+escape(surface)+'" src="'+image+'" alt="'+escape(pair[1])+'"></figure>';}catch(_){} });
     var original=document.querySelector('#vgraph-plot svg');
     if(original){var svg=original.cloneNode(true),from=[original].concat(Array.from(original.querySelectorAll('*'))),to=[svg].concat(Array.from(svg.querySelectorAll('*')));from.forEach(function(node,i){var style=getComputedStyle(node);['fill','stroke','stroke-width','font-size','font-family'].forEach(function(name){to[i].style.setProperty(name,style.getPropertyValue(name));});});html+='<figure style="background:'+escape(surface)+'">'+svg.outerHTML+'</figure>';}
     return html;
@@ -69,13 +70,22 @@ window.STReports=(function(){
     slots.overview=table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],[[__ST_TEXT__('exports.duration'),result.durationSeconds],[__ST_TEXT__('exports.seed'),result.seed],[__ST_TEXT__('exports.units'),units],[__ST_TEXT__('results.throughput')+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
     (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){slots.equipment+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],scalars(result.equipmentMetrics?.[e.id]||{}))+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars({unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</section>';});
     Object.entries(result.accumulationZoneMetrics||{}).forEach(function(pair){slots.zones+='<section><h2>'+escape(__ST_TEXT__('exports.accumulation'))+' · '+escape(pair[0])+'</h2>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(pair[1]))+'</section>';});
+    if(basic()){
+      var stats=result.batch?.statistics,mean=function(key,fallback){return Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback;};
+      slots.overview=table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],[
+        [__ST_TEXT__('results.global_oee')+' (%)',value(mean('lineOeePercent',result.summary.lineOeePercent))],
+        [__ST_TEXT__('results.throughput')+' ('+units+'/min)',value(mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60))],
+        [__ST_TEXT__('results.production')+' ('+units+')',value(mean('outputCount',result.summary.outputCount))]]);
+      slots.context+=' · '+escape(result.durationSeconds)+' s'+(result.batch?' · Mean of '+escape(result.batch.rounds)+' rounds':'');
+      slots.equipment='';slots.zones='';slots.batch='';slots.representative='';
+    }
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
   function whatIfHtml(simulation,plan){
-    var body=evaluationsHtml(simulation);
+    var body=basic()?'':evaluationsHtml(simulation);
     STWhatIf.visibleProjects(plan).forEach(function(p){body+='<section><h2>'+escape(p.title||STScenarioText[p.titleKey]||p.kind)+'</h2><p>'+escape(STScenarioText[p.tier]||p.tier)+' · '+escape(STScenarioText[p.basis]||p.basis)+'</p><p>'+escape(p.description||'')+'</p>';
       body+=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.current'),__ST_TEXT__('exports.proposed'),__ST_TEXT__('exports.explanation')],p.changes.map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
-      body+='<h3>'+escape(__ST_TEXT__('scenario.evidence'))+'</h3>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(p.evidence))+'</section>';
+      if(!basic())body+='<h3>'+escape(__ST_TEXT__('scenario.evidence'))+'</h3>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(p.evidence));body+='</section>';
     });
     var checks=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.check'),__ST_TEXT__('exports.status')],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
     return documentHtml(__ST_TEXT__('exports.whatif_report'),{context:escape(simulation.name),proposals:body,checks:checks},'whatif');
@@ -140,6 +150,13 @@ window.STReports=(function(){
       'equipment-title':escape(__ST_TEXT__('view.equipment_comparison')),equipment:equipment,
       'batch-title':escape(__ST_TEXT__('batch.title')),batch:diff(a.results?.batch?{rounds:a.results.batch.rounds,statistics:a.results.batch.statistics,seeds:a.results.batch.rows?.map(r=>r.seed)}:{},b.results?.batch?{rounds:b.results.batch.rounds,statistics:b.results.batch.statistics,seeds:b.results.batch.rows?.map(r=>r.seed)}:{}),
       'configuration-title':escape(__ST_TEXT__('comparison.simulation_configuration')),configuration:diff({dynamicConfig:a.dynamicConfig,engineConfig:a.engineConfig,scenario:a.scenario},{dynamicConfig:b.dynamicConfig,engineConfig:b.engineConfig,scenario:b.scenario}),limitations:escape(data.limitations.join(' '))};
+    if(basic()){
+      function summary(s){return {oeePercent:s.results?.summary?.lineOeePercent,production:s.results?.summary?.outputCount,throughputPerMinute:s.results?.durationSeconds>0?s.results.summary.outputCount/s.results.durationSeconds*60:undefined};}
+      function inputs(e){return e?{speedBpm:e.nominalRatePerSecond*60,mtbfMinutes:e.noiseProfile?.reliability?.mtbfMinutes,mttrMinutes:e.noiseProfile?.reliability?.mttrMinutes}:{};}
+      slots.overview=diff(summary(a),summary(b));slots.inputs='';slots.equipment='';
+      ids.forEach(function(id){var left=a.equipment.find(function(e){return e.id===id;}),right=b.equipment.find(function(e){return e.id===id;});slots.inputs+='<section><h3>'+escape(left?.name||right?.name)+'</h3>'+diff(inputs(left),inputs(right))+'</section>';});
+      slots.batch='';slots.configuration=diff({durationSeconds:a.dynamicConfig.durationSeconds,rounds:a.dynamicConfig.rounds||1},{durationSeconds:b.dynamicConfig.durationSeconds,rounds:b.dynamicConfig.rounds||1});
+    }
     return documentHtml(__ST_TEXT__('exports.comparison_report'),slots,'comparison');
   }
   function bindComparison(activeCase,left,right){
@@ -156,6 +173,27 @@ window.STReports=(function(){
   function configurationHtml(data){
     var slots={metadata:table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(data.case)),settings:table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars({simulation:data.simulation.name,dynamicConfig:data.simulation.dynamicConfig,engineConfig:data.simulation.engineConfig})),equipment:'',json:escape(JSON.stringify(data,null,2))};
     data.simulation.equipment.forEach(function(e){slots.equipment+='<section><h2>'+escape(e.name)+'</h2>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(e))+'</section>';});
+    if(basic()){
+      slots.metadata=table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],[['Case',data.case.name],['Flow unit',data.case.unitOfFlow]]);
+      var run=data.simulation.dynamicConfig;
+      slots.settings=table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],[['Simulation',data.simulation.name],['Duration (s)',value(run.durationSeconds)],['Rounds',value(run.rounds||1)]]);
+      slots.equipment='';slots.json='';
+      var audit=STScenarios.audit({equipment:data.simulation.equipment});
+      data.simulation.equipment.forEach(function(e,index){
+        var rows=[];
+        if(e.type!=='CONVEYOR'){
+          var r=e.noiseProfile?.reliability||{},a=r.mtbfMinutes/(r.mtbfMinutes+r.mttrMinutes),next=data.simulation.equipment[index+1],zone=next?.type==='CONVEYOR'?audit.find(function(x){return x.equipmentId===next.id;}):null,down=data.simulation.equipment.find(function(x){return x.id===zone?.downstreamId;});
+          rows=[['Speed (BPM)',value(e.nominalRatePerSecond*60)],['MTBF (min)',value(r.mtbfMinutes)],['MTTR (min)',value(r.mttrMinutes)],['Critical machine',e.characteristics?.criticalMachine?'Yes':'No'],['Availability (%)',value(a*100)],['Buffer post (min)',value(next?.type==='CONVEYOR'?zone?.engineering?.runtimeGeometry?.capacityUnits/(down?.nominalRatePerSecond*60):0)]];
+        }else{
+          var p=e.processData||{};
+          ['geometry','upstream','downstream','speedAndSensors'].forEach(function(group){rows=rows.concat(scalars(p[group],human(group)));});
+          var acc=p.accumulation||{};['usefulAccumulationLengthMm','populationPercent','blockedTimeDelaySeconds','clearTimeDelaySeconds','insuranceFactorUnits','conveyorOverspeedPercent'].forEach(function(key){if(acc[key]!==undefined)rows.push([human(key),value(acc[key])]);});
+          var zone=audit.find(function(x){return x.equipmentId===e.id;}),calculated=zone?.engineering?.calculated,geometry=zone?.engineering?.runtimeGeometry;
+          rows.push(['Belt speed (m/min)',value(geometry?.conveyorSpeedMmPerSecond*.06)],['Population (%)',value(acc.targetPopulationPercent??(calculated?.machineOutputRateMmPerSecond/geometry?.conveyorSpeedMmPerSecond*100))],['LBA (mm)',value(acc.manualLbaMm??calculated?.usefulAccumulationLengthMm)],['Overflow (mm)',value(calculated?.overflowProductLengthMm)],['Required overflow Lbu (mm)',value(calculated?.overflowLengthMm)]);
+        }
+        slots.equipment+='<section><h2>'+escape(e.name)+'</h2>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],rows)+'</section>';
+      });
+    }
     return documentHtml(__ST_TEXT__('exports.setup_title'),slots,'configuration');
   }
   function bindConfiguration(read){

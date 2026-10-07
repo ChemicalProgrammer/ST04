@@ -100,8 +100,8 @@ logic are executed unchanged. Server RPCs use synthetic local fixtures.
 Basic now exposes fourteen palettes. “boat blues” maps to the existing source
 palette **boat house** (`#4E8AC2`); its source HEX is preserved. “hoke in one”
 maps to **hole in one**. All 57 source palettes remain available in Advance.
-An unsupported previous Basic color switches to à l'orange, the first allowed
-palette.
+The default is boat blues (`boat-house`); an unsupported previous Basic color
+also falls back to this palette. An existing supported user choice is preserved.
 
 The right-panel grip uses a thin neutral line with a visible keyboard focus
 indicator. Section and Settings-tab changes use a 160 ms fade with 4 px movement;

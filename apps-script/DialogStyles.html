@@ -109,4 +109,9 @@ dialog[open]::backdrop { opacity:1; }
 #series-color-preview { margin:0; }
 .color-hex-row input { margin-bottom:0; }
 #series-color-copy-status { min-height:1.5em; margin:var(--space-2) 0; }
+.settings-color-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-5); }
+.settings-color-columns > table { min-width:0; }
+#settings-dialog .settings-color-columns .settings-color-table th:last-child { width:120px; }
+#settings-dialog .settings-color-columns td { padding:var(--space-2); }
+@media(max-width:620px){.settings-color-columns { grid-template-columns:1fr; gap:var(--space-3); }}
 </style>

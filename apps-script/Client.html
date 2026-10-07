@@ -34,7 +34,7 @@
     var charts = STCharts(state,formatNumber);
     var drawSimulationChart = charts.drawSimulationChart, drawEquipmentSpeedChart = charts.drawEquipmentSpeedChart, drawEquipmentSpeedSparkline = charts.drawEquipmentSpeedSparkline;
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
-    var assistant = STAssistant(state, {flush:flushForServer, applyScenario:applyChatScenario});
+    var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
     function navigateView(view) {
@@ -152,6 +152,8 @@
       if(shell)shell.sync();
     }});
     var queueCaseSave=autosave.change;autosave.change=function(immediate){whatIfOnlySave=false;queueCaseSave(immediate);};
+    // Chat/evaluation-only writes must preserve the exact saved physical inputs.
+    function saveGeminiHistory(){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();return autosave.flush();}
     window.addEventListener('st-whatif-change',function(event){if(state.activeCase?.simulations?.includes(event.detail.simulation)){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();}});
     window.addEventListener('beforeunload',function(event){if(autosave.pending()||STSettings.pending()){event.preventDefault();event.returnValue='';}});
     window.addEventListener('online',function(){if(automaticSaving()&&autosave.pending())autosave.retry().catch(function(){});});
@@ -347,7 +349,7 @@ async function openCase(caseId) {
       var copy=cloneJson(source), count=state.activeCase.simulations.length;
       copy.id='simulation-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
       copy.name=__ST_TEXT__('simulation.copy_name')+source.name;
-      copy.results=null;delete copy.whatIf;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
+      copy.results=null;copy.geminiHistory=[];delete copy.whatIf;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
       return copy;
     }
     async function cloneActiveSimulation() {
@@ -1217,7 +1219,7 @@ function renderRawJson() {
       state.run.commands = cloneJson(simulation.dynamicConfig?.commands || []);
       applyScenarioRunInputs(simulation.dynamicConfig);
       state.run.configuration=simulation.results?copyRunConfiguration(simulation.dynamicConfig||{}):null;
-      document.getElementById('run-playback-rate').value=String([1,5,10,50,100].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
+      document.getElementById('run-playback-rate').value=String([1,5,10,50,100,200,500,1000].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
       state.run.result = simulation.results?.replay ? expandStoredReplay(simulation.results.replay,simulation.results) : null;
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();

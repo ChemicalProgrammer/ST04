@@ -104,3 +104,28 @@ test('What-If exports incomplete DOE evidence as incomplete without inventing ef
   assert.match(html,/Incomplete design/);assert.match(html,/Interrupted DOE &lt;test&gt;/);assert.equal(h.w.STReports.whatIfData(h.sim,plan).evaluations[0].status,'ERROR');
  }finally{h.dom.window.close();}
 });
+
+test('Basic PDF uses simplified inputs and mean result KPIs; Advance retains technical detail and JSON',()=>{
+ const h=setup();try{
+  h.sim.equipment[0].characteristics={...h.sim.equipment[0].characteristics,privateTechnical:'internal-only'};
+  h.sim.dynamicConfig.durationSeconds=60;h.result.summary.totalStarvedSeconds=123;
+  h.result.batch={rounds:2,statistics:{outputCount:{mean:110},throughputPerMinute:{mean:110},lineOeePercent:{mean:75}},rows:[{round:1,seed:17,shifts:[{shift:1,outputCount:120}]}]};
+  h.w.document.documentElement.dataset.uiMode='basic';
+  let doc=new JSDOM(h.w.STReports.configurationHtml(h.w.STReports.configuration(h.c,h.sim)));
+  assert.equal(doc.window.document.documentElement.dataset.uiMode,'basic');assert.equal(doc.window.document.querySelector('pre'),null);assert(!doc.window.document.body.textContent.includes('internal-only'));assert(doc.window.document.body.textContent.includes('Speed (BPM)'));assert(!doc.window.document.body.textContent.includes('blowmolder-1'));doc.window.close();
+  doc=new JSDOM(h.w.STReports.resultsHtml(h.result,h.c,h.sim));let text=doc.window.document.body.textContent;
+  assert(text.includes('75'));assert(text.includes('110'));assert(text.includes('Mean of 2 rounds'));assert(!text.includes('total Starved Seconds'));assert.equal(doc.window.document.querySelector('[data-report=equipment]').textContent,'');assert.equal(doc.window.document.querySelector('[data-report=batch]').textContent,'');doc.window.close();
+  let written,printed=false;h.w.open=()=>({document:{open(){},write(html){written=html;},close(){}},focus(){},setTimeout(fn){fn();},print(){printed=true;}});h.w.STReports.bindResults(h.result,h.c,h.sim);h.w.document.getElementById('export-results-pdf').click();assert(printed);assert.equal(new JSDOM(written).window.document.documentElement.dataset.uiMode,'basic');
+  h.w.document.documentElement.dataset.uiMode='advance';doc=new JSDOM(h.w.STReports.configurationHtml(h.w.STReports.configuration(h.c,h.sim)));assert(doc.window.document.querySelector('pre'));assert(doc.window.document.body.textContent.includes('internal-only'));doc.window.close();
+  doc=new JSDOM(h.w.STReports.resultsHtml(h.result,h.c,h.sim));assert(doc.window.document.body.textContent.includes('total Starved Seconds'));assert(doc.window.document.querySelector('[data-report=batch]').textContent.length>0);doc.window.close();
+ }finally{h.dom.window.close();}
+});
+
+test('Basic What-If and comparison documents omit technical checks, raw configuration and internal identifiers',()=>{
+ const h=setup();try{
+  h.w.document.documentElement.dataset.uiMode='basic';
+  const plan=h.w.STScenarios.plan(h.sim);let doc=new JSDOM(h.w.STReports.whatIfHtml(h.sim,plan));assert.equal(doc.window.document.querySelector('[data-report=checks]'),null);assert(!doc.window.document.body.textContent.includes('Calculated hypothesis evaluations'));doc.window.close();
+  const left={...h.sim,results:h.result},right={...h.sim,id:'b',name:'Simulation B',results:{...h.result,summary:{outputCount:130,lineOeePercent:82}}};
+  doc=new JSDOM(h.w.STReports.comparisonHtml(h.w.STReports.comparisonData(h.c,left,right)));assert(doc.window.document.body.textContent.includes('130'));assert.equal(doc.window.document.querySelector('[data-report=equipment]'),null);assert.equal(doc.window.document.querySelector('[data-report=batch]'),null);assert(!doc.window.document.body.textContent.includes('blowmolder-1'));doc.window.close();
+ }finally{h.dom.window.close();}
+});

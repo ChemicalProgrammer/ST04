@@ -152,7 +152,7 @@ test('UI: automatic edits survive reload and simulation rename/delete uses reusa
   await h.click('#delete-simulation');await h.click('.message-dialog button:first-child');assert.equal(h.storedCases()[0].simulations.length,2);
   await h.click('#delete-simulation');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases()[0].simulations.length===1);
   await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.querySelector('.equipment-name').value,'Automatically saved equipment');
-  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['1','5','10','50','100']);assert.deepEqual(h.errors,[]);
+  assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['1','5','10','50','100','200','500','1000']);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: local and Gemini chat buttons clone only validated changes into persistent scenarios',async()=>{
@@ -1378,7 +1378,7 @@ test('UI: Gemini reveals complete paragraphs progressively and shows cards only 
    h.d.getElementById('gemini-question').value='¿Qué mejoras sugieres?';await h.click('#send-gemini');await waitFor(()=>timers.length===1);
    const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.textContent,'Primer párrafo.\n\n');assert(h.d.getElementById('send-gemini').disabled);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
    timers.shift()();assert.equal(body.textContent,'Primer párrafo.\n\nSegundo párrafo.\n\n');assert.equal(timers.length,1);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
-   timers.shift()();assert.equal(body.textContent,answer);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-messages').getAttribute('aria-busy'),'false');
+   timers.shift()();assert.equal(body.textContent,answer);await waitFor(()=>!h.d.getElementById('send-gemini').disabled);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-messages').getAttribute('aria-busy'),'false');
    assert.equal(!!h.d.querySelector('#gemini-messages .analysis-recommendation'),uiMode==='ADVANCE');assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
@@ -1387,7 +1387,7 @@ test('UI: Gemini paragraph reveal respects reduced motion and stops when leaving
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('#toggle-gemini');const answer='First paragraph.\n\nSecond paragraph.';h.api.askGemini=()=>({text:answer});
   h.media.matches=true;h.d.getElementById('gemini-question').value='Explain';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-message[data-role=model]'));
-  assert.equal(h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body').textContent,answer);assert.equal(h.d.getElementById('send-gemini').disabled,false);
+  assert.equal(h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body').textContent,answer);await waitFor(()=>!h.d.getElementById('send-gemini').disabled);assert.equal(h.d.getElementById('send-gemini').disabled,false);
   h.media.matches=false;const original=h.w.setTimeout;let reveal;
   h.w.ST_GEMINI_CHAT_PRESENTATION.paragraphDelayMs=5000;h.w.ST_GEMINI_CHAT_PRESENTATION.maxDurationMs=15000;
   h.w.setTimeout=(fn,ms,...args)=>ms===5000?(reveal=fn,900001):original(fn,ms,...args);
@@ -1792,7 +1792,7 @@ test('UI: color map, RGB and HEX stay synchronized with full equipment names and
 test('UI: shared typography scales once, retains mode-specific choices and starts views with subsection titles',async()=>{
  for(const mode of ['ADVANCE','BASIC']){const h=await setup({remember:true,uiMode:mode});try{
   const basic=mode==='BASIC';assert.equal(h.d.documentElement.style.fontSize,basic?'17.6px':'16px');await h.click('.open-case');
-  for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']]){
+  for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']].filter(([view])=>basic||view!=='conveyors')){
    await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');if(['equipment','conveyors','vgraph','whatif'].includes(view)){assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}else{assert.equal(heading.textContent,'Simulation');if(basic)assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}if(['equipment','conveyors'].includes(view))assert.equal(h.d.getElementById('equipment-subsection-title').textContent,title);
   }
   await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert.equal(h.d.getElementById('run-rounds').closest('section').querySelectorAll('strong').length,0);assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
@@ -1877,9 +1877,72 @@ test('UI: Basic has precisely the requested fourteen palettes and hides the engi
   assert(h.d.getElementById('settings-engine-section').classList.contains('hidden'));
   const colors=Array.from(h.d.querySelectorAll('.accent-choice:not(.hidden)')).map(b=>b.dataset.accent);
   assert.deepEqual(colors,['a-lorange','adamite-green','boat-house','encore','football-field','glaucous','hole-in-one','imperial-yellow','mermaid-dreams','ocean-liner','poinsettia','redcurrant','thirsty-thursday','aegean-sea']);
-  assert.equal(h.d.documentElement.dataset.accent,'a-lorange');
-  assert.equal(h.d.querySelector('[data-accent="boat-house"]').title,'boat blues');
+  assert.equal(h.d.documentElement.dataset.accent,'boat-house');
+  assert.equal(h.d.querySelector('.accent-choice[data-accent="boat-house"]').dataset.tooltip||h.d.querySelector('.accent-choice[data-accent="boat-house"]').title,'boat blues');
   await h.click('[data-accent="aegean-sea"]');assert.equal(h.d.documentElement.dataset.accent,'aegean-sea');
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: chat histories persist per simulation in Basic and Advance, copy source text and regenerate a branch',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode,realScenarioServer:true});try{
+   await h.click('.open-case');await h.click('#toggle-gemini');h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
+   const requests=[];h.api.askGemini=request=>{requests.push(JSON.parse(JSON.stringify(request)));return {text:'**Answer:** '+request.question};};
+   const question=h.d.getElementById('gemini-question');
+   async function ask(text){question.value=text;await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled&&h.storedCases()[0].simulations[0].geminiHistory?.some(m=>m.text==='**Answer:** '+text));}
+   await ask('First question');await ask('Later question');
+   assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,4);
+   assert(h.d.getElementById('gemini-messages').contains(h.d.getElementById('gemini-progress')));
+   let copied;Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}}});
+   await h.click('.gemini-message[data-role=model] button[aria-label="Copy message"]');assert.equal(copied,'**Answer:** First question');
+   await h.click('.gemini-message[data-role=user] button[aria-label="Edit and regenerate"]');let editor=h.d.querySelector('.gemini-message-editor');editor.querySelector('textarea').value='Changed question';editor.dispatchEvent(new h.w.Event('submit',{cancelable:true}));
+   await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.[1]?.text==='**Answer:** Changed question'&&!h.d.getElementById('send-gemini').disabled);
+   assert.equal(requests.at(-1).question,'Changed question');assert.equal(requests.at(-1).history.length,0);assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,2);
+   await h.click('.gemini-message[data-role=model] button[aria-label="Edit preceding question and regenerate"]');editor=h.d.querySelector('.gemini-message-editor');assert.equal(editor.querySelector('textarea').value,'Changed question');editor.querySelector('button[type=button]').click();assert.equal(h.d.querySelector('.gemini-message-editor'),null);assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,2);
+   await h.click('#clone-case');await waitFor(()=>h.d.getElementById('simulation-selector').options.length===2);
+   assert.equal(h.d.querySelectorAll('.gemini-message').length,0);const selector=h.d.getElementById('simulation-selector'),other=selector.value;
+   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');question.value='Other simulation';await h.click('#send-gemini');await waitFor(()=>h.storedCases()[0].simulations[1].geminiHistory?.length===2&&!h.d.getElementById('send-gemini').disabled);
+   selector.value='simulation-a';selector.dispatchEvent(new h.w.Event('change'));assert.match(h.d.getElementById('gemini-messages').textContent,/Changed question/);assert(!h.d.getElementById('gemini-messages').textContent.includes('Other simulation'));
+   await h.click('#home-cases');await h.click('.open-case');selector.value='simulation-a';selector.dispatchEvent(new h.w.Event('change'));assert.match(h.d.getElementById('gemini-messages').textContent,/Changed question/);
+   selector.value=other;selector.dispatchEvent(new h.w.Event('change'));assert.match(h.d.getElementById('gemini-messages').textContent,/Other simulation/);
+   await h.click('#clear-gemini');await waitFor(()=>h.storedCases()[0].simulations[1].geminiHistory.length===0);assert.equal(h.storedCases()[0].simulations[0].geminiHistory.length,2);
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+test('UI: grip releases on global pointerup, missing mouse button and blur without moving on hover',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');const grip=h.d.getElementById('gemini-resize');
+  function begin(){grip.onpointerdown({button:0,pointerId:22,clientX:600,preventDefault(){}});grip.onpointermove({pointerId:22,clientX:550,buttons:1});}
+  function hover(){const width=grip.getAttribute('aria-valuenow');grip.onpointermove({pointerId:22,clientX:500,buttons:0});grip.onpointermove({pointerId:22,clientX:450,buttons:1});assert.equal(grip.getAttribute('aria-valuenow'),width);}
+  begin();const up=new h.w.Event('pointerup');Object.defineProperty(up,'pointerId',{value:22});h.w.dispatchEvent(up);hover();
+  begin();hover();begin();h.w.dispatchEvent(new h.w.Event('blur'));hover();assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: boat blue default, bounded icon buttons, faster playback and Advance case settings layout',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');assert.equal(h.d.documentElement.dataset.accent,'boat-house');
+  for(const id of ['play-simulation','pause-simulation','reset-playback','clear-gemini'])assert(h.d.getElementById(id).classList.contains('secondary'));
+  assert(h.d.querySelector('[data-basic-view=conveyors]').classList.contains('hidden'));
+  const speed=h.d.getElementById('run-playback-rate');for(const value of [200,500,1000]){speed.value=String(value);speed.dispatchEvent(new h.w.Event('change'));}
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].playbackRate===1000);await h.click('#home-cases');await h.click('.open-case');assert.equal(speed.value,'1000');
+  await h.click('#open-settings');assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-save-section')));assert(h.visible('settings-save-section'));
+  assert.equal(h.d.querySelectorAll('#settings-chart-colors > table').length,2);assert.equal(h.d.querySelectorAll('#settings-vgraph-colors > table').length,2);assert.equal(h.d.querySelectorAll('#settings-chart-colors button').length,13);
+  await h.click('#settings-close');await h.click('[data-basic-view=equipment]');const filter=h.d.querySelector('[name=equipment-filter][value=conveyors]');filter.checked=true;filter.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#toggle-gemini');assert(filter.checked,'chat sync must preserve the Advance equipment filter');
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: failed regeneration preserves the original saved conversation and restores the edited question',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
+  h.d.getElementById('gemini-question').value='Original question';await h.click('#send-gemini');await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.length===2&&!h.d.getElementById('send-gemini').disabled);
+  const saved=JSON.stringify(h.storedCases()[0].simulations[0].geminiHistory);h.api.askGemini=()=>{throw Error('Offline');};
+  await h.click('.gemini-message[data-role=user] button[aria-label="Edit and regenerate"]');const editor=h.d.querySelector('.gemini-message-editor');editor.querySelector('textarea').value='Retain this edit';editor.dispatchEvent(new h.w.Event('submit',{cancelable:true}));
+  await waitFor(()=>h.d.getElementById('gemini-error').textContent.includes('GEMINI_CONNECTION'));
+  assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].geminiHistory),saved);assert.match(h.d.getElementById('gemini-messages').textContent,/Original question/);assert.equal(h.d.getElementById('gemini-question').value,'Retain this edit');assert(!h.d.getElementById('send-gemini').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

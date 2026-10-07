@@ -46,4 +46,9 @@
 .markdown-table table { width:100%; border-collapse:collapse; font-size:.92em; }
 .markdown-table th,.markdown-table td { padding:var(--space-2); border:var(--border-width) solid var(--line); text-align:left; vertical-align:top; }
 .markdown-table th { background:var(--surface); }
+.gemini-message-actions { display:flex; justify-content:flex-end; gap:var(--space-2); margin-top:var(--space-2); white-space:normal; }
+.gemini-message-editor { display:grid; gap:var(--space-2); margin-top:var(--space-3); white-space:normal; }
+.gemini-message-editor textarea { width:100%; min-height:100px; resize:vertical; }
+.clipboard-fallback { position:fixed; left:-10000px; top:0; }
+#gemini-messages > .gemini-progress { flex-shrink:0; }
 </style>

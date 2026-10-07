@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-07",
+  "nonInterface": {
+    "tests": 200,
+    "pass": 200,
+    "fail": 0
+  },
+  "interface": {
+    "tests": 111,
+    "pass": 108,
+    "fail": 3
+  },
+  "remainingPreExistingFailures": [
+    "UI + Apps Script: a local proposal with a different fingerprint is regenerated from saved inputs",
+    "UI: JSON dialog uses shared spacing and import action; revision stays internal",
+    "UI: target Population and manual LBA persist in both modes and Basic cards show only names"
+  ],
+  "baselineVerifiedOn": "f4e30b9faaf122bdf0ebfe25b77fa64b1ec532ae",
+  "browser": "docs/validation/2026-10-07-interface-browser.json",
+  "liveAppsScriptTested": false
+}

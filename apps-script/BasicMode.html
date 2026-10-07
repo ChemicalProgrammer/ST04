@@ -35,7 +35,7 @@ window.STBasicMode=(function(){
       var group=document.createElement('section'),heading=document.createElement('strong');heading.className='basic-control-heading';heading.textContent=spec[1];if(spec[0]!=='run-rounds')group.appendChild(heading);setupControls.appendChild(group);
       if(spec[0]!=='run-rounds'){
         var row=document.createElement('div');row.className='button-row';group.appendChild(row);
-        var values=spec[0]==='run-playback-rate'?[1,5,10,50,100]:[1,2,3];
+        var values=spec[0]==='run-playback-rate'?[1,5,10,50,100,200,500,1000]:[1,2,3];
         values.forEach(function(value){var b=button(spec[0]==='run-playback-rate'?value+'×':value+' shift'+(value===1?'':'s'),'',function(){
           if(control.disabled)return;
           control.value=String(value);
@@ -53,7 +53,7 @@ window.STBasicMode=(function(){
   function unmount(){if(!mounted)return;document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
-    var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
+    var enabled=basic(),root=document.documentElement;if(!enabled&&state.basicView==='conveyors')state.basicView='equipment';root.dataset.uiMode=enabled?'basic':'advance';
     STPreferences.applyFontScale();
     STPreferences.applyJsonFields(root.dataset.uiMode);
     STPreferences.applyPalette(root.dataset.uiMode);
@@ -66,10 +66,11 @@ window.STBasicMode=(function(){
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('results-title').textContent=section==='vgraph'?'Speed profile':'Performance summary';
     nav.querySelector('[data-basic-view=comparison]').classList.toggle('hidden',enabled);
+    nav.querySelector('[data-basic-view=conveyors]').classList.toggle('hidden',!enabled);
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
-    if(!enabled){if(active&&view==='editor')STEquipmentFilter.set(section==='conveyors'?'conveyors':'equipment');if(active&&view==='results'&&section==='vgraph'){document.getElementById('breadcrumb-view').textContent=__ST_TEXT__('basic.vgraph');document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);}STIcons.decorate(nav);STIcons.decorate(tools);return;}
+    if(!enabled){if(active&&view==='results'&&section==='vgraph'){document.getElementById('breadcrumb-view').textContent=__ST_TEXT__('basic.vgraph');document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);}STIcons.decorate(nav);STIcons.decorate(tools);return;}
     var cards=Array.from(list.querySelectorAll('.equipment-card'));
     cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');if(type(card)==='CONVEYOR')prepareWorksheet(card);});
     if(active&&view==='editor'){
