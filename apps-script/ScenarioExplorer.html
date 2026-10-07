@@ -272,6 +272,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     function rebuild(){
       combined.replaceChildren();combined.className='scenario-tier-grid';
       var basic=document.documentElement.dataset.uiMode==='basic';
+      interventions.hidden=basic;interventions.style.display=basic?'none':'';
       if(basic){
         var current=el('article','','analysis-recommendation scenario-current'),values=simulation.results?.summary?metric(simulation.results):{},metrics=el('div','','scenario-basic-metrics');
         current.append(el('h4','Current scenario','scenario-current-title'));
@@ -280,7 +281,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       }
       (basic?['ZERO','MEDIUM','HIGH']:['ZERO','MEDIUM','HIGH','ALL']).forEach(function(tier){
         var seen=new Set(),changes=pool.filter(p=>p.tier===tier||tier==='ALL').sort((a,b)=>tier==='ALL'?['ZERO','MEDIUM','HIGH'].indexOf(b.tier)-['ZERO','MEDIUM','HIGH'].indexOf(a.tier):0).flatMap(p=>p.changes).filter(function(c){var key=c.equipmentId+':'+c.path;if(seen.has(key))return false;seen.add(key);return true;});
-        if(!changes.length){var empty=el('article','','analysis-recommendation'),badge=el('span',tier==='ALL'?'All CAPEX':STScenarioText[tier],'analysis-capex');badge.dataset.tier=tier==='ALL'?'HIGH':tier;empty.append(badge);empty.append(el('h4',tier==='ALL'?'All CAPEX':STScenarioText[tier]),el('p','No supported targets in this category. Add a documented intervention target before searching.'));combined.append(empty);return;}
+        if(!changes.length){var empty=el('article','','analysis-recommendation'),badge=el('span',tier==='ALL'?'All CAPEX':STScenarioText[tier],'analysis-capex');badge.dataset.tier=tier==='ALL'?'HIGH':tier;empty.append(badge);empty.append(el('h4',tier==='ALL'?'All CAPEX':STScenarioText[tier]),el('p','No supported targets in this category. Review equipment inputs and available search evidence.'));combined.append(empty);return;}
         var project={catalog:true,searchDerivedDOE:true,title:tier==='ALL'?'All CAPEX · combined search':'Line-wide '+STScenarioText[tier],description:tier==='ALL'?'Explore Zero, Medium and High measures together. Only the validated selection is saved.':'Evaluate this category independently.',searchScope:tier,kind:'CUSTOM',tier:tier==='ALL'?'HIGH':tier,basis:'STATIC',sourceSimulationId:simulation.id,sourceSignature:STScenarios.signature(simulation),changes:changes,explore:true};combined.append(STWhatIf.card(project,create,simulation.equipment,simulation));
       });
     }

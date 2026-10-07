@@ -19,11 +19,13 @@ window.STLinePerformance = (function() {
     var maximum = Math.ceil((Math.max.apply(null, all) + 10) / 10) * 10;
     if (minimum === maximum) maximum += 10;
     var style=getComputedStyle(document.documentElement),height=parseFloat(style.getPropertyValue('--vgraph-height'))||260;
-    var width=Math.max(parseFloat(style.getPropertyValue('--vgraph-min-width'))||580,target.clientWidth||740,valid.length*140+240);
+    var width=Math.max(240,target.clientWidth||740);
     var chart = svg('svg', {viewBox:'0 0 '+width+' '+height, role:'img', 'aria-label':__ST_TEXT__('performance.chart_label'), preserveAspectRatio:'xMidYMid meet'});
-    chart.style.minWidth=width+'px';
+    chart.style.minWidth='0';chart.style.width='100%';
     var basic=document.documentElement.dataset.uiMode==='basic';
-    var left = basic?140:100, right = width-100, bottom = height-(basic?100:86), top = 36;
+    var left=Math.min(100,width*.24),right=width-24,bottom=height-110,top=36;
+    var spacing=(right-left)/Math.max(1,valid.length-1),compact=spacing<100;
+    chart.style.fontSize=Math.max(11,Math.min(18,spacing/5))+'px';
     var x = function(i) { return left + (valid.length === 1 ? (right - left) / 2 : i * (right - left) / (valid.length - 1)); };
     var y = function(pct) { return bottom - (pct - minimum) / (maximum - minimum) * (bottom - top); };
     [minimum, (minimum + maximum) / 2, maximum].forEach(function(pct) {
@@ -38,13 +40,13 @@ window.STLinePerformance = (function() {
     valid.forEach(function(p, i) {
       var normal=svg('circle', {cx:x(i), cy:y(p.normalBpm), r:5, class:'vgraph-normal-dot'});normal.appendChild(svg('title',{},p.name+' · '+__ST_TEXT__('performance.normal')+': '+value(p.normalBpm)+' /min'));chart.appendChild(normal);
       if (Number.isFinite(p.recommendedBpm)) {var recommended=svg('circle', {cx:x(i), cy:y(p.recommendedBpm), r:3, class:'vgraph-recommended-dot'});recommended.appendChild(svg('title',{},p.name+' · '+__ST_TEXT__('performance.recommended')+': '+value(p.recommendedBpm)+' /min'));chart.appendChild(recommended);}
-      chart.appendChild(svg('text',{x:x(i),y:y(p.normalBpm)+25,class:'vgraph-value vgraph-normal-value','text-anchor':'middle'},value(p.normalBpm)));
-      if(Number.isFinite(p.recommendedBpm))chart.appendChild(svg('text',{x:x(i),y:y(p.recommendedBpm)-15,class:'vgraph-value vgraph-recommended-value','text-anchor':'middle'},value(p.recommendedBpm)));
-      chart.appendChild(svg('text', {x:x(i), y:height-50, class:'vgraph-label', 'text-anchor':'middle'}, p.name.length > 13 ? p.name.slice(0, 12) + '…' : p.name));
-      if (p.isPacemaker) chart.appendChild(svg('text', {x:x(i), y:height-24, class:'vgraph-reference', 'text-anchor':'middle'}, __ST_TEXT__('performance.reference_short')));
+      if(spacing>=45)chart.appendChild(svg('text',{x:x(i),y:y(p.normalBpm)+25,class:'vgraph-value vgraph-normal-value','text-anchor':'middle'},value(p.normalBpm)));
+      if(Number.isFinite(p.recommendedBpm)&&spacing>=45)chart.appendChild(svg('text',{x:x(i),y:y(p.recommendedBpm)-15,class:'vgraph-value vgraph-recommended-value','text-anchor':'middle'},value(p.recommendedBpm)));
+      var label=svg('text', {x:x(i),y:bottom+28,class:'vgraph-label','text-anchor':compact?'end':'middle'},p.name.length>(compact?10:16)?p.name.slice(0,compact?9:15)+'…':p.name);if(compact)label.setAttribute('transform','rotate(-65 '+x(i)+' '+(bottom+28)+')');label.style.fontSize=compact?'12px':'18px';label.appendChild(svg('title',{},p.name));chart.appendChild(label);
+      if (p.isPacemaker) chart.appendChild(svg('text', {x:x(i), y:height-24, class:'vgraph-reference', 'text-anchor':'middle'}, spacing<45?'★':__ST_TEXT__('performance.reference_short')));
     });
     target.appendChild(chart);
-    if(window.ResizeObserver&&!target._vgraphObserver){target._vgraphWidth=target.clientWidth;target._vgraphObserver=new ResizeObserver(function(){if(target.clientWidth!==target._vgraphWidth){target._vgraphWidth=target.clientWidth;plot(target,target._vgraphPoints);}});target._vgraphObserver.observe(target);}
+    if(!target._vgraphResize){target._vgraphWidth=target.clientWidth;target._vgraphResize=function(){if(target.clientWidth!==target._vgraphWidth){target._vgraphWidth=target.clientWidth;plot(target,target._vgraphPoints);}};window.addEventListener('resize',target._vgraphResize);if(window.ResizeObserver){target._vgraphObserver=new ResizeObserver(target._vgraphResize);target._vgraphObserver.observe(target);}}
   }
   function render(result, equipment) {
     if (!document.getElementById('line-performance')) return;

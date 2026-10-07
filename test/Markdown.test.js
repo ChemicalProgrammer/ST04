@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
-function renderer(){const dom=new JSDOM('<div id="body"></div>',{runScripts:'outside-only'});dom.window.eval(fs.readFileSync('apps-script/Markdown.html','utf8').replace(/^<script>|<\/script>\s*$/g,''));return {dom,body:dom.window.document.getElementById('body'),render:text=>dom.window.STMarkdown.render(text,dom.window.document.getElementById('body'))};}
+function renderer(){const dom=new JSDOM('<!doctype html><div id="body"></div>',{runScripts:'outside-only'});dom.window.eval(fs.readFileSync('apps-script/KaTeX.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);dom.window.eval(fs.readFileSync('apps-script/Markdown.html','utf8').replace(/^<script>|<\/script>\s*$/g,''));return {dom,body:dom.window.document.getElementById('body'),render:text=>dom.window.STMarkdown.render(text,dom.window.document.getElementById('body'))};}
 test('Markdown renders engineering headings, emphasis, lists, tables, quotes and code',()=>{
  const h=renderer();try{
  h.render('# Diagnóstico\n\n**OEE** y *throughput* con `seed`.\n\n- Primer cambio\n- Segundo cambio\n\n| Variable | Valor |\n| --- | ---: |\n| OEE | 42.5% |\n\n> Hipótesis\n\n```json\n{"seed":123}\n```');
@@ -14,5 +14,23 @@ test('Markdown displays untrusted HTML as text and rejects executable links',()=
  const h=renderer();try{
  h.render('<img src=x onerror=alert(1)>\n\n[bad](javascript:alert) [data](data:text/html,evil) [good](https://example.test) **<script>evil</script>**');
  assert.equal(h.body.querySelector('img,script'),null);assert.equal(h.body.querySelectorAll('a').length,1);assert.equal(h.body.querySelector('a').getAttribute('rel'),'noopener noreferrer');assert(h.body.textContent.includes('<img'));assert.equal(h.body.querySelector('strong').textContent,'<script>evil</script>');
+ }finally{h.dom.window.close();}
+});
+
+test('LaTeX renders fractions, subscripts and blocks as MathML, preserving code and rejecting unsafe commands',()=>{
+ const h=renderer();try{
+ h.render(String.raw`OEE: \(\frac{T_{run}}{T_{planned}}\times100\%\).
+
+$$v = \frac{L}{t}$$
+
+Inline $x_i^2$ and escaped \$10.
+
+\[\begin{aligned}a&=b+c\\ d&=\sqrt{x}\end{aligned}\]
+
+`+'`$do_not_render$`\n\n```latex\n\\frac{a}{b}\n```');
+ assert.equal(h.body.querySelectorAll('math').length,4);assert(h.body.querySelector('mfrac'));assert(h.body.querySelector('msub'));assert(h.body.querySelector('mtable'));assert.equal(h.body.querySelectorAll('code').length,2);assert.equal(h.body.querySelector('code').textContent,'$do_not_render$');
+ h.render(String.raw`\(\includegraphics{https://example.test/private}\) \(\href{javascript:alert(1)}{click}\) \(\badcommand{x}\)`);
+ assert.equal(h.body.querySelector('img,a,script'),null);assert(h.body.querySelector('.math-invalid'));assert(h.body.textContent.includes('badcommand'));
+ h.render(String.raw`Partial \(\frac{a`);assert.equal(h.body.querySelector('math'),null);
  }finally{h.dom.window.close();}
 });

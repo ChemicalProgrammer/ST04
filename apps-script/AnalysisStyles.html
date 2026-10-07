@@ -9,8 +9,8 @@
   .vgraph-key-recommended { color:var(--vgraph-recommended); }
   .vgraph-key::before { content: ''; width: var(--size-16); border-top: var(--focus-width) solid var(--vgraph-current); }
   .vgraph-key-recommended::before { border-color: var(--vgraph-recommended); }
-  .vgraph-plot { width: 100%; overflow-x: auto; }
-  .vgraph-plot svg { display: block; width: 100%; height: var(--vgraph-height); min-width: var(--vgraph-min-width); }
+  .vgraph-plot { width:100%; min-width:0; max-width:100%; overflow:hidden; }
+  .vgraph-plot svg { display: block; width: 100%; height: var(--vgraph-height); min-width:0; max-width:100%; }
   .vgraph-grid { stroke: var(--chart-grid); stroke-width: var(--border-width); }
   .vgraph-label { fill: var(--muted); font-size: calc(var(--font-caption) * 1.5); }
   .vgraph-reference { fill: var(--accent); font-size: calc(var(--font-caption) * 1.5); font-weight: var(--weight-bold); }

@@ -2049,3 +2049,18 @@ test('UI: guided equipment options validate, cancel, preserve imported metadata 
   }finally{h.dom.window.close();}
  }
 });
+
+
+test('UI: general Gemini questions work with unsaved edits and without a case; Basic hides interventions and VGraph fits its container',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  const requests=[];h.api.askGemini=request=>{requests.push(JSON.parse(JSON.stringify(request)));return {text:'General **answer**: '+request.question};};h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
+  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='How do I use Flow Pilot?';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-message[data-role=model]'));assert.equal(requests[0].scope,'GENERAL');assert.equal(requests[0].caseId,undefined);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
+  await h.click('.open-case');await h.click('[data-basic-view=equipment]');const card=h.d.querySelector('.equipment-card'),rate=card._fields.querySelector('.equipment-rate');rate.value='250';rate.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#toggle-gemini');const select=h.d.getElementById('gemini-scope');select.value='GENERAL';select.dispatchEvent(new h.w.Event('change'));h.d.getElementById('gemini-question').value='What does MTBF mean?';await h.click('#send-gemini');await waitFor(()=>requests.length===2&&h.d.querySelector('.gemini-message[data-role=model]'));
+  assert.equal(requests[1].scope,'GENERAL');assert.equal(requests[1].simulationId,undefined);assert.equal(requests[1].screen.selectedEquipmentName,null);assert.equal(requests[1].history.length,0);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);assert(!h.storedCases()[0].simulations[0].geminiHistory?.length);
+  select.value='CASE';select.dispatchEvent(new h.w.Event('change'));h.d.getElementById('gemini-question').value='Analyze my current simulation';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-error').textContent);assert.equal(requests.length,2);assert.match(h.d.getElementById('gemini-error').textContent,/Save/);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.some(m=>m.scope==='GENERAL'));
+  await h.click('[data-basic-view=whatif]');const interventions=h.d.querySelector('.scenario-interventions');assert(interventions);assert.equal(h.w.getComputedStyle(interventions).display,'none');
+  await h.click('[data-basic-view=equipment]');const plot=h.d.getElementById('vgraph-plot');Object.defineProperty(plot,'clientWidth',{value:320,configurable:true});h.w.dispatchEvent(new h.w.Event('resize'));const chart=plot.querySelector('svg');assert(chart);assert.equal(parseFloat(chart.style.minWidth),0);assert.equal(chart.getAttribute('viewBox').split(' ')[2],'320');assert.equal(h.w.getComputedStyle(plot).overflow,'hidden');assert.equal(h.w.getComputedStyle(h.d.querySelector('.auth-card .brand-mark')).width,'64px');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

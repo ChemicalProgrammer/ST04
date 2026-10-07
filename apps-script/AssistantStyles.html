@@ -56,4 +56,7 @@
 .gemini-activity::before { content:""; flex-shrink:0; width:8px; height:8px; border-radius:50%; background:currentColor; animation:gemini-wait-pulse 1s ease-in-out infinite; }
 @keyframes gemini-wait-pulse { 50% { opacity:.3; } }
 #gemini-messages > .gemini-progress { flex-shrink:0; }
+.math-formula math { font-size:1.12em; max-width:100%; color:var(--ink); }
+.math-formula[data-display=true] { display:block; margin:var(--space-3) 0; max-width:100%; overflow:auto; }
+.math-invalid { color:var(--muted); white-space:pre-wrap; }
 </style>

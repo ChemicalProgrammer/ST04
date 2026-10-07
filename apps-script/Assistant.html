@@ -5,14 +5,15 @@ window.STAssistant = function(state,actions) {
   var panelAnimation=null,panelVisible=false;
   var opened=false,caseId=null,simulationId=null,messages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null,progressHideTimer=null;
   function el(id){return document.getElementById(id);}
+  function general(){return el('gemini-scope').value==='GENERAL';}
   function basic(){return Boolean(window.STBasicMode?.isBasic());}
   function sideEditing(){return !basic()&&STEquipmentInspector.sync();}
   function progress(next){
     phase=next;clearInterval(progressTimer);progressTimer=null;clearTimeout(progressHideTimer);progressHideTimer=null;
     var target=el('gemini-progress');target.textContent='';target.classList.toggle('hidden',next==='idle');
-    el('gemini-activity').classList.toggle('hidden',!['preparing','waiting','writing'].includes(next));el('gemini-activity').textContent=next==='preparing'?'Preparing saved case…':next==='waiting'?'Waiting for Gemini…':next==='writing'?'Displaying received answer…':'';
+    el('gemini-activity').classList.toggle('hidden',!['preparing','waiting','writing'].includes(next));el('gemini-activity').textContent=next==='preparing'?(general()?'Preparing general question…':'Preparing saved case…'):next==='waiting'?'Waiting for Gemini…':next==='writing'?'Displaying received answer…':'';
     if(next==='idle'){target.setAttribute('aria-busy','false');clearTimeout(responseTimer);responseTimer=null;return;}
-    var labels=[__ST_TEXT__('assistant.progress_saved'),__ST_TEXT__('assistant.progress_waiting'),__ST_TEXT__('assistant.progress_ready')];
+    var labels=[general()?'No case data included':__ST_TEXT__('assistant.progress_saved'),__ST_TEXT__('assistant.progress_waiting'),__ST_TEXT__('assistant.progress_ready')];
     var active={preparing:0,waiting:1,writing:2,done:3,error:1}[next];
     labels.forEach(function(label,index){if(next==='error'&&index>active)return;var row=document.createElement('li');row.dataset.state=next==='error'&&index===1?'error':index<active?'done':index===active?'active':'pending';row.textContent=next==='error'&&index===1?__ST_TEXT__('assistant.progress_failed'):label;target.appendChild(row);});
     target.setAttribute('aria-busy',String(next==='preparing'||next==='waiting'||next==='writing'));
@@ -25,12 +26,12 @@ window.STAssistant = function(state,actions) {
     scrollMessages();
   }
   function simulation(){return (state.activeCase?.simulations||[]).find(function(item){return item.id===state.activeSimulationId;});}
-  function persist(){
+  function persist(draftOnly){
     var current=simulation();if(!current)return;
-    current.geminiHistory=messages.map(function(m){return {role:m.role,text:m.text,createdAt:m.createdAt,proposals:m.proposals||[],context:m.context,historyOmitted:m.historyOmitted||0};});
+    current.geminiHistory=messages.map(function(m){return {role:m.role,text:m.text,createdAt:m.createdAt,proposals:m.proposals||[],context:m.context,historyOmitted:m.historyOmitted||0,scope:m.scope||'CASE'};});
     current.updatedAt=new Date().toISOString();
     var ownerCase=caseId,ownerSimulation=simulationId;
-    Promise.resolve(actions.saveChat?.()).catch(function(error){if(caseId!==ownerCase||simulationId!==ownerSimulation)return;el('gemini-error').textContent='Chat changes are retained in the draft but could not be saved. Retry saving the case. '+error.message;STErrors.capture('gemini-error',error);});
+    Promise.resolve(actions.saveChat?.({draftOnly:!!draftOnly})).catch(function(error){if(caseId!==ownerCase||simulationId!==ownerSimulation)return;el('gemini-error').textContent='Chat changes are retained in the draft but could not be saved. Retry saving the case. '+error.message;STErrors.capture('gemini-error',error);});
   }
   async function copyMessage(message,button){
     try{
@@ -48,7 +49,7 @@ window.STAssistant = function(state,actions) {
     editor.className='gemini-message-editor';text.value=messages[questionIndex].text;text.rows=4;text.maxLength=6000;text.required=true;text.setAttribute('aria-label','Edit question and regenerate');
     note.className='chart-note';note.textContent='Regenerating replaces this question and all later messages. Cancel keeps the conversation.';
     buttons.className='button-row';var cancel=document.createElement('button'),submit=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Cancel';cancel.onclick=function(){editor.remove();};submit.type='submit';submit.textContent='Regenerate';buttons.append(cancel,submit);editor.append(note,text,buttons);message.node.append(editor);text.focus();
-    editor.onsubmit=function(event){event.preventDefault();var question=text.value.trim();if(!question)return;editor.remove();submitQuestion(question,questionIndex);};
+    editor.onsubmit=function(event){event.preventDefault();var question=text.value.trim();if(!question)return;editor.remove();el('gemini-scope').value=messages[questionIndex].scope||'CASE';submitQuestion(question,questionIndex);};
   }
   function attachments(m){
     (basic()?[]:(m.proposals||[])).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment,(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;})));});
@@ -95,17 +96,19 @@ window.STAssistant = function(state,actions) {
   }
   function sync(){
     var active=state.activeCase;
-    if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){stopReveal();progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;messages=JSON.parse(JSON.stringify(simulation()?.geminiHistory||[]));pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
+    if(caseId!==(active?.id||null)||simulationId!==state.activeSimulationId){stopReveal();progress('idle');sequence++;caseId=active?.id||null;simulationId=state.activeSimulationId;el('gemini-scope').value=active?'CASE':'GENERAL';messages=JSON.parse(JSON.stringify(simulation()?.geminiHistory||[]));pending=false;render();el('gemini-question').value='';el('gemini-error').textContent='';}
+    if(!active)el('gemini-scope').value='GENERAL';el('gemini-scope').querySelector('[value=CASE]').disabled=!active;
     var editing=sideEditing();
-    var visible=Boolean(active&&(opened||editing));
+    var visible=Boolean(state.bootstrap&&(opened||editing));
     if(!basic())el('equipment-inspector').classList.toggle('hidden',!editing);el('gemini-chat-view').classList.toggle('hidden',editing);
     el('gemini-title').textContent=editing?__ST_TEXT__('inspector.equipment'):__ST_TEXT__('assistant.gemini');
     showPanel(visible);el('toggle-gemini').setAttribute('aria-expanded',String(visible&&!editing));
     el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
-    el('gemini-notice').textContent=pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?__ST_TEXT__('assistant.save_your_changes_before_asking_about_this_case'):__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
-    el('send-gemini').disabled=pending||state.saving||!configured||!active;el('send-gemini').setAttribute('aria-busy',String(pending));
+    el('gemini-scope').disabled=pending;el('gemini-question').placeholder=general()?'Ask about using Flow Pilot or general concepts':'Ask about the current simulation';
+    el('gemini-notice').textContent=!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):general()?'General questions do not send case data and do not require saving.':pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?'Save changes before asking about this simulation, or choose General question.':__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
+    el('send-gemini').disabled=pending||state.saving||!configured||!active&&!general();el('send-gemini').setAttribute('aria-busy',String(pending));
     el('clear-gemini').disabled=pending||state.saving;
     el('gemini-messages').querySelectorAll('.gemini-message-actions button').forEach(function(button){button.disabled=button.dataset.action==='edit'&&(pending||state.saving);});
   }
@@ -157,24 +160,26 @@ window.STAssistant = function(state,actions) {
     el('close-gemini').onclick=function(){if(!basic())STEquipmentInspector.hide();opened=false;sync();el('toggle-gemini').focus();window.dispatchEvent(new Event('resize'));};
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();if(!drag)syncWidthMode();window.dispatchEvent(new Event('resize'));});
-    el('clear-gemini').onclick=function(){stopReveal();sequence++;progress('idle');messages=[];render();persist();el('gemini-error').textContent='';sync();};
+    el('clear-gemini').onclick=function(){stopReveal();sequence++;progress('idle');messages=[];render();persist(general());el('gemini-error').textContent='';sync();};
+    el('gemini-scope').onchange=sync;
     el('gemini-form').onsubmit=function(e){e.preventDefault();submitQuestion(el('gemini-question').value.trim());};
   }
   async function submitQuestion(question,cutIndex){
       sync();if(el('send-gemini').disabled||!question)return;
       var originalCase=caseId,originalSimulation=simulationId;
       pending=true;progress('preparing');sync();
-      try{await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
+      var scope=general()?'GENERAL':'CASE';
+      try{if(scope==='CASE')await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
       if(originalCase!==caseId||originalSimulation!==simulationId)return;
       var previousMessages=messages.slice();if(cutIndex!==undefined)messages=messages.slice(0,cutIndex);
-      var request={caseId:caseId,simulationId:simulationId,uiMode:basic()?'BASIC':'ADVANCE',screen:{section:state.uiView,settingsOpen:el('settings-dialog').open,selectedEquipmentName:STEquipmentInspector.name()},question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
-      pending=true;el('gemini-error').textContent='';messages.push({role:'user',text:question,createdAt:new Date().toISOString()});el('gemini-question').value='';render();sync();
+      var request={scope:scope,...(scope==='CASE'?{caseId:caseId,simulationId:simulationId}:{}),uiMode:basic()?'BASIC':'ADVANCE',screen:{section:state.uiView,settingsOpen:el('settings-dialog').open,selectedEquipmentName:scope==='CASE'?STEquipmentInspector.name():null},question:question,history:messages.filter(function(m){return (m.scope||'CASE')===scope;}).slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
+      pending=true;el('gemini-error').textContent='';messages.push({role:'user',scope:scope,text:question,createdAt:new Date().toISOString()});el('gemini-question').value='';render();sync();
       progress('waiting');
       function finish(response){
         if(ticket!==sequence)return;
         clearTimeout(responseTimer);responseTimer=null;sequence++;
         if(!response||typeof response.ok!=='boolean'||response.ok&&typeof response.data?.text!=='string')response={ok:false,error:{code:'GEMINI_BAD_RESPONSE',message:'The server returned an incomplete answer. Try again.'}};
-        if(response.ok){var answer={role:'model',text:response.data.text,createdAt:new Date().toISOString(),proposals:basic()?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);persist();reveal(answer);return;}
+        if(response.ok){var answer={role:'model',scope:scope,text:response.data.text,createdAt:new Date().toISOString(),proposals:basic()||scope==='GENERAL'?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);persist(scope==='GENERAL');reveal(answer);return;}
         pending=false;progress('error');
         messages=previousMessages;el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');STErrors.capture('gemini-error',response.error);
         render();sync();

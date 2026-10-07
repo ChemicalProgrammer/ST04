@@ -153,7 +153,7 @@
     }});
     var queueCaseSave=autosave.change;autosave.change=function(immediate){whatIfOnlySave=false;queueCaseSave(immediate);};
     // Chat/evaluation-only writes must preserve the exact saved physical inputs.
-    function saveGeminiHistory(){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();return autosave.flush();}
+    function saveGeminiHistory(options){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();return options?.draftOnly?Promise.resolve():autosave.flush();}
     window.addEventListener('st-whatif-change',function(event){if(state.activeCase?.simulations?.includes(event.detail.simulation)){if(!autosave.pending())whatIfOnlySave=true;queueCaseSave();}});
     window.addEventListener('beforeunload',function(event){if(autosave.pending()||STSettings.pending()){event.preventDefault();event.returnValue='';}});
     window.addEventListener('online',function(){if(automaticSaving()&&autosave.pending())autosave.retry().catch(function(){});});

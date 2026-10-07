@@ -266,7 +266,7 @@
         <p id="gemini-activity" class="gemini-activity hidden" role="status" aria-live="polite"></p>
         <p id="gemini-notice" class="gemini-notice"><?= __ST_TEXT__('view.ask_about_the_saved_case_equipment_and_simulation_results') ?></p>
         <div id="gemini-messages" class="gemini-messages" role="log" aria-label="<?= __ST_TEXT__('view.case_conversation') ?>" aria-live="polite"><ol id="gemini-progress" class="gemini-progress hidden" role="status" aria-live="polite"></ol></div>
-        <form id="gemini-form" class="gemini-composer"><label class="sr-only" for="gemini-question"><?= __ST_TEXT__('view.question_for_gemini') ?></label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="<?= __ST_TEXT__('view.ask_about_this_case') ?>" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="secondary icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('view.clear_case_conversation') ?>" title="<?= __ST_TEXT__('view.clear_case_conversation') ?>"></button><button id="send-gemini" type="submit" data-icon="send"><?= __ST_TEXT__('view.send') ?></button></div><p id="gemini-error" data-error-notice="message" data-error-title="Gemini error" class="chart-note" role="alert"></p><p class="chart-note"><?= __ST_TEXT__('assistant.history_saved') ?></p></form>
+        <form id="gemini-form" class="gemini-composer"><label for="gemini-scope">Question context</label><select id="gemini-scope"><option value="CASE">Current simulation</option><option value="GENERAL">General question · no case data</option></select><label class="sr-only" for="gemini-question"><?= __ST_TEXT__('view.question_for_gemini') ?></label><textarea id="gemini-question" rows="3" maxlength="6000" placeholder="<?= __ST_TEXT__('view.ask_about_this_case') ?>" required></textarea><div class="gemini-actions"><button id="clear-gemini" type="button" class="secondary icon-button" data-icon="trash" aria-label="<?= __ST_TEXT__('view.clear_case_conversation') ?>" title="<?= __ST_TEXT__('view.clear_case_conversation') ?>"></button><button id="send-gemini" type="submit" data-icon="send"><?= __ST_TEXT__('view.send') ?></button></div><p id="gemini-error" data-error-notice="message" data-error-title="Gemini error" class="chart-note" role="alert"></p><p class="chart-note"><?= __ST_TEXT__('assistant.history_saved') ?></p></form>
         </div>
       </aside>
     </main>
@@ -346,6 +346,7 @@
     <?!= include_('Shell'); ?>
     <?!= include_('Charts'); ?>
     <?!= include_('Comparison'); ?>
+    <?!= include_('KaTeX'); ?>
     <?!= include_('Markdown'); ?>
     <?!= include_('Assistant'); ?>
     <?!= include_('EquipmentDrag'); ?>

@@ -25,7 +25,7 @@ test('modular Apps Script application contains all server modules and resolved H
   assert.doesNotMatch(index, /<\?\s*include_/);
 
   const scripts = Array.from(index.matchAll(/<script>([\s\S]*?)<\/script>/g), (match) => match[1]);
-  assert.equal(scripts.length, 29);
+  assert.equal(scripts.length, 30);
   assert.match(index, /window\.STScenarioExplorer=/);
   assert.doesNotMatch(index, /\b__ST_(?:HTML_)?TEXT__\s*\(/, 'Client resource calls must be resolved at build time.');
   assert.match(index, /window\.STSheetCorrections=/);

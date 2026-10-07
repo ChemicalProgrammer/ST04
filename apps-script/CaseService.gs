@@ -184,7 +184,7 @@ function normalizeGeminiConversation_(history) {
   if(!Array.isArray(history))throw createSimulatorError_('INVALID_CASE','Gemini history must be a list.');
   return history.map(function(message){
     if(!message||!['user','model'].includes(message.role)||typeof message.text!=='string')throw createSimulatorError_('INVALID_CASE','Gemini history contains an invalid message.');
-    return {role:message.role,text:message.text,createdAt:typeof message.createdAt==='string'?message.createdAt:undefined,
+    return {role:message.role,text:message.text,scope:message.scope==='GENERAL'?'GENERAL':'CASE',createdAt:typeof message.createdAt==='string'?message.createdAt:undefined,
       proposals:message.role==='model'&&Array.isArray(message.proposals)?JSON.parse(JSON.stringify(message.proposals)):[],
       context:message.role==='model'&&message.context?normalizeObject_(message.context):undefined,historyOmitted:Number.isFinite(message.historyOmitted)?message.historyOmitted:0};
   });

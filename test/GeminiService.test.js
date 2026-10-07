@@ -249,3 +249,10 @@ test('Gemini operating questions include maintained app knowledge and bounded sc
  assert.equal(screen.section,'editor');assert.equal(screen.settingsOpen,true);assert.equal(screen.selectedEquipmentName.length,120);assert(!data.includes('SECRET_OTHER_CASE'));
  assert.equal(h.ctx.flowPilotScreenContext_({section:'INVENTED_SCREEN'}).section,'unknown');
 });
+
+
+test('General Gemini questions do not read cases or include simulation data and cannot return actionable proposals',()=>{
+ const h=setup({denied:true,answer:JSON.stringify({text:'Explicación general.',proposals:[{title:'Ignore this',changes:[]}]})});let reads=0;h.ctx.getCase_=()=>{reads++;throw Error('No saved case');};
+ const result=h.ctx.askGemini_({scope:'GENERAL',question:'¿Qué es MTBF?',uiMode:'ADVANCE',history:[]},user);assert.equal(reads,0);assert.equal(result.text,'Explicación general.');assert.equal(result.proposals.length,0);assert.equal(result.context,undefined);
+ const payload=h.calls[0].options.payload;assert(!payload.includes('Filler'));assert(!payload.includes('Case A'));assert(payload.includes('caseContextIncluded'));assert.match(JSON.parse(payload).systemInstruction.parts[0].text,/no case or simulation context/);
+});
