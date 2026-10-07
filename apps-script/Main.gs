@@ -2,11 +2,6 @@ function doGet() {
   var output = HtmlService.createTemplateFromFile('WebApp')
     .evaluate()
     .setTitle(__ST_TEXT__('view.fp_flow_pilot'));
-  try {
-    output.setFaviconUrl('https://raw.githubusercontent.com/ChemicalProgrammer/ST/main/assets/flow-pilot-favicon.png');
-  } catch (error) {
-    console.warn('Flow Pilot favicon could not be configured: ' + error.message);
-  }
   return output;
 }
 

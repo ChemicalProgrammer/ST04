@@ -25,6 +25,11 @@ const pythonFiles=JSON.parse(execFileSync('python3',['-c',
   'import json,sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))',
   path.join(pythonRoot,'vendor/simpy-4.1.2-py3-none-any.whl')],{encoding:'utf8'}));
 for(const name of ['st_des_engine.py','st_simpy_engine.py'])pythonFiles[name]=fs.readFileSync(path.join(pythonRoot,name),'utf8');
+// Remove documentation-only external project links from the deployed bundle.
+// Preserve all license and copyright text.
+for (const name of Object.keys(pythonFiles)) {
+  pythonFiles[name] = pythonFiles[name].replace(/https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)\/[^\s)<>]+/g, 'external project reference');
+}
 
 const source = sourceFiles
   .map((relativePath) => fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8'))
