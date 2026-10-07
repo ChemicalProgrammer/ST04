@@ -79,4 +79,8 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .error-details-dialog .dialog-heading { color:var(--danger); }
 .error-details-dialog #message-dialog-message,.error-detail-text { white-space:pre-wrap; overflow-wrap:anywhere; }
 .error-detail-text { font-family:var(--font-mono); font-size:var(--font-secondary); background:var(--surface-soft); border:var(--border-width) solid var(--line); border-radius:var(--radius-sm); padding:var(--space-3); margin-bottom:0; }
+.error-notice:not(.error-local) { display:none !important; }
+#header-errors { display:inline-flex; align-items:center; }
+.error-copy-status { margin-right:auto; font-size:var(--font-secondary); color:var(--muted); }
+.clipboard-fallback { position:fixed; left:-9999px; width:1px; height:1px; }
 </style>

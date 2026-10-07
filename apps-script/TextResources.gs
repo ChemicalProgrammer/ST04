@@ -1,5 +1,8 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "errors.copy":"Copy error",
+  "errors.copied":"Error copied",
+  "errors.copy_failed":"Clipboard unavailable. Select and copy the error details manually.",
   "errors.title":"Error details",
   "errors.view_details":"View error details",
   "errors.code":"Error code",
@@ -660,7 +663,7 @@ var ST_TEXT_RESOURCES = {
   "view.full_simulated_duration_series_colors_match_the_live_equipment_trends": "Full simulated duration. Series colors match the live equipment trends.",
   "view.rolling_actual_speed_chart_for_all_equipment": "Rolling actual speed chart for all equipment",
   "view.equipment_speed_chart_legend": "Equipment speed chart legend",
-  "view.raw_simulation_result": "Raw simulation result",
+  "view.raw_simulation_result": "Result summary JSON",
   "view.scenario_lab": "SCENARIO LAB",
   "view.review_the_recommendation_for_the_selected_simulation_and_create_a_proposed": "Evaluate the selected simulation and create supported scenarios by investment category.",
   "view.start_with_a_baseline_run": "Start with a baseline run",

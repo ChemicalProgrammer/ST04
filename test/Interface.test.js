@@ -1420,9 +1420,9 @@ test('UI: scenario budgets and stagnation finish with full-round independent con
 test('UI + Apps Script: saving a large replicated result compacts replay and preserves full metrics',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
   await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=60;h.d.getElementById('run-rounds').value=2;h.d.getElementById('run-sample-interval').value=1;
-  const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);for(const replay of [response.result,...response.result.batch.replays])for(const sample of replay.samples)sample.extraDetail='x'.repeat(8000);return response;};
+  let full;const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);full=JSON.parse(JSON.stringify(response.result));for(const replay of [response.result,...response.result.batch.replays])for(const sample of replay.samples)sample.extraDetail='x'.repeat(8000);return response;};
   await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await waitFor(()=>!h.d.getElementById('batch-dialog').open&&h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');
-  const full=JSON.parse(h.d.getElementById('simulation-json-preview').value),originalSave=h.api.saveCase;let payloadBytes;
+  const preview=JSON.parse(h.d.getElementById('simulation-json-preview').value),originalSave=h.api.saveCase;assert.equal(preview.coverage.samplesIncluded,false);let payloadBytes;
   h.api.saveCase=request=>{payloadBytes=new h.w.Blob([JSON.stringify(request)]).size;return originalSave(request);};h.w.ST_CASE_SAVE_LIMITS.maxBytes=800000;
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results||h.d.getElementById('autosave-status').dataset.state==='error');assert(h.storedCases()[0].simulations[0].results,h.d.getElementById('status').textContent+' '+h.d.getElementById('autosave-status').title);
   const saved=h.storedCases()[0].simulations[0].results;assert(payloadBytes<=800000);assert.equal(saved.replay.samples.length,full.samples.length);assert(saved.replay.samples.every(sample=>sample.extraDetail===undefined));assert.equal(saved.replay.samples[0].virtualSecond,0);assert.equal(saved.replay.samples.at(-1).virtualSecond,60);assert.deepEqual(saved.batch.statistics,full.batch.statistics);assert.deepEqual(saved.equipmentMetrics,full.equipmentMetrics);assert.equal(saved.replay.detailCoverage.storageFormat,'chart-history-1');assert.equal(saved.replay.events.length,0);assert.deepEqual(h.errors,[]);
@@ -1648,7 +1648,7 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
    h.d.getElementById('simulation-selector').value='simulation-a';h.d.getElementById('simulation-selector').dispatchEvent(new h.w.Event('change'));await settle();
    assert.deepEqual(ids.map(id=>h.d.getElementById(id).textContent),metrics);
    assert.deepEqual(Array.from(h.d.querySelectorAll('.live-equipment-card')).map(card=>[card.querySelector('.live-rate').textContent,card.querySelector('.live-processed').textContent,card.querySelector('.live-oee').textContent]),cards);
-   const restored=JSON.parse(h.d.getElementById('simulation-json-preview').value);assert(restored.samples.length>2);assert.equal(restored.samples.at(-1).virtualSecond,5);assert(restored.samples.at(-1).accumulationZones[0].geometry);
+   const restored=JSON.parse(h.d.getElementById('simulation-json-preview').value);assert(restored.coverage.sampleCount>2);assert.equal(restored.coverage.samplesIncluded,false);assert.equal(restored.durationSeconds,5);
    assert(h.d.querySelector('.live-equipment-card.show-losses'));if(details)assert(h.d.querySelector('.live-equipment-zone details').open);
    assert.equal(h.d.getElementById('run-playback-rate').value,'100');assert.equal(h.d.getElementById('autosave-status').dataset.state,'saved');assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
@@ -1717,17 +1717,17 @@ test('UI: shared error icons preserve details, render safe dialogs and disappear
    await settle();assert.equal(h.w.getComputedStyle(source).display,'none');const notice=source.nextElementSibling;assert(!notice.classList.contains('hidden'));assert.equal(notice.querySelector('button').textContent,'');
    notice.querySelector('button').click();await waitFor(()=>h.d.querySelector('.error-details-dialog[open]'));
    const dialog=h.d.querySelector('.error-details-dialog');assert.match(dialog.textContent,/TEST_FAILURE/);assert.match(dialog.textContent,/MTBF/);assert.match(dialog.textContent,/Client:123/);assert(dialog.textContent.includes('<script>'));assert(!dialog.querySelector('script'));
-   await h.click('.error-details-dialog button');assert.equal(h.d.activeElement,notice.querySelector('button'));source.textContent='';await settle();assert(notice.classList.contains('hidden'));
+   await h.click('.error-details-dialog button:not(.copy-error)');assert.equal(h.d.activeElement,notice.querySelector('button'));source.textContent='';await settle();assert(notice.classList.contains('hidden'));
   }
-  const source=h.d.getElementById('settings-error');source.textContent='Only a message';await settle();source.nextElementSibling.querySelector('button').click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/No additional details/);await h.click('.error-details-dialog button');
+  const source=h.d.getElementById('settings-error');source.textContent='Only a message';await settle();source.nextElementSibling.querySelector('button').click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/No additional details/);await h.click('.error-details-dialog button:not(.copy-error)');
   source.textContent='';await settle();assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: runtime exceptions show an error icon and retain the available technical trace',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');const error=new h.w.RangeError('Invalid string length');h.w.dispatchEvent(new h.w.ErrorEvent('error',{error,message:error.message}));await settle();
-  const source=h.d.getElementById('status');assert.equal(h.w.getComputedStyle(source).display,'none');const button=source.nextElementSibling.querySelector('button');assert(!button.closest('.error-notice').classList.contains('hidden'));button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);
-  await h.click('.error-details-dialog button');source.className='status';source.textContent='Simulation ready';await settle();assert(source.nextElementSibling.classList.contains('hidden'));assert.notEqual(h.w.getComputedStyle(source).display,'none');assert.deepEqual(h.errors,[]);
+  const source=h.d.getElementById('status');assert.equal(h.w.getComputedStyle(source).display,'none');const button=h.d.getElementById('header-error-button');assert(!h.d.getElementById('header-errors').classList.contains('hidden'));assert.equal(h.d.getElementById('header-errors').nextElementSibling.id,'save-case');button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);
+  await h.click('.error-details-dialog button:not(.copy-error)');source.className='status';source.textContent='Simulation ready';await settle();assert(source.nextElementSibling.classList.contains('hidden'));assert.notEqual(h.w.getComputedStyle(source).display,'none');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -1735,6 +1735,28 @@ test('UI: scenario evaluation failures use the shared icon with the original err
  const h=await setup({remember:true});try{
   const simulation=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(simulation).projects.find(p=>p.canApply),card=h.w.STWhatIf.card(project,()=>{},simulation.equipment,simulation);h.d.body.append(card);
   h.w.SimulatorEngine.simulateBatch=async()=>{throw new h.w.RangeError('Invalid string length');};card.querySelector('.scenario-evaluate').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.includes('Cannot evaluate'));
-  const source=card.querySelector('.scenario-preview-status');await settle();assert.equal(h.w.getComputedStyle(source).display,'none');const button=card.querySelector('.error-details-trigger');assert(!button.closest('.error-notice').classList.contains('hidden'));button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);assert(card.querySelector('.scenario-create').disabled);await h.click('.error-details-dialog button');assert.deepEqual(h.errors,[]);
+  const source=card.querySelector('.scenario-preview-status');await settle();assert.equal(h.w.getComputedStyle(source).display,'none');const button=h.d.getElementById('header-error-button');assert(!h.d.getElementById('header-errors').classList.contains('hidden'));assert.equal(h.w.getComputedStyle(card.querySelector('.error-notice')).display,'none');button.click();await waitFor(()=>h.d.querySelector('.error-details-dialog'));assert.match(h.d.querySelector('.error-detail-text').textContent,/RangeError: Invalid string length/);assert(card.querySelector('.scenario-create').disabled);await h.click('.error-details-dialog button:not(.copy-error)');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: header aggregates errors and copies the complete diagnostic through the icon button',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');let copied;Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}},configurable:true});
+  for(const id of ['gemini-error','configuration-error']){const source=h.d.getElementById(id);source.textContent='Failure '+id;h.w.STErrors.capture(source,{message:'Failure '+id,code:'TEST_CODE',details:['Explanation'],stack:'Error at calculate'});}await settle();assert.equal(h.d.getElementById('header-errors').dataset.count,'2');
+  await h.click('#header-error-button');await h.click('.copy-error');assert(copied.includes('Failure gemini-error'));assert(copied.includes('Failure configuration-error'));assert(copied.includes('TEST_CODE'));assert(copied.includes('Error at calculate'));assert.equal(h.d.querySelector('.copy-error').textContent,'');assert.match(h.d.querySelector('.error-copy-status').textContent,/copied/);assert(h.d.querySelector('.error-details-dialog').open);
+  await h.click('.error-details-dialog button:not(.copy-error)');assert.equal(h.d.activeElement.id,'header-error-button');
+  Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async()=>{throw Error('Denied');}},configurable:true});let fallback;h.d.execCommand=command=>{assert.equal(command,'copy');fallback=h.d.querySelector('.clipboard-fallback').value;return true;};await h.click('#header-error-button');await h.click('.copy-error');assert.equal(fallback,copied);assert.equal(h.d.querySelector('.clipboard-fallback'),null);await h.click('.error-details-dialog button:not(.copy-error)');
+  for(const id of ['gemini-error','configuration-error'])h.d.getElementById(id).textContent='';await settle();assert(h.d.getElementById('header-errors').classList.contains('hidden'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+test('UI: round-one result preview never serializes the full replay and preserves simulation results',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;h.d.getElementById('run-rounds').value=2;h.d.getElementById('run-sample-interval').value=1;
+  const original=h.w.SimulatorEngine.simulateBatch;let prevented=0;
+  h.w.SimulatorEngine.simulateBatch=(input,options)=>original(input,{...options,onFirstRound:result=>{Object.defineProperty(result.samples,'toJSON',{value:()=>{prevented++;throw new h.w.RangeError('Invalid string length');},configurable:true});options.onFirstRound?.(result);}});
+  await h.click('#run-simulation');await waitFor(()=>!h.visible('batch-dialog')&&h.d.getElementById('simulation-json-preview').value);await h.click('#pause-simulation');const preview=JSON.parse(h.d.getElementById('simulation-json-preview').value);
+  assert.equal(prevented,0);assert.equal(preview.schema,'st-result-preview-v1');assert.equal(preview.coverage.samplesIncluded,false);assert(preview.coverage.sampleCount>0);assert(h.d.getElementById('simulation-json-preview').value.length<=64000);assert(preview.summary.lineOeePercent>=0);assert.equal(preview.batch.rounds,2);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);const saved=h.storedCases()[0].simulations[0].results;assert.equal(saved.summary.lineOeePercent,preview.summary.lineOeePercent);assert(saved.replay.samples.length>0);assert.equal(prevented,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
