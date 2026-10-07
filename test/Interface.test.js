@@ -1789,11 +1789,11 @@ test('UI: color map, RGB and HEX stay synchronized with full equipment names and
  }finally{h.dom.window.close();}
 });
 
-test('UI: shared typography scales once, retains mode-specific choices and keeps section titles visible',async()=>{
+test('UI: shared typography scales once, retains mode-specific choices and starts views with subsection titles',async()=>{
  for(const mode of ['ADVANCE','BASIC']){const h=await setup({remember:true,uiMode:mode});try{
   const basic=mode==='BASIC';assert.equal(h.d.documentElement.style.fontSize,basic?'17.6px':'16px');await h.click('.open-case');
   for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']]){
-   await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');assert.equal(heading.textContent,title);assert.notEqual(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');assert.notEqual(h.w.getComputedStyle(heading.parentElement).display,'none');
+   await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');if(['equipment','conveyors','vgraph','whatif'].includes(view)){assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}else{assert.equal(heading.textContent,'Run controls');assert.notEqual(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}if(['equipment','conveyors'].includes(view))assert.equal(h.d.getElementById('equipment-subsection-title').textContent,title);
   }
   await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert.equal(h.d.getElementById('run-rounds').closest('section').querySelectorAll('strong').length,0);assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
   await h.click('#open-settings');assert.equal(h.d.getElementById('settings-font-scale').value,basic?'110':'100');const font=h.d.getElementById('settings-font-scale');font.value='125';font.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'20px');await h.click('#settings-close');await h.click('[data-basic-view=simulation]');assert.equal(h.d.documentElement.style.fontSize,'20px');assert.equal(h.w.STPreferences.read('fontScale.'+(basic?'basic':'advance')),'125');
@@ -1801,4 +1801,19 @@ test('UI: shared typography scales once, retains mode-specific choices and keeps
   for(const theme of ['light','dark']){h.w.STPreferences.setTheme(theme);const boxes=[h.d.getElementById('settings-json-fields'),h.d.getElementById('settings-scenario-doe'),h.d.querySelector('.switchable-value input[type=checkbox]')];assert(boxes.every(Boolean));const dimensions=boxes.map(box=>{const css=h.w.getComputedStyle(box);return [css.width,css.height,css.padding].map(value=>value.replace(/var\((--[^)]+)\)/g,(_,name)=>h.w.getComputedStyle(h.d.documentElement).getPropertyValue(name).trim()));});assert.deepEqual(dimensions[0],dimensions[1]);assert.deepEqual(dimensions[0],dimensions[2]);}
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
+});
+
+
+test('UI: subsection imports and Basic scenario metrics preserve working actions',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('.import-menu summary');assert(h.d.querySelector('.import-menu').open);
+  await h.click('#open-json-import');assert(h.d.getElementById('configuration-dialog').open);assert(!h.d.querySelector('.import-menu').open);await h.click('#configuration-cancel');
+  await h.click('#import-setup-json');assert(h.d.getElementById('configuration-dialog').open);await h.click('#configuration-cancel');
+  const downloads=[];h.w.URL.createObjectURL=blob=>{downloads.push(blob);return 'blob:test';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){};
+  await h.click('#export-equipment-json');assert.equal(downloads.length,1);assert.equal(downloads[0].type,'application/json');
+  const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);stubScenarioGain(h);
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);assert(card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  assert.equal(card.querySelector('.scenario-basic-metric strong').textContent,'51.0%');assert.match(card.querySelector('.scenario-basic-change').textContent,/\+1.00 pp/);
+  assert.equal(h.w.getComputedStyle(card.querySelector('.scenario-metric-table')).display,'none');h.d.documentElement.dataset.uiMode='advance';assert.notEqual(h.w.getComputedStyle(card.querySelector('.scenario-metric-table')).display,'none');assert.equal(h.w.getComputedStyle(card.querySelector('.scenario-basic-metrics')).display,'none');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

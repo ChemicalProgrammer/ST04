@@ -121,7 +121,8 @@
         <div id="case-data-note" class="notice hidden" role="status"></div>
 
         <div class="editor-subheading">
-          <div class="button-row"><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('json.import') ?></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
+          <h3 id="equipment-subsection-title">Equipment</h3>
+          <div class="button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import" title="Import"></summary><div><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('json.import') ?></button></div></details><button id="export-equipment-json" data-icon="download" class="secondary icon-button" type="button" aria-label="Export JSON" title="Export JSON"></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
         <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
           <label><input type="radio" name="equipment-filter" value="equipment"><span><?= __ST_TEXT__('filter.equipment') ?></span></label>
@@ -132,9 +133,8 @@
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
-          <summary><?= __ST_TEXT__('json.title') ?></summary>
+          <summary class="json-section-heading"><span><?= __ST_TEXT__('json.title') ?></span><span class="button-row"><button id="edit-setup-json" class="secondary" type="button"><?= __ST_TEXT__('json.edit') ?></button><button id="import-setup-json" class="secondary" type="button">Import</button><button id="export-setup-json" type="button" class="secondary">Export</button></span></summary>
           <p class="chart-note"><?= __ST_TEXT__('exports.setup_note') ?></p>
-          <div class="button-row"><button id="edit-setup-json" class="secondary" type="button"><?= __ST_TEXT__('json.edit') ?></button><button id="export-setup-json" type="button" class="secondary" data-icon="download"><?= __ST_TEXT__('exports.setup_json') ?></button><button id="export-setup-html" type="button" class="secondary"><?= __ST_TEXT__('exports.html') ?></button><button id="export-setup-pdf" type="button" class="secondary"><?= __ST_TEXT__('exports.pdf') ?></button></div>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
       </section>
@@ -143,7 +143,7 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow"><?= __ST_TEXT__('view.run_workspace') ?></p>
-            <h2 id="run-title"><?= __ST_TEXT__('shell.simulation') ?></h2>
+            <h2 id="run-title">Run controls</h2>
             <p id="run-case-meta"><?= __ST_TEXT__('view.select_a_saved_case_to_run_it') ?></p>
           </div>
           <div class="button-row">
@@ -238,11 +238,13 @@
             <div class="simulation-analysis-heading">
               <div>
                 <p class="eyebrow"><?= __ST_TEXT__('view.simulation_analysis') ?></p>
-                <h3 id="simulation-analysis-title"><?= __ST_TEXT__('view.what_this_run_indicates') ?></h3>
+                <h3 id="simulation-analysis-title">Scenario options</h3>
                 <p><?= __ST_TEXT__('view.the_recommendation_combines_this_run_s_losses_with_the_physical_conveyor_au') ?></p>
-              </div>
+
             </div>
-            <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
+              <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
+            </div>
+
             <div id="simulation-analysis-content" class="simulation-analysis-content"></div>
           </section>
       </section>

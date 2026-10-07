@@ -157,7 +157,7 @@ window.STReports=(function(){
     return documentHtml(__ST_TEXT__('exports.setup_title'),slots,'configuration');
   }
   function bindConfiguration(read){
-    bind('export-setup-json',true,function(){download(JSON.stringify(read(),null,2),'line-configuration.json','application/json');});
+    ['export-setup-json','export-equipment-json'].forEach(function(id){bind(id,true,function(){download(JSON.stringify(read(),null,2),'line-configuration.json','application/json');});});
     bind('export-setup-html',true,function(){download(configurationHtml(read()),'line-configuration.html','text/html');});
     bind('export-setup-pdf',true,function(){pdf(configurationHtml(read()));});
   }

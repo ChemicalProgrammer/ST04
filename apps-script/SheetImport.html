@@ -54,7 +54,7 @@ window.STSheetImport=function(state,actions){
     refresh();
   }
   function init(){
-    el('open-sheet-import').onclick=function(){if(!state.activeCase||state.saving)return;snapshot=actions.capture();if(!snapshot)return;context={caseId:state.activeCase.id,simulationId:state.activeSimulationId,epoch:state.requestEpoch};lastFocus=document.activeElement;clear();el('sheet-import-error').textContent='';var source=snapshot.sourceImport?.source;el('sheet-import-url').value=source?.spreadsheetId||'';el('sheet-import-tab').value=source?.sheetName||'';el('sheet-import-dialog').showModal();el('sheet-import-url').focus();};
+    el('open-sheet-import').onclick=function(){this.closest('details')?.removeAttribute('open');if(!state.activeCase||state.saving)return;snapshot=actions.capture();if(!snapshot)return;context={caseId:state.activeCase.id,simulationId:state.activeSimulationId,epoch:state.requestEpoch};lastFocus=document.activeElement;clear();el('sheet-import-error').textContent='';var source=snapshot.sourceImport?.source;el('sheet-import-url').value=source?.spreadsheetId||'';el('sheet-import-tab').value=source?.sheetName||'';el('sheet-import-dialog').showModal();el('sheet-import-url').focus();};
     el('sheet-import-close').onclick=close;el('sheet-import-cancel').onclick=close;
     el('sheet-import-dialog').addEventListener('cancel',function(e){e.preventDefault();close();});
     ['sheet-import-url','sheet-import-tab'].forEach(function(id){el(id).addEventListener('input',clear);});

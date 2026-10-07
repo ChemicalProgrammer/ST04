@@ -72,7 +72,7 @@ var STConfigurationEditor=(function(){
         context={caseId:caseId,simulationId:simulationId,current:current};draft.value=importing?'':JSON.stringify(current,null,2);file.value='';document.getElementById('configuration-filename').textContent='';error.textContent='';apply.disabled=false;dialog.showModal();draft.focus();
       }catch(e){STDialog.open({message:e.message});}
     }
-    document.getElementById('open-json-import').onclick=function(){open(true);};document.getElementById('edit-setup-json').onclick=function(){open(false);};
+    document.getElementById('open-json-import').onclick=function(){this.closest('details')?.removeAttribute('open');open(true);};document.getElementById('import-setup-json').onclick=function(event){event.preventDefault();open(true);};document.getElementById('edit-setup-json').onclick=function(){open(false);};
     document.getElementById('configuration-import').onclick=function(){file.click();};
     document.getElementById('configuration-close').onclick=close;
     document.getElementById('configuration-cancel').onclick=close;dialog.addEventListener('cancel',function(event){event.preventDefault();close();});

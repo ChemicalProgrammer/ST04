@@ -16,7 +16,7 @@ window.STWhatIf = (function() {
     var proposals=visibleProjects(plan);if(document.documentElement.dataset.uiMode!=='basic'){proposals.forEach(function(p){grid.appendChild(card(p,create,simulation.equipment,simulation));});var candidates=node('details','','scenario-candidate-details');candidates.append(node('summary','Individual hypotheses ('+proposals.length+')'),grid);target.appendChild(candidates);}STScenarioExplorer.tools(target,simulation,plan,create);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
-    var checks=node('details','','analysis-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));
+    var checks=node('details','','analysis-checks scenario-design-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));
     checks.appendChild(node('p',__ST_TEXT__('scenario.basis_note'),'chart-note'));
     var list=node('ul');plan.checks.forEach(function(check){list.appendChild(node('li',(check.equipmentId?check.equipmentId+' · ':'')+label(check.rule)+': '+label(check.status)+(check.coverage!=null?' ('+check.coverage.toFixed(2)+'× MTTR)':'')));});checks.appendChild(list);target.appendChild(checks);
   }

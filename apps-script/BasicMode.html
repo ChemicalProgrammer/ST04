@@ -63,7 +63,8 @@ window.STBasicMode=(function(){
     if(view==='comparison')section='comparison';
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
-    document.getElementById('results-title').textContent=section==='vgraph'?__ST_TEXT__('basic.vgraph'):__ST_TEXT__('shell.results');
+    document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
+    document.getElementById('results-title').textContent=section==='vgraph'?'Speed profile':'Performance summary';
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});

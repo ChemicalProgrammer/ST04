@@ -99,6 +99,11 @@ window.STEquipmentInspector=(function(){
     card._fields.querySelectorAll('input,select,textarea').forEach(function(control){
       help(control,basic[control.className]||control.closest('label').title);
       if(control.tagName==='TEXTAREA'){
+        var label=control.closest('label'),heading=document.createElement('span'),caption=document.createElement('span'),actions=document.createElement('span');heading.className='json-field-heading';actions.className='button-row';caption.textContent=label.firstChild.textContent;label.firstChild.textContent='';heading.append(caption,actions);label.prepend(heading);
+        function action(text,callback){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=text;b.onclick=function(event){event.preventDefault();event.stopPropagation();callback();};actions.append(b);}
+        action('Edit',function(){control.focus();control.select();});
+        action('Import',function(){var file=document.createElement('input');file.type='file';file.accept='.json,application/json';file.onchange=async function(){if(!file.files[0])return;try{var value=JSON.parse(await file.files[0].text());if(!value||typeof value!=='object'||Array.isArray(value))throw Error('JSON must contain an object.');control.value=JSON.stringify(value,null,2);control.dispatchEvent(new Event('input',{bubbles:true}));control.dispatchEvent(new Event('change',{bubbles:true}));}catch(error){STDialog.open({message:error.message});}};file.click();});
+        action('Export',function(){try{var data=JSON.stringify(JSON.parse(control.value||'{}'),null,2),url=URL.createObjectURL(new Blob([data],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=control.className.split(' ')[0]+'.json';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}catch(error){STDialog.open({message:error.message});}});
         var button=document.createElement('button');button.type='button';button.className='ghost json-example';button.textContent=__ST_TEXT__('inspector.example');
         button.onclick=function(){showExample(control,control.closest('.equipment-fields')._owner||card,button);};control.closest('label').appendChild(button);
       }
@@ -110,7 +115,7 @@ window.STEquipmentInspector=(function(){
     else if(control.classList.contains('equipment-noise-profile'))example={reliability:{mtbfMinutes:35,mttrMinutes:2}};
     else if(type==='CONVEYOR')example={geometry:{lactMm:10000,lpPrimeMm:1000},upstream:{packageLengthMm:100,dischargePitchMm:120},accumulation:{speedMode:"AUTO",conveyorSpeedMmPerSecond:300,movingGapMm:20,accumulatedGapMm:0,conveyorSpeedFactorPercent:10,backupSensorPositionMm:1000,dischargeRunoutLengthMm:0,rejectRunoutLengthMm:0,blockedTimeDelaySeconds:1,clearTimeDelaySeconds:1,insuranceFactorUnits:2,upstreamStopResponseSeconds:1,bottlesDischargedAtStop:2,downstreamRampUpSeconds:2}};
     else example={equipment:{maximumSpeedBpm:300},upstream:{startupTimeSeconds:2},downstream:{infeedPitchMm:120,rampUpTimeSeconds:2}};
-    helpOrigin=origin;el('json-help-title').textContent=control.closest('label').firstChild.textContent.trim();
+    helpOrigin=origin;el('json-help-title').textContent=(control.closest('label').querySelector('.json-field-heading > span')?.textContent||control.closest('label').firstChild.textContent).trim();
     el('json-help-code').value=JSON.stringify(example,null,2);el('json-copy-status').textContent='';
     var list=el('json-help-fields');list.textContent='';
     function explain(value,prefix){Object.entries(value).forEach(function(pair){var path=prefix?prefix+'.'+pair[0]:pair[0];if(typeof pair[1]==='object'){explain(pair[1],path);return;}var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=path;dd.textContent=descriptions[pair[0]];list.append(dt,dd);});}

@@ -60,4 +60,57 @@ html[data-ui-mode=basic] .basic-worksheet-group label { grid-template-columns:mi
  html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:1fr; }
  html[data-ui-mode=basic] #basic-efficiencies { grid-template-columns:1fr; gap:var(--space-2); }
 }
+
+/* Subsection toolbars share a baseline; the navigation already names the view. */
+#editor-panel > .section-heading,#whatif-panel > .section-heading { display:none; }
+#editor-panel > .editor-subheading,.simulation-analysis-heading,.json-section-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
+#equipment-subsection-title { margin:0; }
+.editor-subheading > .button-row { margin-left:auto; }
+.import-menu > summary.icon-button { list-style:none; display:flex; align-items:center; justify-content:center; }
+.import-menu > summary::-webkit-details-marker { display:none; }
+.import-menu > div { z-index:30; }
+html[data-header-view=conveyors] #export-equipment-json { display:none; }
+.json-section-heading > .button-row { margin-left:auto; padding:0; flex-wrap:wrap; }
+.simulation-analysis-heading > div { min-width:0; }
+.simulation-analysis-heading > .export-menu { margin-left:auto; flex-shrink:0; }
+.simulation-analysis-heading .eyebrow { display:none; }
+html[data-header-view=vgraph] #results-panel > .section-heading { display:none; }
+html[data-header-view=vgraph] #line-performance > .section-heading { display:flex; }
+html[data-ui-mode=basic] #results-insight,
+html[data-ui-mode=basic] .scenario-design-checks { display:none !important; }
+/* Separate metric and control boxes, with more prominent percentages. */
+html[data-ui-mode=basic] #basic-run-options { background:transparent; border:0; padding:0; }
+html[data-ui-mode=basic] #basic-efficiencies { padding:0; border:0; gap:var(--space-3); }
+html[data-ui-mode=basic] #basic-efficiencies > div { flex-direction:column; align-items:flex-start; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
+html[data-ui-mode=basic] #basic-efficiencies strong { font-size:2rem; line-height:1.1; }
+html[data-ui-mode=basic] #basic-run-controls { gap:var(--space-3); }
+html[data-ui-mode=basic] #basic-run-controls > section { padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); align-self:stretch; }
+html[data-ui-mode=basic] #basic-conveyor-panel { position:static; max-height:none; }
+html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; overflow:visible; flex:none; }
+html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { max-height:none; overflow:visible; }
+html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-card { display:flex; flex-direction:column; justify-content:center; }
+html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header { align-items:center; margin:0; }
+/* Basic presents the same evaluated values without the advanced comparison table. */
+.scenario-basic-metrics { display:none; }
+html[data-ui-mode=basic] .analysis-recommendation > .badge,
+html[data-ui-mode=basic] .analysis-recommendation:has(.analysis-capex) > h4,
+html[data-ui-mode=basic] .scenario-metric-table,
+html[data-ui-mode=basic] .scenario-preview-context { display:none; }
+html[data-ui-mode=basic] .analysis-recommendation .analysis-capex { font-size:var(--font-card); text-transform:none; letter-spacing:normal; }
+html[data-ui-mode=basic] .scenario-result-box { background:transparent; border:0; padding:var(--space-3) 0; }
+html[data-ui-mode=basic] .scenario-basic-metrics { display:grid; gap:var(--space-4); }
+.scenario-basic-metric { display:flex; flex-direction:column; gap:var(--space-1); }
+.scenario-basic-metric > span:first-child { color:var(--muted); }
+.scenario-basic-metric strong { color:var(--ink); font-size:var(--font-section); font-variant-numeric:tabular-nums; }
+.scenario-basic-metric:first-child strong { font-size:2.4rem; line-height:1.1; }
+.scenario-basic-change { font-size:var(--font-secondary); color:var(--muted); }
+.scenario-basic-change[data-direction=up] { color:var(--success); }
+.scenario-basic-change[data-direction=down] { color:var(--danger); }
+html[data-ui-mode=basic] .scenario-actions button { margin-top:0; }
+/* A common shell for analysis and warnings, preserving severity colors. */
+html[data-ui-mode=advance] :is(.notice,.result-insight,.analysis-finding,.analysis-no-action,.scenario-audit-warnings,.round-warning) { border:var(--border-width) solid var(--line); border-left:var(--state-border-width) solid var(--accent); border-radius:var(--radius-md); padding:var(--space-3); background:var(--surface-soft); font-size:var(--font-body); line-height:var(--leading-body); }
+html[data-ui-mode=advance] .analysis-critical { border-left-color:var(--danger); }
+html[data-ui-mode=advance] :is(.analysis-attention,.scenario-audit-warnings,.round-warning) { border-left-color:var(--warning); }
+.json-field-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); flex-wrap:wrap; }
+.json-field-heading .button-row { margin-left:auto; padding:0; gap:var(--space-1); }
 </style>

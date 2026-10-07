@@ -18,14 +18,24 @@ Advance defaults to 100%; Basic defaults to 110%. Settings offers 80, 90, 100,
 as `st.ui.v1.fontScale.advance` and `.basic`; existing explicit global preferences
 remain a fallback for browsers upgraded from earlier versions.
 
-Main sections have a visible title and the same header spacing. Equipment and
-Conveyors share the editor with a title reflecting the selected section. V-Graph
-uses the main section title; its former nested title and result exports are hidden
-in that view. Main header gaps are 16px; panel padding is 20px (12px on small screens).
-All native checkboxes are 16px, independent of field-grid sizing and text scale.
+Views start with subsection headings; the header navigation identifies the main
+section. Subsection controls align right. Equipment and Conveyors share one import
+menu (Google Sheet / JSON); Equipment also offers JSON export. JSON field actions
+use text buttons. V-Graph uses its speed-profile heading. Main header gaps are 16px;
+panel padding is 20px (12px on small screens). Checkboxes remain 16px.
 
-Basic simulation settings group efficiency readings and controls in one compact
-panel. Rounds has one label. Both mode switches and navigation move the existing
-controls, preserving values, listeners and the running-simulation lock. Conveyor
-groups use sentence case and the same heading style. Accent color uses the standard
-field label, with the selected color name available through swatch tooltips only.
+Basic simulation settings use separate efficiency and control boxes with prominent
+percentages. Navigation moves the existing controls, preserving listeners and run
+locks. Conveyor worksheets grow with their content and use the page scrollbar.
+
+Basic What-If cards show evaluated OEE, throughput and changes from the matching
+baseline; Advance retains the detailed comparison table. Both presentations use
+the same evaluation, independent validation and creation gate. No ROI or production
+estimates are fabricated. Design checks and Results suggestions are Advance-only.
+Warning and analysis panels share padding, borders and typography, preserving
+severity colors. Accent names remain available through swatch tooltips only.
+
+Verification: modular Apps Script and Settings contracts, targeted jsdom tests for
+JSON import isolation, conveyor worksheets, scenario rejection/stop controls,
+subsection navigation and mode font scaling. Real-browser visual review is still
+needed on the deployed Apps Script page.
