@@ -1,8 +1,13 @@
 function doGet() {
-  return HtmlService.createTemplateFromFile('WebApp')
+  var output = HtmlService.createTemplateFromFile('WebApp')
     .evaluate()
-    .setTitle(__ST_TEXT__('view.fp_flow_pilot'))
-    .setFaviconUrl('https://www.svgrepo.com/show/374890/flow-alt.svg');
+    .setTitle(__ST_TEXT__('view.fp_flow_pilot'));
+  try {
+    output.setFaviconUrl('https://raw.githubusercontent.com/ChemicalProgrammer/ST/main/assets/flow-pilot-favicon.png');
+  } catch (error) {
+    console.warn('Flow Pilot favicon could not be configured: ' + error.message);
+  }
+  return output;
 }
 
 function include_(filename) {

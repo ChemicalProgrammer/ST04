@@ -11,9 +11,20 @@ test('Flow Pilot branding reaches the Apps Script outer page and both app header
   vm.runInContext(server, context);
   assert.equal(context.doGet(), output);
   assert.equal(values.title, 'FP · Flow Pilot');
-  assert.equal(values.favicon, 'https://www.svgrepo.com/show/374890/flow-alt.svg');
+  assert.equal(values.favicon, 'https://raw.githubusercontent.com/ChemicalProgrammer/ST/main/assets/flow-pilot-favicon.png');
   assert.match(html, /<title>FP · Flow Pilot<\/title>/);
   assert.equal((html.match(/viewBox="0 0 52 52"/g) || []).length, 2);
   assert.match(html, /Signed out of Flow Pilot/);
   assert.doesNotMatch(html, /Line Studio|line_studio|\bLS\b/);
+});
+
+// A branding failure must not stop the simulator from opening.
+test('Flow Pilot still opens when the favicon provider is unavailable', () => {
+  const { server } = renderAppsScript();
+  const warnings = [];
+  const output = { setTitle() { return this; }, setFaviconUrl() { throw new Error('The favicon image type is not supported'); } };
+  const context = vm.createContext({ console: { warn(message) { warnings.push(message); } }, HtmlService: { createTemplateFromFile() { return { evaluate() { return output; } }; } } });
+  vm.runInContext(server, context);
+  assert.equal(context.doGet(), output);
+  assert.equal(warnings.length, 1);
 });
