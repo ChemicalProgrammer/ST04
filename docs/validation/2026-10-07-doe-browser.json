@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "browser": "133.0.6943.0",
+  "checks": [
+    "real mouse drag and release",
+    "hover after release",
+    "lost pointerup recovery",
+    "saved chat after page reload",
+    "edit and regenerate truncates later messages",
+    "progress disappears",
+    "two chart color columns",
+    "autosave under Case",
+    "boat blue default",
+    "complete DOE catalog includes machine reliability",
+    "no preselected DOE factors",
+    "any four factors with fifth-selection feedback",
+    "justified machine reliability factor",
+    "unavailable parameter reasons"
+  ],
+  "liveAppsScriptTested": false
+}

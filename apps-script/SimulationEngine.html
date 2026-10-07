@@ -2752,6 +2752,25 @@ function scenarioAudit(simulation){
     return [{equipmentId:e.id,equipmentName:e.name,engineering:zone?.engineering||null,upstreamId:zone?.upstreamControlEquipmentId,downstreamId:zone?.downstreamControlEquipmentId}];
   });
 }
+// Catalog lists model-supported inputs even when the planner has no proposal.
+// Targets start at the baseline: the user supplies bounds; no gains are invented.
+function scenarioVariableCatalog(simulation){
+  const referenceId=analyzeLinePerformance(simulation.equipment,simulation.results).referenceId;
+  return (simulation.equipment||[]).flatMap(e=>Object.keys(SCENARIO_FIELDS).filter(path=>
+    e.type==='CONVEYOR'?path.startsWith('processData.'):path==='nominalRatePerSecond'||path.startsWith('noiseProfile.reliability.')||path==='processData.upstream.startupTimeSeconds'
+  ).map(path=>{
+    const before=scenarioGet(e,path)??null,external=path.startsWith('noiseProfile.reliability.');
+    let disabledReason=Number.isFinite(before)?null:'Set a numeric baseline in Equipment first.';
+    if(external&&!(before>0))disabledReason='Set a positive reliability baseline in Equipment first.';
+    if(path==='nominalRatePerSecond'){
+      if(e.id===referenceId)disabledReason='Reference machine speed is fixed by the current scenario policy.';
+      else if(!(Number(e.processData?.equipment?.maximumSpeedBpm)>0))disabledReason='Set the installed maximum speed in Equipment first.';
+    }
+    if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedMmPerSecond')&&e.processData?.accumulation?.speedMode!=='MANUAL')disabledReason='Select manual conveyor speed in Equipment first.';
+    if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedFactorPercent')&&e.processData?.accumulation?.speedMode==='MANUAL')disabledReason='Manual speed mode uses conveyor speed instead of its automatic factor.';
+    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,justification:external?'':undefined,disabledReason,catalogOnly:true};
+  }));
+}
 function applyScenarioChanges(simulation,changes){
   if(!Array.isArray(changes)||!changes.length||changes.length>SCENARIO_POLICY.maxChanges)throw new Error('SCENARIO_INVALID_CHANGES');
   const copy=scenarioCopy(simulation),seen=new Set();
@@ -2873,12 +2892,16 @@ function createScenarioDOE(factors) {
   const seen=new Set();
   for(const f of factors){
     const key=f.equipmentId+':'+f.path;
-    if(seen.has(key)||!Number.isFinite(f.low)||!Number.isFinite(f.high)||f.low>=f.high||!Number.isFinite(f.before)||f.external)throw Error('DOE_INVALID_FACTOR');
+    if(seen.has(key)||!Number.isFinite(f.low)||!Number.isFinite(f.high)||f.low>=f.high||!Number.isFinite(f.before))throw Error('DOE_INVALID_FACTOR');
+    if(f.path.startsWith('noiseProfile.reliability.')){
+      if(f.external!==true||!(f.before>0)||typeof f.justification!=='string'||f.justification.trim().length<10)throw Error('DOE_EXTERNAL_EVIDENCE_REQUIRED');
+      if(f.path.endsWith('mtbfMinutes')?f.low<f.before:f.high>f.before)throw Error('DOE_RELIABILITY_DIRECTION');
+    }else if(f.external)throw Error('DOE_INVALID_FACTOR');
     seen.add(key);
   }
   return {type:'FULL_FACTORIAL_TWO_LEVEL',factors:JSON.parse(JSON.stringify(factors)),designPoints:Array.from({length:2**factors.length},(_,index)=>{
     const levels=factors.map((_,i)=>(index>>i)&1?1:-1);
-    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit})).filter(c=>c.before!==c.after)};
+    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit,...(f.external?{external:true,justification:f.justification}:{})})).filter(c=>c.before!==c.after)};
   })};
 }
 function analyzeScenarioDOE(design,observations) {
@@ -2946,6 +2969,6 @@ window.SimulatorEngine = {
   analyzeLinePerformance: analyzeLinePerformance
 };
 window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE};
-window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS};
+window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })(window,false);
 </script>

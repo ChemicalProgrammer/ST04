@@ -53,6 +53,25 @@ export function scenarioAudit(simulation){
     return [{equipmentId:e.id,equipmentName:e.name,engineering:zone?.engineering||null,upstreamId:zone?.upstreamControlEquipmentId,downstreamId:zone?.downstreamControlEquipmentId}];
   });
 }
+// Catalog lists model-supported inputs even when the planner has no proposal.
+// Targets start at the baseline: the user supplies bounds; no gains are invented.
+export function scenarioVariableCatalog(simulation){
+  const referenceId=analyzeLinePerformance(simulation.equipment,simulation.results).referenceId;
+  return (simulation.equipment||[]).flatMap(e=>Object.keys(SCENARIO_FIELDS).filter(path=>
+    e.type==='CONVEYOR'?path.startsWith('processData.'):path==='nominalRatePerSecond'||path.startsWith('noiseProfile.reliability.')||path==='processData.upstream.startupTimeSeconds'
+  ).map(path=>{
+    const before=scenarioGet(e,path)??null,external=path.startsWith('noiseProfile.reliability.');
+    let disabledReason=Number.isFinite(before)?null:'Set a numeric baseline in Equipment first.';
+    if(external&&!(before>0))disabledReason='Set a positive reliability baseline in Equipment first.';
+    if(path==='nominalRatePerSecond'){
+      if(e.id===referenceId)disabledReason='Reference machine speed is fixed by the current scenario policy.';
+      else if(!(Number(e.processData?.equipment?.maximumSpeedBpm)>0))disabledReason='Set the installed maximum speed in Equipment first.';
+    }
+    if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedMmPerSecond')&&e.processData?.accumulation?.speedMode!=='MANUAL')disabledReason='Select manual conveyor speed in Equipment first.';
+    if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedFactorPercent')&&e.processData?.accumulation?.speedMode==='MANUAL')disabledReason='Manual speed mode uses conveyor speed instead of its automatic factor.';
+    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,justification:external?'':undefined,disabledReason,catalogOnly:true};
+  }));
+}
 export function applyScenarioChanges(simulation,changes){
   if(!Array.isArray(changes)||!changes.length||changes.length>SCENARIO_POLICY.maxChanges)throw new Error('SCENARIO_INVALID_CHANGES');
   const copy=scenarioCopy(simulation),seen=new Set();

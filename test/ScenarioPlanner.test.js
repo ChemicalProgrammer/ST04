@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
-import {planScenarios,applyScenarioChanges,scenarioSignature,scenarioAudit} from '../src/analysis/ScenarioPlanner.js';
+import {planScenarios,applyScenarioChanges,scenarioSignature,scenarioAudit,scenarioVariableCatalog} from '../src/analysis/ScenarioPlanner.js';
 function fixture(){const c={};vm.createContext(c);vm.runInContext(fs.readFileSync('apps-script/PublicDemoCaseFactory.gs','utf8'),c);return {id:'a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(c.createPublicDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]},results:null};}
 test('static design produces three explicit categories without inventing dynamic metrics',()=>{
  const sim=fixture(),snapshot=JSON.stringify(sim),plan=planScenarios(sim);
@@ -66,4 +66,16 @@ test('sensor hypotheses cover all eligible conveyors and machine targets respect
  const machine=sim.equipment[0],path='nominalRatePerSecond';machine.processData.equipment.maximumSpeedBpm=machine.nominalRatePerSecond*60;
  assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:machine.id,path,before:machine.nominalRatePerSecond,after:machine.nominalRatePerSecond+1}]),/SCENARIO_INSTALLED_SPEED_LIMIT/);
  const source=JSON.stringify(sim);for(const p of plan.candidates.filter(p=>p.kind==='V_CURVE'))assert(p.changes.every(c=>c.after*60<=sim.equipment.find(e=>e.id===c.equipmentId).processData.equipment.maximumSpeedBpm));assert.equal(JSON.stringify(sim),source);
+});
+
+ test('variable catalog covers machines and conveyors without inventing targets or mutating inputs',()=>{
+ const sim=fixture(),snapshot=JSON.stringify(sim),catalog=scenarioVariableCatalog(sim);
+ for(const machine of sim.equipment.filter(e=>e.type!=='CONVEYOR')){
+  for(const key of ['mtbfMinutes','mttrMinutes']){
+   const variable=catalog.find(c=>c.equipmentId===machine.id&&c.path.endsWith(key));assert(variable);assert(variable.external);assert.equal(variable.after,variable.before);assert.equal(variable.justification,'');
+  }
+ }
+ assert(catalog.some(c=>c.path==='processData.geometry.lactMm'));
+ assert(catalog.some(c=>c.disabledReason?.includes('Reference machine')));
+ assert.equal(JSON.stringify(sim),snapshot);
 });

@@ -20,3 +20,13 @@ test('DOE recovers main and pair interaction contrasts and refuses incomplete de
  assert.equal(analyzeScenarioDOE(design,observations.slice(1)).complete,false);
  assert.equal(analyzeScenarioDOE(design,observations.map((o,i)=>i===0?{...o,throughput:null}:o)).complete,false);
 });
+
+test('reliability DOE preserves intervention evidence at every level and rejects unjustified or adverse targets',()=>{
+ const f={equipmentId:'filler',path:'noiseProfile.reliability.mtbfMinutes',before:30,low:30,high:60,external:true,justification:'Replace worn drive; target from supplier reliability data.',unit:'min'};
+ const design=createScenarioDOE([f]);assert.equal(design.designPoints[0].changes.length,0);assert.equal(design.designPoints[1].changes[0].external,true);assert.equal(design.designPoints[1].changes[0].justification,f.justification);
+ assert.throws(()=>createScenarioDOE([{...f,justification:''}]),/EVIDENCE_REQUIRED/);
+ assert.throws(()=>createScenarioDOE([{...f,low:20}]),/RELIABILITY_DIRECTION/);
+ assert.throws(()=>createScenarioDOE([{...f,external:false}]),/EVIDENCE_REQUIRED/);
+ const repair={...f,path:'noiseProfile.reliability.mttrMinutes',before:3,low:1,high:3};assert.equal(createScenarioDOE([repair]).designPoints[0].changes[0].after,1);
+ assert.throws(()=>createScenarioDOE([{...repair,high:4}]),/RELIABILITY_DIRECTION/);
+});

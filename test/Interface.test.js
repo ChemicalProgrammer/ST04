@@ -447,7 +447,7 @@ test('UI: shared equipment inspector preserves drafts, saves the selected equipm
   cards[0].click();assert.equal(pane.querySelector('.equipment-noise-profile').value,'{');
   json.value=original;json.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await h.click('#toggle-gemini');assert(h.visible('gemini-chat-view'));assert(!h.visible('equipment-inspector'));
-  h.d.getElementById('gemini-question').value='Check this line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case.'));
+  h.d.getElementById('gemini-question').value='Check this line';await waitFor(()=>!h.d.getElementById('send-gemini').disabled);await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case.'));
   cards[0].click();assert.equal(pane.querySelector('.equipment-name').value,'Edited in inspector');
   await h.click('#toggle-gemini');assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
   cards[0].click();await h.click('#equipment-inspector .json-example');
@@ -1087,7 +1087,7 @@ test('UI: enabled DOE uses replicated factorial combinations and exports effects
   const snapshot=JSON.stringify(sim),changes=[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:20000,unit:'mm'},{equipmentId:e.id,path:'processData.accumulation.conveyorSpeedMmPerSecond',before:500,after:550,unit:'mm/s'}];
   const project={title:'DOE test',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',changes,explore:true},card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);
   const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(JSON.parse(JSON.stringify(input)));const belt=input.case.equipment[1],gain=belt.processData.geometry.lactMm>10000&&belt.processData.accumulation.conveyorSpeedMmPerSecond>500?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  assert.equal(card.querySelector('.scenario-doe').hidden,false);card.querySelector('.scenario-change input[type=number]').value='15';
+  assert.equal(card.querySelector('.scenario-doe').hidden,false);card.querySelectorAll('.scenario-doe-select').forEach(input=>{input.checked=true;input.dispatchEvent(new h.w.Event('change'));});card.querySelector('.scenario-change input[type=number]').value='15';
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(record.method,'COORDINATE_SEARCH_WITH_DOE');assert.equal(record.doe.combinations,4);assert.equal(record.doe.observations.length,4);assert.equal(record.doe.factors[0].high,15000);assert(record.doe.analysis.complete);assert(record.doe.analysis.effects.some(e=>e.type==='TWO_FACTOR_INTERACTION'&&e.throughput>0));
   assert(calls.every(c=>c.run.rounds===3));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.equal(JSON.stringify({...sim,whatIf:undefined}),snapshot);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/FULL_FACTORIAL_TWO_LEVEL/);
@@ -1151,8 +1151,8 @@ test('UI: modal DOE selection exposes more than four factors and runs the user-s
   const changes=paths.map(key=>{e.processData.accumulation[key]=10;return {equipmentId:e.id,path:'processData.accumulation.'+key,before:10,after:12,unit:'test'};});
   const card=h.w.STWhatIf.card({title:'All factors',kind:'CUSTOM',tier:'HIGH',changes,explore:true},()=>{},sim.equipment,sim);h.d.body.append(card);
   const dialog=card.querySelector('dialog');assert.equal(dialog.open,false);card.querySelector('.scenario-configure').click();assert(dialog.open);
-  assert.equal(dialog.querySelectorAll('.scenario-doe-factor').length,6);assert.match(dialog.querySelector('.scenario-factor-count').textContent,/4 \/ 4 selected · 6 eligible/);
-  const uses=Array.from(dialog.querySelectorAll('.scenario-doe-factor .scenario-doe-select'));assert(uses[4].disabled);
+  assert.equal(dialog.querySelectorAll('.scenario-doe-factor').length,6);assert.match(dialog.querySelector('.scenario-factor-count').textContent,/0 \/ 4 selected · 6 eligible/);
+  const uses=Array.from(dialog.querySelectorAll('.scenario-doe-factor .scenario-doe-select'));assert(uses.every(input=>!input.disabled&&!input.checked));for(const i of [0,1,2,3,4]){uses[i].checked=true;uses[i].dispatchEvent(new h.w.Event('change'));}assert.equal(uses[4].checked,false);assert.equal(uses[4].disabled,false);
   Array.from(dialog.querySelectorAll('button')).find(b=>b.textContent==='Clear factor selection').click();
   for(const i of [4,5]){uses[i].checked=true;uses[i].dispatchEvent(new h.w.Event('change'));}
   assert.match(dialog.querySelector('.scenario-factor-count').textContent,/2 \/ 4 selected/);
@@ -1189,7 +1189,7 @@ test('UI: stored DOE results survive serialization and stale inputs never restor
  const h=await setup({remember:true});try{
   h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
   h.w.SimulatorEngine.simulateBatch=async()=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}});
-  let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
+  let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelectorAll('.scenario-doe-select').forEach(input=>{input.checked=true;input.dispatchEvent(new h.w.Event('change'));});card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
   card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert.match(card.textContent,/No demonstrated improvement/);assert.equal(h.w.STScenarioExplorer.evaluations(saved)[0].doe.observations.length,entry.doe.observations.length);
   saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert.equal(card.querySelector('.scenario-doe-results'),null);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
@@ -1313,7 +1313,7 @@ test('UI: finishing search validates the in-flight winner before creation in bot
    const project={title:'Early winner',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
    let created,pending;const calls=[];
    h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);await new Promise(resolve=>pending=resolve);const changed=input.case.equipment[1].processData.geometry.lactMm!==10000,gain=changed?(input.run.seed!==42&&outcome==='fail'?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);
+   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);const factor=card.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));
    const stop=card.querySelector('.scenario-evaluate'),save=card.querySelector('.scenario-create');
    async function finishBatch(){const release=pending;pending=null;release();await waitFor(()=>pending||stop.dataset.icon==='search');}
    card.querySelector('.scenario-search').click();await waitFor(()=>pending);
@@ -1342,7 +1342,7 @@ test('UI: finishing during DOE preserves partial observations without estimating
   h.w.STPreferences.write('scenarioDoe','yes');const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:10,seed:42,rounds:3};
   const project={title:'Partial DOE',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
   let release;const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const length=input.case.equipment[1].processData.geometry.lactMm;if(input.run.seed===42&&length===11000)await new Promise(resolve=>release=resolve);const gain=length>10000?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const levels=card.querySelectorAll('.scenario-doe-factor .scenario-doe-level');levels[0].value=11;levels[1].value=14;
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);const factor=card.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));const levels=card.querySelectorAll('.scenario-doe-factor .scenario-doe-level');levels[0].value=11;levels[1].value=14;
   card.querySelector('.scenario-search').click();await waitFor(()=>release);assert.match(card.querySelector('.scenario-search-progress').textContent,/DOE/);
   card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.doe.observations.length,1);assert.equal(record.doe.analysis.complete,false);assert.equal(record.doe.analysis.effects.length,0);assert(record.independentCheck.passed);assert(!calls.some(c=>c.case.equipment[1].processData.geometry.lactMm===14000));assert.deepEqual(h.errors,[]);
@@ -1944,5 +1944,28 @@ test('UI: failed regeneration preserves the original saved conversation and rest
   await h.click('.gemini-message[data-role=user] button[aria-label="Edit and regenerate"]');const editor=h.d.querySelector('.gemini-message-editor');editor.querySelector('textarea').value='Retain this edit';editor.dispatchEvent(new h.w.Event('submit',{cancelable:true}));
   await waitFor(()=>h.d.getElementById('gemini-error').textContent.includes('GEMINI_CONNECTION'));
   assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].geminiHistory),saved);assert.match(h.d.getElementById('gemini-messages').textContent,/Original question/);assert.equal(h.d.getElementById('gemini-question').value,'Retain this edit');assert(!h.d.getElementById('send-gemini').disabled);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: every CAPEX card exposes the complete catalog and reliability DOE keeps user evidence',async()=>{
+ const h=await setup({remember:true});try{
+  h.w.STPreferences.write('scenarioDoe','yes');h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200};
+  const sim=h.storedCases()[0].simulations[0],machine=sim.equipment.find(e=>e.type!=='CONVEYOR');machine.noiseProfile.reliability={mtbfMinutes:30,mttrMinutes:3};
+  const snapshot=JSON.stringify(sim.equipment),host=h.d.createElement('section');h.d.body.append(host);h.w.STScenarioExplorer.tools(host,sim,h.w.STScenarios.plan(sim),()=>{});
+  const cards=Array.from(host.querySelectorAll('.scenario-tier-grid > .analysis-recommendation'));assert.equal(cards.length,4);
+  const rowsFor=card=>Array.from(card.querySelectorAll('.scenario-change'));
+  assert(cards.every(card=>rowsFor(card).length===h.w.STScenarios.catalog(sim).length));assert(cards[0].querySelector('.scenario-intervention-evidence').disabled);assert.match(cards[0].textContent,/Use Medium or High CAPEX/);
+  const card=cards[2],rows=rowsFor(card),row=rows.find(r=>r.querySelector('.scenario-doe-select')?.getAttribute('aria-label').includes(machine.name+' · MTBF'));
+  assert(row);assert.equal(row.querySelector('input[type=checkbox]').checked,false);assert(Array.from(card.querySelectorAll('.scenario-doe-select')).every(input=>!input.checked));
+  rows.forEach(r=>{const use=r.querySelector('input[type=checkbox]');use.checked=false;use.dispatchEvent(new h.w.Event('change'));});
+  const factor=row.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));row.querySelectorAll('.scenario-doe-level')[0].value=30;row.querySelectorAll('.scenario-doe-level')[1].value=60;
+  card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.includes('DOE_EXTERNAL_EVIDENCE_REQUIRED'));
+  const evidence=row.querySelector('textarea');evidence.value='Replace worn drive; reliability target from vendor trial.';evidence.dispatchEvent(new h.w.Event('input'));
+  const calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const gain=input.case.equipment.find(e=>e.id===machine.id).noiseProfile.reliability.mtbfMinutes>30?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const saved=sim.whatIf.evaluations.find(e=>e.tier==='HIGH'&&e.searchScope==='HIGH');assert.equal(saved.doe.combinations,2);assert.equal(saved.doe.factors[0].justification,evidence.value);assert(saved.evaluatedChanges[0].external);assert(saved.independentCheck.passed);assert.equal(JSON.stringify(sim.equipment),snapshot);
+  host.remove();const reopened=h.d.createElement('section');h.d.body.append(reopened);h.w.STScenarioExplorer.tools(reopened,sim,h.w.STScenarios.plan(sim),()=>{});
+  const restored=Array.from(reopened.querySelectorAll('textarea')).find(input=>input.value===evidence.value);assert(restored);assert(restored.closest('tr').querySelector('.scenario-doe-select').checked);
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

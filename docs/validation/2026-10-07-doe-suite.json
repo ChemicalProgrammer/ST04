@@ -1,0 +1,56 @@
+{
+  "sourceBaseCommit": "64ebdb1fdff8b0f8f6975adc796e512ad6767c5a",
+  "nonInterface": {
+    "tests": 202,
+    "passed": 202,
+    "failed": 0
+  },
+  "interfaceFullRun": {
+    "tests": 112,
+    "passed": 108,
+    "failed": 4,
+    "groups": [
+      {
+        "group": 0,
+        "tests": 28,
+        "passed": 25,
+        "failed": 3
+      },
+      {
+        "group": 1,
+        "tests": 28,
+        "passed": 28,
+        "failed": 0
+      },
+      {
+        "group": 2,
+        "tests": 28,
+        "passed": 27,
+        "failed": 1
+      },
+      {
+        "group": 3,
+        "tests": 28,
+        "passed": 28,
+        "failed": 0
+      }
+    ]
+  },
+  "followup": {
+    "tests": 2,
+    "passed": 2,
+    "reason": "Basic guidance no longer mentions the Advance-only All CAPEX option; complete catalog and reliability persistence reconfirmed."
+  },
+  "finalUniqueOutcomes": {
+    "tests": 314,
+    "passed": 311,
+    "failed": 3
+  },
+  "remainingPreExistingFailures": [
+    "UI + Apps Script: a local proposal with a different fingerprint is regenerated from saved inputs",
+    "UI: JSON dialog uses shared spacing and import action; revision stays internal",
+    "UI: target Population and manual LBA persist in both modes and Basic cards show only names"
+  ],
+  "browserArtifact": "2026-10-07-doe-browser.json",
+  "liveAppsScriptTested": false
+}

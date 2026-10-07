@@ -10,7 +10,7 @@ const runtime={};vm.createContext(runtime);vm.runInContext(fs.readFileSync('apps
 const record={...runtime.createPublicDemoCaseRequest_(),id:'browser-case',revision:1,updatedAt:'2026-10-07T17:00:00Z'};
 record.simulations=[{id:'simulation-a',name:'Simulation A',equipment:record.equipment,dynamicConfig:{},geminiHistory:[],playbackRate:1}];
 const html=renderAppsScript().html;
-const server=http.createServer((request,response)=>{response.setHeader('Content-Type','text/html');response.end(request.url==='/app'?html:'<iframe style="border:0;width:100%;height:100vh" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" src="/app"></iframe>');});
+const server=http.createServer((request,response)=>{response.setHeader('Content-Type','text/html; charset=utf-8');response.end(request.url==='/app'?html:'<iframe style="border:0;width:100%;height:100vh" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" src="/app"></iframe>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
 try{
@@ -48,7 +48,22 @@ try{
  await frame.evaluate(()=>STSettings.open());await app.locator('#settings-tab-case').click();
  const columns=await frame.evaluate(()=>({count:document.querySelectorAll('#settings-chart-colors > table').length,grid:getComputedStyle(document.getElementById('settings-chart-colors')).gridTemplateColumns,autosave:document.getElementById('settings-save-section').parentElement.id}));
  assert.equal(columns.count,2);assert.equal(columns.autosave,'settings-page-case');assert.equal(columns.grid.split(' ').length,2);
+ await app.locator('#settings-close').click();
+ await frame.evaluate(()=>document.querySelector(document.documentElement.dataset.uiMode==='basic'?'[data-basic-view=whatif]':'.sidebar [data-view=whatif]').click());
+ const scenario=app.locator('.scenario-tier-grid .analysis-recommendation:has(.scenario-configure)').nth(2);
+ await scenario.locator('.scenario-configure').click();
+ await scenario.locator('.scenario-doe-enabled').check();
+ const factors=scenario.locator('.scenario-doe-select');assert(await factors.count()>4);assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),0);
+ for(let i=0;i<5;i++)await factors.nth(i).click();
+ assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),4);assert(await factors.nth(4).isEnabled());
+ await scenario.getByRole('button',{name:'Clear factor selection'}).click();
+ const reliability=scenario.locator('tr:has(.scenario-intervention-evidence):has(.scenario-doe-select)').first();
+ await reliability.locator('.scenario-doe-select').check();
+ await reliability.locator('textarea').fill('Preventive maintenance; reliability target from supplier trial.');
+ assert.equal(await reliability.locator('.scenario-doe-select').isChecked(),true);
+ assert.equal(await scenario.locator('.scenario-doe-select:checked').count(),1);
+ assert(await scenario.locator('.scenario-unavailable').count()>0);
  await page.screenshot({path:option('--screenshot')||'/tmp/st-interface-browser.png',fullPage:true});
- const report={ok:true,browser:browser.version(),checks:['real mouse drag and release','hover after release','lost pointerup recovery','saved chat after page reload','edit and regenerate truncates later messages','progress disappears','two chart color columns','autosave under Case','boat blue default'],liveAppsScriptTested:false};
+ const report={ok:true,browser:browser.version(),checks:['real mouse drag and release','hover after release','lost pointerup recovery','saved chat after page reload','edit and regenerate truncates later messages','progress disappears','two chart color columns','autosave under Case','boat blue default','complete DOE catalog includes machine reliability','no preselected DOE factors','any four factors with fifth-selection feedback','justified machine reliability factor','unavailable parameter reasons'],liveAppsScriptTested:false};
  console.log(JSON.stringify(report,null,2));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
