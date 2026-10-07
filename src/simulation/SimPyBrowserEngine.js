@@ -6,7 +6,7 @@ export const SIMPY_ENGINE_ID = 'DES_SIMPY_EXPERIMENTAL';
 export const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
 
 // This adapter deliberately records the physical model changes. A library switch
-// cannot make FIFO item conveyors equivalent to ST's spatial fluid conveyors.
+// cannot make discrete products equivalent to ST's spatial fluid conveyors.
 export function adaptSimPyInput(input) {
   const validation = validateSimulationInput(input);
   if (!validation.ok) throw Object.assign(new Error((validation.error?.message || 'Invalid simulation input')+' '+(validation.error?.details||[]).map(d=>d.path+': '+(d.reason||d.message||'invalid value')).join('; ')), {code:'INVALID_DES_INPUT',details:validation.error?.details});
@@ -18,15 +18,15 @@ export function adaptSimPyInput(input) {
   for(let i=0;i<equipment.length;i++) {
     const model=equipment[i];
     if(isConveyorEquipment(model)) {
-      if(!['AUTO','MANUAL'].includes(model.initialMode))throw new Error('SimPy does not support stopped or paused conveyors: '+model.name);
-      if(Object.values(model.noiseProfile||{}).some(v=>v&&Object.keys(v).length))throw new Error('SimPy does not support conveyor reliability or microstops: '+model.name);
+      if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('Unsupported conveyor noise profile: '+model.name);
       const {definition:d}=resolveAccumulationZoneDefinition(equipment,i);
       if(!d)throw new Error('Unresolved conveyor geometry: '+model.name);
       conveyors.push({id:model.id,name:model.name,lengthMm:d.usableLengthMm,speedMmPerSecond:d.conveyorSpeedMmPerSecond,
-        movingPitchMm:d.productPitchMm??d.productLengthMm+d.gapMm,accumulatedPitchMm:d.accumulatedPitchMm??d.productLengthMm??d.productPitchMm});
-      ignored.push({equipmentId:model.id,feature:'SPATIAL_CONVEYOR_AND_SENSORS',details:{prime:d.primeSensorPositionMm,backup:d.backupSensorPositionMm,
-        restart:d.backupRestartPositionMm,blockedDelay:d.blockedTimeDelaySeconds,clearDelay:d.clearTimeDelaySeconds,
-        stopResponse:d.upstreamStopResponseSeconds,runoutUnits:d.bottlesDischargedAtStop,ramp:d.downstreamRampUpSeconds}});
+        movingPitchMm:d.productPitchMm??d.productLengthMm+d.gapMm,accumulatedPitchMm:d.accumulatedPitchMm??d.productLengthMm??d.productPitchMm,productLengthMm:d.productLengthMm??d.accumulatedPitchMm??d.productPitchMm,initialMode:model.initialMode??'AUTO',
+        ...(d.primeSensorPositionMm!=null?{primeSensorPositionMm:d.primeSensorPositionMm}:{}),...(d.backupSensorPositionMm!=null?{backupSensorPositionMm:d.backupSensorPositionMm}:{}),
+        ...(d.backupRestartPositionMm!=null?{backupRestartPositionMm:d.backupRestartPositionMm}:{}),...(d.upstreamRestartDelaySeconds!=null?{upstreamRestartDelaySeconds:d.upstreamRestartDelaySeconds}:{}),...(d.downstreamRampUpSeconds!=null?{downstreamRampUpSeconds:d.downstreamRampUpSeconds}:{}),
+        blockedTimeDelaySeconds:d.blockedTimeDelaySeconds??0,clearTimeDelaySeconds:d.clearTimeDelaySeconds??0,upstreamStopResponseSeconds:d.upstreamStopResponseSeconds??0,
+        bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
     } else {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       machines.push({id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
@@ -37,17 +37,17 @@ export function adaptSimPyInput(input) {
         ...(model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{})});
     }
   }
-  const ids=new Set(machines.map(m=>m.id));
+  const ids=new Set(equipment.map(m=>m.id));
   const commands=(input.run.commands||[]).map(c=>{
-    if(!ids.has(c.equipmentId))throw new Error('SimPy does not support conveyor control events: '+c.equipmentId);
+    if(!ids.has(c.equipmentId))throw new Error('Unknown equipment control: '+c.equipmentId);
     return {atSecond:c.atVirtualSecond,equipmentId:c.equipmentId,action:c.action};
   });
   return {schema:'st-des/1',caseId:input.case.id,unitOfFlow:input.case.unitOfFlow||'units',machines,conveyors,
     run:{durationSeconds:input.run.durationSeconds,seed:input.run.seed,
       sampleEverySeconds:Math.max(input.run.sampleEverySeconds||5,input.run.durationSeconds/(9998-(shift?Math.ceil(input.run.durationSeconds/shift):0))),
       ...(input.run.shiftSeconds?{shiftSeconds:input.run.shiftSeconds}:{}),commands},
-    metadata:{adaptedFrom:'ST',allowSimplifications:true,ignoredFeatures:ignored,stochasticSchedulesPaired:false,
-      scope:'Experimental FIFO item model; machine ramps and microstops are simulated; spatial queues, sensors and runout are omitted.'}};
+    metadata:{adaptedFrom:'ST',allowSimplifications:true,conveyorModel:'SPATIAL_FINITE_PRODUCTS',ignoredFeatures:ignored,stochasticSchedulesPaired:false,
+      scope:'Experimental spatial product model: sensors, packed queues, belt downtime, ramps and residual discharge; no validated OEE, batches or rejects.'}};
 }
 
 export function normalizeSimPyResult(raw, input, payload) {
@@ -57,18 +57,18 @@ export function normalizeSimPyResult(raw, input, payload) {
     return {...m,pausedSeconds:m.stateSeconds.PAUSED,stoppedSeconds:m.stateSeconds.STOPPED,
       microStopSeconds:m.microStopSeconds,startupSeconds:m.startupSeconds,processingCapacityPercent:m.productiveCapacityPercent,productiveEquivalentSeconds:m.outputCount/(input.case.equipment.find(e=>e.id===m.id).nominalRatePerSecond),
       // Unvalidated fields stay unavailable; never manufacture OEE or sensor losses.
-      oeePercent:null,waitingForPrimeSeconds:null,backupStopSeconds:null,emergencyStopSeconds:null,
+      oeePercent:null,waitingForPrimeSeconds:m.waitingForPrimeSeconds??null,backupStopSeconds:m.backupStopSeconds??null,emergencyStopSeconds:null,
       partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
   }
   const equipmentMetrics=Object.fromEntries(input.case.equipment.map(e=>[e.id,machineById.has(e.id)?machineMetrics(machineById.get(e.id)):
-    {outputCount:raw.samples.at(-1).zones.find(z=>z.id===e.id).releasedUnits,oeePercent:null,stateSeconds:{},processingCapacityPercent:null}]));
+    {outputCount:raw.samples.at(-1).zones.find(z=>z.id===e.id).releasedUnits,oeePercent:null,stateSeconds:zoneById.get(e.id).stateSeconds||{},failureSeconds:zoneById.get(e.id).stateSeconds?.FAILED??0,microStopSeconds:zoneById.get(e.id).stateSeconds?.MICRO_STOP??0,processingCapacityPercent:null}]));
   function zoneFrame(z) {
     const totals=zoneById.get(z.id),belt=beltById.get(z.id),index=payload.conveyors.findIndex(b=>b.id===z.id);
     return {id:z.id,name:belt.name,ownerEquipmentId:z.id,upstreamControlEquipmentId:payload.machines[index].id,
-      downstreamControlEquipmentId:payload.machines[index+1].id,physicalModelEnabled:false,modelOrigin:'DES_SIMPY_FIFO',
+      downstreamControlEquipmentId:payload.machines[index+1].id,physicalModelEnabled:true,modelOrigin:'DES_SIMPY_SPATIAL',
       inventoryUnits:z.inventoryUnits,waitingUnits:z.readyUnits,inTransitUnits:z.movingUnits,capacityUnits:totals.capacityUnits,
-      fillPercent:z.inventoryUnits/totals.capacityUnits*100,prime:{configured:false},backup:{configured:false},overflowUnits:null,
-      state:z.inventoryUnits?'FLOWING':'EMPTY',formatAssumptions:['DES FIFO: sensors, spatial queues and belt stop control are not simulated.'],
+      fillPercent:z.inventoryUnits/totals.capacityUnits*100,prime:z.prime||{configured:false},backup:z.backup||{configured:false},positionsMm:z.positionsMm,queueTailPositionMm:z.queueTailPositionMm,overflowUnits:z.overflowUnits??0,
+      state:z.state||'RUNNING',formatAssumptions:['DES spatial products: leading-edge positions, packed collisions and sustained photoeye debounce.'],
       geometry:{usableLengthMm:belt.lengthMm,productPitchMm:belt.movingPitchMm,accumulatedPitchMm:belt.accumulatedPitchMm,
         conveyorSpeedMmPerSecond:belt.speedMmPerSecond,travelSeconds:totals.travelSeconds,capacityFormula:'floor(length / packed pitch)'}};
   }
@@ -78,16 +78,17 @@ export function normalizeSimPyResult(raw, input, payload) {
       accumulationZones:frame.zones.map(zoneFrame),equipment:input.case.equipment.map(e=>{
         const m=frame.equipment.find(m=>m.id===e.id),prior=previous?.equipment.find(m=>m.id===e.id),z=frame.zones.find(z=>z.id===e.id),priorZone=previous?.zones.find(z=>z.id===e.id);
         const output=m?m.outputCount:z.releasedUnits,priorOutput=m?prior?.outputCount:priorZone?.releasedUnits;
-        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||'RUNNING',outputCount:output,processedUnits:output,
+        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,
           actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
-          microStopSeconds:m?.stateSeconds.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??null,
-          waitingForPrimeSeconds:null,backupStopSeconds:null,emergencyStopSeconds:null,partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
+          microStopSeconds:m?.stateSeconds.MICRO_STOP??z?.stateSeconds?.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??z?.stateSeconds?.FAILED??null,
+          waitingForPrimeSeconds:m?.stateSeconds.WAITING_PRIME??null,backupStopSeconds:m?.stateSeconds.BACKUP_STOP??null,emergencyStopSeconds:null,partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
       })};
   });
-  const total=field=>raw.equipment.reduce((sum,m)=>sum+m[field],0);
+  const total=field=>raw.equipment.reduce((sum,m)=>sum+(m[field]??0),0);
+  const beltLoss=state=>raw.zones.reduce((sum,z)=>sum+(z.stateSeconds?.[state]??0),0);
   const summary={...raw.summary,averageOutputRatePerSecond:raw.summary.outputCount/duration,
-    totalMicroStopSeconds:total('microStopSeconds'),totalStartupSeconds:total('startupSeconds'),totalBlockedSeconds:total('blockedSeconds'),totalStarvedSeconds:total('starvedSeconds'),totalFailureSeconds:total('failureSeconds'),
-    totalOverflowUnits:null,totalEmergencyStopSeconds:null,totalBackupStopSeconds:null,totalWaitingForPrimeSeconds:null,
+    totalMicroStopSeconds:total('microStopSeconds')+beltLoss('MICRO_STOP'),totalStartupSeconds:total('startupSeconds'),totalBlockedSeconds:total('blockedSeconds'),totalStarvedSeconds:total('starvedSeconds'),totalFailureSeconds:total('failureSeconds')+beltLoss('FAILED'),
+    totalOverflowUnits:raw.summary.overflowUnits??0,totalEmergencyStopSeconds:null,totalBackupStopSeconds:total('backupStopSeconds'),totalWaitingForPrimeSeconds:total('waitingForPrimeSeconds'),
     totalPartialStarvationLossSeconds:null,totalPartialBlockingLossSeconds:null,
     lineOeePacemakerEquipmentId:null,lineOeePacemakerRatePerSecond:null,lineOeeReference:'NOT_VALIDATED_DES',qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'};
   const shifts=[];let previousFrame=raw.samples[0];const shiftSeconds=input.run.shiftSeconds||duration;
@@ -102,7 +103,7 @@ export function normalizeSimPyResult(raw, input, payload) {
   }
   return {caseId:input.case.id,unitOfFlow:payload.unitOfFlow,engineId:SIMPY_ENGINE_ID,engineVersion:raw.engine.version,
     engine:{...raw.engine,runtime:'Pyodide 0.27.7 / browser Web Worker'},seed:input.run.seed,durationSeconds:duration,
-    summary,equipmentMetrics,accumulationZoneMetrics:Object.fromEntries(raw.zones.map(z=>[z.id,{...z,modelOrigin:'DES_SIMPY_FIFO'}])),
+    summary,equipmentMetrics,accumulationZoneMetrics:Object.fromEntries(raw.zones.map(z=>[z.id,{...z,modelOrigin:'DES_SIMPY_SPATIAL'}])),
     shifts,samples,events:raw.events.map(e=>({...e,atVirtualSecond:e.atSecond??e.atVirtualSecond})),
     detailCoverage:raw.detailCoverage,diagnostics:raw.diagnostics,limitations:raw.limitations};
 }

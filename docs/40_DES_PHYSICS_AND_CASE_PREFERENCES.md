@@ -1,5 +1,7 @@
 # DES physics and case preferences
 
+This documents the earlier 0.3 delivery. Spatial DES 0.4 and replacement of raw card JSON are documented in [41_GUIDED_OPTIONS_SPATIAL_DES_AND_APP_HELP.md](41_GUIDED_OPTIONS_SPATIAL_DES_AND_APP_HELP.md).
+
 ## Delivered behavior
 
 - V-Graph legend, axis labels, machine names, reference and data values use 1.5 times their previous text sizes. Margins and minimum chart width accommodate the larger labels; long graphs scroll horizontally.

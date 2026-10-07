@@ -1,0 +1,31 @@
+<script>
+window.STEquipmentOptions=(function(){
+  var dialog,form,target,fields;
+  function read(card,selector){return JSON.parse(card._fields.querySelector(selector).value||'{}');}
+  function ensure(){
+    if(dialog)return;
+    dialog=document.createElement('dialog');dialog.className='equipment-options-dialog';dialog.setAttribute('aria-labelledby','equipment-options-title');
+    dialog.innerHTML='<header class="dialog-heading"><h2 id="equipment-options-title">Additional options</h2><button type="button" class="ghost icon-button" aria-label="Close">'+STIcons.svg('x')+'</button></header><form><div class="dialog-body"><p class="chart-note">Main controls already cover speed, reliability, geometry and sensors. Optional values below extend the model. Empty fields use defaults; existing imported metadata is preserved.</p><div class="equipment-options-fields field-grid"></div><p class="equipment-options-error error" role="alert"></p></div><div class="dialog-actions"><button type="button" class="secondary equipment-options-cancel">Cancel</button><button type="submit">Apply</button></div></form>';
+    document.body.appendChild(dialog);form=dialog.querySelector('form');fields=dialog.querySelector('.equipment-options-fields');
+    function cancel(){dialog.close();target?.button.focus();}
+    dialog.querySelector('header button').onclick=cancel;dialog.querySelector('.equipment-options-cancel').onclick=cancel;
+    form.onsubmit=function(event){event.preventDefault();if(!target||!target.card.isConnected||!form.checkValidity())return;
+      var profile=read(target.card,'.equipment-noise-profile'),data=read(target.card,'.equipment-process-data');
+      var micro=Object.assign({},profile.microStop);fields.querySelectorAll('input').forEach(function(input){var value=input.value===''?undefined:Number(input.value),path=input.dataset.path.split('.'),object=path[0]==='microStop'?micro:data;if(path[0]==='microStop')path.shift();var key=path.pop();path.forEach(function(part){object=object[part]=Object.assign({},object[part]);});if(value===undefined)delete object[key];else object[key]=value;});
+      if((micro.maxDurationSeconds??micro.minDurationSeconds??0)<(micro.minDurationSeconds??0)){dialog.querySelector('.equipment-options-error').textContent='Maximum microstop duration must be at least the minimum.';return;}
+      if(Object.keys(micro).length)profile.microStop=micro;else delete profile.microStop;
+      var card=target.card;card._fields.querySelector('.equipment-noise-profile').value=JSON.stringify(profile,null,2);card._fields.querySelector('.equipment-process-data').value=JSON.stringify(data,null,2);
+      card._fields.querySelector('.equipment-noise-profile').dispatchEvent(new Event('change',{bubbles:true}));card._fields.querySelector('.equipment-process-data').dispatchEvent(new Event('change',{bubbles:true}));card._refreshFormatPreview?.();cancel();
+    };
+  }
+  function open(card,button){ensure();target={card:card,button:button};fields.replaceChildren();dialog.querySelector('.equipment-options-error').textContent='';
+    var conveyor=card._fields.querySelector('.equipment-type').value==='CONVEYOR',data=read(card,'.equipment-process-data'),noise=read(card,'.equipment-noise-profile');
+    var definitions=[['microStop.probabilityPerMinute','Microstop frequency (/min)','2','Expected incidents per operating minute in AUTO. Set 0 to disable.'],['microStop.minDurationSeconds','Minimum microstop (s)','0.5','Shortest interruption; example: 0.5 seconds.'],['microStop.maxDurationSeconds','Maximum microstop (s)','2','Longest interruption; must be at least the minimum.']];
+    if(!conveyor)definitions=definitions.concat([['upstream.startupTimeSeconds','Startup delay (s)','3','Delay before processing starts after a restart.'],['downstream.rampUpTimeSeconds','Acceleration ramp (s)','5','Machine default time to rise from zero to configured speed; a connected conveyor may specify its own ramp.'],['downstream.infeedPitchMm','Infeed pitch (mm)','120','Machine inlet pitch used by connected conveyor calculations; millimeters between successive products.']]);
+    definitions.forEach(function(spec){var label=document.createElement('label'),input=document.createElement('input'),help=document.createElement('span');label.textContent=spec[1];input.type='number';input.min=/LengthMm|PitchMm/.test(spec[0])?'0.000001':'0';input.step=spec[0].endsWith('bottlesDischargedAtStop')?'1':'any';input.placeholder='Example: '+spec[2];input.dataset.path=spec[0];var path=spec[0].split('.'),object=path[0]==='microStop'?noise:data;input.value=path.reduce(function(value,key){return value?.[key];},object)??'';help.className='chart-note';help.textContent=spec[3];label.append(input,help);fields.appendChild(label);});
+    dialog.querySelector('h2').textContent='Additional options · '+card._fields.querySelector('.equipment-name').value;dialog.showModal();
+  }
+  function attach(card){var legacy=card._fields.querySelector('.equipment-json-details');legacy.hidden=true;legacy.style.display='none';var button=document.createElement('button');button.type='button';button.className='secondary equipment-options-button';button.innerHTML=STIcons.svg('settings')+'<span>Additional options</span>';button.onclick=function(){open(card,button);};legacy.before(button);}
+  return {attach:attach};
+})();
+</script>

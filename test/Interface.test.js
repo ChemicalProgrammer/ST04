@@ -740,7 +740,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
  }finally{h.dom.window.close();}
 });
 
-test('UI: Basic hides units and modes, JSON visibility is saved with the case and pacemaker remains a role',async()=>{
+test('UI: Basic hides units and modes, raw JSON stays hidden and pacemaker remains a role',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
   const display=e=>h.w.getComputedStyle(e).display,card=h.d.querySelector('.equipment-card');
@@ -752,7 +752,7 @@ test('UI: Basic hides units and modes, JSON visibility is saved with the case an
   assert.equal(display(h.d.querySelector('#editor-panel .raw-viewer')),'none');
   assert.equal(h.d.querySelector('.equipment-type option[value="PACEMAKER"]'),null);
   const show=h.d.getElementById('settings-json-fields');show.checked=true;show.dispatchEvent(new h.w.Event('change',{bubbles:true}));
-  assert.equal(display(card._fields.querySelector('.equipment-json-details')),'block');
+  assert.equal(display(card._fields.querySelector('.equipment-json-details')),'none');
   assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),null);
   const role=card._fields.querySelector('.equipment-pacemaker');assert.match(role.closest('label').textContent,/Critical machine/);role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].processData.role==='PACEMAKER');
@@ -2020,4 +2020,32 @@ test('UI: console options are isolated per case and survive saving and reopening
   h.w.STPreferences.setCaseOptions({autosaveEnabled:false,autosaveSeconds:5,seedPolicy:'RANDOM'});
   assert.equal(changes,1);assert.equal(h.storedCases()[0].metadata.consoleOptions.autosaveSeconds,3);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+
+test('UI: guided equipment options validate, cancel, preserve imported metadata and save in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});try{
+   h.w.STPreferences.write('autosaveEnabled','no');const get=h.api.getCase;
+   h.api.getCase=id=>{const c=get(id);for(const units of [c.equipment,c.simulations[0].equipment]){units[0].processData.customImported={value:123};units[0].noiseProfile.customMetadata={label:'preserve'};units[0].startupDelaySeconds=3;}return c;};
+   await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=equipment]');else await h.click('.sidebar [data-view=editor]');
+   let card=h.d.querySelector('.equipment-card');if(uiMode==='ADVANCE')card.click();
+   assert.equal(h.w.getComputedStyle(card._fields.querySelector('.equipment-json-details')).display,'none');assert.equal(h.w.getComputedStyle(h.d.getElementById('settings-json-fields').closest('label')).display,'none');
+   const button=card._fields.querySelector('.equipment-options-button');assert.notEqual(h.w.getComputedStyle(button).display,'none');button.click();
+   const dialog=h.d.querySelector('.equipment-options-dialog'),field=path=>dialog.querySelector('[data-path="'+path+'"]');assert(dialog.open);assert.equal(field('upstream.startupTimeSeconds').value,'3');assert.match(field('microStop.probabilityPerMinute').placeholder,/Example/);
+   field('microStop.probabilityPerMinute').value='2';field('microStop.minDurationSeconds').value='3';field('microStop.maxDurationSeconds').value='2';
+   dialog.querySelector('form').dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));assert(dialog.open);assert.match(dialog.querySelector('[role=alert]').textContent,/Maximum/);
+   field('microStop.maxDurationSeconds').value='4';field('upstream.startupTimeSeconds').value='5';dialog.querySelector('form').dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));assert(!dialog.open);
+   button.click();field('upstream.startupTimeSeconds').value='99';dialog.querySelector('.equipment-options-cancel').click();
+   const data=JSON.parse(card._fields.querySelector('.equipment-process-data').value),noise=JSON.parse(card._fields.querySelector('.equipment-noise-profile').value);assert.equal(data.upstream.startupTimeSeconds,5);assert.equal(data.customImported.value,123);assert.equal(noise.customMetadata.label,'preserve');assert.equal(noise.microStop.maxDurationSeconds,4);
+   // Opaque imported metadata survives the dialog. Remove unsupported noise
+   // before saving this fixture for potential DES use.
+   delete noise.customMetadata;card._fields.querySelector('.equipment-noise-profile').value=JSON.stringify(noise);
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].equipment[0].processData.upstream.startupTimeSeconds===5);
+   assert.equal(h.storedCases()[0].simulations[0].equipment[0].processData.customImported.value,123);
+   if(uiMode==='BASIC')await h.click('[data-basic-view=conveyors]');else h.d.querySelectorAll('.equipment-card')[1].click();
+   card=h.d.querySelectorAll('.equipment-card')[1];card._fields.querySelector('.equipment-options-button').click();assert(dialog.open);assert.equal(dialog.querySelectorAll('input').length,3);assert(!field('upstream.startupTimeSeconds'));dialog.querySelector('.equipment-options-cancel').click();
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
 });

@@ -580,7 +580,10 @@ async function openCase(caseId) {
       equipmentField(card, '.equipment-mode').value = window.STBasicMode?.isBasic() ? 'AUTO' : equipment.initialMode || 'AUTO';
       equipmentField(card, '.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
       equipmentField(card, '.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
-      equipmentField(card, '.equipment-process-data').value = JSON.stringify(equipment.processData || {}, null, 2);
+      var guidedData=cloneJson(equipment.processData||{});
+      if(equipment.startupDelaySeconds!=null)guidedData.upstream=Object.assign({},guidedData.upstream,{startupTimeSeconds:equipment.startupDelaySeconds});
+      if(equipment.restartRampUpSeconds!=null)guidedData.downstream=Object.assign({},guidedData.downstream,{rampUpTimeSeconds:equipment.restartRampUpSeconds});
+      equipmentField(card, '.equipment-process-data').value = JSON.stringify(guidedData, null, 2);
 
       card.dataset.equipmentId = equipment.id;
       var fields = document.createElement('div'); fields.className = 'equipment-fields';
@@ -588,6 +591,7 @@ async function openCase(caseId) {
       card.appendChild(fields); card._fields = fields; fields._owner = card; card._refreshFormatPreview = function(){ updateFormatZoneVisibility(card); renderFormatZonePreview(card); };
       STReliabilityControls(card);
       STEquipmentRoles.attach(card,equipment);
+      STEquipmentOptions.attach(card);
       addConveyorPhysicsInputs(card);
       applyConceptTooltips(card);
       populateFormatZoneInputs(card, equipment);

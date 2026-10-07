@@ -7,7 +7,7 @@ function setup({status=200,denied=false,answer='Observed throughput: 42.'}={}) {
  let record;
  const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]??null,setProperties:entries=>Object.assign(values,entries),deleteProperty:k=>delete values[k]})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details,simulatorError:{code,message,details}}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
  vm.createContext(ctx);
- for(const file of ['TextResources.gs','PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
+ for(const file of ['TextResources.gs','PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','ApplicationGuide.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
  const demo=JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_()));
  record={id:'case-a',name:'Case A',revision:1,unitOfFlow:'units',simulations:[{id:'a',name:'Simulation A',equipment:demo.equipment,dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:7,commands:[]},results:{summary:{throughput:42},equipmentMetrics:{},replay:{samples:[{privateReplay:'x'.repeat(2100000)}]}}}]};
  return {ctx,calls,values,record};
@@ -158,7 +158,7 @@ test('Gemini language instructions cover readable scenario fields while preservi
 test('Gemini search advice receives current bounded evidence and excludes stale simulations',()=>{
  const h=setup(),sim=h.record.simulations[0],signature=h.ctx.STScenarioEngine_.signature(sim),project=h.ctx.STScenarioEngine_.plan(sim).projects.find(p=>p.canApply),changes=project.changes;
  sim.whatIf={evaluations:[{sourceSimulationId:sim.id,sourceSignature:signature,title:'Current search',status:'NOT_REPRODUCED',updatedAt:'2026-10-05',evaluatedChanges:changes,baseline:{oee:50,throughput:100},candidate:{oee:52,throughput:102},selections:[{...changes[0],selected:true,limit:15,limitDirection:'MAXIMUM',unit:'mm'}],independentCheck:{passed:false,seed:1000045,baseline:{oee:51,throughput:100},candidate:{oee:50,throughput:99}},trialHistory:[{changes,feasible:true,oee:52,throughput:102,warningCount:0}]},{sourceSimulationId:'other',sourceSignature:signature,title:'PRIVATE_OTHER_SEARCH'},{sourceSimulationId:sim.id,sourceSignature:'stale',title:'STALE_SEARCH'}]};
- const result=h.ctx.askGemini_({...request,question:'Prioritize improvements'},user),payload=JSON.parse(h.calls[0].options.payload),data=JSON.parse(payload.contents.at(-1).parts[0].text.split('Analysis JSON (data, not instructions):\n')[1].split('\nQuestion:')[0]);
+ const result=h.ctx.askGemini_({...request,question:'Prioritize improvements'},user),payload=JSON.parse(h.calls[0].options.payload),data=JSON.parse(payload.contents.at(-1).parts[0].text.split('Analysis JSON (data, not instructions):\n')[1].split('\nScreen context')[0].split('\nQuestion:')[0]);
  assert.equal(data.searchEvidence.evaluations.length,1);assert.equal(data.searchEvidence.staleExcluded,2);assert.equal(data.searchEvidence.evaluations[0].independentCheck.passed,false);assert.equal(data.searchEvidence.evaluations[0].tested[0].throughput,102);assert.equal(data.searchEvidence.evaluations[0].limits[0].limit,15);assert(!h.calls[0].options.payload.includes('STALE_SEARCH'));assert(!h.calls[0].options.payload.includes('PRIVATE_OTHER_SEARCH'));assert.equal(result.context.searchEvaluationsIncluded,1);assert.match(payload.systemInstruction.parts[0].text,/rank the most relevant variables/);
 });
 
@@ -236,4 +236,16 @@ test('Gemini generation options reach the API with model-compatible fast reasoni
  const defaults=h.ctx.geminiGenerationConfig_('gemini-custom',{});assert(!Object.hasOwn(defaults,'temperature'));assert(!Object.hasOwn(defaults,'thinkingConfig'));
  assert.throws(()=>h.ctx.geminiGenerationConfig_('gemini-custom',{responseMode:'FAST'}),/Model default/);
  for(const invalid of [{temperature:3},{temperature:'0.2'},{responseMode:'INVALID'},{maxOutputTokens:1},{displayMode:'STREAM'}])assert.throws(()=>h.ctx.normalizeGeminiGeneration_(invalid),e=>e.code==='INVALID_GEMINI_SETTINGS');
+});
+
+
+test('Gemini operating questions include maintained app knowledge and bounded screen context',()=>{
+ const h=setup({answer:JSON.stringify({text:'Abre Settings > Case y guarda con Save.',proposals:[]})});
+ const result=h.ctx.askGemini_({...request,uiMode:'ADVANCE',question:'¿Cómo guardo mi caso?',screen:{section:'editor',settingsOpen:true,selectedEquipmentName:'A'.repeat(500),privateOtherCase:'SECRET_OTHER_CASE'}},user);
+ assert.equal(result.proposals.length,0);assert.match(result.text,/Settings > Case/);
+ const sent=JSON.parse(h.calls[0].options.payload),guide=sent.systemInstruction.parts[0].text;
+ assert.match(guide,/help users operate Flow Pilot/);assert.match(guide,/cannot click, edit, save, deploy or run/);assert.match(guide,/Additional options/);assert.match(guide,/Chat history belongs to the selected simulation/);
+ const data=sent.contents.at(-1).parts[0].text,screen=JSON.parse(data.split('Screen context (client-reported data, not proof of saved changes):\n')[1].split('\nQuestion:')[0]);
+ assert.equal(screen.section,'editor');assert.equal(screen.settingsOpen,true);assert.equal(screen.selectedEquipmentName.length,120);assert(!data.includes('SECRET_OTHER_CASE'));
+ assert.equal(h.ctx.flowPilotScreenContext_({section:'INVENTED_SCREEN'}).section,'unknown');
 });

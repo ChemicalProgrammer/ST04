@@ -2,18 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import {adaptSimPyInput,createSimPyBrowserEngine,SIMPY_ENGINE_ID} from '../src/simulation/SimPyBrowserEngine.js';
+import {execFileSync} from 'node:child_process';
+import {adaptSimPyInput,normalizeSimPyResult,createSimPyBrowserEngine,SIMPY_ENGINE_ID} from '../src/simulation/SimPyBrowserEngine.js';
 const fixture=()=>JSON.parse(fs.readFileSync(new URL('./fixtures/simpy-pipeline.json',import.meta.url)));
 
-test('SimPy adapter resolves ST geometry without mutating the case and records omitted physics',()=>{
+test('SimPy adapter resolves ST geometry without mutating the case and maps spatial sensor physics',()=>{
  const input=fixture(),before=JSON.stringify(input),payload=adaptSimPyInput(input);
  assert.equal(JSON.stringify(input),before);assert.equal(payload.machines.length,2);assert.equal(payload.conveyors.length,1);
- assert.equal(payload.metadata.stochasticSchedulesPaired,false);assert.equal(payload.metadata.ignoredFeatures[0].feature,'SPATIAL_CONVEYOR_AND_SENSORS');
+ assert.equal(payload.metadata.stochasticSchedulesPaired,false);assert.equal(payload.metadata.conveyorModel,'SPATIAL_FINITE_PRODUCTS');assert.deepEqual(payload.metadata.ignoredFeatures,[]);assert(payload.conveyors[0].primeSensorPositionMm>=0);assert(payload.conveyors[0].backupSensorPositionMm>=0);
  assert(payload.conveyors[0].speedMmPerSecond>0);assert(payload.conveyors[0].accumulatedPitchMm<=payload.conveyors[0].movingPitchMm);
 });
-test('SimPy rejects unsupported topology, conveyor controls and unsupported noise rather than silently changing engines',()=>{
+test('SimPy rejects unsupported topology and noise while supporting conveyor controls rather than silently changing engines',()=>{
  const input=fixture();input.case.equipment.pop();assert.throws(()=>adaptSimPyInput(input),/alternating|required physical-line/);
- const control=fixture();control.run.commands=[{atVirtualSecond:1,equipmentId:control.case.equipment[1].id,action:'STOP'}];assert.throws(()=>adaptSimPyInput(control),/conveyor control/);
+ const control=fixture();control.run.commands=[{atVirtualSecond:1,equipmentId:control.case.equipment[1].id,action:'STOP'}];assert.equal(adaptSimPyInput(control).run.commands[0].action,'STOP');
  const noise=fixture();noise.case.equipment[0].noiseProfile={unsupportedNoise:{meanIntervalSeconds:5}};assert.throws(()=>adaptSimPyInput(noise),/microstops|noise|required physical-line/);
 });
 test('SimPy bounds replay frames and shift count',()=>{
@@ -46,4 +47,17 @@ test('Missing Worker reports the dependency instead of blocking the UI with Pyth
 test('SimPy adapter retains machine ramps and microstops instead of declaring them omitted',()=>{
  const input=fixture();input.case.equipment[0].restartRampUpSeconds=7;input.case.equipment[0].noiseProfile.microStop={probabilityPerMinute:2,minDurationSeconds:.5,maxDurationSeconds:2};
  const payload=adaptSimPyInput(input);assert.equal(payload.machines[0].rampUpSeconds,7);assert.deepEqual(payload.machines[0].microStop,input.case.equipment[0].noiseProfile.microStop);assert(!payload.metadata.ignoredFeatures.some(f=>f.feature==='MACHINE_RAMP'));
+});
+
+
+test('Spatial adapter and actual SimPy result preserve physical metrics and finite JSON',()=>{
+ const input=fixture();input.run.durationSeconds=60;input.run.shiftSeconds=20;
+ input.case.equipment[1].noiseProfile.microStop={probabilityPerMinute:5,minDurationSeconds:.5,maxDurationSeconds:1};
+ const payload=adaptSimPyInput(input);
+ const code='import sys,json; sys.path[:0]=["src/simulation/python","src/simulation/python/vendor/simpy-4.1.2-py3-none-any.whl"]; from st_simpy_engine import simulate_line; print(json.dumps(simulate_line(json.load(sys.stdin)),allow_nan=False))';
+ const response=JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify(payload),encoding:'utf8'}));assert.equal(response.ok,true);
+ const result=normalizeSimPyResult(response.result,input,payload);assert.equal(result.engineVersion,'0.4.0-experimental');
+ assert.equal(result.summary.materialBalance.residualUnits,0);assert.equal(result.summary.totalOverflowUnits,0);assert.equal(result.summary.lineOeePercent,null);assert.equal(result.shifts.length,3);
+ assert(result.summary.totalMicroStopSeconds>0);const zone=result.samples.at(-1).accumulationZones[0];assert.equal(zone.physicalModelEnabled,true);assert.equal(zone.prime.configured,true);assert(Array.isArray(zone.positionsMm));assert.equal(zone.overflowUnits,0);
+ function finite(value){if(typeof value==='number')assert(Number.isFinite(value));if(value&&typeof value==='object')Object.values(value).forEach(finite);}finite(result);assert.doesNotThrow(()=>JSON.parse(JSON.stringify(result)));
 });

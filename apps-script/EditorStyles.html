@@ -1,4 +1,9 @@
 <style>
+  .equipment-options-dialog { width:min(680px,calc(100vw - 32px)); }
+  .equipment-options-dialog .field-grid { margin:0; }
+  .equipment-options-button { margin-top:var(--space-3); }
+  .equipment-options-fields .chart-note { font-weight:normal; }
+  @media(max-width:540px) { .equipment-options-fields.field-grid { grid-template-columns:1fr; } }
   .field-grid, .equipment-grid { display: grid; gap: var(--size-12); grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-grid { margin: var(--size-20) 0; max-width: var(--size-760); }
   #case-editor-form .field-grid { grid-template-columns:1fr; }

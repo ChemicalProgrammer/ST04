@@ -167,7 +167,7 @@ window.STAssistant = function(state,actions) {
       try{await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
       if(originalCase!==caseId||originalSimulation!==simulationId)return;
       var previousMessages=messages.slice();if(cutIndex!==undefined)messages=messages.slice(0,cutIndex);
-      var request={caseId:caseId,simulationId:simulationId,uiMode:basic()?'BASIC':'ADVANCE',question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
+      var request={caseId:caseId,simulationId:simulationId,uiMode:basic()?'BASIC':'ADVANCE',screen:{section:state.uiView,settingsOpen:el('settings-dialog').open,selectedEquipmentName:STEquipmentInspector.name()},question:question,history:messages.slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
       pending=true;el('gemini-error').textContent='';messages.push({role:'user',text:question,createdAt:new Date().toISOString()});el('gemini-question').value='';render();sync();
       progress('waiting');
       function finish(response){

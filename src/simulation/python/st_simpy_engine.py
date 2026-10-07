@@ -87,6 +87,9 @@ class SimPySimulation(Simulation):
         event.callbacks.append(self.handle_event)
 
     def handle_event(self, event):
+        # Nearby floating-point timestamps can share a dispatch group; physical
+        # coordinates must still advance to each actual scheduler timestamp.
+        self.advance(self.env.now)
         kind, data = event.value
         self.executed += 1
         if self.executed > self.run.get("maxEvents", 2000000):
@@ -110,9 +113,12 @@ class SimPySimulation(Simulation):
             at = self.env.peek()
             self.advance(at)
             self.pending_sample = False
-            while self.env.peek() <= at + EPS:
-                self.env.step()
-            self.settle()
+            while True:
+                while self.env.peek() <= at + EPS:
+                    self.env.step()
+                self.settle()
+                if self.env.peek() > at + EPS:
+                    break
             if self.pending_sample:
                 self.sample()
                 if self.progress:
@@ -141,8 +147,13 @@ def simulate_line(payload, progress=None, cancelled=None):
             "message": "Install SimPy locally: python -m pip install -r requirements.txt"}}
     started = time.perf_counter()
     try:
-        validate(payload)
-        result = SimPySimulation(deepcopy(payload), progress, cancelled).execute()
+        if isinstance(payload, dict) and isinstance(payload.get('metadata'), dict) and payload['metadata'].get('conveyorModel') == 'SPATIAL_FINITE_PRODUCTS':
+            from st_spatial_engine import SpatialSimulation, validate as validate_spatial
+            validate_spatial(payload)
+            result = SpatialSimulation(deepcopy(payload), progress, cancelled).execute()
+        else:
+            validate(payload)
+            result = SimPySimulation(deepcopy(payload), progress, cancelled).execute()
         result["diagnostics"]["wallTimeSeconds"] = time.perf_counter() - started
         return {"ok": True, "result": result}
     except Cancelled as error:
@@ -170,7 +181,7 @@ def simulate_batch(payload, rounds, progress=None, cancelled=None):
         results.append(response["result"])
     values = [r["summary"]["throughputPerMinute"] for r in results]
     return {"ok": True, "batch": {"rounds": rounds, "engineId": "DES_SIMPY_EXPERIMENTAL",
-        "engineVersion": VERSION, "libraryVersion": simpy.__version__ if simpy else None,
+        "engineVersion": results[0]["engine"]["version"], "libraryVersion": simpy.__version__ if simpy else None,
         "seeds": [r["run"]["seed"] for r in results],
         "meanThroughputPerMinute": statistics.mean(values),
         "standardDeviationThroughput": statistics.stdev(values) if rounds > 1 else None,

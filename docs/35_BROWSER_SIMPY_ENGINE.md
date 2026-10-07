@@ -24,20 +24,18 @@ the generated HTML, so DES needs no PyPI lookup or package resolution at runtime
 
 - Alternating serial machine–conveyor lines with at least two machines.
 - Individual items; one item in service per machine; blocking after service.
-- Finite FIFO conveyors with full-length delay, packed capacity, admission and
-  discharge headways; constant belt speed.
+- Spatial finite-product conveyors: leading-edge positions, entry headway, packed collisions and finite capacity; constant belt speed.
 - Deterministic processing times and repair times; exponential MTBF with
   independent seeded streams per machine.
 - Machine start delay and linear acceleration ramps with analytical work integration, pause, stop, run, emergency latch and reset. Partial work survives interruption.
-- Machine microstops: exponential intervals, uniformly distributed durations and an independent seeded stream. Conveyor
-  controls and conveyor failures are rejected explicitly.
+- Machine and conveyor microstops: exponential intervals, uniform durations and independent seeded streams. Conveyors support pause, stop, emergency/reset and failures, freezing product positions.
+- Prime photoeye crossings, sustained stationary Back-up occupancy with blocked/clear delays, stop response, restart delay and residual discharge. Full-inlet residual discharge is explicitly counted as overflow loss; material balance includes it.
 - Rounds use base seed + index. Shifts are sampled at exact boundaries. Replay
   frames and event logs are bounded. Cancellation terminates Python's Worker;
   it cannot commit a partial result as a completed run.
 
 The geometry adapter uses ST's own geometry calculations, but **this is not the
-same physical model**. Spatial queue tails, Prime/Back-up sensors, belt stop
-control, discharge runout, conveyor microstops and rejects are not simulated.
+same physical model**. The current browser model is `0.4.0-experimental`; it models spatial queues, sensors and conveyor control. Batches, merges/splits, conversion ratios, rejects and belt acceleration are not simulated.
 Unsupported inputs are rejected. Omitted features and library provenance are
 saved with the result, replay, HTML/PDF report and bounded AI export/context.
 
@@ -46,6 +44,8 @@ achievement.** What-If evaluation is disabled for this experimental model.
 Capacity achievement, processing utilization and throughput can be inspected,
 but are not validated plant OEE. Cross-engine comparisons show a model warning.
 Identical numeric seeds do not pair failure schedules across the two engines.
+
+The focused local checks for the spatial update are documented in [41_GUIDED_OPTIONS_SPATIAL_DES_AND_APP_HELP.md](41_GUIDED_OPTIONS_SPATIAL_DES_AND_APP_HELP.md). Earlier browser validation below does not establish browser or plant validation of the new physics.
 
 ## Build and deployment
 
@@ -63,7 +63,7 @@ The live Apps Script deployment and company network access must be checked after
 updating. Local iframe tests cannot reproduce all company policies or Google's
 production iframe headers.
 
-## Validation on 2026-10-07
+## Earlier browser validation (before spatial 0.4 update)
 
 - Real Chromium 133, inside a sandboxed iframe with module Worker: selection,
   calculation, result persistence and engine provenance passed.
