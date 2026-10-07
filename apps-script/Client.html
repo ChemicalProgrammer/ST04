@@ -285,6 +285,8 @@
         if(response.ok){
           if(changingFolder)cancelCaseCatalog();
           state.bootstrap.settings=response.data;
+          var folderInput=document.getElementById('workspace-folder-id');if(folderInput.value===request.workspaceRootFolderId)folderInput.value=response.data.workspaceRootFolderId;
+
           state.bootstrap.gemini=Object.assign({},state.bootstrap.gemini,{model:request.gemini.model,generation:request.gemini.generation||state.bootstrap.gemini?.generation,configured:Boolean(request.gemini.apiKey||state.bootstrap.gemini?.configured)},request.gemini.prompts===undefined?{}:{promptOverrides:request.gemini.prompts});
           STSettings.setKeyConfigured(state.bootstrap.gemini.configured);
           shell.sync();

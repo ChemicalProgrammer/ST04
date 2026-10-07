@@ -1,10 +1,16 @@
 function requireCurrentUser_() {
-  var email = Session.getActiveUser().getEmail();
+  var email = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  var effectiveEmail = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
   if (!email) {
     throw createSimulatorError_(
       'IDENTITY_UNAVAILABLE',
-      'The deployment must identify the active Google user before the console can be used.'
+      'Sign in with your Google account. The web app must be deployed to execute as User accessing the web app, and each user must authorize it.'
     );
+  }
+
+  // Reject owner-executed deployments before reading settings, keys or Drive.
+  if (!effectiveEmail || effectiveEmail !== email) {
+    throw createSimulatorError_('DEPLOYMENT_IDENTITY_MISMATCH', 'This deployment is running under another Google account. The developer must redeploy with Execute as: User accessing the web app. No account settings or Drive data were loaded.');
   }
 
   var allowedEmails = getAllowedUserEmails_();

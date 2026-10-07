@@ -4,7 +4,7 @@ function verifyWorkspaceRoot_(folderId) {
     folder.getName();
     return folder;
   } catch (error) {
-    throw createSimulatorError_('WORKSPACE_FOLDER_UNAVAILABLE', 'The configured workspace folder cannot be opened by the current user.');
+    throw createSimulatorError_('WORKSPACE_FOLDER_UNAVAILABLE', 'This Google account cannot open the workspace folder. Check the folder ID (or paste its Drive folder URL), sign in with the account that owns it or has access, and authorize Drive access. The deployment must execute as User accessing the web app.');
   }
 }
 

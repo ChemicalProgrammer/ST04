@@ -39,6 +39,11 @@ function normalizeUserSettings_(settings) {
   }
 
   var rootId = typeof settings.workspaceRootFolderId === 'string' ? settings.workspaceRootFolderId.trim() : '';
+  if (/^https:\/\//i.test(rootId)) {
+    var folderLink=rootId.match(/^https:\/\/drive\.google\.com\/(?:[^?#]*\/)?folders\/([a-zA-Z0-9_-]+)(?:[/?#]|$)/i);
+    if(!folderLink)throw createSimulatorError_('INVALID_USER_SETTINGS', 'Paste a Google Drive folder URL or its folder ID, not a file or spreadsheet link.');
+    rootId=folderLink[1];
+  }
   if (!rootId) {
     throw createSimulatorError_('INVALID_USER_SETTINGS', 'workspaceRootFolderId is required.');
   }
