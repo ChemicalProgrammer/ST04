@@ -19,8 +19,8 @@ as `st.ui.v1.fontScale.advance` and `.basic`; existing explicit global preferenc
 remain a fallback for browsers upgraded from earlier versions.
 
 Views start with subsection headings; the header navigation identifies the main
-section. Subsection controls align right. Equipment and Conveyors share one import
-menu (Google Sheet / JSON); Equipment also offers JSON export. JSON field actions
+section. Subsection controls align right. Equipment and Conveyors share one file
+menu (Google Sheet / JSON import); Equipment adds JSON export inside that menu. JSON field actions
 use text buttons. V-Graph uses its speed-profile heading. Main header gaps are 16px;
 panel padding is 20px (12px on small screens). Checkboxes remain 16px.
 
@@ -39,3 +39,11 @@ Verification: modular Apps Script and Settings contracts, targeted jsdom tests f
 JSON import isolation, conveyor worksheets, scenario rejection/stop controls,
 subsection navigation and mode font scaling. Real-browser visual review is still
 needed on the deployed Apps Script page.
+
+Basic CAPEX overview: Current, Zero, Medium, High in a single four-column row.
+The current card reads the saved result (batch means when available), has no
+calculation actions and displays a dash when no result exists. Narrow containers
+scroll horizontally instead of wrapping the four cards. Advance retains its
+existing detailed categories, including All CAPEX. File-menu summaries and icon
+buttons share dimensions and have no extra bottom margin; subsection headings
+share typography, minimum height and spacing.

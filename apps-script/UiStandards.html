@@ -113,4 +113,26 @@ html[data-ui-mode=advance] .analysis-critical { border-left-color:var(--danger);
 html[data-ui-mode=advance] :is(.analysis-attention,.scenario-audit-warnings,.round-warning) { border-left-color:var(--warning); }
 .json-field-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); flex-wrap:wrap; }
 .json-field-heading .button-row { margin-left:auto; padding:0; gap:var(--space-1); }
+/* Subsection headings and action menus use the same dimensions in every view. */
+#simulation-analysis { margin-top:0; }
+#simulation-analysis-content { margin-top:0; }
+#editor-panel > .editor-subheading,
+.workspace-content > section.card > .section-heading,
+.simulation-analysis-heading,#line-performance > .section-heading,
+.basic-conveyor-heading { min-height:var(--control-height); align-items:center; margin-top:0; margin-bottom:var(--section-gap); }
+.workspace-content > section.card > .section-heading h2,
+#equipment-subsection-title,#basic-run-options-title,#simulation-analysis-title,#vgraph-title,
+.basic-conveyor-heading h3 { font-size:var(--font-card); font-weight:var(--weight-semibold); line-height:var(--leading-tight); margin:0; }
+#basic-run-options > h3 { display:flex; align-items:center; min-height:var(--control-height); margin-bottom:var(--section-gap); }
+.section-heading .export-menu,.editor-subheading .export-menu,.simulation-analysis-heading .export-menu { margin:0; vertical-align:middle; }
+.editor-subheading > .button-row { align-items:center; }
+.export-menu > summary.icon-button { box-sizing:border-box; width:var(--control-height); height:var(--control-height); min-height:var(--control-height); padding:var(--space-2); }
+html[data-ui-mode=basic] .scenario-tier-grid { grid-template-columns:repeat(4,minmax(210px,1fr)); align-items:stretch; overflow-x:auto; padding-bottom:var(--space-2); }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation { min-width:0; display:flex; flex-direction:column; padding:var(--space-3); }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > .analysis-capex,
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > h4 { margin:0 0 var(--space-4); min-height:var(--control-height); align-content:center; font-size:var(--font-card); }
+html[data-ui-mode=basic] .scenario-tier-grid .scenario-actions { margin-top:auto; padding-top:var(--space-3); gap:var(--space-1); flex-wrap:nowrap; }
+html[data-ui-mode=basic] .scenario-tier-grid .scenario-actions .icon-button { width:var(--control-height); height:var(--control-height); flex-basis:var(--control-height); }
+html[data-ui-mode=basic] .scenario-current { border-left:var(--state-border-width) solid var(--muted); }
+html[data-ui-mode=basic] .scenario-current .scenario-basic-metrics { padding:var(--space-3) 0; }
 </style>

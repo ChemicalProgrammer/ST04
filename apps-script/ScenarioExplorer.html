@@ -246,7 +246,14 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     container.append(combined);
     function rebuild(){
       combined.replaceChildren();combined.className='scenario-tier-grid';
-      ['ZERO','MEDIUM','HIGH','ALL'].forEach(function(tier){
+      var basic=document.documentElement.dataset.uiMode==='basic';
+      if(basic){
+        var current=el('article','','analysis-recommendation scenario-current'),values=simulation.results?.summary?metric(simulation.results):{},metrics=el('div','','scenario-basic-metrics');
+        current.append(el('h4','Current scenario'));
+        [['OEE','oee','%'],['Throughput','throughput',' '+(simulation.unitOfFlow||simulation.results?.unitOfFlow||'units')+'/min']].forEach(function(spec){var item=el('div','','scenario-basic-metric'),value=values[spec[1]];item.append(el('span',spec[0]),el('strong',Number.isFinite(value)?value.toFixed(spec[1]==='oee'?1:2)+spec[2]:'—'));metrics.append(item);});
+        current.append(metrics);combined.append(current);
+      }
+      (basic?['ZERO','MEDIUM','HIGH']:['ZERO','MEDIUM','HIGH','ALL']).forEach(function(tier){
         var seen=new Set(),changes=pool.filter(p=>p.tier===tier||tier==='ALL').sort((a,b)=>tier==='ALL'?['ZERO','MEDIUM','HIGH'].indexOf(b.tier)-['ZERO','MEDIUM','HIGH'].indexOf(a.tier):0).flatMap(p=>p.changes).filter(function(c){var key=c.equipmentId+':'+c.path;if(seen.has(key))return false;seen.add(key);return true;});
         if(!changes.length){var empty=el('article','','analysis-recommendation');empty.append(el('h4',tier==='ALL'?'All CAPEX':STScenarioText[tier]),el('p','No supported targets. Add intervention evidence before evaluating.'));combined.append(empty);return;}
         var project={title:tier==='ALL'?'All CAPEX · combined search':'Line-wide '+STScenarioText[tier],description:tier==='ALL'?'Explore Zero, Medium and High measures together. Only the validated selection is saved.':'Evaluate this category independently.',searchScope:tier,kind:'CUSTOM',tier:tier==='ALL'?'HIGH':tier,basis:'STATIC',sourceSimulationId:simulation.id,sourceSignature:STScenarios.signature(simulation),changes:changes,explore:true};combined.append(STWhatIf.card(project,create,simulation.equipment,simulation));

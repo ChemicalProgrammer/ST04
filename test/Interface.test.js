@@ -1349,7 +1349,7 @@ test('UI: finishing during DOE preserves partial observations without estimating
  }finally{h.dom.window.close();}
 });
 
-test('UI + Apps Script: All CAPEX creation saves the validated winner from manual Basic mode',async()=>{
+test('UI + Apps Script: High CAPEX creation saves the validated winner from manual Basic mode',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
   await h.click('.open-case');const before=h.storedCases()[0],signature=JSON.stringify(before.simulations[0].equipment);
   h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===signature?50:51,outputCount:JSON.stringify(input.case.equipment)===signature?100:101}}});
@@ -1363,7 +1363,7 @@ test('UI + Apps Script: All CAPEX creation saves the validated winner from manua
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const saved=h.storedCases()[0],scenario=saved.simulations[1];
   assert.equal(scenario.scenario.origin,'REVIEWED');assert(scenario.scenario.changes.length>0);assert.equal(JSON.stringify(saved.simulations[0].equipment),signature);assert.equal(scenario.results,null);
-  assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='ALL'&&e.independentCheck?.passed));assert.deepEqual(h.errors,[]);
+  assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='HIGH'&&e.independentCheck?.passed));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -1815,5 +1815,15 @@ test('UI: subsection imports and Basic scenario metrics preserve working actions
   const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);assert(card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   assert.equal(card.querySelector('.scenario-basic-metric strong').textContent,'51.0%');assert.match(card.querySelector('.scenario-basic-change').textContent,/\+1.00 pp/);
   assert.equal(h.w.getComputedStyle(card.querySelector('.scenario-metric-table')).display,'none');h.d.documentElement.dataset.uiMode='advance';assert.notEqual(h.w.getComputedStyle(card.querySelector('.scenario-metric-table')).display,'none');assert.equal(h.w.getComputedStyle(card.querySelector('.scenario-basic-metrics')).display,'none');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI Basic: four CAPEX cards include read-only current batch metrics and a shared file menu',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');const menu=h.d.querySelector('.import-menu');assert.equal(menu.querySelectorAll('button').length,3);assert(menu.contains(h.d.getElementById('export-equipment-json')));
+  const sim=h.storedCases()[0].simulations[0];sim.results={summary:{lineOeePercent:40,outputCount:100},durationSeconds:60,batch:{statistics:{lineOeePercent:{mean:42.5},throughputPerMinute:{mean:81.97}}}};
+  const target=h.d.createElement('div');h.d.body.append(target);h.w.STWhatIf.render(sim,target,()=>{});const grid=target.querySelector('.scenario-tier-grid');assert.equal(grid.children.length,4);const current=grid.firstElementChild;assert.equal(current.querySelectorAll('button,input').length,0);assert.equal(current.querySelector('strong').textContent,'42.5%');assert.match(current.textContent,/81.97/);assert(!grid.textContent.includes('All CAPEX'));
+  assert.match(h.w.getComputedStyle(grid).gridTemplateColumns,/repeat\(4/);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
