@@ -17,10 +17,12 @@ var ST_GEMINI_ZERO_CAPEX_POLICY = "ZERO CAPEX: adjustments to installed speeds, 
 var ST_GEMINI_MEDIUM_CAPEX_POLICY = "MEDIUM CAPEX: evidenced local retrofits or external reliability interventions supported by a specific intervention and documented target. Explain installation scope and missing cost evidence; do not invent prices or reliability gains.";
 var ST_GEMINI_HIGH_CAPEX_POLICY = "HIGH CAPEX: accumulation extensions or equipment replacement projects, supported by physical constraints and documented capacity needs. Explain project scope and missing capital cost evidence; do not invent prices or ROI.";
 
+var ST_GEMINI_BASIC_CAPEX_POLICY = ST_GEMINI_ZERO_CAPEX_POLICY+'\n\n'+ST_GEMINI_MEDIUM_CAPEX_POLICY+'\n\n'+ST_GEMINI_HIGH_CAPEX_POLICY;
+
 // Per-user overrides preserve source defaults and can omit each optional prompt block.
 function geminiPromptDefinitions_() {
   return [
-    ['personality','Personality',ST_GEMINI_PERSONALITY],['language','Language and terminology',ST_GEMINI_LANGUAGE_POLICY],
+    ['personality','Personality',ST_GEMINI_PERSONALITY],['basicCapex','CAPEX scenario definitions (Basic)',ST_GEMINI_BASIC_CAPEX_POLICY],['language','Language and terminology',ST_GEMINI_LANGUAGE_POLICY],
     ['zeroCapex','Zero CAPEX criteria',ST_GEMINI_ZERO_CAPEX_POLICY],['mediumCapex','Medium CAPEX criteria',ST_GEMINI_MEDIUM_CAPEX_POLICY],['highCapex','High CAPEX criteria',ST_GEMINI_HIGH_CAPEX_POLICY],
     ['engineering','Engineering evidence and limits',ST_GEMINI_ENGINEERING_POLICY],['search','Search strategy',ST_GEMINI_SEARCH_POLICY],
     ['advance','Advance responses and scenario cards',ST_GEMINI_ADVANCE_POLICY],['basic','Basic responses',ST_GEMINI_BASIC_POLICY],['responseFormat','Advance response format',ST_GEMINI_RESPONSE_FORMAT]
@@ -57,7 +59,7 @@ function getGeminiPrompts_() {
 }
 function geminiPolicy_(basicMode) {
   var overrides=getGeminiPrompts_();
-  return geminiPromptDefinitions_().filter(function(def){return basicMode?def.id!=='advance'&&def.id!=='responseFormat':def.id!=='basic';}).map(function(def){var value=overrides[def.id];return value?(value.enabled?value.text:''):def.defaultText;}).filter(Boolean).join('\n\n');
+  return geminiPromptDefinitions_().filter(function(def){return basicMode?!['advance','responseFormat','zeroCapex','mediumCapex','highCapex'].includes(def.id):!['basic','basicCapex'].includes(def.id);}).map(function(def){var value=overrides[def.id];return value?(value.enabled?value.text:''):def.defaultText;}).filter(Boolean).join('\n\n');
 }
 
 // Keys are private to the executing Google user and never included in bootstrap.

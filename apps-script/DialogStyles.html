@@ -50,7 +50,8 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 #settings-dialog .gemini-settings > label { margin:var(--space-2) 0 var(--space-1); }
 #settings-dialog .dialog-actions { padding:var(--space-3) var(--space-4); }
 #settings-error:empty { display:none; }
-#settings-dialog { --dialog-width:920px; }
+#settings-dialog { --dialog-width:920px; height:min(720px,calc(100dvh - 32px)); }
+#settings-dialog > .dialog-body { flex:1; min-height:0; overflow:auto; }
 .settings-tabs { display:flex; flex-wrap:wrap; flex-shrink:0; gap:var(--space-1); padding:var(--space-2) var(--space-4); border-bottom:var(--border-width) solid var(--line); }
 .settings-tabs button { color:var(--muted); background:transparent; border-color:transparent; }
 .settings-tabs button[aria-selected=true] { background:var(--selected); color:var(--selected-text); border-color:var(--accent); }
@@ -58,7 +59,10 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .settings-chart-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:var(--space-2); }
 .settings-chart-colors label { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); min-width:0; font-size:var(--font-secondary); }
 .settings-chart-colors span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.settings-chart-colors input[type=color] { width:42px; height:32px; padding:3px; flex-shrink:0; margin:0; }
+.series-color-button { width:22px; height:22px; min-width:22px; min-height:22px; padding:0; border-radius:50%; border:1px solid var(--line-strong); flex-shrink:0; }
+#series-color-dialog { --dialog-width:360px; }
+.color-rgb-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-3); }
+#series-color-preview { width:40px; height:40px; border-radius:50%; border:1px solid var(--line-strong); margin-bottom:var(--space-3); }
 .gemini-connection-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
 .gemini-connection-grid label { display:block; margin:0 0 var(--space-1); }
 .gemini-connection-grid input { margin:0; width:100%; box-sizing:border-box; }

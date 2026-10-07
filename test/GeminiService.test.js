@@ -202,10 +202,11 @@ test('Gemini keeps proposal rationales when text is omitted, blank or generic',(
 test('Gemini account prompts keep disabled text, use source defaults and respect mode boundaries',()=>{
  const h=setup();h.ctx.saveGeminiPrompts_(h.ctx.normalizeGeminiPrompts_({personality:{enabled:true,text:'PERSONAL_ACCOUNT_TONE'},zeroCapex:{enabled:true,text:'ZERO_ACCOUNT_CRITERIA'},mediumCapex:{enabled:false,text:'RETAINED_MEDIUM_CRITERIA'},engineering:{enabled:false,text:'RETAINED_ENGINEERING'},basic:{enabled:false,text:'RETAINED_BASIC'}}));
  h.ctx.ST_GEMINI_HIGH_CAPEX_POLICY='HIGH_SOURCE_DEFAULT';
- const config=h.ctx.getGeminiClientConfig_();assert.equal(config.prompts.length,10);assert.equal(config.promptOverrides.mediumCapex.text,'RETAINED_MEDIUM_CRITERIA');assert(!JSON.stringify(config).includes('private-test-key'));
+ const config=h.ctx.getGeminiClientConfig_();assert.equal(config.prompts.length,11);assert.equal(config.promptOverrides.mediumCapex.text,'RETAINED_MEDIUM_CRITERIA');assert(!JSON.stringify(config).includes('private-test-key'));
  for(const uiMode of ['ADVANCE','BASIC']){
   h.ctx.askGemini_({...request,uiMode},user);const policy=JSON.parse(h.calls.at(-1).options.payload).systemInstruction.parts[0].text;
-  for(const text of ['PERSONAL_ACCOUNT_TONE','ZERO_ACCOUNT_CRITERIA','HIGH_SOURCE_DEFAULT'])assert(policy.includes(text));
+  assert(policy.includes('PERSONAL_ACCOUNT_TONE'));
+  if(uiMode==='ADVANCE'){for(const text of ['ZERO_ACCOUNT_CRITERIA','HIGH_SOURCE_DEFAULT'])assert(policy.includes(text));}else{assert(policy.includes(h.ctx.ST_GEMINI_BASIC_CAPEX_POLICY));assert(!policy.includes('ZERO_ACCOUNT_CRITERIA'));}
   for(const text of ['RETAINED_MEDIUM_CRITERIA','RETAINED_ENGINEERING','RETAINED_BASIC'])assert(!policy.includes(text));
   if(uiMode==='BASIC')assert(policy.includes('Basic returns explanation text only'));
  }
@@ -224,3 +225,5 @@ test('Gemini persists long Unicode prompts in bounded properties and cleans obso
 test('Gemini rejects unknown sections, malformed toggles and oversized prompts before storing them',()=>{
  const {ctx}=setup();for(const prompts of [{unknown:{enabled:true,text:'x'}},{personality:{enabled:'no',text:'x'}},{personality:{enabled:true,text:'x'.repeat(8001)}},Object.fromEntries(['personality','language','zeroCapex','mediumCapex','highCapex','engineering'].map(id=>[id,{enabled:true,text:'x'.repeat(8000)}]))])assert.throws(()=>ctx.normalizeGeminiPrompts_(prompts),e=>e.code==='INVALID_GEMINI_PROMPTS');
 });
+
+test('Basic CAPEX prompt is independently editable without changing Advance tiers',()=>{const h=setup();h.ctx.saveGeminiPrompts_({basicCapex:{enabled:true,text:'BASIC_COMBINED_CAPEX'}});assert(h.ctx.geminiPolicy_(true).includes('BASIC_COMBINED_CAPEX'));assert(!h.ctx.geminiPolicy_(false).includes('BASIC_COMBINED_CAPEX'));h.ctx.saveGeminiPrompts_({basicCapex:{enabled:false,text:'KEEP_BASIC_DRAFT'}});assert(!h.ctx.geminiPolicy_(true).includes('KEEP_BASIC_DRAFT'));assert(!h.ctx.geminiPolicy_(true).includes(h.ctx.ST_GEMINI_ZERO_CAPEX_POLICY));});

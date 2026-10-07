@@ -235,7 +235,7 @@ test('semantic text and chart colors retain contrast in both palettes',()=>{
 
 test('UI: Gemini panel sends case questions, closes, and clears on sign out',async()=>{
  const h=await setup();try{
- await h.click('#sign-in-button');await h.click('.open-case');assert(h.visible('case-sidebar'));
+ await h.click('#sign-in-button');await h.click('.open-case');assert.equal(h.w.getComputedStyle(h.d.getElementById('case-sidebar')).display,'none');
  await h.click('#toggle-gemini');assert(h.visible('gemini-panel'));
  h.d.getElementById('gemini-question').value='Where is the bottleneck?';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Analysis of the saved case'));assert(h.calls.includes('askGemini'));assert.match(h.d.getElementById('gemini-messages').textContent,/Analysis of the saved case/);
  await h.click('#close-gemini');assert(!h.visible('gemini-panel'));
@@ -740,7 +740,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the fi
  }finally{h.dom.window.close();}
 });
 
-test('UI: Basic hides units and modes, JSON visibility is a per-mode preference and pacemaker remains a role',async()=>{
+test('UI: Basic hides units and modes, JSON visibility is saved with the case and pacemaker remains a role',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
   const display=e=>h.w.getComputedStyle(e).display,card=h.d.querySelector('.equipment-card');
@@ -753,7 +753,7 @@ test('UI: Basic hides units and modes, JSON visibility is a per-mode preference 
   assert.equal(h.d.querySelector('.equipment-type option[value="PACEMAKER"]'),null);
   const show=h.d.getElementById('settings-json-fields');show.checked=true;show.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   assert.equal(display(card._fields.querySelector('.equipment-json-details')),'block');
-  assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),'yes');
+  assert.equal(h.w.localStorage.getItem('st.ui.v1.jsonFields.basic'),null);
   const role=card._fields.querySelector('.equipment-pacemaker');assert.match(role.closest('label').textContent,/Critical machine/);role.checked=true;role.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].equipment[0].processData.role==='PACEMAKER');
   const saved=h.storedCases()[0].equipment;assert.equal(saved[0].type,'BLOWMOLDER');assert.equal(saved.filter(e=>e.characteristics.isPacemaker).length,1);
@@ -766,7 +766,7 @@ test('UI: Basic hides units and modes, JSON visibility is a per-mode preference 
   assert.equal(advanced.d.documentElement.dataset.showJson,'true');
   const show=advanced.d.getElementById('settings-json-fields');show.checked=false;show.dispatchEvent(new advanced.w.Event('change'));
   assert.equal(advanced.w.getComputedStyle(advanced.d.querySelector('#equipment-inspector .equipment-json-details')).display,'none');
-  assert.equal(advanced.w.localStorage.getItem('st.ui.v1.jsonFields.advance'),'no');
+  await advanced.click('#save-case');await waitFor(()=>advanced.storedCases()[0].metadata?.showJsonFields===false);assert.equal(advanced.w.localStorage.getItem('st.ui.v1.jsonFields.advance'),null);
   assert.deepEqual(advanced.errors,[]);
  }finally{advanced.dom.window.close();}
 });
@@ -1681,7 +1681,7 @@ test('UI: Settings groups options, supports keyboard tabs and preserves excluded
   const caseTab=h.d.getElementById('settings-tab-case');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
   assert.equal(h.d.activeElement.id,'settings-tab-appearance');assert(h.visible('settings-page-appearance'));assert(!h.visible('settings-page-gemini'));
   const size=h.d.getElementById('settings-font-scale');size.value='110';size.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'17.6px');assert.equal(h.w.localStorage.getItem('st.ui.v1.fontScale'),'110');
-  await h.click('#settings-tab-gemini');assert.equal(h.d.querySelectorAll('.gemini-prompt-card').length,10);assert.equal(h.d.getElementById('gemini-model').form.id,'workspace-form');
+  await h.click('#settings-tab-gemini');assert.equal(h.d.querySelectorAll('.gemini-prompt-card:not(.hidden)').length,10);assert.equal(h.d.getElementById('gemini-model').form.id,'workspace-form');
   assert(h.d.getElementById('settings-page-gemini').contains(h.d.getElementById('gemini-api-key')));assert(h.d.getElementById('settings-page-storage').contains(h.d.getElementById('workspace-folder-id')));
   let saved;const save=h.api.saveUserSettings;h.api.saveUserSettings=s=>{saved=s;return save(s);};
   const card=h.d.getElementById('gemini-prompt-personality'),text=card.querySelector('textarea'),toggle=card.querySelector('input');text.value='Explica las decisiones con claridad.';text.dispatchEvent(new h.w.Event('input',{bubbles:true}));toggle.checked=false;toggle.dispatchEvent(new h.w.Event('change',{bubbles:true}));
@@ -1697,12 +1697,12 @@ test('UI: Settings groups options, supports keyboard tabs and preserves excluded
 test('UI: case chart colors and DOE survive save and reopening while Basic keeps manual saving',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-case');
-  const colors=h.d.querySelectorAll('#settings-chart-colors input');assert.equal(colors.length,13);assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);
-  colors[0].value='#123456';colors[0].dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456');
+  const colors=h.d.querySelectorAll('#settings-chart-colors button');assert.equal(colors.length,13);assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);
+  colors[0].click();const hex=h.d.getElementById('series-color-hex');hex.value='#123456';hex.dispatchEvent(new h.w.Event('input'));assert.equal(h.d.getElementById('series-color-r').value,'18');h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456'.toUpperCase());
   h.d.getElementById('settings-scenario-doe').checked=true;await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert.equal(h.w.STScenarioExplorer.doeEnabled(),true);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.includeDOE===true);
-  assert.equal(h.storedCases()[0].metadata.chartColors[0],'#123456');assert.equal(h.storedCases()[0].simulations[0].results,null);
-  await h.click('#home-cases');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');await h.click('.open-case');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456');assert(h.w.STScenarioExplorer.doeEnabled());
+  assert.equal(h.storedCases()[0].metadata.chartColors[0],'#123456'.toUpperCase());assert.equal(h.storedCases()[0].simulations[0].results,null);
+  await h.click('#home-cases');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');await h.click('.open-case');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'#123456'.toUpperCase());assert(h.w.STScenarioExplorer.doeEnabled());
   await h.click('#open-settings');await h.click('#settings-chart-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');assert.equal(h.calls.filter(x=>x==='saveCase').length,1);
   assert.equal(h.errors.length,0);
  }finally{h.dom.window.close();}
@@ -1759,4 +1759,21 @@ test('UI: round-one result preview never serializes the full replay and preserve
   assert.equal(prevented,0);assert.equal(preview.schema,'st-result-preview-v1');assert.equal(preview.coverage.samplesIncluded,false);assert(preview.coverage.sampleCount>0);assert(h.d.getElementById('simulation-json-preview').value.length<=64000);assert(preview.summary.lineOeePercent>=0);assert.equal(preview.batch.rounds,2);
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);const saved=h.storedCases()[0].simulations[0].results;assert.equal(saved.summary.lineOeePercent,preview.summary.lineOeePercent);assert(saved.replay.samples.length>0);assert.equal(prevented,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+test('UI: Settings has stable dimensions, Basic has two prompts and case VGraph colors round-trip',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('#open-settings');const size=h.w.getComputedStyle(h.d.getElementById('settings-dialog')).height;
+  for(const tab of ['case','appearance','simulation','gemini','storage']){await h.click('#settings-tab-'+tab);assert.equal(h.w.getComputedStyle(h.d.getElementById('settings-dialog')).height,size);}
+  assert(size.includes('720px'));assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-json-fields')));
+  assert.deepEqual(Array.from(h.d.querySelectorAll('.gemini-prompt-card:not(.hidden)')).map(c=>c.id),['gemini-prompt-personality','gemini-prompt-basicCapex']);
+  await h.click('#settings-tab-simulation');assert(h.visible('settings-seed-section'));assert(!h.visible('settings-save-section'));h.d.getElementById('settings-seed-policy').value='RANDOM';
+  await h.click('#settings-tab-case');await h.click('#settings-vgraph-colors button');const r=h.d.getElementById('series-color-r');r.value='17';h.d.getElementById('series-color-g').value='34';h.d.getElementById('series-color-b').value='51';r.dispatchEvent(new h.w.Event('input'));assert.equal(h.d.getElementById('series-color-hex').value,'#112233');await h.click('#series-color-cancel');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');
+  await h.click('#settings-vgraph-colors button');h.d.getElementById('series-color-hex').value='#112233';h.d.getElementById('series-color-hex').dispatchEvent(new h.w.Event('input'));h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');
+  h.d.getElementById('settings-json-fields').checked=true;h.d.getElementById('settings-json-fields').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');assert.equal(h.w.STPreferences.read('seedPolicy'),'RANDOM');assert.equal(h.calls.filter(x=>x==='saveCase').length,0);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.vgraphColors?.current==='#112233');assert.equal(h.storedCases()[0].metadata.showJsonFields,true);
+  await h.click('#home-cases');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');await h.click('.open-case');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');assert.equal(h.d.documentElement.dataset.showJson,'true');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+test('UI Advance: shared header reaches conveyors, static VGraph and utilities without Basic worksheet',async()=>{
+ const h=await setup({remember:true});try{await h.click('.open-case');assert.equal(h.w.getComputedStyle(h.d.getElementById('case-sidebar')).display,'none');assert.equal(h.d.getElementById('header-case-actions').parentElement.id,'basic-section-row');await h.click('[data-basic-view=conveyors]');assert(h.visible('editor-panel'));assert(!h.d.querySelector('.basic-conveyor-worksheet'));await h.click('[data-basic-view=vgraph]');assert(h.visible('results-body'));assert(h.d.getElementById('vgraph-plot')._vgraphPoints?.length>0);await h.click('[data-basic-view=simulation]');assert(h.visible('run-panel'));await h.click('#basic-case-actions [aria-label="Settings"]');assert(h.d.getElementById('settings-dialog').open);assert.deepEqual(h.errors,[]);}finally{h.dom.window.close();}
 });

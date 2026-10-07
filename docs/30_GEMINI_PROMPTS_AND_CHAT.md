@@ -10,6 +10,7 @@ agent instructions without editing HTTP requests or scenario validation.
 | `ST_GEMINI_ZERO_CAPEX_POLICY` | Installed speed/sensor/delay adjustments without purchases or accumulation extensions. |
 | `ST_GEMINI_MEDIUM_CAPEX_POLICY` | Evidenced local retrofits or external reliability interventions. |
 | `ST_GEMINI_HIGH_CAPEX_POLICY` | Accumulation extensions and replacement projects with physical/capacity evidence. |
+| `ST_GEMINI_BASIC_CAPEX_POLICY` | Combined Zero/Medium/High CAPEX definitions used only in Basic. |
 | `ST_GEMINI_ENGINEERING_POLICY` | Engineering evidence, model limits, physical checks, reliability interventions and baseline preservation. |
 | `ST_GEMINI_SEARCH_POLICY` | Prioritize variables and combinations using compact saved search evidence; respect omissions and keep numerical evaluation in the simulator. |
 | `ST_GEMINI_ADVANCE_POLICY` | Supported improvement suggestions include structured proposals for editable scenario cards. |
@@ -24,7 +25,11 @@ does not bypass scenario validation.
 
 ## Settings editor
 
-**Settings → Gemini** shows ten editable prompt sections. Each has its own
+**Settings → Gemini** shows the existing ten prompt sections in Advance. Basic
+shows only personality and a combined CAPEX-definitions prompt (`basicCapex`).
+Basic uses this combined prompt instead of the three Advance CAPEX prompts;
+other internal evidence, language and Basic response policies remain active.
+Switching modes retains every prompt draft. Each has its own
 inclusion checkbox, character count and **Reset text** button. Disabled sections
 retain their text but are omitted from requests. Basic rules only apply in Basic;
 Advance rules and the Advance response format only apply in Advance. The HTTP

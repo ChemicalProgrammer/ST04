@@ -1,15 +1,16 @@
 <style>
-/* All Basic presentation overrides stay under the server-selected mode. */
+/* Shared header navigation; equipment presentation remains mode-specific. */
+.app-shell.app-shell.case-open,.app-shell.app-shell.case-open.sidebar-collapsed { padding-left:0; }
 #basic-section-row,#basic-navigation,#basic-case-actions,#basic-conveyor-layout { display:none; }
 html[data-ui-mode=basic] .app-shell.case-open { padding-left:0; padding-right:0; }
-html[data-ui-mode=basic] #case-sidebar { display:none !important; }
+#case-sidebar { display:none !important; }
 html[data-ui-mode=basic] .app-shell.case-open.assistant-open { padding-right:var(--assistant-width); }
-html[data-ui-mode=basic] .topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-3); padding-bottom:var(--space-3); }
-html[data-ui-mode=basic] #basic-section-row { display:flex; align-items:center; gap:var(--space-3); order:3; flex-basis:100%; min-width:0; }
-html[data-ui-mode=basic] #basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; flex:1; min-width:0; }
-html[data-ui-mode=basic] #basic-section-row > .header-case-actions { flex-shrink:0; margin-left:auto; }
-html[data-ui-mode=basic] #basic-navigation [aria-current=page] { background:var(--selected); color:var(--selected-text); }
-html[data-ui-mode=basic] #basic-case-actions { display:flex; align-items:center; }
+.topbar { height:auto; min-height:var(--header-height); flex-wrap:wrap; padding-top:var(--space-3); padding-bottom:var(--space-3); }
+#basic-section-row { display:flex; align-items:center; gap:var(--space-3); order:3; flex-basis:100%; min-width:0; }
+#basic-navigation { display:flex; gap:var(--space-1); flex-wrap:wrap; flex:1; min-width:0; }
+#basic-section-row > .header-case-actions { flex-shrink:0; margin-left:auto; }
+#basic-navigation [aria-current=page] { background:var(--selected); color:var(--selected-text); }
+#basic-case-actions { display:flex; align-items:center; }
 html[data-ui-mode=basic] .chart-note,
 html[data-ui-mode=basic] .notice,
 html[data-ui-mode=basic] .eyebrow,
@@ -52,9 +53,9 @@ html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
 html[data-ui-mode=basic] label:has(> .equipment-unit),
 html[data-ui-mode=basic] label:has(> .equipment-mode) { display:none !important; }
 /* Keep the setup controls on one compact row and use identical field tracks. */
-html[data-ui-mode=basic] .topbar { padding-top:var(--space-2); padding-bottom:var(--space-2); }
-html[data-ui-mode=basic] .case-open .user-chip { display:none; }
-html[data-ui-mode=basic] .case-open .breadcrumb { flex:1 1 var(--size-220); }
+.topbar { padding-top:var(--space-2); padding-bottom:var(--space-2); }
+.case-open .user-chip { display:none; }
+.case-open .breadcrumb { flex:1 1 var(--size-220); }
 html[data-ui-mode=basic] #editor-panel > .section-heading > div:first-of-type { display:none; }
 html[data-ui-mode=basic] #editor-panel > .editor-subheading { margin-top:var(--space-3); margin-bottom:0; }
 html[data-ui-mode=basic] #equipment-list { gap:var(--space-3); margin-top:0; }
@@ -215,4 +216,8 @@ html[data-ui-mode=basic] .basic-conveyor-heading .basic-conveyor-tabs { margin:0
 .switchable-value > input[type=number] { flex:1; min-width:0; }
 .switchable-value > input[type=checkbox],html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input[type=checkbox] { width:16px; height:16px; min-height:16px; padding:0; flex:0 0 16px; }
 .switchable-value > .calculated-value { background:var(--surface-soft); border-color:transparent; font-weight:var(--weight-semibold); text-align:right; }
+html[data-ui-mode=advance][data-header-view=vgraph] #results-panel > .section-heading,
+html[data-ui-mode=advance][data-header-view=vgraph] #results-body > :not(#line-performance),
+html[data-ui-mode=advance][data-header-view=vgraph] #line-performance > :not(.section-heading):not(.vgraph-legend):not(.vgraph-plot) { display:none; }
+html[data-ui-mode=advance][data-header-view=results] #line-performance { display:none; }
 </style>

@@ -6,10 +6,10 @@ close icon or Escape applies pending settings through the existing save pipeline
 
 | Tab | Options | Scope |
 | --- | --- | --- |
-| Case | Name, include What-If DOE, equipment chart series colors, delete case | Case JSON; normal case save policy |
-| Appearance | Theme, accent palette, text size, JSON-field visibility; existing restricted interface-mode selector | Browser preferences |
-| Simulation | Autosave and interval, fixed/random seed policy | Browser preferences; configurable in Advance; Basic saves manually |
-| Gemini | Model, private API key, ten prompt sections and inclusion checkboxes | Google account User Properties |
+| Case | Name, include What-If DOE, equipment and VGraph colors, JSON-field visibility, delete case | Case JSON; normal case save policy |
+| Appearance | Theme, accent palette, text size; existing restricted interface-mode selector | Browser preferences |
+| Simulation | Autosave and interval, fixed/random seed policy | Browser preferences; seed policy in both modes; autosave only in Advance, Basic saves manually |
+| Gemini | Model, private API key, mode-specific prompt sections and inclusion checkboxes | Google account User Properties |
 | Storage | Drive workspace root folder | Google account settings |
 
 The Case tab requires an open case. DOE uses `metadata.includeDOE`; older cases
@@ -34,3 +34,16 @@ Account settings retain their existing debounced save and retry behavior; prompt
 checkboxes do not discard text. Case changes follow manual/automatic case saving,
 and closing Settings does not implicitly save a Basic case. See
 `30_GEMINI_PROMPTS_AND_CHAT.md` for prompt composition, persistence and budgets.
+
+Settings has a fixed 920px maximum width and 720px height, capped to the viewport.
+Its content scrolls inside the dialog without changing size between tabs.
+Circular swatches open a separate RGB/HEX editor; changes remain a draft until Apply.
+VGraph stores current/recommended colors in `metadata.vgraphColors`. Reset removes
+both chart and VGraph overrides. JSON visibility uses `metadata.showJsonFields`,
+shared across modes; older cases use the legacy browser preference until set.
+
+Both modes use the six-section header navigation. Advance retains its own equipment
+editor; the former sidebar is hidden, and comparison, Settings, close-case and
+sign-out actions remain accessible as header icons. Basic Gemini shows two editable
+prompts (personality and combined CAPEX definitions), while preserving Advance
+prompt drafts. Model and API-key connection settings remain accessible in both.
