@@ -108,7 +108,7 @@ test('modular application includes shared three-tier planning, dialogs and autom
   const code = output.server;
   const index = output.html;
   for (const name of ['STAutosave','STDialog','STScenarios','STWhatIf']) assert(index.includes(name),name);
-  for (const label of ['Zero CAPEX','Medium CAPEX / OPEX','High CAPEX','Static inputs only','Static + dynamic evidence','Advanced engine configuration']) assert(index.includes(label),label);
+  for (const label of ['Zero CAPEX','Medium CAPEX','High CAPEX','Static inputs only','Static + dynamic evidence','Advanced engine configuration']) assert(index.includes(label),label);
   assert(index.includes('Global OEE'));
   assert(code.includes('function createScenario_'));
   assert(code.includes('function buildGeminiContext_'));

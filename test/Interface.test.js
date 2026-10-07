@@ -1291,7 +1291,7 @@ test('UI: interrupted scenario restarts with clear status, icon actions and a wo
  const h=await setup({remember:true});try{
   const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);let created;
   let release;h.w.SimulatorEngine.simulateBatch=async()=>{await new Promise(resolve=>release=resolve);return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50,outputCount:100}}};};
-  let card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-evaluate').click();await waitFor(()=>release);card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');card.remove();
+  let card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-evaluate').click();await waitFor(()=>release);assert.equal(card.querySelector('.scenario-activity').hidden,false);assert.equal(card.getAttribute('aria-busy'),'true');card.querySelector('.scenario-evaluate').click();release();await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');assert.equal(card.querySelector('.scenario-activity').hidden,true);assert(!card.hasAttribute('aria-busy'));card.remove();
   sim.whatIf.evaluations[0].status='RUNNING';card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);
   assert.match(card.querySelector('.scenario-preview-status').textContent,/Previous search interrupted/);
   const actions=card.querySelector('.scenario-actions');assert.equal(actions.querySelectorAll('button').length,4);
@@ -1819,9 +1819,9 @@ test('UI: subsection imports and Basic scenario metrics preserve working actions
 });
 
 
-test('UI Basic: four CAPEX cards include read-only current batch metrics and a shared file menu',async()=>{
+test('UI Basic: four CAPEX cards include read-only current batch metrics and separate import/export controls',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
-  await h.click('.open-case');const menu=h.d.querySelector('.import-menu');assert.equal(menu.querySelectorAll('button').length,3);assert(menu.contains(h.d.getElementById('export-equipment-json')));
+  await h.click('.open-case');const menu=h.d.querySelector('.import-menu');assert.equal(menu.querySelectorAll('button').length,2);assert(!menu.contains(h.d.getElementById('export-equipment-json')));assert.equal(h.d.getElementById('export-equipment-json').dataset.icon,'upload');
   const sim=h.storedCases()[0].simulations[0];sim.results={summary:{lineOeePercent:40,outputCount:100},durationSeconds:60,batch:{statistics:{lineOeePercent:{mean:42.5},throughputPerMinute:{mean:81.97}}}};
   const target=h.d.createElement('div');h.d.body.append(target);h.w.STWhatIf.render(sim,target,()=>{});const grid=target.querySelector('.scenario-tier-grid');assert.equal(grid.children.length,4);const current=grid.firstElementChild;assert.equal(current.querySelectorAll('button,input').length,0);assert.equal(current.querySelector('strong').textContent,'42.5%');assert.match(current.textContent,/81.97/);assert(!grid.textContent.includes('All CAPEX'));
   assert.match(h.w.getComputedStyle(grid).gridTemplateColumns,/repeat\(4/);assert.deepEqual(h.errors,[]);

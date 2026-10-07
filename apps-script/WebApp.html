@@ -122,7 +122,7 @@
 
         <div class="editor-subheading">
           <h3 id="equipment-subsection-title">Equipment</h3>
-          <div class="button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import / export" title="Import / export"></summary><div><button id="open-sheet-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" data-icon="download" class="secondary" type="button"><?= __ST_TEXT__('json.import') ?></button><button id="export-equipment-json" class="secondary" type="button">Export JSON</button></div></details><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
+          <div class="button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import" title="Import"></summary><div><button id="open-sheet-import" class="secondary" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" class="secondary" type="button"><?= __ST_TEXT__('json.import') ?></button></div></details><button id="export-equipment-json" class="secondary icon-button" type="button" data-icon="upload" aria-label="Export JSON" title="Export JSON"></button><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
         <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
           <label><input type="radio" name="equipment-filter" value="equipment"><span><?= __ST_TEXT__('filter.equipment') ?></span></label>
@@ -133,7 +133,7 @@
         <div id="equipment-list" class="equipment-list"></div>
 
         <details class="raw-viewer">
-          <summary class="json-section-heading"><span><?= __ST_TEXT__('json.title') ?></span><span class="button-row"><button id="edit-setup-json" class="secondary" type="button"><?= __ST_TEXT__('json.edit') ?></button><button id="import-setup-json" class="secondary" type="button">Import</button><button id="export-setup-json" type="button" class="secondary">Export</button></span></summary>
+          <summary class="json-section-heading"><span><?= __ST_TEXT__('json.title') ?></span><span class="button-row"><button id="edit-setup-json" class="secondary icon-button" type="button" data-icon="edit" aria-label="Edit JSON" title="Edit JSON"></button><button id="import-setup-json" class="secondary icon-button" type="button" data-icon="download" aria-label="Import JSON" title="Import JSON"></button><button id="export-setup-json" class="secondary icon-button" type="button" data-icon="upload" aria-label="Export JSON" title="Export JSON"></button></span></summary>
           <p class="chart-note"><?= __ST_TEXT__('exports.setup_note') ?></p>
           <textarea id="case-json-preview" readonly spellcheck="false"></textarea>
         </details>
@@ -203,7 +203,7 @@
       </section>
 
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
-        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-results" class="ghost" disabled><?= __ST_TEXT__('exports.full_json') ?></button><button id="export-ai" class="ghost" disabled><?= __ST_TEXT__('exports.ai_json') ?></button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
+        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-results" class="ghost" disabled><?= __ST_TEXT__('exports.full_json') ?></button><button id="export-ai" class="ghost" disabled><?= __ST_TEXT__('exports.ai_json') ?></button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
         <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><div id="results-insight" class="result-insight"></div>
         <h3><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
@@ -242,14 +242,14 @@
                 <p><?= __ST_TEXT__('view.the_recommendation_combines_this_run_s_losses_with_the_physical_conveyor_au') ?></p>
 
             </div>
-              <details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-whatif-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
+              <details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-whatif-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-whatif-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-whatif-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
             </div>
 
             <div id="simulation-analysis-content" class="simulation-analysis-content"></div>
           </section>
       </section>
       <section id="comparison-panel" class="card hidden">
-        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.case_comparison') ?></p><h2><?= __ST_TEXT__('client.compare_simulations') ?></h2><p><?= __ST_TEXT__('view.select_exactly_two_saved_simulations') ?></p></div><details class="export-menu"><summary data-icon="download"><?= __ST_TEXT__('exports.menu') ?></summary><div><button id="export-comparison-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-comparison-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-comparison-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
+        <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.case_comparison') ?></p><h2><?= __ST_TEXT__('client.compare_simulations') ?></h2><p><?= __ST_TEXT__('view.select_exactly_two_saved_simulations') ?></p></div><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-comparison-json" class="ghost" disabled><?= __ST_TEXT__('exports.data_json') ?></button><button id="export-comparison-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-comparison-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div class="field-grid"><label><?= __ST_TEXT__('view.baseline') ?><select id="case-compare-a"></select></label><label><?= __ST_TEXT__('view.proposed_scenario') ?><select id="case-compare-b"></select></label></div>
         <div id="case-comparison-content" class="comparison-vertical"></div>
       </section>

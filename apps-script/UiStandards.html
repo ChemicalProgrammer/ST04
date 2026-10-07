@@ -135,4 +135,20 @@ html[data-ui-mode=basic] .scenario-tier-grid .scenario-actions { margin-top:auto
 html[data-ui-mode=basic] .scenario-tier-grid .scenario-actions .icon-button { width:var(--control-height); height:var(--control-height); flex-basis:var(--control-height); }
 html[data-ui-mode=basic] .scenario-current { border-left:var(--state-border-width) solid var(--muted); }
 html[data-ui-mode=basic] .scenario-current .scenario-basic-metrics { padding:var(--space-3) 0; }
+
+/* Match file-menu triggers to neighboring icon buttons. */
+.editor-subheading .icon-button,.json-section-heading .icon-button,.export-menu > summary.icon-button { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:var(--control-height); height:var(--control-height); min-height:var(--control-height); margin:0; padding:var(--space-2); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:transparent; color:var(--muted); }
+.export-menu > summary.icon-button { list-style:none; }
+.export-menu > summary.icon-button::-webkit-details-marker { display:none; }
+.editor-subheading .icon-button:hover,.export-menu > summary.icon-button:hover { background:var(--surface-hover); color:var(--ink); }
+.scenario-activity { width:100%; height:6px; accent-color:var(--accent); margin:var(--space-3) 0; }
+.scenario-activity[hidden] { display:none; }
+html[data-ui-mode=basic] .scenario-preview-status,
+html[data-ui-mode=basic] .scenario-search-progress { display:none; }
+html[data-ui-mode=basic] .scenario-basic-metric:first-child .scenario-basic-change { align-self:flex-start; padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); background:var(--surface-soft); margin-top:var(--space-1); }
+html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > .analysis-capex { align-self:flex-start; padding:var(--space-2) var(--space-3); min-height:0; line-height:var(--leading-body); }
+.analysis-capex[data-tier=MEDIUM] { color:var(--info); background:var(--info-soft); }
+html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-card { padding:var(--space-3) var(--space-4); min-height:64px; box-sizing:border-box; justify-content:center; }
+html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-header { margin:0; padding:0; border:0; width:100%; flex-direction:row; align-items:center; }
+html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .basic-card-data { display:none; }
 </style>

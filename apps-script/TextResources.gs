@@ -219,7 +219,7 @@ var ST_TEXT_RESOURCES = {
   "settings.complete_fields": "Complete the required settings before they can be saved.",
   "settings.delete_case_note": "Move the open case and all its simulations to the Drive trash.",
   "scenario.zero": "Zero CAPEX",
-  "scenario.medium": "Medium CAPEX / OPEX",
+  "scenario.medium": "Medium CAPEX",
   "scenario.high": "High CAPEX",
   "scenario.static": "Static inputs only",
   "scenario.dynamic": "Dynamic run evidence",

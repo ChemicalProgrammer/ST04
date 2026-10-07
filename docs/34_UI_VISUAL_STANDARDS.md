@@ -20,8 +20,8 @@ remain a fallback for browsers upgraded from earlier versions.
 
 Views start with subsection headings; the header navigation identifies the main
 section. Subsection controls align right. Equipment and Conveyors share one file
-menu (Google Sheet / JSON import); Equipment adds JSON export inside that menu. JSON field actions
-use text buttons. V-Graph uses its speed-profile heading. Main header gaps are 16px;
+menu (Google Sheet / JSON import); Equipment has a separate icon button for JSON export. JSON field actions
+use labeled icon buttons. V-Graph uses its speed-profile heading. Main header gaps are 16px;
 panel padding is 20px (12px on small screens). Checkboxes remain 16px.
 
 Basic simulation settings use separate efficiency and control boxes with prominent
@@ -47,3 +47,11 @@ scroll horizontally instead of wrapping the four cards. Advance retains its
 existing detailed categories, including All CAPEX. File-menu summaries and icon
 buttons share dimensions and have no extra bottom margin; subsection headings
 share typography, minimum height and spacing.
+
+Basic scenario cards hide technical status/progress paragraphs and show an
+indeterminate progress bar only while evaluating or validating. The OEE delta is
+labeled in percentage points, not relative percent. Error diagnostics remain in
+the header, and required engineering acknowledgements remain available. Medium
+CAPEX uses the semantic info color, including cards with no eligible targets.
+Export triggers use an upward arrow; Import uses a downward arrow and text-only
+menu choices. Conveyor cards hide their unused Basic data container.
