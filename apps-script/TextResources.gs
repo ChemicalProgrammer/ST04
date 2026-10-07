@@ -1,5 +1,11 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "settings.factory_title":"Factory reset",
+  "settings.factory_button":"Reset app",
+  "settings.factory_note":"Clears this account's Drive connection, Gemini key and settings, and this browser's app preferences. Drive cases, results and index are retained. Keep your folder ID so you can reconnect.",
+  "settings.factory_close_case":"Close the current case before resetting. Drive cases, results and index are retained. Keep your folder ID so you can reconnect.",
+  "settings.factory_confirm":"Reset the app? Your Drive folder ID, Gemini API key, account prompts and browser preferences will be cleared. Pending Settings edits will be discarded. Drive cases, results and index will remain. Keep your folder ID to reconnect. Other accounts are unaffected.",
+
   "info.subtitle":"Packaging line simulator",
   "info.title":"About Flow Pilot",
   "info.version_label":"Simulator version",

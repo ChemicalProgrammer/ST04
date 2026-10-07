@@ -55,3 +55,12 @@ function normalizeUserSettings_(settings) {
     preferredPlaybackRate: playbackRate
   };
 }
+
+// Reset only this app's account configuration; Drive contents remain untouched.
+function resetAppSettings_() {
+  var properties=PropertiesService.getUserProperties();
+  Object.keys(properties.getProperties()).forEach(function(key){
+    if(['USER_SETTINGS_JSON','GEMINI_API_KEY','GEMINI_MODEL','GEMINI_GENERATION_JSON','GEMINI_PROMPTS_JSON'].indexOf(key)!==-1||/^GEMINI_PROMPTS_PART_\d+$/.test(key))properties.deleteProperty(key);
+  });
+  return createDefaultUserSettings_();
+}

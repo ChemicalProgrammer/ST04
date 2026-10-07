@@ -81,6 +81,11 @@ window.STPreferences = (function() {
       select.addEventListener('change', function() { setTheme(select.value); });
     });
   });
-  return {caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
+  function reset(){
+    Object.keys(localStorage).filter(function(name){return name.indexOf(key)===0;}).forEach(function(name){localStorage.removeItem(name);});
+    theme='light';document.documentElement.classList.remove('restoring-session');
+    setTheme('light');setAccent(STThemeResources.defaultAccent);
+  }
+  return {reset:reset,caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>

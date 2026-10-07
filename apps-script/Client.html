@@ -80,6 +80,7 @@
       document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
+      STSettings.connectReset(resetApplication);
       STSettings.connectSimulation(activePersistentSimulation,function(engineId){
         var simulation=activePersistentSimulation();if(!simulation||runControlsLocked())return;
         simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});simulation.results=null;
@@ -221,6 +222,29 @@
       toggle('application', false); toggle('auth-panel', true);
       document.getElementById('auth-status').textContent = __ST_TEXT__('client.signed_out_of_flow_pilot_your_google_account_remains_signed_in');
       document.getElementById('sign-in-button').focus();
+    }
+
+    function resetApplication(done) {
+      if(state.activeCase){done({ok:false,error:{message:__ST_TEXT__('settings.factory_close_case')}});return;}
+      cancelCaseCatalog();state.requestEpoch+=1;
+      callServer('resetAppSettings',[],function(response){
+        if(!response.ok){done(response);return;}
+        cancelRoundSession();stopPlaybackTimer();autosave.reset();cloningCases.clear();assistant.reset();
+        state.activeSimulationId=null;state.isDirty=false;state.liveZoneDetails={};state.basicView=null;state.uiView='cases';state.run.commands=[];state.run.roundIndex=0;state.run.sampleIndex=0;state.run.result=null;state.run.representative=null;state.run.configuration=null;
+        STEquipmentInspector.release();document.getElementById('equipment-list').replaceChildren();
+        STSettings.clearDraft();
+        if(document.getElementById('application').classList.contains('sidebar-collapsed'))document.getElementById('collapse-sidebar').click();
+        if(document.getElementById('pin-header').getAttribute('aria-pressed')==='false')document.getElementById('pin-header').click();
+        STEquipmentFilter.set('all');
+        try{STPreferences.reset();}catch(error){done({ok:false,error:{message:'Account settings were reset, but browser preferences could not be cleared. Clear this app’s browser storage and reopen it.'}});return;}
+        document.getElementById('remember-session').checked=false;
+        ['case-search','new-case-name','case-name'].forEach(function(id){document.getElementById(id).value='';});
+        document.getElementById('case-filter').value='all';document.getElementById('case-sort').selectedIndex=0;
+        renderBootstrap(response);
+        toggle('application',false);toggle('auth-panel',true);
+        state.bootstrap=null;document.getElementById('sign-in-button').focus();
+        done(response);
+      });
     }
 
     function initialize() {

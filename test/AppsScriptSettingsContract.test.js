@@ -54,6 +54,7 @@ function createAppsScriptRuntime(options = {}) {
     PropertiesService: {
       getUserProperties: () => ({
         getProperty: (key) => userProperties[key] || null,
+        getProperties: () => ({...userProperties}),
         setProperty: (key, value) => { userProperties[key] = value; },
         setProperties: entries => Object.assign(userProperties,entries),
         deleteProperty: key => delete userProperties[key]
@@ -97,4 +98,13 @@ test('account generation options survive reload, omitted updates and invalid dra
  runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'private-key',generation}});assert.deepEqual(toPlainObject(runtime.getGeminiClientConfig_().generation),generation);
  runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash'}});assert.deepEqual(toPlainObject(runtime.getGeminiClientConfig_().generation),generation);
  const snapshot=JSON.stringify(runtime.userProperties);assert.throws(()=>runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'changed-key',generation:{temperature:3}}}),e=>e.simulatorError.code==='INVALID_GEMINI_SETTINGS');assert.equal(JSON.stringify(runtime.userProperties),snapshot);
+});
+
+test('factory reset clears only app account settings and never reads or deletes Drive data',()=>{
+ const runtime=createAppsScriptRuntime({accessibleFolderIds:['workspace-1']});
+ runtime.saveUserSettings_({workspaceRootFolderId:'workspace-1',gemini:{model:'gemini-2.5-flash',apiKey:'private-key',prompts:{personality:{enabled:true,text:'Custom prompt'}}}});
+ runtime.userProperties.GEMINI_PROMPTS_PART_9='orphan';runtime.userProperties.UNRELATED='keep';
+ runtime.DriveApp.getFolderById=()=>{throw Error('Reset must not access Drive');};
+ assert.equal(runtime.resetAppSettings_().workspaceRootFolderId,'');
+ assert.deepEqual(runtime.userProperties,{UNRELATED:'keep'});assert.equal(runtime.getGeminiClientConfig_().configured,false);
 });

@@ -125,3 +125,9 @@ function scenarioResponse_(action) {
   if(!response.ok)response.error.message='['+response.scenarioVersion+' / '+response.error.code+'] '+response.error.message;
   return response;
 }
+
+function resetAppSettings() {
+  return executeServerAction_(function(user) {
+    return {user:user,settings:resetAppSettings_(),gemini:getGeminiClientConfig_(),uiMode:getInterfaceMode_(),cases:[],caseCatalog:{refreshRequired:false,complete:true}};
+  });
+}

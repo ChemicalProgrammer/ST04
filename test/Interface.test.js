@@ -1679,7 +1679,8 @@ test('UI: Settings groups options, supports keyboard tabs and preserves excluded
  const h=await setup({remember:true});try{
   await h.click('#show-app-info');assert(h.d.getElementById('app-info-dialog').open);assert.match(h.d.getElementById('app-info-dialog').textContent,/1\.0\.0/);assert.equal(h.d.querySelector('#app-info-dialog a').getAttribute('href'),'mailto:developer@example.com');await h.click('#app-info-close');assert(!h.d.getElementById('app-info-dialog').open);
   await h.click('#cases-settings');assert.equal(h.d.querySelectorAll('[data-settings-tab]').length,5);
-  const caseTab=h.d.getElementById('settings-tab-case');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  assert(!h.visible('settings-tab-case'));assert(!h.visible('settings-tab-simulation'));
+  const caseTab=h.d.getElementById('settings-tab-appearance');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Home',bubbles:true}));
   assert.equal(h.d.activeElement.id,'settings-tab-appearance');assert(h.visible('settings-page-appearance'));assert(!h.visible('settings-page-gemini'));
   const size=h.d.getElementById('settings-font-scale');size.value='110';size.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'17.6px');assert.equal(h.w.localStorage.getItem('st.ui.v1.fontScale.advance'),'110');
   await h.click('#settings-tab-gemini');assert.equal(h.d.querySelectorAll('.gemini-prompt-card:not(.hidden)').length,10);assert.equal(h.d.getElementById('gemini-model').form.id,'workspace-form');
@@ -2074,5 +2075,22 @@ test('UI: Additional options is exposed only in Advance and follows mode changes
   await h.click('[data-basic-view=conveyors]');const conveyor=h.d.querySelectorAll('.equipment-card')[1];assert.equal(h.w.getComputedStyle(conveyor._fields.querySelector('.equipment-options-button')).display,'none');
   h.d.documentElement.dataset.uiMode='advance';assert.notEqual(h.w.getComputedStyle(button).display,'none');assert.notEqual(h.w.getComputedStyle(conveyor._fields.querySelector('.equipment-options-button')).display,'none');
   h.d.documentElement.dataset.uiMode='basic';assert.equal(h.w.getComputedStyle(button).display,'none');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: factory reset preserves Drive cases and restores them after reconnecting the folder',async()=>{
+ const h=await setup({remember:true});try{
+  const before=h.storedCases();let resetCount=0;
+  const bootstrap=h.api.getBootstrap;
+  h.api.resetAppSettings=()=>{resetCount++;return {user:{email:'preview@example.test'},settings:{workspaceRootFolderId:''},gemini:{configured:false,model:'gemini-2.5-flash',prompts:[]},uiMode:'BASIC',cases:[]};};
+  await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-storage');assert(h.d.getElementById('settings-factory-reset').disabled);
+  await h.click('#settings-cancel');await h.click('#home-cases');await h.click('#cases-settings');assert(!h.visible('settings-tab-case'));assert(!h.visible('settings-tab-simulation'));assert(h.visible('settings-factory-section'));
+  await h.click('#settings-tab-storage');await h.click('#settings-factory-reset');await h.click('.message-dialog button.ghost');assert.equal(resetCount,0);
+  await h.click('#settings-factory-reset');await h.click('.message-dialog button.danger');assert.equal(resetCount,1);await waitFor(()=>h.visible('auth-panel')||h.errors.length);assert(h.visible('auth-panel'),JSON.stringify(h.errors)+' '+h.d.getElementById('settings-error').textContent);assert.equal(h.d.getElementById('workspace-folder-id').value,'');assert.equal(h.w.localStorage.getItem('st.ui.v1.remember'),null);assert.deepEqual(h.storedCases(),before);assert(!h.calls.includes('deleteCase'));
+  h.api.getBootstrap=()=>({...bootstrap(),settings:{workspaceRootFolderId:''},gemini:{configured:false,model:'gemini-2.5-flash',prompts:[]},uiMode:'BASIC',cases:[]});
+  await h.click('#sign-in-button');await h.click('#cases-settings');assert(!h.visible('settings-factory-section'));
+  h.api.getBootstrap=bootstrap;h.d.getElementById('workspace-folder-id').value='workspace';h.d.getElementById('workspace-folder-id').dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#settings-cancel');await waitFor(()=>h.d.querySelector('.case-row'));
+  assert.equal(h.d.querySelectorAll('.case-row').length,before.length);assert.deepEqual(h.storedCases(),before);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
