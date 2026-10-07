@@ -18,7 +18,7 @@ window.STPreferences = (function() {
     document.querySelectorAll('.accent-choice').forEach(function(button){button.classList.toggle('hidden',!allowed.includes(button.dataset.accent));});
     if(mode==='basic'&&!allowed.includes(document.documentElement.dataset.accent))setAccent(STThemeResources.defaultAccent);
   }
-  function setAccent(value){value=STThemeResources.legacyAccents?.[value]||value;if(!colors.includes(value))value=colors.includes(STThemeResources.defaultAccent)?STThemeResources.defaultAccent:colors[0];document.documentElement.dataset.accent=value;write('accent',value);applyAccent();document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});var name=document.getElementById('accent-name');if(name)name.textContent=STThemeResources.palettes[value]?.name||value;window.dispatchEvent(new Event('st:theme'));}
+  function setAccent(value){value=STThemeResources.legacyAccents?.[value]||value;if(!colors.includes(value))value=colors.includes(STThemeResources.defaultAccent)?STThemeResources.defaultAccent:colors[0];document.documentElement.dataset.accent=value;write('accent',value);applyAccent();document.querySelectorAll('.accent-choice').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===value));});window.dispatchEvent(new Event('st:theme'));}
   setAccent(read('accent'));
   function applyAccent(){var p=STThemeResources.palettes[document.documentElement.dataset.accent];if(!p)return;var c=p[document.documentElement.dataset.theme==='dark'?'dark':'light'],style=document.documentElement.style;Object.entries({'--accent':c.accent,'--accent-hover':c.accent,'--accent-soft':c.soft,'--selected':c.soft,'--selected-text':c.text||c.accent,'--on-accent':c.onAccent}).forEach(function(pair){style.setProperty(pair[0],pair[1]);});}
   function apply() {
@@ -30,8 +30,10 @@ window.STPreferences = (function() {
     write('theme', theme); apply();
     document.querySelectorAll('[data-theme-picker]').forEach(function(select) { select.value = theme; });
   }
-  function setFontScale(value,persist){value=Number(value);if(![80,90,100,110,125].includes(value))value=100;if(persist!==false)write('fontScale',String(value));document.documentElement.style.fontSize=(16*value/100)+'px';document.documentElement.style.setProperty('--basic-font-scale',String(.8*value/100));var picker=document.getElementById('settings-font-scale');if(picker)picker.value=String(value);}
-  setFontScale(read('fontScale')||100,false);
+  function fontMode(){return document.documentElement.dataset.uiMode==='basic'?'basic':'advance';}
+  function setFontScale(value,persist){value=Number(value);if(![80,90,100,110,125].includes(value))value=fontMode()==='basic'?110:100;if(persist!==false)write('fontScale.'+fontMode(),String(value));document.documentElement.style.fontSize=(16*value/100)+'px';var picker=document.getElementById('settings-font-scale');if(picker)picker.value=String(value);}
+  function applyFontScale(){var value=read('fontScale.'+fontMode())||read('fontScale')||(fontMode()==='basic'?110:100);setFontScale(value,false);}
+  applyFontScale();
   if (media.addEventListener) media.addEventListener('change', apply);
   apply();
   function applyJsonFields(mode) {
@@ -41,7 +43,7 @@ window.STPreferences = (function() {
     var checkbox=document.getElementById('settings-json-fields');if(checkbox){checkbox.checked=visible;checkbox.disabled=!record;}
   }
   document.addEventListener('DOMContentLoaded', function() {
-    setFontScale(read('fontScale')||100,false);
+    applyFontScale();
     document.getElementById('settings-font-scale')?.addEventListener('change',function(event){setFontScale(event.target.value);window.dispatchEvent(new Event('resize'));});
     applyJsonFields(document.documentElement.dataset.uiMode);
     document.getElementById('settings-json-fields')?.addEventListener('change',function(event){
@@ -55,6 +57,6 @@ window.STPreferences = (function() {
       select.addEventListener('change', function() { setTheme(select.value); });
     });
   });
-  return { connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
+  return { connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>

@@ -689,6 +689,7 @@ var ST_TEXT_RESOURCES = {
   "view.close_settings_esc": "Close settings (Esc)",
   "view.appearance": "Appearance",
   "view.applied_immediately_on_this_browser": "Applied immediately on this browser.",
+  "ui.simulation_settings": "Simulation settings",
   "view.theme": "Theme",
   "view.light": "Light",
   "view.dark": "Dark",

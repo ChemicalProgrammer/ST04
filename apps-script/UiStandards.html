@@ -1,0 +1,63 @@
+<style>
+/* Shared visual hierarchy for Advance and Basic. Mode scaling is applied once,
+   to the root font size by STPreferences; layout can still vary by mode. */
+:root { --section-gap:var(--space-4); --panel-padding:var(--space-5); --checkbox-size:16px; }
+h1,h2,h3,h4 { color:var(--ink); font-weight:var(--weight-semibold); line-height:var(--leading-tight); text-transform:none; letter-spacing:normal; }
+h1 { font-size:var(--font-page); }
+h2,.dialog-heading h2 { font-size:var(--font-section); }
+h3,h4,.equipment-header strong,.format-zone-heading strong,.basic-conveyor-heading h3,
+.simulation-analysis-heading h3,.equipment-speed-chart-heading h3,
+.analysis-finding h4,.analysis-recommendation h4,.analysis-no-action h4,
+.comparison-section h3,#settings-dialog .settings-section h3 { font-size:var(--font-card); }
+label,.field-label,.basic-control-heading { color:var(--ink); font-size:var(--font-body); font-weight:var(--weight-medium); line-height:var(--leading-body); }
+.equipment-grid label,.format-zone-grid label,.reliability-controls label { font-size:var(--font-body); font-weight:var(--weight-medium); }
+input,select,textarea { font-size:var(--font-input); font-weight:var(--weight-regular); }
+/* Fixed dimensions override field-grid rules which also match checkboxes. */
+input[type=checkbox] { width:var(--checkbox-size) !important; min-width:var(--checkbox-size) !important; max-width:var(--checkbox-size) !important; height:var(--checkbox-size) !important; min-height:var(--checkbox-size) !important; max-height:var(--checkbox-size) !important; padding:0 !important; margin:0; flex:0 0 var(--checkbox-size) !important; appearance:auto; accent-color:var(--accent); vertical-align:middle; }
+label:has(> input[type=checkbox]) { display:flex; align-items:center; gap:var(--space-2); }
+.workspace-content > section.card { padding:var(--panel-padding); }
+.workspace-content > section.card > .section-heading { margin:0 0 var(--section-gap); gap:var(--space-3); min-height:var(--control-height); }
+.workspace-content > section.card > .section-heading h2 { margin:0; }
+.workspace-content > section.card > .section-heading .eyebrow { display:none; }
+.workspace-content > section.card > .section-heading p:not(.eyebrow) { margin:var(--space-2) 0 0; }
+#editor-panel > .editor-subheading { margin:0 0 var(--section-gap); gap:var(--space-3); }
+#editor-panel > .editor-subheading .button-row { padding:0; gap:var(--space-2); }
+.equipment-list { gap:var(--space-3); margin-top:0; }
+.section-heading,.format-zone-heading,.simulation-analysis-heading { gap:var(--space-3); margin-bottom:var(--section-gap); }
+#settings-dialog .settings-section { padding-bottom:var(--section-gap); margin-bottom:var(--section-gap); }
+#settings-dialog .settings-section h3 { margin:0 0 var(--space-3); }
+#settings-dialog .settings-section:last-child { padding-bottom:0; margin-bottom:0; }
+.accent-heading { line-height:var(--leading-body); }
+#settings-dialog .accent-palette { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+html[data-header-view=vgraph] #results-panel > .section-heading .export-menu,
+html[data-header-view=vgraph] #results-meta,
+html[data-header-view=vgraph] #line-performance > .section-heading { display:none; }
+html[data-header-view=vgraph] #line-performance { margin:0; padding:0; border:0; }
+#basic-run-options { display:none; }
+html[data-ui-mode=basic] #basic-run-options { display:block; padding:var(--space-3); margin:0 0 var(--section-gap); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
+html[data-ui-mode=basic][data-header-view=conveyors] #basic-run-options { display:none; }
+#basic-run-options > h3 { margin:0 0 var(--space-3); }
+html[data-ui-mode=basic] #basic-efficiencies { gap:var(--space-4); padding-bottom:var(--space-3); border-bottom:var(--border-width) solid var(--line); }
+html[data-ui-mode=basic] #basic-efficiencies > div { padding:0; border:0; flex-direction:row; align-items:center; gap:var(--space-3); }
+html[data-ui-mode=basic] #basic-efficiencies strong { font-size:var(--font-section); font-variant-numeric:tabular-nums; }
+html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(110px,.45fr); gap:var(--space-4); margin:var(--space-3) 0 0; align-items:start; }
+html[data-ui-mode=basic] #basic-run-controls > section { padding:0; border:0; gap:var(--space-2); }
+html[data-ui-mode=basic] .basic-machine .equipment-header strong { color:var(--ink); }
+html[data-ui-mode=basic] .basic-buffer { font-size:var(--font-input); font-weight:var(--weight-semibold); color:var(--ink); }
+html[data-ui-mode=basic] .basic-availability { font-size:var(--font-secondary); }
+html[data-ui-mode=basic] .basic-worksheet-group output,
+html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input.calculated-value { font-size:var(--font-input); font-weight:var(--weight-semibold); }
+html[data-ui-mode=basic] #basic-conveyor-layout { margin-top:0; gap:var(--section-gap); }
+html[data-ui-mode=basic] #basic-conveyor-panel { padding:var(--space-3); }
+html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-setup { padding:0; margin:0; border:0; }
+html[data-ui-mode=basic] .basic-conveyor-worksheet { gap:var(--space-3); }
+html[data-ui-mode=basic] .basic-worksheet-group { margin:0; padding:var(--space-3); gap:var(--space-2); }
+html[data-ui-mode=basic] .basic-worksheet-group h4 { margin:0 0 var(--space-2); }
+html[data-ui-mode=basic] .basic-worksheet-group label { grid-template-columns:minmax(0,1fr) minmax(85px,110px); }
+.live-equipment-columns,.equipment-speed-sparkline-heading { text-transform:none; letter-spacing:normal; }
+@media(max-width:760px) {
+ :root { --panel-padding:var(--space-3); }
+ html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:1fr; }
+ html[data-ui-mode=basic] #basic-efficiencies { grid-template-columns:1fr; gap:var(--space-2); }
+}
+</style>

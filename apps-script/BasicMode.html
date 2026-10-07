@@ -1,7 +1,7 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
@@ -27,11 +27,12 @@ window.STBasicMode=(function(){
     conveyorTabs=document.createElement('div');conveyorTabs.className='button-row basic-conveyor-tabs';
     ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});heading.appendChild(conveyorTabs);
     conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
-    efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';document.querySelector('#editor-panel > .editor-subheading').before(efficiencies);
-    setupControls=document.createElement('div');setupControls.id='basic-run-controls';efficiencies.after(setupControls);
+    runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';runOptions.append(optionsTitle);document.querySelector('#editor-panel > .editor-subheading').before(runOptions);
+    efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';runOptions.append(efficiencies);
+    setupControls=document.createElement('div');setupControls.id='basic-run-controls';runOptions.append(setupControls);
     [['run-playback-rate','Speed'],['run-shift-count','Duration (8 h shifts)'],['run-rounds','Rounds']].forEach(function(spec){
       var control=document.getElementById(spec[0]),label=control.closest('label');controlHomes.push({node:label,home:label.parentNode,next:label.nextSibling});
-      var group=document.createElement('section'),heading=document.createElement('strong');heading.textContent=spec[1];group.appendChild(heading);setupControls.appendChild(group);
+      var group=document.createElement('section'),heading=document.createElement('strong');heading.className='basic-control-heading';heading.textContent=spec[1];if(spec[0]!=='run-rounds')group.appendChild(heading);setupControls.appendChild(group);
       if(spec[0]!=='run-rounds'){
         var row=document.createElement('div');row.className='button-row';group.appendChild(row);
         var values=spec[0]==='run-playback-rate'?[1,5,10,50,100]:[1,2,3];
@@ -53,6 +54,7 @@ window.STBasicMode=(function(){
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
+    STPreferences.applyFontScale();
     STPreferences.applyJsonFields(root.dataset.uiMode);
     STPreferences.applyPalette(root.dataset.uiMode);
     if(enabled)mount();else{unmount();sectionRow.appendChild(headerActions);}
@@ -60,6 +62,8 @@ window.STBasicMode=(function(){
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='whatif'?'whatif':'simulation';
     if(view==='comparison')section='comparison';
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
+    document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
+    document.getElementById('results-title').textContent=section==='vgraph'?__ST_TEXT__('basic.vgraph'):__ST_TEXT__('shell.results');
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
@@ -85,7 +89,7 @@ window.STBasicMode=(function(){
     }
     if(active){var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
       var before=section==='simulation'?document.getElementById('run-config'):host.querySelector('.editor-subheading');
-      host.insertBefore(efficiencies,before);host.insertBefore(setupControls,before);
+      host.insertBefore(runOptions,before);
     }
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
@@ -94,16 +98,16 @@ window.STBasicMode=(function(){
     var fields=card._fields;if(fields._basicWorksheet)return;
     var setup=fields.querySelector('.format-zone-setup'),worksheet=node('div','','basic-conveyor-worksheet');setup.appendChild(worksheet);
     var groups=[
-      ['UPSTREAM','upstream',[
-        ['package-length','Package Length (mm)'],['discharge-pitch','Discharge Pitch (mm)'],['startup','Startup Time (sec)'],['residual','Bottles at Stop'],
+      ['Upstream','upstream',[
+        ['package-length','Package length (mm)'],['discharge-pitch','Discharge pitch (mm)'],['startup','Startup time (sec)'],['residual','Bottles at stop'],
         [null,'Package velocity (m/min)','package-velocity'],[null,'Output rate B2B (m/min)','output-b2b']]],
-      ['DOWNSTREAM','downstream',[
-        ['infeed','Infeed Pitch (mm)'],['downstream-ramp','Ramp Up Time (sec)'],[null,'Consumption Rate (m/min)','consumption']]],
-      ['GEOMETRY','geometry',[
-        ['lact','Lact = Total Length (mm)'],['lp-prime','Lp = Prime Zone (mm)'],['discharge-runout','Discharge Actual (mm)'],['reject-runout','Coding Actual (mm)'],
+      ['Downstream','downstream',[
+        ['infeed','Infeed pitch (mm)'],['downstream-ramp','Ramp up time (sec)'],[null,'Consumption rate (m/min)','consumption']]],
+      ['Geometry','geometry',[
+        ['lact','Lact = Total length (mm)'],['lp-prime','Lp = Prime zone (mm)'],['discharge-runout','Discharge actual (mm)'],['reject-runout','Coding actual (mm)'],
         [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],['lba','LBA (mm)']]],
-      ['Speed & Sensors','sensors',[
-        ['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc Zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
+      ['Speed & sensors','sensors',[
+        ['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
         ['clear-delay','Back up clear delay (sec)'],['insurance','Insurance factor (pkgs)'],['overspeed','Conveyor overspeed (%)']]]
     ];
     groups.forEach(function(group){var section=node('section','','basic-worksheet-group format-zone-grid'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);
@@ -117,8 +121,8 @@ window.STBasicMode=(function(){
   function updateWorksheet(card,audit,equipment){
     prepareWorksheet(card);
     var fields=card._fields,c=audit?.engineering?.calculated,up=equipment.find(function(e){return e.id===audit?.upstreamId;}),down=equipment.find(function(e){return e.id===audit?.downstreamId;});
-    fields.querySelector('[data-basic-group=upstream]').textContent='UPSTREAM: '+(up?.name||'—')+' ('+number(up?.nominalRatePerSecond*60)+' BPM)';
-    fields.querySelector('[data-basic-group=downstream]').textContent='DOWNSTREAM: '+(down?.name||'—')+' ('+number(down?.nominalRatePerSecond*60)+' BPM)';
+    fields.querySelector('[data-basic-group=upstream]').textContent='Upstream: '+(up?.name||'—')+' ('+number(up?.nominalRatePerSecond*60)+' BPM)';
+    fields.querySelector('[data-basic-group=downstream]').textContent='Downstream: '+(down?.name||'—')+' ('+number(down?.nominalRatePerSecond*60)+' BPM)';
     var outputs={'package-velocity':c?.upstreamDischargeVelocityMmPerSecond*.06,'output-b2b':c?.machineOutputRateMmPerSecond*.06,'consumption':c?.downstreamInfeedRateMmPerSecond*.06,'overflow':c?.overflowProductLengthMm,'lbu':c?.overflowLengthMm,'lba':c?.usefulAccumulationLengthMm};
     fields.querySelectorAll('[data-basic-output]').forEach(function(output){output.textContent=number(outputs[output.dataset.basicOutput]);});
   }

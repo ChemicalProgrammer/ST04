@@ -26,9 +26,11 @@ and clear when returning to the gallery. These display changes mark the case
 pending without invalidating simulation results or changing simulation inputs.
 
 Appearance applies immediately in this browser. Text size offers 80%, 90%, 100%,
-110% and 125% relative to the current default. Basic preserves its existing 80%
-base scale and 12px minimum, then applies this preference. Existing accent choices
-and the restricted interface-mode access remain unchanged.
+110% and 125% of the shared Advance typography. Advance defaults to 100%, Basic
+to 110%, with no second mode multiplier. Explicit choices are remembered per mode
+in this browser; legacy explicit font preferences are respected until replaced.
+Accent choices retain their accessible labels and tooltips, but the selected color
+name is no longer repeated beside the field label.
 
 Account settings retain their existing debounced save and retry behavior; prompt
 checkboxes do not discard text. Case changes follow manual/automatic case saving,

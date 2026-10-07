@@ -841,7 +841,7 @@ test('UI: source color names and hex values populate compact Settings and work i
   function contrast(a,b){return (Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);}
   for(const entry of Object.values(palettes))for(const mode of ['light','dark']){assert.equal(entry[mode].accent,entry.hex);assert(contrast(entry[mode].onAccent,entry.hex)>=4.5);assert(contrast(entry[mode].text,entry[mode].soft)>=4.5);}
   const color=palettes['a-lorange'];assert.equal(color.hex,'#F6820D');
-  await h.click('.accent-choice[data-accent="a-lorange"]');assert.equal(h.d.getElementById('accent-name').textContent,'à l’orange');
+  await h.click('.accent-choice[data-accent="a-lorange"]');assert.equal(h.d.getElementById('accent-name'),null);assert.equal(h.d.querySelector('.accent-choice[data-accent="a-lorange"]').title,'à l’orange');
   for(const mode of ['light','dark']){
    h.w.STPreferences.setTheme(mode);assert.equal(h.d.documentElement.style.getPropertyValue('--accent'),'#F6820D');
    assert.equal(h.d.documentElement.style.getPropertyValue('--on-accent'),color[mode].onAccent);
@@ -1680,7 +1680,7 @@ test('UI: Settings groups options, supports keyboard tabs and preserves excluded
   await h.click('#cases-settings');assert.equal(h.d.querySelectorAll('[data-settings-tab]').length,5);
   const caseTab=h.d.getElementById('settings-tab-case');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
   assert.equal(h.d.activeElement.id,'settings-tab-appearance');assert(h.visible('settings-page-appearance'));assert(!h.visible('settings-page-gemini'));
-  const size=h.d.getElementById('settings-font-scale');size.value='110';size.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'17.6px');assert.equal(h.w.localStorage.getItem('st.ui.v1.fontScale'),'110');
+  const size=h.d.getElementById('settings-font-scale');size.value='110';size.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'17.6px');assert.equal(h.w.localStorage.getItem('st.ui.v1.fontScale.advance'),'110');
   await h.click('#settings-tab-gemini');assert.equal(h.d.querySelectorAll('.gemini-prompt-card:not(.hidden)').length,10);assert.equal(h.d.getElementById('gemini-model').form.id,'workspace-form');
   assert(h.d.getElementById('settings-page-gemini').contains(h.d.getElementById('gemini-api-key')));assert(h.d.getElementById('settings-page-storage').contains(h.d.getElementById('workspace-folder-id')));
   let saved;const save=h.api.saveUserSettings;h.api.saveUserSettings=s=>{saved=s;return save(s);};
@@ -1787,4 +1787,18 @@ test('UI: color map, RGB and HEX stay synchronized with full equipment names and
   let copied;Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}}});await h.click('#series-color-copy');assert.equal(copied,hex.value);assert.match(h.d.getElementById('series-color-copy-status').textContent,/copied/);h.w.navigator.clipboard.writeText=async()=>{throw Error('Blocked');};let fallback=false;h.d.execCommand=command=>{fallback=command==='copy';return fallback;};await h.click('#series-color-copy');assert(fallback);assert.match(h.d.getElementById('series-color-copy-status').textContent,/copied/);h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.d.querySelector('#settings-chart-colors .settings-color-hex').textContent,'#826262');
   await h.click('#settings-vgraph-colors button');hex.value='#112233';hex.dispatchEvent(new h.w.Event('input'));h.d.getElementById('series-color-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));await h.click('#settings-chart-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--series-0'),'');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'#112233');await h.click('#settings-vgraph-reset');assert.equal(h.d.documentElement.style.getPropertyValue('--vgraph-current'),'');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+test('UI: shared typography scales once, retains mode-specific choices and keeps section titles visible',async()=>{
+ for(const mode of ['ADVANCE','BASIC']){const h=await setup({remember:true,uiMode:mode});try{
+  const basic=mode==='BASIC';assert.equal(h.d.documentElement.style.fontSize,basic?'17.6px':'16px');await h.click('.open-case');
+  for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']]){
+   await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');assert.equal(heading.textContent,title);assert.notEqual(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');assert.notEqual(h.w.getComputedStyle(heading.parentElement).display,'none');
+  }
+  await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert.equal(h.d.getElementById('run-rounds').closest('section').querySelectorAll('strong').length,0);assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
+  await h.click('#open-settings');assert.equal(h.d.getElementById('settings-font-scale').value,basic?'110':'100');const font=h.d.getElementById('settings-font-scale');font.value='125';font.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'20px');await h.click('#settings-close');await h.click('[data-basic-view=simulation]');assert.equal(h.d.documentElement.style.fontSize,'20px');assert.equal(h.w.STPreferences.read('fontScale.'+(basic?'basic':'advance')),'125');
+  const other=basic?'advance':'basic';h.d.documentElement.dataset.uiMode=other;h.w.STPreferences.applyFontScale();assert.equal(h.d.documentElement.style.fontSize,basic?'16px':'17.6px');h.d.documentElement.dataset.uiMode=basic?'basic':'advance';h.w.STPreferences.applyFontScale();assert.equal(h.d.documentElement.style.fontSize,'20px');
+  for(const theme of ['light','dark']){h.w.STPreferences.setTheme(theme);const boxes=[h.d.getElementById('settings-json-fields'),h.d.getElementById('settings-scenario-doe'),h.d.querySelector('.switchable-value input[type=checkbox]')];assert(boxes.every(Boolean));const dimensions=boxes.map(box=>{const css=h.w.getComputedStyle(box);return [css.width,css.height,css.padding].map(value=>value.replace(/var\((--[^)]+)\)/g,(_,name)=>h.w.getComputedStyle(h.d.documentElement).getPropertyValue(name).trim()));});assert.deepEqual(dimensions[0],dimensions[1]);assert.deepEqual(dimensions[0],dimensions[2]);}
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
 });
