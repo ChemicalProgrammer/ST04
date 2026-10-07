@@ -53,6 +53,7 @@
         </nav>
         <nav class="sidebar-section sidebar-footer" aria-label="<?= __ST_TEXT__('view.workspace_actions') ?>">
           <button id="open-settings" class="nav-item" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>"><span class="nav-label"><?= __ST_TEXT__('shell.settings') ?></span></button>
+          <button id="sidebar-app-info" class="nav-item" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"><span class="nav-label"><?= __ST_TEXT__('info.title') ?></span></button>
           <button id="home-cases" class="nav-item" data-icon="back" aria-label="<?= __ST_TEXT__('view.close_case') ?>"><span class="nav-label"><?= __ST_TEXT__('view.close_case') ?></span></button>
           <button id="sign-out" class="nav-item" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out_of_this_workspace') ?>"><span class="nav-label"><?= __ST_TEXT__('view.sign_out') ?></span></button>
         </nav>
@@ -60,7 +61,7 @@
       <header class="topbar">
         <div class="breadcrumb"><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
         <span id="user-email" class="user-chip"></span>
-        <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost icon-button" type="button" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>" title="<?= __ST_TEXT__('shell.settings') ?>"></button><button id="cases-sign-out" class="ghost icon-button" type="button" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out') ?>"></button></div>
+        <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost icon-button" type="button" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>" title="<?= __ST_TEXT__('shell.settings') ?>"></button><button id="show-app-info" class="ghost icon-button" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"></button><button id="cases-sign-out" class="ghost icon-button" type="button" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out') ?>"></button></div>
         <div id="header-case-actions" class="header-case-actions hidden">
         <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
         <label class="simulation-picker" for="simulation-selector"><span class="sr-only"><?= __ST_TEXT__('view.simulations') ?></span><select id="simulation-selector"></select></label>
@@ -73,7 +74,6 @@
         <span id="header-errors" class="hidden" role="status" aria-live="polite"><button id="header-error-button" type="button" class="ghost icon-button error-details-trigger" data-icon="error" aria-haspopup="dialog" aria-label="<?= __ST_TEXT__('errors.view_details') ?>" title="<?= __ST_TEXT__('errors.view_details') ?>"></button><span class="sr-only"><?= __ST_TEXT__('errors.title') ?></span></span>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
         <span id="autosave-indicator" class="sr-only hidden" role="status"><span id="autosave-status" data-error-notice="save" data-error-title="Case saving error" class="sr-only"></span></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button>
-        <button id="show-app-info" class="ghost icon-button" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"></button>
         <button id="pin-header" class="ghost icon-button" type="button" data-icon="pin" aria-label="Unpin header" title="Unpin header" aria-pressed="true"></button>
       <div id="request-progress" class="request-progress hidden" role="status" aria-label="<?= __ST_TEXT__('view.loading') ?>"><span></span></div>
       </header>
@@ -274,7 +274,11 @@
     <dialog id="json-help-dialog" aria-labelledby="json-help-title"><header class="dialog-heading"><h2 id="json-help-title"></h2><button id="json-help-close" type="button" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('inspector.close') ?>"></button></header><div class="dialog-body"><p><?= __ST_TEXT__('inspector.example_note') ?></p><textarea id="json-help-code" readonly spellcheck="false" aria-label="<?= __ST_TEXT__('inspector.example') ?>"></textarea><dl id="json-help-fields"></dl></div><footer class="dialog-actions"><span id="json-copy-status" role="status"></span><button id="json-help-copy" type="button" data-icon="copy"><?= __ST_TEXT__('inspector.copy') ?></button></footer></dialog>
     <dialog id="app-info-dialog" aria-labelledby="app-info-title">
       <header class="dialog-heading"><h2 id="app-info-title"><?= __ST_TEXT__('info.title') ?></h2><button id="app-info-close" type="button" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('inspector.close') ?>"></button></header>
-      <div class="dialog-body"><p><?= __ST_TEXT__('info.description') ?></p><dl><dt><?= __ST_TEXT__('info.version_label') ?></dt><dd><?= __ST_TEXT__('info.version') ?></dd><dt><?= __ST_TEXT__('info.developer_label') ?></dt><dd><a href="mailto:<?= __ST_TEXT__('info.developer_email') ?>"><?= __ST_TEXT__('info.developer_email') ?></a></dd></dl></div>
+      <div class="dialog-body app-info-body">
+        <div class="app-info-brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><div><h3><?= __ST_TEXT__('view.flow_pilot') ?></h3><p><?= __ST_TEXT__('info.subtitle') ?></p></div></div>
+        <p class="app-info-description"><?= __ST_TEXT__('info.description') ?></p>
+        <dl class="app-info-fields"><div><dt><?= __ST_TEXT__('info.version_label') ?></dt><dd><span class="app-info-version"><?= __ST_TEXT__('info.version') ?></span></dd></div><div><dt><?= __ST_TEXT__('info.developer_label') ?></dt><dd><a href="mailto:<?= __ST_TEXT__('info.developer_email') ?>"><?= __ST_TEXT__('info.developer_email') ?></a></dd></div></dl>
+      </div>
     </dialog>
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title"><?= __ST_TEXT__('shell.settings') ?></h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('view.close_settings') ?>" title="<?= __ST_TEXT__('view.close_settings_esc') ?>"></button></header>

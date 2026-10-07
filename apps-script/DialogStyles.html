@@ -113,4 +113,19 @@ dialog[open]::backdrop { opacity:1; }
 #settings-dialog .settings-color-columns .settings-color-table th:last-child { width:120px; }
 #settings-dialog .settings-color-columns td { padding:var(--space-2); }
 @media(max-width:620px){.settings-color-columns { grid-template-columns:1fr; gap:var(--space-3); }}
+#app-info-dialog { --dialog-width:480px; }
+.app-info-brand { display:flex; align-items:center; gap:var(--space-4); }
+.app-info-brand .brand-mark { width:56px; height:56px; border-radius:var(--radius-lg); }
+.app-info-brand .brand-mark svg { width:36px; height:36px; }
+.app-info-brand h3 { margin:0; font-size:var(--font-page); line-height:var(--leading-tight); letter-spacing:var(--tracking-tight); }
+.app-info-brand p { margin:var(--space-1) 0 0; color:var(--muted); font-size:var(--font-secondary); }
+.app-info-description { margin:var(--space-5) 0; line-height:var(--leading-body); color:var(--muted); }
+.app-info-fields { margin:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); overflow:hidden; }
+.app-info-fields > div { display:grid; grid-template-columns:minmax(120px,.8fr) minmax(0,1.2fr); align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); }
+.app-info-fields > div + div { border-top:var(--border-width) solid var(--line); }
+.app-info-fields dt { color:var(--muted); font-size:var(--font-secondary); }
+.app-info-fields dd { margin:0; min-width:0; font-weight:var(--weight-medium); overflow-wrap:anywhere; }
+.app-info-fields a { color:var(--accent); }
+.app-info-version { display:inline-block; padding:var(--space-1) var(--space-2); background:var(--accent-soft); color:var(--accent); border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:var(--font-secondary); }
+@media(max-width:380px) { .app-info-fields > div { grid-template-columns:1fr; gap:var(--space-1); } }
 </style>

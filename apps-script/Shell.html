@@ -42,7 +42,10 @@ window.STShell = function(state,actions) {
     function pinHeader(pinned){header.dataset.pinned=String(pinned);pin.setAttribute('aria-pressed',String(pinned));pin.title=pinned?'Unpin header':'Pin header';pin.setAttribute('aria-label',pin.title);}
     pinHeader(STPreferences.read('headerPinned')!=='no');pin.onclick=function(){var pinned=pin.getAttribute('aria-pressed')!=='true';STPreferences.write('headerPinned',pinned?'yes':'no');pinHeader(pinned);};
     var info=document.getElementById('app-info-dialog'),infoButton=document.getElementById('show-app-info');
-    infoButton.onclick=function(){info.showModal();};
+    function openInfo(){infoButton=this;info.showModal();}
+    document.getElementById('show-app-info').onclick=openInfo;
+    document.getElementById('sidebar-app-info').onclick=openInfo;
+    var basicInfo=document.getElementById('basic-app-info');if(basicInfo)basicInfo.onclick=openInfo;
     document.getElementById('app-info-close').onclick=function(){info.close();};
     info.addEventListener('close',function(){infoButton.focus();});
     STSettings.init();STIcons.decorate();

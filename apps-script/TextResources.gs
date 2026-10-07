@@ -1,5 +1,6 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "info.subtitle":"Packaging line simulator",
   "info.title":"About Flow Pilot",
   "info.version_label":"Simulator version",
   "info.version":"1.0.0",
