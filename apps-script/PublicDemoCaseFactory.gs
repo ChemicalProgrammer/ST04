@@ -21,7 +21,7 @@ function createPublicDemoCaseRequest_() {
   return {
     id: 'public-demo-packaging-line-' + suffix,
     name: 'Public demo — 13-step packaging line',
-    unitOfFlow: 'equivalent bottles',
+    unitOfFlow: 'units',
     metadata: createPublicDemoMetadata_(),
     engineConfig: {
       modelMode: 'PUBLIC_DEMONSTRATION_EQUIVALENT_BOTTLES',
@@ -111,7 +111,7 @@ function createPublicDemoMetadata_() {
       { publisher: 'Krones', title: 'Modulpal Pro palletiser', url: 'https://www.krones.com/en/products/machines/modulpal-pro-palletiser.php', usedFor: 'Public palletising layer-rate context.' }
     ],
     modelLimitations: [
-      'All generic-engine rates are equivalent bottles per minute; the current MVP does not yet transform bottles into cases or pallets.',
+      'All generic-engine rates are units per minute; the current MVP does not yet transform bottles into cases or pallets.',
       'MTBF produces seeded exponential time-to-failure intervals. MTTR is represented as a fixed repair duration.',
       'The public demo uses transparent synthetic L_act, L_p, runout lengths, sensor delays, insurance, and sensor positions. They are not plant measurements or recommendations.',
       'Every conveyor derives pitch, conveyor velocity, Population %, normal photoeye pulse/gap timing, Prime location, Back-up margin, usable accumulation, recovery length, and anti-starve / anti-block time from the named FlowPilot inputs.',
@@ -129,7 +129,7 @@ function createPublicLineUnit_(definition) {
     initialMode: 'AUTO',
     characteristics: {
       dataClassification: 'PUBLIC_DEMONSTRATION_ONLY',
-      rateBasis: 'equivalent bottles per minute',
+      rateBasis: 'units per minute',
       nominalRateBpm: definition.nominalRateBpm
     },
     noiseProfile: {

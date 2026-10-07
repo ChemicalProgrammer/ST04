@@ -2,7 +2,7 @@
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
   var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
-  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif']];
+  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'edit','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'list','editor'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
@@ -19,7 +19,7 @@ window.STBasicMode=(function(){
     tools=document.createElement('div');tools.id='basic-case-actions';tools.className='basic-utilities';
     var utilityRow=document.createElement('div');utilityRow.className='button-row';tools.appendChild(utilityRow);
     headerActions=document.getElementById('header-case-actions');headerActionsHome=headerActions.parentNode;headerActionsNext=headerActions.nextSibling;
-    [['compare-simulations',__ST_TEXT__('client.compare_simulations'),'chart'],['open-settings',__ST_TEXT__('shell.settings'),'settings'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0])?.click();});b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
+    [['open-settings',__ST_TEXT__('shell.settings'),'settings'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0])?.click();});b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
     list=document.getElementById('equipment-list');listHome=list.parentNode;
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
     panel=document.createElement('aside');panel.id='basic-conveyor-panel';panel.setAttribute('aria-label',__ST_TEXT__('basic.conveyor_configuration'));
@@ -27,7 +27,7 @@ window.STBasicMode=(function(){
     conveyorTabs=document.createElement('div');conveyorTabs.className='button-row basic-conveyor-tabs';
     ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});heading.appendChild(conveyorTabs);
     conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
-    runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';runOptions.append(optionsTitle);document.querySelector('#editor-panel > .editor-subheading').before(runOptions);
+    runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';var optionsHeading=node('div','','basic-options-heading');optionsHeading.append(optionsTitle);runOptions.append(optionsHeading);document.querySelector('#editor-panel > .editor-subheading').before(runOptions);
     efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';runOptions.append(efficiencies);
     setupControls=document.createElement('div');setupControls.id='basic-run-controls';runOptions.append(setupControls);
     [['run-playback-rate','Speed'],['run-shift-count','Duration (8 h shifts)'],['run-rounds','Rounds']].forEach(function(spec){
@@ -50,7 +50,7 @@ window.STBasicMode=(function(){
     sync(current);
   }
   function mount(){if(mounted)return;sectionRow.appendChild(headerActions);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function unmount(){if(!mounted)return;document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;root.dataset.uiMode=enabled?'basic':'advance';
@@ -65,6 +65,7 @@ window.STBasicMode=(function(){
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('results-title').textContent=section==='vgraph'?'Speed profile':'Performance summary';
+    nav.querySelector('[data-basic-view=comparison]').classList.toggle('hidden',enabled);
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
@@ -88,7 +89,7 @@ window.STBasicMode=(function(){
       document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');
       STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);
     }
-    if(active){var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
+    if(active){var runButton=document.getElementById('run-simulation');if(section==='simulation')document.getElementById('basic-run-options-title').parentElement.appendChild(runButton);else document.querySelector('#run-panel > .section-heading > .button-row').appendChild(runButton);var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
       var before=section==='simulation'?document.getElementById('run-config'):host.querySelector('.editor-subheading');
       host.insertBefore(runOptions,before);
     }
@@ -176,6 +177,6 @@ window.STBasicMode=(function(){
     inspector.classList.toggle('hidden',state.uiView!=='editor'||state.basicView!=='conveyors'||conveyorView!=='inputs');
     conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=false;});
   }
-  return {init:init,sync:sync,inline:inline,isBasic:basic,newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
+  return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return basic()?'units':unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>

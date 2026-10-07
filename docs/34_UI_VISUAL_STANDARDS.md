@@ -55,3 +55,20 @@ the header, and required engineering acknowledgements remain available. Medium
 CAPEX uses the semantic info color, including cards with no eligible targets.
 Export triggers use an upward arrow; Import uses a downward arrow and text-only
 menu choices. Conveyor cards hide their unused Basic data container.
+
+Comparison appears after What-If in Advance navigation only. Basic omits the
+Comparison utility. Gallery account email is untruncated and Settings/Sign out
+use labeled icons. Settings removes category titles already named in the tabs;
+the Case name field spans the content width.
+
+Simulation: Basic aligns Run simulation with Simulation settings. Run controls
+is no longer displayed. Playback actions are icons, and the right-aligned percent
+uses displayed virtual time / configured duration, clamped to 0–100%, preserving
+streaming playback and pause/reset behavior. Background replication has its own
+progress indicator. Scenario activity is a 9px themed animated bar; all four Basic
+cards share the lateral border and a padded title background.
+
+Results export offers JSON (the existing bounded AI summary), HTML and PDF. Full
+replay JSON export is removed from that menu. Native result storage is unchanged.
+Basic presents generic units; Advance displays the specified flow unit. New demo
+cases use units. Import dropdown options share the same menu style as exports.

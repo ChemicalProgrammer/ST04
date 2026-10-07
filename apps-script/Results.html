@@ -1,10 +1,11 @@
 <script>
 // Presentation-only aggregation; all physical results are supplied by the engine.
 window.STResults=(function(){
+  function unitLabel(unit){return window.STBasicMode?.unitLabel(unit)||unit||'units';}
   function number(value,digits){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:digits===undefined?1:digits}):'—';}
   function downtime(result){return Object.values(result.equipmentMetrics||{}).reduce(function(n,m){return n+(m.pausedSeconds||0)+(m.stoppedSeconds||0);},0)/60;}
   function metrics(result){var s=result.summary;return [
-    [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+(result.unitOfFlow||'units')+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+(result.unitOfFlow||'units'),false],
+    [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+unitLabel(result.unitOfFlow)+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+unitLabel(result.unitOfFlow),false],
     [__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
   function render(result,activeCase,simulation){
@@ -12,7 +13,7 @@ window.STResults=(function(){
     var designReady=Boolean(activeCase?.equipment?.length);
     var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
 
-    document.getElementById('results-empty').classList.toggle('hidden',ready||designReady);document.getElementById('results-body').classList.toggle('hidden',!ready&&!designReady);document.getElementById('results-body').classList.toggle('results-design-only',!ready);document.getElementById('export-results').disabled=!ready;
+    document.getElementById('results-empty').classList.toggle('hidden',ready||designReady);document.getElementById('results-body').classList.toggle('hidden',!ready&&!designReady);document.getElementById('results-body').classList.toggle('results-design-only',!ready);
     STReports.bindResults(ready?result:null,activeCase,simulation);
     if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
@@ -28,8 +29,7 @@ window.STResults=(function(){
     table.querySelectorAll('thead th')[2].title=__ST_TEXT__('client.equipment_unit_help');
     var head=table.querySelector('thead tr');
     [__ST_TEXT__('results.partial_starvation'),__ST_TEXT__('results.partial_blocking'),__ST_TEXT__('results.productive_capacity')].forEach(function(label){var th=document.createElement('th');th.className='numeric';th.textContent=label;head.appendChild(th);});
-    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,r.model.unitOfFlow||'units',number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0),number((m.partialStarvationLossSeconds||0)/60),number((m.partialBlockingLossSeconds||0)/60),number(m.processingCapacityPercent)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>2)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
-    document.getElementById('export-results').onclick=function(){var blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='simulation-results.json';a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);};
+    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,unitLabel(r.model.unitOfFlow),number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0),number((m.partialStarvationLossSeconds||0)/60),number((m.partialBlockingLossSeconds||0)/60),number(m.processingCapacityPercent)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>2)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
   }
   function compare(target,a,b){
     if(!a.results?.summary||!b.results?.summary)return;

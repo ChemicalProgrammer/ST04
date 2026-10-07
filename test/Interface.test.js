@@ -118,7 +118,7 @@ test('UI: run, edit, clone, compare, and delete retain the existing engine workf
   await h.click('.sidebar [data-view="simulation"]');h.d.getElementById('run-duration').value='60';await h.click('#run-simulation');await settle();await h.click('#pause-simulation');
   assert.equal(h.d.querySelectorAll('.live-equipment-card').length,13,h.d.getElementById('status').textContent+' '+JSON.stringify(h.errors));await h.click('.loss-toggle');assert(h.d.querySelector('.live-equipment-card').classList.contains('show-losses'));
   await h.click('.sidebar [data-view="results"]');assert(h.visible('results-panel'));assert.equal(h.d.querySelectorAll('#results-table tbody tr').length,13);
-  assert.match(h.d.getElementById('results-reference').textContent,/equipment-minutes/);assert(!h.d.getElementById('export-results').disabled);
+  assert.match(h.d.getElementById('results-reference').textContent,/equipment-minutes/);assert(!h.d.getElementById('export-ai').disabled);
   await h.click('.sidebar [data-view="editor"]');await h.click('#clone-case');await settle();
   await h.click('.sidebar [data-view="whatif"]');assert(h.visible('whatif-panel'));assert(!h.visible('comparison-panel'));await h.click('.workspace-tab-comparison');assert(h.visible('comparison-panel'));assert(!h.visible('whatif-panel'));assert(h.d.querySelector('#case-comparison-content .comparison-context'));
   await h.click('.sidebar [data-view="simulation"]');await h.click('#run-simulation');await settle();await h.click('#pause-simulation');
@@ -1558,7 +1558,7 @@ test('UI: round-one playback streams before calculation finishes and run setting
    const shifts=h.d.querySelector('[data-control=run-shift-count][data-value="2"]');if(shifts){assert(shifts.disabled);shifts.click();assert.equal(h.d.getElementById('run-shift-count').value,'1');}
    h.d.getElementById('run-rounds').value=9;h.d.getElementById('run-rounds').dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.getElementById('run-rounds').value,'3');
    h.d.getElementById('run-playback-rate').value=100;h.d.getElementById('run-playback-rate').dispatchEvent(new h.w.Event('change'));sendFrames();
-   await waitFor(()=>h.d.getElementById('metric-time').textContent==='2 s');assert.equal(h.d.getElementById('playback-status').textContent.startsWith('Completed'),false,'waiting for more frames is not completion');
+   await waitFor(()=>h.d.getElementById('metric-time').textContent==='2 s');assert.equal(h.d.getElementById('playback-progress').textContent,'40.0%');assert.equal(h.d.getElementById('playback-status').textContent.startsWith('Completed'),false,'waiting for more frames is not completion');
    assert.equal(h.storedCases()[0].simulations[0].results,null,'partial output is never saved as a completed simulation');
    await h.click('#pause-simulation');assert(h.d.getElementById('run-rounds').disabled,'pausing playback keeps run settings locked');
    release();await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#play-simulation');await waitFor(()=>h.d.getElementById('playback-status').textContent==='Completed');
@@ -1604,7 +1604,7 @@ test('UI: V-graph reacts to draft fields without simulation and Basic sections f
    await h.click('.open-case');const saved=JSON.stringify(h.storedCases()[0].equipment);let simulated=0;
    for(const key of ['simulateLine','simulateLineAsync','simulateBatch'])h.w.SimulatorEngine[key]=()=>{simulated++;throw Error('Design edits must not run simulation');};
    if(uiMode==='BASIC'){
-    assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button')).map(b=>b.dataset.basicView),['equipment','conveyors','vgraph','simulation','results','whatif']);
+    assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not([data-basic-view=comparison])')).map(b=>b.dataset.basicView),['equipment','conveyors','vgraph','simulation','results','whatif']);
     await h.click('[data-basic-view=equipment]');
    }else {await h.click('#open-settings');h.d.getElementById('settings-autosave').checked=false;h.d.getElementById('settings-autosave').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');await h.click('.sidebar [data-view=editor]');}
    const first=h.d.querySelector('.equipment-card'),id=first.dataset.equipmentId;
@@ -1619,7 +1619,7 @@ test('UI: V-graph reacts to draft fields without simulation and Basic sections f
    points=h.d.getElementById('vgraph-plot')._vgraphPoints;assert(points.find(p=>p.id==='pucker-1').recommendedBpm<=301,'conveyor draft geometry reaches the design calculation');
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),saved,'preview does not save or mutate stored inputs');
    if(uiMode==='BASIC')await h.click('[data-basic-view=vgraph]');else await h.click('.sidebar [data-view=results]');
-   assert(h.visible('results-body'));assert(h.d.querySelector('#vgraph-plot svg'));assert.equal(h.d.getElementById('vgraph-plot')._vgraphPoints.find(p=>p.isPacemaker).id,id);assert(h.d.getElementById('export-results').disabled);assert.equal(simulated,0);assert.deepEqual(h.errors,[]);
+   assert(h.visible('results-body'));assert(h.d.querySelector('#vgraph-plot svg'));assert.equal(h.d.getElementById('vgraph-plot')._vgraphPoints.find(p=>p.isPacemaker).id,id);assert(h.d.getElementById('export-ai').disabled);assert.equal(simulated,0);assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
 });
@@ -1793,7 +1793,7 @@ test('UI: shared typography scales once, retains mode-specific choices and start
  for(const mode of ['ADVANCE','BASIC']){const h=await setup({remember:true,uiMode:mode});try{
   const basic=mode==='BASIC';assert.equal(h.d.documentElement.style.fontSize,basic?'17.6px':'16px');await h.click('.open-case');
   for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']]){
-   await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');if(['equipment','conveyors','vgraph','whatif'].includes(view)){assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}else{assert.equal(heading.textContent,'Run controls');assert.notEqual(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}if(['equipment','conveyors'].includes(view))assert.equal(h.d.getElementById('equipment-subsection-title').textContent,title);
+   await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');if(['equipment','conveyors','vgraph','whatif'].includes(view)){assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}else{assert.equal(heading.textContent,'Simulation');if(basic)assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}if(['equipment','conveyors'].includes(view))assert.equal(h.d.getElementById('equipment-subsection-title').textContent,title);
   }
   await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert.equal(h.d.getElementById('run-rounds').closest('section').querySelectorAll('strong').length,0);assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
   await h.click('#open-settings');assert.equal(h.d.getElementById('settings-font-scale').value,basic?'110':'100');const font=h.d.getElementById('settings-font-scale');font.value='125';font.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'20px');await h.click('#settings-close');await h.click('[data-basic-view=simulation]');assert.equal(h.d.documentElement.style.fontSize,'20px');assert.equal(h.w.STPreferences.read('fontScale.'+(basic?'basic':'advance')),'125');
@@ -1826,4 +1826,15 @@ test('UI Basic: four CAPEX cards include read-only current batch metrics and sep
   const target=h.d.createElement('div');h.d.body.append(target);h.w.STWhatIf.render(sim,target,()=>{});const grid=target.querySelector('.scenario-tier-grid');assert.equal(grid.children.length,4);const current=grid.firstElementChild;assert.equal(current.querySelectorAll('button,input').length,0);assert.equal(current.querySelector('strong').textContent,'42.5%');assert.match(current.textContent,/81.97/);assert(!grid.textContent.includes('All CAPEX'));
   assert.match(h.w.getComputedStyle(grid).gridTemplateColumns,/repeat\(4/);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+
+test('UI: Comparison is an Advance section and file exports keep only AI JSON',async()=>{
+ for(const mode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode:mode,flowUnit:'equivalent bottles'});try{
+  assert.equal(h.d.getElementById('user-email').textContent,'preview@example.test');for(const id of ['cases-settings','cases-sign-out'])assert.equal(h.d.getElementById(id).textContent,'');
+  await h.click('.open-case');const compare=h.d.querySelector('[data-basic-view=comparison]');assert.equal(compare.classList.contains('hidden'),mode==='BASIC');assert.equal(compare.previousElementSibling.dataset.basicView,'whatif');assert(!h.d.querySelector('#basic-case-actions [aria-label="Compare simulations"]'));
+  if(mode==='ADVANCE'){await h.click('[data-basic-view=comparison]');assert(h.visible('comparison-panel'));}
+  assert.equal(h.w.STBasicMode.unitLabel('equivalent bottles'),mode==='BASIC'?'units':'equivalent bottles');assert.equal(h.d.getElementById('export-results'),null);assert.equal(h.d.getElementById('export-ai').textContent,'JSON');
+  await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('run-title').classList.contains('sr-only'),true);if(mode==='BASIC')assert.equal(h.d.getElementById('run-simulation').parentElement.className,'basic-options-heading');for(const id of ['play-simulation','pause-simulation','reset-playback'])assert.equal(h.d.getElementById(id).textContent,'');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
 });

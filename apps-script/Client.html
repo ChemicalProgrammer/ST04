@@ -1750,10 +1750,12 @@ function renderRawJson() {
 
     function renderPlaybackFrame() {
       syncRunControls();
-      if (!state.run.result || !state.run.result.samples.length) return;
+      var progress=document.getElementById('playback-progress');
+      if (!state.run.result || !state.run.result.samples.length){if(progress)progress.textContent='0%';return;}
       var scrollAnchor = captureLiveEquipmentScrollAnchor();
       var sample = state.run.result.samples[state.run.sampleIndex];
       var time = sample.virtualSecond;
+      var duration=Number(state.run.result.durationSeconds);if(progress)progress.textContent=(duration>0?Math.max(0,Math.min(100,time/duration*100)).toFixed(1):'0')+'%';
       document.getElementById('metric-time').textContent = time + ' s';
       document.getElementById('metric-output').textContent = formatNumber(sample.outputCount);
       document.getElementById('metric-instant-rate').textContent = formatInstantaneousOutputRate();
@@ -1887,7 +1889,7 @@ function renderRawJson() {
       var availabilityState = unit.availabilityState || unit.mode || 'UNKNOWN';
       card.className = 'live-equipment-card state-' + availabilityState.toLowerCase().replace(/_/g, '-') + (card.dataset.losses === 'open' ? __ST_TEXT__('client.show_losses') : '');
       card.querySelector('.live-equipment-identity strong').textContent = model.name || unit.id;
-      card.querySelector('.live-equipment-identity strong').title=__ST_TEXT__('client.equipment_unit_label')+': '+(model.unitOfFlow||'units')+' · '+__ST_TEXT__('client.equipment_unit_help');
+      card.querySelector('.live-equipment-identity strong').title=__ST_TEXT__('client.equipment_unit_label')+': '+(window.STBasicMode?.unitLabel(model.unitOfFlow)||model.unitOfFlow||'units')+' · '+__ST_TEXT__('client.equipment_unit_help');
       card.querySelector('.live-state').textContent = availabilityState.replace(/_/g,' ');
       card.querySelector('.critical-label').textContent = model.processData?.role === 'PACEMAKER' ? __ST_TEXT__('client.critical_pacemaker') : model.processData?.role === 'CRITICAL_MACHINE' ? __ST_TEXT__('client.critical_equipment') : '';
       card.querySelector('.reliability-label').textContent = model.noiseProfile?.reliability ? __ST_TEXT__('client.mtbf')+formatNumber(model.noiseProfile?.reliability.mtbfMinutes)+__ST_TEXT__('client.min_mttr')+formatNumber(model.noiseProfile?.reliability.mttrMinutes)+__ST_TEXT__('client.min') : '';

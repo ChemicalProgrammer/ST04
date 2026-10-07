@@ -1,5 +1,6 @@
 <script>
 window.STLinePerformance = (function() {
+  function unitLabel(unit){return window.STBasicMode?.unitLabel(unit)||unit||'units';}
   function el(tag, text) { var item = document.createElement(tag); if (text !== undefined) item.textContent = text; return item; }
   function value(n, digits) { return Number.isFinite(n) ? n.toLocaleString(undefined, {maximumFractionDigits: digits === undefined ? 1 : digits}) : '—'; }
   function svg(tag, attrs, text) {
@@ -63,8 +64,8 @@ window.STLinePerformance = (function() {
       tbody.appendChild(row);
     });
     document.getElementById('throughput-method').textContent =
-      __ST_TEXT__('performance.method') + ' ' + value(analysis.outputCount) + ' ' + analysis.unitOfFlow + ' ÷ ' +
-      value(analysis.durationSeconds / 60, 3) + ' min = ' + value(analysis.outletBpm) + ' ' + analysis.unitOfFlow + '/min. ' +
+      __ST_TEXT__('performance.method') + ' ' + value(analysis.outputCount) + ' ' + unitLabel(analysis.unitOfFlow) + ' ÷ ' +
+      value(analysis.durationSeconds / 60, 3) + ' min = ' + value(analysis.outletBpm) + ' ' + unitLabel(analysis.unitOfFlow) + '/min. ' +
       __ST_TEXT__('performance.equipment_note');
     document.getElementById('throughput-method').classList.toggle('hidden',!result||Boolean(result.provisional));
   }
