@@ -20,7 +20,6 @@ dialog[open]::backdrop { opacity:1; }
 #command-dialog { --dialog-width: var(--size-500); } .command-search { border: 0; border-radius: 0; border-bottom: var(--border-width) solid var(--line); padding: var(--space-4); }
 .command-list { overflow-y:auto; display: grid; gap: var(--space-1); padding: var(--space-2); } .command-list button { justify-content: flex-start; }
 #toast { position: fixed; bottom: var(--space-5); right: var(--space-5); z-index: var(--z-toast); background: var(--surface); border: var(--border-width) solid var(--line-strong); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); box-shadow: var(--shadow-dialog); max-width: calc(100vw - var(--space-8)); }
-@keyframes dialog-enter { from { opacity: 0; transform: translateY(var(--size-4)); } to { opacity: 1; transform: translateY(0); } }
 @media(max-width:480px) { .settings-row { grid-template-columns: 1fr; } }
  .api-key-control { display:grid; grid-template-columns:minmax(0,1fr) var(--control-height); gap:var(--space-2); align-items:center; }
 .api-key-control input { min-width:0; margin:0; }

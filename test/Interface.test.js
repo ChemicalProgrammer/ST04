@@ -1677,6 +1677,7 @@ test('UI: Gemini formats Markdown during paragraph reveal and preserves Advance 
 
 test('UI: Settings groups options, supports keyboard tabs and preserves excluded Gemini prompt drafts',async()=>{
  const h=await setup({remember:true});try{
+  await h.click('#show-app-info');assert(h.d.getElementById('app-info-dialog').open);assert.match(h.d.getElementById('app-info-dialog').textContent,/1\.0\.0/);assert.equal(h.d.querySelector('#app-info-dialog a').getAttribute('href'),'mailto:developer@example.com');await h.click('#app-info-close');assert(!h.d.getElementById('app-info-dialog').open);
   await h.click('#cases-settings');assert.equal(h.d.querySelectorAll('[data-settings-tab]').length,5);
   const caseTab=h.d.getElementById('settings-tab-case');caseTab.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
   assert.equal(h.d.activeElement.id,'settings-tab-appearance');assert(h.visible('settings-page-appearance'));assert(!h.visible('settings-page-gemini'));
@@ -2005,7 +2006,7 @@ test('UI: Gemini panel animations cancel safely on rapid toggles and respect red
 test('UI: console options are isolated per case and survive saving and reopening',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('#open-settings');
-  assert(h.d.getElementById('settings-page-case').contains(h.d.getElementById('settings-seed-section')));
+  assert(h.d.getElementById('settings-page-simulation').contains(h.d.getElementById('settings-seed-section')));
   h.d.getElementById('settings-seed-policy').value='RANDOM';h.d.getElementById('settings-autosave-seconds').value=3;
   await h.click('#settings-cancel');await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].metadata.consoleOptions?.seedPolicy==='RANDOM');

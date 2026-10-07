@@ -1,5 +1,3 @@
-function listCases_(user) { return getCaseCatalog_(user).cases; }
-
 function createCase_(request, user) { return withCaseWriteLock_(function(){return createCaseUnlocked_(request,user);}); }
 function createCaseUnlocked_(request, user) {
   var caseData = createNewCaseRecord_(request, user);

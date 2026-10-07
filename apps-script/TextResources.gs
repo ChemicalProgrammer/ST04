@@ -1,5 +1,11 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "info.title":"About Flow Pilot",
+  "info.version_label":"Simulator version",
+  "info.version":"1.0.0",
+  "info.description":"Flow Pilot simulates packaging lines to analyze throughput, accumulation and equipment behavior, compare simulations, and explore improvement scenarios with Gemini.",
+  "info.developer_label":"Developer email",
+  "info.developer_email":"developer@example.com",
   "errors.copy":"Copy error",
   "errors.copied":"Error copied",
   "errors.copy_failed":"Clipboard unavailable. Select and copy the error details manually.",

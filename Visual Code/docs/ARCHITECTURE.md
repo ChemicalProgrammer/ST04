@@ -7,7 +7,7 @@
 | Motor puro | src/simulation/SeededRandom.js, ConveyorEngineering.js, FormatGeometryAdapter.js, SimulationValidation.js, LineSimulationEngine.js | Validación física, cálculo y resultados deterministas sin DOM, Drive ni Gemini |
 | Servidor | apps-script/ApiResponse.gs, AuthService.gs, ConfigService.gs, DriveService.gs, CaseService.gs | Errores, identidad, preferencias, propiedad y JSON en Drive |
 | Integraciones | SheetImportService.gs, GeminiService.gs | Lectura de Sheets; consulta Gemini con datos guardados y clave solo servidor |
-| Datos sintéticos | ReferenceCaseFactory.gs, PublicDemoCaseFactory.gs; examples/ | Casos de referencia, no datos reales |
+| Datos sintéticos | PublicDemoCaseFactory.gs; examples/ | Casos de referencia, no datos reales |
 | Entrada | Main.gs, WebApp.html | RPC y plantilla DOM, composición de módulos |
 | Recursos | TextResources.gs, DesignTokens.html, Fonts.html, Icons.html | Textos, tokens, fuente/licencia e iconos |
 | UI | UiPreferences, Shell, Settings, CaseGallery, Results, Charts, Comparison, Assistant, EquipmentDrag, SheetImportMerge, SheetImport y Client (.html) | Preferencias, navegación, vistas, interacción y orquestación |

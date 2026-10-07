@@ -52,7 +52,7 @@ test('cold bootstrap never reads case blobs; the catalog builds in bounded batch
 
 test('catalog reads only modified cases, drops deleted files and excludes other owners and malformed JSON',()=>{
  const h=runtime(),a=h.seed('a'),b=h.seed('b');h.seed('foreign','someone@example.test');h.folder().createFile('invalid.case.json','{bad');h.refresh();
- assert.deepEqual(Array.from(h.ctx.listCases_(owner),c=>c.id).sort(),['a','b']);
+ assert.deepEqual(Array.from(h.ctx.getCaseCatalog_(owner).cases,c=>c.id).sort(),['a','b']);
  const changed=JSON.parse(a.content);changed.name='New name';changed.revision=2;a.setContent(JSON.stringify(changed));b.setTrashed(true);
  const reads=h.caseReads();const page=h.refresh();assert.equal(page.cases.length,1);assert.equal(page.cases[0].name,'New name');
  assert.equal(h.caseReads()-reads,3,'one changed file plus the unindexed foreign and malformed files');
@@ -60,10 +60,10 @@ test('catalog reads only modified cases, drops deleted files and excludes other 
 });
 
 test('create, save and delete update the catalog without rebuilding complete cases',()=>{
- const h=runtime(),created=h.ctx.createCase_({id:'created',name:'New'},owner);assert.equal(h.ctx.listCases_(owner)[0].name,'New');
+ const h=runtime(),created=h.ctx.createCase_({id:'created',name:'New'},owner);assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].name,'New');
  const saved=h.ctx.saveCase_({id:created.id,expectedRevision:1,name:'Renamed',equipment:[]},owner);
- assert.equal(saved.revision,2);assert.equal(h.ctx.listCases_(owner)[0].revision,2);assert.equal(h.ctx.listCases_(owner)[0].name,'Renamed');
- h.ctx.deleteCase_(created.id,owner);assert.equal(h.ctx.listCases_(owner).length,0);
+ assert.equal(saved.revision,2);assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].revision,2);assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].name,'Renamed');
+ h.ctx.deleteCase_(created.id,owner);assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);
 });
 
 test('creating a validated scenario updates the catalog revision in the same case write',()=>{
@@ -81,9 +81,9 @@ test('an index write failure never misreports a successful save, and metadata re
  const h=runtime();h.ctx.createCase_({id:'a',name:'Original'},owner);h.refresh();
  const index=h.folder().files.get(h.ctx.caseIndexName_(owner));index.fail=true;
  const saved=h.ctx.saveCase_({id:'a',expectedRevision:1,name:'Saved despite catalog error',equipment:[]},owner);assert.equal(saved.revision,2);
- assert.equal(h.ctx.getCase_('a',owner).name,'Saved despite catalog error');assert.equal(h.ctx.listCases_(owner)[0].name,'Original');
+ assert.equal(h.ctx.getCase_('a',owner).name,'Saved despite catalog error');assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].name,'Original');
  assert(h.logs.some(l=>l.includes('CASE_INDEX_UPDATE_FAILED')));assert(!h.logs.join('').includes('private index details'));
- index.fail=false;h.refresh();assert.equal(h.ctx.listCases_(owner)[0].name,'Saved despite catalog error');
+ index.fail=false;h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].name,'Saved despite catalog error');
 });
 
 test('a case created during a partial scan is retained and stale cursors cannot restart a scan',()=>{
@@ -95,11 +95,11 @@ test('a case created during a partial scan is retained and stale cursors cannot 
 
 test('workspace catalogs are isolated and a missing or corrupt index can be rebuilt',()=>{
  const h=runtime();h.seed('one');h.refresh();h.setWorkspace('two');assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.seed('two');h.refresh();
- assert.equal(h.ctx.listCases_(owner)[0].id,'two');h.setWorkspace('one');assert.equal(h.ctx.listCases_(owner)[0].id,'one');
- h.folder().files.get(h.ctx.caseIndexName_(owner)).setContent('{invalid');assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.refresh();assert.equal(h.ctx.listCases_(owner)[0].id,'one');
+ assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].id,'two');h.setWorkspace('one');assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].id,'one');
+ h.folder().files.get(h.ctx.caseIndexName_(owner)).setContent('{invalid');assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].id,'one');
  const index=h.folder().files.get(h.ctx.caseIndexName_(owner));index.setContent(JSON.stringify({schemaVersion:'case-index-1',ownerEmail:owner.email,entries:[null]}));
- assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.refresh();assert.equal(h.ctx.listCases_(owner)[0].id,'one');
- const catalog=JSON.parse(index.content);catalog.scan={id:'bad',queue:[null],position:0};index.setContent(JSON.stringify(catalog));h.refresh();assert.equal(h.ctx.listCases_(owner)[0].id,'one');
+ assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].id,'one');
+ const catalog=JSON.parse(index.content);catalog.scan={id:'bad',queue:[null],position:0};index.setContent(JSON.stringify(catalog));h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].id,'one');
 });
 
 test('folder storage keeps general data separate, reuses unchanged simulations and rebuilds only manifests',()=>{
@@ -108,9 +108,9 @@ test('folder storage keeps general data separate, reuses unchanged simulations a
  assert.equal(general.simulations,undefined);assert.equal(general.simulationFiles.length,2);assert(!manifest.content.includes('largeReplay'));
  const before=general.simulationFiles.map(e=>e.fileName),record=h.ctx.getCase_('split',owner);record.name='Renamed';record.expectedRevision=1;
  h.ctx.saveCase_(record,owner);assert.deepEqual(JSON.parse(manifest.content).simulationFiles.map(e=>e.fileName),before);
- h.folder().files.get(h.ctx.caseIndexName_(owner)).setTrashed(true);h.reads.length=0;h.refresh();assert.equal(h.ctx.listCases_(owner)[0].name,'Renamed');
+ h.folder().files.get(h.ctx.caseIndexName_(owner)).setTrashed(true);h.reads.length=0;h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].name,'Renamed');
  assert(h.reads.includes('case.json'));assert(!h.reads.some(n=>n.startsWith('simulation-')));
- h.ctx.deleteCase_('split',owner);assert(child.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,0);assert.throws(()=>h.ctx.getCase_('split',owner));
+ h.ctx.deleteCase_('split',owner);assert(child.trashed);h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);assert.throws(()=>h.ctx.getCase_('split',owner));
 });
 
 test('legacy cases migrate on save and a failed manifest commit retains the previous simulations',()=>{
@@ -128,13 +128,13 @@ test('failed legacy migration leaves the old file usable and foreign folder owne
  h.folder().createFolder=function(name){const child=original.call(this,name),create=child.createFile;child.createFile=function(name,content){if(name==='case.json')throw Error('commit failed');return create.call(this,name,content);};return child;};
  const record=h.ctx.getCase_('a',owner);record.expectedRevision=1;assert.throws(()=>h.ctx.saveCase_(record,owner));assert(!legacy.trashed);assert.equal(h.ctx.getCase_('a',owner).revision,1);
  h.folder().createFolder=original;h.ctx.createCase_({id:'foreign-folder',name:'Private'}, {email:'another@example.test'});
- assert.throws(()=>h.ctx.getCase_('foreign-folder',owner),e=>e.simulatorError.code==='CASE_NOT_FOUND');assert.throws(()=>h.ctx.deleteCase_('foreign-folder',owner));h.refresh();assert(!h.ctx.listCases_(owner).some(c=>c.id==='foreign-folder'));
+ assert.throws(()=>h.ctx.getCase_('foreign-folder',owner),e=>e.simulatorError.code==='CASE_NOT_FOUND');assert.throws(()=>h.ctx.deleteCase_('foreign-folder',owner));h.refresh();assert(!h.ctx.getCaseCatalog_(owner).cases.some(c=>c.id==='foreign-folder'));
 });
 
 test('deletion removes a leftover owned legacy file so migration cleanup errors cannot resurrect a case',()=>{
  const h=runtime(),legacy=h.seed('leftover'),trash=legacy.setTrashed;legacy.setTrashed=()=>{throw Error('cleanup failed');};
- const record=h.ctx.getCase_('leftover',owner);record.expectedRevision=1;h.ctx.saveCase_(record,owner);assert(!legacy.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,1);assert.equal(h.ctx.listCases_(owner)[0].revision,2);
- legacy.setTrashed=trash;h.ctx.deleteCase_('leftover',owner);assert(legacy.trashed);h.refresh();assert.equal(h.ctx.listCases_(owner).length,0);
+ const record=h.ctx.getCase_('leftover',owner);record.expectedRevision=1;h.ctx.saveCase_(record,owner);assert(!legacy.trashed);h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,1);assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].revision,2);
+ legacy.setTrashed=trash;h.ctx.deleteCase_('leftover',owner);assert(legacy.trashed);h.refresh();assert.equal(h.ctx.getCaseCatalog_(owner).cases.length,0);
 });
 
 test('deleting an owned folder uses its manifest without requiring valid simulation results',()=>{
@@ -146,7 +146,7 @@ test('opening through the RPC migrates an unchanged legacy case without editing 
  const h=runtime(),legacy=h.seed('open-migration'),original=JSON.parse(legacy.content);
  const response=h.ctx.getCase('open-migration');assert(response.ok);assert(legacy.trashed);assert.equal(response.data.storageVersion,'case-folder-1');assert.equal(response.data.revision,original.revision);assert.equal(response.data.updatedAt,original.updatedAt);
  const child=h.folder().getFoldersByName('open-migration').next(),manifest=JSON.parse(child.files.get('case.json').content);assert.equal(manifest.revision,1);assert.equal(manifest.simulations,undefined);assert.equal(manifest.simulationFiles.length,1);
- assert.deepEqual(JSON.parse(JSON.stringify(response.data.simulations)),original.simulations);assert.equal(h.ctx.listCases_(owner)[0].fileId,child.files.get('case.json').getId());
+ assert.deepEqual(JSON.parse(JSON.stringify(response.data.simulations)),original.simulations);assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].fileId,child.files.get('case.json').getId());
  const before=child.files.size;const next=h.ctx.getCase('open-migration');assert(next.ok);assert.equal(child.files.size,before,'opening a migrated case creates no additional simulation files');
 });
 
