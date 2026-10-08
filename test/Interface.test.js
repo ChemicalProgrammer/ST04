@@ -1736,7 +1736,7 @@ test('UI: prepared demo opens with matching scenario card results and OEE compar
   assert.equal(cards.length,3);cards.forEach((card,index)=>{const value=record.simulations[index+1].results.batch.statistics.lineOeePercent.mean.toFixed(1);assert.match(card.querySelector('.scenario-preview-status').textContent,/Saved demo scenario/);assert(card.querySelector('.scenario-basic-metrics').textContent.includes(value+'%'));});
   await h.click('[data-basic-view="comparison"]');assert.equal(h.d.querySelectorAll('.comparison-equipment-oee tbody tr').length,8);assert.equal(runs,0);assert.deepEqual(h.errors,[]);
   const source=Object.assign({},record.simulations[0],{unitOfFlow:record.unitOfFlow});const cached=await h.w.STScenarioExplorer.evaluate(source,[],()=>false,0,source.dynamicConfig);assert.equal(cached.oee,source.results.batch.statistics.lineOeePercent.mean);assert.equal(runs,0);
-  await h.click('#home-cases');assert(h.d.getElementById('header-case-icon').classList.contains('hidden'));
+  await h.click('#home-cases');assert(!h.d.getElementById('header-case-icon').classList.contains('hidden'));assert.equal(h.d.getElementById('breadcrumb-case').textContent,'Workspace');
  }finally{h.dom.window.close();}
 });
 

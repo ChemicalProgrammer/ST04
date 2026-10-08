@@ -19,7 +19,6 @@ window.STShell = function(state,actions) {
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
     document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
     document.getElementById('breadcrumb-case').textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
-    document.getElementById('header-case-icon').classList.toggle('hidden',!active);
     document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),results:__ST_TEXT__('shell.results'),whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('save-case').classList.toggle('hidden',!active||(['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode).toUpperCase())&&STPreferences.read('autosaveEnabled')!=='no'));
     document.getElementById('autosave-indicator').classList.toggle('hidden',!active);

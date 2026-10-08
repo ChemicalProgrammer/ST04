@@ -16,7 +16,7 @@ open dialog. Both instances share a session-local rate; hidden instances pause.
 The reduced-motion preference disables the animation.
 
 The case header uses the existing product icon with the primary theme color.
-It appears before the case name and is hidden in the gallery.
+It appears before both the case name and Workspace in the gallery.
 
 Prepared demo recovery now accepts empty result objects created by the saved
 case normalizer and compares input objects canonically, including the explicit
