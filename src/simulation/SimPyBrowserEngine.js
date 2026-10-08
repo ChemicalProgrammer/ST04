@@ -4,6 +4,7 @@ import { validateSimulationInput } from './SimulationValidation.js';
 export const CURRENT_ENGINE_ID = 'ST_CURRENT';
 export const SIMPY_ENGINE_ID = 'DES_SIMPY_EXPERIMENTAL';
 export const PYODIDE_INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
+export const PYODIDE_INDEX_URLS = [PYODIDE_INDEX_URL, 'https://unpkg.com/pyodide@0.27.7/'];
 
 // This adapter deliberately records the physical model changes. A library switch
 // cannot make discrete products equivalent to ST's spatial fluid conveyors.
@@ -114,11 +115,13 @@ export function simPyWorkerMain() {
   let pyodide;
   self.onmessage=async event=>{
     const task=event.data;
+    let phase=pyodide?'simulation':'runtime';
     try {
       if(!pyodide) {
         self.postMessage({type:'loading',id:task.id});
         const {loadPyodide}=await import(task.indexURL+'pyodide.mjs');
         pyodide=await loadPyodide({indexURL:task.indexURL});
+        phase='model';
         for(const [name,source] of Object.entries(task.files)) {
           const destination='/home/pyodide/'+name;
           pyodide.FS.mkdirTree(destination.slice(0,destination.lastIndexOf('/')));
@@ -126,6 +129,7 @@ export function simPyWorkerMain() {
         }
         pyodide.runPython('import sys\nsys.path.insert(0, "/home/pyodide")\nimport simpy\nassert simpy.__version__ == "4.1.2"\nfrom st_simpy_engine import simulate_line');
       }
+      phase='simulation';
       self.postMessage({type:'ready',id:task.id});
       pyodide.globals.set('_st_input',JSON.stringify(task.payload));
       pyodide.globals.set('_st_progress',value=>self.postMessage({type:'progress',id:task.id,value}));
@@ -133,14 +137,14 @@ export function simPyWorkerMain() {
         const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress), allow_nan=False)');
         self.postMessage({type:'result',id:task.id,response:JSON.parse(json)});
       } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');}
-    } catch(error) {self.postMessage({type:'error',id:task.id,message:error.message});}
+    } catch(error) {self.postMessage({type:'error',id:task.id,message:error.message,phase});}
   };
 }
 
 export function createSimPyBrowserEngine(host, files) {
   let worker=null,url=null,nextId=0,serial=Promise.resolve(),abortActive=null;
   function dispose() {worker?.terminate();worker=null;if(url)host.URL.revokeObjectURL(url);url=null;}
-  function calculate(input,options) {
+  function calculate(input,options,indexURL) {
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     const payload=adaptSimPyInput(input);
     if(!host.Worker||!host.Blob||!host.URL?.createObjectURL)throw new Error('SimPy requires browser Web Workers. Choose the current engine in Settings.');
@@ -151,7 +155,7 @@ export function createSimPyBrowserEngine(host, files) {
     return new Promise((resolve,reject)=>{
       const id=++nextId,activeWorker=worker;
       let completed=false,lastProgress=0;
-      const timer=host.setTimeout(()=>finish(new Error('SimPy timed out. Check access to cdn.jsdelivr.net or shorten the run.')),300000);
+      let ready=false,timer=host.setTimeout(()=>finish(Object.assign(new Error('Python runtime download timed out: '+indexURL),{code:'SIMPY_RUNTIME_LOAD_FAILED'})),60000);
       const monitor=host.setInterval(()=>{if(options.cancelled?.())finish(new Error('BATCH_CANCELLED'));},50);
       function finish(error,response) {
         if(completed)return;completed=true;host.clearTimeout(timer);host.clearInterval(monitor);abortActive=null;
@@ -167,21 +171,31 @@ export function createSimPyBrowserEngine(host, files) {
         }catch(error){reject(error);}
       }
       abortActive=()=>finish(new Error('BATCH_CANCELLED'));
-      activeWorker.onerror=event=>{event.preventDefault?.();finish(new Error('SimPy could not load Python in this browser. Check HTTPS access to cdn.jsdelivr.net. '+(event.message||'')));};
+      activeWorker.onerror=event=>{event.preventDefault?.();finish(Object.assign(new Error('SimPy worker failed: '+(event.message||'browser blocked the worker')),{code:ready?'SIMPY_WORKER_FAILED':'SIMPY_RUNTIME_LOAD_FAILED'}));};
       activeWorker.onmessageerror=()=>finish(new Error('Invalid SimPy worker response'));
       activeWorker.onmessage=event=>{
         const message=event.data;if(message.id!==id||completed)return;
         if(message.type==='progress'){lastProgress=Math.max(lastProgress,Math.min(1,message.value));options.progress?.(lastProgress);}
-        if(message.type==='loading')host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Loading Python runtime…'}}));
-        if(message.type==='ready')host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Calculating with SimPy 4.1.2…'}}));
+        if(message.type==='loading')host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Loading Python runtime · '+new URL(indexURL).hostname+'…'}}));
+        if(message.type==='ready'){ready=true;host.clearTimeout(timer);timer=host.setTimeout(()=>finish(new Error('SimPy calculation timed out. Shorten the duration or simplify the line.')),300000);host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Calculating with SimPy 4.1.2…'}}));}
         if(message.type==='result')finish(null,message.response);
-        if(message.type==='error')finish(new Error(message.message));
+        if(message.type==='error')finish(Object.assign(new Error(message.message),{code:message.phase==='runtime'?'SIMPY_RUNTIME_LOAD_FAILED':'SIMPY_MODEL_FAILED'}));
       };
-      activeWorker.postMessage({id,payload,files,indexURL:PYODIDE_INDEX_URL});
+      activeWorker.postMessage({id,payload,files,indexURL:indexURL});
     });
   }
   host.addEventListener?.('pagehide',()=>{abortActive?.();dispose();});
   return {run(input,options={}) {
-    const job=serial.then(()=>calculate(input,options));serial=job.catch(()=>{});return job;
+    const job=serial.then(async()=>{
+      const failures=[];
+      for(const indexURL of PYODIDE_INDEX_URLS){
+        try{return await calculate(input,options,indexURL);}catch(error){
+          if(error.code!=='SIMPY_RUNTIME_LOAD_FAILED'||options.cancelled?.())throw error;
+          failures.push(new URL(indexURL).hostname+': '+error.message);
+        }
+      }
+      throw Object.assign(new Error('DES could not download Python from cdn.jsdelivr.net or unpkg.com. Check network access to these HTTPS sources. '+failures.join(' | ')),{code:'SIMPY_RUNTIME_LOAD_FAILED'});
+    });serial=job.catch(()=>{});return job;
   },close(){abortActive?.();dispose();}};
 }
+

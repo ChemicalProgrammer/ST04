@@ -20,6 +20,8 @@ function stubScenarioGain(h){
 async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);vm.runInContext(read('GeminiService.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
+ // Generic UI fixture uses the browser defaults supplied by this test.
+ delete initial.metadata.consoleOptions;
  if(flowUnit)initial.unitOfFlow=flowUnit;
  Object.assign(initial,{id:'demo',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
  const sourceEquipment=JSON.parse(JSON.stringify(initial.equipment));
@@ -1831,11 +1833,11 @@ test('UI Basic: four CAPEX cards include read-only current batch metrics and sep
 });
 
 
-test('UI: Comparison is an Advance section and file exports keep only AI JSON',async()=>{
+test('UI: Comparison requires multiple simulations in both modes and file exports keep only AI JSON',async()=>{
  for(const mode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode:mode,flowUnit:'equivalent bottles'});try{
   assert.equal(h.d.getElementById('user-email').textContent,'preview@example.test');for(const id of ['cases-settings','cases-sign-out'])assert.equal(h.d.getElementById(id).textContent,'');
-  await h.click('.open-case');const compare=h.d.querySelector('[data-basic-view=comparison]');assert.equal(compare.classList.contains('hidden'),mode==='BASIC');assert.equal(compare.previousElementSibling.dataset.basicView,'whatif');assert(!h.d.querySelector('#basic-case-actions [aria-label="Compare simulations"]'));
-  if(mode==='ADVANCE'){await h.click('[data-basic-view=comparison]');assert(h.visible('comparison-panel'));}
+  await h.click('.open-case');const compare=h.d.querySelector('[data-basic-view=comparison]');assert(compare.classList.contains('hidden'));await h.click('#clone-case');await waitFor(()=>h.d.getElementById('simulation-selector').options.length===2);assert(!compare.classList.contains('hidden'));assert.equal(compare.previousElementSibling.dataset.basicView,'whatif');assert(!h.d.querySelector('#basic-case-actions [aria-label="Compare simulations"]'));
+  await h.click('[data-basic-view=comparison]');assert(h.visible('comparison-panel'));
   assert.equal(h.w.STBasicMode.unitLabel('equivalent bottles'),mode==='BASIC'?'units':'equivalent bottles');assert.equal(h.d.getElementById('export-results'),null);assert.equal(h.d.getElementById('export-ai').textContent,'JSON');
   await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('run-title').classList.contains('sr-only'),true);if(mode==='BASIC')assert.equal(h.d.getElementById('run-simulation').parentElement.className,'basic-options-heading');for(const id of ['play-simulation','pause-simulation','reset-playback'])assert.equal(h.d.getElementById(id).textContent,'');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
@@ -2109,3 +2111,16 @@ test('UI: Gallery Gemini uses temporary history, stays separate from cases and e
  }finally{h.dom.window.close();}
 });
 
+
+
+test('UI Basic: comparison shows three batch mean outcomes and omits Advance sections', async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');
+  const result=value=>({seed:17,durationSeconds:60,replay:{},unitOfFlow:'units',summary:{lineOeePercent:1,outputCount:10},batch:{rounds:3,statistics:{lineOeePercent:{mean:value},throughputPerMinute:{mean:value*2},outputCount:{mean:value*2}},rows:[{seed:17},{seed:18},{seed:19}]}});
+  const a={id:'a',name:'Baseline',equipment:[],results:result(50)},b={id:'b',name:'Proposed',equipment:[],results:result(80)};
+  for(const [id,selected] of [['case-compare-a','a'],['case-compare-b','b']]){const select=h.d.getElementById(id);select.innerHTML='<option value="a">A</option><option value="b">B</option>';select.value=selected;}
+  h.w.STComparison({activeCase:{name:'Test',simulations:[a,b]}},Number.isFinite).render();
+  const target=h.d.getElementById('case-comparison-content');assert.equal(target.querySelectorAll('tbody tr').length,3);assert.equal(target.querySelectorAll('details').length,0);
+  assert.match(target.querySelector('tbody tr').textContent,/50%80%/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

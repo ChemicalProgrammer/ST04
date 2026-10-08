@@ -30,7 +30,8 @@ try {
   page.on('pageerror',e=>{errors.push(e.message);console.error('Browser error:',e.message);});
   // Only runtime assets are served locally. The actual generated module Worker,
   // Python bundle, SimPy, adapter, UI, persistence and cancellation are unchanged.
-  await page.route('https://cdn.jsdelivr.net/pyodide/v0.27.7/full/**',async route=>{
+  await page.route('https://cdn.jsdelivr.net/pyodide/v0.27.7/full/**',route=>route.abort());
+  await page.route('https://unpkg.com/pyodide@0.27.7/**',async route=>{
     const name=new URL(route.request().url()).pathname.split('/').at(-1),file=path.join(runtime,name);
     if(!fs.existsSync(file))throw Error('Missing runtime asset '+name);
     await route.fulfill({body:fs.readFileSync(file),contentType:name.endsWith('.wasm')?'application/wasm':/\.m?js$/.test(name)?'text/javascript':name.endsWith('.json')?'application/json':'application/octet-stream',headers:{'Access-Control-Allow-Origin':'*'}});
@@ -65,7 +66,8 @@ try {
   assert.deepEqual(checks.outputs,[598,598]);assert.deepEqual(checks.shifts,[148,150,150,150]);
   assert.equal(checks.cancellation,'BATCH_CANCELLED');assert.equal(checks.restarted,598);assert.deepEqual(errors,[]);
   const report={ok:true,browser:await browser.version(),pyodide:'0.27.7',simpy:'4.1.2',output:saved.results.summary.outputCount,
-    residualUnits:0,checks,coverage:['module Worker inside sandbox iframe','selector default and selection','saved engine provenance','two rounds','four exact shifts','cancel synchronous Python','restart after cancellation'],
+    residualUnits:0,checks,coverage:['download fallback after blocked first CDN','module Worker inside sandbox iframe','selector default and selection','saved engine provenance','two rounds','four exact shifts','cancel synchronous Python','restart after cancellation'],
     runtimeAssets:'official npm Pyodide files served locally through browser request interception',liveAppsScriptTested:false,corporateCdnAccessTested:false};
   console.log(JSON.stringify(report,null,2));
 }finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
+

@@ -187,6 +187,7 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
 /* Compact settings groups and a semantic saved-state indicator. */
 #settings-page-appearance .settings-colors { grid-template-columns:160px minmax(160px,260px); }
 html[data-ui-mode=basic] .settings-option-group > p { display:none; }
+#settings-dialog .gemini-settings { border:0; border-radius:0; padding:0; }
 #settings-dialog .settings-option-group + .settings-option-group { margin-top:var(--space-4); }
 #settings-dialog .settings-option-group > label { margin-bottom:var(--space-2); }
 #settings-dialog .settings-option-group > p { margin-top:var(--space-2); font-size:var(--font-secondary); }
@@ -210,8 +211,8 @@ html[data-visual-style=elegant] select option:checked { color:var(--on-accent); 
     max-height:min(320px,60dvh); max-width:calc(100vw - 24px); overflow:auto;
   }
   html[data-visual-style=elegant] select:not([multiple]):not([size]) option {
-    display:flex; align-items:center; gap:var(--space-2); min-height:var(--control-height);
-    padding:var(--space-2) var(--space-3); border:0; border-radius:var(--radius-sm);
+    display:flex; align-items:center; gap:var(--space-2); min-height:30px;
+    padding:4px var(--space-3); border:0; border-radius:var(--radius-sm);
     font-family:var(--font-ui); font-size:var(--font-input); white-space:normal; overflow-wrap:anywhere;
   }
   html[data-visual-style=elegant] select:not([multiple]):not([size]) option:not(:disabled):not(:checked):is(:hover,:focus) {

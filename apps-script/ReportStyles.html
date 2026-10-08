@@ -1,5 +1,5 @@
 <template id="report-style-template">
-:root { color-scheme:light; --report-page:#f7f8fa; --report-card-bg:#ffffff; --report-accent:#5656c9; --report-accent-soft:#ededfc; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
+:root { color-scheme:light; --report-page:#f7f8fa; --report-card-bg:#ffffff; --report-accent:#4e8ac2; --report-accent-soft:#edf4fa; --report-secondary:#6a7e86; --report-secondary-soft:#f0f4f5; --report-secondary-text:#52656d; --report-ink:#20242c; --report-muted:#586174; --report-line:#d9dee7; --report-surface:#f4f6f9; --report-font:system-ui,sans-serif; --report-body:12px; --report-title:22px; --report-section:16px; --report-card:14px; --report-space:12px; }
 body { font:var(--report-body)/1.5 var(--report-font); color:var(--report-ink); margin:0; background:var(--report-page); }
 main { max-width:1100px; margin:auto; padding:24px; }
 h1 { font-size:var(--report-title); } h2 { font-size:var(--report-section); } h3 { font-size:var(--report-card); }
@@ -10,18 +10,20 @@ th,td { border-bottom:1px solid var(--report-line); padding:8px; text-align:left
 th { background:var(--report-surface); } thead { display:table-header-group; } tr { break-inside:avoid; }
 h1,h2,h3,summary { break-after:avoid; }
 @page { size:A4 landscape; margin:12mm; }
-@media print { main { padding:0; max-width:none; } body { print-color-adjust:exact; } }
+@media print { main { padding:0; max-width:none; } body { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
 
-.report-cover { border-top:6px solid var(--report-accent); padding:28px; background:var(--report-card-bg); border-radius:12px; margin-bottom:24px; }
+.report-cover { border-top:4px solid var(--report-accent); border-bottom:1px solid var(--report-secondary); padding:28px; background:var(--report-card-bg); border-radius:12px; margin-bottom:24px; }
 .report-brand { color:var(--report-accent); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-.report-cover h1 { margin:12px 0 6px; }
+.report-cover h1 { margin:12px 0 6px; color:var(--report-secondary-text); letter-spacing:-.02em; }
 .report-content { background:var(--report-card-bg); border:1px solid var(--report-line); border-radius:12px; padding:24px; }
-.report-content h2 { border-left:4px solid var(--report-accent); padding-left:12px; margin-top:28px; }
+.report-content h2 { border-left:3px solid var(--report-secondary); padding:8px 12px; background:var(--report-secondary-soft); color:var(--report-secondary-text); margin-top:28px; border-radius:4px; }
 .report-table { margin:16px 0; border:1px solid var(--report-line); border-radius:8px; overflow:hidden; }
 .report-table table { margin:0; }
-th { background:var(--report-accent-soft); color:var(--report-ink); }
+th { background:var(--report-secondary-soft); color:var(--report-secondary-text); }
 tbody tr:nth-child(even) { background:var(--report-surface); }
+.report-content h3 { color:var(--report-secondary-text); }
 .report-footer { padding:16px 0; color:var(--report-muted); font-size:10px; border-top:1px solid var(--report-line); margin-top:24px; }
 pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--report-surface); border:1px solid var(--report-line); padding:16px; border-radius:8px; font-size:10px; }
 @media print { .report-cover,.report-content { border-radius:0; } .report-content { padding:12px; } .report-table { overflow:visible; } }
 </template>
+

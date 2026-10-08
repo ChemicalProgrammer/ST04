@@ -43,8 +43,12 @@ window.STReports=(function(){
   function documentHtml(title,slots,kind){
     var css=document.getElementById('report-style-template').content.textContent;
     var style=getComputedStyle(document.documentElement),theme=document.documentElement.dataset.theme||'light';
-    var tokens={'--report-ink':'--ink','--report-muted':'--muted','--report-line':'--line','--report-surface':'--surface-soft','--report-page':'--page','--report-card-bg':'--surface','--report-accent':'--accent','--report-accent-soft':'--accent-soft'};
+    var tokens={'--report-ink':'--ink','--report-muted':'--muted','--report-line':'--line','--report-surface':'--surface-soft','--report-page':'--page','--report-card-bg':'--surface','--report-accent':'--accent','--report-accent-soft':'--accent-soft','--report-secondary':'--secondary','--report-secondary-soft':'--secondary-soft','--report-secondary-text':'--secondary-text'};
     var palette=':root{color-scheme:'+ (theme==='dark'?'dark':'light')+';';Object.entries(tokens).forEach(function(pair){var value=style.getPropertyValue(pair[1]).trim();if(value&&/^[#(),.%\s\w-]+$/.test(value))palette+=pair[0]+':'+value+';';});palette+='}';
+    // PDF uses paper-friendly theme colors even when the app is in Dark mode.
+    var resources=window.STThemeResources,primary=resources?.palettes[document.documentElement.dataset.accent||resources.defaultAccent]?.light,secondary=resources?.palettes[document.documentElement.dataset.secondaryAccent||resources.defaultSecondary]?.light;
+    var printTokens={'--report-page':'#ffffff','--report-card-bg':'#ffffff','--report-ink':'#242a35','--report-muted':'#606b7a','--report-line':'#e3e7ee','--report-surface':'#f8f9fb','--report-accent':primary?.accent||style.getPropertyValue('--accent').trim(),'--report-accent-soft':primary?.soft||'#edf4fa','--report-secondary':secondary?.accent||style.getPropertyValue('--secondary').trim(),'--report-secondary-soft':secondary?.soft||'#f0f4f5','--report-secondary-text':secondary?.text||'#52656d'};
+    palette+='@media print{:root{color-scheme:light;';Object.entries(printTokens).forEach(function(pair){if(pair[1]&&/^[#(),.%\s\w-]+$/.test(pair[1]))palette+=pair[0]+':'+pair[1]+';';});palette+='}}';
     var root=document.getElementById('report-document-template').content.cloneNode(true);
     root.querySelector('[data-report="brand"]').textContent=__ST_TEXT__('reports.brand');root.querySelector('[data-report="title"]').textContent=title;
     root.querySelector('[data-report="subtitle"]').textContent=__ST_TEXT__('reports.subtitle')+' · '+(basic()?'Basic':'Advance');root.querySelector('[data-report="footer"]').textContent=__ST_TEXT__('reports.footer')+' · '+new Date().toISOString();
@@ -151,11 +155,9 @@ window.STReports=(function(){
       'batch-title':escape(__ST_TEXT__('batch.title')),batch:diff(a.results?.batch?{rounds:a.results.batch.rounds,statistics:a.results.batch.statistics,seeds:a.results.batch.rows?.map(r=>r.seed)}:{},b.results?.batch?{rounds:b.results.batch.rounds,statistics:b.results.batch.statistics,seeds:b.results.batch.rows?.map(r=>r.seed)}:{}),
       'configuration-title':escape(__ST_TEXT__('comparison.simulation_configuration')),configuration:diff({dynamicConfig:a.dynamicConfig,engineConfig:a.engineConfig,scenario:a.scenario},{dynamicConfig:b.dynamicConfig,engineConfig:b.engineConfig,scenario:b.scenario}),limitations:escape(data.limitations.join(' '))};
     if(basic()){
-      function summary(s){return {oeePercent:s.results?.summary?.lineOeePercent,production:s.results?.summary?.outputCount,throughputPerMinute:s.results?.durationSeconds>0?s.results.summary.outputCount/s.results.durationSeconds*60:undefined};}
-      function inputs(e){return e?{speedBpm:e.nominalRatePerSecond*60,mtbfMinutes:e.noiseProfile?.reliability?.mtbfMinutes,mttrMinutes:e.noiseProfile?.reliability?.mttrMinutes}:{};}
-      slots.overview=diff(summary(a),summary(b));slots.inputs='';slots.equipment='';
-      ids.forEach(function(id){var left=a.equipment.find(function(e){return e.id===id;}),right=b.equipment.find(function(e){return e.id===id;});slots.inputs+='<section><h3>'+escape(left?.name||right?.name)+'</h3>'+diff(inputs(left),inputs(right))+'</section>';});
-      slots.batch='';slots.configuration=diff({durationSeconds:a.dynamicConfig.durationSeconds,rounds:a.dynamicConfig.rounds||1},{durationSeconds:b.dynamicConfig.durationSeconds,rounds:b.dynamicConfig.rounds||1});
+      function overview(sim){var result=sim.results;if(!result?.summary)return {};var stats=result.batch?.statistics,mean=function(key,fallback){return Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback;};return {'Efficiency (%)':mean('lineOeePercent',result.summary.lineOeePercent),'Throughput (/min)':mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),'Production':mean('outputCount',result.summary.outputCount)};}
+      slots.overview=diff(overview(a),overview(b));slots.batch='';slots.equipment='';
+      slots.configuration=diff({durationSeconds:a.dynamicConfig.durationSeconds,rounds:a.dynamicConfig.rounds||1},{durationSeconds:b.dynamicConfig.durationSeconds,rounds:b.dynamicConfig.rounds||1});
     }
     return documentHtml(__ST_TEXT__('exports.comparison_report'),slots,'comparison');
   }
@@ -206,3 +208,4 @@ window.STReports=(function(){
   return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
+

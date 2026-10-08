@@ -65,7 +65,7 @@ test('sensor hypotheses cover all eligible conveyors and machine targets respect
  for(const e of conveyors)assert(plan.candidates.some(p=>p.equipmentId===e.id&&p.kind==='SENSOR_WINDOW'&&p.tier==='ZERO'));
  const machine=sim.equipment[0],path='nominalRatePerSecond';machine.processData.equipment.maximumSpeedBpm=machine.nominalRatePerSecond*60;
  assert.throws(()=>applyScenarioChanges(sim,[{equipmentId:machine.id,path,before:machine.nominalRatePerSecond,after:machine.nominalRatePerSecond+1}]),/SCENARIO_INSTALLED_SPEED_LIMIT/);
- const source=JSON.stringify(sim);for(const p of plan.candidates.filter(p=>p.kind==='V_CURVE'))assert(p.changes.every(c=>c.after*60<=sim.equipment.find(e=>e.id===c.equipmentId).processData.equipment.maximumSpeedBpm));assert.equal(JSON.stringify(sim),source);
+ const source=JSON.stringify(sim);for(const p of planScenarios(sim).candidates.filter(p=>p.kind==='V_CURVE'))assert(p.changes.every(c=>c.after*60<=sim.equipment.find(e=>e.id===c.equipmentId).processData.equipment.maximumSpeedBpm));assert.equal(JSON.stringify(sim),source);
 });
 
  test('variable catalog covers machines and conveyors without inventing targets or mutating inputs',()=>{
@@ -79,3 +79,4 @@ test('sensor hypotheses cover all eligible conveyors and machine targets respect
  assert(catalog.some(c=>c.disabledReason?.includes('Reference machine')));
  assert.equal(JSON.stringify(sim),snapshot);
 });
+

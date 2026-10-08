@@ -7,6 +7,8 @@ window.STComparison=function(state,isFiniteNumber){
       STReports.bindComparison(state.activeCase,a,b);
       if (!a || !b || a.id === b.id) { target.textContent = __ST_TEXT__('comparison.select_two_different_simulations'); return; }
       appendComparisonContext(target, a, b);
+      var basic=Boolean(window.STBasicMode?.isBasic());
+      if(basic){STResults.compare(target,a,b);appendChangedInputs(target,a,b,true);return;}
       if(a.results?.batch||b.results?.batch){
         var note=document.createElement('p');note.className='notice';note.textContent=__ST_TEXT__('batch.compare_note');target.appendChild(note);
         appendComparisonSection(target,__ST_TEXT__('batch.title'),a.results?.batch?.statistics||{},b.results?.batch?.statistics||{});
@@ -30,13 +32,13 @@ window.STComparison=function(state,isFiniteNumber){
       });
     }
 
-    function appendChangedInputs(target,a,b) {
+    function appendChangedInputs(target,a,b,basic) {
       var changes=[],affected=new Set();
       var right=Object.fromEntries((b.equipment||[]).map(function(e){return [e.id,e];}));
       (a.equipment||[]).forEach(function(e){
         var l=flattenComparisonValues(e),r=flattenComparisonValues(right[e.id]||{});
         Array.from(new Set(Object.keys(l).concat(Object.keys(r)))).forEach(function(key){
-          if(formatComparisonValue(l[key])!==formatComparisonValue(r[key])){changes.push([e.name||e.id,key,formatComparisonValue(l[key]),formatComparisonValue(r[key])]);affected.add(e.id);}
+          if(formatComparisonValue(l[key])!==formatComparisonValue(r[key])){var info=basic?STWhatIf.changeInfo({equipmentId:e.id,path:key,before:l[key],after:r[key]},a.equipment):null;changes.push(info?[info.equipment,info.parameter,info.before,info.after]:[e.name||e.id,key,formatComparisonValue(l[key]),formatComparisonValue(r[key])]);affected.add(e.id);}
         });
       });
       (b.equipment||[]).filter(function(e){return !(a.equipment||[]).some(function(x){return x.id===e.id;});}).forEach(function(e){changes.push([e.name||e.id,__ST_TEXT__('comparison.added_equipment'),'—',e.type]);affected.add(e.id);});
@@ -120,3 +122,4 @@ window.STComparison=function(state,isFiniteNumber){
 return {render:renderCaseComparison};
 };
 </script>
+

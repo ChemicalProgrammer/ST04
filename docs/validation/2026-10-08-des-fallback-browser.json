@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "pyodide": "0.27.7",
+  "simpy": "4.1.2",
+  "output": 598,
+  "residualUnits": 0,
+  "checks": {
+    "outputs": [
+      598,
+      598
+    ],
+    "seeds": [
+      73,
+      74
+    ],
+    "shifts": [
+      148,
+      150,
+      150,
+      150
+    ],
+    "cancellation": "BATCH_CANCELLED",
+    "restarted": 598
+  },
+  "coverage": [
+    "download fallback after blocked first CDN",
+    "module Worker inside sandbox iframe",
+    "selector default and selection",
+    "saved engine provenance",
+    "two rounds",
+    "four exact shifts",
+    "cancel synchronous Python",
+    "restart after cancellation"
+  ],
+  "runtimeAssets": "official npm Pyodide files served locally through browser request interception",
+  "liveAppsScriptTested": false,
+  "corporateCdnAccessTested": false
+}

@@ -18,10 +18,20 @@ function createPublicDemoCaseRequest_() {
 
   configurePublicAccumulationZones_(equipment);
   configurePublicDemoLosses_(equipment);
-  var run = { durationSeconds: 1200, tickSeconds: 0.25, sampleEverySeconds: 5, seed: 20261008, rounds: 3, commands: [] };
-  var mediumChanges = equipment.filter(function(unit) { return unit.type !== 'CONVEYOR'; }).map(function(unit) {
-    return { equipmentId: unit.id, path: 'processData.upstream.startupTimeSeconds', before: unit.processData.upstream.startupTimeSeconds, after: 3, unit: 's', external: true,
-      justification: 'Synthetic demo assumption: local start-sequence retrofit with a 3-second restart target. This is an example intervention, not a measured plant guarantee.' };
+  var run = { durationMode: 'SHIFTS', shiftHours: 8, shiftCount: 1, shiftSeconds: 28800, durationSeconds: 28800, tickSeconds: 0.25, sampleEverySeconds: 15, seed: 20261008, rounds: 3, commands: [] };
+  var options = createPublicDemoTargets_(equipment);
+  var baseline = { id: 'simulation-a', name: 'Baseline — inefficient line', equipment: equipment, dynamicConfig: run, results: null, whatIf: { externalOptions: options } };
+  var simulations = [baseline];
+  options.forEach(function(option) {
+    var copy = JSON.parse(JSON.stringify(equipment));
+    option.changes.forEach(function(change) {
+      var unit = copy.filter(function(item) { return item.id === change.equipmentId; })[0];
+      var keys = change.path.split('.'), field = keys.pop();
+      keys.reduce(function(value, key) { return value[key]; }, unit)[field] = change.after;
+    });
+    simulations.push({ id: 'demo-' + option.tier.toLowerCase(), name: option.tier === 'ZERO' ? 'Zero CAPEX — operating adjustments' : option.tier === 'MEDIUM' ? 'Medium CAPEX — restart control' : 'High CAPEX — accumulation upgrade',
+      equipment: copy, dynamicConfig: JSON.parse(JSON.stringify(run)), results: null,
+      scenario: { origin: 'PUBLIC_DEMO', tier: option.tier, sourceSimulationId: baseline.id, changes: option.changes } });
   });
 
   return {
@@ -37,8 +47,7 @@ function createPublicDemoCaseRequest_() {
       accumulationControlModel: 'FlowPilot physical conveyor engineering with package-pulse photoeyes, sustained Back-up debounce, overflow margin, and recovery audit'
     },
     equipment: equipment,
-    simulations: [{ id: 'simulation-a', name: 'Baseline — inefficient line', equipment: equipment, dynamicConfig: run, results: null,
-      whatIf: { externalOptions: [{ tier: 'MEDIUM', changes: mediumChanges }] } }]
+    simulations: simulations
   };
 }
 
@@ -53,16 +62,46 @@ function configurePublicDemoLosses_(equipment) {
       unit.processData.accumulation.downstreamRampUpSeconds = 12;
       unit.processData.accumulation.conveyorSpeedFactorPercent = 15;
     } else {
-      var rate = unit.type === 'FILLER' ? 400 : index < 4 ? 320 : 280;
+      var rate = unit.type === 'FILLER' ? 400 : 160;
       unit.nominalRatePerSecond = rate / 60;
       unit.characteristics.nominalRateBpm = rate;
-      unit.processData.equipment.maximumSpeedBpm = unit.type === 'FILLER' ? 420 : 480;
+      unit.processData.equipment.maximumSpeedBpm = unit.type === 'FILLER' ? 420 : 500;
       unit.processData.upstream.startupTimeSeconds = 35;
       unit.noiseProfile.reliability = { mtbfMinutes: 4, mttrMinutes: 0.3 };
       unit.processData.equipment.mtbfMinutes = 4;
       unit.processData.equipment.mttrMinutes = 0.3;
       unit.noiseProfile.microStop = { probabilityPerMinute: 0.35, minDurationSeconds: 3, maxDurationSeconds: 8 };
     }
+  });
+}
+
+// Each category is a complete independent hypothesis against the baseline.
+// The targets are model inputs; efficiencies are always computed by the engine.
+function createPublicDemoTargets_(equipment) {
+  return ['ZERO', 'MEDIUM', 'HIGH'].map(function(tier) {
+    var changes = [];
+    function change(unit, path, after, unitOfMeasure, intervention) {
+      var before = path.split('.').reduce(function(value, key) { return value[key]; }, unit);
+      if (before === after) return;
+      var item = { equipmentId: unit.id, path: path, before: before, after: after, unit: unitOfMeasure };
+      if (intervention) { item.external = true; item.justification = intervention; }
+      changes.push(item);
+    }
+    equipment.forEach(function(unit) {
+      if (unit.type === 'CONVEYOR') {
+        change(unit, 'processData.accumulation.conveyorSpeedFactorPercent', 100, '%');
+        change(unit, 'processData.geometry.lpPrimeMm', 400, 'mm');
+        if (tier === 'HIGH') {
+          change(unit, 'processData.geometry.lactMm', 18000, 'mm');
+          change(unit, 'processData.accumulation.backupSensorPositionMm', 3000, 'mm');
+        }
+      } else {
+        if (unit.type !== 'FILLER') change(unit, 'nominalRatePerSecond', (tier === 'ZERO' ? 300 : tier === 'MEDIUM' ? 400 : 420) / 60, 'units/s');
+        if (tier !== 'ZERO') change(unit, 'processData.upstream.startupTimeSeconds', tier === 'MEDIUM' ? 10 : 3, 's',
+          'Synthetic demo assumption: ' + (tier === 'MEDIUM' ? 'local start-sequence retrofit with a 10-second restart target.' : 'integrated controls upgrade with a 3-second restart target.') + ' This target is a hypothesis, not measured plant performance.');
+      }
+    });
+    return { tier: tier, changes: changes };
   });
 }
 
@@ -135,6 +174,7 @@ function setPublicConveyorEngineering_(equipment, equipmentId, design) {
 function createPublicDemoMetadata_() {
   return {
     demoRevision: 'capex-challenge-2',
+    consoleOptions: { autosaveEnabled: true, autosaveSeconds: 10, seedPolicy: 'FIXED' },
     learningObjectives: ['Zero CAPEX: retune under-speed machines and existing sensors.', 'Medium CAPEX: evaluate an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
     dataClassification: 'PUBLIC_DEMONSTRATION_ONLY',
     dataNote: 'This is a non-confidential demonstration Case. Public manufacturer capacity pages provide only broad bounds. MTBF, MTTR, physical conveyor geometry, speeds, sensor positions, and line configuration are transparent synthetic assumptions for software testing; they are not plant measurements, equipment guarantees, or operating recommendations.',
@@ -207,3 +247,4 @@ function createPublicLineUnit_(definition) {
     }
   };
 }
+

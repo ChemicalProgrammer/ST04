@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-import { planScenarios, applyScenarioChanges } from '../src/analysis/ScenarioPlanner.js';
+import { applyScenarioChanges } from '../src/analysis/ScenarioPlanner.js';
 
 import { simulateLine } from '../src/simulation/LineSimulationEngine.js';
 
@@ -76,35 +76,38 @@ test('public demo factory creates a runnable 13-step Case with explicit provenan
 });
 
 
-// Compare the same failures in baseline and hypotheses, then use a separate seed block.
-test('CAPEX demo has low baseline efficiency and reproducible opportunities in all three tiers', () => {
+// Results are calculated, never preset. Check one 8-hour shift and three paired seeds.
+test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physical inputs', (t) => {
   const factory = vm.createContext({});
   vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script/PublicDemoCaseFactory.gs'), 'utf8'), factory);
-  const simulation = JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_().simulations[0]));
-  const plan = planScenarios(simulation), seen = new Set();
-  const zero = plan.candidates.filter(p => p.tier === 'ZERO' && p.canApply).flatMap(p => p.changes).filter(c => {
-    const key = c.equipmentId + ':' + c.path;
-    if (seen.has(key)) return false;
-    seen.add(key); return true;
-  });
-  const medium = simulation.whatIf.externalOptions.find(p => p.tier === 'MEDIUM').changes;
-  const high = plan.candidates.find(p => p.tier === 'HIGH' && p.equipmentId === 'conveyor-6' && p.canApply).changes;
-  const candidates = [zero, medium, high].map(changes => applyScenarioChanges(simulation, changes));
-  assert(candidates.every(candidate => !candidate.scenarioWarnings.length));
-  assert(medium.every(change => change.external && change.justification.includes('Synthetic demo')));
-  function mean(equipment, offset) {
-    return [0, 1, 2].reduce((sum, round) => {
-      const response = simulateLine({ case: { id: 'demo-check', equipment }, run: { ...simulation.dynamicConfig, seed: simulation.dynamicConfig.seed + offset + round } });
+  const record = JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_()));
+  const simulation = record.simulations[0];
+  assert.equal(record.metadata.consoleOptions.seedPolicy, 'FIXED');
+  assert.equal(simulation.dynamicConfig.durationSeconds, 28800);
+  assert.equal(simulation.results, null);
+  assert.equal(record.simulations.length, 4);
+  assert(record.simulations.every(s => s.results === null));
+  const tiers = [{tier: 'BASELINE', changes: []}, ...simulation.whatIf.externalOptions];
+  const expected = [30, 50, 60, 80], means = [];
+  for (const [index, option] of tiers.entries()) {
+    const candidate = option.changes.length ? applyScenarioChanges(simulation, option.changes) : simulation;
+    assert.deepEqual(record.simulations[index].equipment, candidate.equipment);
+    assert(!candidate.scenarioWarnings?.length, JSON.stringify(candidate.scenarioWarnings));
+    assert.deepEqual(candidate.equipment.map(e => e.noiseProfile.reliability), simulation.equipment.map(e => e.noiseProfile.reliability));
+    assert.equal(candidate.equipment.find(e => e.id === 'filler-1').nominalRatePerSecond, 400 / 60);
+    if (option.tier === 'ZERO') assert(option.changes.every(c => !c.external && c.path !== 'processData.geometry.lactMm'));
+    if (option.tier === 'MEDIUM') assert(option.changes.every(c => c.path !== 'processData.geometry.lactMm'));
+    const values = [0, 1, 2].map(offset => {
+      const response = simulateLine({case: {id: 'demo-check', equipment: candidate.equipment}, run: {...simulation.dynamicConfig, seed: simulation.dynamicConfig.seed + offset}});
       assert(response.ok);
-      return sum + response.result.summary.lineOeePercent / 3;
-    }, 0);
+      const result = response.result;
+      assert(Math.abs(result.summary.lineOeePercent - 100 * result.summary.outputCount / ((400 / 60) * result.durationSeconds)) < .001);
+      return result.summary.lineOeePercent;
+    });
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+    means.push(mean);
+    t.diagnostic(option.tier + ': ' + mean.toFixed(2) + '% · ' + values.map(v => v.toFixed(2)).join(', '));
+    assert(Math.abs(mean - expected[index]) < 6, option.tier + ' actual mean: ' + mean);
   }
-  for (const offset of [0, 1000003]) {
-    const baseline = mean(simulation.equipment, offset);
-    assert(baseline > 0 && baseline < 50);
-    for (const candidate of candidates) {
-      assert(mean(candidate.equipment, offset) > baseline + .1);
-      assert.deepEqual(candidate.equipment.map(e => e.noiseProfile.reliability), simulation.equipment.map(e => e.noiseProfile.reliability));
-    }
-  }
+  assert(means.every((value, index) => !index || value > means[index - 1] + 5));
 });

@@ -61,3 +61,19 @@ test('Spatial adapter and actual SimPy result preserve physical metrics and fini
  assert(result.summary.totalMicroStopSeconds>0);const zone=result.samples.at(-1).accumulationZones[0];assert.equal(zone.physicalModelEnabled,true);assert.equal(zone.prime.configured,true);assert(Array.isArray(zone.positionsMm));assert.equal(zone.overflowUnits,0);
  function finite(value){if(typeof value==='number')assert(Number.isFinite(value));if(value&&typeof value==='object')Object.values(value).forEach(finite);}finite(result);assert.doesNotThrow(()=>JSON.parse(JSON.stringify(result)));
 });
+
+
+test('Python download failure retries the second source and closes both failed workers',async()=>{
+ const urls=[],workers=[];let revoked=0;
+ class Worker {constructor(){workers.push(this);}postMessage(task){urls.push(task.indexURL);queueMicrotask(()=>this.onmessage({data:{id:task.id,type:'error',phase:'runtime',message:'Network blocked'}}));}terminate(){this.closed=true;}}
+ const host={Worker,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){revoked++;}},setTimeout,clearTimeout,setInterval,clearInterval};
+ await assert.rejects(createSimPyBrowserEngine(host,{}).run(fixture()),error=>error.code==='SIMPY_RUNTIME_LOAD_FAILED'&&error.message.includes('cdn.jsdelivr.net')&&error.message.includes('unpkg.com'));
+ assert.deepEqual(urls,['https://cdn.jsdelivr.net/pyodide/v0.27.7/full/','https://unpkg.com/pyodide@0.27.7/']);assert(workers.every(w=>w.closed));assert.equal(revoked,2);
+});
+
+test('Python model errors do not trigger runtime fallback or silently change engines',async()=>{
+ let posts=0;
+ class Worker {postMessage(task){posts++;queueMicrotask(()=>this.onmessage({data:{id:task.id,type:'error',phase:'model',message:'Invalid Python model'}}));}terminate(){}}
+ const host={Worker,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout,clearTimeout,setInterval,clearInterval};
+ await assert.rejects(createSimPyBrowserEngine(host,{}).run(fixture()),error=>error.code==='SIMPY_MODEL_FAILED'&&error.message==='Invalid Python model');assert.equal(posts,1);
+});

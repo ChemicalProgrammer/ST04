@@ -1,6 +1,6 @@
 # Public demonstration Case
 
-The console can create **Public 13-unit demo** from the Cases panel. It is a complete, runnable demonstration Case for testing the editor, playback, physical conveyor geometry, seeded micro-stops, and reliability events without adding confidential plant data.
+The console can create **Public 13-unit demo** from the Cases panel. It contains a baseline and three separate, runnable CAPEX scenarios for testing the editor, playback, physical conveyor geometry, seeded micro-stops, and reliability events without adding confidential plant data.
 
 ## Data boundary
 
@@ -35,3 +35,28 @@ remain empty rather than being guessed.
 - [Krones Modulfill Dual](https://www.krones.com/en/products/machines/modulfill-dual.php)
 - [Krones packaging-line reference](https://www.krones.com/en/company/press/magazine/reference/coca-cola-hbc-egypts-fastest-canning-line.php)
 - [Krones Modulpal Pro](https://www.krones.com/en/products/machines/modulpal-pro-palletiser.php)
+
+
+## Calibrated CAPEX challenge (2026-10-08)
+
+New demo cases include Baseline, Zero, Medium and High simulations with no preset
+results. Run each to calculate its actual output. Existing saved cases are not
+rewritten. The baseline also retains the three input hypotheses in What-If;
+further optimization can produce different results.
+
+The default run is one 8-hour shift, three rounds, fixed base seed `20261008`.
+The current ST engine produces these mean OEE values over seeds 20261008–20261010:
+
+| Scenario | Mean OEE | Physical changes against baseline |
+|---|---:|---|
+| Baseline | 29.97% | Non-reference machines under-set at 160 BPM, 35-second restarts, 6 m conveyors. |
+| Zero CAPEX | 49.20% | Retune installed non-reference machines to 300 BPM, belt factor to 100%, Prime window to 400 mm. |
+| Medium CAPEX | 59.19% | Retune to 400 BPM plus a documented synthetic control retrofit targeting 10-second restarts. |
+| High CAPEX | 80.29% | Retune to 420 BPM, 3-second restart-control upgrade, 18 m conveyors and Back-up relocation to 3 m. |
+
+Machine MTBF (4 min), MTTR (0.3 min), microstops and the 400 BPM reference remain
+identical in all four runs. All speed targets stay within installed maxima. The
+scenario adapter reports no newly regressed engineering checks for these targets.
+These are model measurements of synthetic inputs, not efficiency guarantees;
+changing duration, seed, controls or engine changes the result. DES does not yet
+report validated OEE. Reproduce with `node --test test/PublicDemoCaseFactory.test.js`.

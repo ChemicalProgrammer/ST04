@@ -41,7 +41,7 @@ test('theme dictionary alone controls palette entries, fallback and both modes',
  try{
   w.matchMedia=()=>({matches:false,addEventListener(){}});w.STIcons={svg:()=>''};w.eval(read('ThemeResources.html').replace(/^<script>|<\/script>\s*$/g,''));
   delete w.STThemeResources.palettes['amparo-blue'];w.STThemeResources.palettes.custom={light:{accent:'#123456',soft:'#eeeeee',onAccent:'#ffffff'},dark:{accent:'#aabbcc',soft:'#112233',onAccent:'#000000'}};
-  w.eval(read('UiPreferences.html').replace(/^<script>|<\/script>\s*$/g,''));w.document.dispatchEvent(new w.Event('DOMContentLoaded'));
+  w.eval(read('UiPreferences.html').replace(/^<script>|<\/script>\s*$/g,''));w.document.dispatchEvent(new w.Event('DOMContentLoaded'));w.STPreferences.setTheme('light');
   assert(!w.document.querySelector('[data-accent="amparo-blue"]'));w.document.querySelector('[data-accent="custom"]').click();assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#123456');w.STPreferences.setTheme('dark');assert.equal(w.document.documentElement.style.getPropertyValue('--accent'),'#aabbcc');
  }finally{w.close();}
 });
@@ -129,3 +129,4 @@ test('Basic What-If and comparison documents omit technical checks, raw configur
   doc=new JSDOM(h.w.STReports.comparisonHtml(h.w.STReports.comparisonData(h.c,left,right)));assert(doc.window.document.body.textContent.includes('130'));assert.equal(doc.window.document.querySelector('[data-report=equipment]'),null);assert.equal(doc.window.document.querySelector('[data-report=batch]'),null);assert(!doc.window.document.body.textContent.includes('blowmolder-1'));doc.window.close();
  }finally{h.dom.window.close();}
 });
+

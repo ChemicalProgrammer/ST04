@@ -74,7 +74,7 @@ test('creating a validated scenario updates the catalog revision in the same cas
  const proposal=h.ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);assert(proposal);
  h.ctx.createScenario_({caseId:'scenario-case',simulationId:source.id,expectedRevision:1,sourceSignature:h.ctx.STScenarioEngine_.signature(source),proposal:{...proposal,title:'Selected scenario'},origin:'GEMINI'},owner);
  assert.equal(h.ctx.getCaseCatalog_(owner).cases[0].revision,2);
- assert.equal(h.ctx.getCase_('scenario-case',owner).simulations.length,2);
+ assert.equal(h.ctx.getCase_('scenario-case',owner).simulations.length,5);
 });
 
 test('an index write failure never misreports a successful save, and metadata refresh repairs it',()=>{
@@ -179,3 +179,4 @@ test('Older manifests gain fingerprints without rewriting unchanged simulation J
  const saved=JSON.parse(manifest.content).simulationFiles[0];assert.equal(saved.fileName,fileName);assert.match(saved.digest,/^[a-f0-9]{64}$/);
  assert.equal(h.reads.filter(name=>name===fileName).length,1);
 });
+
