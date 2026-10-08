@@ -1073,9 +1073,9 @@ test('UI: regressions and gains that fail independent seeds cannot create recomm
   // A fresh card has an independent baseline cache. The screening seeds improve,
   // the validation seeds regress. This must not become an approved recommendation.
   calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{const i=calls++,gain=i===1?2:i===3?-2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  const second=h.w.STWhatIf.card(project,()=>{created=true;},sim.equipment,sim);h.d.body.append(second);
-  second.querySelector('.scenario-evaluate').click();await waitFor(()=>second.querySelector('.scenario-preview-status').dataset.state==='rejected');
-  assert.match(second.textContent,/did not reproduce/);assert(second.querySelector('.scenario-create').disabled);assert.equal(calls,4);assert.equal(created,false);
+  const second=h.w.STWhatIf.card(project,p=>{created=p;},sim.equipment,sim);h.d.body.append(second);
+  second.querySelector('.scenario-evaluate').click();await waitFor(()=>second.querySelector('.scenario-preview-status').dataset.state==='review');
+  assert.match(second.textContent,/did not reproduce/);assert(!second.querySelector('.scenario-create').disabled);assert.equal(calls,4);assert.equal(created,false);second.querySelector('.scenario-create').click();assert.equal(created.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert(created.reviewed);assert.match(created.title,/Validation required/);
   evidence=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);assert.match(h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim)),/NOT_REPRODUCED/);
  }finally{h.dom.window.close();}
 });
@@ -1330,7 +1330,7 @@ test('UI: finishing search validates the in-flight winner before creation in bot
     if(outcome==='cancel'){stop.click();await finishBatch();assert.equal(calls.length,3);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'CANCELLED');}
     else{
      await finishBatch();assert.equal(calls.length,4);assert(save.disabled);await finishBatch();
-     const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.trialHistory.length,1);assert.equal(record.trialHistory[0].throughput,102);assert.equal(record.trialHistory[0].changes[0].after,15000);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,outcome!=='pass');
+     const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.trialHistory.length,1);assert.equal(record.trialHistory[0].throughput,102);assert.equal(record.trialHistory[0].changes[0].after,15000);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,false);if(outcome==='fail'){save.click();assert.equal(created.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');}
      if(outcome==='pass'){save.click();assert.equal(created.changes[0].after,15000);assert.match(card.textContent,/search finished early/);}
     }
    }
@@ -2142,5 +2142,23 @@ test('UI: Basic validated search remains creatable after manual save and reopeni
   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');
   card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled,'Saved CAPEX card lost its validated winner');assert(!card.querySelector('.scenario-audit-warnings input').checked);
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI + Apps Script: Basic unconfirmed gain is visible and creates only a validation draft after save and reload',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
+  const equipment=JSON.stringify(h.storedCases()[0].simulations[0].equipment);
+  h.w.SimulatorEngine.simulateBatch=async input=>{const changed=JSON.stringify(input.case.equipment)!==equipment,gain=changed?(input.run.seed>=1000000?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  await h.click('[data-basic-view=whatif]');let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
+  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  assert(!card.querySelector('.scenario-create').disabled,card.textContent);assert.match(card.querySelector('.scenario-create').title,/for validation/);assert.match(card.textContent,/did not reproduce/);assert.notEqual(h.w.getComputedStyle(card.querySelector('.scenario-preview-status')).display,'none');
+  await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
+  const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled);assert.match(card.textContent,/did not reproduce/);
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');assert.match(h.d.querySelector('.message-dialog').textContent,/unvalidated hypothesis/);await h.click('.message-dialog .dialog-heading button');assert(!h.calls.includes('createScenario'));
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  const saved=h.storedCases()[0],draft=saved.simulations[1];assert.match(draft.name,/Validation required/);assert.equal(draft.results,null);assert.equal(draft.scenario.validation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.screeningOeeGain,2);assert.equal(draft.scenario.evidence.confirmationOeeGain,-2);assert.equal(JSON.stringify(saved.simulations[0].equipment),equipment);assert.equal(saved.simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH').independentCheck.passed,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

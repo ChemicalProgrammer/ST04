@@ -89,3 +89,12 @@ test('saved scenarios retain server-derived engineering warnings and review stat
  assert.equal(saved.scenario.validation,'ENGINEERING_REVIEW_REQUIRED');assert.equal(saved.scenario.engineeringWarnings[0].rule,'BACKUP_POSITION');
  assert.equal(saved.scenario.evidence.engineeringReview,'ACKNOWLEDGED_REQUIRES_REVIEW');assert.equal(saved.results,null);
 });
+
+
+
+test('reviewed validation drafts retain failed independent confirmation without changing source or claiming a gain',()=>{
+ const h=setup(),baseline=JSON.stringify(h.record().simulations[0]);
+ h.request.origin='REVIEWED';h.request.proposal.evidence={...Object.fromEntries(Array.from({length:13},(_,i)=>['detail'+i,i])),independentValidation:'NOT_REPRODUCED_REQUIRES_VALIDATION'};
+ const response=h.ctx.createScenario_(h.request,{email:'owner@test'}),draft=response.case.simulations[1];
+ assert.equal(draft.scenario.validation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.results,null);assert.equal(JSON.stringify(response.case.simulations[0]),baseline);assert.equal(h.writes(),1);
+});

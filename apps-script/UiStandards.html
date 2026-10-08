@@ -153,8 +153,9 @@ html[data-ui-mode=basic] .scenario-current .scenario-basic-metrics { padding:var
 .editor-subheading .icon-button:hover,.export-menu > summary.icon-button:hover { background:var(--surface-hover); color:var(--ink); }
 .scenario-activity { width:100%; height:var(--state-border-width); margin:var(--space-3) 0; }
 .scenario-activity[hidden] { display:none; }
-html[data-ui-mode=basic] .scenario-preview-status,
 html[data-ui-mode=basic] .scenario-search-progress { display:none; }
+html[data-ui-mode=basic] .scenario-preview-status { display:block; color:var(--muted); font-weight:var(--weight-regular); }
+.scenario-preview-status[data-state=review] { border-left:3px solid var(--warning); }
 html[data-ui-mode=basic] .scenario-basic-metric:first-child .scenario-basic-change { align-self:flex-start; padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); background:var(--surface-soft); margin-top:var(--space-1); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > .analysis-capex { align-self:flex-start; padding:var(--space-2) var(--space-3); min-height:0; line-height:var(--leading-body); }
 .analysis-capex[data-tier=MEDIUM] { color:var(--info); background:var(--info-soft); }

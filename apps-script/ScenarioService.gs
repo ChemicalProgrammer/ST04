@@ -26,7 +26,7 @@ function createScenario_(request,user) {
     copy.id=generateSimulationId_(record.simulations.length)+'-'+Utilities.getUuid().slice(0,8);
     copy.name=proposal.title.slice(0,120);copy.clonedFromSimulationId=source.id;copy.results=null;copy.geminiHistory=[];delete copy.whatIf;
     copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
-    copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
+    copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:proposal.evidence.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION'?'NOT_REPRODUCED_REQUIRES_VALIDATION':copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
     record.simulations.push(copy);record.revision++;record.updatedAt=copy.createdAt;
     owned.file=persistCaseRecord_(record,owned);if(typeof updateCaseIndex_==='function')updateCaseIndex_(record,owned.file,user);return {case:record,simulationId:copy.id};
   });
@@ -60,5 +60,8 @@ function normalizeScenarioProposal_(proposal,source) {
     if(!/^[a-zA-Z][a-zA-Z0-9]{0,60}$/.test(key)||['constructor','prototype'].includes(key))return;
     var value=proposal.evidence[key];if(typeof value==='number'&&isFinite(value)||value===null)evidence[key]=value;else if(typeof value==='string')evidence[key]=value.slice(0,600);
   });
+  // Keep the conservative draft classification even if generic evidence hit its key budget.
+  if(proposal.evidence?.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION')evidence.independentValidation='NOT_REPRODUCED_REQUIRES_VALIDATION';
   return {title:title,kind:typeof proposal.kind==='string'?proposal.kind.slice(0,60):'CUSTOM',tier:proposal.tier,basis:proposal.basis,changes:changes,evidence:evidence};
 }
+
