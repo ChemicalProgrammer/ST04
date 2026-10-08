@@ -22,17 +22,23 @@ function getBootstrap() {
     stage='CASE_CATALOG';var catalog=getCaseCatalog_(user);
     stage='GEMINI_CONFIG';var gemini=getGeminiClientConfig_();
     stage='INTERFACE_MODE';var uiMode=getInterfaceMode_();
-    return success_({user:user,settings:settings,gemini:gemini,uiMode:uiMode,cases:catalog.cases,caseCatalog:{refreshRequired:catalog.refreshRequired,complete:catalog.complete}});
+    return startupResponse_({ok:true,data:{user:user,settings:settings,gemini:gemini,uiMode:uiMode,cases:catalog.cases,caseCatalog:{refreshRequired:catalog.refreshRequired,complete:catalog.complete}}},'READY');
   } catch (error) {
-    if(error?.simulatorError)return failure_(error);
+    if(error?.simulatorError)return startupResponse_({ok:false,error:error.simulatorError},stage);
     var reference='LOGIN-'+new Date().getTime().toString(36);
     // Do not send raw exceptions, account settings or credentials to the browser.
     console.error(JSON.stringify({event:'BOOTSTRAP_FAILURE',reference:reference,stage:stage,type:error?.name||'Error'}));
     var authorization=/authorization|authorisation|permission|autorizaci[oó]n|permisos/i.test(String(error?.message||''));
     var missingModule=error?.name==='ReferenceError';
     var message=authorization?'Google authorization is missing or incomplete. Reopen this web app with the intended Google account and authorize the requested permissions.':missingModule?'A required Apps Script module is missing from this deployment. Update all app modules and deploy a new version.':'Sign-in could not complete. The developer can locate this failure in Apps Script Executions using the reference below.';
-    return failure_(createSimulatorError_(authorization?'SIGNIN_AUTHORIZATION_REQUIRED':missingModule?'SIGNIN_MODULE_MISSING':'SIGNIN_START_FAILED',message,['Stage: '+stage,'Reference: '+reference]));
+    return startupResponse_({ok:false,error:{code:authorization?'SIGNIN_AUTHORIZATION_REQUIRED':missingModule?'SIGNIN_MODULE_MISSING':'SIGNIN_START_FAILED',message:message,details:['Reference: '+reference]}},stage);
   }
+}
+
+function startupResponse_(response,stage) {
+  response.startupVersion='startup-20261008-2';
+  if(!response.ok)response.error=Object.assign({},response.error,{details:['Stage: '+stage,'Startup server: '+response.startupVersion].concat(Array.isArray(response.error.details)?response.error.details:[])});
+  return response;
 }
 
 function refreshCaseCatalog(request) {

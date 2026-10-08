@@ -254,7 +254,10 @@
     }
 
     function renderBootstrap(response) {
-      if (!response.ok) return showError(response.error);
+      if (!response||!response.ok) {
+        var error=response?.error||{code:'SIGNIN_EMPTY_RESPONSE',message:'The server returned no startup response.'};
+        return showError(Object.assign({},error,{details:['Startup client: startup-20261008-2','Startup server: '+(response?.startupVersion||'not reported')].concat(Array.isArray(error.details)?error.details:[])}));
+      }
       document.getElementById('sign-in-button').disabled = false;
       document.getElementById('auth-status').textContent = '';
       STPreferences.write('remember', document.getElementById('remember-session').checked ? 'yes' : null);
