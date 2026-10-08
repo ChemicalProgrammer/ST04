@@ -1,0 +1,151 @@
+<style>
+/* Reversible overlay: every app rule is scoped to the selected visual style.
+   Primary controls remain on --accent; secondary color decorates structure.
+   Status, CAPEX and chart colors continue to use the original semantic tokens. */
+html[data-visual-style=elegant] {
+  --page:#f5f7fa; --surface:#ffffff; --surface-soft:#f8f9fb;
+  --surface-hover:#eef1f5; --ink:#242a35; --muted:#606b7a;
+  --line:#e3e7ee; --line-strong:#c9d1dc;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px;
+  --shadow:0 2px 8px #172b4d06,0 1px 2px #172b4d04;
+  --shadow-dialog:0 24px 72px #172b4d29,0 4px 16px #172b4d0d;
+  --elegant-border:color-mix(in srgb,var(--secondary) 24%,var(--line));
+  --elegant-heading:color-mix(in srgb,var(--secondary-soft) 70%,var(--surface));
+}
+html[data-visual-style=elegant][data-theme=dark] {
+  --page:#15191f; --surface:#1c2129; --surface-soft:#212731;
+  --surface-hover:#2b3340; --ink:#edf1f7; --muted:#adb7c6;
+  --line:#323b49; --line-strong:#515e71;
+  --shadow:0 2px 10px #0000001a;
+  --shadow-dialog:0 24px 72px #00000070,0 4px 16px #00000033;
+}
+html[data-visual-style=elegant] body { -webkit-font-smoothing:antialiased; }
+html[data-visual-style=elegant] :is(h1,h2,h3,h4) { letter-spacing:-.015em; }
+html[data-visual-style=elegant] :is(input,select,textarea) {
+  border-color:var(--line-strong);
+  transition:border-color var(--duration-fast),box-shadow var(--duration-fast);
+}
+html[data-visual-style=elegant] :is(input,select,textarea):focus-visible {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+html[data-visual-style=elegant] :is(input,select,textarea):disabled { border-color:var(--line); }
+html[data-visual-style=elegant] :is(input[type=number],output,.basic-buffer) { font-variant-numeric:tabular-nums; }
+html[data-visual-style=elegant] .topbar {
+  background:var(--surface);
+  border-bottom-color:var(--elegant-border);
+  box-shadow:0 2px 8px #172b4d04;
+}
+html[data-visual-style=elegant] #basic-section-row {
+  padding-top:var(--space-2);
+  border-top:1px solid var(--line);
+}
+html[data-visual-style=elegant] #basic-navigation { gap:var(--space-2); }
+html[data-visual-style=elegant] #basic-navigation button {
+  min-height:32px; border-radius:var(--radius-sm);
+  font-weight:var(--weight-medium);
+}
+html[data-visual-style=elegant] #basic-navigation [aria-current=page] {
+  box-shadow:inset 0 -2px 0 var(--accent);
+}
+html[data-visual-style=elegant] .brand-mark { border-radius:8px; }
+html[data-visual-style=elegant] .workspace-content { padding-top:var(--space-3); }
+html[data-visual-style=elegant] .workspace-content > section.card {
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow);
+}
+html[data-visual-style=elegant] :is(.editor-subheading,.simulation-analysis-heading,.basic-options-heading,#line-performance > .section-heading) {
+  padding-bottom:var(--space-3); border-bottom:1px solid var(--elegant-border);
+}
+html[data-visual-style=elegant] :is(#equipment-subsection-title,#basic-run-options-title,#simulation-analysis-title,#vgraph-title) {
+  color:var(--secondary-text);
+}
+html[data-visual-style=elegant] :is(.equipment-card,.chart-panel,.equipment-speed-chart-panel,.result-kpi,.analysis-recommendation,.format-zone-setup,.table-scroll) {
+  box-shadow:var(--shadow);
+}
+html[data-visual-style=elegant] .equipment-card {
+  border-top:2px solid var(--elegant-border);
+  transition:border-color var(--duration-fast),background var(--duration-fast),opacity var(--duration-fast);
+}
+html[data-visual-style=elegant] .equipment-card .equipment-header {
+  padding:var(--space-2); border-radius:var(--radius-sm);
+  background:var(--elegant-heading); margin-bottom:var(--space-3);
+}
+html[data-visual-style=elegant] .equipment-card .equipment-header strong { color:var(--secondary-text); }
+html[data-visual-style=elegant] .equipment-card:hover { border-top-color:var(--secondary); }
+html[data-visual-style=elegant] .equipment-selected {
+  border-color:var(--accent); background:var(--accent-soft);
+  box-shadow:0 0 0 1px var(--accent);
+}
+html[data-visual-style=elegant] .equipment-selected .equipment-header { background:var(--surface); }
+html[data-visual-style=elegant] .equipment-selected .equipment-header strong { color:var(--selected-text); }
+html[data-visual-style=elegant][data-ui-mode=basic] #equipment-list .equipment-header {
+  padding:var(--space-2); margin-bottom:var(--space-3); border-radius:var(--radius-sm);
+}
+html[data-visual-style=elegant][data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-header { margin-bottom:0; }
+html[data-visual-style=elegant] :is(.format-zone-heading,.basic-conveyor-heading) {
+  border-bottom:1px solid var(--elegant-border); padding-bottom:var(--space-2);
+}
+html[data-visual-style=elegant] :is(.basic-worksheet-group,.format-zone-setup) { border-color:var(--elegant-border); }
+html[data-visual-style=elegant] .basic-worksheet-group h4 {
+  color:var(--secondary-text); background:var(--elegant-heading);
+  padding:var(--space-2); border-radius:var(--radius-sm);
+}
+html[data-visual-style=elegant][data-ui-mode=basic] :is(#basic-efficiencies > div,#basic-run-controls > section) {
+  background:var(--surface); border-color:var(--line); box-shadow:var(--shadow);
+  border-top:2px solid var(--elegant-border);
+}
+html[data-visual-style=elegant] :is(.chart-panel,.equipment-speed-chart-panel) { border-top:2px solid var(--elegant-border); }
+html[data-visual-style=elegant] :is(.equipment-speed-chart-heading h3,.chart-panel h3) { color:var(--secondary-text); }
+html[data-visual-style=elegant] .result-kpi { background:var(--surface); border-top:2px solid var(--elegant-border); }
+html[data-visual-style=elegant] .primary-kpi { background:var(--accent-soft); border-top-color:var(--accent); }
+html[data-visual-style=elegant] .scenario-current-title { color:var(--secondary-text); }
+html[data-visual-style=elegant] .analysis-recommendation { background:var(--surface); border-radius:var(--radius-md); }
+html[data-visual-style=elegant] :is(.table-scroll th,.comparison-section > h3) { background:var(--elegant-heading); }
+html[data-visual-style=elegant] .gemini-panel { background:var(--surface); border-left-color:var(--elegant-border); }
+html[data-visual-style=elegant] .gemini-heading {
+  background:var(--elegant-heading); border-bottom:1px solid var(--elegant-border);
+  border-radius:var(--radius-md); padding:var(--space-3);
+}
+html[data-visual-style=elegant] .gemini-heading h2 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .gemini-message { border:1px solid var(--line); }
+html[data-visual-style=elegant] .gemini-message[data-role=user] { border-color:var(--accent-soft); }
+html[data-visual-style=elegant] .gemini-composer { border-top:1px solid var(--elegant-border); padding-top:var(--space-3); }
+html[data-visual-style=elegant] .dialog-heading { background:var(--elegant-heading); border-bottom-color:var(--elegant-border); }
+html[data-visual-style=elegant] .dialog-heading h2 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .settings-tabs { background:var(--surface); }
+html[data-visual-style=elegant] .settings-tabs button[aria-selected=true] { border-color:transparent; box-shadow:inset 0 -2px 0 var(--accent); }
+html[data-visual-style=elegant] #settings-dialog .settings-section h3 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .auth-shell { background:var(--page); }
+html[data-visual-style=elegant] .auth-card { box-shadow:var(--shadow-dialog); border-top:3px solid var(--secondary); }
+html[data-visual-style=elegant] .cases-list { border-top-color:var(--elegant-border); }
+html[data-visual-style=elegant] .cases-list.grid .case-row { background:var(--surface); box-shadow:var(--shadow); border-top:2px solid var(--elegant-border); }
+html[data-visual-style=elegant] .case-glyph { background:var(--secondary-soft); color:var(--secondary-text); border-color:var(--elegant-border); }
+html[data-visual-style=elegant] .case-row:hover { background:var(--surface-soft); }
+/* Appearance controls remain available in both visual styles. */
+.appearance-color-name { color:var(--muted); font-size:var(--font-secondary); }
+#settings-dialog .secondary-accent-choice {
+  width:28px; height:28px; min-height:28px; padding:0;
+  border-radius:50%; border:1px solid var(--line-strong);
+}
+.secondary-accent-choice svg { visibility:hidden; }
+#settings-dialog .secondary-accent-choice[aria-pressed=true] { outline:2px solid var(--ink); outline-offset:2px; }
+.secondary-accent-choice[aria-pressed=true] svg { visibility:visible; }
+.appearance-preview { margin-top:var(--space-4); border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden; }
+.appearance-preview-heading { padding:var(--space-3); background:var(--surface-soft); font-weight:var(--weight-semibold); }
+.appearance-preview-body { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); padding:var(--space-3); color:var(--muted); }
+.appearance-preview-action { padding:var(--space-2) var(--space-3); border-radius:var(--radius-sm); background:var(--accent); color:var(--on-accent); white-space:nowrap; }
+html[data-visual-style=elegant] .appearance-preview { border-color:var(--elegant-border); }
+html[data-visual-style=elegant] .appearance-preview-heading { background:var(--elegant-heading); color:var(--secondary-text); border-bottom:1px solid var(--elegant-border); }
+.appearance-footer { margin-top:var(--space-3); display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; }
+#appearance-status { color:var(--danger); font-size:var(--font-secondary); }
+@media(max-width:760px) {
+  html[data-visual-style=elegant] .workspace-content { padding-top:var(--space-2); }
+  html[data-visual-style=elegant] #basic-navigation { gap:var(--space-1); }
+  html[data-visual-style=elegant] #basic-navigation button { padding-inline:var(--space-2); }
+}
+@media(max-width:480px) { .appearance-preview-body { flex-wrap:wrap; } }
+@media(prefers-reduced-motion:reduce) {
+  html[data-visual-style=elegant] :is(input,select,textarea,.equipment-card) { transition:none; }
+}
+</style>

@@ -1,0 +1,69 @@
+<script>
+// Optional presentation layer. The original theme and simulation data are untouched.
+window.STAppearance = (function() {
+  var root = document.documentElement;
+  var defaultSecondary = 'encore';
+  function secondary() {
+    var saved = STPreferences.read('secondaryAccent');
+    return Object.prototype.hasOwnProperty.call(STThemeResources.palettes, saved) ? saved : defaultSecondary;
+  }
+  function style() { return STPreferences.read('visualStyle') === 'classic' ? 'classic' : 'elegant'; }
+  function sync() {
+    root.dataset.visualStyle = style();
+    root.dataset.secondaryAccent = secondary();
+    var palette = STThemeResources.palettes[secondary()];
+    var color = palette[root.dataset.theme === 'dark' ? 'dark' : 'light'];
+    Object.entries({'--secondary':color.accent,'--secondary-soft':color.soft,'--secondary-text':color.text || color.accent}).forEach(function(pair) {
+      root.style.setProperty(pair[0], pair[1]);
+    });
+    var picker = document.getElementById('settings-visual-style');
+    if (picker) picker.value = style();
+    document.querySelectorAll('[data-secondary-accent]').forEach(function(button) {
+      button.setAttribute('aria-pressed', String(button.dataset.secondaryAccent === secondary()));
+    });
+    var name = document.getElementById('secondary-accent-name');
+    if (name) name.textContent = palette.name;
+    var primary = document.getElementById('primary-accent-name');
+    if (primary) primary.textContent = STThemeResources.palettes[root.dataset.accent]?.name || '';
+    var group = document.getElementById('secondary-color-section');
+    if (group) group.hidden = style() === 'classic';
+  }
+  function change(name, value) {
+    if (name === 'visualStyle' && !['classic','elegant'].includes(value)) return;
+    if (name === 'secondaryAccent' && !Object.prototype.hasOwnProperty.call(STThemeResources.palettes, value)) return;
+    var saved = STPreferences.write(name, value);
+    sync();
+    var status = document.getElementById('appearance-status');
+    if (status) status.textContent = saved ? '' : 'Your browser could not save this appearance preference.';
+    window.dispatchEvent(new Event('st:theme'));
+    window.dispatchEvent(new Event('resize'));
+  }
+  window.addEventListener('st:theme', sync);
+  sync();
+  document.addEventListener('DOMContentLoaded', function() {
+    var palette = document.getElementById('secondary-accent-palette');
+    if (palette) Object.entries(STThemeResources.palettes).forEach(function(entry) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'secondary-accent-choice';
+      button.dataset.secondaryAccent = entry[0];
+      button.style.background = entry[1].hex || entry[1].light.accent;
+      button.style.color = entry[1].light.onAccent;
+      button.title = entry[1].name;
+      button.setAttribute('aria-label', entry[1].name + ' secondary color');
+      button.innerHTML = STIcons.svg('check');
+      button.onclick = function() { change('secondaryAccent', entry[0]); };
+      palette.appendChild(button);
+    });
+    document.getElementById('settings-visual-style')?.addEventListener('change', function(event) {
+      change('visualStyle', event.target.value);
+    });
+    document.getElementById('appearance-reset')?.addEventListener('click', function() {
+      change('secondaryAccent', defaultSecondary);
+      change('visualStyle', 'elegant');
+    });
+    sync();
+  });
+  return {sync:sync,setSecondary:function(value){change('secondaryAccent',value);},setStyle:function(value){change('visualStyle',value);}};
+})();
+</script>
