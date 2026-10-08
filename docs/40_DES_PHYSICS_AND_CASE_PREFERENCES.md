@@ -5,7 +5,7 @@ This documents the earlier 0.3 delivery. Spatial DES 0.4 and replacement of raw 
 ## Delivered behavior
 
 - V-Graph legend, axis labels, machine names, reference and data values use 1.5 times their previous text sizes. Margins and minimum chart width accommodate the larger labels; long graphs scroll horizontally.
-- The browser title is exactly `Flow Pilot`. The external PNG favicon is unchanged and the app contains no GitHub links.
+- The browser title is exactly `Flow Pilot`. The external PNG favicon is unchanged and the app contains no source-repository links.
 - SimPy engine version `0.3.0-experimental` supports linear machine ramps and machine microstops. Existing simulations with no ramp or microstop retain their previous event model.
 
 A ramp integrates processing rate over time and analytically calculates the next item's completion. Interruptions retain unfinished work; repair and explicit restart request a fresh ramp. A microstop freezes the existing start/ramp profile and resumes its remaining work. Its interval is exponential with mean `60 / probabilityPerMinute` seconds, with a uniform duration between configured bounds and a separate per-machine random stream. That interval is the continuous-time counterpart of the current engine's per-tick Bernoulli hazard, not an identical random schedule. Manual mode, user stops and failures suspend new microstop scheduling. Reports include microstop counts, durations, startup time and the model's remaining limitations.

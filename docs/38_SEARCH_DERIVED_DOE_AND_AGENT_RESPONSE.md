@@ -60,7 +60,7 @@ Reemplazar estos **nueve archivos modificados de Apps Script** y actualizar la v
 - `Settings.html`
 - `WebApp.html`
 
-Si la actualización anterior de DOE todavía no se instaló, incluir también `SimulationEngine.html` y `ScenarioEngine.gs` de la versión actual de GitHub. La primera contiene la validación de DOE con confiabilidad externa. No requiere Google Cloud ni servicios adicionales.
+Si la actualización anterior de DOE todavía no se instaló, incluir también `SimulationEngine.html` y `ScenarioEngine.gs` de la versión actual del repositorio. La primera contiene la validación de DOE con confiabilidad externa. No requiere Google Cloud ni servicios adicionales.
 
 ## Comprobación manual
 
@@ -83,7 +83,7 @@ Fuentes primarias consultadas para parámetros y transporte:
 - https://developers.google.com/apps-script/guides/html/communication
 - https://developers.google.com/apps-script/reference/url-fetch/http-response
 
-## Otros archivos modificados en GitHub
+## Otros archivos modificados en el repositorio
 
 - `scripts/validate-interface-browser.mjs`
 - `test/Interface.test.js`

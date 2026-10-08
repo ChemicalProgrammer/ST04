@@ -40,7 +40,7 @@ Hay dos modalidades excluyentes de despliegue:
   Code.gs e Index.html; Main abre WebApp.
 
 No instalar bundle y fuentes de servidor juntos: duplicarían funciones globales.
-Publicar en GitHub no actualiza Apps Script. Mantener despliegue manual como opción;
+Actualizar el repositorio no actualiza Apps Script. Mantener despliegue manual como opción;
 clasp no es requisito ni se autoriza por usar Code Assist.
 
 ## Entorno y límites

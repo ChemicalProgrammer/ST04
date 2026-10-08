@@ -107,7 +107,7 @@ this revision was blocked by the execution environment's local-page policy.
 Deploy all `.gs` and `.html` modules from `apps-script/`, retain the required manifest,
 and update the deployment. Remove legacy `Code.gs` and `Index.html`.
 `Main.gs` serves `WebApp.html` and its includes.
-Publishing GitHub changes does not update the running Apps Script deployment.
+Updating source files does not update the running Apps Script deployment.
 
 
 ## Case workspace navigation and Gemini

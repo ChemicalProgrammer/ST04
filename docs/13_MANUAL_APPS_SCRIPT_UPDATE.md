@@ -9,7 +9,7 @@ Deploy the individual `.gs` and `.html` files in `apps-script/`, together with `
 
 When using clasp, configure `rootDir` as `apps-script`, as shown in `.clasp.json.example`. Check the remote file list after synchronization to ensure the legacy files are gone. Do not upload `src/`, `scripts/`, `test/`, or documentation as application files.
 
-Keep the existing Apps Script project to retain its user settings and API key. Removing the two legacy source files does not delete cases stored in Drive. Publishing changes on GitHub does not update the running Apps Script deployment.
+Keep the existing Apps Script project to retain its user settings and API key. Removing the two legacy source files does not delete cases stored in Drive. Updating source files does not update the running Apps Script deployment.
 
 Tests and the local preview resolve `WebApp.html` and its includes in memory through `scripts/render-apps-script.mjs`; they do not write combined deployment files.
 

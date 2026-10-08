@@ -106,7 +106,7 @@ or API credentials are used in automated tests.
 
 Update the engine adapters using `npm run build:apps-script`, then deploy the individual
 modules in `apps-script/`. Remove legacy `Code.gs` and `Index.html` from Apps Script
-and retain the manifest. Publishing GitHub changes does not deploy Apps Script.
+and retain the manifest. Updating source files does not deploy Apps Script.
 Scenario RPC failures include a version marker and error code, for example
 `[whatif-20260925-3 / SCENARIO_REVIEW_REQUIRED]`, to identify the responding code
 without exposing case inputs or credentials. The `/s/` portion of an Apps Script

@@ -27,14 +27,13 @@ Date: October 8, 2026
 ## Development background and use of AI
 
 - “I already have experience developing apps and user interfaces, so I used that background to define the structure and user experience.”
-- “I also consulted ChatGPT about the best development approach, considering my experience with apps and interfaces.”
-- “Those discussions helped me think through the development options and how to organize the project.”
+- “I considered several development options and how to organize the project.”
 - “I started by defining the requirements and sketching the interface on paper.”
 - “I initially used a notebook in Gemini to keep the project context together. Later, I moved to a single Gemini chat.”
 - “I developed the app through prompts and several rounds of review and refinement.”
 - “Gemini helped generate the code. My role has been to define the requirements, review the behavior, and check the results.”
 - “The development process has been iterative: I describe a requirement, review the generated code, test the behavior, and request adjustments.”
-- “The app runs on Google Apps Script, and the source code is stored in the ST repository on GitHub.”
+- “The app runs on Google Apps Script, and its source code is organized in a version-controlled repository.”
 
 ## Walking through the simulator
 
@@ -140,7 +139,7 @@ Date: October 8, 2026
 
 ## Short introduction for the demo
 
-“Hi, I’m Josué Cortés. I’m a chemical engineer, and I’m developing this packaging line simulator together with Jorge. His experience has helped us make adjustments and test the app. I also have experience developing apps and user interfaces, and I consulted ChatGPT about the development approach. I started building the app through prompts in a notebook in Gemini and later moved to a single Gemini chat. The current default engine uses a flow-based model with fixed time steps of a quarter of a second. We are also exploring an experimental discrete-event engine with Python and SimPy. Today, I’d like to show you how the app works, discuss what we are validating, and learn how your simulator handles similar cases.”
+“Hi, I’m Josué Cortés. I’m a chemical engineer, and I’m developing this packaging line simulator together with Jorge. His experience has helped us make adjustments and test the app. I also have experience developing apps and user interfaces. I started building the app through prompts in a notebook in Gemini and later moved to a single Gemini chat. The current default engine uses a flow-based model with fixed time steps of a quarter of a second. We are also exploring an experimental discrete-event engine with Python and SimPy. Today, I’d like to show you how the app works, discuss what we are validating, and learn how your simulator handles similar cases.”
 
 ## Step-by-step tour of the app sections
 

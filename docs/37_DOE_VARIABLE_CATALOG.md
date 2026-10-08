@@ -20,7 +20,7 @@ Zero, Medium y High son categorías independientes de propuestas; no son conjunt
 
 ## Instalación en Apps Script
 
-Sustituir por la versión publicada en GitHub:
+Sustituir por la versión actual del repositorio:
 
 - `ScenarioExplorer.html`
 - `AnalysisStyles.html`
@@ -40,7 +40,7 @@ Después crear una versión nueva y actualizar la implementación web. No requie
 
 Las verificaciones locales usan RPC sintético de Apps Script; no se ha probado ni actualizado una implementación real de Apps Script.
 
-## Archivos modificados en GitHub
+## Archivos modificados en el repositorio
 
 Además de los cuatro archivos de Apps Script indicados arriba:
 
