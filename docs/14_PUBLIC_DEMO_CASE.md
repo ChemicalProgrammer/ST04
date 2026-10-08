@@ -39,6 +39,30 @@ remain empty rather than being guessed.
 
 ## Calibrated CAPEX challenge (2026-10-08)
 
+The initial theoretical equipment efficiency is approximately **28.74%**, the
+product of each machine's `MTBF / (MTBF + MTTR)`. This is series availability,
+not a simulated OEE prediction: buffers can decouple individual outages.
+Reliability differs by machine but stays identical across the four scenarios.
+
+The instantaneous V-Graph is available before running. It uses the following
+configured speeds and calculated buffer-recovery estimates, without preset
+simulation results. The Filler remains the 400 BPM reference.
+
+| Machine | Configured BPM | Recommended recovery BPM | Maximum BPM |
+|---|---:|---:|---:|
+| Blowmolder | 240 | 270.5 | 600 |
+| Pucker | 210 | 248.3 | 580 |
+| Filler | 400 | 400 | 420 |
+| De-pucker | 220 | 251.9 | 570 |
+| Sleever | 170 | 206.4 | 560 |
+| Case packer | 250 | 286.7 | 590 |
+| Palletizer | 230 | 261.5 | 560 |
+
+Recovery recommendations follow the existing formulas, using available
+accumulation, MTTR and the MTBF recovery window. They describe local recovery
+headroom and do not guarantee that retuning one machine will achieve 400 BPM
+throughout the line.
+
 New demo cases include Baseline, Zero, Medium and High simulations with no preset
 results. Run each to calculate its actual output. Existing saved cases are not
 rewritten. The baseline also retains the three input hypotheses in What-If;
@@ -49,12 +73,12 @@ The current ST engine produces these mean OEE values over seeds 20261008–20261
 
 | Scenario | Mean OEE | Physical changes against baseline |
 |---|---:|---|
-| Baseline | 29.97% | Non-reference machines under-set at 160 BPM, 35-second restarts, 6 m conveyors. |
-| Zero CAPEX | 49.20% | Retune installed non-reference machines to 300 BPM, belt factor to 100%, Prime window to 400 mm. |
-| Medium CAPEX | 59.19% | Retune to 400 BPM plus a documented synthetic control retrofit targeting 10-second restarts. |
-| High CAPEX | 80.29% | Retune to 420 BPM, 3-second restart-control upgrade, 18 m conveyors and Back-up relocation to 3 m. |
+| Baseline | 30.12% | Uneven non-reference speeds of 170–250 BPM, 5-second restarts, 8 m conveyors. |
+| Zero CAPEX | 51.66% | Retune installed non-reference machines to 450 BPM, belt factor to 100%, Prime window to 400 mm. |
+| Medium CAPEX | 59.35% | Balanced 420 BPM operating targets, 12 m buffers, and an assumed control retrofit targeting 3-second restarts. |
+| High CAPEX | 80.03% | Retune to 550 BPM, 1-second restart-control upgrade, 24 m conveyors and Back-up relocation to 3 m. |
 
-Machine MTBF (4 min), MTTR (0.3 min), microstops and the 400 BPM reference remain
+Machine MTBF (1.4–2.8 min), MTTR (0.3–0.4 min), microstops and the 400 BPM reference remain
 identical in all four runs. All speed targets stay within installed maxima. The
 scenario adapter reports no newly regressed engineering checks for these targets.
 These are model measurements of synthetic inputs, not efficiency guarantees;

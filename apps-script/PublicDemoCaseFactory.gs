@@ -29,7 +29,7 @@ function createPublicDemoCaseRequest_() {
       var keys = change.path.split('.'), field = keys.pop();
       keys.reduce(function(value, key) { return value[key]; }, unit)[field] = change.after;
     });
-    simulations.push({ id: 'demo-' + option.tier.toLowerCase(), name: option.tier === 'ZERO' ? 'Zero CAPEX — operating adjustments' : option.tier === 'MEDIUM' ? 'Medium CAPEX — restart control' : 'High CAPEX — accumulation upgrade',
+    simulations.push({ id: 'demo-' + option.tier.toLowerCase(), name: option.tier === 'ZERO' ? 'Zero CAPEX — operating adjustments' : option.tier === 'MEDIUM' ? 'Medium CAPEX — buffers and restart control' : 'High CAPEX — accumulation upgrade',
       equipment: copy, dynamicConfig: JSON.parse(JSON.stringify(run)), results: null,
       scenario: { origin: 'PUBLIC_DEMO', tier: option.tier, sourceSimulationId: baseline.id, changes: option.changes } });
   });
@@ -52,24 +52,30 @@ function createPublicDemoCaseRequest_() {
 }
 
 // Deliberately poor operating setup. Keep reliability identical in all scenarios;
-// Zero tunes existing speeds/sensors, Medium retrofits restart control, High adds accumulation.
+// Zero tunes existing speeds/sensors; Medium and High add progressively larger
+// buffers and faster restart controls. Reliability stays fixed across categories.
 function configurePublicDemoLosses_(equipment) {
-  equipment.forEach(function(unit, index) {
+  var machineIndex = 0;
+  var rates = [240, 210, 400, 220, 170, 250, 230];
+  var maximums = [600, 580, 420, 570, 560, 590, 560];
+  var mtbf = [2.2, 1.8, 2.8, 1.6, 1.4, 1.8, 2];
+  var mttr = [0.4, 0.35, 0.3, 0.4, 0.3, 0.4, 0.4];
+  equipment.forEach(function(unit) {
     if (unit.type === 'CONVEYOR') {
-      unit.processData.geometry.lactMm = 6000;
+      unit.processData.geometry.lactMm = 8000;
       unit.processData.geometry.lpPrimeMm = 1800;
       unit.processData.accumulation.backupSensorPositionMm = 1200;
       unit.processData.accumulation.downstreamRampUpSeconds = 12;
       unit.processData.accumulation.conveyorSpeedFactorPercent = 15;
     } else {
-      var rate = unit.type === 'FILLER' ? 400 : 160;
+      var index = machineIndex++, rate = rates[index];
       unit.nominalRatePerSecond = rate / 60;
       unit.characteristics.nominalRateBpm = rate;
-      unit.processData.equipment.maximumSpeedBpm = unit.type === 'FILLER' ? 420 : 500;
-      unit.processData.upstream.startupTimeSeconds = 35;
-      unit.noiseProfile.reliability = { mtbfMinutes: 4, mttrMinutes: 0.3 };
-      unit.processData.equipment.mtbfMinutes = 4;
-      unit.processData.equipment.mttrMinutes = 0.3;
+      unit.processData.equipment.maximumSpeedBpm = maximums[index];
+      unit.processData.upstream.startupTimeSeconds = 5;
+      unit.noiseProfile.reliability = { mtbfMinutes: mtbf[index], mttrMinutes: mttr[index] };
+      unit.processData.equipment.mtbfMinutes = mtbf[index];
+      unit.processData.equipment.mttrMinutes = mttr[index];
       unit.noiseProfile.microStop = { probabilityPerMinute: 0.35, minDurationSeconds: 3, maxDurationSeconds: 8 };
     }
   });
@@ -91,14 +97,16 @@ function createPublicDemoTargets_(equipment) {
       if (unit.type === 'CONVEYOR') {
         change(unit, 'processData.accumulation.conveyorSpeedFactorPercent', 100, '%');
         change(unit, 'processData.geometry.lpPrimeMm', 400, 'mm');
+        if (tier !== 'ZERO') {
+          change(unit, 'processData.geometry.lactMm', tier === 'MEDIUM' ? 12000 : 24000, 'mm');
+        }
         if (tier === 'HIGH') {
-          change(unit, 'processData.geometry.lactMm', 18000, 'mm');
           change(unit, 'processData.accumulation.backupSensorPositionMm', 3000, 'mm');
         }
       } else {
-        if (unit.type !== 'FILLER') change(unit, 'nominalRatePerSecond', (tier === 'ZERO' ? 300 : tier === 'MEDIUM' ? 400 : 420) / 60, 'units/s');
-        if (tier !== 'ZERO') change(unit, 'processData.upstream.startupTimeSeconds', tier === 'MEDIUM' ? 10 : 3, 's',
-          'Synthetic demo assumption: ' + (tier === 'MEDIUM' ? 'local start-sequence retrofit with a 10-second restart target.' : 'integrated controls upgrade with a 3-second restart target.') + ' This target is a hypothesis, not measured plant performance.');
+        if (unit.type !== 'FILLER') change(unit, 'nominalRatePerSecond', (tier === 'ZERO' ? 450 : tier === 'MEDIUM' ? 420 : 550) / 60, 'units/s');
+        if (tier !== 'ZERO') change(unit, 'processData.upstream.startupTimeSeconds', tier === 'MEDIUM' ? 3 : 1, 's',
+          'Synthetic demo assumption: ' + (tier === 'MEDIUM' ? 'local start-sequence retrofit with a 3-second restart target.' : 'integrated controls upgrade with a 1-second restart target.') + ' This target is a hypothesis, not measured plant performance.');
       }
     });
     return { tier: tier, changes: changes };
@@ -173,9 +181,9 @@ function setPublicConveyorEngineering_(equipment, equipmentId, design) {
 
 function createPublicDemoMetadata_() {
   return {
-    demoRevision: 'capex-challenge-2',
+    demoRevision: 'capex-challenge-3',
     consoleOptions: { autosaveEnabled: true, autosaveSeconds: 10, seedPolicy: 'FIXED' },
-    learningObjectives: ['Zero CAPEX: retune under-speed machines and existing sensors.', 'Medium CAPEX: evaluate an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
+    learningObjectives: ['Compare the low theoretical series availability with simulated OEE; buffering can decouple equipment downtime.', 'Read the instantaneous V-Graph: uneven configured speeds, distinct recovery recommendations, and the fixed Filler reference.', 'Zero CAPEX: retune under-speed machines and existing sensors.', 'Medium CAPEX: evaluate moderate buffer extensions and an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
     dataClassification: 'PUBLIC_DEMONSTRATION_ONLY',
     dataNote: 'This is a non-confidential demonstration Case. Public manufacturer capacity pages provide only broad bounds. MTBF, MTTR, physical conveyor geometry, speeds, sensor positions, and line configuration are transparent synthetic assumptions for software testing; they are not plant measurements, equipment guarantees, or operating recommendations.',
     publicReferences: [

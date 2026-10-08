@@ -7,8 +7,26 @@ import vm from 'node:vm';
 import { applyScenarioChanges } from '../src/analysis/ScenarioPlanner.js';
 
 import { simulateLine } from '../src/simulation/LineSimulationEngine.js';
+import { analyzeLinePerformance } from '../src/analysis/LinePerformanceAnalysis.js';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
+
+test('demo starts with low series availability and a varied instantaneous recovery profile',()=>{
+  const factory=vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.join(repositoryRoot,'apps-script/PublicDemoCaseFactory.gs'),'utf8'),factory);
+  const record=JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_()));
+  const machines=record.equipment.filter(e=>e.type!=='CONVEYOR');
+  const availability=machines.reduce((product,e)=>product*e.noiseProfile.reliability.mtbfMinutes/(e.noiseProfile.reliability.mtbfMinutes+e.noiseProfile.reliability.mttrMinutes),1);
+  assert(availability>.25&&availability<.35);
+  const {points,referenceId}=analyzeLinePerformance(record.equipment);
+  assert.equal(referenceId,'filler-1');
+  assert(new Set(points.map(p=>p.normalBpm)).size>=5);
+  assert(new Set(points.map(p=>p.maximumBpm)).size>=5);
+  assert(points.filter(p=>p.recommendedBpm-p.normalBpm>10).length>=5);
+  assert(points.every(p=>Number.isFinite(p.recommendedBpm)&&p.recommendedBpm<=p.maximumBpm));
+  const filler=points.find(p=>p.id===referenceId);assert.equal(filler.recommendedBpm,filler.normalBpm);
+  assert(points.every(p=>p.hasDynamicEvidence===false));
+});
 
 test('public demo factory creates a runnable 13-step Case with explicit provenance', () => {
   const factory = vm.createContext({ Date, Array, Object });
@@ -66,7 +84,7 @@ test('public demo factory creates a runnable 13-step Case with explicit provenan
 
   const response = simulateLine({
     case: JSON.parse(JSON.stringify(caseModel)),
-    run: caseModel.simulations[0].dynamicConfig
+    run: {...caseModel.simulations[0].dynamicConfig, durationMode:'FIXED', durationSeconds:600}
   });
   assert.equal(response.ok, true);
   assert.ok(response.result.summary.outputCount > 0);
@@ -96,7 +114,7 @@ test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physica
     assert.deepEqual(candidate.equipment.map(e => e.noiseProfile.reliability), simulation.equipment.map(e => e.noiseProfile.reliability));
     assert.equal(candidate.equipment.find(e => e.id === 'filler-1').nominalRatePerSecond, 400 / 60);
     if (option.tier === 'ZERO') assert(option.changes.every(c => !c.external && c.path !== 'processData.geometry.lactMm'));
-    if (option.tier === 'MEDIUM') assert(option.changes.every(c => c.path !== 'processData.geometry.lactMm'));
+    if (option.tier === 'MEDIUM') assert(candidate.equipment.filter(e=>e.type==='CONVEYOR').every(e=>e.processData.geometry.lactMm===12000));
     const values = [0, 1, 2].map(offset => {
       const response = simulateLine({case: {id: 'demo-check', equipment: candidate.equipment}, run: {...simulation.dynamicConfig, seed: simulation.dynamicConfig.seed + offset}});
       assert(response.ok);
