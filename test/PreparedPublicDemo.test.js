@@ -18,3 +18,16 @@ test('opening an unchanged demo can recover prepared results, while changed inpu
  record.simulations[2].results={custom:true};f.applyPreparedPublicDemoResults_(record);
  assert(record.simulations[0].results);assert.equal(record.simulations[1].results,null);assert(record.simulations[2].results.custom);assert(record.simulations[3].results);
 });
+test('saved normalized demos with empty result objects recover measured cards despite field order changes',()=>{
+ const f=factory();for(const name of ['ApiResponse.gs','CaseService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),f);
+ const record=f.createPublicDemoCaseRequest_();record.simulations=f.normalizeSimulations_(record.simulations,[],{});
+ record.simulations.forEach(s=>{s.results={};s.dynamicConfig.engineId='ST_CURRENT';s.equipment=s.equipment.map(unit=>Object.fromEntries(Object.entries(unit).reverse()));});
+ f.applyPreparedPublicDemoResults_(record);
+ record.simulations.forEach(s=>assert(s.results.summary&&s.results.batch.statistics.lineOeePercent));
+ record.simulations[1].results={};record.simulations[1].equipment[0].nominalRatePerSecond+=.1;f.applyPreparedPublicDemoResults_(record);assert.equal(Object.keys(record.simulations[1].results).length,0);
+});
+test('demo RPC reports a missing prepared-results module instead of creating empty scenario cards',()=>{
+ const f=vm.createContext({});for(const name of ['TextResources.gs','ApiResponse.gs','PublicDemoCaseFactory.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),f);
+ f.requireCurrentUser_=()=>({email:'owner@test'});let created=false;f.createCase_=()=>{created=true;};
+ const response=f.createPublicDemoCase();assert.equal(response.error.code,'DEMO_RESULTS_UNAVAILABLE');assert(!created);
+});

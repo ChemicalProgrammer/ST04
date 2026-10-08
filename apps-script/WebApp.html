@@ -22,12 +22,13 @@
     <?!= include_('ThemeResources'); ?>
     <?!= include_('UiPreferences'); ?>
     <?!= include_('Appearance'); ?>
+    <?!= include_('BrandConveyorStyles'); ?>
   </head>
   <body>
     <div id="session-restore" class="auth-shell" role="status"><?= __ST_TEXT__('auth.restoring') ?></div>
     <section id="auth-panel" class="auth-shell" aria-labelledby="auth-title">
       <div class="auth-card">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span><?= __ST_TEXT__('view.flow_pilot') ?></span></div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span><?= __ST_TEXT__('view.flow_pilot') ?></span><?!= include_('BrandConveyor'); ?></div>
         <p class="eyebrow"><?= __ST_TEXT__('view.a_clearer_view_of_your_line') ?></p>
         <h1 id="auth-title"><?= __ST_TEXT__('view.welcome_to_your_workspace') ?></h1>
         <p><?= __ST_TEXT__('view.explore_your_cases_test_possibilities_and_build_confidence_in_your_next_dec') ?></p>
@@ -61,7 +62,7 @@
         </nav>
       </aside>
       <header class="topbar">
-        <div class="breadcrumb"><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
+        <div class="breadcrumb"><span id="header-case-icon" class="hidden" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
         <span id="user-email" class="user-chip"></span>
         <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost icon-button" type="button" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>" title="<?= __ST_TEXT__('shell.settings') ?>"></button><button id="show-app-info" class="ghost icon-button" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"></button><button id="cases-sign-out" class="ghost icon-button" type="button" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out') ?>"></button></div>
         <div id="header-case-actions" class="header-case-actions hidden">
@@ -277,7 +278,7 @@
     <dialog id="app-info-dialog" aria-labelledby="app-info-title">
       <header class="dialog-heading"><h2 id="app-info-title"><?= __ST_TEXT__('info.title') ?></h2><button id="app-info-close" type="button" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('inspector.close') ?>"></button></header>
       <div class="dialog-body app-info-body">
-        <div class="app-info-brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><div><h3><?= __ST_TEXT__('view.flow_pilot') ?></h3><p><?= __ST_TEXT__('info.subtitle') ?></p></div></div>
+        <div class="app-info-brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><div><div class="app-info-brand-name"><h3><?= __ST_TEXT__('view.flow_pilot') ?></h3><?!= include_('BrandConveyor'); ?></div><p><?= __ST_TEXT__('info.subtitle') ?></p></div></div>
         <p class="app-info-description"><?= __ST_TEXT__('info.description') ?></p>
         <dl class="app-info-fields"><div><dt><?= __ST_TEXT__('info.version_label') ?></dt><dd><span class="app-info-version"><?= __ST_TEXT__('info.version') ?></span></dd></div></dl>
         <h4 class="app-info-developers-title"><?= __ST_TEXT__('info.developers_label') ?></h4><dl class="app-info-fields app-info-developers"><div><dt><?= __ST_TEXT__('info.developer_1_name') ?></dt><dd><a target="_blank" rel="noopener noreferrer" href="https://mail.google.com/mail/?view=cm&amp;fs=1"><?= __ST_TEXT__('info.developer_1_email') ?></a></dd></div><div><dt><?= __ST_TEXT__('info.developer_2_name') ?></dt><dd><a target="_blank" rel="noopener noreferrer" href="https://mail.google.com/mail/?view=cm&amp;fs=1"><?= __ST_TEXT__('info.developer_2_email') ?></a></dd></div><div><dt><?= __ST_TEXT__('info.developer_3_name') ?></dt><dd><a target="_blank" rel="noopener noreferrer" href="https://mail.google.com/mail/?view=cm&amp;fs=1"><?= __ST_TEXT__('info.developer_3_email') ?></a></dd></div></dl>
@@ -402,6 +403,7 @@
     <?!= include_('ConfigurationEditor'); ?>
     <?!= include_('EquipmentRoles'); ?>
     <?!= include_('BasicMode'); ?>
+    <?!= include_('BrandConveyorMotion'); ?>
     <?!= include_('Client'); ?>
   </body>
 </html>

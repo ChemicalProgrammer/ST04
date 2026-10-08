@@ -58,8 +58,10 @@ function applyPreparedPublicDemoResults_(record){
   if(typeof preparedPublicDemoResults_!=='function'||record.metadata?.demoRevision!==createPublicDemoMetadata_().demoRevision||record.unitOfFlow!=='units')return;
   var prepared=preparedPublicDemoResults_(),ids=['simulation-a','demo-zero','demo-medium','demo-high'];
   if(prepared.revision!==record.metadata.demoRevision)return;
-  (record.simulations||[]).forEach(function(sim){var index=ids.indexOf(sim.id);if(index<0||sim.results)return;
-    if(JSON.stringify(prepared.input[index])===JSON.stringify({equipment:sim.equipment,run:sim.dynamicConfig}))sim.results=prepared.results[index];
+  function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object'){var result={};Object.keys(value).sort().forEach(function(key){if(value[key]!==undefined)result[key]=canonical(value[key]);});return result;}return value;}
+  function input(equipment,run){return canonical({equipment:equipment,run:Object.assign({durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT'},run||{})});}
+  (record.simulations||[]).forEach(function(sim){var index=ids.indexOf(sim.id);if(index<0||sim.results&&Object.keys(sim.results).length)return;
+    if(JSON.stringify(input(prepared.input[index].equipment,prepared.input[index].run))===JSON.stringify(input(sim.equipment,sim.dynamicConfig)))sim.results=prepared.results[index];
   });
 }
 

@@ -1,0 +1,31 @@
+<style>
+.brand-conveyor { display:inline-flex; flex:0 0 auto; width:112px; height:56px; margin-left:auto; border-radius:var(--radius-sm); outline-offset:4px; }
+.brand-conveyor:focus-visible { outline:2px solid var(--accent); }
+.brand-conveyor > svg { width:100%; height:100%; overflow:visible; }
+.auth-card .brand { gap:12px; font-size:30px; }
+.auth-card .brand-mark { width:56px; height:56px; }
+.auth-card .brand-mark svg { width:38px; height:38px; }
+.auth-card .brand-conveyor { width:96px; height:48px; }
+.brand-bottles { fill:var(--accent); animation:brand-bottle-travel 1.8s linear infinite; }
+.brand-bottle-glint { fill:none; stroke:var(--on-accent); stroke-width:1.5; stroke-linecap:round; opacity:.45; }
+.brand-belt-body { fill:var(--secondary); opacity:.15; }
+.brand-belt-tread { fill:none; stroke:var(--secondary); stroke-width:2; stroke-dasharray:3 4; animation:brand-belt-travel 1.8s linear infinite; }
+.brand-roller { transform-box:fill-box; transform-origin:center; animation:brand-roller-turn 1.8s linear infinite; }
+.brand-roller circle { fill:var(--surface); stroke:var(--secondary); stroke-width:1.4; }
+.brand-roller path,.brand-conveyor-legs { fill:none; stroke:var(--secondary); stroke-width:1.4; stroke-linecap:round; }
+.brand-roller path { opacity:.7; }
+.app-info-brand-name { display:flex; align-items:center; gap:var(--space-4); }
+.app-info-brand-name .brand-conveyor { width:96px; height:48px; }
+@keyframes brand-bottle-travel { from { transform:translateX(0); } to { transform:translateX(28px); } }
+@keyframes brand-belt-travel { from { stroke-dashoffset:0; } to { stroke-dashoffset:-28; } }
+@keyframes brand-roller-turn { to { transform:rotate(360deg); } }
+@media(max-width:520px) {
+  .auth-shell { padding:16px; }.auth-card { padding:24px; }
+  .auth-card .brand { gap:8px; font-size:24px; }
+  .auth-card .brand-mark,.app-info-brand .brand-mark { width:40px; height:40px; }
+  .auth-card .brand-mark svg,.app-info-brand .brand-mark svg { width:28px; height:28px; }
+  .auth-card .brand-conveyor,.app-info-brand-name .brand-conveyor { width:72px; height:40px; }
+  .app-info-brand { gap:12px; }.app-info-brand-name { gap:8px; }.app-info-brand-name h3 { font-size:22px; }
+}
+@media(prefers-reduced-motion:reduce) { .brand-conveyor * { animation:none!important; } }
+</style>
