@@ -6,6 +6,7 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 import postcss from 'postcss';
 import { renderAppsScript } from '../scripts/render-apps-script.mjs';
 import selectorParser from 'postcss-selector-parser';
+import {gunzipSync} from 'node:zlib';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
@@ -1703,6 +1704,19 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
  }
 });
 
+
+test('UI: prepared demo opens with matching scenario card results and OEE comparison without running the engine',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  const f=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['PublicDemoCaseFactory.gs','PublicDemoResults.gs'])vm.runInContext(read(name),f);
+  const record=JSON.parse(JSON.stringify(f.createPublicDemoCaseRequest_()));record.id='demo';record.expectedRevision=1;h.api.saveCase(record);
+  let runs=0;h.w.SimulatorEngine.simulateBatch=()=>{runs++;throw Error('Prepared demo must not simulate on open');};
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="whatif"]');
+  const cards=Array.from(h.d.querySelectorAll('.scenario-tier-grid .analysis-recommendation')).filter(c=>!c.classList.contains('scenario-current'));
+  assert.equal(cards.length,3);cards.forEach((card,index)=>{const value=record.simulations[index+1].results.batch.statistics.lineOeePercent.mean.toFixed(1);assert.match(card.querySelector('.scenario-preview-status').textContent,/Saved demo scenario/);assert(card.querySelector('.scenario-basic-metrics').textContent.includes(value+'%'));});
+  await h.click('[data-basic-view="comparison"]');assert.equal(h.d.querySelectorAll('.comparison-equipment-oee tbody tr').length,8);assert.equal(runs,0);assert.deepEqual(h.errors,[]);
+  const source=Object.assign({},record.simulations[0],{unitOfFlow:record.unitOfFlow});const cached=await h.w.STScenarioExplorer.evaluate(source,[],()=>false,0,source.dynamicConfig);assert.equal(cached.oee,source.results.batch.statistics.lineOeePercent.mean);assert.equal(runs,0);
+ }finally{h.dom.window.close();}
+});
 
 test('UI: scenario configuration suggests up to four DOE factors without simulation and toggles the Use column',async()=>{
  const h=await setup({uiMode:'BASIC'});try{

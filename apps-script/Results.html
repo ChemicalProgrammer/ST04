@@ -51,7 +51,22 @@ window.STResults=(function(){
     var basic=Boolean(window.STBasicMode?.isBasic());
     metrics(a.results).filter(function(_,i){return !basic||i<3;}).forEach(function(m,i){var meanKey=['lineOeePercent','throughputPerMinute','outputCount'][i];if(Number.isFinite(a.results.batch?.statistics?.[meanKey]?.mean))m=[m[0]+' (mean)',a.results.batch.statistics[meanKey].mean,m[2]];var n=Number.isFinite(b.results.batch?.statistics?.[meanKey]?.mean)?b.results.batch.statistics[meanKey].mean:right[i][1],comparable=Number.isFinite(m[1])&&Number.isFinite(n)&&!(unitMismatch&&(i===1||i===2)),d=comparable?n-m[1]:null,tr=document.createElement('tr');[m[0],number(m[1])+m[2],number(n)+right[i][2],(d>0?'+':'')+number(d)+(i===0?__ST_TEXT__('results.pp'):m[2]),!comparable?'—':m[1]===0?__ST_TEXT__('results.n_a_zero_baseline'):(d>0?'+':'')+number(d/Math.abs(m[1])*100)+'%'].forEach(function(v,j){var td=document.createElement('td');td.textContent=v;if(j)td.className='numeric';tr.appendChild(td);});section.querySelector('tbody').appendChild(tr);});target.appendChild(section);
   }
-  return {render:render,compare:compare};
+  function compareEquipmentOee(target,a,b){
+    if(!a.results?.summary||!b.results?.summary)return;
+    var section=document.createElement('section');section.className='comparison-section comparison-equipment-oee';
+    var title=document.createElement('h3');title.textContent='OEE comparison';section.append(title);
+    var note=document.createElement('p');note.className='chart-note';note.textContent='Mean of saved rounds when available. Differences are percentage points.';section.append(note);
+    var scroll=document.createElement('div');scroll.className='table-scroll';var table=document.createElement('table');table.setAttribute('aria-label','OEE comparison');
+    var head=document.createElement('thead'),header=document.createElement('tr');['Equipment',a.name,b.name,'Δ OEE (pp)'].forEach(function(label,index){var th=document.createElement('th');th.scope='col';th.textContent=label;if(index)th.className='numeric';header.append(th);});head.append(header);table.append(head);
+    var body=document.createElement('tbody');
+    function row(name,left,right){var tr=document.createElement('tr');[name,number(left)+(Number.isFinite(left)?'%':''),number(right)+(Number.isFinite(right)?'%':''),(Number.isFinite(left)&&Number.isFinite(right)?(right-left>0?'+':'')+number(right-left):'—')].forEach(function(value,index){var td=document.createElement('td');td.textContent=value;if(index)td.className='numeric';tr.append(td);});body.append(tr);}
+    function global(sim){return sim.results.batch?.statistics?.lineOeePercent?.mean??sim.results.summary.lineOeePercent;}
+    row('Global OEE',global(a),global(b));
+    var ids=Array.from(new Set((a.equipment||[]).concat(b.equipment||[]).filter(e=>e.type!=='CONVEYOR').map(e=>e.id)));
+    ids.forEach(function(id){var e=(a.equipment||[]).concat(b.equipment||[]).find(e=>e.id===id);function value(sim){return sim.results.batch?.equipmentStatistics?.[id]?.oeePercent?.mean??sim.results.equipmentMetrics?.[id]?.oeePercent;}row(e.name||id,value(a),value(b));});
+    table.append(body);scroll.append(table);section.append(scroll);target.append(section);
+  }
+  return {render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
 })();
 </script>
 

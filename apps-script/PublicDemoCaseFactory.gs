@@ -33,8 +33,7 @@ function createPublicDemoCaseRequest_() {
       equipment: copy, dynamicConfig: JSON.parse(JSON.stringify(run)), results: null,
       scenario: { origin: 'PUBLIC_DEMO', tier: option.tier, sourceSimulationId: baseline.id, changes: option.changes } });
   });
-
-  return {
+  var request = {
     id: 'public-demo-packaging-line-' + suffix,
     name: 'Public demo — low-efficiency CAPEX challenge',
     unitOfFlow: 'units',
@@ -49,6 +48,19 @@ function createPublicDemoCaseRequest_() {
     equipment: equipment,
     simulations: simulations
   };
+  applyPreparedPublicDemoResults_(request);
+  return request;
+}
+
+// Derived demo results may also be supplied on open for an unchanged saved demo.
+// Never replace a user's result or reuse a fixture for modified physical inputs.
+function applyPreparedPublicDemoResults_(record){
+  if(typeof preparedPublicDemoResults_!=='function'||record.metadata?.demoRevision!==createPublicDemoMetadata_().demoRevision||record.unitOfFlow!=='units')return;
+  var prepared=preparedPublicDemoResults_(),ids=['simulation-a','demo-zero','demo-medium','demo-high'];
+  if(prepared.revision!==record.metadata.demoRevision)return;
+  (record.simulations||[]).forEach(function(sim){var index=ids.indexOf(sim.id);if(index<0||sim.results)return;
+    if(JSON.stringify(prepared.input[index])===JSON.stringify({equipment:sim.equipment,run:sim.dynamicConfig}))sim.results=prepared.results[index];
+  });
 }
 
 // Deliberately poor operating setup. Keep reliability identical in all scenarios;

@@ -301,6 +301,13 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       if(ready)last={changes:restored.evaluatedChanges,reviewRequired:!!warnings.length,validationRequired:requiresValidation};
       if(ready&&warnings.length&&restored.engineeringReviewAcknowledged){var ack=host.querySelector('.scenario-audit-warnings input');ack.checked=true;}
       if(restored.doe){var summary=el('details','','scenario-doe-results');summary.append(el('summary','Saved DOE results'),el('p',restored.doe.observations.length+' / '+restored.doe.combinations+' combinations · '+(restored.doe.analysis?.interpretation||'Incomplete design')));(restored.doe.analysis?.effects||[]).forEach(effect=>summary.append(el('p',effect.factors.map(i=>{var f=restored.doe.factors[i];return STWhatIf.changeInfo(f,source.equipment).parameter;}).join(' × ')+': ΔOEE '+effect.oee.toFixed(3)+' pp · Δthroughput '+effect.throughput.toFixed(3))));status.after(summary);}
+    }else{
+      var linked=(caseProvider?.()?.simulations||[]).find(s=>s.scenario?.origin==='PUBLIC_DEMO'&&s.scenario.sourceSimulationId===simulation.id&&s.scenario.tier===project.tier);
+      function savedMatches(sim){var result=sim?.results;if(!result?.summary||!result.inputSignature||!SimulatorEngine.inputSignature)return false;return result.inputSignature===SimulatorEngine.inputSignature({case:{id:sim.id,unitOfFlow:source.unitOfFlow,equipment:sim.equipment},run:config(sim)});}
+      if(linked&&savedMatches(simulation)&&savedMatches(linked)){
+        renderMetrics({baseline:metric(simulation.results),candidate:metric(linked.results)});
+        status.textContent='Saved demo scenario: '+linked.name+' · '+(linked.results.batch?.rounds||1)+' rounds. These values match the existing simulation; a new search can find different targets.';status.dataset.state='saved';save.disabled=true;setIcon(save,'This demo scenario already exists','copy');
+      }
     }
   }
 
@@ -332,6 +339,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       }
       (basic?['ZERO','MEDIUM','HIGH']:['ZERO','MEDIUM','HIGH','ALL']).forEach(function(tier){
         var seen=new Set(),changes=pool.filter(p=>p.tier===tier||tier==='ALL').sort((a,b)=>tier==='ALL'?['ZERO','MEDIUM','HIGH'].indexOf(b.tier)-['ZERO','MEDIUM','HIGH'].indexOf(a.tier):0).flatMap(p=>p.changes).filter(function(c){var key=c.equipmentId+':'+c.path;if(seen.has(key))return false;seen.add(key);return true;});
+        var demo=(caseProvider?.()?.simulations||[]).find(s=>s.scenario?.origin==='PUBLIC_DEMO'&&s.scenario.sourceSimulationId===simulation.id&&s.scenario.tier===tier);if(demo?.scenario.changes)changes=demo.scenario.changes;
         if(!changes.length){var empty=el('article','','analysis-recommendation'),badge=el('span',tier==='ALL'?'All CAPEX':STScenarioText[tier],'analysis-capex');badge.dataset.tier=tier==='ALL'?'HIGH':tier;empty.append(badge);empty.append(el('h4',tier==='ALL'?'All CAPEX':STScenarioText[tier]),el('p','No supported targets in this category. Review equipment inputs and available search evidence.'));combined.append(empty);return;}
         var project={catalog:true,searchDerivedDOE:true,title:tier==='ALL'?'All CAPEX · combined search':'Line-wide '+STScenarioText[tier],description:tier==='ALL'?'Explore Zero, Medium and High measures together. Only the validated selection is saved.':'Evaluate this category independently.',searchScope:tier,kind:'CUSTOM',tier:tier==='ALL'?'HIGH':tier,basis:'STATIC',sourceSimulationId:simulation.id,sourceSignature:STScenarios.signature(simulation),changes:changes,explore:true};combined.append(STWhatIf.card(project,create,simulation.equipment,simulation));
       });

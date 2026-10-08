@@ -7,6 +7,7 @@ window.STComparison=function(state,isFiniteNumber){
       STReports.bindComparison(state.activeCase,a,b);
       if (!a || !b || a.id === b.id) { target.textContent = __ST_TEXT__('comparison.select_two_different_simulations'); return; }
       STResults.compare(target,a,b);
+      STResults.compareEquipmentOee(target,a,b);
       appendComparisonContext(target, a, b);
       var basic=Boolean(window.STBasicMode?.isBasic());
       if(basic){appendChangedInputs(target,a,b,true);return;}

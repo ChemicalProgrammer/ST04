@@ -63,10 +63,17 @@ accumulation, MTTR and the MTBF recovery window. They describe local recovery
 headroom and do not guarantee that retuning one machine will achieve 400 BPM
 throughout the line.
 
-New demo cases include Baseline, Zero, Medium and High simulations with no preset
-results. Run each to calculate its actual output. Existing saved cases are not
-rewritten. The baseline also retains the three input hypotheses in What-If;
-further optimization can produce different results.
+New demo cases include Baseline, Zero, Medium and High simulations with measured
+results prepared by the ST engine using the default three seeds. They load
+without rerunning the engine. The baseline's category cards show these same
+saved scenario means; further optimization can produce different results.
+Unchanged saved demos from the same revision can also receive these derived
+results on open. Edited inputs and existing user results are never replaced.
+
+The prepared result retains full aggregate and per-round metrics, with only the
+initial and final frames for representative-round playback. Run a simulation
+again for full playback history. Rebuild the fixture after changing demo inputs
+or engine mathematics with `node scripts/prepare-public-demo-results.mjs`.
 
 The default run is one 8-hour shift, three rounds, fixed base seed `20261008`.
 The current ST engine produces these mean OEE values over seeds 20261008–20261010:

@@ -17,3 +17,12 @@ test('Comparison starts with OEE and throughput cards using saved round means in
 test('missing saved outcomes show configuration context without invented KPIs; unlike flow units have no throughput delta',()=>{
  const h=setup(false);try{h.b.results.unitOfFlow='cases';h.render();assert.match(h.w.document.querySelectorAll('.comparison-kpi-delta')[1].textContent,/—/);h.b.results=null;h.render();assert.equal(h.w.document.querySelector('.comparison-kpi'),null);assert(h.w.document.querySelector('.comparison-context'));}finally{h.dom.window.close();}
 });
+
+test('OEE comparison includes global and machine rows in Basic and Advance using equipment round means',()=>{
+ for(const basic of [true,false]){const h=setup(basic);try{
+  h.a.equipment=h.b.equipment=[{id:'machine',name:'Filler',type:'FILLER'},{id:'belt',name:'Conveyor',type:'CONVEYOR'}];
+  h.a.results.equipmentMetrics={machine:{oeePercent:11}};h.b.results.equipmentMetrics={machine:{oeePercent:12}};
+  h.a.results.batch.equipmentStatistics={machine:{oeePercent:{mean:40}}};h.b.results.batch.equipmentStatistics={machine:{oeePercent:{mean:70}}};h.render();
+  const rows=h.w.document.querySelectorAll('.comparison-equipment-oee tbody tr');assert.equal(rows.length,2);assert.match(rows[0].textContent,/Global OEE.*30%.*60%.*\+30/);assert.match(rows[1].textContent,/Filler.*40%.*70%.*\+30/);
+ }finally{h.dom.window.close();}}
+});

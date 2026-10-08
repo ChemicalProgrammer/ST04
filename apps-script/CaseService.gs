@@ -38,6 +38,7 @@ function getCase_(caseId, user, migrateOnOpen) {
         console.error(JSON.stringify({event:'CASE_MIGRATION_FAILURE',type:error?.name||'Error'}));
       }
     }
+    if(typeof applyPreparedPublicDemoResults_==='function')applyPreparedPublicDemoResults_(record);
     return record;
   }
   return migrateOnOpen?withCaseWriteLock_(load):load();
