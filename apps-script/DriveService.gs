@@ -8,18 +8,27 @@ function verifyWorkspaceRoot_(folderId) {
   }
 }
 
+// Execution-local only: never reuse authorization or folder handles across RPCs.
+var ST_WORKSPACE_FOLDERS_ = null;
 function getWorkspaceFolders_() {
   var settings = getUserSettings_();
+  if (ST_WORKSPACE_FOLDERS_ && ST_WORKSPACE_FOLDERS_.id === settings.workspaceRootFolderId) return ST_WORKSPACE_FOLDERS_.folders;
   var root = verifyWorkspaceRoot_(settings.workspaceRootFolderId);
-  return {
-    root: root,
-    cases: getOrCreateChildFolder_(root, 'SimulatorTemplate Cases'),
-    artifacts: getOrCreateChildFolder_(root, 'SimulatorTemplate Artifacts'),
-    exports: getOrCreateChildFolder_(root, 'SimulatorTemplate Exports')
-  };
+  var folders = {root:root}, children = {};
+  // Saving a case needs only Cases; resolve other folders when actually used.
+  ['cases','artifacts','exports'].forEach(function(key) {
+    var names = {cases:'SimulatorTemplate Cases',artifacts:'SimulatorTemplate Artifacts',exports:'SimulatorTemplate Exports'};
+    Object.defineProperty(folders,key,{enumerable:true,get:function() {
+      if (!children[key]) children[key] = getOrCreateChildFolder_(root,names[key]);
+      return children[key];
+    }});
+  });
+  ST_WORKSPACE_FOLDERS_ = {id:settings.workspaceRootFolderId,folders:folders};
+  return folders;
 }
 
 function getOrCreateChildFolder_(parent, name) {
   var folders = parent.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : parent.createFolder(name);
 }
+

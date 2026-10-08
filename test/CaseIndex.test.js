@@ -180,3 +180,24 @@ test('Older manifests gain fingerprints without rewriting unchanged simulation J
  assert.equal(h.reads.filter(name=>name===fileName).length,1);
 });
 
+test('saving reuses the verified manifest and looks up changed simulation files only for cleanup',()=>{
+ const h=runtime();h.ctx.createCase_({id:'fast-save',name:'Original'},owner);
+ const record=h.ctx.getCase_('fast-save',owner),child=h.folder().getFoldersByName('fast-save').next();
+ const old=JSON.parse(child.files.get('case.json').content).simulationFiles[0].fileName;
+ const lookups=[],lookup=child.getFilesByName;
+ child.getFilesByName=name=>{lookups.push(name);return lookup(name);};
+ record.expectedRevision=1;record.simulations[0].name='Changed';h.ctx.saveCase_(record,owner);
+ assert.equal(lookups.filter(name=>name==='case.json').length,1);
+ assert.equal(lookups.filter(name=>name===old).length,1);
+ assert.equal(h.ctx.getCase_('fast-save',owner).simulations[0].name,'Changed');
+});
+
+test('an unchanged digest still verifies the simulation exists and recreates a missing file',()=>{
+ const h=runtime();h.ctx.createCase_({id:'missing-file',name:'Original'},owner);
+ const record=h.ctx.getCase_('missing-file',owner),child=h.folder().getFoldersByName('missing-file').next();
+ const old=JSON.parse(child.files.get('case.json').content).simulationFiles[0].fileName;
+ child.files.get(old).setTrashed(true);record.expectedRevision=1;h.ctx.saveCase_(record,owner);
+ assert.notEqual(JSON.parse(child.files.get('case.json').content).simulationFiles[0].fileName,old);
+ assert.equal(h.ctx.getCase_('missing-file',owner).revision,2);
+});
+

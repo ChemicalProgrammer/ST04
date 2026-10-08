@@ -219,14 +219,17 @@ function getOwnedCaseFile_(caseId, user, metadataOnly) {
 // Stage immutable simulation files, then commit their references in case.json.
 // A failed write leaves the previous manifest and simulations readable.
 function persistCaseRecord_(record,owned) {
-  var root=getWorkspaceFolders_().cases,folder=owned&&owned.folder;
-  if(!folder){var matches=root.getFoldersByName(record.id);folder=matches.hasNext()?matches.next():root.createFolder(record.id);}
+  var folder=owned&&owned.folder;
+  if(!folder){var root=getWorkspaceFolders_().cases,matches=root.getFoldersByName(record.id);folder=matches.hasNext()?matches.next():root.createFolder(record.id);}
   var previous=owned&&owned.folder?owned.caseData.simulationFiles||[]:[],staged=[],refs=[];
-  var manifestFiles=folder.getFilesByName('case.json'),manifest=manifestFiles.hasNext()?manifestFiles.next():null;
+  var manifest=owned&&owned.folder?owned.file:null;
+  if(!manifest){var manifestFiles=folder.getFilesByName('case.json');manifest=manifestFiles.hasNext()?manifestFiles.next():null;}
   if(manifest&&(!owned||!owned.folder))throw createSimulatorError_('CASE_CONFLICT','A case folder already contains a saved case. Reload before saving.');
   try {
     record.simulations.forEach(function(simulation,index){
-      var json=JSON.stringify(simulation),digest=simulationContentDigest_(json),old=previous.find(function(e){return e.id===simulation.id;}),oldFiles=old?folder.getFilesByName(old.fileName):null,oldFile=oldFiles&&oldFiles.hasNext()?oldFiles.next():null;
+      var json=JSON.stringify(simulation),digest=simulationContentDigest_(json),old=previous.find(function(e){return e.id===simulation.id;});
+      // A changed digest needs a new immutable file; do not look up its old file.
+      var mayReuse=old&&(!old.digest||!digest||old.digest===digest),oldFiles=mayReuse?folder.getFilesByName(old.fileName):null,oldFile=oldFiles&&oldFiles.hasNext()?oldFiles.next():null;
       if(oldFile&&(old.digest&&digest?old.digest===digest:oldFile.getBlob().getDataAsString()===json)){refs.push({id:old.id,fileName:old.fileName,digest:digest});return;}
       var name='simulation-'+index+'-'+Utilities.getUuid()+'.json';
       staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name,digest:digest});
@@ -375,3 +378,4 @@ function toCaseSummary_(caseData, file) {
     dataClassification: typeof metadata.dataClassification === 'string' ? metadata.dataClassification : null
   };
 }
+
