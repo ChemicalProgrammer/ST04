@@ -39,3 +39,13 @@ test('authorized users have independent folders and Gemini keys, and new users s
 test('unidentified visitors are rejected before reading account configuration',()=>{
  const h=runtime();h.identity('','owner@example.test');assert.equal(h.context.getBootstrap().error.code,'IDENTITY_UNAVAILABLE');assert.equal(h.reads(),0);assert.equal(h.driveReads(),0);
 });
+
+
+test('sign-in reports authorization and missing-module stages without exposing raw errors',()=>{
+ const h=runtime();h.context.requireCurrentUser_=()=>{throw Error('You do not have permission to call Session.getActiveUser secret-fragment');};
+ let response=h.context.getBootstrap();assert.equal(response.error.code,'SIGNIN_AUTHORIZATION_REQUIRED');assert.equal(response.error.details[0],'Stage: IDENTITY');assert.doesNotMatch(JSON.stringify(response),/secret-fragment/);
+ h.context.requireCurrentUser_=()=>({email:'owner@example.test'});h.context.getCaseCatalog_=()=>{throw new ReferenceError('CaseIndex missing secret-fragment');};
+ response=h.context.getBootstrap();assert.equal(response.error.code,'SIGNIN_MODULE_MISSING');assert.equal(response.error.details[0],'Stage: CASE_CATALOG');assert.doesNotMatch(JSON.stringify(response),/secret-fragment/);
+ h.context.getCaseCatalog_=()=>({cases:[]});h.context.getGeminiClientConfig_=()=>{throw Error('private-key-fragment');};
+ response=h.context.getBootstrap();assert.equal(response.error.code,'SIGNIN_START_FAILED');assert.equal(response.error.details[0],'Stage: GEMINI_CONFIG');assert.doesNotMatch(JSON.stringify(response),/private-key-fragment/);
+});

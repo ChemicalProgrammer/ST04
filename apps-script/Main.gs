@@ -15,17 +15,24 @@ function include_(filename) {
 }
 
 function getBootstrap() {
-  return executeServerAction_(function(user) {
-    var catalog=getCaseCatalog_(user);
-    return {
-      user: user,
-      settings: getUserSettings_(),
-      gemini: getGeminiClientConfig_(),
-      uiMode: getInterfaceMode_(),
-      cases: catalog.cases,
-      caseCatalog: {refreshRequired:catalog.refreshRequired,complete:catalog.complete}
-    };
-  });
+  var stage='IDENTITY';
+  try {
+    var user=requireCurrentUser_();
+    stage='USER_SETTINGS';var settings=getUserSettings_();
+    stage='CASE_CATALOG';var catalog=getCaseCatalog_(user);
+    stage='GEMINI_CONFIG';var gemini=getGeminiClientConfig_();
+    stage='INTERFACE_MODE';var uiMode=getInterfaceMode_();
+    return success_({user:user,settings:settings,gemini:gemini,uiMode:uiMode,cases:catalog.cases,caseCatalog:{refreshRequired:catalog.refreshRequired,complete:catalog.complete}});
+  } catch (error) {
+    if(error?.simulatorError)return failure_(error);
+    var reference='LOGIN-'+new Date().getTime().toString(36);
+    // Do not send raw exceptions, account settings or credentials to the browser.
+    console.error(JSON.stringify({event:'BOOTSTRAP_FAILURE',reference:reference,stage:stage,type:error?.name||'Error'}));
+    var authorization=/authorization|authorisation|permission|autorizaci[oó]n|permisos/i.test(String(error?.message||''));
+    var missingModule=error?.name==='ReferenceError';
+    var message=authorization?'Google authorization is missing or incomplete. Reopen this web app with the intended Google account and authorize the requested permissions.':missingModule?'A required Apps Script module is missing from this deployment. Update all app modules and deploy a new version.':'Sign-in could not complete. The developer can locate this failure in Apps Script Executions using the reference below.';
+    return failure_(createSimulatorError_(authorization?'SIGNIN_AUTHORIZATION_REQUIRED':missingModule?'SIGNIN_MODULE_MISSING':'SIGNIN_START_FAILED',message,['Stage: '+stage,'Reference: '+reference]));
+  }
 }
 
 function refreshCaseCatalog(request) {
