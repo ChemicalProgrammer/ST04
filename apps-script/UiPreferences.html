@@ -62,9 +62,9 @@ window.STPreferences = (function() {
   }
   function applyJsonFields(mode) {
     mode=mode==='basic'?'basic':'advance';
-    var record=caseProvider?.(),stored=read('jsonFields.'+mode),visible=typeof record?.metadata?.showJsonFields==='boolean'?record.metadata.showJsonFields:stored===null?mode==='advance':stored==='yes';
+    var record=caseProvider?.(),stored=read('jsonFields.'+mode),visible=mode==='advance'&&(typeof record?.metadata?.showJsonFields==='boolean'?record.metadata.showJsonFields:stored===null?true:stored==='yes');
     document.documentElement.dataset.showJson=String(visible);
-    var checkbox=document.getElementById('settings-json-fields');if(checkbox){checkbox.checked=visible;checkbox.disabled=!record;}
+    var checkbox=document.getElementById('settings-json-fields');if(checkbox){checkbox.checked=visible;checkbox.disabled=!record||mode!=='advance';checkbox.closest('label').hidden=!record||mode!=='advance';}
   }
   document.addEventListener('DOMContentLoaded', function() {
     applyFontScale();
@@ -72,7 +72,7 @@ window.STPreferences = (function() {
     applyJsonFields(document.documentElement.dataset.uiMode);
     document.getElementById('settings-json-fields')?.addEventListener('change',function(event){
       var mode=document.documentElement.dataset.uiMode==='advance'?'advance':'basic';
-      var record=caseProvider?.();if(!record)return;record.metadata=record.metadata||{};record.metadata.showJsonFields=event.target.checked;caseChanged?.();applyJsonFields(mode);
+      var record=caseProvider?.();if(!record||mode!=='advance'){applyJsonFields(mode);return;}record.metadata=record.metadata||{};record.metadata.showJsonFields=event.target.checked;caseChanged?.();applyJsonFields(mode);
     });
     var palette=document.getElementById('accent-palette');
     if(palette)colors.forEach(function(color){var b=document.createElement('button');b.type='button';b.className='accent-choice';b.dataset.accent=color;var entry=STThemeResources.palettes[color];b.title=entry.name||color;b.style.background=entry.hex||entry.light.accent;b.style.color=entry.light.onAccent;b.setAttribute('aria-label',(entry.name||color)+' accent');b.innerHTML=STIcons.svg('check');b.onclick=function(){setAccent(color);};palette.appendChild(b);});setAccent(read('accent'));

@@ -48,6 +48,7 @@ window.STShell = function(state,actions) {
     document.getElementById('show-app-info').onclick=openInfo;
     document.getElementById('sidebar-app-info').onclick=openInfo;
     var basicInfo=document.getElementById('basic-app-info');if(basicInfo)basicInfo.onclick=openInfo;
+    info.querySelectorAll('.app-info-developers a').forEach(function(link){link.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(link.textContent.trim());});
     document.getElementById('app-info-close').onclick=function(){info.close();};
     info.addEventListener('close',function(){infoButton.focus();});
     STSettings.init();STIcons.decorate();

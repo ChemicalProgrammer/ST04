@@ -1,6 +1,6 @@
 <script>
 window.STSettings = (function() {
-  var save, flushCase, removeKey, resetApp, resetting=false, applyMode, caseProvider, caseChanged, promptDefinitions=[], modeCount=0, modeStarted=0, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, lastFocus, failure=null, waiters=[];
+  var save, flushCase, removeKey, resetApp, resetting=false, applyMode, caseProvider, caseChanged, promptDefinitions=[], modeCount=0, modeStarted=0, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, modeChanging=false, lastFocus, failure=null, waiters=[];
   function el(id){return document.getElementById(id);}
   var simulationProvider,engineChanged,engineLocked;
   function renderEngine(){var simulation=simulationProvider?.(),advance=document.documentElement.dataset.uiMode==='advance';el('settings-engine-section').classList.toggle('hidden',!advance||!simulation);el('settings-simulation-engine').value=simulation?.dynamicConfig?.engineId||'ST_CURRENT';el('settings-simulation-engine').disabled=!simulation||!!engineLocked?.();}
@@ -12,7 +12,7 @@ window.STSettings = (function() {
   function activeCase(){return caseProvider?.();}
   function applyCaseCharts(){var colors=activeCase()?.metadata?.chartColors||[],style=document.documentElement.style;for(var i=0;i<13;i++){var name='--series-'+i,value=/^#[0-9a-f]{6}$/i.test(colors[i]||'')?colors[i]:'';if(value){if(style.getPropertyValue(name)!==value)style.setProperty(name,value);}else if(style.getPropertyValue(name))style.removeProperty(name);}var graph=activeCase()?.metadata?.vgraphColors||{};['current','recommended'].forEach(function(key){var value=graph[key];if(/^#[0-9a-f]{6}$/i.test(value||''))style.setProperty('--vgraph-'+key,value);else style.removeProperty('--vgraph-'+key);});}
   var colorTarget,colorHue=0,colorSaturation=0,colorValue=1;
-  function promptVisibility(){var basic=document.documentElement.dataset.uiMode==='basic';el('gemini-generation-section').classList.toggle('hidden',basic);promptDefinitions.forEach(function(def){el('gemini-prompt-'+def.id)?.classList.toggle('hidden',basic?!['personality','basicCapex'].includes(def.id):def.id==='basicCapex');});}
+  function promptVisibility(){var basic=document.documentElement.dataset.uiMode==='basic';el('gemini-generation-section').classList.toggle('hidden',basic);promptDefinitions.forEach(function(def){el('gemini-prompt-'+def.id)?.classList.toggle('hidden',basic?!['personality','basicCapex','language'].includes(def.id):def.id==='basicCapex');});}
   function updateColorMap(){el('series-color-hue').value=String(Math.round(colorHue)%360);el('series-color-map').style.backgroundColor='hsl('+colorHue+',100%,50%)';el('series-color-marker').style.left=(colorSaturation*100)+'%';el('series-color-marker').style.top=((1-colorValue)*100)+'%';el('series-color-map').setAttribute('aria-valuenow',String(Math.round(colorSaturation*100)));el('series-color-map').setAttribute('aria-valuetext',el('series-color-hex').value+', brightness '+Math.round(colorValue*100)+'%');}
   function setColorDraft(hex,fromMap){hex=hex.toUpperCase();el('series-color-hex').value=hex;var rgb=['r','g','b'].map(function(channel,index){var value=parseInt(hex.slice(1+index*2,3+index*2),16);el('series-color-'+channel).value=value;return value/255;});el('series-color-preview').style.backgroundColor=hex;if(!fromMap){var max=Math.max(...rgb),min=Math.min(...rgb),delta=max-min;colorValue=max;colorSaturation=max?delta/max:0;if(delta){var hue=max===rgb[0]?(rgb[1]-rgb[2])/delta:max===rgb[1]?(rgb[2]-rgb[0])/delta+2:(rgb[0]-rgb[1])/delta+4;colorHue=((hue*60)%360+360)%360;}}updateColorMap();}
   function mapColorDraft(){var chroma=colorValue*colorSaturation,x=chroma*(1-Math.abs((colorHue/60)%2-1)),m=colorValue-chroma,sector=Math.floor(colorHue/60),rgb=[[chroma,x,0],[x,chroma,0],[0,chroma,x],[0,x,chroma],[x,0,chroma],[chroma,0,x]][sector%6];setColorDraft('#'+rgb.map(function(value){return Math.round((value+m)*255).toString(16).padStart(2,'0');}).join(''),true);}
@@ -21,7 +21,32 @@ window.STSettings = (function() {
   function renderCaseCharts(){var record=activeCase();applyCaseCharts();el('settings-case-note').classList.toggle('hidden',!!record);el('settings-doe-section').classList.toggle('hidden',!record);el('settings-chart-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-vgraph-section').classList.toggle('hidden',!record);el('settings-chart-colors').replaceChildren();el('settings-vgraph-colors').replaceChildren();STPreferences.applyJsonFields(document.documentElement.dataset.uiMode);if(!record)return;var equipmentList=record.equipment||[],columns=colorColumns(el('settings-chart-colors'),'Equipment'),split=Math.ceil(equipmentList.length/2),graphColumns=colorColumns(el('settings-vgraph-colors'),'Series');equipmentList.forEach(function(equipment,index){colorButton(columns[index<split?0:1],(index+1)+'. '+equipment.name,'--series-'+(index%13),index%13,'chartColors');});colorButton(graphColumns[0],__ST_TEXT__('performance.normal'),'--vgraph-current','current','vgraphColors');colorButton(graphColumns[1],__ST_TEXT__('performance.recommended'),'--vgraph-recommended','recommended','vgraphColors');}
   function refresh(){el('settings-factory-reset').disabled=!!activeCase()||sending||resetting;el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
   function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();renderEngine();renderCaseCharts();var tab=document.querySelector('[data-settings-tab][aria-selected="true"]');selectTab(tab?.dataset.settingsTab||'appearance');refresh();dialog.showModal();}
-  function resetModeSelector(){var options=STPreferences.caseOptions(),record=activeCase();['case','simulation'].forEach(function(name){el('settings-tab-'+name).classList.toggle('hidden',!record);});el('settings-factory-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-factory-note').textContent=record?__ST_TEXT__('settings.factory_close_case'):__ST_TEXT__('settings.factory_note');el('settings-factory-reset').disabled=!!record||sending||resetting;el('settings-save-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=options.autosaveEnabled;el('settings-autosave-seconds').value=String(options.autosaveSeconds);el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.toggle('hidden',!record);promptVisibility();el('settings-seed-policy').value=options.seedPolicy;el('settings-scenario-doe').checked=STScenarioExplorer.doeEnabled();el('settings-basic-simulation-note').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='basic');modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  function resetModeSelector(preserveUnlock){var options=STPreferences.caseOptions(),record=activeCase();['case','simulation'].forEach(function(name){el('settings-tab-'+name).classList.toggle('hidden',!record);});el('settings-factory-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-factory-note').textContent=record?__ST_TEXT__('settings.factory_close_case'):__ST_TEXT__('settings.factory_note');el('settings-factory-reset').disabled=!!record||sending||resetting;el('settings-save-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=options.autosaveEnabled;el('settings-autosave-seconds').value=String(options.autosaveSeconds);el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.toggle('hidden',!record);promptVisibility();el('settings-seed-policy').value=options.seedPolicy;el('settings-scenario-doe').checked=STScenarioExplorer.doeEnabled();el('settings-basic-simulation-note').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='basic');if(preserveUnlock!==true){modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');}el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
+  async function changeMode(){
+    if(modeChanging)return;
+    var picker=el('settings-interface-mode'),previous=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC',mode=picker.value;
+    if(mode===previous)return;
+    modeChanging=true;picker.disabled=true;
+    try {
+      if(removing||resetting||!await flush()){picker.value=previous;return;}
+      if(activeCase()){
+        if(!el('case-editor-form').checkValidity())throw Error(__ST_TEXT__('settings.complete_fields'));
+        var options=STPreferences.caseOptions(),seconds=Number(el('settings-autosave-seconds').value);
+        if(!el('settings-save-section').classList.contains('hidden')){
+          if(!Number.isInteger(seconds)||seconds<1||seconds>3600)throw Error('Choose a save interval between 1 and 3600 seconds.');
+          options.autosaveEnabled=el('settings-autosave').checked;options.autosaveSeconds=seconds;
+        }
+        options.seedPolicy=el('settings-seed-policy').value;STPreferences.setCaseOptions(options);
+        if(flushCase)await flushCase();
+      }
+      if(!STScenarioExplorer.setDOE(el('settings-scenario-doe').checked)||!STPreferences.write('interfaceMode',mode))throw Error(__ST_TEXT__('settings.interface_mode_storage_error'));
+      applyMode?.(mode);
+      resetModeSelector(true);renderEngine();renderCaseCharts();
+      selectTab(document.querySelector('[data-settings-tab][aria-selected="true"]')?.dataset.settingsTab||'appearance');
+      el('settings-error').textContent='';window.dispatchEvent(new Event('st-save-policy-change'));
+    }catch(error){picker.value=previous;el('settings-error').textContent=error.message;STErrors.capture('settings-error',error);}
+    finally{modeChanging=false;picker.disabled=false;}
+  }
   function unlockMode(event){
     if(!el('settings-dialog').open||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.target.closest('input,select,textarea,[contenteditable]'))return;
     if(event.key.toLowerCase()!=='m'){modeCount=0;return;}
@@ -44,7 +69,7 @@ window.STSettings = (function() {
   }
   function flush(){return new Promise(function(resolve){waiters.push(resolve);write();});}
   async function close(){
-    if(removing||resetting||!await flush())return;
+    if(modeChanging||removing||resetting||!await flush())return;
     if(activeCase()) {
       var options=STPreferences.caseOptions(),seconds=Number(el('settings-autosave-seconds').value);
       if(!el('settings-save-section').classList.contains('hidden')) {
@@ -92,6 +117,7 @@ window.STSettings = (function() {
   }
   function clearDraft(){clearTimeout(timer);version=0;savedVersion=0;failure=null;settle(true);el('gemini-api-key').value='';el('settings-error').textContent='';}
   function init(){
+    el('settings-interface-mode').onchange=changeMode;
     el('settings-simulation-engine').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(this.value);renderEngine();};
     document.querySelectorAll('[data-settings-tab]').forEach(function(button){button.onclick=function(){selectTab(button.dataset.settingsTab);};button.onkeydown=function(event){var tabs=Array.from(document.querySelectorAll('[data-settings-tab]')).filter(function(tab){return !tab.classList.contains('hidden');}),index=tabs.indexOf(button);if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();index=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;selectTab(tabs[index].dataset.settingsTab,true);};});
     el('series-color-hue').oninput=function(){colorHue=Number(this.value);mapColorDraft();};

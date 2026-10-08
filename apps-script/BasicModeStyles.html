@@ -36,7 +36,7 @@ html[data-ui-mode=basic] #basic-conveyor-panel { display:none; }
 html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-240)),1fr)); align-items:start; }
 html[data-ui-mode=basic] .basic-machine { cursor:default; padding:var(--space-4); }
 html[data-ui-mode=basic] .basic-machine .equipment-fields { display:block; }
-html[data-ui-mode=basic][data-show-json=true] .basic-machine .equipment-json-details { display:block; }
+html[data-ui-mode=basic] .equipment-json-details { display:none !important; }
 html[data-ui-mode=basic] .basic-machine .equipment-grid { display:grid; }
 html[data-ui-mode=basic] .equipment-drag { display:none; }
 html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }

@@ -100,6 +100,7 @@ function createRuntime(input) {
     random,
     virtualSecond: 0,
     equipment,
+    equipmentById: new Map(equipment.map(unit => [unit.id, unit])),
     zones,
     events: [],
     samples: [],
@@ -634,7 +635,7 @@ function applyDueCommands(runtime) {
   while (runtime.commandIndex < runtime.commands.length) {
     const command = runtime.commands[runtime.commandIndex];
     if (command.atVirtualSecond > runtime.virtualSecond) return;
-    const equipment = runtime.equipment.find((item) => item.id === command.equipmentId);
+    const equipment = getEquipment(runtime, command.equipmentId);
     if (equipment && isSupportedAction(command.action)) {
       applyCommand(runtime, equipment, command.action);
     }
@@ -1012,7 +1013,7 @@ function activeBackupControl(equipment) {
 }
 
 function getEquipment(runtime, equipmentId) {
-  return runtime.equipment.find((equipment) => equipment.id === equipmentId);
+  return runtime.equipmentById.get(equipmentId);
 }
 
 function getZoneEntrySpace(zone) {
