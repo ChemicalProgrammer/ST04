@@ -2,7 +2,7 @@
 // Optional presentation layer. The original theme and simulation data are untouched.
 window.STAppearance = (function() {
   var root = document.documentElement;
-  var defaultSecondary = 'encore';
+  var defaultSecondary = 'encore', colorOrigin = null;
   function secondary() {
     var saved = STPreferences.read('secondaryAccent');
     return Object.prototype.hasOwnProperty.call(STThemeResources.palettes, saved) ? saved : defaultSecondary;
@@ -45,16 +45,55 @@ window.STAppearance = (function() {
     if (palette) Object.entries(STThemeResources.palettes).forEach(function(entry) {
       var button = document.createElement('button');
       button.type = 'button';
-      button.className = 'secondary-accent-choice';
+      button.className = 'secondary-accent-choice theme-color-choice';
       button.dataset.secondaryAccent = entry[0];
-      button.style.background = entry[1].hex || entry[1].light.accent;
-      button.style.color = entry[1].light.onAccent;
+      var swatch = document.createElement('span');
+      swatch.className = 'theme-color-swatch';
+      swatch.setAttribute('aria-hidden','true');
+      swatch.style.background = entry[1].hex || entry[1].light.accent;
+      swatch.style.color = entry[1].light.onAccent;
+      swatch.innerHTML = STIcons.svg('check');
+      var name = document.createElement('span');
+      name.className = 'theme-color-name';
+      name.textContent = entry[1].name;
+      button.append(swatch, name);
       button.title = entry[1].name;
       button.setAttribute('aria-label', entry[1].name + ' secondary color');
-      button.innerHTML = STIcons.svg('check');
       button.onclick = function() { change('secondaryAccent', entry[0]); };
       palette.appendChild(button);
     });
+    var dialog = document.getElementById('theme-color-dialog');
+    function selectColorTab(target, focus) {
+      document.querySelectorAll('[data-color-target]').forEach(function(tab) {
+        var selected = tab.dataset.colorTarget === target;
+        tab.setAttribute('aria-selected', String(selected));tab.tabIndex = selected ? 0 : -1;
+        if (selected && focus) tab.focus();
+      });
+      document.getElementById('theme-color-primary').classList.toggle('hidden',target !== 'primary');
+      document.getElementById('theme-color-secondary').classList.toggle('hidden',target !== 'secondary');
+      document.getElementById('theme-color-description').textContent = target === 'primary'
+        ? 'Primary colors apply to actions and selections.'
+        : 'Secondary colors apply to subtle headers and borders in the Elegant style.';
+    }
+    ['primary','secondary'].forEach(function(target) {
+      document.getElementById('choose-' + target + '-color')?.addEventListener('click', function() {
+        colorOrigin = this;selectColorTab(target);dialog.showModal();
+        var selected = document.querySelector('#theme-color-' + target + ' button[aria-pressed=true]');
+        selected?.focus({preventScroll:true});selected?.scrollIntoView({block:'nearest'});
+      });
+    });
+    document.querySelectorAll('[data-color-target]').forEach(function(tab) {
+      tab.onclick = function(){selectColorTab(tab.dataset.colorTarget);};
+      tab.onkeydown = function(event) {
+        if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+        event.preventDefault();
+        selectColorTab(event.key === 'Home' ? 'primary' : event.key === 'End' ? 'secondary' : tab.dataset.colorTarget === 'primary' ? 'secondary' : 'primary',true);
+      };
+    });
+    ['theme-color-close','theme-color-done'].forEach(function(id) {
+      document.getElementById(id)?.addEventListener('click',function(){dialog.close();});
+    });
+    dialog?.addEventListener('close',function(){if(colorOrigin?.isConnected)colorOrigin.focus();});
     document.getElementById('settings-visual-style')?.addEventListener('change', function(event) {
       change('visualStyle', event.target.value);
     });

@@ -969,7 +969,7 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
  }finally{h.dom.window.close();}
 });
 
-test('UI Basic: compact machine fields remain visible, palette has fourteen colors and simulation space is reclaimed',async()=>{
+test('UI Basic: compact machine fields remain visible, palette has all colors and simulation space is reclaimed',async()=>{
  const h=await setup({uiMode:'BASIC'});try{
   await h.click('#sign-in-button');await h.click('.open-case');
   const card=h.d.querySelector('.basic-machine');
@@ -979,7 +979,7 @@ test('UI Basic: compact machine fields remain visible, palette has fourteen colo
   }
   assert.equal(h.w.getComputedStyle(card._fields.querySelector('.equipment-name').closest('label')).display,'none');
   assert.match(card.querySelector('.basic-availability').textContent,/Avail.*%/);
-  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,14);
+  assert.equal(h.d.querySelectorAll('#accent-palette .accent-choice:not(.hidden)').length,57);
   assert(!h.d.querySelector('#accent-palette [data-accent="a-lorange"]').classList.contains('hidden'));
   assert.equal(h.d.querySelectorAll('#basic-run-controls [data-control] .icon').length,0);
   await h.click('[data-basic-view="simulation"]');
@@ -1873,14 +1873,14 @@ test('UI: Basic and Advance select SimPy per simulation, clears stale results an
  }finally{h.dom.window.close();}}
 });
 
-test('UI: Basic has precisely the requested fourteen palettes and shows the engine selector',async()=>{
+test('UI: Basic exposes all named colors without replacing a saved accent and shows the engine selector',async()=>{
  const h=await setup({uiMode:'BASIC',savedAccent:'amparo-blue'});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
   assert(!h.d.getElementById('settings-engine-section').classList.contains('hidden'));
   const colors=Array.from(h.d.querySelectorAll('.accent-choice:not(.hidden)')).map(b=>b.dataset.accent);
-  assert.deepEqual(colors,['a-lorange','adamite-green','boat-house','encore','football-field','glaucous','hole-in-one','imperial-yellow','mermaid-dreams','ocean-liner','poinsettia','redcurrant','thirsty-thursday','aegean-sea']);
-  assert.equal(h.d.documentElement.dataset.accent,'boat-house');
-  assert.equal(h.d.querySelector('.accent-choice[data-accent="boat-house"]').dataset.tooltip||h.d.querySelector('.accent-choice[data-accent="boat-house"]').title,'boat blues');
+  assert.deepEqual(colors,Object.keys(h.w.STThemeResources.palettes));
+  assert.equal(h.d.documentElement.dataset.accent,'amparo-blue');
+  assert.equal(h.d.querySelector('.accent-choice[data-accent="boat-house"] .theme-color-name').textContent,'boat house');
   await h.click('[data-accent="aegean-sea"]');assert.equal(h.d.documentElement.dataset.accent,'aegean-sea');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -2108,3 +2108,4 @@ test('UI: Gallery Gemini uses temporary history, stays separate from cases and e
   await h.click('#home-cases');await waitFor(()=>h.d.getElementById('toggle-gemini').parentElement.id==='cases-top-actions');assert.match(h.d.getElementById('gemini-messages').textContent,/How do I import/);assert(!h.d.getElementById('gemini-messages').textContent.includes('What does the app do?'));await h.click('#clear-gemini');assert.equal(h.d.querySelectorAll('.gemini-message').length,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
