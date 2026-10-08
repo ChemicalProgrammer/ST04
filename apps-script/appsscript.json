@@ -1,5 +1,5 @@
 {
-  "timeZone": "Etc/UTC",
+  "timeZone": "America/Mexico_City",
   "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
@@ -12,5 +12,8 @@
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "urlFetchWhitelist": [
+    "https://generativelanguage.googleapis.com/"
   ]
 }
