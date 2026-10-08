@@ -311,9 +311,10 @@ html[data-visual-style=elegant] .scenario-preview-status[data-state] { border:0;
 html[data-visual-style=elegant] .case-row { transition:background var(--duration-fast),border-color var(--duration-fast),box-shadow var(--duration-fast); }
 html[data-visual-style=elegant] .case-glyph { background:transparent; border:0; color:var(--secondary-text); }
 html[data-visual-style=elegant] .case-row:hover { background:color-mix(in srgb,var(--secondary-soft) 35%,var(--surface)); }
-html[data-visual-style=elegant] .cases-list.grid .case-row { border-top:2px solid var(--elegant-border); border-radius:var(--radius-lg); }
-html[data-visual-style=elegant] .cases-list.grid .case-row:hover { border-color:var(--secondary); box-shadow:var(--shadow); }
+html[data-visual-style=elegant] .cases-list.grid .case-row { border-top:3px solid var(--accent); border-radius:var(--radius-lg); }
+html[data-visual-style=elegant] .cases-list.grid .case-row:hover { border-color:var(--secondary); border-top-color:var(--accent); box-shadow:var(--shadow); }
 html[data-visual-style=elegant] .case-row:hover .case-name,html[data-visual-style=elegant] .case-row:has(.case-name:focus-visible) .case-name { color:var(--secondary-text); }
 html[data-visual-style=elegant] .cases-list.grid .case-actions { border-top-color:var(--elegant-border); }
+html[data-visual-style=elegant] .cases-list:not(.grid) .case-row { box-shadow:inset 3px 0 0 var(--accent); padding-left:var(--space-3); }
 @media(prefers-reduced-motion:reduce) { html[data-visual-style=elegant] .case-row { transition:none; } }
 </style>
