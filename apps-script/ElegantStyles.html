@@ -106,14 +106,20 @@ html[data-visual-style=elegant] :is(.table-scroll th,.comparison-section > h3) {
 html[data-visual-style=elegant] .gemini-panel { background:var(--surface); border-left-color:var(--elegant-border); }
 html[data-visual-style=elegant] .gemini-heading {
   background:var(--elegant-heading); border-bottom:1px solid var(--elegant-border);
-  border-radius:var(--radius-md); padding:var(--space-3);
+  border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); align-items:flex-start;
 }
-html[data-visual-style=elegant] .gemini-heading h2 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .gemini-heading h2 { color:var(--secondary-text); font-size:var(--font-card); line-height:1.25; }
+html[data-visual-style=elegant] .gemini-heading > div { min-width:0; padding-top:2px; }
+html[data-visual-style=elegant] #gemini-context { display:block; margin-top:var(--space-1); font-size:var(--font-secondary); line-height:1.35; overflow-wrap:anywhere; }
+html[data-visual-style=elegant] #gemini-context:empty { display:none; }
+html[data-visual-style=elegant] .gemini-heading > button { margin:0; flex-shrink:0; }
 html[data-visual-style=elegant] .gemini-message { border:1px solid var(--line); }
 html[data-visual-style=elegant] .gemini-message[data-role=user] { border-color:var(--accent-soft); }
 html[data-visual-style=elegant] .gemini-composer { border-top:1px solid var(--elegant-border); padding-top:var(--space-3); }
 html[data-visual-style=elegant] .dialog-heading { background:var(--elegant-heading); border-bottom-color:var(--elegant-border); }
 html[data-visual-style=elegant] .dialog-heading h2 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .dialog-actions > button:not(.icon-button):not(.danger):not(:disabled) { background:var(--accent); color:var(--on-accent); border-color:transparent; }
+html[data-visual-style=elegant] .dialog-actions > button:not(.icon-button):not(.danger):not(:disabled):hover { background:var(--accent-hover); }
 html[data-visual-style=elegant] .settings-tabs { background:var(--surface); }
 html[data-visual-style=elegant] .settings-tabs button[aria-selected=true] { border-color:transparent; box-shadow:inset 0 -2px 0 var(--accent); }
 html[data-visual-style=elegant] #settings-dialog .settings-section h3 { color:var(--secondary-text); }
@@ -179,6 +185,10 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
   html[data-visual-style=elegant] #basic-navigation { gap:var(--space-1); }
   html[data-visual-style=elegant] #basic-navigation button { padding-inline:var(--space-2); }
 }
+@media(prefers-reduced-motion:reduce) {
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select),
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker-icon { transition:none; }
+}
 @media(max-width:480px) { #theme-color-dialog .theme-color-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } #theme-color-dialog .theme-color-choice { gap:var(--space-2); } }
 @media(prefers-reduced-motion:reduce) {
   html[data-visual-style=elegant] :is(input,select,textarea,.equipment-card) { transition:none; }
@@ -187,8 +197,8 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
 /* Compact settings groups and a semantic saved-state indicator. */
 #settings-page-appearance .settings-colors { grid-template-columns:160px minmax(160px,260px); }
 html[data-ui-mode=basic] .settings-option-group > p { display:none; }
-#settings-dialog .gemini-settings { border:0; border-radius:0; padding:0; }
-#settings-dialog .settings-option-group + .settings-option-group { margin-top:var(--space-4); }
+#settings-dialog .gemini-settings { border:0; border-radius:0; padding:0; margin-top:0; }
+#settings-dialog .settings-section > .settings-option-group + .settings-option-group { margin-top:var(--space-4); }
 #settings-dialog .settings-option-group > label { margin-bottom:var(--space-2); }
 #settings-dialog .settings-option-group > p { margin-top:var(--space-2); font-size:var(--font-secondary); }
 #settings-unsaved[data-state=saved] { color:var(--selected-text); }
@@ -203,12 +213,19 @@ html[data-visual-style=elegant] select option:checked { color:var(--on-accent); 
   html[data-visual-style=elegant] select:not([multiple]):not([size]) {
     align-items:center; gap:var(--space-2); background-image:none; padding-right:var(--space-3);
   }
-  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker-icon { color:var(--secondary-text); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker-icon { color:var(--secondary-text); transition:rotate 160ms ease-out; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]):open::picker-icon { rotate:180deg; }
   html[data-visual-style=elegant] select:not([multiple]):not([size]):open { border-color:var(--accent); }
   html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select) {
     background:var(--surface); color:var(--ink); border:1px solid var(--elegant-border);
     border-radius:var(--radius-md); box-shadow:var(--shadow-dialog); padding:var(--space-1);
     max-height:min(320px,60dvh); max-width:calc(100vw - 24px); overflow:auto;
+    opacity:0; transform:translateY(-4px); transform-origin:top;
+    transition:opacity 160ms ease-out,transform 160ms ease-out,display 160ms allow-discrete,overlay 160ms allow-discrete;
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]):open::picker(select) { opacity:1; transform:translateY(0); }
+  @starting-style {
+    html[data-visual-style=elegant] select:not([multiple]):not([size]):open::picker(select) { opacity:0; transform:translateY(-4px); }
   }
   html[data-visual-style=elegant] select:not([multiple]):not([size]) option {
     display:flex; align-items:center; gap:var(--space-2); min-height:30px;
@@ -220,6 +237,10 @@ html[data-visual-style=elegant] select option:checked { color:var(--on-accent); 
   }
   html[data-visual-style=elegant] select:not([multiple]):not([size]) option::checkmark { margin-inline-start:auto; order:1; color:var(--on-accent); }
   html[data-visual-style=elegant] select:not([multiple]):not([size]) option:disabled { color:var(--disabled); background:var(--disabled-bg); }
+}
+@media(prefers-reduced-motion:reduce) {
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select),
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker-icon { transition:none; }
 }
 @media(max-width:480px) { #settings-page-appearance .settings-colors { grid-template-columns:1fr; } }
 </style>

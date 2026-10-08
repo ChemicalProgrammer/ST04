@@ -103,7 +103,7 @@ test('UI: remove Gemini key requires confirmation and immediately updates its sa
   assert.equal(key.value,'');assert.match(key.placeholder,/^\*+$/);
   assert.equal(button.parentElement,key.parentElement);assert.equal(button.getAttribute('aria-label'),'Remove API key');
   await h.click('#gemini-delete-key');assert(h.d.querySelector('.message-dialog[open]'));
-  await h.click('.message-dialog .ghost');assert(!button.disabled);assert(!h.calls.includes('deleteGeminiApiKey'));
+  await h.click('.message-dialog .dialog-actions .ghost');assert(!button.disabled);assert(!h.calls.includes('deleteGeminiApiKey'));
   await h.click('#gemini-delete-key');await h.click('.message-dialog .danger');
   await waitFor(()=>button.disabled && /No API key configured/.test(h.d.getElementById('gemini-key-status').textContent));
   assert.equal(h.calls.filter(name=>name==='deleteGeminiApiKey').length,1);
@@ -149,9 +149,9 @@ test('UI: automatic edits survive reload and simulation rename/delete uses reusa
   await waitFor(()=>h.storedCases()[0].equipment[0].name==='Automatically saved equipment');assert.equal(h.d.activeElement===name,false);
   assert.equal(h.d.getElementById('autosave-status').textContent,'Saved');
   await h.click('#clone-case');await waitFor(()=>h.storedCases()[0].simulations?.length===2);
-  await h.click('#rename-simulation');const dialog=h.d.querySelector('.message-dialog');assert(dialog.open);const input=dialog.querySelector('input');input.value='Proposed B';await h.click('.message-dialog button:last-child');
+  await h.click('#rename-simulation');const dialog=h.d.querySelector('.message-dialog');assert(dialog.open);const input=dialog.querySelector('input');input.value='Proposed B';await h.click('.message-dialog .dialog-actions button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations[1].name==='Proposed B');
-  await h.click('#delete-simulation');await h.click('.message-dialog button:first-child');assert.equal(h.storedCases()[0].simulations.length,2);
+  await h.click('#delete-simulation');await h.click('.message-dialog .dialog-actions button:first-child');assert.equal(h.storedCases()[0].simulations.length,2);
   await h.click('#delete-simulation');await h.click('.message-dialog .danger');await waitFor(()=>h.storedCases()[0].simulations.length===1);
   await h.click('#home-cases');await h.click('.open-case');assert.equal(h.d.querySelector('.equipment-name').value,'Automatically saved equipment');
   assert.deepEqual(Array.from(h.d.querySelector('#run-playback-rate').options).map(o=>o.value),['1','5','10','50','100','200','500','1000']);assert.deepEqual(h.errors,[]);
@@ -168,14 +168,14 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
   };
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   assert.equal(h.d.querySelectorAll('.scenario-tier-grid>article').length,4);assert(!h.d.querySelector('.scenario-tier-grid').textContent.includes('Not enough evidence'));assert.match(h.d.querySelector('.scenario-tier-grid').textContent,/Static inputs only/);
-  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   assert(!h.storedCases()[0].simulations[0].results);assert.equal(h.storedCases()[0].simulations[1].results,null);
   h.api.askGemini=request=>{
     const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
     assert(proposal);return {text:'Review these input changes.',proposals:[{...proposal,title:'Chat proposal'}]};
   };
   await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
   assert.equal(h.storedCases()[0].simulations[2].name,'Chat proposal');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -189,7 +189,7 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#toggle-gemini');
   h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');
   await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
+  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');
   await waitFor(()=>h.d.getElementById('status').textContent.includes('changed'));assert.equal(h.storedCases()[0].simulations.length,1);assert(!h.calls.includes('createScenario'));
   assert(h.calls.includes('getScenarioSourceSignature'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -198,7 +198,7 @@ test('UI + Apps Script: a local proposal with a different fingerprint is regener
  const h=await setup({realScenarioServer:true,fingerprintMismatch:true});try{
   stubScenarioGain(h);
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
-  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:last-child');
+  await h.click('.scenario-tier-grid .scenario-evaluate');await waitFor(()=>!h.d.querySelector('.scenario-tier-grid .scenario-create').disabled);await h.click('.scenario-tier-grid .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const simulations=h.storedCases()[0].simulations;
   assert.equal(simulations[1].clonedFromSimulationId,simulations[0].id);
@@ -1127,7 +1127,7 @@ test('UI: category searches are independent, Basic hides individual hypotheses, 
  }finally{h.dom.window.close();}
 });
 
-test('UI: reproduced gains with audit warnings require acknowledgement and remain review scenarios',async()=>{
+test('UI: reproduced gains with audit warnings remain creatable review scenarios',async()=>{
  const h=await setup({remember:true});try{
   const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply),apply=h.w.STScenarios.apply;
   h.w.STScenarios.apply=(source,changes)=>{const result=apply(source,changes);result.scenarioWarnings=[{equipmentId:changes[0].equipmentId,rule:'BACKUP_POSITION',before:'PASS',after:'FAIL'}];return result;};
@@ -1135,7 +1135,7 @@ test('UI: reproduced gains with audit warnings require acknowledgement and remai
   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-evaluate').click();
   await waitFor(()=>card.querySelector('.scenario-audit-warnings input'));
   const save=card.querySelector('.scenario-create'),ack=card.querySelector('.scenario-audit-warnings input');
-  assert(save.disabled);assert(card.querySelector('.scenario-audit-warnings').open);assert.match(card.textContent,/BACKUP_POSITION: PASS → FAIL/);
+  assert(!save.disabled);assert(card.querySelector('.scenario-audit-warnings').open);assert.match(card.textContent,/BACKUP_POSITION: PASS → FAIL/);
   ack.checked=true;ack.dispatchEvent(new h.w.Event('change'));assert.equal(save.disabled,false);save.click();
   assert(created.reviewed);assert.equal(created.evidence.engineeringReview,'ACKNOWLEDGED_REQUIRES_REVIEW');
   const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(evidence.engineeringReviewAcknowledged);assert(evidence.independentCheck.passed);
@@ -1261,13 +1261,13 @@ test('UI: Basic saves case edits and results only through the Save icon and prot
   await new Promise(resolve=>setTimeout(resolve,1200));assert.equal(h.storedCases()[0].name,original);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
   await h.click('#open-settings');assert(h.d.getElementById('settings-save-section').classList.contains('hidden'));await h.click('#settings-cancel');
   assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  await h.click('#home-cases');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');
+  await h.click('#home-cases');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:first-child');
   assert.equal(h.d.getElementById('case-name').value,'Manual draft');assert(!h.d.getElementById('case-sidebar').classList.contains('hidden'));
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].name==='Manual draft');
   h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=5;await h.click('[data-basic-view=simulation]');await h.click('#run-simulation');await h.click('#pause-simulation');
   const saves=h.calls.filter(c=>c==='saveCase').length;await new Promise(resolve=>setTimeout(resolve,1200));assert.equal(h.calls.filter(c=>c==='saveCase').length,saves);assert.equal(h.storedCases()[0].simulations[0].results,null);
   await h.click('#save-case');await waitFor(()=>!!h.storedCases()[0].simulations[0].results);
-  n.value='Discard this draft';n.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#home-cases');await h.click('.message-dialog button:nth-child(2)');await h.click('.open-case');
+  n.value='Discard this draft';n.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#home-cases');await h.click('.message-dialog .dialog-actions button:nth-child(2)');await h.click('.open-case');
   assert.equal(h.d.getElementById('case-name').value,'Manual draft');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -1358,14 +1358,15 @@ test('UI + Apps Script: High CAPEX creation saves the validated winner from manu
   await h.click('[data-basic-view=whatif]');const card=h.d.querySelector('.scenario-tier-grid').lastElementChild;
   let selection=0;for(const row of card.querySelectorAll('.scenario-change')){const input=row.querySelector('input[type=checkbox]');input.checked=selection++===0;input.dispatchEvent(new h.w.Event('change'));}
   card.querySelector('.scenario-search').click();for(let i=0;i<400&&card.querySelector('.scenario-evaluate').dataset.icon!=='search';i++)await settle();assert.equal(card.querySelector('.scenario-evaluate').dataset.icon,'search');
-  if(card.querySelector('.scenario-audit-warnings input')){const ack=card.querySelector('.scenario-audit-warnings input');ack.checked=true;ack.dispatchEvent(new h.w.Event('change'));}
   assert.equal(card.querySelector('.scenario-create').disabled,false,card.querySelector('.scenario-preview-status').textContent);
   assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog button:last-child');
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');if(card.querySelector('.scenario-audit-warnings'))assert.match(h.d.querySelector('.message-dialog').textContent,/Engineering review required/);
+  await h.click('.message-dialog .dialog-heading button');assert(!h.calls.includes('createScenario'));assert(!card.querySelector('.scenario-create').disabled);
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');
   await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const saved=h.storedCases()[0],scenario=saved.simulations[1];
   assert.equal(scenario.scenario.origin,'REVIEWED');assert(scenario.scenario.changes.length>0);assert.equal(JSON.stringify(saved.simulations[0].equipment),signature);assert.equal(scenario.results,null);
-  assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='HIGH'&&e.independentCheck?.passed));assert.deepEqual(h.errors,[]);
+  assert(saved.simulations[0].whatIf.evaluations.some(e=>e.searchScope==='HIGH'&&e.independentCheck?.passed));if(card.querySelector('.scenario-audit-warnings')){assert.equal(scenario.scenario.evidence.engineeringReview,'ACKNOWLEDGED_REQUIRES_REVIEW');assert(saved.simulations[0].whatIf.evaluations.some(e=>e.engineeringReviewAcknowledged));}assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -1488,7 +1489,7 @@ test('UI: a case clone made during catalog refresh survives a stale background r
 test('UI: gallery deletion requires confirmation and saves show dirty theme color without visible status text',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   const trash=h.d.querySelector('.delete-gallery-case');assert(trash);assert(trash.querySelector('svg'));assert.equal(trash.textContent,'');assert(trash.getAttribute('aria-label'));
-  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
+  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
   await h.click('.open-case');const save=h.d.getElementById('save-case');assert(!save.classList.contains('has-changes'));assert(save.disabled);
   const name=h.d.getElementById('case-name');name.value='Changed';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(save.classList.contains('has-changes'));
   assert(h.d.getElementById('autosave-status').classList.contains('sr-only'));
@@ -1595,7 +1596,7 @@ test('UI: gallery tools share the title row in cards while delete keeps its conf
   const card=h.d.querySelector('.case-row'),tools=card.querySelector('.case-tools'),meta=card.querySelector('.case-actions');
   assert.equal(h.w.getComputedStyle(card).display,'grid');assert.equal(h.w.getComputedStyle(tools).gridRow,'1');assert.equal(h.w.getComputedStyle(tools).gridColumn,'2');assert.equal(h.w.getComputedStyle(meta).gridColumn,'1 / -1');
   assert.equal(tools.querySelectorAll('button').length,2);assert(!meta.querySelector('button'));assert.equal(tools.querySelector('.delete-gallery-case').textContent,'');
-  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
+  await h.click('.delete-gallery-case');assert(h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:first-child');assert.equal(h.storedCases().length,1);assert(!h.calls.includes('deleteCase'));
   await h.click('#case-layout');assert(!h.d.getElementById('cases-list').classList.contains('grid'));assert.equal(h.d.querySelector('.case-row').querySelector('.case-tools').children.length,2);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2088,7 +2089,7 @@ test('UI: factory reset preserves Drive cases and restores them after reconnecti
   h.api.resetAppSettings=()=>{resetCount++;return {user:{email:'preview@example.test'},settings:{workspaceRootFolderId:''},gemini:{configured:false,model:'gemini-2.5-flash',prompts:[]},uiMode:'BASIC',cases:[]};};
   await h.click('.open-case');await h.click('#open-settings');await h.click('#settings-tab-storage');assert(h.d.getElementById('settings-factory-reset').disabled);
   await h.click('#settings-cancel');await h.click('#home-cases');await h.click('#cases-settings');assert(!h.visible('settings-tab-case'));assert(!h.visible('settings-tab-simulation'));assert(h.visible('settings-factory-section'));
-  await h.click('#settings-tab-storage');await h.click('#settings-factory-reset');await h.click('.message-dialog button.ghost');assert.equal(resetCount,0);
+  await h.click('#settings-tab-storage');await h.click('#settings-factory-reset');await h.click('.message-dialog .dialog-actions button.ghost');assert.equal(resetCount,0);
   await h.click('#settings-factory-reset');await h.click('.message-dialog button.danger');assert.equal(resetCount,1);await waitFor(()=>h.visible('auth-panel')||h.errors.length);assert(h.visible('auth-panel'),JSON.stringify(h.errors)+' '+h.d.getElementById('settings-error').textContent);assert.equal(h.d.getElementById('workspace-folder-id').value,'');assert.equal(h.w.localStorage.getItem('st.ui.v1.remember'),null);assert.deepEqual(h.storedCases(),before);assert(!h.calls.includes('deleteCase'));
   h.api.getBootstrap=()=>({...bootstrap(),settings:{workspaceRootFolderId:''},gemini:{configured:false,model:'gemini-2.5-flash',prompts:[]},uiMode:'BASIC',cases:[]});
   await h.click('#sign-in-button');await h.click('#cases-settings');assert(!h.visible('settings-factory-section'));
@@ -2122,5 +2123,24 @@ test('UI Basic: comparison shows three batch mean outcomes and omits Advance sec
   h.w.STComparison({activeCase:{name:'Test',simulations:[a,b]}},Number.isFinite).render();
   const target=h.d.getElementById('case-comparison-content');assert.equal(target.querySelectorAll('tbody tr').length,3);assert.equal(target.querySelectorAll('details').length,0);
   assert.match(target.querySelector('tbody tr').textContent,/50%80%/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: Basic validated search remains creatable after manual save and reopening',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
+  const before=h.storedCases()[0].simulations[0],equipment=JSON.stringify(before.equipment),apply=h.w.STScenarios.apply;
+  h.w.STScenarios.apply=(source,changes)=>{const result=apply(source,changes);result.scenarioWarnings=[{equipmentId:changes[0].equipmentId,rule:'BACKUP_POSITION',before:'PASS',after:'FAIL'}];return result;};
+  h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===equipment?50:51,outputCount:JSON.stringify(input.case.equipment)===equipment?100:101}}});
+  await h.click('[data-basic-view=whatif]');
+  let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
+  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  assert(card.querySelector('.scenario-audit-warnings'));assert(!card.querySelector('.scenario-create').disabled,card.querySelector('.scenario-preview-status').textContent);
+  await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
+  const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(evidence.independentCheck.passed);assert(!evidence.engineeringReviewAcknowledged);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');
+  card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled,'Saved CAPEX card lost its validated winner');assert(!card.querySelector('.scenario-audit-warnings input').checked);
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

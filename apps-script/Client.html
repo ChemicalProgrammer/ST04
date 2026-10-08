@@ -1399,8 +1399,15 @@ function renderRawJson() {
           if(origin==='LOCAL')renderSimulationAnalysis();
           throw new Error(__ST_TEXT__('scenario.stale'));
         }
-        var approved=await STDialog.confirm(__ST_TEXT__('scenario.create'),__ST_TEXT__('scenario.confirm'));
+        var engineeringWarnings=proposal.evidence?.engineeringWarnings||[],confirmation=__ST_TEXT__('scenario.confirm');
+        if(engineeringWarnings.length)confirmation+='\n\nEngineering review required. The simulated improvement does not resolve these warnings. The new scenario will remain marked for review:\n'+engineeringWarnings.map(function(w){return (source.equipment.find(function(e){return e.id===w.equipmentId;})?.name||w.equipmentId)+' · '+w.rule+': '+w.before+' → '+w.after;}).join('\n');
+        var approved=await STDialog.confirm(__ST_TEXT__('scenario.create'),confirmation);
         if(!approved)return;
+        if(engineeringWarnings.length){
+          proposal=Object.assign({},proposal,{evidence:Object.assign({},proposal.evidence,{engineeringReview:'ACKNOWLEDGED_REQUIRES_REVIEW'})});
+          (source.whatIf?.evaluations||[]).filter(function(entry){return entry.sourceSignature===proposal.sourceSignature&&JSON.stringify(entry.evaluatedChanges)===JSON.stringify(proposal.changes)&&entry.warnings?.length;}).forEach(function(entry){entry.engineeringReviewAcknowledged=true;});
+          window.dispatchEvent(new CustomEvent('st-whatif-change',{detail:{simulation:source}}));
+        }
         await flushCase(true);
         source=activePersistentSimulation();
         if(state.activeCase?.id!==caseId||source?.id!==simulationId||proposal.sourceSignature!==STScenarios.signature(source)){

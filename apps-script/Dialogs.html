@@ -40,6 +40,7 @@ window.STDialog = (function() {
       if (focus && focus.isConnected) focus.focus();
       task.resolve({action:id,value:input ? input.value.trim() : null}); next();
     }
+    var close=document.createElement('button');close.type='button';close.className='ghost icon-button';close.innerHTML=STIcons.svg('x');close.dataset.icon='x';close.setAttribute('aria-label',__ST_TEXT__('inspector.close'));close.title=close.getAttribute('aria-label');close.onclick=function(){finish('cancel');};heading.appendChild(close);
     buttons.forEach(function(spec) {
       var button = document.createElement('button'); button.type='button'; button.textContent=spec.label;
       button.className = spec.destructive ? 'danger' : spec.id === 'cancel' ? 'ghost' : '';
@@ -99,3 +100,4 @@ window.STErrors=(function(){
   return {register:register,capture:capture};
 })();
 </script>
+
