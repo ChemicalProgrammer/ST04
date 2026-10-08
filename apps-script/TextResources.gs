@@ -1,5 +1,9 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
+  "exports.sheet_title":"Equipment exported",
+  "exports.sheet_message":"A new Google Sheet was created in your workspace Exports folder, using the import layout. It includes the current Equipment inputs. Column F is installed maximum speed (configured speed when no maximum is defined); importing it initializes running speed from F. Use JSON to retain all simulator settings.",
+  "exports.sheet_open":"Open Google Sheets",
+  "exports.sheet_invalid":"Review the Equipment inputs before exporting.",
   "assistant.general_history":"Messages are saved with this simulation. No case data is sent while Case context is unchecked.",
   "assistant.case_context":"Case context",
   "assistant.gallery_history":"This conversation is temporary and is not saved. No case data is sent.",

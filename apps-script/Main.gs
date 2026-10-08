@@ -124,6 +124,10 @@ function previewSheetImport(request) {
   return response;
 }
 
+function exportEquipmentSheet(request) {
+  return executeServerAction_(function(user) { return exportEquipmentSheet_(request, user); });
+}
+
 function createScenario(request) {
   return scenarioResponse_(function(user) { return createScenario_(request,user); });
 }
@@ -144,3 +148,4 @@ function resetAppSettings() {
     return {user:user,settings:resetAppSettings_(),gemini:getGeminiClientConfig_(),uiMode:getInterfaceMode_(),cases:[],caseCatalog:{refreshRequired:false,complete:true}};
   });
 }
+

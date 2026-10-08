@@ -123,6 +123,7 @@
       document.getElementById('simulation-selector').onchange=function(){activatePersistentSimulation(this.value);this.value=state.activeSimulationId||'';};
       document.getElementById('delete-simulation').onclick = deleteSimulation;
       document.getElementById('add-equipment').addEventListener('click', addEquipment);
+      document.getElementById('export-equipment-sheet').onclick=exportEquipmentSheet;
       document.getElementById('case-editor-form').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
@@ -471,6 +472,22 @@ async function openCase(caseId, initialView) {
       var editor=collectCaseEditor();
       if (!editor) return null;
       return {equipment:cloneJson(editor.equipment),sourceImport:cloneJson(activePersistentSimulation()?.sourceImport||{})};
+    }
+
+    function exportEquipmentSheet() {
+      var button=document.getElementById('export-equipment-sheet');if(button.disabled)return;
+      button.closest('.export-menu').open=false;
+      var editor=collectCaseEditor(),simulation=activePersistentSimulation();
+      if(!editor||!simulation){showError({message:__ST_TEXT__('exports.sheet_invalid')});return;}
+      var colors=getComputedStyle(document.documentElement);
+      var request={caseId:editor.id,caseName:editor.name,simulationName:simulation.name,equipment:cloneJson(editor.equipment),
+        metadata:cloneJson(Object.assign({},editor.metadata,simulation.sourceImport?.metadata||{})),
+        theme:{primary:colors.getPropertyValue('--accent').trim(),secondary:colors.getPropertyValue('--secondary').trim()}};
+      button.disabled=true;button.dataset.busy='true';
+      callServer('exportEquipmentSheet',[request],function(response){
+        if(!response?.ok){showError(response?.error||{message:__ST_TEXT__('client.the_request_failed')});return;}
+        STDialog.open({title:__ST_TEXT__('exports.sheet_title'),message:__ST_TEXT__('exports.sheet_message'),link:{url:response.data.url,label:__ST_TEXT__('exports.sheet_open')}});
+      },function(){button.disabled=false;delete button.dataset.busy;});
     }
 
     function applySheetImport(result) {
@@ -2270,13 +2287,14 @@ function summarizeGeometrySources(sources, assumptions) {
       return seconds===null?'—':formatNumber(Number(seconds || 0) / 60) + __ST_TEXT__('client.min');
     }
 
-    function callServer(name, args, onSuccess) {
+    function callServer(name, args, onSuccess, onSettled) {
       var epoch = state.requestEpoch;
       state.pendingRequests += 1;
       activity();
       function done() {
         state.pendingRequests = Math.max(0,state.pendingRequests-1);
         activity();
+        if(onSettled)onSettled();
       }
       var runner = google.script.run
         .withFailureHandler(function(error) {

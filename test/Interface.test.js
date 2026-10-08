@@ -79,6 +79,25 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const w=dom.window,d=w.document;
  return {w,d,dom,errors,calls,media,storedCases:()=>copy(cases),api,click:async selector=>{if(selector.startsWith('.message-dialog'))await waitFor(()=>d.querySelector(selector));d.querySelector(selector).click();await settle();},visible:id=>!d.getElementById(id).classList.contains('hidden')};
 }
+test('UI: Equipment exports current inputs to Sheets in both modes, opens a safe link and recovers from failure',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({uiMode,autosaveSeconds:180});try{
+   await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+   let sent;h.api.exportEquipmentSheet=request=>{sent=JSON.parse(JSON.stringify(request));return {url:'https://docs.google.com/spreadsheets/d/new-export/edit'};};
+   const card=h.d.querySelector('.equipment-card');card.querySelector('.equipment-name').value='Edited before save';
+   const button=h.d.getElementById('export-equipment-sheet'),menu=button.closest('details');menu.open=true;
+   button.click();assert(button.disabled);assert(!menu.open);await waitFor(()=>h.d.querySelector('.message-dialog a'));
+   assert.equal(sent.caseId,'demo');assert.equal(sent.simulationName,'Simulation A');assert.equal(sent.equipment[0].name,'Edited before save');
+   assert(!('simulations' in sent));assert(!('results' in sent));assert.equal(h.calls.filter(call=>call==='saveCase').length,0);
+   const link=h.d.querySelector('.message-dialog a');assert.equal(link.href,'https://docs.google.com/spreadsheets/d/new-export/edit');assert.equal(link.target,'_blank');assert(link.rel.includes('noopener'));assert(!button.disabled);
+   await h.click('.message-dialog .dialog-actions button');
+   h.api.exportEquipmentSheet=()=>{throw Error('offline');};await h.click('#export-equipment-sheet');assert(!button.disabled);assert(h.d.getElementById('status').classList.contains('error'));
+   h.api.exportEquipmentSheet=()=>({url:'javascript:alert(1)'});await h.click('#export-equipment-sheet');await waitFor(()=>h.d.querySelector('.message-dialog'));assert.equal(h.d.querySelector('.message-dialog a'),null);
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
 test('UI: new cases open Equipment and existing cases remember their exact header tab without Drive writes',async()=>{
  for(const uiMode of ['BASIC','ADVANCE']){
   const h=await setup({uiMode});try{
@@ -685,7 +704,7 @@ test('UI: JSON dialog uses shared spacing and import action; revision stays inte
   assert(dialog.querySelector('.dialog-body #configuration-draft'));
   assert(dialog.querySelector('.dialog-actions #configuration-apply'));
   const button=h.d.getElementById('configuration-import'),entry=h.d.getElementById('open-json-import');
-  assert.equal(button.textContent,entry.textContent);assert.equal(button.className,entry.className);
+  assert.equal(button.textContent,entry.textContent);assert(button.classList.contains('secondary'));assert(entry.classList.contains('ghost'),'menu entries use the shared menu style');
   let opened=false;h.d.getElementById('configuration-file').click=()=>{opened=true;};
   await h.click('#configuration-import');assert(opened);assert(h.d.getElementById('configuration-file').hidden);
   await h.click('#configuration-close');assert(!dialog.open);assert.deepEqual(h.errors,[]);
