@@ -1347,7 +1347,7 @@ function renderRawJson() {
       }
       var replaySamples=result.samples||[];
       var stored = {
-        engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
+        inputSignature:result.inputSignature,unitOfFlow:result.unitOfFlow,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
         seed: run.seed,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
@@ -1358,7 +1358,7 @@ function renderRawJson() {
         accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
         replay: {
           caseId: result.caseId, unitOfFlow: result.unitOfFlow, engineVersion: result.engineVersion,
-          engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
+          inputSignature:result.inputSignature,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
           seed: result.seed, durationSeconds: result.durationSeconds,
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),

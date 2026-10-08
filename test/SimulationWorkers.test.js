@@ -10,7 +10,7 @@ function data(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('
 function browser({blocked=false}={}){
  const all=[],urls=new Map(),handlers={};let active=0,maxActive=0;
  class BrowserWorker{
-  constructor(url){if(blocked)throw Error('Blocked by policy');const code=urls.get(url);this.thread=new Worker("const {parentPort}=require('node:worker_threads');globalThis.self=globalThis;self.postMessage=data=>parentPort.postMessage(data);parentPort.on('message',data=>self.onmessage({data}));\n"+code,{eval:true});active++;maxActive=Math.max(maxActive,active);all.push(this);this.thread.on('message',data=>this.onmessage?.({data}));this.thread.on('error',()=>this.onerror?.());}
+  constructor(url){if(blocked)throw Error('Blocked by policy');const code=urls.get(url);assert(!code.includes('createSimPyBrowserEngine'),'JS workers must not load Python runtime plumbing');assert(!code.includes('planScenarios'),'JS workers need no scenario planners');this.thread=new Worker("const {parentPort}=require('node:worker_threads');globalThis.self=globalThis;self.postMessage=data=>parentPort.postMessage(data);parentPort.on('message',data=>self.onmessage({data}));\n"+code,{eval:true});active++;maxActive=Math.max(maxActive,active);all.push(this);this.thread.on('message',data=>this.onmessage?.({data}));this.thread.on('error',()=>this.onerror?.());}
   postMessage(value){this.thread.postMessage(value);}
   terminate(){if(this.dead)return;this.dead=true;active--;this.thread.terminate();}
  }
@@ -30,7 +30,7 @@ test('real worker threads preserve ordered seeds, events, statistics and metrics
  }finally{h.close();}
 });
 test('blocked workers fall back to sequential calculation with identical results',async()=>{
- const h=browser({blocked:true});try{const input=data(),expected=await simulateBatch(input,{laterSummaryOnly:true});const [actual,other]=await Promise.all([h.engine.simulateBatch(input),h.engine.simulateBatch(input)]);assert.deepEqual(plain(actual),plain(expected));assert.deepEqual(plain(other),plain(expected));assert.equal(h.maxActive(),0);}finally{h.close();}
+ const h=browser({blocked:true});try{const input=data(),expected=await simulateBatch(input,{laterSummaryOnly:true});const [actual,other]=await Promise.all([h.engine.simulateBatch(input),h.engine.simulateBatch(input)]);assert.equal(actual.result.inputSignature,h.engine.inputSignature(input));delete actual.result.inputSignature;delete other.result.inputSignature;assert.deepEqual(plain(actual),plain(expected));assert.deepEqual(plain(other),plain(expected));assert.equal(h.maxActive(),0);}finally{h.close();}
 });
 test('worker and fallback stream round-one frames before its final result without changing calculations',async()=>{
  for(const blocked of [false,true]){
@@ -40,7 +40,7 @@ test('worker and fallback stream round-one frames before its final result withou
    assert(chunks.length>1);assert.equal(chunks[0].calculatedThroughSeconds,0);assert.deepEqual(chunks[0].samples.map(s=>s.virtualSecond),[0]);
    const samples=chunks.flatMap(chunk=>chunk.samples);
    assert.equal(new Set(samples.map(s=>s.virtualSecond)).size,samples.length,'frames are deltas, not repeated full replays');
-   const expected=await simulateBatch(input,{laterSummaryOnly:true});assert.deepEqual(plain(result.result),plain(expected.result));
+   const expected=await simulateBatch(input,{laterSummaryOnly:true});assert.equal(result.result.inputSignature,h.engine.inputSignature(input));delete result.result.inputSignature;assert.deepEqual(plain(result.result),plain(expected.result));
    assert.deepEqual(samples,plain(result.result.samples));
   }finally{h.close();}
  }
@@ -62,3 +62,4 @@ test('cancelling one pool task cannot corrupt another task or accept a stale wor
   const second=pool.run({});await new Promise(r=>setTimeout(r,5));workers[0].onmessage({data:{type:'result',id:workers[0].task.id,response:{ok:false}}});const current=workers[1];current.onmessage({data:{type:'result',id:current.task.id,response:{ok:true}}});assert.deepEqual(await second,{ok:true});
  }finally{pool.close();}
 });
+

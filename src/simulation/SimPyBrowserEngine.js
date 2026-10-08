@@ -109,9 +109,19 @@ export function normalizeSimPyResult(raw, input, payload) {
     detailCoverage:raw.detailCoverage,diagnostics:raw.diagnostics,limitations:raw.limitations};
 }
 
+// Strip replay frames only AFTER Python finishes all events and calculations.
+// Exact shift boundaries are retained for the normalizer's per-shift metrics.
+export function compactSimPyResponse(response,payload) {
+  if(!response.ok)return response;
+  const samples=response.result.samples,shift=payload.run.shiftSeconds||payload.run.durationSeconds;
+  response.result.samples=samples.filter((frame,index)=>index===0||index===samples.length-1||Math.abs(frame.virtualSecond-Math.round(frame.virtualSecond/shift)*shift)<1e-7);
+  response.result.events=[];
+  return response;
+}
+
 // A module worker owns Python and SimPy. Cancelling terminates it immediately,
 // including synchronous Python execution, without SharedArrayBuffer/COOP/COEP.
-export function simPyWorkerMain() {
+export function simPyWorkerMain(compactResponse) {
   let pyodide;
   self.onmessage=async event=>{
     const task=event.data;
@@ -132,24 +142,26 @@ export function simPyWorkerMain() {
       phase='simulation';
       self.postMessage({type:'ready',id:task.id});
       pyodide.globals.set('_st_input',JSON.stringify(task.payload));
-      pyodide.globals.set('_st_progress',value=>self.postMessage({type:'progress',id:task.id,value}));
+      let lastProgressAt=0;
+      pyodide.globals.set('_st_progress',value=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value});}});
       try {
         const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress), allow_nan=False)');
-        self.postMessage({type:'result',id:task.id,response:JSON.parse(json)});
+        const response=JSON.parse(json);
+        self.postMessage({type:'result',id:task.id,response:task.summaryOnly?compactResponse(response,task.payload):response});
       } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');}
     } catch(error) {self.postMessage({type:'error',id:task.id,message:error.message,phase});}
   };
 }
 
-export function createSimPyBrowserEngine(host, files) {
-  let worker=null,url=null,nextId=0,serial=Promise.resolve(),abortActive=null;
+function createSerialSimPyBrowserEngine(host, files) {
+  let worker=null,url=null,nextId=0,serial=Promise.resolve(),abortActive=null,closed=false;
   function dispose() {worker?.terminate();worker=null;if(url)host.URL.revokeObjectURL(url);url=null;}
   function calculate(input,options,indexURL) {
-    if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
+    if(closed||options.cancelled?.())throw new Error('BATCH_CANCELLED');
     const payload=adaptSimPyInput(input);
     if(!host.Worker||!host.Blob||!host.URL?.createObjectURL)throw new Error('SimPy requires browser Web Workers. Choose the current engine in Settings.');
     if(!worker) {
-      url=host.URL.createObjectURL(new host.Blob(['('+simPyWorkerMain.toString()+')();'],{type:'text/javascript'}));
+      url=host.URL.createObjectURL(new host.Blob(['('+simPyWorkerMain.toString()+')('+compactSimPyResponse.toString()+');'],{type:'text/javascript'}));
       try {worker=new host.Worker(url,{type:'module'});}catch(error){dispose();throw error;}
     }
     return new Promise((resolve,reject)=>{
@@ -181,10 +193,10 @@ export function createSimPyBrowserEngine(host, files) {
         if(message.type==='result')finish(null,message.response);
         if(message.type==='error')finish(Object.assign(new Error(message.message),{code:message.phase==='runtime'?'SIMPY_RUNTIME_LOAD_FAILED':'SIMPY_MODEL_FAILED'}));
       };
-      activeWorker.postMessage({id,payload,files,indexURL:indexURL});
+      activeWorker.postMessage({id,payload,files,indexURL:indexURL,summaryOnly:options.summaryOnly===true});
     });
   }
-  host.addEventListener?.('pagehide',()=>{abortActive?.();dispose();});
+  host.addEventListener?.('pagehide',()=>{closed=true;abortActive?.();dispose();});
   return {run(input,options={}) {
     const job=serial.then(async()=>{
       const failures=[];
@@ -196,6 +208,21 @@ export function createSimPyBrowserEngine(host, files) {
       }
       throw Object.assign(new Error('DES could not download Python from cdn.jsdelivr.net or unpkg.com. Check network access to these HTTPS sources. '+failures.join(' | ')),{code:'SIMPY_RUNTIME_LOAD_FAILED'});
     });serial=job.catch(()=>{});return job;
-  },close(){abortActive?.();dispose();}};
+  },close(){closed=true;abortActive?.();dispose();}};
 }
 
+
+// Python runtimes are substantially heavier than JS workers. Reuse at most two,
+// or one on low-memory / dual-core devices, across every batch in this page.
+export function createSimPyBrowserEngine(host, files) {
+  const size=(host.navigator?.deviceMemory!=null&&host.navigator.deviceMemory<4)?1:Math.min(2,Math.max(1,(host.navigator?.hardwareConcurrency||2)-1));
+  const slots=[];
+  let closed=false;
+  return {size,run(input,options={}) {
+    if(closed||options.cancelled?.())return Promise.reject(new Error('BATCH_CANCELLED'));
+    let slot=slots.reduce((best,item)=>!best||item.pending<best.pending?item:best,null);
+    if(!slot||slot.pending>0&&slots.length<size){slot={engine:createSerialSimPyBrowserEngine(host,files),pending:0};slots.push(slot);}
+    slot.pending++;
+    return slot.engine.run(input,options).finally(()=>slot.pending--);
+  },close(){closed=true;slots.forEach(slot=>slot.engine.close());}};
+}

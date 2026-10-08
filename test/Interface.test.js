@@ -10,6 +10,8 @@ const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
 function stubScenarioGain(h){
+ // This call-order mock is deliberately non-deterministic and has no reusable provenance.
+ h.w.SimulatorEngine.inputSignature=undefined;
  let calls=0;
  h.w.SimulatorEngine.simulateBatch=async()=>{
   const gain=calls++%2;
@@ -1048,13 +1050,13 @@ test('UI: scenario limits and checkboxes preserve physical inputs in bounded lin
   const rows=card.querySelectorAll('.scenario-change'),limit=rows[0].querySelector('input[type=number]');limit.value='15';
   const run=h.w.SimulatorEngine.simulateBatch,calls=[];h.w.SimulatorEngine.simulateBatch=async(input,options)=>{calls.push(JSON.parse(JSON.stringify(input)));const response=await run(input,options);if(response.ok){const changed=input.case.equipment[1].processData.geometry.lactMm>10000||input.case.equipment[1].processData.accumulation.conveyorSpeedMmPerSecond!==500;response.result.batch.statistics.lineOeePercent.mean=changed?51:50;response.result.batch.statistics.throughputPerMinute.mean=changed?101:100;}return response;};
   card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
-  assert.match(card.querySelector('.scenario-preview-status').textContent,/OEE.*Throughput/);card.querySelector('.scenario-create').click();assert.equal(created.changes[0].after,15000);assert.equal(created.reviewed,true);
+  assert.match(card.querySelector('.scenario-preview-status').textContent,/Improvement reproduced/);card.querySelector('.scenario-create').click();assert.equal(created.changes[0].after,15000);assert.equal(created.reviewed,true);
   const exported=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim));assert.equal(exported.evaluations.length,1);const evaluation=exported.evaluations[0];assert.equal(evaluation.status,'IMPROVEMENT_REPRODUCED');assert.equal(evaluation.evaluatedChanges[0].after,15000);assert.equal(evaluation.selections[0].limit,15000);assert.equal(evaluation.run.seed,42);assert.equal(evaluation.independentCheck.seed,1000045);assert.equal(evaluation.independentCheck.passed,true);assert.equal(evaluation.delta.throughputPerMinute,1);assert.equal(evaluation.plantValidated,false);
   const report=h.w.STReports.whatIfHtml(sim,h.w.STScenarios.plan(sim));assert.match(report,/IMPROVEMENT_REPRODUCED/);assert.match(report,/Independent seeds/);assert.match(report,/15000/);
   const changed=JSON.parse(JSON.stringify(sim));changed.dynamicConfig.seed++;assert.equal(h.w.STReports.whatIfData(changed,h.w.STScenarios.plan(changed)).evaluations.length,0);
   const checkbox=rows[1].querySelector('input[type=checkbox]');checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);card.querySelector('.scenario-create').click();assert.equal(created.changes.length,1);
-  checkbox.checked=true;calls.length=0;card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').textContent.startsWith('Complete:')&&!card.querySelector('.scenario-create').disabled);
-  assert(calls.length>3);assert(calls.every(c=>[42,1000045].includes(c.run.seed)&&c.run.durationSeconds===10));assert(calls.some(c=>c.run.seed===1000045));assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert.match(card.querySelector('.scenario-preview-status').textContent,/candidates checked/);
+  checkbox.checked=true;calls.length=0;card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled&&card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  assert(calls.length<=3,'matching screening and validation results should be reused');assert(calls.every(c=>[42,1000045].includes(c.run.seed)&&c.run.durationSeconds===10));assert.equal(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].independentCheck.passed,true);assert(calls.every(c=>c.case.equipment[1].processData.geometry.lactMm<=15000));assert(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].trials>0);
   assert.equal(sim.equipment[1].processData.geometry.lactMm,10000);
   const count=calls.length;checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));await new Promise(resolve=>setTimeout(resolve,450));assert.equal(calls.length,count);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0].status,'NOT_EVALUATED');
   assert.deepEqual(h.errors,[]);
@@ -1070,7 +1072,8 @@ test('UI: regressions and gains that fail independent seeds cannot create recomm
   card.querySelector('.scenario-evaluate').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   assert(card.querySelector('.scenario-create').disabled);assert.match(card.textContent,/No demonstrated improvement/);assert.equal(calls,2);
   let evidence=h.w.STReports.whatIfData(sim,h.w.STScenarios.plan(sim)).evaluations[0];assert.equal(evidence.status,'NO_DEMONSTRATED_IMPROVEMENT');assert.equal(evidence.delta.throughputPerMinute,-1);assert.equal(evidence.independentCheck,undefined);
-  // A fresh card has an independent baseline cache. The screening seeds improve,
+  // Changed seeds invalidate the shared cache. The screening seeds improve,
+  sim.dynamicConfig={...sim.dynamicConfig,seed:1234};
   // the validation seeds regress. This must not become an approved recommendation.
   calls=0;h.w.SimulatorEngine.simulateBatch=async()=>{const i=calls++,gain=i===1?2:i===3?-2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   const second=h.w.STWhatIf.card(project,p=>{created=p;},sim.equipment,sim);h.d.body.append(second);
@@ -1313,12 +1316,12 @@ test('UI: finishing search validates the in-flight winner before creation in bot
    const sim=h.storedCases()[0].simulations[0],e=sim.equipment[1];e.processData.geometry.lactMm=10000;
    sim.dynamicConfig={durationSeconds:10,seed:42,rounds:5};
    const project={title:'Early winner',tier:'HIGH',kind:'CUSTOM',basis:'STATIC',explore:true,changes:[{equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}]};
-   let created,pending;const calls=[];
-   h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);await new Promise(resolve=>pending=resolve);const changed=input.case.equipment[1].processData.geometry.lactMm!==10000,gain=changed?(input.run.seed!==42&&outcome==='fail'?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+   let created;const pending=[];const calls=[];
+   h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);await new Promise(resolve=>pending.push(resolve));const changed=input.case.equipment[1].processData.geometry.lactMm!==10000,gain=changed?(input.run.seed!==42&&outcome==='fail'?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
    const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);const factor=card.querySelector('.scenario-doe-select');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));
    const stop=card.querySelector('.scenario-evaluate'),save=card.querySelector('.scenario-create');
-   async function finishBatch(){const release=pending;pending=null;release();await waitFor(()=>pending||stop.dataset.icon==='search');}
-   card.querySelector('.scenario-search').click();await waitFor(()=>pending);
+   async function finishBatch(){pending.shift()();await waitFor(()=>pending.length||stop.dataset.icon==='search');}
+   card.querySelector('.scenario-search').click();await waitFor(()=>pending.length);
    assert.match(stop.title,/Finish search/);
    if(outcome!=='empty'){await finishBatch();assert.equal(calls.length,2);}
    stop.click();assert.match(stop.title,/Cancel/);assert(save.disabled);
@@ -1326,12 +1329,12 @@ test('UI: finishing search validates the in-flight winner before creation in bot
    if(outcome==='empty'){
     assert.equal(calls.length,1);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'NO_DEMONSTRATED_IMPROVEMENT');
    }else{
-    assert.equal(calls.length,3);assert.equal(calls[2].run.seed,1000045);assert(save.disabled);assert.match(stop.title,/Cancel validation/);
-    if(outcome==='cancel'){stop.click();await finishBatch();assert.equal(calls.length,3);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'CANCELLED');}
+    assert.equal(calls.length,4);assert.equal(calls[2].run.seed,1000045);assert.equal(calls[3].run.seed,1000045);assert.equal(pending.length,2);assert(save.disabled);assert.match(stop.title,/Cancel validation/);
+    if(outcome==='cancel'){stop.click();pending.splice(0).forEach(release=>release());await waitFor(()=>stop.dataset.icon==='search');assert.equal(calls.length,4);assert(save.disabled);assert.equal(sim.whatIf.evaluations[0].status,'CANCELLED');}
     else{
-     await finishBatch();assert.equal(calls.length,4);assert(save.disabled);await finishBatch();
+     pending.shift()();await settle();assert(save.disabled);pending.shift()();await waitFor(()=>!save.disabled);
      const record=sim.whatIf.evaluations[0];assert(record.searchStoppedEarly);assert.equal(record.trialHistory.length,1);assert.equal(record.trialHistory[0].throughput,102);assert.equal(record.trialHistory[0].changes[0].after,15000);assert.match(record.doeSkippedReason,/finished early/);assert.equal(record.independentCheck.passed,outcome==='pass');assert.equal(save.disabled,false);if(outcome==='fail'){save.click();assert.equal(created.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');}
-     if(outcome==='pass'){save.click();assert.equal(created.changes[0].after,15000);assert.match(card.textContent,/search finished early/);}
+     if(outcome==='pass'){save.click();assert.equal(created.changes[0].after,15000);assert.match(card.textContent,/search finished early|Category search finished early/);}
     }
    }
    assert.equal(stop.dataset.icon,'search');assert.equal(e.processData.geometry.lactMm,10000);assert.deepEqual(h.errors,[]);
@@ -1664,9 +1667,9 @@ test('UI: DOE factors remain visible when disabled and can be enabled without un
   await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
   const card=Array.from(h.d.querySelectorAll('.scenario-tier-grid .analysis-recommendation')).find(card=>card.querySelector('.scenario-doe-factor'));assert(card);card.querySelector('.scenario-configure').click();
   const panel=card.querySelector('.scenario-doe'),toggle=card.querySelector('.scenario-doe-enabled');assert.equal(panel.hidden,false);assert.equal(toggle.checked,false);assert(card.querySelectorAll('.scenario-doe-factor').length>0);assert(card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled);
-  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STPreferences.read('scenarioDoe'),'yes');assert(!card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled);
+  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STScenarioExplorer.doeEnabled(),true);assert(card.querySelector('.scenario-doe-factor .scenario-doe-select').disabled,'search-derived factors require feasible trials before selection');
   card.querySelector('.scenario-config-dialog').close();await h.click('#open-settings');assert(h.d.getElementById('settings-interface-section').classList.contains('hidden'));assert(!h.d.getElementById('settings-scenario-doe').closest('section').classList.contains('hidden'));
-  h.d.getElementById('settings-scenario-doe').checked=false;await h.click('#settings-cancel');assert.equal(h.w.STPreferences.read('scenarioDoe'),'no');assert.equal(panel.hidden,false);assert.deepEqual(h.errors,[]);
+  h.d.getElementById('settings-scenario-doe').checked=false;await h.click('#settings-cancel');assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);assert.equal(panel.hidden,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 test('UI: Gemini formats Markdown during paragraph reveal and preserves Advance scenario cards',async()=>{

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {execFileSync} from 'node:child_process';
-import {adaptSimPyInput,normalizeSimPyResult,createSimPyBrowserEngine,SIMPY_ENGINE_ID} from '../src/simulation/SimPyBrowserEngine.js';
+import {adaptSimPyInput,normalizeSimPyResult,createSimPyBrowserEngine,compactSimPyResponse,SIMPY_ENGINE_ID} from '../src/simulation/SimPyBrowserEngine.js';
 const fixture=()=>JSON.parse(fs.readFileSync(new URL('./fixtures/simpy-pipeline.json',import.meta.url)));
 
 test('SimPy adapter resolves ST geometry without mutating the case and maps spatial sensor physics',()=>{
@@ -56,7 +56,12 @@ test('Spatial adapter and actual SimPy result preserve physical metrics and fini
  const payload=adaptSimPyInput(input);
  const code='import sys,json; sys.path[:0]=["src/simulation/python","src/simulation/python/vendor/simpy-4.1.2-py3-none-any.whl"]; from st_simpy_engine import simulate_line; print(json.dumps(simulate_line(json.load(sys.stdin)),allow_nan=False))';
  const response=JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify(payload),encoding:'utf8'}));assert.equal(response.ok,true);
- const result=normalizeSimPyResult(response.result,input,payload);assert.equal(result.engineVersion,'0.4.0-experimental');
+ const compact=compactSimPyResponse(JSON.parse(JSON.stringify(response)),payload);
+ assert(compact.result.samples.length<response.result.samples.length);assert.equal(compact.result.events.length,0);
+ const reduced=normalizeSimPyResult(compact.result,input,payload);
+ const result=normalizeSimPyResult(response.result,input,payload);
+ for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts','diagnostics'])assert.deepEqual(reduced[key],result[key],key);
+ assert.equal(result.engineVersion,'0.4.0-experimental');
  assert.equal(result.summary.materialBalance.residualUnits,0);assert.equal(result.summary.totalOverflowUnits,0);assert.equal(result.summary.lineOeePercent,null);assert.equal(result.shifts.length,3);
  assert(result.summary.totalMicroStopSeconds>0);const zone=result.samples.at(-1).accumulationZones[0];assert.equal(zone.physicalModelEnabled,true);assert.equal(zone.prime.configured,true);assert(Array.isArray(zone.positionsMm));assert.equal(zone.overflowUnits,0);
  function finite(value){if(typeof value==='number')assert(Number.isFinite(value));if(value&&typeof value==='object')Object.values(value).forEach(finite);}finite(result);assert.doesNotThrow(()=>JSON.parse(JSON.stringify(result)));
@@ -76,4 +81,17 @@ test('Python model errors do not trigger runtime fallback or silently change eng
  class Worker {postMessage(task){posts++;queueMicrotask(()=>this.onmessage({data:{id:task.id,type:'error',phase:'model',message:'Invalid Python model'}}));}terminate(){}}
  const host={Worker,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout,clearTimeout,setInterval,clearInterval};
  await assert.rejects(createSimPyBrowserEngine(host,{}).run(fixture()),error=>error.code==='SIMPY_MODEL_FAILED'&&error.message==='Invalid Python model');assert.equal(posts,1);
+});
+
+test('DES pool uses two independent runtimes, reuses them and bounds queued jobs',async()=>{
+ let live=0,maxLive=0;const workers=[];
+ class Worker {constructor(){workers.push(this);live++;maxLive=Math.max(maxLive,live);}postMessage(task){this.task=task;}terminate(){live--;}}
+ const host={Worker,Blob,navigator:{hardwareConcurrency:8,deviceMemory:8},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout,clearTimeout,setInterval,clearInterval};
+ const engine=createSimPyBrowserEngine(host,{});assert.equal(engine.size,2);
+ let cancelled=false;
+ const jobs=Array.from({length:5},()=>engine.run(fixture(),{cancelled:()=>cancelled}));
+ const settled=Promise.allSettled(jobs);
+ await new Promise(resolve=>setTimeout(resolve,10));assert.equal(workers.length,2);assert.equal(maxLive,2);
+ cancelled=true;const results=await settled;assert(results.every(r=>r.reason.message==='BATCH_CANCELLED'));assert.equal(live,0);engine.close();
+ const small=createSimPyBrowserEngine({...host,navigator:{hardwareConcurrency:8,deviceMemory:2}},{});assert.equal(small.size,1);small.close();
 });
