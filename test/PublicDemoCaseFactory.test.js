@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
+import { planScenarios, applyScenarioChanges } from '../src/analysis/ScenarioPlanner.js';
+
 import { simulateLine } from '../src/simulation/LineSimulationEngine.js';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
@@ -64,12 +66,45 @@ test('public demo factory creates a runnable 13-step Case with explicit provenan
 
   const response = simulateLine({
     case: JSON.parse(JSON.stringify(caseModel)),
-    run: { durationSeconds: 300, tickSeconds: 1, sampleEverySeconds: 5, seed: 20260909 }
+    run: caseModel.simulations[0].dynamicConfig
   });
   assert.equal(response.ok, true);
   assert.ok(response.result.summary.outputCount > 0);
   const zoneMetrics = Object.values(response.result.accumulationZoneMetrics);
   assert.equal(zoneMetrics.every((zone) => zone.modelOrigin === 'FLOWPILOT_ENGINEERING'), true);
-  assert.equal(zoneMetrics.every((zone) => zone.engineering.audit.status !== 'FAIL'), true);
+  assert.equal(zoneMetrics.some((zone) => zone.engineering.audit.status === 'WARNING'), true); // Deliberately undersized accumulation is the High CAPEX opportunity.
 });
 
+
+// Compare the same failures in baseline and hypotheses, then use a separate seed block.
+test('CAPEX demo has low baseline efficiency and reproducible opportunities in all three tiers', () => {
+  const factory = vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script/PublicDemoCaseFactory.gs'), 'utf8'), factory);
+  const simulation = JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_().simulations[0]));
+  const plan = planScenarios(simulation), seen = new Set();
+  const zero = plan.candidates.filter(p => p.tier === 'ZERO' && p.canApply).flatMap(p => p.changes).filter(c => {
+    const key = c.equipmentId + ':' + c.path;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  const medium = simulation.whatIf.externalOptions.find(p => p.tier === 'MEDIUM').changes;
+  const high = plan.candidates.find(p => p.tier === 'HIGH' && p.equipmentId === 'conveyor-6' && p.canApply).changes;
+  const candidates = [zero, medium, high].map(changes => applyScenarioChanges(simulation, changes));
+  assert(candidates.every(candidate => !candidate.scenarioWarnings.length));
+  assert(medium.every(change => change.external && change.justification.includes('Synthetic demo')));
+  function mean(equipment, offset) {
+    return [0, 1, 2].reduce((sum, round) => {
+      const response = simulateLine({ case: { id: 'demo-check', equipment }, run: { ...simulation.dynamicConfig, seed: simulation.dynamicConfig.seed + offset + round } });
+      assert(response.ok);
+      return sum + response.result.summary.lineOeePercent / 3;
+    }, 0);
+  }
+  for (const offset of [0, 1000003]) {
+    const baseline = mean(simulation.equipment, offset);
+    assert(baseline > 0 && baseline < 50);
+    for (const candidate of candidates) {
+      assert(mean(candidate.equipment, offset) > baseline + .1);
+      assert.deepEqual(candidate.equipment.map(e => e.noiseProfile.reliability), simulation.equipment.map(e => e.noiseProfile.reliability));
+    }
+  }
+});

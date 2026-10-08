@@ -141,7 +141,7 @@ html[data-ui-mode=basic] .scenario-current .scenario-basic-metrics { padding:var
 .export-menu > summary.icon-button { list-style:none; }
 .export-menu > summary.icon-button::-webkit-details-marker { display:none; }
 .editor-subheading .icon-button:hover,.export-menu > summary.icon-button:hover { background:var(--surface-hover); color:var(--ink); }
-.scenario-activity { width:100%; height:6px; accent-color:var(--accent); margin:var(--space-3) 0; }
+.scenario-activity { width:100%; height:var(--state-border-width); margin:var(--space-3) 0; }
 .scenario-activity[hidden] { display:none; }
 html[data-ui-mode=basic] .scenario-preview-status,
 html[data-ui-mode=basic] .scenario-search-progress { display:none; }
@@ -152,10 +152,7 @@ html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-c
 html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-header { margin:0; padding:0; border:0; width:100%; flex-direction:row; align-items:center; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .basic-card-data { display:none; }
 
-.scenario-activity { height:9px; accent-color:var(--accent); color:var(--accent); background:var(--surface-soft); }
-.scenario-activity::-webkit-progress-bar { background:var(--surface-soft); border-radius:var(--radius-sm); }
-.scenario-activity::-webkit-progress-value { background:var(--accent); }
-.scenario-activity::-moz-progress-bar { background:var(--accent); }
+.scenario-activity { background:var(--surface-soft); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation { border-left:var(--state-border-width) solid var(--muted); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > h4.scenario-current-title { align-self:flex-start; padding:var(--space-2) var(--space-3); min-height:0; line-height:var(--leading-body); background:var(--surface-soft); border-radius:var(--size-99); }
 .export-menu > div > button { border:0; box-shadow:none; background:transparent; color:var(--ink); border-radius:var(--radius-sm); min-height:var(--control-height); padding:var(--space-2) var(--space-3); margin:0; text-align:left; justify-content:flex-start; }
@@ -171,7 +168,9 @@ html[data-ui-mode=basic] #run-panel > .section-heading { display:none; }
 .basic-options-heading { display:flex; align-items:center; justify-content:space-between; min-height:var(--control-height); gap:var(--space-3); margin-bottom:var(--section-gap); }
 .basic-options-heading #basic-run-options-title { margin:0; }
 .scenario-activity { overflow:hidden; border-radius:var(--radius-sm); }
-.scenario-activity > span { display:block; width:30%; height:100%; background:var(--accent); animation:loading-progress var(--duration-loading) ease-in-out infinite alternate; }
+.scenario-activity > span { display:block; width:0; height:100%; background:var(--accent); transition:width 120ms linear; }
+.scenario-progress-label { display:flex; justify-content:space-between; gap:var(--space-2); color:var(--muted); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
+.scenario-progress-label[hidden] { display:none; }
 
 #settings-dialog .settings-case-options { display:grid; gap:var(--space-3); }
 #settings-dialog .settings-case-options label { margin:0; }
