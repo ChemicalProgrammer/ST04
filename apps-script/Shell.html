@@ -5,6 +5,7 @@ window.STShell = function(state,actions) {
   function sync() {
     STSettings.applyCaseCharts();
     var active=Boolean(state.activeCase),view=active?(state.uiView||'simulation'):'cases';
+    if(active)actions.rememberView?.(view);
     var connected=Boolean(state.bootstrap?.settings?.workspaceRootFolderId);
     ['cases','editor','run','results','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
     document.getElementById('application').classList.toggle('case-open',active);
@@ -76,3 +77,4 @@ window.STShell = function(state,actions) {
   return {init:init,sync:sync,toast:toast};
 };
 </script>
+

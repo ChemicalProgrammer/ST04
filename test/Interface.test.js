@@ -78,6 +78,48 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const w=dom.window,d=w.document;
  return {w,d,dom,errors,calls,media,storedCases:()=>copy(cases),api,click:async selector=>{if(selector.startsWith('.message-dialog'))await waitFor(()=>d.querySelector(selector));d.querySelector(selector).click();await settle();},visible:id=>!d.getElementById(id).classList.contains('hidden')};
 }
+test('UI: new cases open Equipment and existing cases remember their exact header tab without Drive writes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({uiMode});try{
+   await h.click('#sign-in-button');await h.click('#show-new-case');
+   h.d.getElementById('new-case-name').value='New line';
+   h.d.getElementById('new-case-form').dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));
+   await waitFor(()=>h.visible('editor-panel')&&h.d.documentElement.dataset.headerView==='equipment');
+   assert.equal(h.d.documentElement.dataset.headerView,'equipment');
+   await h.click('#home-cases');await h.click('.open-case');
+   for(const tab of uiMode==='BASIC'?['conveyors','vgraph','simulation','whatif','equipment']:['vgraph','simulation','whatif','equipment']){
+    await h.click('[data-basic-view="'+tab+'"]');
+    assert.equal(h.d.documentElement.dataset.headerView,tab);
+    await h.click('#home-cases');await h.click('.open-case');
+    assert.equal(h.d.documentElement.dataset.headerView,tab);
+   }
+   assert.equal(h.calls.filter(name=>name==='saveCase').length,0);
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
+test('UI: unavailable comparison and corrupt remembered tabs fall back safely on reopen',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  await h.click('#sign-in-button');
+  // Use the same configured workspace scope as the client.
+  const folder=h.api.getBootstrap().settings.workspaceRootFolderId;
+  const scoped='caseView.'+JSON.stringify(['preview@example.test',folder,'demo']);
+  h.w.STPreferences.write(scoped,JSON.stringify({view:'comparison',basicView:'comparison'}));
+  await h.click('.open-case');assert.equal(h.d.documentElement.dataset.headerView,'equipment');
+  await h.click('#home-cases');h.w.STPreferences.write(scoped,'{invalid');
+  await h.click('.open-case');assert.equal(h.d.documentElement.dataset.headerView,'simulation');
+  await h.click('#home-cases');
+  const record=h.api.getCase('demo');
+  const sibling=JSON.parse(JSON.stringify(record.simulations[0]));sibling.id='second';sibling.name='Second';
+  record.simulations.push(sibling);record.expectedRevision=record.revision;h.api.saveCase(record);
+  await h.click('.open-case');await h.click('[data-basic-view="comparison"]');
+  await h.click('#home-cases');await h.click('.open-case');
+  assert.equal(h.d.documentElement.dataset.headerView,'comparison');assert(h.visible('comparison-panel'));
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
 test('UI: cases-only entry, accessible navigation, theme settings and remembered access',async()=>{
  const h=await setup();try{
   assert.equal(h.d.documentElement.dataset.theme,h.w.STPreferences.automaticThemeAt(new h.w.Date()));assert(h.visible('auth-panel'));assert(!h.visible('application'));

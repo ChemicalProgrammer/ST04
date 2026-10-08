@@ -36,7 +36,17 @@
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
     var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
-    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
+    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
+    function caseViewKey(caseId) {
+      return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
+    }
+    function rememberCaseView(view) {
+      if(!state.activeCase||state.restoringCaseView||!['editor','simulation','results','whatif','comparison'].includes(view))return;
+      var key=caseViewKey(state.activeCase.id);
+      var basicView=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':state.basicView==='vgraph'?'vgraph':null):view;
+      var saved=JSON.stringify({view:view,basicView:basicView});
+      if(STPreferences.read(key)!==saved)STPreferences.write(key,saved);
+    }
     function navigateView(view) {
       if (!state.activeCase) return false;
       if (!syncPersistentSimulation()) return false;
@@ -308,7 +318,7 @@
         if (!response.ok) return showError(response.error);
         input.value = '';
         toggle('new-case-form', false);
-        openCase(response.data.id);
+        openCase(response.data.id,'editor');
         initialize();
       });
     }
@@ -320,7 +330,7 @@ function createPublicDemoCase() {
       callServer('createPublicDemoCase', [], function(response) {
         setBusy('create-public-demo-case', false);
         if (!response.ok) return showError(response.error);
-        openCase(response.data.id);
+        openCase(response.data.id,'editor');
         initialize();
       });
     }
@@ -351,14 +361,21 @@ function createPublicDemoCase() {
       });
     }
 
-async function openCase(caseId) {
+async function openCase(caseId, initialView) {
       try{if(!await leaveCase())return;}catch(error){showError(error);return;}
       var sequence = ++state.openSequence;
       callServer('getCase', [caseId], function(response) {
         if(sequence !== state.openSequence) return;
         if (!response.ok) return showError(response.error);
         cancelRoundSession();stopPlaybackTimer();
+        var preference=null;
+        try{preference=JSON.parse(STPreferences.read(caseViewKey(caseId)));}catch(ignore){}
+        var rememberedView=initialView||preference?.view;
+        if(!['editor','simulation','results','whatif','comparison'].includes(rememberedView))rememberedView='simulation';
+        if(rememberedView==='comparison'&&(response.data.simulations||[]).length<2)rememberedView='editor';
+        state.restoringCaseView=true;
         state.activeCase = response.data;
+        state.basicView=initialView?'equipment':['equipment','conveyors','results','vgraph','simulation','whatif','comparison'].includes(preference?.basicView)?preference.basicView:null;
         autosave.reset();
         STPreferences.initializeCaseOptions();configureSaving();
         toggle('cases-panel', false);
@@ -371,6 +388,8 @@ async function openCase(caseId) {
         state.run.result = null;
         state.run.configuration = null;
         initializePersistentSimulations();
+        state.restoringCaseView=false;
+        navigateView(rememberedView);
         setStatus(response.data.storageMigrationPending?__ST_TEXT__('client.case_loaded_migration_pending'):__ST_TEXT__('client.case_loaded'));
       });
     }
