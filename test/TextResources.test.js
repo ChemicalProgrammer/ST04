@@ -47,7 +47,7 @@ test('production includes resolve conveyor attribute templates from raw source b
  const fragment=ctx.include_('BrandConveyor');assert(!fragment.includes('<?'));assert(!fragment.includes('&lt;?'));
  const dom=new JSDOM(fragment),conveyor=dom.window.document.querySelector('.brand-conveyor');
  assert.equal(conveyor.getAttribute('aria-label'),ctx.ST_TEXT_RESOURCES['brand.motion_label']);assert.equal(conveyor.title,ctx.ST_TEXT_RESOURCES['brand.motion_keys']);
- assert.equal(dom.window.document.querySelectorAll('script').length,0);assert.equal(conveyor.querySelectorAll('.brand-roller').length,4);dom.window.close();
+ assert.equal(dom.window.document.querySelectorAll('script').length,0);assert.equal(conveyor.querySelectorAll('.brand-bottles path').length,8);dom.window.close();
  const webapp=fs.readFileSync('apps-script/WebApp.html','utf8');
  for(const name of new Set([...webapp.matchAll(/include_\('([A-Za-z0-9]+)'\)/g)].map(match=>match[1]))) {
   const included=ctx.include_(name);assert(!included.includes('<?'),name);assert(!/__ST_(?:HTML_)?TEXT__\('/.test(included),name);

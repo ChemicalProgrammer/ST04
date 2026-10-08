@@ -2,11 +2,15 @@
 
 `BrandConveyor.html` is a shared inline SVG after the product name on the
 welcome card and About dialog. `BrandConveyorStyles.html` defines the primary
-bottles, secondary conveyor, continuously moving belt marks and rotating
-rollers. It has no external assets or animation timers.
+bottle silhouettes and secondary conveyor with a subtly moving contour.
+Seven bottles are visible across the longer belt. Both colors are solid, with
+no highlights, opacity, outlines, frame or gradient. The animation and icon
+share one vertically centered row in About. It has no external assets or timers.
 
 `BrandConveyorMotion.html` uses animation playback rates for seamless speed
 changes. Press − to slow down or + (also =) to speed up, from 0.25× to 4×.
+Left and right arrows choose belt direction. CSS reverses the repeating loop;
+the cycle position is mirrored to keep the silhouettes in place when reversing.
 Keys apply only on Welcome/About and do not intercept input fields or another
 open dialog. Both instances share a session-local rate; hidden instances pause.
 The reduced-motion preference disables the animation.

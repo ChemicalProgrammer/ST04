@@ -1,21 +1,27 @@
 <script>
 window.STBrandConveyor=(function(){
-  var speed=1,steps=[.25,.5,.75,1,1.5,2,3,4],observer;
+  var speed=1,direction='right',steps=[.25,.5,.75,1,1.5,2,3,4],observer;
   function visible(node){return !node.closest('.hidden')&&!node.closest('[hidden]')&&(!node.closest('dialog')||node.closest('dialog').open);}
   function sync(){document.querySelectorAll('.brand-conveyor').forEach(function(node){
-    var label=__ST_TEXT__('brand.motion_keys')+' · '+speed+'×';node.title=label;node.setAttribute('aria-label',__ST_TEXT__('brand.motion_label')+' · '+label);
-    node.getAnimations?.({subtree:true}).forEach(function(animation){if(animation.updatePlaybackRate)animation.updatePlaybackRate(speed);else animation.playbackRate=speed;if(document.hidden||!visible(node))animation.pause();else animation.play();});
+    var reversed=node.dataset.direction&&node.dataset.direction!==direction;node.dataset.direction=direction;
+    var label=__ST_TEXT__('brand.motion_keys')+' · '+speed+'× '+(direction==='left'?'←':'→');node.title=label;node.setAttribute('aria-label',__ST_TEXT__('brand.motion_label')+' · '+label);
+    node.getAnimations?.({subtree:true}).forEach(function(animation){
+      // Mirror cycle time as CSS reverses direction, retaining the visible position.
+      if(reversed&&Number.isFinite(animation.currentTime)){var duration=animation.effect?.getTiming?.()?.duration;if(Number.isFinite(duration)&&duration>0)animation.currentTime=(Math.floor(animation.currentTime/duration)+1)*duration-animation.currentTime%duration;}
+      if(animation.updatePlaybackRate)animation.updatePlaybackRate(speed);else animation.playbackRate=speed;if(document.hidden||!visible(node))animation.pause();else animation.play();
+    });
   });}
   function key(event){if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable=false])'))return;
     var welcome=document.getElementById('auth-panel'),about=document.getElementById('app-info-dialog');
     if(!(welcome&&!welcome.classList.contains('hidden'))&&!about?.open)return;
     var modal=document.querySelector('dialog[open]');if(modal&&modal!==about)return;
-    var direction=['+','='].includes(event.key)?1:['-','_'].includes(event.key)?-1:0;if(!direction)return;
-    event.preventDefault();speed=steps[Math.max(0,Math.min(steps.length-1,steps.indexOf(speed)+direction))];sync();
+    if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();direction=event.key==='ArrowLeft'?'left':'right';sync();return;}
+    var change=['+','='].includes(event.key)?1:['-','_'].includes(event.key)?-1:0;if(!change)return;
+    event.preventDefault();speed=steps[Math.max(0,Math.min(steps.length-1,steps.indexOf(speed)+change))];sync();
   }
   document.addEventListener('DOMContentLoaded',function(){document.addEventListener('keydown',key);document.addEventListener('visibilitychange',sync);observer=new MutationObserver(sync);
     ['auth-panel','app-info-dialog'].forEach(function(id){var node=document.getElementById(id);if(node)observer.observe(node,{attributes:true,attributeFilter:['class','open']});});sync();
   });
-  return {speed:function(){return speed;},sync:sync};
+  return {speed:function(){return speed;},direction:function(){return direction;},sync:sync};
 })();
 </script>
