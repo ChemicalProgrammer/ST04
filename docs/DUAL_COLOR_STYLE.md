@@ -1,26 +1,31 @@
-# Optional two-color appearance
+# Two-color appearance
 
-Settings → Appearance offers **Elegant · two colors** and **Classic · original style** in both Basic and Advance. Elegant is the default visual style; the user's existing primary palette and text scale are preserved.
+The Elegant overlay is enabled in code for both Basic and Advance. Settings exposes theme, text size and two color samples; color names appear only inside the full 57-color picker dialog. The workspace preview and visual-style selector are removed.
 
-- Primary color retains the existing accent behavior for actions, selection and focus.
-- Secondary color decorates soft equipment headers, section titles, structural borders, chart containers, dialogs and the assistant header. The default is `encore`, a subdued slate.
-- Both color pickers open a separate dialog with the complete source palette in Basic and Advance. Every color shows its name and a swatch; the current selection is marked. Tabs support arrow-key navigation and closing restores focus to the launching button.
-- Light, dark and automatic appearance remain supported. Secondary text uses the existing theme-specific accessible text variants.
-- Status indicators, CAPEX tiers and chart series retain their semantic colors.
-- Appearance preferences are browser-local and apply immediately. They do not modify case or simulation data.
+## Defaults and configuration
 
-## Files and deployment
+`apps-script/ThemeResources.html` centralizes the defaults:
 
-Upload `Appearance.html` and `ElegantStyles.html` alongside the updated `WebApp.html` and `UiPreferences.html` to the Apps Script project, then update the web app deployment. Both new files are HTML files, even though one holds JavaScript and the other CSS.
+- `defaultAccent`: `boat-house` (display name **boat blues**, HEX `#4E8AC2`).
+- `defaultSecondary`: `astronomicon-grey` (HEX `#6A7E86`).
+- `defaultTheme`: `auto`.
+- `visualStyle`: `elegant`. Change to `classic` in code to disable the overlay.
+- `automaticTheme`: light from 07:00 to 18:59 and dark from 19:00 to 06:59, using the browser's local time. Automatic schedules the next boundary and refreshes on tab focus or visibility changes. Light and Dark remain explicit manual choices.
 
-`Appearance.html` owns secondary-color selection and style persistence. `ElegantStyles.html` contains the optional app-wide overlay, scoped to `html[data-visual-style=elegant]`. The existing theme resources and base styles are unchanged. `UiPreferences.html` now exposes all primary colors in both interface modes and renders visible color names. New Appearance controls are styled in the same file and are available in both visual styles.
+Existing explicit color and theme choices remain saved. **Reset colors** applies both default colors. The visual style ignores the old browser-local `visualStyle` preference and now follows the code configuration.
 
-## Revert or discard
+The overlay retains independent status, CAPEX and chart-series colors. Simulation groups seed policy and engine under **General**; Gemini groups model and API-key fields under **General**. The Settings saved-state label follows the primary palette's readable text color.
 
-For an immediate visual rollback, select **Classic · original style**. No page refresh is needed; the secondary choice is retained if Elegant is selected again. **Reset visual style** restores Elegant with the default secondary color while retaining the primary color.
+## Select menus
 
-To remove the feature from source completely, revert the appearance commits in reverse order. Alternatively restore `WebApp.html` from its previous version, remove the two new HTML modules and restore the modular include-count assertion in `test/ModularAppsScript.test.js`. No case migration or server change is required.
+`ElegantStyles.html` improves the select control and option list using native `appearance: base-select` when supported. The selected option uses the primary color; hover uses its soft variant. Native values, input/change events, form validation and keyboard behavior are retained. Browsers without customizable-select support keep their native list. See the [Chrome implementation documentation](https://developer.chrome.com/blog/a-customizable-select).
+
+## Deployment and rollback
+
+Update `WebApp.html`, `Appearance.html`, `ElegantStyles.html`, `UiPreferences.html`, `ThemeResources.html` and `Settings.html` in Apps Script, then update the deployment. No additional runtime file is required.
+
+The appearance remains in separate modules. Disable it by changing `visualStyle` to `classic` in `ThemeResources.html`, or revert the appearance commits in reverse order to remove it entirely. No case-data migration is required.
 
 ## Validation
 
-The modular renderer resolves all includes and compiles every client script. The existing modular and account-settings checks pass (13 tests). Controller smoke checks verify both complete named palettes, dialog opening and tab selection, closing with Done, preservation of a saved Basic accent, independent color preferences, dark text variants and Classic rollback. Render checks also verify unique HTML IDs and defined stylesheet variables. Visual rendering and live Apps Script deployment still need verification in the running application; a local Chromium binary was unavailable in the editing environment.
+Seventeen targeted tests pass: modular rendering, account-settings contracts, and automatic-theme boundaries, timer scheduling, manual overrides, reset, and suspended-tab recovery. Render checks verify unique IDs, defined stylesheet variables and removal of the requested Settings elements. Browser visual rendering and live Apps Script deployment still require verification in the running app; a local Chromium binary was unavailable.

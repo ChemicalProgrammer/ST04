@@ -76,14 +76,14 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
 }
 test('UI: cases-only entry, accessible navigation, theme settings and remembered access',async()=>{
  const h=await setup();try{
-  assert.equal(h.d.documentElement.dataset.theme,'light');assert(h.visible('auth-panel'));assert(!h.visible('application'));
+  assert.equal(h.d.documentElement.dataset.theme,h.w.STPreferences.automaticThemeAt(new h.w.Date()));assert(h.visible('auth-panel'));assert(!h.visible('application'));
   h.d.getElementById('remember-session').checked=true;await h.click('#sign-in-button');
   assert(h.visible('cases-panel'));assert(!h.visible('case-sidebar'));assert.equal(h.d.querySelectorAll('[data-theme-picker]').length,1);assert(!h.d.querySelector('#auth-panel select'));for(const id of ['run-panel','editor-panel','results-panel','whatif-panel'])assert(!h.visible(id));
   assert.equal(h.d.querySelectorAll('.case-row').length,1);assert.equal(h.w.localStorage.getItem('st.ui.v1.remember'),'yes');
   await h.click('#cases-settings');assert(h.d.getElementById('settings-dialog').open);
   const theme=h.d.getElementById('settings-theme');theme.value='dark';theme.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.dataset.theme,'dark');
-  theme.value='auto';theme.dispatchEvent(new h.w.Event('change'));h.media.matches=true;h.media.listener();assert.equal(h.d.documentElement.dataset.theme,'dark');
-  h.media.matches=false;h.media.listener();assert.equal(h.d.documentElement.dataset.theme,'light');
+  theme.value='auto';theme.dispatchEvent(new h.w.Event('change'));const nativeHour=h.w.Date.prototype.getHours;h.w.Date.prototype.getHours=()=>20;h.w.dispatchEvent(new h.w.Event('focus'));assert.equal(h.d.documentElement.dataset.theme,'dark');
+  h.w.Date.prototype.getHours=()=>12;h.w.dispatchEvent(new h.w.Event('focus'));assert.equal(h.d.documentElement.dataset.theme,'light');h.w.Date.prototype.getHours=nativeHour;
   const field=h.d.getElementById('workspace-folder-id');field.value='new-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.match(h.d.getElementById('settings-unsaved').textContent,/pending/);
   h.d.getElementById('settings-dialog').dispatchEvent(new h.w.Event('cancel',{cancelable:true}));await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'new-folder');
   await h.click('#cases-settings');field.value='saved-folder';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#settings-cancel');await waitFor(()=>!h.d.getElementById('settings-dialog').open);assert(!h.d.getElementById('settings-dialog').open);assert.equal(field.value,'saved-folder');
@@ -1880,7 +1880,7 @@ test('UI: Basic exposes all named colors without replacing a saved accent and sh
   const colors=Array.from(h.d.querySelectorAll('.accent-choice:not(.hidden)')).map(b=>b.dataset.accent);
   assert.deepEqual(colors,Object.keys(h.w.STThemeResources.palettes));
   assert.equal(h.d.documentElement.dataset.accent,'amparo-blue');
-  assert.equal(h.d.querySelector('.accent-choice[data-accent="boat-house"] .theme-color-name').textContent,'boat house');
+  assert.equal(h.d.querySelector('.accent-choice[data-accent="boat-house"] .theme-color-name').textContent,'boat blues');
   await h.click('[data-accent="aegean-sea"]');assert.equal(h.d.documentElement.dataset.accent,'aegean-sea');
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}

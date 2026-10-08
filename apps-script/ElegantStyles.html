@@ -143,7 +143,7 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
   display:block; color:var(--secondary-text); font-size:var(--font-card); font-weight:var(--weight-semibold);
 }
 /* Appearance controls remain available in both visual styles. */
-.appearance-color-name { color:var(--muted); font-size:var(--font-secondary); }
+
 #theme-color-dialog { --dialog-width:880px; }
 #theme-color-dialog .dialog-body { min-height:0; }
 #theme-color-dialog .theme-color-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:var(--space-2); padding:var(--space-1); }
@@ -159,18 +159,19 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
 #theme-color-dialog .theme-color-name { font-size:var(--font-secondary); font-weight:var(--weight-medium); overflow-wrap:anywhere; }
 #theme-color-dialog .theme-color-choice svg { visibility:hidden; }
 #theme-color-dialog .theme-color-choice[aria-pressed=true] svg { visibility:visible; }
-.appearance-current-swatch { width:20px; height:20px; border-radius:50%; flex:0 0 20px; border:1px solid var(--line-strong); }
+.appearance-current-swatch { display:block; width:100%; height:24px; border-radius:var(--radius-sm); }
 .appearance-primary-swatch { background:var(--accent); }
 .appearance-secondary-swatch { background:var(--secondary); }
-#settings-dialog .appearance-color-trigger { justify-content:flex-start; min-height:40px; padding:var(--space-2) var(--space-3); }
-#settings-dialog .appearance-color-name { overflow-wrap:anywhere; }
+#settings-dialog .appearance-color-trigger { width:100%; min-height:34px; padding:4px; border:1px solid var(--line-strong); background:var(--surface); }
+#settings-dialog .appearance-color-trigger:hover { border-color:var(--accent); background:var(--surface-hover); }
+
 #settings-dialog .accent-heading { flex-wrap:wrap; }
-.appearance-preview { margin-top:var(--space-4); border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden; }
-.appearance-preview-heading { padding:var(--space-3); background:var(--surface-soft); font-weight:var(--weight-semibold); }
-.appearance-preview-body { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); padding:var(--space-3); color:var(--muted); }
-.appearance-preview-action { padding:var(--space-2) var(--space-3); border-radius:var(--radius-sm); background:var(--accent); color:var(--on-accent); white-space:nowrap; }
-html[data-visual-style=elegant] .appearance-preview { border-color:var(--elegant-border); }
-html[data-visual-style=elegant] .appearance-preview-heading { background:var(--elegant-heading); color:var(--secondary-text); border-bottom:1px solid var(--elegant-border); }
+
+
+
+
+
+
 .appearance-footer { margin-top:var(--space-3); display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; }
 #appearance-status { color:var(--danger); font-size:var(--font-secondary); }
 @media(max-width:760px) {
@@ -178,8 +179,46 @@ html[data-visual-style=elegant] .appearance-preview-heading { background:var(--e
   html[data-visual-style=elegant] #basic-navigation { gap:var(--space-1); }
   html[data-visual-style=elegant] #basic-navigation button { padding-inline:var(--space-2); }
 }
-@media(max-width:480px) { .appearance-preview-body { flex-wrap:wrap; } #theme-color-dialog .theme-color-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } #theme-color-dialog .theme-color-choice { gap:var(--space-2); } }
+@media(max-width:480px) { #theme-color-dialog .theme-color-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } #theme-color-dialog .theme-color-choice { gap:var(--space-2); } }
 @media(prefers-reduced-motion:reduce) {
   html[data-visual-style=elegant] :is(input,select,textarea,.equipment-card) { transition:none; }
 }
+
+/* Compact settings groups and a semantic saved-state indicator. */
+#settings-page-appearance .settings-colors { grid-template-columns:160px minmax(160px,260px); }
+html[data-ui-mode=basic] .settings-option-group > p { display:none; }
+#settings-dialog .settings-option-group + .settings-option-group { margin-top:var(--space-4); }
+#settings-dialog .settings-option-group > label { margin-bottom:var(--space-2); }
+#settings-dialog .settings-option-group > p { margin-top:var(--space-2); font-size:var(--font-secondary); }
+#settings-unsaved[data-state=saved] { color:var(--selected-text); }
+#settings-unsaved[data-state=error] { color:var(--danger); }
+/* Progressive native select styling preserves the original form values,
+   events, keyboard interaction and accessible labels. */
+html[data-visual-style=elegant] select option { color:var(--ink); background:var(--surface); }
+html[data-visual-style=elegant] select option:checked { color:var(--on-accent); background:var(--accent); }
+@supports (appearance:base-select) {
+  html[data-visual-style=elegant] select:not([multiple]):not([size]),
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select) { appearance:base-select; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]) {
+    align-items:center; gap:var(--space-2); background-image:none; padding-right:var(--space-3);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker-icon { color:var(--secondary-text); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]):open { border-color:var(--accent); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select) {
+    background:var(--surface); color:var(--ink); border:1px solid var(--elegant-border);
+    border-radius:var(--radius-md); box-shadow:var(--shadow-dialog); padding:var(--space-1);
+    max-height:min(320px,60dvh); max-width:calc(100vw - 24px); overflow:auto;
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]) option {
+    display:flex; align-items:center; gap:var(--space-2); min-height:var(--control-height);
+    padding:var(--space-2) var(--space-3); border:0; border-radius:var(--radius-sm);
+    font-family:var(--font-ui); font-size:var(--font-input); white-space:normal; overflow-wrap:anywhere;
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]) option:not(:disabled):not(:checked):is(:hover,:focus) {
+    color:var(--selected-text); background:var(--accent-soft);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]) option::checkmark { margin-inline-start:auto; order:1; color:var(--on-accent); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size]) option:disabled { color:var(--disabled); background:var(--disabled-bg); }
+}
+@media(max-width:480px) { #settings-page-appearance .settings-colors { grid-template-columns:1fr; } }
 </style>

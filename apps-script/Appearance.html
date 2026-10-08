@@ -2,12 +2,12 @@
 // Optional presentation layer. The original theme and simulation data are untouched.
 window.STAppearance = (function() {
   var root = document.documentElement;
-  var defaultSecondary = 'encore', colorOrigin = null;
+  var defaultSecondary = STThemeResources.defaultSecondary || 'astronomicon-grey', colorOrigin = null;
   function secondary() {
     var saved = STPreferences.read('secondaryAccent');
     return Object.prototype.hasOwnProperty.call(STThemeResources.palettes, saved) ? saved : defaultSecondary;
   }
-  function style() { return STPreferences.read('visualStyle') === 'classic' ? 'classic' : 'elegant'; }
+  function style() { return STThemeResources.visualStyle === 'classic' ? 'classic' : 'elegant'; }
   function sync() {
     root.dataset.visualStyle = style();
     root.dataset.secondaryAccent = secondary();
@@ -16,20 +16,13 @@ window.STAppearance = (function() {
     Object.entries({'--secondary':color.accent,'--secondary-soft':color.soft,'--secondary-text':color.text || color.accent}).forEach(function(pair) {
       root.style.setProperty(pair[0], pair[1]);
     });
-    var picker = document.getElementById('settings-visual-style');
-    if (picker) picker.value = style();
     document.querySelectorAll('[data-secondary-accent]').forEach(function(button) {
       button.setAttribute('aria-pressed', String(button.dataset.secondaryAccent === secondary()));
     });
-    var name = document.getElementById('secondary-accent-name');
-    if (name) name.textContent = palette.name;
-    var primary = document.getElementById('primary-accent-name');
-    if (primary) primary.textContent = STThemeResources.palettes[root.dataset.accent]?.name || '';
     var group = document.getElementById('secondary-color-section');
     if (group) group.hidden = style() === 'classic';
   }
   function change(name, value) {
-    if (name === 'visualStyle' && !['classic','elegant'].includes(value)) return;
     if (name === 'secondaryAccent' && !Object.prototype.hasOwnProperty.call(STThemeResources.palettes, value)) return;
     var saved = STPreferences.write(name, value);
     sync();
@@ -94,15 +87,12 @@ window.STAppearance = (function() {
       document.getElementById(id)?.addEventListener('click',function(){dialog.close();});
     });
     dialog?.addEventListener('close',function(){if(colorOrigin?.isConnected)colorOrigin.focus();});
-    document.getElementById('settings-visual-style')?.addEventListener('change', function(event) {
-      change('visualStyle', event.target.value);
-    });
     document.getElementById('appearance-reset')?.addEventListener('click', function() {
       change('secondaryAccent', defaultSecondary);
-      change('visualStyle', 'elegant');
+      STPreferences.setAccent(STThemeResources.defaultAccent);
     });
     sync();
   });
-  return {sync:sync,setSecondary:function(value){change('secondaryAccent',value);},setStyle:function(value){change('visualStyle',value);}};
+  return {sync:sync,setSecondary:function(value){change('secondaryAccent',value);}};
 })();
 </script>

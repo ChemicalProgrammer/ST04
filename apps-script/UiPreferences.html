@@ -8,8 +8,23 @@ window.STPreferences = (function() {
     catch (_) { return false; }
   }
   if (read('remember') === 'yes') document.documentElement.classList.add('restoring-session');
-  var media = window.matchMedia('(prefers-color-scheme: dark)');
-  var theme = read('theme') || 'light';
+  var theme = read('theme') || STThemeResources.defaultTheme || 'auto', automaticTimer;
+  function automaticThemeAt(date) {
+    var schedule = STThemeResources.automaticTheme || {lightStartHour:7,darkStartHour:19};
+    var hour = date.getHours();
+    return hour >= schedule.lightStartHour && hour < schedule.darkStartHour ? 'light' : 'dark';
+  }
+  function scheduleAutomaticTheme() {
+    clearTimeout(automaticTimer);
+    if (theme !== 'auto') return;
+    var now = new Date(), schedule = STThemeResources.automaticTheme || {lightStartHour:7,darkStartHour:19};
+    var delays = [schedule.lightStartHour, schedule.darkStartHour].map(function(hour) {
+      var boundary = new Date(now);boundary.setHours(hour,0,0,0);
+      if (boundary <= now) boundary.setDate(boundary.getDate()+1);
+      return boundary.getTime()-now.getTime();
+    });
+    automaticTimer = setTimeout(apply, Math.min.apply(null,delays)+50);
+  }
   var colors=Object.keys(STThemeResources.palettes);
   function resolveInterfaceMode(fallback){var value=read('interfaceMode')||fallback;return ['ADVANCE','ADVANCED'].includes(String(value||'').trim().toUpperCase())?'ADVANCE':'BASIC';}
   function applyPalette(){
@@ -24,7 +39,8 @@ window.STPreferences = (function() {
   setAccent(read('accent'));
   function applyAccent(){var p=STThemeResources.palettes[document.documentElement.dataset.accent];if(!p)return;var c=p[document.documentElement.dataset.theme==='dark'?'dark':'light'],style=document.documentElement.style;Object.entries({'--accent':c.accent,'--accent-hover':c.accent,'--accent-soft':c.soft,'--selected':c.soft,'--selected-text':c.text||c.accent,'--on-accent':c.onAccent}).forEach(function(pair){style.setProperty(pair[0],pair[1]);});}
   function apply() {
-    document.documentElement.dataset.theme = theme === 'auto' ? (media.matches ? 'dark' : 'light') : theme;
+    document.documentElement.dataset.theme = theme === 'auto' ? automaticThemeAt(new Date()) : theme;
+    scheduleAutomaticTheme();
     applyAccent();window.dispatchEvent(new Event('st:theme'));
   }
   function setTheme(value) {
@@ -36,7 +52,8 @@ window.STPreferences = (function() {
   function setFontScale(value,persist){value=Number(value);if(![80,90,100,110,125].includes(value))value=fontMode()==='basic'?110:100;if(persist!==false)write('fontScale.'+fontMode(),String(value));document.documentElement.style.fontSize=(16*value/100)+'px';var picker=document.getElementById('settings-font-scale');if(picker)picker.value=String(value);}
   function applyFontScale(){var value=read('fontScale.'+fontMode())||read('fontScale')||(fontMode()==='basic'?110:100);setFontScale(value,false);}
   applyFontScale();
-  if (media.addEventListener) media.addEventListener('change', apply);
+  window.addEventListener('focus', apply);
+  document.addEventListener('visibilitychange', function(){if(!document.hidden)apply();});
   apply();
   function caseOptions() {
     var saved=caseProvider?.()?.metadata?.consoleOptions||{};
@@ -93,10 +110,10 @@ window.STPreferences = (function() {
   });
   function reset(){
     Object.keys(localStorage).filter(function(name){return name.indexOf(key)===0;}).forEach(function(name){localStorage.removeItem(name);});
-    theme='light';document.documentElement.classList.remove('restoring-session');
-    setTheme('light');setAccent(STThemeResources.defaultAccent);
+    theme=STThemeResources.defaultTheme||'auto';document.documentElement.classList.remove('restoring-session');
+    setTheme(theme);setAccent(STThemeResources.defaultAccent);
   }
-  return {reset:reset,caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
+  return {reset:reset,caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setAccent:setAccent,automaticThemeAt:automaticThemeAt,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>
 
