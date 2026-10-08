@@ -307,4 +307,13 @@ html[data-visual-style=elegant] .comparison-row span { background:transparent; }
 html[data-visual-style=elegant] :is(tbody tr:is(:hover,:focus-within) > :is(td,th),.comparison-row:hover) { background:var(--table-row-hover); }
 html[data-visual-style=elegant] .scenario-preview-status[data-state] { border:0; background:transparent; padding:0; box-shadow:none; }
 @media(max-width:700px) { html[data-visual-style=elegant] #comparison-panel { padding:var(--space-3); } }
+
+html[data-visual-style=elegant] .case-row { transition:background var(--duration-fast),border-color var(--duration-fast),box-shadow var(--duration-fast); }
+html[data-visual-style=elegant] .case-glyph { background:transparent; border:0; color:var(--secondary-text); }
+html[data-visual-style=elegant] .case-row:hover { background:color-mix(in srgb,var(--secondary-soft) 35%,var(--surface)); }
+html[data-visual-style=elegant] .cases-list.grid .case-row { border-top:2px solid var(--elegant-border); border-radius:var(--radius-lg); }
+html[data-visual-style=elegant] .cases-list.grid .case-row:hover { border-color:var(--secondary); box-shadow:var(--shadow); }
+html[data-visual-style=elegant] .case-row:hover .case-name,html[data-visual-style=elegant] .case-row:has(.case-name:focus-visible) .case-name { color:var(--secondary-text); }
+html[data-visual-style=elegant] .cases-list.grid .case-actions { border-top-color:var(--elegant-border); }
+@media(prefers-reduced-motion:reduce) { html[data-visual-style=elegant] .case-row { transition:none; } }
 </style>

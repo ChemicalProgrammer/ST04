@@ -18,14 +18,18 @@ window.STCaseGallery = (function() {
       if(options?.loading&&!query&&filter==='all'){target.textContent=__ST_TEXT__('cases.catalog_loading');return;}
       target.innerHTML=("<div class=\"empty\">")+STIcons.svg('folder')+'<h3>'+(query||filter!=='all'?__ST_TEXT__('casegallery.no_matching_cases'):__ST_TEXT__('casegallery.your_workspace_starts_here'))+'</h3><p>'+(query||filter!=='all'?__ST_TEXT__('casegallery.try_a_different_search_or_filter'):__ST_TEXT__('casegallery.create_a_case_to_model_a_line_or_start_with_the_demonstration_case'))+'</p></div>'; return;
     }
-    items.slice(page*pageSize,(page+1)*pageSize).forEach(function(item){
+    items.slice(page*pageSize,(page+1)*pageSize).forEach(function(item,index){
       var row=document.createElement('article');row.className='case-row';
-      row.innerHTML='<div class="case-identity"><span class="case-glyph">'+STIcons.svg('folder')+'</span><div><button class="case-name open-case" type="button"></button><span class="case-description"></span></div></div><div class="case-actions"><span class="badge"></span><time class="case-date"></time></div><div class="case-tools"></div>';
-      row.querySelector('.case-name').textContent=item.name;
+      row.innerHTML='<div class="case-identity"><span class="case-glyph" aria-hidden="true">'+STIcons.svg('folder')+'</span><div><button class="case-name open-case" type="button"></button><span class="case-description"></span></div></div><div class="case-actions"><span class="badge"></span><time class="case-date"></time></div><div class="case-tools"></div>';
+      var open=row.querySelector('.case-name');open.textContent=item.name;open.id='case-title-'+index;row.setAttribute('aria-labelledby',open.id);
+      var description=row.querySelector('.case-description');description.id='case-description-'+index;open.setAttribute('aria-describedby',description.id);
       row.querySelector('.case-description').textContent=item.equipmentCount+__ST_TEXT__('casegallery.equipment_units')+(item.dataClassification==='PUBLIC_DEMONSTRATION_ONLY'?__ST_TEXT__('casegallery.public_demo'):'');
       var badge=row.querySelector('.badge');badge.classList.toggle('ready',Boolean(item.isSimulationReady));badge.innerHTML=STIcons.svg(item.isSimulationReady?'check':'edit')+(item.isSimulationReady?__ST_TEXT__('casegallery.ready'):__ST_TEXT__('casegallery.draft'));
-      var date=new Date(item.updatedAt);row.querySelector('time').textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-      row.querySelector('.open-case').onclick=function(){openCase(item.id);};
+      var date=new Date(item.updatedAt);if(!Number.isNaN(date.getTime()))row.querySelector('time').dateTime=date.toISOString();row.querySelector('time').textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+      open.onclick=function(){openCase(item.id);};
+      // Native stretched button covers the surface. The row handler also handles
+      // direct/assistive activation without intercepting independent tools.
+      row.onclick=function(event){if(event.defaultPrevented||event.target.closest('button,a,input,select,textarea,.case-tools'))return;open.click();};
       var clone=document.createElement('button');clone.type='button';clone.className='clone-case ghost icon-button';clone.innerHTML=STIcons.svg('copy');clone.title=__ST_TEXT__('casegallery.clone');clone.setAttribute('aria-label',__ST_TEXT__('casegallery.clone')+' '+item.name);
       clone.onclick=function(){requestCaseClone(item.id,clone);};row.querySelector('.case-tools').appendChild(clone);
       if(options?.deleteCase){
@@ -43,3 +47,4 @@ window.STCaseGallery = (function() {
   return {render:render};
 })();
 </script>
+
