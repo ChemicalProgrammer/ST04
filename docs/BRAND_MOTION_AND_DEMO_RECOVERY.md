@@ -22,6 +22,10 @@ demo supplies its measured results, which the scenario cards read from the
 linked simulations. Creating a demo without the prepared-results module now
 reports that missing module instead of silently creating empty results.
 
+`Main.gs` reads included templates with `getRawContent()` and resolves display
+resources before HTML processing. This avoids escaped template delimiters and
+broken quotation marks in the conveyor's accessibility attributes.
+
 Add `BrandConveyor.html`, `BrandConveyorStyles.html` and `BrandConveyorMotion.html`.
 Update `WebApp.html`, `Shell.html`, `ShellStyles.html`, `TextResources.gs`,
 `Main.gs` and `PublicDemoCaseFactory.gs`. Ensure `PublicDemoResults.gs` from the

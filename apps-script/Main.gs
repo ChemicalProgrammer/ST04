@@ -11,7 +11,8 @@ function doGet() {
 }
 
 function include_(filename) {
-  return resolveTextResources_(HtmlService.createHtmlOutputFromFile(filename).getContent());
+  // Resolve resource attributes before HtmlOutput processes template delimiters.
+  return resolveTextResources_(HtmlService.createTemplateFromFile(filename).getRawContent());
 }
 
 function getBootstrap() {
