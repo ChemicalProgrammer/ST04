@@ -1704,6 +1704,38 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
 });
 
 
+test('UI: scenario configuration suggests up to four DOE factors without simulation and toggles the Use column',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  const sim=h.storedCases()[0].simulations[0];
+  let evaluations=0;h.w.SimulatorEngine.simulateBatch=()=>{evaluations++;throw Error('Suggestion must not simulate');};
+  const changes=h.w.STScenarios.catalog(sim),project={title:'Factor selection',kind:'CUSTOM',tier:'HIGH',catalog:true,changes};
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-configure').click();
+  const dialog=card.querySelector('dialog'),suggest=card.querySelector('.scenario-doe-suggest'),toggle=card.querySelector('.scenario-doe-enabled');
+  assert(suggest.hidden);assert.equal(dialog.querySelectorAll('textarea').length,0);assert.equal(dialog.querySelectorAll('input[placeholder]').length,0);
+  toggle.checked=true;toggle.dispatchEvent(new h.w.Event('change'));assert(!suggest.hidden);
+  suggest.click();const picked=Array.from(dialog.querySelectorAll('.scenario-doe-select')).filter(input=>input.checked);
+  assert(picked.length>0&&picked.length<=4);assert.equal(evaluations,0);assert.match(card.querySelector('.scenario-factor-count').textContent,/No simulation/);
+  picked.forEach(input=>{const levels=input.closest('tr').querySelectorAll('.scenario-doe-level');assert(Number(levels[0].value)<Number(levels[1].value));});
+  const master=dialog.querySelector('.scenario-use-all'),uses=Array.from(dialog.querySelectorAll('tbody tr > td:first-child input'));
+  master.checked=true;master.dispatchEvent(new h.w.Event('change'));assert(uses.filter(input=>!input.disabled).every(input=>input.checked));assert(uses.filter(input=>input.disabled).every(input=>!input.checked));assert(master.checked&&!master.indeterminate);
+  master.checked=false;master.dispatchEvent(new h.w.Event('change'));assert(uses.every(input=>!input.checked));assert(Array.from(dialog.querySelectorAll('.scenario-doe-select')).every(input=>!input.checked));
+  const first=uses.find(input=>!input.disabled);first.checked=true;first.dispatchEvent(new h.w.Event('change'));assert(master.indeterminate);
+  assert.equal(evaluations,0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: scenario intervention notes are edited outside the parameter table',async()=>{
+ const h=await setup();try{
+  const sim=h.storedCases()[0].simulations[0],e=sim.equipment[0],before=e.noiseProfile.reliability.mtbfMinutes;
+  const card=h.w.STWhatIf.card({title:'Intervention',kind:'CUSTOM',tier:'MEDIUM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before,after:before*2,external:true,justification:'Documented maintenance target',unit:'min'}]},()=>{},sim.equipment,sim);h.d.body.append(card);
+  card.querySelector('.scenario-configure').click();assert.equal(card.querySelectorAll('textarea').length,0);
+  card.querySelector('.scenario-intervention-basis').click();await waitFor(()=>h.d.querySelector('.message-dialog[open]'));
+  h.d.querySelector('.message-dialog input').value='Maintenance plan with measured target';await h.click('.message-dialog .dialog-actions button:last-child');
+  assert.equal(card.querySelector('.scenario-intervention-basis').title,'Maintenance plan with measured target');
+  assert.equal(sim.whatIf.evaluations[0].controls[0].justification,'Maintenance plan with measured target');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
 test('UI: DOE factors remain visible when disabled and can be enabled without unlocking Settings',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');
@@ -2005,13 +2037,13 @@ test('UI: DOE derives factors from feasible category searches and keeps explicit
   const intervention=host.querySelector('.scenario-interventions');intervention.querySelector('[aria-label="Intervention equipment"]').value=machine.id;intervention.querySelector('[aria-label="Intervention target (minutes)"]').value='60';intervention.querySelector('textarea').value='Dedicated maintenance; reliability target from vendor trial.';intervention.querySelector('.scenario-add-intervention').click();
   assert(sim.whatIf.externalOptions[0].tier==='MEDIUM');intervention.querySelector('[aria-label="Intervention CAPEX"]').value='HIGH';intervention.querySelector('[aria-label="Intervention target (minutes)"]').value='90';intervention.querySelector('.scenario-add-intervention').click();assert.equal(sim.whatIf.externalOptions.length,2);assert.equal(sim.whatIf.externalOptions.find(p=>p.tier==='MEDIUM').changes[0].after,60);assert.equal(sim.whatIf.externalOptions.find(p=>p.tier==='HIGH').changes[0].after,90);
   const cards=Array.from(host.querySelectorAll('.scenario-tier-grid > .analysis-recommendation'));assert.equal(cards.length,4);
-  assert(!cards[0].querySelector('textarea'));assert(cards[1].querySelector('textarea'));assert.equal(cards[1].querySelectorAll('.scenario-change').length,1);assert(Array.from(cards[1].querySelectorAll('.scenario-doe-select')).every(input=>!input.disabled&&!input.checked));
+  assert(!cards[0].querySelector('.scenario-intervention-basis'));assert(cards[1].querySelector('.scenario-intervention-basis'));assert.equal(cards[1].querySelectorAll('.scenario-change').length,1);assert(Array.from(cards[1].querySelectorAll('.scenario-doe-select')).every(input=>!input.disabled&&!input.checked));
   const card=cards[1],calls=[];h.w.SimulatorEngine.simulateBatch=async input=>{calls.push(input);const gain=input.case.equipment.find(e=>e.id===machine.id).noiseProfile.reliability.mtbfMinutes>30?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const factor=card.querySelector('.scenario-doe-select');assert(!factor.disabled);assert(!factor.checked);const levels=card.querySelectorAll('.scenario-doe-level');assert.equal(levels[0].value,'30');assert.equal(levels[1].value,'60');factor.checked=true;factor.dispatchEvent(new h.w.Event('change'));
   card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const saved=sim.whatIf.evaluations.find(e=>e.searchScope==='MEDIUM');assert.equal(saved.doe.combinations,2);assert.equal(saved.searchVariables.length,1);assert(saved.evaluatedChanges[0].external);assert(saved.independentCheck.passed);assert.equal(JSON.stringify(sim.equipment),snapshot);
-  host.remove();const reopened=h.d.createElement('section');h.d.body.append(reopened);h.w.STScenarioExplorer.tools(reopened,sim,h.w.STScenarios.plan(sim),()=>{});const restored=reopened.querySelector('.scenario-tier-grid > .analysis-recommendation:nth-child(2)');assert(restored.querySelector('.scenario-doe-select').checked);assert.equal(restored.querySelector('textarea').value,intervention.querySelector('textarea').value);
+  host.remove();const reopened=h.d.createElement('section');h.d.body.append(reopened);h.w.STScenarioExplorer.tools(reopened,sim,h.w.STScenarios.plan(sim),()=>{});const restored=reopened.querySelector('.scenario-tier-grid > .analysis-recommendation:nth-child(2)');assert(restored.querySelector('.scenario-doe-select').checked);assert.equal(restored.querySelector('.scenario-intervention-basis').title,intervention.querySelector('textarea').value);
   const target=restored.querySelector('.scenario-target');target.value='70';target.dispatchEvent(new h.w.Event('input'));assert(!restored.querySelector('.scenario-doe-select').disabled);assert.equal(sim.whatIf.evaluations.find(e=>e.searchScope==='MEDIUM').searchVariables.length,0);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
