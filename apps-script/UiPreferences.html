@@ -42,7 +42,7 @@ window.STPreferences = (function() {
     var seconds=Number(saved.autosaveSeconds??read('autosaveSeconds')??10);
     return {autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')!=='no',
       autosaveSeconds:Number.isInteger(seconds)&&seconds>=1&&seconds<=3600?seconds:10,
-      seedPolicy:(saved.seedPolicy??read('seedPolicy'))==='RANDOM'?'RANDOM':'FIXED'};
+      seedPolicy:(saved.seedPolicy??read('seedPolicy'))==='FIXED'?'FIXED':'RANDOM'};
   }
   function setCaseOptions(value) {
     var record=caseProvider?.();if(!record)return false;

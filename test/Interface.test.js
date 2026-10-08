@@ -1213,7 +1213,7 @@ test('UI: seed policy generates and saves a new base only for fresh runs',async(
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('#open-settings');
   assert(!h.d.getElementById('settings-seed-section').classList.contains('hidden'));
-  h.d.getElementById('settings-seed-policy').value='RANDOM';await h.click('#settings-cancel');
+  assert.equal(h.d.getElementById('settings-seed-policy').value,'RANDOM');await h.click('#settings-cancel');
   assert.equal(h.w.STPreferences.caseOptions().seedPolicy,'RANDOM');
   let next=1234;h.w.crypto.getRandomValues=a=>{a[0]=next++;return a;};
   h.d.getElementById('run-duration').value=5;await h.click('#run-simulation');await h.click('#pause-simulation');
