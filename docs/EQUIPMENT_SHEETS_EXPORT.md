@@ -28,5 +28,9 @@ contrast, filters, frozen headers and alternating rows. User strings starting
 with `=` are written as literal text. Export validates the importer contract
 before creating the file; a failed write attempts to trash only its own new file.
 
+The row-8 note merges C:W so it does not cross the A:B frozen-column boundary.
+Service failures include the exporter version, operation stage and original
+Google error in the existing Error details dialog.
+
 Deploy: add `SheetExportService.gs`; update `Main.gs`, `WebApp.html`, `Client.html`,
 `Dialogs.html`, and `TextResources.gs`, then publish a new Apps Script version.

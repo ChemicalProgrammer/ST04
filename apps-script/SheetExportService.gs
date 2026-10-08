@@ -13,41 +13,50 @@ function exportEquipmentSheet_(request, user) {
   var folder=getWorkspaceFolders_().exports;
   var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
   var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
-  var book,file;
+  var book,file,stage='CREATE_SPREADSHEET';
   try {
     book=SpreadsheetApp.create(name,Math.max(100,data.rows.length+9),23);
+    stage='MOVE_TO_EXPORTS';
     file=DriveApp.getFileById(book.getId());
     file.moveTo(folder);
+    stage='WRITE_VALUES';
     var sheet=book.getSheets()[0];sheet.setName('Equipment');
     var values=Array.from({length:data.rows.length+9},function(){return Array(23).fill('');});
     var labels=['Site','Packaging line','Format','Container size (oz)','Bottles per case','Date of analysis','By'];
     labels.forEach(function(label,index){values[index][0]=label;values[index][2]=sheetExportLiteral_(data.metadata[index]);});
     values[0][4]='Flow Pilot · '+String(request.simulationName||'Simulation').slice(0,80);
-    values[7][0]='Import layout: C1:C7 and A10:W. F = installed maximum BPM (configured BPM if undefined); import initializes running speed from F. Percentages use percentage points (100 = 100%). JSON retains simulator-only settings.';
+    values[7][2]='Import layout: C1:C7 and A10:W. F = installed maximum BPM (configured BPM if undefined); import initializes running speed from F. Percentages use percentage points (100 = 100%). JSON retains simulator-only settings.';
     values[8]=sheetImportColumns_().map(function(column){return column[2];});
     data.rows.forEach(function(row,index){values[index+9]=row.map(sheetExportLiteral_);});
     // One values write, including metadata and headers, instead of cell-by-cell RPCs.
     sheet.getRange(1,1,values.length,23).setValues(values).setFontFamily('Arial').setFontSize(10).setVerticalAlignment('middle');
+    stage='FORMAT_SHEET';
     sheet.getRange(1,1,7,2).mergeAcross().setFontWeight('bold').setFontColor(secondary);
     sheet.getRange(1,3,7,1).setBackground('#f3f6f8');
     sheet.getRange(1,5,2,19).merge().setFontSize(16).setFontWeight('bold').setFontColor(primary).setWrap(true);
-    sheet.getRange(8,1,1,23).merge().setWrap(true).setFontColor('#52616c').setFontSize(9);
+    // C:W stays entirely to the right of frozen A:B. A:W would cross that boundary.
+    sheet.getRange(8,3,1,21).merge().setWrap(true).setFontColor('#52616c').setFontSize(9);
     sheet.getRange(9,1,1,23).setBackground(primary).setFontColor(sheetExportInk_(primary)).setFontWeight('bold').setWrap(true);
     var body=sheet.getRange(10,1,data.rows.length,23);
     body.setBackground('#ffffff');
     body.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY,false,false);
     sheet.getRange(10,4,data.rows.length,20).setNumberFormat('0.########').setHorizontalAlignment('right');
     sheet.getRange(10,2,data.rows.length,1).setFontWeight('bold').setFontColor(secondary);
-    sheet.setFrozenRows(9);sheet.setFrozenColumns(2);
+    stage='FREEZE_HEADERS';sheet.setFrozenRows(9);sheet.setFrozenColumns(2);
+    stage='SIZE_COLUMNS';
     sheet.setColumnWidths(1,23,130);sheet.setColumnWidth(2,220);sheet.setColumnWidth(3,170);
     sheet.setRowHeight(8,45);sheet.setRowHeight(9,64);sheet.setRowHeights(10,data.rows.length,28);
-    body.setWrap(true);sheet.getRange(9,1,data.rows.length+1,23).createFilter();
+    stage='CREATE_FILTER';body.setWrap(true);sheet.getRange(9,1,data.rows.length+1,23).createFilter();
+    stage='FLUSH';
     SpreadsheetApp.flush();
     return {spreadsheetId:book.getId(),url:book.getUrl(),sheetName:sheet.getName(),equipmentCount:data.rows.length};
   } catch (error) {
+    var details=['Exporter: equipment-sheet-20261008-2','Stage: '+stage,'Google: '+safeSheetErrorDetail_(error)];
     // Only the new export belongs to this operation; clean up an incomplete export.
-    if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){console.warn('Incomplete equipment export could not be removed.');}
-    throw createSimulatorError_('SHEET_EXPORT_FAILED','Google Sheets export could not be completed. Check Drive and Sheets authorization, then try again.');
+    if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){details.push('The incomplete export could not be removed.');}
+    if(error?.simulatorError)throw error;
+    console.error(JSON.stringify({event:'SHEET_EXPORT_FAILED',stage:stage,message:safeSheetErrorDetail_(error)}));
+    throw createSimulatorError_('SHEET_EXPORT_FAILED','Google Sheets export could not be completed. See the technical details below.',details);
   }
 }
 
