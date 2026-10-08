@@ -195,5 +195,20 @@ html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation:has(.ana
 .scenario-config-dialog .scenario-parameter-table { min-width:100%; }
 .scenario-config-dialog .scenario-doe { margin:0 0 var(--space-3); }
 @media(max-width:480px) { #settings-page-appearance .settings-row,#settings-page-appearance .settings-colors { grid-template-columns:1fr; } }
+
+/* Shared table interaction uses the secondary theme color in every app table. */
+:root { --table-row-hover:color-mix(in srgb,var(--secondary) 10%,var(--surface)); }
+tbody tr:is(:hover,:focus-within) > :is(th,td) { background:var(--table-row-hover); }
+.scenario-preview-status,.scenario-preview-status[data-state] { background:transparent; border:0; border-radius:0; padding:0; margin:var(--space-2) 0; color:var(--muted); font-weight:var(--weight-regular); }
+.scenario-result-box:has(.scenario-metrics:empty) { display:none; }
+.comparison-highlights { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); padding:var(--space-3); }
+.comparison-kpi { min-width:0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); }
+.comparison-kpi h4 { margin:0 0 var(--space-3); font-size:var(--font-card); }
+.comparison-kpi-value { display:flex; justify-content:space-between; align-items:baseline; gap:var(--space-3); margin:var(--space-2) 0; }
+.comparison-kpi-value span { min-width:0; overflow-wrap:anywhere; color:var(--muted); }
+.comparison-kpi-value strong { font-size:var(--font-section); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.comparison-kpi-delta { color:var(--accent); font-variant-numeric:tabular-nums; margin:var(--space-3) 0 var(--space-1); }
+.comparison-kpi .chart-note { margin:0; }
+@media(max-width:700px) { .comparison-highlights { grid-template-columns:1fr; } }
 </style>
 

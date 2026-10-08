@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {JSDOM} from 'jsdom';
+function setup(basic){
+ const dom=new JSDOM('<select id="case-compare-a"><option value="a" selected>A</option></select><select id="case-compare-b"><option value="b" selected>B</option></select><div id="case-comparison-content"></div>',{runScripts:'outside-only'}),w=dom.window;
+ const text={'results.global_oee':'Global OEE','results.throughput':'Throughput','results.outcome_comparison':'Outcome comparison','results.pp':' pp','results.metric':'Metric','results.proposed':'Proposed','view.baseline':'Baseline'};
+ w.__ST_TEXT__=w.__ST_HTML_TEXT__=key=>text[key]||key;w.STBasicMode={isBasic:()=>basic,unitLabel:value=>value};w.STReports={bindComparison(){}};
+ for(const file of ['Results.html','Comparison.html'])w.eval(fs.readFileSync('apps-script/'+file,'utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
+ function simulation(id,oee,throughput){return {id,name:id.toUpperCase(),equipment:[],dynamicConfig:{},results:{unitOfFlow:'bottles',seed:42,durationSeconds:60,replay:{},summary:{lineOeePercent:1,outputCount:2,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0},batch:{rounds:3,rows:[{seed:42},{seed:43},{seed:44}],statistics:{lineOeePercent:{mean:oee},throughputPerMinute:{mean:throughput},outputCount:{mean:throughput}}}}};}
+ const a=simulation('a',30,100),b=simulation('b',60,200),state={activeCase:{simulations:[a,b]}};
+ return {dom,w,a,b,render:()=>w.STComparison(state,Number.isFinite).render()};
+}
+test('Comparison starts with OEE and throughput cards using saved round means in both modes',()=>{
+ for(const basic of [false,true]){const h=setup(basic);try{h.render();const target=h.w.document.getElementById('case-comparison-content');assert(target.firstElementChild.classList.contains('comparison-outcomes'));const cards=target.querySelectorAll('.comparison-kpi');assert.equal(cards.length,2);assert.equal(cards[0].querySelector('h4').textContent,'Global OEE');assert.deepEqual(Array.from(cards[0].querySelectorAll('strong')).map(e=>e.textContent),['30%','60%']);assert.match(cards[0].querySelector('.comparison-kpi-delta').textContent,/\+30 pp/);assert.match(cards[1].textContent,/100 bottles\/min/);assert.match(cards[1].textContent,/200 bottles\/min/);assert.match(cards[0].textContent,/3 round/);const row=target.querySelector('tbody tr');assert.match(row.textContent,/30%.*60%/);}finally{h.dom.window.close();}}
+});
+test('missing saved outcomes show configuration context without invented KPIs; unlike flow units have no throughput delta',()=>{
+ const h=setup(false);try{h.b.results.unitOfFlow='cases';h.render();assert.match(h.w.document.querySelectorAll('.comparison-kpi-delta')[1].textContent,/—/);h.b.results=null;h.render();assert.equal(h.w.document.querySelector('.comparison-kpi'),null);assert(h.w.document.querySelector('.comparison-context'));}finally{h.dom.window.close();}
+});

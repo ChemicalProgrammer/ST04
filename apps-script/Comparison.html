@@ -6,15 +6,15 @@ window.STComparison=function(state,isFiniteNumber){
       var target = document.getElementById('case-comparison-content'); target.textContent = '';
       STReports.bindComparison(state.activeCase,a,b);
       if (!a || !b || a.id === b.id) { target.textContent = __ST_TEXT__('comparison.select_two_different_simulations'); return; }
+      STResults.compare(target,a,b);
       appendComparisonContext(target, a, b);
       var basic=Boolean(window.STBasicMode?.isBasic());
-      if(basic){STResults.compare(target,a,b);appendChangedInputs(target,a,b,true);return;}
+      if(basic){appendChangedInputs(target,a,b,true);return;}
       if(a.results?.batch||b.results?.batch){
         var note=document.createElement('p');note.className='notice';note.textContent=__ST_TEXT__('batch.compare_note');target.appendChild(note);
         appendComparisonSection(target,__ST_TEXT__('batch.title'),a.results?.batch?.statistics||{},b.results?.batch?.statistics||{});
         appendComparisonSection(target,__ST_TEXT__('batch.rounds'),{rounds:a.results?.batch?.rounds||1,seeds:a.results?.batch?.rows.map(function(r){return r.seed;})||[a.results?.seed]},{rounds:b.results?.batch?.rounds||1,seeds:b.results?.batch?.rows.map(function(r){return r.seed;})||[b.results?.seed]});
       }
-      STResults.compare(target,a,b);
       appendChangedInputs(target,a,b);
       appendComparisonSection(target, __ST_TEXT__('comparison.scenario_provenance'), a.scenario || {}, b.scenario || {});
       appendComparisonSection(target, __ST_TEXT__('comparison.simulation_configuration'), a.dynamicConfig || {}, b.dynamicConfig || {});
@@ -59,7 +59,8 @@ window.STComparison=function(state,isFiniteNumber){
       var leftDuration = left.results?.durationSeconds;
       var rightDuration = right.results?.durationSeconds;
       var bothSaved = hasSavedSimulationResult(left.results) && hasSavedSimulationResult(right.results);
-      var paired = bothSaved && leftSeed === rightSeed && leftDuration === rightDuration;
+      var sameRounds=(left.results?.batch?.rounds||1)===(right.results?.batch?.rounds||1),sameEngine=(left.results?.engineId||'ST_CURRENT')===(right.results?.engineId||'ST_CURRENT');
+      var paired = bothSaved && leftSeed === rightSeed && leftDuration === rightDuration && sameRounds && sameEngine;
       context.classList.add(paired ? 'comparison-context-paired' : 'comparison-context-caution');
       var heading = document.createElement('strong');
       heading.textContent = left.name + __ST_TEXT__('comparison.vs') + right.name;
@@ -69,6 +70,8 @@ window.STComparison=function(state,isFiniteNumber){
         detail.textContent = __ST_TEXT__('comparison.configuration_can_be_compared_now_run_and_save_both_simulations_before_inte');
       } else if (paired) {
         detail.textContent = __ST_TEXT__('comparison.paired_run_both_used_seed') + leftSeed + __ST_TEXT__('comparison.and') + leftDuration + __ST_TEXT__('comparison.virtual_seconds_result_differences_can_be_attributed_to_the_saved_configura');
+      } else if(!sameRounds||!sameEngine){
+        detail.textContent='Different replication counts or simulation engines. Rerun both with matching settings before attributing the result difference to configuration changes.';
       } else {
         detail.textContent = __ST_TEXT__('comparison.comparison_caution_saved_seed_or_virtual_duration_differs') + leftSeed + ' / ' + leftDuration + __ST_TEXT__('comparison.s_vs') + rightSeed + ' / ' + rightDuration + __ST_TEXT__('comparison.s_configuration_differences_remain_valid_but_rerun_both_with_the_same_seed_');
       }

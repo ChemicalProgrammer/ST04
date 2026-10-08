@@ -21,6 +21,7 @@ h1,h2,h3,summary { break-after:avoid; }
 .report-table table { margin:0; }
 th { background:var(--report-secondary-soft); color:var(--report-secondary-text); }
 tbody tr:nth-child(even) { background:var(--report-surface); }
+@media screen { tbody tr:is(:hover,:focus-within) > :is(th,td) { background:color-mix(in srgb,var(--report-secondary) 10%,var(--report-card-bg)); } }
 .report-content h3 { color:var(--report-secondary-text); }
 .report-footer { padding:16px 0; color:var(--report-muted); font-size:10px; border-top:1px solid var(--report-line); margin-top:24px; }
 pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--report-surface); border:1px solid var(--report-line); padding:16px; border-radius:8px; font-size:10px; }

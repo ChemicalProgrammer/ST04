@@ -291,4 +291,20 @@ html[data-visual-style=elegant],html[data-visual-style=elegant] * {
     background-image:linear-gradient(45deg,var(--scrollbar-arrow) 50%,transparent 50%),linear-gradient(135deg,var(--scrollbar-arrow) 50%,transparent 50%);
   }
 }
+
+/* Comparison follows the same secondary headings and restrained card edges. */
+html[data-visual-style=elegant] #comparison-panel { padding:var(--space-5); border:1px solid var(--line); }
+html[data-visual-style=elegant] #comparison-panel > .section-heading { padding-bottom:var(--space-3); margin-bottom:var(--space-4); border-bottom:1px solid var(--elegant-border); align-items:flex-start; }
+html[data-visual-style=elegant] #comparison-panel > .section-heading h2 { color:var(--secondary-text); }
+html[data-visual-style=elegant] .comparison-vertical { gap:var(--space-3); margin-top:var(--space-4); }
+html[data-visual-style=elegant] .comparison-section { margin:0; border:1px solid var(--elegant-border); border-top:2px solid var(--elegant-border); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow); }
+html[data-visual-style=elegant] .comparison-section > :is(h3,summary) { margin:0; padding:var(--space-3); background:var(--elegant-heading); color:var(--secondary-text); font-size:var(--font-card); }
+html[data-visual-style=elegant] .comparison-section > .table-scroll { border:0; box-shadow:none; border-radius:0; }
+html[data-visual-style=elegant] .comparison-context { border-color:var(--elegant-border); border-left-color:var(--secondary); background:var(--surface-soft); }
+html[data-visual-style=elegant] :is(.comparison-context strong,.comparison-kpi h4) { color:var(--secondary-text); }
+html[data-visual-style=elegant] .comparison-kpi { border-top:2px solid var(--elegant-border); box-shadow:var(--shadow); }
+html[data-visual-style=elegant] .comparison-row span { background:transparent; }
+html[data-visual-style=elegant] :is(tbody tr:is(:hover,:focus-within) > :is(td,th),.comparison-row:hover) { background:var(--table-row-hover); }
+html[data-visual-style=elegant] .scenario-preview-status[data-state] { border:0; background:transparent; padding:0; box-shadow:none; }
+@media(max-width:700px) { html[data-visual-style=elegant] #comparison-panel { padding:var(--space-3); } }
 </style>

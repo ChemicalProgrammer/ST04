@@ -332,7 +332,7 @@ var ST_TEXT_RESOURCES = {
   "client.scenario_edits_not_yet_saved_to_drive": " · scenario edits not yet saved to Drive",
   "client.workspace_tab_active": " workspace-tab-active",
   "client.open_simulation": "Open simulation: ",
-  "client.compare_simulations": "Compare simulations",
+  "client.compare_simulations": "Comparison",
   "client.compare_two_saved_simulations_from_this_case": "Compare two saved simulations from this Case.",
   "client.simulation_a": "Simulation A",
   "client.mm": " mm (",
@@ -840,3 +840,4 @@ function resolveTextResources_(source) {
     return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   });
 }
+
