@@ -1855,28 +1855,28 @@ test('UI: mode switches rebuild isolated What-If cards and unified DOE rows pres
 });
 
 
-test('UI: Advanced selects SimPy per simulation, clears stale results and preserves the default in a new simulation',async()=>{
- const h=await setup({uiMode:'ADVANCE'});try{
+test('UI: Basic and Advance select SimPy per simulation, clears stale results and preserves the default in a new simulation',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({uiMode});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
   const picker=h.d.getElementById('settings-simulation-engine');
   assert(!h.d.getElementById('settings-engine-section').classList.contains('hidden'));
   assert.equal(picker.value,'ST_CURRENT');assert(!picker.disabled);
   picker.value='DES_SIMPY_EXPERIMENTAL';picker.dispatchEvent(new h.w.Event('change'));
-  await h.click('#settings-close');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.engineId==='DES_SIMPY_EXPERIMENTAL');
+  await h.click('#settings-close');if(uiMode==='BASIC')await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.engineId==='DES_SIMPY_EXPERIMENTAL');
   assert.equal(h.storedCases()[0].simulations[0].results,null);
   assert(h.visible('simulation-engine-notice'));
   assert.match(h.d.getElementById('simulation-analysis-content').textContent,/not yet validated/);
   await h.click('#open-settings');assert.equal(picker.value,'DES_SIMPY_EXPERIMENTAL');
-  picker.value='ST_CURRENT';picker.dispatchEvent(new h.w.Event('change'));await h.click('#settings-close');
+  picker.value='ST_CURRENT';picker.dispatchEvent(new h.w.Event('change'));await h.click('#settings-close');if(uiMode==='BASIC')await h.click('#save-case');
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.engineId==='ST_CURRENT');
   assert(!h.visible('simulation-engine-notice'));assert.deepEqual(h.errors,[]);
- }finally{h.dom.window.close();}
+ }finally{h.dom.window.close();}}
 });
 
-test('UI: Basic has precisely the requested fourteen palettes and hides the engine selector',async()=>{
+test('UI: Basic has precisely the requested fourteen palettes and shows the engine selector',async()=>{
  const h=await setup({uiMode:'BASIC',savedAccent:'amparo-blue'});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
-  assert(h.d.getElementById('settings-engine-section').classList.contains('hidden'));
+  assert(!h.d.getElementById('settings-engine-section').classList.contains('hidden'));
   const colors=Array.from(h.d.querySelectorAll('.accent-choice:not(.hidden)')).map(b=>b.dataset.accent);
   assert.deepEqual(colors,['a-lorange','adamite-green','boat-house','encore','football-field','glaucous','hole-in-one','imperial-yellow','mermaid-dreams','ocean-liner','poinsettia','redcurrant','thirsty-thursday','aegean-sea']);
   assert.equal(h.d.documentElement.dataset.accent,'boat-house');
