@@ -2444,3 +2444,27 @@ for(const stage of ['before first round','background rounds','streaming first ro
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+for(const uiMode of ['BASIC','ADVANCE'])test('UI: fresh scenario search clears restored metrics and saved fallback in '+uiMode,async()=>{
+ const h=await setup({remember:true,uiMode});try{
+  const sim=h.storedCases()[0].simulations[0],changes=h.w.STScenarios.catalog(sim).slice(0,3);
+  const project={catalog:true,explore:true,kind:'CUSTOM',tier:'HIGH',searchScope:'HIGH',changes};
+  sim.whatIf={evaluations:[{cardId:JSON.stringify([sim.id,'CAPEX','HIGH']),sourceSimulationId:sim.id,sourceSignature:h.w.STScenarios.signature(sim),kind:'CUSTOM',tier:'HIGH',searchScope:'HIGH',status:'NOT_EVALUATED',updatedAt:new Date().toISOString(),lastResult:{baseline:{oee:30,throughput:120},candidate:{oee:48,throughput:192}}}]};
+  let release,options;
+  h.w.SimulatorEngine.simulateBatch=async(input,opts)=>{options=opts;await new Promise(resolve=>release=resolve);return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:30,outputCount:120}}};};
+  const card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);
+  assert(card.querySelector('.scenario-metrics').textContent);
+  card.querySelector('.scenario-search').click();await waitFor(()=>release);
+  assert.equal(card.querySelector('.scenario-metrics').textContent,'');
+  assert(card.querySelector('.scenario-create').disabled);
+  assert.equal(sim.whatIf.evaluations[0].candidate,undefined);
+  assert.equal(sim.whatIf.evaluations[0].lastResult,undefined);
+  card.querySelector('.scenario-evaluate').click();card.querySelector('.scenario-evaluate').click();assert(options.cancelled());release();
+  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  assert.equal(card.querySelector('.scenario-metrics').textContent,'');
+  const saved=JSON.parse(JSON.stringify(sim));card.remove();
+  const reopened=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(reopened);
+  assert.equal(reopened.querySelector('.scenario-metrics').textContent,'');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
