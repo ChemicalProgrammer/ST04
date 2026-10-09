@@ -87,10 +87,6 @@ window.STAppearance = (function() {
       document.getElementById(id)?.addEventListener('click',function(){dialog.close();});
     });
     dialog?.addEventListener('close',function(){if(colorOrigin?.isConnected)colorOrigin.focus();});
-    document.getElementById('appearance-reset')?.addEventListener('click', function() {
-      change('secondaryAccent', defaultSecondary);
-      STPreferences.setAccent(STThemeResources.defaultAccent);
-    });
     document.getElementById('reset-primary-color')?.addEventListener('click',function(){STPreferences.setAccent(STThemeResources.defaultAccent);});
     document.getElementById('reset-secondary-color')?.addEventListener('click',function(){change('secondaryAccent',defaultSecondary);});
     sync();
