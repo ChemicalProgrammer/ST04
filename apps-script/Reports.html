@@ -86,7 +86,7 @@ window.STReports=(function(){
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
   function whatIfHtml(simulation,plan){
-    var body=basic()?'':evaluationsHtml(simulation);
+    var body=basic()?evaluationSummaryHtml(simulation):evaluationsHtml(simulation);
     STWhatIf.visibleProjects(plan).forEach(function(p){body+='<section><h2>'+escape(p.title||STScenarioText[p.titleKey]||p.kind)+'</h2><p>'+escape(STScenarioText[p.tier]||p.tier)+' · '+escape(STScenarioText[p.basis]||p.basis)+'</p><p>'+escape(p.description||'')+'</p>';
       body+=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.current'),__ST_TEXT__('exports.proposed'),__ST_TEXT__('exports.explanation')],p.changes.map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
       if(!basic())body+='<h3>'+escape(__ST_TEXT__('scenario.evidence'))+'</h3>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(p.evidence));body+='</section>';
@@ -94,12 +94,26 @@ window.STReports=(function(){
     var checks=table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.check'),__ST_TEXT__('exports.status')],plan.checks.map(function(c){return [c.equipmentId||'—',STScenarioText[c.rule]||c.rule,STScenarioText[c.status]||c.status];}));
     return documentHtml(__ST_TEXT__('exports.whatif_report'),{context:escape(simulation.name),proposals:body,checks:checks},'whatif');
   }
+  function evaluationSummaryHtml(simulation){
+    var evaluations=window.STScenarioExplorer?.evaluations(simulation)||[];
+    return evaluations.map(function(saved){
+      var e=saved.candidate?saved:saved.lastResult||saved,comparison=e.independentCheck||e;
+      var html='<section><h2>'+escape(e.title||saved.title)+'</h2><p>Scenario search result · '+escape(e.status||saved.status)+'</p>';
+      if(e!==saved)html+='<p>Previous evaluation. Configuration changed; recalculate before creating a scenario.</p>';
+      if(comparison.baseline&&comparison.candidate)html+=table(['Metric','Baseline','Scenario','Difference'],[['OEE (%)','oee'],['Throughput ('+(e.unitOfFlow||simulation.unitOfFlow||'units')+'/min)','throughput']].map(function(spec){var base=comparison.baseline[spec[1]],next=comparison.candidate[spec[1]];return [spec[0],value(base),value(next),value(next-base)];}));
+      if(e.independentCheck)html+='<p>Independent check · Rounds: '+escape(e.independentCheck.rounds)+' · Passed: '+escape(e.independentCheck.passed)+'</p>';
+      html+=table(['Equipment','Parameter','Baseline','Evaluated target','Purpose'],(e.evaluatedChanges||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
+      return html+'</section>';
+    }).join('');
+  }
   function evaluationsHtml(simulation){
     var evaluations=window.STScenarioExplorer?.evaluations(simulation)||[];
     var html='<section><h2>Calculated hypothesis evaluations</h2><p>Saved case evaluations; matching source inputs only. Independent checks are simulation evidence, not plant validation.</p>';
     if(!evaluations.length)return html+'<p>No calculated evaluations available for these inputs for this case.</p></section>';
-    evaluations.forEach(function(e){
+    evaluations.forEach(function(saved){
+      var e=saved.candidate?saved:saved.lastResult||saved;
       html+='<section><h3>'+escape(e.title)+'</h3><p>'+escape(e.tier)+' · '+escape(e.status)+' · '+escape(e.updatedAt)+'</p>';
+      if(e!==saved)html+='<p>Previous evaluation. Configuration changed; recalculate before creating a scenario.</p>';
       html+=table(['Evaluation setting','Value'],scalars({method:e.method,engineeringReviewAcknowledged:e.engineeringReviewAcknowledged,run:e.run,trials:e.trials,infeasibleTrials:e.infeasibleTrials,acceptance:e.acceptance,error:e.error}));
       var rows=[];function comparison(label,base,next){if(!base||!next)return;rows.push([label,'OEE (%)',value(base.oee),value(next.oee),value(next.oee-base.oee)]);rows.push([label,'Throughput ('+e.unitOfFlow+'/min)',value(base.throughput),value(next.throughput),value(next.throughput-base.throughput)]);}
       comparison('Screening',e.baseline,e.candidate);comparison('Independent seeds',e.independentCheck?.baseline,e.independentCheck?.candidate);
@@ -208,4 +222,5 @@ window.STReports=(function(){
   return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
+
 

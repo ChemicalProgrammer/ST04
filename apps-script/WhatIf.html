@@ -23,7 +23,7 @@ window.STWhatIf = (function() {
   function visibleProjects(plan){return (plan.candidates||plan.projects).filter(function(p){return p.changes?.length&&p.disabledReason!=='SCENARIO_INSUFFICIENT_EVIDENCE';});}
   function changeInfo(change,equipment){
     var field=fields[change.path],unit=change.unit||field?.[2]||'',equipmentName=(equipment||[]).find(function(e){return e.id===change.equipmentId;})?.name||change.equipmentId;
-    function value(v){return (v==null?__ST_TEXT__('scenario.not_set'):String(v))+(unit?' '+unit:'');}
+    function value(v){return (v==null?__ST_TEXT__('scenario.not_set'):typeof v==='number'&&Number.isFinite(v)?String(Number(v.toFixed(2))):String(v))+(unit?' '+unit:'');}
     return {equipment:equipmentName,parameter:field?.[0]||change.path,before:value(change.before),after:value(change.after),explanation:field?.[1]||__ST_TEXT__('scenario.review_field')};
   }
   var fields={
@@ -56,3 +56,4 @@ window.STScenarioText = {
   overflowUnits:__ST_TEXT__('scenario.overflow_units')
 };
 </script>
+

@@ -97,6 +97,19 @@ test('What-If JSON follows visible proposals and includes baseline evidence and 
  }finally{h.dom.window.close();}
 });
 
+test('scenario targets round display only and Basic exports the independent result with changed variables',()=>{
+ const h=setup();try{
+  const change={equipmentId:h.sim.equipment[0].id,path:'nominalRatePerSecond',before:12,after:14.123456789};
+  const entry={title:'Best evaluated scenario',status:'REPRODUCED',unitOfFlow:'bottles',evaluatedChanges:[change],baseline:{oee:60,throughput:100},candidate:{oee:99,throughput:180},independentCheck:{baseline:{oee:61,throughput:101},candidate:{oee:72.123456789,throughput:120},rounds:3,passed:true}};
+  h.w.STScenarioExplorer={evaluations:()=>[entry]};
+  const info=h.w.STWhatIf.changeInfo(change,h.sim.equipment);assert.equal(info.before,'12 units/s');assert.equal(info.after,'14.12 units/s');assert.equal(change.after,14.123456789);
+  h.w.document.documentElement.dataset.uiMode='basic';const plan=h.w.STScenarios.plan(h.sim),doc=new JSDOM(h.w.STReports.whatIfHtml(h.sim,plan)),text=doc.window.document.body.textContent;
+  assert(text.includes('Best evaluated scenario'));assert(text.includes('72.1235'));assert(text.includes('14.12 units/s'));assert(!text.includes('14.123456789'));assert(!text.includes('Evaluation setting'));assert.equal(doc.window.document.querySelector('[data-report=checks]'),null);doc.window.close();
+  const json=h.w.STReports.whatIfData(h.sim,plan);assert.equal(json.evaluations[0].evaluatedChanges[0].after,14.123456789);assert.equal(json.evaluations[0].independentCheck.candidate.oee,72.123456789);
+  h.w.STScenarioExplorer={evaluations:()=>[{title:entry.title,status:'NOT_EVALUATED',lastResult:entry}]};const prior=h.w.STReports.whatIfHtml(h.sim,plan);assert(prior.includes('Previous evaluation'));assert(prior.includes('14.12 units/s'));
+ }finally{h.dom.window.close();}
+});
+
 test('What-If exports incomplete DOE evidence as incomplete without inventing effects',()=>{
  const h=setup();try{
   h.w.STScenarioExplorer={evaluations:()=>[{title:'Interrupted DOE <test>',tier:'ZERO',status:'ERROR',updatedAt:'2026-10-04',run:{seed:17,rounds:3},unitOfFlow:'units',doe:{type:'FULL_FACTORIAL_TWO_LEVEL',factors:[],fixedChanges:[],observations:[],roundsPerCombination:3}}]};
@@ -129,4 +142,5 @@ test('Basic What-If and comparison documents omit technical checks, raw configur
   doc=new JSDOM(h.w.STReports.comparisonHtml(h.w.STReports.comparisonData(h.c,left,right)));assert(doc.window.document.body.textContent.includes('130'));assert.equal(doc.window.document.querySelector('[data-report=equipment]'),null);assert.equal(doc.window.document.querySelector('[data-report=batch]'),null);assert(!doc.window.document.body.textContent.includes('blowmolder-1'));doc.window.close();
  }finally{h.dom.window.close();}
 });
+
 
