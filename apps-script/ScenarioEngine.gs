@@ -1,4 +1,3 @@
-// GENERATED scenario validation and planning. Edit src/analysis/ScenarioPlanner.js.
 var STScenarioEngine_ = (function(){
 /**
  * Deterministic conveyor-design calculations based on the FlowPilot / CAT
