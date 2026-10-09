@@ -91,6 +91,8 @@ window.STAppearance = (function() {
       change('secondaryAccent', defaultSecondary);
       STPreferences.setAccent(STThemeResources.defaultAccent);
     });
+    document.getElementById('reset-primary-color')?.addEventListener('click',function(){STPreferences.setAccent(STThemeResources.defaultAccent);});
+    document.getElementById('reset-secondary-color')?.addEventListener('click',function(){change('secondaryAccent',defaultSecondary);});
     sync();
   });
   return {sync:sync,setSecondary:function(value){change('secondaryAccent',value);}};

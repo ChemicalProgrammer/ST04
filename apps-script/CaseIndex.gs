@@ -49,8 +49,8 @@ function refreshCaseCatalog_(user,cursor) {
       var children=folder.getFolders();
       while(children.hasNext()) {
         var child=children.next(),childName=child.getName();if(!/^[a-z0-9-]+$/i.test(childName))continue;
-        var manifests=child.getFilesByName('case.json');if(!manifests.hasNext())continue;
-        var manifest=manifests.next(),manifestId=manifest.getId(),modified=caseFileModifiedAt_(manifest);
+        var manifest=findCaseManifest_(child,childName);if(!manifest)continue;
+        var manifestId=manifest.getId(),modified=caseFileModifiedAt_(manifest);
         liveIds.add(manifestId);
         if(known.get(manifestId)!==modified)queue.push({fileId:manifestId,name:childName+'.case.json',folderName:childName,modifiedAt:modified});
       }
@@ -62,7 +62,7 @@ function refreshCaseCatalog_(user,cursor) {
     while(scan.position<scan.queue.length&&reads<ST_CASE_INDEX_LIMITS.maxReadsPerBatch&&(reads===0||Date.now()-started<ST_CASE_INDEX_LIMITS.maxBatchMs)) {
       var item=scan.queue[scan.position++],container=folder;
       if(item.folderName){var children=folder.getFoldersByName(item.folderName);if(!children.hasNext())continue;container=children.next();}
-      var matches=container.getFilesByName(item.folderName?'case.json':item.name),current=matches.hasNext()?matches.next():null;
+      var matches=item.folderName?null:container.getFilesByName(item.name),current=item.folderName?findCaseManifest_(container,item.folderName):matches.hasNext()?matches.next():null;
       // A moved/deleted file is not read through its stale ID.
       if(!current||current.getId()!==item.fileId)continue;
       var record=tryReadCaseFile_(current);reads++;
@@ -88,7 +88,8 @@ function updateCaseIndex_(caseData,file,user,removed) {
   try {
     var folder=getWorkspaceFolders_().cases,index=readCaseIndex_(folder,user);
     index.data.entries=index.data.entries.filter(function(e){return e.id!==caseData.id&&e.fileId!==file.getId();});
-    if(!removed)index.data.entries.push(Object.assign(toCaseSummary_(caseData,file),{folderName:file.getName()==='case.json'?caseData.id:null,fileModifiedAt:caseFileModifiedAt_(file,caseData.updatedAt)}));
+    if(!removed)index.data.entries.push(Object.assign(toCaseSummary_(caseData,file),{folderName:([caseManifestName_(caseData.id),'case.json'].includes(file.getName()))?caseData.id:null,fileModifiedAt:caseFileModifiedAt_(file,caseData.updatedAt)}));
     writeCaseIndex_(folder,index,user);
   }catch(error){console.error(JSON.stringify({event:'CASE_INDEX_UPDATE_FAILED',type:error?.name||'Error'}));}
 }
+

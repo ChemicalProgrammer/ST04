@@ -141,6 +141,7 @@ window.STBasicMode=(function(){
       var sectionAudit=!machine?audits.find(function(x){return x.equipmentId===e.id;}):null;
       var upstream=equipment.find(function(x){return x.id===sectionAudit?.upstreamId;}),downstream=equipment.find(function(x){return x.id===sectionAudit?.downstreamId;});
       card.querySelector('.equipment-header strong').textContent=e.name;
+      STEquipmentInspector.refreshTitle(card);
       var data=card.querySelector('.basic-card-data');if(!data){data=node('section','','basic-card-data');card.appendChild(data);}
       data.replaceChildren();
       if(machine){

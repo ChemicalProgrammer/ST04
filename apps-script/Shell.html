@@ -11,6 +11,8 @@ window.STShell = function(state,actions) {
     document.getElementById('application').classList.toggle('case-open',active);
     document.getElementById('case-sidebar').classList.toggle('hidden',!active);
     document.getElementById('cases-top-actions').classList.toggle('hidden',active);
+    var pin=document.getElementById('pin-header'),pinHost=document.getElementById(active?'request-progress':'cases-settings');
+    if(pin.nextElementSibling!==pinHost)pinHost.before(pin);
     var geminiToggle=document.getElementById('toggle-gemini'),geminiHost=document.getElementById(active?'header-case-actions':'cases-top-actions');
     if(geminiToggle.parentElement!==geminiHost){if(active)geminiHost.appendChild(geminiToggle);else geminiHost.prepend(geminiToggle);}
     geminiToggle.classList.toggle('hidden',!state.bootstrap);

@@ -81,8 +81,8 @@ window.STScenarioExplorer=(function(){
       }
       list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale,row:row});check.onchange=limit.oninput=function(){if(activeHost)return;searchVariables=[];rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});last=null;generation++;clearTimeout(timer);status.textContent='Changes updated. Use the magnifier to calculate, or update to search.';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();};
     });
-    var tableFooter=el('tfoot'),selectionRow=el('tr'),selectionCell=el('td'),selectionText=el('td','Select / deselect all available variables');
-    var useAll=document.createElement('input');useAll.type='checkbox';useAll.className='scenario-use-all';useAll.setAttribute('aria-label','Select or deselect all available variables');selectionCell.append(useAll);selectionText.colSpan=6;selectionRow.append(selectionCell,selectionText);tableFooter.append(selectionRow);list.closest('table').append(tableFooter);
+    var useAll=document.createElement('input');useAll.type='checkbox';useAll.className='scenario-use-all';useAll.setAttribute('aria-label','Select or deselect all available variables');useAll.title='Select or deselect all available variables';
+    var useHeading=list.closest('table').querySelector('thead th'),useLabel=el('label','','scenario-column-select');useLabel.append(useAll,document.createTextNode('Use'));useHeading.replaceChildren(useLabel);
     useAll.onchange=function(){if(activeHost)return;rows.forEach(r=>{if(!r.check.disabled)r.check.checked=useAll.checked;});rows[0]?.check.onchange();};
     var doePanel=el('details','','scenario-doe');
     var doeToggle=document.createElement('input');doeToggle.type='checkbox';doeToggle.className='scenario-doe-enabled';var doeChoice=el('label','','scenario-scope');doeChoice.append(doeToggle,document.createTextNode(' Include DOE in this search'));
@@ -94,6 +94,9 @@ window.STScenarioExplorer=(function(){
     doePanel.append(el('summary','DOE · choose up to 4 factors'),el('p','Two levels per factor; 1–4 factors = 2–16 combinations, each with at least 3 rounds. Other changes stay fixed at the current search winner. Category candidates follow the CAPEX criteria. Choose any supported variable yourself, including variables not previously explored. Set two levels within the allowed physical range; every combination is simulated and validated. Reliability factors retain their explicit intervention evidence. Costs are not calculated.','chart-note'));
     var factorActions=el('div','','button-row');factorActions.append(suggestFactors,clearFactors);doePanel.append(doeChoice,factorCount,factorActions);
     ['DOE','Low','High'].forEach(function(text){var header=el('th',text);header.scope='col';header.dataset.doeColumn='';list.closest('table').querySelector('thead tr').append(header);});
+    var doeAll=document.createElement('input');doeAll.type='checkbox';doeAll.className='scenario-doe-all';doeAll.setAttribute('aria-label','Select up to four DOE factors or clear selection');doeAll.title='Select up to 4 DOE factors / clear selection';
+    var doeHeading=list.closest('table').querySelector('thead [data-doe-column]'),doeLabel=el('label','','scenario-column-select');doeLabel.append(doeAll,document.createTextNode('DOE'));doeHeading.replaceChildren(doeLabel);
+    doeAll.onchange=function(){if(activeHost||!doeEnabled())return;var available=rows.filter(r=>r.doe&&eligibleForDOE(r));if(!doeAll.checked)available.forEach(r=>r.doe.use.checked=false);else{var count=available.filter(r=>r.doe.use.checked).length;available.forEach(r=>{if(!r.doe.use.checked&&count<4){r.doe.use.checked=true;count++;}if(r.doe.use.checked)r.check.checked=true;});}refreshFactors();invalidateDOE();};
     rows.forEach(function(r){
       if(!eligibleForDOE(r)){var reason=r.change.disabledReason||'Set a numeric baseline in Equipment first.';for(var i=0;i<3;i++){var unavailable=el('td',i?'—':'');unavailable.dataset.doeColumn='';unavailable.title=reason;if(!i){var blocked=document.createElement('input');blocked.type='checkbox';blocked.disabled=true;blocked.className='scenario-doe-unavailable';blocked.title=reason;blocked.setAttribute('aria-label','DOE unavailable: '+reason);unavailable.append(blocked);}r.row.append(unavailable);}return;}
       var info=STWhatIf.changeInfo(r.change,source.equipment),field=r.row,use=document.createElement('input');use.type='checkbox';use.checked=false;
@@ -109,11 +112,12 @@ window.STScenarioExplorer=(function(){
     function refreshFactors(){
       if(activeHost)return;var available=rows.filter(r=>r.doe&&eligibleForDOE(r)),count=available.filter(r=>r.check.checked&&r.doe.use.checked).length;
       var selectable=rows.filter(r=>!r.check.disabled),checked=selectable.filter(r=>r.check.checked).length;useAll.checked=selectable.length>0&&checked===selectable.length;useAll.indeterminate=checked>0&&checked<selectable.length;useAll.disabled=!selectable.length;
+      var maximum=Math.min(4,available.length);doeAll.checked=maximum>0&&count===maximum;doeAll.indeterminate=count>0&&count<maximum;doeAll.disabled=!doeEnabled()||!maximum;
       factorCount.textContent=available.length?count+' / 4 selected · '+available.length+' eligible variables. Choose the factors yourself; none are preselected.':'No supported numeric factors are available in this category. Check the reasons shown beside unavailable inputs.';
       rows.filter(r=>r.doe).forEach(r=>{var eligible=eligibleForDOE(r);if(!r.check.checked||!eligible)r.doe.use.checked=false;r.row.dataset.doeEvaluated=String(eligible);r.doe.use.disabled=!doeEnabled()||!eligible;r.doe.use.title=eligible?'Choose this factor; up to 4 variables':r.change.disabledReason||'Set a numeric baseline in Equipment first.';r.doe.low.disabled=r.doe.high.disabled=!doeEnabled()||!r.doe.use.checked||!eligible;});
     }
     refreshFactors();
-    function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();dialog.querySelectorAll('[data-doe-column]').forEach(function(cell){cell.hidden=!doeEnabled();});selectionText.colSpan=doeEnabled()?9:6;refreshFactors();clearFactors.disabled=!doeEnabled();suggestFactors.hidden=!doeEnabled();suggestFactors.disabled=!doeEnabled();}
+    function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();dialog.querySelectorAll('[data-doe-column]').forEach(function(cell){cell.hidden=!doeEnabled();});refreshFactors();clearFactors.disabled=!doeEnabled();suggestFactors.hidden=!doeEnabled();suggestFactors.disabled=!doeEnabled();}
     function suggestDOE(){
       if(activeHost||!doeEnabled())return;
       var proposals=new Map(),candidates=STScenarios.plan(source).candidates||[];

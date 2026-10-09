@@ -81,8 +81,8 @@ function saveCaseUnlocked_(request, user) {
   stage='NORMALIZE';
   var next = buildUpdatedCase_(request, current, user);
   stage='WRITE';
-  owned.file = persistCaseRecord_(next, owned, {inlineSmallSimulations:request.compactStorage===true});
-  if(typeof updateCaseIndex_==='function')updateCaseIndex_(next,owned.file,user);
+  owned.file = persistCaseRecord_(next, owned);
+  if(!owned.unchanged&&typeof updateCaseIndex_==='function')updateCaseIndex_(next,owned.file,user);
   return next;
   }catch(error){
     if(error&&error.simulatorError)throw error;
@@ -196,9 +196,9 @@ function getOwnedCaseFile_(caseId, user, metadataOnly) {
   var normalizedId = requireCaseId_(caseId);
   var root=getWorkspaceFolders_().cases,folders=root.getFoldersByName(normalizedId);
   if(folders.hasNext()) {
-    var folder=folders.next(),manifests=folder.getFilesByName('case.json');
-    if(manifests.hasNext()) {
-      var manifest=manifests.next(),record=tryReadCaseFile_(manifest);
+    var folder=folders.next(),manifest=findCaseManifest_(folder,normalizedId);
+    if(manifest) {
+      var record=tryReadCaseFile_(manifest);
       if(!record||record.id!==normalizedId||record.ownerEmail!==user.email)throw createSimulatorError_('CASE_NOT_FOUND','The requested Case could not be found.');
       if(metadataOnly)return {file:manifest,folder:folder,caseData:record};
       if(!['case-folder-1','case-folder-2'].includes(record.storageVersion)||!Array.isArray(record.simulationFiles))throw createSimulatorError_('INVALID_CASE','The case manifest is invalid.');
@@ -208,7 +208,7 @@ function getOwnedCaseFile_(caseId, user, metadataOnly) {
           if(!entry.inline||typeof entry.inline!=='object'||Array.isArray(entry.inline)||entry.inline.id!==entry.id)throw createSimulatorError_('INVALID_CASE','The saved inline simulation is invalid.');
           return entry.inline;
         }
-        if(!entry||!/^simulation-[a-z0-9-]+\.json$/i.test(entry.fileName))throw createSimulatorError_('INVALID_CASE','The simulation manifest is invalid.');
+        if(!entry||!/^(?:simulation-[a-z0-9-]+|[a-z0-9]{1,12}-simulation-[0-9]+)\.json$/i.test(entry.fileName))throw createSimulatorError_('INVALID_CASE','The simulation manifest is invalid.');
         var matches=folder.getFilesByName(entry.fileName),simulation=matches.hasNext()?tryReadCaseFile_(matches.next()):null;
         if(!simulation||simulation.id!==entry.id)throw createSimulatorError_('INVALID_CASE','A saved simulation could not be read.');
         return simulation;
@@ -224,63 +224,63 @@ function getOwnedCaseFile_(caseId, user, metadataOnly) {
   return {file:file,caseData:caseData};
 }
 
-var ST_CASE_STORAGE_LIMITS={inlineSimulationBytes:16384,inlineCaseBytes:32768};
+// Prefer identified manifests, while continuing to open existing folders.
+function caseManifestName_(id){return id+'.case.json';}
+function findCaseManifest_(folder,id){
+  var names=[caseManifestName_(id),'case.json'];
+  for(var i=0;i<names.length;i++){var matches=folder.getFilesByName(names[i]);if(matches.hasNext())return matches.next();}
+  return null;
+}
+function caseStorageComparable_(record,refs){
+  var value={};
+  ['schemaVersion','id','name','unitOfFlow','equipment','engineConfig','activeSimulationId','metadata','stateIds','ownerEmail','createdAt'].forEach(function(key){value[key]=record[key];});
+  value.simulationFiles=refs;
+  function canonical(item){if(Array.isArray(item))return item.map(canonical);if(item&&typeof item==='object'){var result={};Object.keys(item).sort().forEach(function(key){result[key]=canonical(item[key]);});return result;}return item;}
+  return JSON.stringify(canonical(value));
+}
 
-// Small simulations fit in the atomic manifest write. Large results still use
-// immutable files; neither route changes or truncates any simulation data.
-// A failed write leaves the previous manifest and simulations readable.
-function persistCaseRecord_(record,owned,options) {
+// Each simulation has its own immutable file. Stage changed files first, commit
+// the manifest, then clean up obsolete versions. Unchanged JSON is reused.
+function persistCaseRecord_(record,owned) {
   var folder=owned&&owned.folder;
   if(!folder){var root=getWorkspaceFolders_().cases,matches=root.getFoldersByName(record.id);folder=matches.hasNext()?matches.next():root.createFolder(record.id);}
   var previous=owned&&owned.folder?owned.simulationFiles||owned.caseData.simulationFiles||[]:[],staged=[],refs=[];
-  var inlineEnabled=options?.inlineSmallSimulations===true||previous.some(function(entry){return entry.inline!==undefined;}),inlineBytes=0,storedFiles;
-  var previousById=new Map(previous.map(function(entry){return [entry.id,entry];}));
+  var previousById=new Map(previous.map(function(entry){return [entry.id,entry];})),usedNames=new Set(previous.map(function(entry){return entry.fileName;})),storedFiles;
   var externalCount=previous.filter(function(entry){return !!entry.fileName;}).length;
   function storedFile(name){
     if(!name)return null;
     if(externalCount<2){var matches=folder.getFilesByName(name);return matches.hasNext()?matches.next():null;}
-    // One listing replaces a separate Drive query for each saved simulation.
-    if(!storedFiles){storedFiles=new Map();var files=folder.getFiles();while(files.hasNext()){var file=files.next();if(!storedFiles.has(file.getName()))storedFiles.set(file.getName(),file);}}
+    if(!storedFiles){storedFiles=new Map();var files=folder.getFiles();while(files.hasNext()){var file=files.next(),name=file.getName();if(!storedFiles.has(name))storedFiles.set(name,file);}}
     return storedFiles.get(name)||null;
   }
-  var manifest=owned&&owned.folder?owned.file:null;
-  if(!manifest){var manifestFiles=folder.getFilesByName('case.json');manifest=manifestFiles.hasNext()?manifestFiles.next():null;}
+  var manifest=owned&&owned.folder?owned.file:findCaseManifest_(folder,record.id);
   if(manifest&&(!owned||!owned.folder))throw createSimulatorError_('CASE_CONFLICT','A case folder already contains a saved case. Reload before saving.');
   try {
     record.simulations.forEach(function(simulation,index){
       var json=JSON.stringify(simulation),digest=simulationContentDigest_(json),old=previousById.get(simulation.id);
-      var available=Math.min(ST_CASE_STORAGE_LIMITS.inlineSimulationBytes,ST_CASE_STORAGE_LIMITS.inlineCaseBytes-inlineBytes);
-      var bytes=inlineEnabled?caseJsonBytesWithin_(json,available):null;
-      if(bytes!==null){inlineBytes+=bytes;refs.push({id:simulation.id,inline:simulation,digest:digest});return;}
-      // A changed digest needs a new immutable file; do not look up its old file.
       var mayReuse=old&&old.fileName&&(!old.digest||!digest||old.digest===digest),oldFile=mayReuse?storedFile(old.fileName):null;
       if(oldFile&&(old.digest&&digest?old.digest===digest:oldFile.getBlob().getDataAsString()===json)){refs.push({id:old.id,fileName:old.fileName,digest:digest});return;}
-      var name='simulation-'+index+'-'+Utilities.getUuid()+'.json';
-      staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name,digest:digest});
+      var name;
+      do{name=Utilities.getUuid().replace(/-/g,'').slice(0,12)+'-simulation-'+String(index+1).padStart(2,'0')+'.json';}while(usedNames.has(name));
+      usedNames.add(name);staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name,digest:digest});
     });
-    var version=refs.some(function(entry){return entry.inline!==undefined;})?'case-folder-2':'case-folder-1';
-    var general=Object.assign({},record,{storageVersion:version,simulationFiles:refs});delete general.simulations;
-    var json=JSON.stringify(general);
-    if(manifest)manifest.setContent(json);else manifest=folder.createFile('case.json',json,MimeType.PLAIN_TEXT);
+    var unchanged=manifest&&owned&&owned.folder&&caseStorageComparable_(record,refs)===caseStorageComparable_(owned.caseData,previous);
+    if(unchanged){record.revision=owned.caseData.revision;record.updatedAt=owned.caseData.updatedAt;owned.unchanged=true;}
+    else{
+      var general=Object.assign({},record,{storageVersion:'case-folder-1',simulationFiles:refs});delete general.simulations;
+      var json=JSON.stringify(general);
+      if(manifest)manifest.setContent(json);else manifest=folder.createFile(caseManifestName_(record.id),json,MimeType.PLAIN_TEXT);
+    }
   }catch(error){staged.forEach(function(file){try{file.setTrashed(true);}catch(ignore){}});throw error;}
-  // Cleanup is best effort after the authoritative manifest has committed.
+  // Rename only after the commit; the loader accepts either manifest name.
+  try{if(manifest.getName()!==caseManifestName_(record.id)&&typeof manifest.setName==='function'){manifest.setName(caseManifestName_(record.id));if(owned)owned.unchanged=false;}}
+  catch(error){console.error(JSON.stringify({event:'CASE_MANIFEST_RENAME_FAILED',type:error.name||'Error'}));}
   try {
-    var retained=new Set(refs.map(function(entry){return entry.fileName;}).filter(Boolean));
+    var retained=new Set(refs.map(function(entry){return entry.fileName;}));
     previous.forEach(function(entry){if(entry.fileName&&!retained.has(entry.fileName)){var file=storedFile(entry.fileName);if(file)file.setTrashed(true);}});
     if(owned&&!owned.folder)owned.file.setTrashed(true);
   }catch(error){console.error(JSON.stringify({event:'CASE_STORAGE_CLEANUP_FAILED',type:error.name||'Error'}));}
   return manifest;
-}
-
-function caseJsonBytesWithin_(json,limit){
-  if(json.length>limit)return null;
-  var bytes=0;
-  for(var i=0;i<json.length;i++){
-    var code=json.charCodeAt(i);
-    if(code<128)bytes++;else if(code<2048)bytes+=2;else if(code>=0xd800&&code<=0xdbff&&json.charCodeAt(i+1)>=0xdc00&&json.charCodeAt(i+1)<=0xdfff){bytes+=4;i++;}else bytes+=3;
-    if(bytes>limit)return null;
-  }
-  return bytes;
 }
 
 // SHA-256 fingerprints avoid downloading unchanged simulation files on Save.

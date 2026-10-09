@@ -449,7 +449,6 @@ async function openCase(caseId, initialView) {
     }
     function fitCaseSave(draft){
       draft.activeSimulationId=state.activeSimulationId;
-      draft.compactStorage=true;
       compactStoredReplays(draft.simulations);
       function bytes(){return new Blob([JSON.stringify(draft)]).size;}
       while(bytes()>window.ST_CASE_SAVE_LIMITS.maxBytes){

@@ -1795,6 +1795,15 @@ test('UI: scenario configuration suggests up to four DOE factors without simulat
   master.checked=true;master.dispatchEvent(new h.w.Event('change'));assert(uses.filter(input=>!input.disabled).every(input=>input.checked));assert(uses.filter(input=>input.disabled).every(input=>!input.checked));assert(master.checked&&!master.indeterminate);
   master.checked=false;master.dispatchEvent(new h.w.Event('change'));assert(uses.every(input=>!input.checked));assert(Array.from(dialog.querySelectorAll('.scenario-doe-select')).every(input=>!input.checked));
   const first=uses.find(input=>!input.disabled);first.checked=true;first.dispatchEvent(new h.w.Event('change'));assert(master.indeterminate);
+  assert(master.closest('thead'));assert.equal(dialog.querySelector('tfoot'),null);
+  const doeMaster=dialog.querySelector('.scenario-doe-all');assert(doeMaster.closest('thead'));
+  doeMaster.checked=true;doeMaster.dispatchEvent(new h.w.Event('change'));
+  const factors=Array.from(dialog.querySelectorAll('.scenario-doe-select'));
+  assert.equal(factors.filter(input=>input.checked).length,Math.min(4,factors.length));assert(doeMaster.checked&&!doeMaster.indeterminate);
+  doeMaster.checked=false;doeMaster.dispatchEvent(new h.w.Event('change'));assert(factors.every(input=>!input.checked));
+  factors[0].checked=true;factors[0].dispatchEvent(new h.w.Event('change'));assert(doeMaster.indeterminate);
+  toggle.checked=false;toggle.dispatchEvent(new h.w.Event('change'));assert(doeMaster.disabled);
+
   assert.equal(evaluations,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2312,5 +2321,23 @@ test('UI + Apps Script: Basic unconfirmed gain is visible and creates only a val
   await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');assert.match(h.d.querySelector('.message-dialog').textContent,/unvalidated hypothesis/);await h.click('.message-dialog .dialog-heading button');assert(!h.calls.includes('createScenario'));
   await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const saved=h.storedCases()[0],draft=saved.simulations[1];assert.match(draft.name,/Validation required/);assert.equal(draft.results,null);assert.equal(draft.scenario.validation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.screeningOeeGain,2);assert.equal(draft.scenario.evidence.confirmationOeeGain,-2);assert.equal(JSON.stringify(saved.simulations[0].equipment),equipment);assert.equal(saved.simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH').independentCheck.passed,false);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: gallery pin order, Basic equipment icons and independent appearance color resets',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  assert.equal(h.d.getElementById('pin-header').nextElementSibling.id,'cases-settings');
+  h.w.STPreferences.setAccent('blues');h.w.STAppearance.setSecondary('blues');
+  const primary=h.d.getElementById('choose-primary-color'),secondary=h.d.getElementById('choose-secondary-color');
+  assert(primary.closest('.settings-appearance-colors'));assert.equal(primary.closest('.settings-appearance-colors'),secondary.closest('.settings-appearance-colors'));
+  h.d.getElementById('reset-primary-color').click();
+  assert.equal(h.d.documentElement.dataset.accent,h.w.STThemeResources.defaultAccent);assert.equal(h.d.documentElement.dataset.secondaryAccent,'blues');
+  h.d.getElementById('reset-secondary-color').click();assert.equal(h.d.documentElement.dataset.secondaryAccent,h.w.STThemeResources.defaultSecondary);
+  await h.click('.open-case');
+  assert.equal(h.d.getElementById('pin-header').nextElementSibling.id,'request-progress');
+  const cards=Array.from(h.d.querySelectorAll('#equipment-list .equipment-card'));assert(cards.length);
+  assert(cards.some(card=>card.dataset.equipmentType==='CONVEYOR'));
+  cards.forEach(card=>{const symbol=card.querySelector('.equipment-card-symbol');assert(symbol?.querySelector('svg'));assert.equal(symbol.dataset.type,card._fields.querySelector('.equipment-type').value);});
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

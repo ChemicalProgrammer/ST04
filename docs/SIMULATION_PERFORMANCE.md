@@ -54,20 +54,24 @@ semantics remain: finish search first; cancel during confirmation.
 
 ## Case saves
 
-The client requests compact storage. Simulations up to 16 KiB each can share the
-case manifest, bounded to 32 KiB of inline simulation JSON per case. Small edits
-then need no simulation-file lookup, creation or deletion. Existing small cases
-convert on the next save; subsequent server writes retain the compact format.
-Larger simulations keep their immutable files and exact content fingerprints.
-Inline manifests use `case-folder-2`; the reader supports both storage versions.
-One folder listing replaces individual queries when multiple external files
+Every simulation remains in its own immutable JSON file, including small ones.
+Content fingerprints reuse unchanged files without downloading their contents.
+Identical saves also skip the manifest and catalog writes and preserve the
+revision and modification timestamp. Metadata-only edits reuse all simulations.
+One folder listing replaces individual queries when multiple simulation files
 must be verified or cleaned up. Missing files are still detected and recreated.
 
-The manifest commits only after external files have been staged. Cleanup follows
+New manifests use `<case-id>.case.json`; new simulation versions use a 12-character
+UUID prefix, for example `a1b2c3d4e5f6-simulation-01.json`. Existing generic
+manifests are renamed after a successful save; unchanged legacy simulation files
+keep their names until edited. Both storage versions remain readable, including
+previous inline records, which migrate safely to separate files on save.
+
+The manifest commits only after changed files have been staged. Cleanup follows
 the commit; a failed write leaves the previous data readable. Owner checks,
 revision conflicts, serialized autosave and the small RPC acknowledgement remain
-in place. Storage references are omitted from the opened case response so inline
-data is sent only once. Save capture no longer clones all simulations twice.
+in place. Storage references are omitted from the opened case response.
+Save capture no longer clones all simulations twice.
 Configured autosave intervals are respected; Save still flushes immediately.
 
 ## Reproducible measurement (2026-10-09)
@@ -96,8 +100,8 @@ saved scenario creation/restoration.
 
 New tests compare serial/parallel CAPEX winners, trial histories, evaluated
 variables and independent confirmation, and verify cache reuse beyond 32 inputs
-and seed invalidation. Storage tests cover inline/external transitions, UTF-8 and
-total size limits, atomic failures, cloning, ownership and revision conflicts.
+and seed invalidation. Storage tests cover no-op saves, legacy/inline migration, short UUID names,
+atomic failures, ownership and revision conflicts.
 Three older UI tests also fail on the unchanged baseline: case evidence autosave,
 the Basic import icon assertion, and the obsolete DOE eligibility assertion.
 These pre-existing failures are separate from the performance regression checks.

@@ -343,4 +343,16 @@ html[data-visual-style=elegant] .case-row:hover .case-name,html[data-visual-styl
 html[data-visual-style=elegant] .cases-list.grid .case-actions { border-top-color:var(--elegant-border); }
 html[data-visual-style=elegant] .cases-list:not(.grid) .case-row { box-shadow:inset 3px 0 0 var(--accent); padding-left:var(--space-3); }
 @media(prefers-reduced-motion:reduce) { html[data-visual-style=elegant] .case-row { transition:none; } }
+
+/* Appearance columns and compact column selection controls. */
+.settings-appearance-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-5); align-items:start; }
+#settings-dialog .settings-appearance-colors .settings-colors { grid-template-columns:minmax(0,1fr) minmax(70px,100px) var(--control-height); align-items:center; }
+#settings-dialog .settings-appearance-general .settings-row { grid-template-columns:minmax(0,1fr) minmax(100px,180px); }
+.scenario-column-select { display:inline-flex; align-items:center; gap:var(--space-2); margin:0; white-space:nowrap; font:inherit; }
+.scenario-column-select input { margin:0; flex:none; }
+html[data-ui-mode=basic] #equipment-list .equipment-header { display:flex; align-items:center; gap:var(--space-2); }
+html[data-ui-mode=basic] #equipment-list .equipment-header strong { flex:1; min-width:0; }
+html[data-ui-mode=basic] #equipment-list .equipment-card-symbol { display:grid; place-items:center; flex:0 0 var(--control-height); height:var(--control-height); color:var(--accent); }
+html[data-ui-mode=basic] #equipment-list [data-equipment-type=CONVEYOR] .equipment-card-symbol { color:var(--secondary-text); }
+@media(max-width:640px) { .settings-appearance-grid { grid-template-columns:1fr; gap:var(--space-3); } }
 </style>
