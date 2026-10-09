@@ -63,6 +63,19 @@ function applyPreparedPublicDemoResults_(record){
   (record.simulations||[]).forEach(function(sim){var index=ids.indexOf(sim.id);if(index<0||sim.results&&Object.keys(sim.results).length)return;
     if(JSON.stringify(input(prepared.input[index].equipment,prepared.input[index].run))===JSON.stringify(input(sim.equipment,sim.dynamicConfig)))sim.results=prepared.results[index];
   });
+  if(typeof STScenarioEngine_==='undefined')return;
+  var base=(record.simulations||[]).find(function(sim){return sim.id===ids[0];});
+  if(!base)return;
+  function measured(sim,index){return sim.results?.preparedDemo&&sim.results.inputSignature===prepared.results[index].inputSignature&&JSON.stringify(input(sim.equipment,sim.dynamicConfig))===JSON.stringify(input(prepared.input[index].equipment,prepared.input[index].run));}
+  function metrics(sim){return {oee:sim.results.batch.statistics.lineOeePercent.mean,throughput:sim.results.batch.statistics.throughputPerMinute.mean};}
+  base.whatIf=base.whatIf||{};
+  var entries=(base.whatIf.evaluations||[]).filter(function(entry){return entry.origin!=='PUBLIC_DEMO_PREPARED';});
+  if(measured(base,0)){
+    (record.simulations||[]).forEach(function(sim){var index=ids.indexOf(sim.id);if(index<1||!measured(sim,index)||sim.scenario?.sourceSimulationId!==base.id)return;
+      entries.push({recordKey:'prepared-demo:'+sim.id,origin:'PUBLIC_DEMO_PREPARED',sourceSimulationId:base.id,sourceSignature:STScenarioEngine_.signature(base),linkedSimulationId:sim.id,linkedSignature:STScenarioEngine_.signature(sim),tier:sim.scenario.tier,searchScope:sim.scenario.tier,status:'PREPARED_DEMO',baseline:metrics(base),candidate:metrics(sim),run:base.dynamicConfig,evaluatedChanges:sim.scenario.changes,plantValidated:false,updatedAt:sim.results.completedAt,message:'Saved demo scenario: '+sim.name+' · '+sim.results.batch.rounds+' rounds. These values match the existing simulation; a new search can find different targets.'});
+    });
+  }
+  base.whatIf.evaluations=entries;
 }
 
 // Deliberately poor operating setup. Keep reliability identical in all scenarios;

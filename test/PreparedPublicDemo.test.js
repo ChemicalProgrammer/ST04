@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 import {gunzipSync} from 'node:zlib';
-function factory(){const context=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['PublicDemoCaseFactory.gs','PublicDemoResults.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),context);return context;}
+function factory(){const context=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['PublicDemoCaseFactory.gs','PublicDemoResults.gs','ScenarioEngine.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),context);return context;}
 test('prepared demo provides measured round means and compact actual playback frames for every scenario',()=>{
  const f=factory(),record=f.createPublicDemoCaseRequest_();
  const expected=[30.12,51.66,59.35,80.03];
@@ -30,4 +30,17 @@ test('demo RPC reports a missing prepared-results module instead of creating emp
  const f=vm.createContext({});for(const name of ['TextResources.gs','ApiResponse.gs','PublicDemoCaseFactory.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),f);
  f.requireCurrentUser_=()=>({email:'owner@test'});let created=false;f.createCase_=()=>{created=true;};
  const response=f.createPublicDemoCase();assert.equal(response.error.code,'DEMO_RESULTS_UNAVAILABLE');assert(!created);
+});
+
+test('prepared scenario summaries are stored on the baseline and repaired without retaining stale cards',()=>{
+ const f=factory(),record=f.createPublicDemoCaseRequest_(),base=record.simulations[0];
+ assert.equal(base.whatIf.evaluations.length,3);
+ base.whatIf.evaluations.forEach((entry,index)=>{
+  const sim=record.simulations[index+1];assert.equal(entry.candidate.oee,sim.results.batch.statistics.lineOeePercent.mean);
+  assert.equal(entry.candidate.throughput,sim.results.batch.statistics.throughputPerMinute.mean);
+  assert.equal(entry.sourceSignature,f.STScenarioEngine_.signature(base));assert.equal(entry.status,'PREPARED_DEMO');assert.equal(entry.independentCheck,undefined);
+ });
+ base.whatIf.evaluations=[];f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,3);
+ record.simulations[1].equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,2);
+ base.equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,0);
 });
