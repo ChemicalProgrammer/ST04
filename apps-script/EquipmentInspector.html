@@ -38,7 +38,7 @@ window.STEquipmentInspector=(function(){
     card.dataset.equipmentType=type;
     var symbol=header.querySelector('.equipment-card-symbol');
     if(!symbol){symbol=document.createElement('span');symbol.className='equipment-card-symbol';symbol.setAttribute('aria-hidden','true');header.prepend(symbol);}
-    if(symbol.dataset.type!==type){symbol.innerHTML=type==='CONVEYOR'?'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14a4 4 0 0 1 0 8H5a4 4 0 0 1 0-8ZM6 17v3m12-3v3M7 13h.01M12 13h.01M17 13h.01"/></svg>':STIcons.svg('settings');symbol.dataset.type=type;}
+    if(symbol.dataset.type!==type){symbol.innerHTML=STIcons.equipment(type);symbol.dataset.type=type;}
     if(document.documentElement.dataset.uiMode==='basic')return;
     var name=document.createElement('span');name.className='equipment-title-name';name.textContent=fields.querySelector('.equipment-name').value||fields.querySelector('.equipment-id').value||'—';
     var meta=document.createElement('span');meta.className='equipment-title-meta';meta.textContent=' '+(control.selectedOptions[0]?.textContent||type);
