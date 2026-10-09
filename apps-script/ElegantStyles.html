@@ -84,7 +84,7 @@ html[data-visual-style=elegant] .equipment-selected {
 html[data-visual-style=elegant] .equipment-selected .equipment-header { background:var(--surface); }
 html[data-visual-style=elegant] .equipment-selected .equipment-header strong { color:var(--selected-text); }
 .equipment-card-symbol { display:none; }
-html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); align-items:start; }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list { grid-template-columns:minmax(0,1fr); align-items:start; }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card {
   min-width:0; padding:var(--space-3); border:1px solid var(--elegant-border); border-left:3px solid var(--accent); border-radius:var(--radius-md); background:var(--surface);
 }
