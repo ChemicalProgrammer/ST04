@@ -1,6 +1,6 @@
-<span class="brand-conveyor" role="img" aria-label="<?= __ST_TEXT__('brand.motion_label') ?>" title="<?= __ST_TEXT__('brand.motion_keys') ?>">
+<span class="brand-conveyor" role="group" tabindex="0" aria-label="<?= __ST_TEXT__('brand.motion_label') ?>" title="<?= __ST_TEXT__('brand.motion_keys') ?>">
   <svg viewBox="0 0 208 48" aria-hidden="true" focusable="false">
-    <svg x="6" y="0" width="196" height="34" viewBox="0 0 196 34" overflow="hidden">
+    <svg class="brand-bottle-lane" x="6" y="0" width="196" height="34" viewBox="0 0 196 34" overflow="hidden">
       <g class="brand-bottles">
         <path transform="translate(-21 0)" d="M0 30V17Q0 14 4 10V2H10V10Q14 14 14 17V30Q14 32 12 32H2Q0 32 0 30Z"/>
         <path transform="translate(7 0)" d="M0 30V17Q0 14 4 10V2H10V10Q14 14 14 17V30Q14 32 12 32H2Q0 32 0 30Z"/>
@@ -37,5 +37,7 @@
         <rect x="196" y="10" width="20" height="3"/>
       </g>
     </svg>
+    <g class="brand-robot" visibility="hidden" aria-hidden="true"><path class="brand-robot-arm"/><path class="brand-robot-bottle"/></g>
+    <g class="brand-drag-layer" aria-hidden="true"></g>
   </svg>
 </span>

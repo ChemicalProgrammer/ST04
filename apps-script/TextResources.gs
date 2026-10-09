@@ -1,7 +1,7 @@
 // Display resources. Keys are stable; values preserve the current interface.
 var ST_TEXT_RESOURCES = {
   "brand.motion_label":"Bottles moving along a conveyor",
-  "brand.motion_keys":"Animation: − slower, + faster; ← move left, → move right",
+  "brand.motion_keys":"Hold a bottle to accumulate; drag away to remove; click for domino; double-click for robot. − / + speed; ← / → direction. Focus here: Space hold/release, Delete remove, R robot, D domino, Esc reset.",
   "exports.sheet_title":"Equipment exported",
   "exports.sheet_message":"A new Google Sheet was created in your workspace Exports folder, using the import layout. It includes the current Equipment inputs. Column F is installed maximum speed (configured speed when no maximum is defined); importing it initializes running speed from F. Use JSON to retain all simulator settings.",
   "exports.sheet_open":"Open Google Sheets",

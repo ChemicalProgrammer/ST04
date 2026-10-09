@@ -25,3 +25,67 @@ test('brand motion shares speed across welcome/About, excludes editing and pause
   assert.equal(nodes[1].parentElement,d.querySelector('.app-info-brand'),'animation and icon share the same centered flex row');
  }finally{w.close();}
 });
+
+async function interactiveHarness(isReduced=false){
+ const dom=new JSDOM(renderAppsScript().html,{runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,d=w.document;
+ await new Promise(resolve=>w.addEventListener('load',resolve));
+ let clock=100,id=0;const frames=new Map(),timers=new Map(),media={matches:isReduced,addEventListener(){}};
+ w.matchMedia=()=>media;w.performance.now=()=>clock;
+ w.requestAnimationFrame=callback=>{frames.set(++id,callback);return id;};w.cancelAnimationFrame=key=>frames.delete(key);
+ w.setTimeout=(callback,delay)=>{timers.set(++id,{callback,due:clock+delay});return id;};w.clearTimeout=key=>timers.delete(key);
+ const node=d.querySelector('.brand-conveyor'),svg=node.querySelector('svg');svg.getBoundingClientRect=()=>({left:0,top:0,width:208,height:48});
+ const context=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/TextResources.gs','utf8'),context);
+ w.eval(context.resolveTextResources_(fs.readFileSync('apps-script/BrandConveyorMotion.html','utf8')).replace(/<\/?script>/g,''));d.dispatchEvent(new w.Event('DOMContentLoaded'));
+ const paths=()=>[...node.querySelectorAll('.brand-bottles path')],x=path=>Number(path.getAttribute('transform').match(/translate\(([-\d.]+)/)[1]);
+ function advance(ms){for(let remaining=ms;remaining>0;){const dt=Math.min(20,remaining);clock+=dt;remaining-=dt;for(const [key,timer] of [...timers])if(timer.due<=clock){timers.delete(key);timer.callback();}const batch=[...frames.values()];frames.clear();batch.forEach(callback=>callback(clock));}}
+ function pointer(type,target=node,point={x:100,y:15}){const event=new w.MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientX:point.x,clientY:point.y});Object.defineProperty(event,'pointerId',{value:1});target.dispatchEvent(event);}
+ function key(value,target=node){const event=new w.KeyboardEvent('keydown',{key:value,bubbles:true,cancelable:true});target.dispatchEvent(event);return event;}
+ return {w,d,node,paths,x,advance,pointer,key,frames,media,close:async()=>{await Promise.resolve();w.close();}};
+}
+
+test('interactive conveyor accumulates without overlap, releases and reverses without jumps',async()=>{
+ const h=await interactiveHarness();try{
+  const held=h.paths()[4],origin=h.x(held);h.pointer('pointerdown',held);h.advance(7000);
+  assert.equal(h.x(held),origin,'held bottle remains fixed while the belt runs');
+  const positions=h.paths().map(h.x).sort((a,b)=>a-b);for(let i=1;i<positions.length;i++)assert(positions[i]-positions[i-1]>=15.999,'bottles do not overlap in the queue');
+  assert(h.paths().some(path=>Math.abs(h.x(path)-(origin-16))<.001),'upstream bottles accumulate against the held bottle');
+  assert(h.paths().length<=15,'accumulation has a bounded pool');
+  h.pointer('pointerup');h.advance(1000);assert(h.x(held)>origin,'released bottles resume transport');
+  const before=h.x(held);h.key('ArrowLeft');assert.equal(h.x(held),before,'reversal does not relocate bottles');h.advance(600);assert(h.x(held)<before);
+  h.pointer('pointerdown',held);h.advance(3000);const reversed=h.paths().map(h.x).sort((a,b)=>a-b);for(let i=1;i<reversed.length;i++)assert(reversed[i]-reversed[i-1]>=15.999);
+  h.pointer('pointercancel');assert(!h.node.hasAttribute('data-holding'));
+ }finally{await h.close();}
+});
+
+test('bottle gestures distinguish domino, robot and removal, including cancellation',async()=>{
+ const h=await interactiveHarness();try{
+  const clicked=h.paths()[4];h.pointer('pointerdown',clicked);h.pointer('pointerup');h.advance(500);
+  assert(!clicked.getAttribute('transform').includes('rotate(0 '),'single click tilts the first bottle');
+  assert(h.paths().filter(path=>!path.getAttribute('transform').includes('rotate(0 ')).length>=2,'domino propagates downstream');
+  h.advance(1500);assert(h.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')),'bottles stand up again');
+  const picked=h.paths().find(path=>h.x(path)>70&&h.x(path)<120);h.pointer('pointerdown',picked);h.pointer('pointerup');h.advance(100);h.pointer('pointerdown',picked);h.pointer('pointerup');
+  assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'visible');h.advance(650);
+  assert.equal(picked.getAttribute('visibility'),'hidden');assert.equal(h.node.querySelector('.brand-robot-bottle').getAttribute('visibility'),'visible');
+  assert(h.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')),'double click suppresses domino');
+  h.advance(900);assert(!picked.isConnected);assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'hidden');
+  const dragged=h.paths()[3];h.pointer('pointerdown',dragged);h.pointer('pointermove',h.node,{x:100,y:-20});assert.equal(h.node.querySelector('.brand-drag-layer').children.length,1);
+  h.pointer('pointerup');assert(!dragged.isConnected,'dragging away removes the bottle');assert.equal(h.node.querySelector('.brand-drag-layer').children.length,0);
+  const cancelled=h.paths()[3];h.pointer('pointerdown',cancelled);h.pointer('pointermove',h.node,{x:100,y:-20});h.pointer('pointercancel');assert(cancelled.isConnected);assert.equal(cancelled.getAttribute('visibility'),'visible');
+  h.key('Escape');assert.equal(h.paths().length,8);assert.deepEqual(h.paths().map(h.x),[-21,7,35,63,91,119,147,175]);
+ }finally{await h.close();}
+});
+
+test('interactive conveyor pauses when hidden and respects reduced motion and keyboard controls',async()=>{
+ const h=await interactiveHarness();try{
+  h.key(' ');assert(h.node.hasAttribute('data-holding'));h.key(' ');assert(!h.node.hasAttribute('data-holding'));
+  h.key('r');assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'visible');
+  h.d.getElementById('auth-panel').classList.add('hidden');h.w.STBrandConveyor.sync();assert.equal(h.frames.size,0);assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'hidden');
+  const positions=h.paths().map(h.x);h.advance(5000);assert.deepEqual(h.paths().map(h.x),positions);
+  h.d.getElementById('app-info-dialog').open=true;h.w.STBrandConveyor.sync();assert.equal(h.frames.size,1,'one loop handles both instances');
+ }finally{await h.close();}
+ const reduced=await interactiveHarness(true);try{
+  assert.equal(reduced.frames.size,0);reduced.key('d');assert(reduced.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')));
+  const bottle=reduced.paths()[4];reduced.pointer('pointerdown',bottle);reduced.pointer('pointermove',reduced.node,{x:100,y:-20});reduced.pointer('pointercancel');assert.equal(bottle.getAttribute('visibility'),'visible');
+  reduced.key('r');assert.equal(reduced.paths().length,7,'keyboard robot removes without animated motion');reduced.key('Escape');assert.equal(reduced.paths().length,8);
+ }finally{await reduced.close();}
+});
