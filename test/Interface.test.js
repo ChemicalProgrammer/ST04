@@ -1613,6 +1613,38 @@ test('UI Basic: live cards use four columns and let the graph fill the removed c
  }finally{h.dom.window.close();}
 });
 
+test('UI: Reset cancels initial and background calculation, unlocks settings and ignores late results',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE'])for(const firstReady of [false,true]){
+  const h=await setup({remember:true,uiMode});try{
+   await h.click('.open-case');h.d.getElementById('duration-mode').value='FIXED';
+   h.d.getElementById('run-duration').value=5;h.d.getElementById('run-rounds').value=3;
+   const original=h.w.SimulatorEngine.simulateBatch,requests=[];
+   h.w.SimulatorEngine.simulateBatch=async(input,options)=>{
+    const request={input,options};requests.push(request);
+    const response=await original(input,{cancelled:()=>false});request.response=response;
+    if(firstReady)options.onFirstRound(response.result);
+    await new Promise(resolve=>request.release=resolve);return response;
+   };
+   await h.click('#run-simulation');await waitFor(()=>requests[0]?.release);
+   assert(h.d.getElementById('run-rounds').disabled);
+   await h.click('#reset-playback');
+   assert(requests[0].options.cancelled());
+   assert(h.d.getElementById('batch-dialog').classList.contains('hidden'));
+   for(const id of ['run-rounds','run-sample-interval','duration-mode','run-duration','run-simulation'])assert.equal(h.d.getElementById(id).disabled,false,id);
+   h.d.getElementById('run-rounds').value=2;
+   await h.click('#run-simulation');await waitFor(()=>requests[1]?.release);
+   assert.equal(requests[1].input.run.rounds,2);
+   requests[0].release();await settle();
+   assert(h.d.getElementById('run-rounds').disabled,'old continuation must not unlock the new run');
+   requests[1].release();await waitFor(()=>h.d.getElementById('batch-dialog').classList.contains('hidden'));
+   if(uiMode==='BASIC')await h.click('#save-case');
+   await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);
+   await h.click('#reset-playback');assert.equal(h.d.getElementById('metric-time').textContent,'0 s');
+   assert.equal(h.d.getElementById('run-rounds').disabled,false);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
 test('UI: first round starts before background completion and final events replace stale replica statistics',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');h.d.getElementById('run-duration').value=5;h.d.getElementById('run-sample-interval').value=1;h.d.getElementById('run-rounds').value=3;
@@ -2375,5 +2407,40 @@ test('UI Basic: duration and sampling options persist and shift buttons retain h
   assert.equal(h.d.getElementById('run-shift-hours').value,'6');
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.shiftHours===6);
   const run=h.storedCases()[0].simulations[0].dynamicConfig;assert.equal(run.durationMode,'SHIFTS');assert.equal(run.durationSeconds,43200);assert.equal(run.sampleEverySeconds,3);assert.equal(run.shiftCount,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+for(const stage of ['before first round','background rounds','streaming first round'])test('UI: Reset fully stops '+stage+' and allows a fresh run',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');
+  h.d.getElementById('run-duration').value=5;h.d.getElementById('run-sample-interval').value=1;h.d.getElementById('run-rounds').value=3;
+  const original=h.w.SimulatorEngine.simulateBatch;let release,oldOptions,oldResult;const requests=[];
+  h.w.SimulatorEngine.simulateBatch=async(input,options)=>{
+   requests.push(JSON.parse(JSON.stringify(input)));
+   if(requests.length>1)return original(input,options);
+   oldOptions=options;
+   oldResult=(await h.w.SimulatorEngine.simulateLineAsync(input,{detail:true})).result;
+   if(stage==='background rounds')options.onFirstRound(oldResult);
+   if(stage==='streaming first round')options.onFirstProgress({...oldResult,provisional:true,calculatedThroughSeconds:2});
+   await new Promise(resolve=>release=resolve);
+   return {ok:true,result:oldResult};
+  };
+  await h.click('#run-simulation');await waitFor(()=>release);
+  assert(h.d.getElementById('run-rounds').disabled);
+  await h.click('#reset-playback');
+  assert(oldOptions.cancelled(),'engine cancellation is requested');
+  assert.equal(h.d.getElementById('run-rounds').disabled,false);
+  assert.equal(h.d.getElementById('run-simulation').disabled,false);
+  assert(h.visible('batch-dialog')===false);
+  if(stage==='streaming first round')assert.equal(h.visible('simulation-results'),false);
+  h.d.getElementById('run-rounds').value=2;
+  await h.click('#run-simulation');
+  await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);
+  await h.click('#pause-simulation');
+  assert.equal(requests[1].run.rounds,2);
+  const saved=JSON.stringify(h.storedCases()[0].simulations[0].results);
+  release();await settle();await settle();
+  assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].results),saved,'late cancelled work cannot replace the new run');
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
