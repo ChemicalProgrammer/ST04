@@ -5,6 +5,7 @@ window.STEquipmentFilter=(function(){
     var cards=Array.from(document.querySelectorAll('#equipment-list .equipment-card')),visible=0;
     cards.forEach(function(card){
       var fields=card._fields||card,type=fields.querySelector('.equipment-type')?.value;
+      STEquipmentInspector.refreshTitle(card);
       var show=current==='all'||(current==='conveyors'?type==='CONVEYOR':type!=='CONVEYOR');
       card.classList.toggle('hidden',!show);if(show)visible++;
       var handle=card.querySelector('.equipment-drag');handle.disabled=current!=='all';
@@ -22,3 +23,4 @@ window.STEquipmentFilter=(function(){
   return {apply:apply,set:set,all:function(){return current==='all';}};
 })();
 </script>
+

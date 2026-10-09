@@ -31,6 +31,9 @@ html[data-visual-style=elegant] :is(input,select,textarea):focus-visible {
   box-shadow:0 0 0 3px var(--accent-soft);
 }
 html[data-visual-style=elegant] :is(input,select,textarea):disabled { border-color:var(--line); }
+html[data-visual-style=elegant] .search-field { background:var(--surface); transition:border-color var(--duration-fast),box-shadow var(--duration-fast); }
+html[data-visual-style=elegant] .search-field:focus-within { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+html[data-visual-style=elegant] .search-field :is(input,input:focus-visible) { border:0; outline:none; box-shadow:none; background:transparent; }
 html[data-visual-style=elegant] :is(input[type=number],output,.basic-buffer) { font-variant-numeric:tabular-nums; }
 html[data-visual-style=elegant] .topbar {
   background:var(--surface);
@@ -80,6 +83,29 @@ html[data-visual-style=elegant] .equipment-selected {
 }
 html[data-visual-style=elegant] .equipment-selected .equipment-header { background:var(--surface); }
 html[data-visual-style=elegant] .equipment-selected .equipment-header strong { color:var(--selected-text); }
+.equipment-card-symbol { display:none; }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); align-items:start; }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card {
+  min-width:0; padding:var(--space-3); border:1px solid var(--elegant-border); border-left:3px solid var(--accent); border-radius:var(--radius-md); background:var(--surface);
+}
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card[data-equipment-type=CONVEYOR] { border-left-color:var(--secondary); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header {
+  display:grid; grid-template-columns:var(--control-height) minmax(0,1fr) auto; align-items:start; gap:var(--space-2); padding:0; margin:0; background:transparent;
+}
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card-symbol { display:grid; place-items:center; width:var(--control-height); height:var(--control-height); color:var(--accent); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list [data-equipment-type=CONVEYOR] .equipment-card-symbol { color:var(--secondary-text); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header strong { min-width:0; padding-top:var(--space-1); color:var(--secondary-text); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-title-name { display:block; overflow-wrap:anywhere; font-size:var(--font-card); line-height:var(--leading-tight); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-title-meta { display:block; margin-top:var(--space-1); color:var(--muted); font-size:var(--font-caption); font-weight:var(--weight-regular); font-variant-numeric:tabular-nums; line-height:var(--leading-body); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header .button-row { flex-wrap:nowrap; gap:var(--space-1); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header .icon-button { width:30px; min-height:30px; height:30px; padding:var(--space-1); border:1px solid var(--line); background:transparent; }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card:hover { border-color:var(--secondary); border-left-color:var(--accent); background:color-mix(in srgb,var(--secondary-soft) 25%,var(--surface)); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card[data-equipment-type=CONVEYOR]:hover { border-left-color:var(--secondary); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card.equipment-selected,
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card.equipment-selected:hover { border-color:var(--accent); border-left-color:var(--accent); background:var(--accent-soft); box-shadow:0 0 0 1px var(--accent); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-selected .equipment-header strong { color:var(--selected-text); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header .icon-button:hover { background:var(--secondary-soft); color:var(--secondary-text); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header .remove-equipment:hover { background:var(--danger-soft); color:var(--danger); border-color:var(--danger); }
 html[data-visual-style=elegant][data-ui-mode=basic] #equipment-list .equipment-header {
   padding:var(--space-2); margin-bottom:var(--space-3); border-radius:var(--radius-sm);
 }
@@ -310,6 +336,7 @@ html[data-visual-style=elegant] .scenario-preview-status[data-state] { border:0;
 
 html[data-visual-style=elegant] .case-row { transition:background var(--duration-fast),border-color var(--duration-fast),box-shadow var(--duration-fast); }
 html[data-visual-style=elegant] .case-glyph { background:transparent; border:0; color:var(--secondary-text); }
+html[data-visual-style=elegant] .case-tools .icon-button { width:var(--control-height); min-height:var(--control-height); }
 html[data-visual-style=elegant] .case-row:hover { background:color-mix(in srgb,var(--secondary-soft) 35%,var(--surface)); }
 html[data-visual-style=elegant] .cases-list.grid .case-row { border-top:3px solid var(--accent); border-radius:var(--radius-lg); }
 html[data-visual-style=elegant] .cases-list.grid .case-row:hover { background:color-mix(in srgb,var(--secondary-soft) 35%,var(--surface)); border-color:var(--secondary); border-top-color:var(--accent); box-shadow:var(--shadow); }
