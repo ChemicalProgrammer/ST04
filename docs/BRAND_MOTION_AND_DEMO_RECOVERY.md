@@ -24,12 +24,17 @@ data, consume simulation workers or call the server.
   to remove a bottle. A cancelled gesture or an in-lane drop restores it.
 - A short click starts a downstream domino wave, then bottles stand up again.
   A 280 ms delay distinguishes this from a double click.
-- Double click activates a solid secondary-color robot arm that picks up the
-  primary-color bottle and retracts. Only one pickup runs per instance.
+- Double click activates a solid secondary-color gripper that descends vertically
+  from above, picks up the primary-color bottle and retracts upward. Its upper
+  mechanism is cropped away. Only one pickup runs per instance.
 - Focus the animation: Space holds/releases a central bottle, Delete removes,
   R activates the robot, D starts domino and Escape restores the original row.
   Pointer capture supports mouse, pen and touch. Hidden views cancel pending
   gestures and effects; transport and belt animations pause.
+
+The animation uses the normal cursor in every interaction, has no border,
+shadow or focus outline, and exposes no tooltip revealing the Easter eggs.
+Keyboard instructions remain in its accessibility label.
 
 The case header uses the existing product icon with the primary theme color.
 It appears before both the case name and Workspace in the gallery.

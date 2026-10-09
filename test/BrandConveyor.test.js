@@ -19,8 +19,8 @@ test('brand motion shares speed across welcome/About, excludes editing and pause
   d.getElementById('auth-panel').classList.add('hidden');await new Promise(resolve=>w.setTimeout(resolve,0));assert.equal(animations[0].state,'paused');assert(!press('+').defaultPrevented);
   d.getElementById('app-info-dialog').open=true;await new Promise(resolve=>w.setTimeout(resolve,0));assert.equal(animations[1].state,'running');press('+');assert.equal(w.STBrandConveyor.speed(),.5);assert.equal(animations[1].rate,.5);
   press('ArrowLeft');assert.equal(nodes[1].dataset.direction,'left');assert.equal(animations[1].rate,.5);
-  assert(nodes[1].title.includes('0.5×'));assert(nodes[1].title.includes('←'));
-  const css=fs.readFileSync('apps-script/BrandConveyorStyles.html','utf8');assert.match(css,/fill:var\(--accent\)/);assert.match(css,/fill:var\(--secondary\)/);assert.match(css,/prefers-reduced-motion:reduce/);assert(!/opacity|gradient|stroke|border|shadow|outline/.test(css));
+  assert(nodes[1].getAttribute('aria-label').includes('0.5×'));assert(nodes[1].getAttribute('aria-label').includes('←'));assert(!nodes[1].hasAttribute('title'));
+  const css=fs.readFileSync('apps-script/BrandConveyorStyles.html','utf8');assert.match(css,/fill:var\(--accent\)/);assert.match(css,/fill:var\(--secondary\)/);assert.match(css,/prefers-reduced-motion:reduce/);assert(!/opacity|gradient|stroke|cursor:grab/.test(css));assert.match(css,/outline:none; border:0; box-shadow:none/);assert.match(css,/\.brand-conveyor \* \{ cursor:default; \}/);
   assert.equal(nodes[0].querySelectorAll('.brand-bottles path').length,8,'seven visible bottles plus one entering the loop');
   assert.equal(nodes[1].parentElement,d.querySelector('.app-info-brand'),'animation and icon share the same centered flex row');
  }finally{w.close();}
@@ -64,7 +64,10 @@ test('bottle gestures distinguish domino, robot and removal, including cancellat
   assert(h.paths().filter(path=>!path.getAttribute('transform').includes('rotate(0 ')).length>=2,'domino propagates downstream');
   h.advance(1500);assert(h.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')),'bottles stand up again');
   const picked=h.paths().find(path=>h.x(path)>70&&h.x(path)<120);h.pointer('pointerdown',picked);h.pointer('pointerup');h.advance(100);h.pointer('pointerdown',picked);h.pointer('pointerup');
-  assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'visible');h.advance(650);
+  assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'visible');const pickupX=h.x(picked)+6;h.advance(400);
+  const carried=h.node.querySelector('.brand-robot-bottle');assert(Math.abs(h.x(carried)-pickupX)<.001,'gripper picks up directly above the bottle');assert(carried.getAttribute('transform').endsWith(' 0)'));
+  h.advance(250);assert(Math.abs(h.x(carried)-pickupX)<.001,'pickup stays vertical');assert(Number(carried.getAttribute('transform').match(/translate\([^ ]+ ([-\d.]+)/)[1])<0,'bottle moves upward');
+  assert.equal(h.node.querySelector('.brand-robot-window').getAttribute('overflow'),'hidden','only the lower part of the robot appears');
   assert.equal(picked.getAttribute('visibility'),'hidden');assert.equal(h.node.querySelector('.brand-robot-bottle').getAttribute('visibility'),'visible');
   assert(h.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')),'double click suppresses domino');
   h.advance(900);assert(!picked.isConnected);assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'hidden');

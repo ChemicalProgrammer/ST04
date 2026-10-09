@@ -1,13 +1,12 @@
 <style>
-.brand-conveyor { display:inline-flex; flex:0 0 auto; width:156px; height:36px; margin-left:auto; touch-action:none; user-select:none; }
+.brand-conveyor { display:inline-flex; flex:0 0 auto; width:156px; height:36px; margin-left:auto; touch-action:none; user-select:none; outline:none; border:0; box-shadow:none; background:transparent; cursor:default; }
+.brand-conveyor * { cursor:default; }
 .brand-conveyor > svg { width:100%; height:100%; overflow:visible; }
 .auth-card .brand { gap:8px; font-size:26px; }
 .auth-card .brand-mark { width:48px; height:48px; }
 .auth-card .brand-mark svg { width:32px; height:32px; }
 .brand-bottles { fill:var(--accent); animation:brand-travel 1.8s linear infinite; }
 .brand-conveyor[data-interactive] .brand-bottles { animation:none; }
-.brand-bottles path { cursor:grab; }
-.brand-conveyor[data-holding] .brand-bottles path { cursor:grabbing; }
 .brand-robot-arm { fill:var(--secondary); }
 .brand-robot-bottle,.brand-drag-layer { fill:var(--accent); pointer-events:none; }
 .brand-robot { pointer-events:none; }
