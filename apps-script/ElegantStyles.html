@@ -27,12 +27,11 @@ html[data-visual-style=elegant] :is(input,select,textarea) {
   transition:border-color var(--duration-fast),box-shadow var(--duration-fast);
 }
 html[data-visual-style=elegant] :is(input,select,textarea):focus-visible {
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft);
+  border-color:var(--accent); outline:none; box-shadow:none;
 }
 html[data-visual-style=elegant] :is(input,select,textarea):disabled { border-color:var(--line); }
 html[data-visual-style=elegant] .search-field { background:var(--surface); transition:border-color var(--duration-fast),box-shadow var(--duration-fast); }
-html[data-visual-style=elegant] .search-field:focus-within { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+html[data-visual-style=elegant] .search-field:focus-within { outline:none; border-color:var(--accent); box-shadow:none; }
 html[data-visual-style=elegant] .search-field :is(input,input:focus-visible) { border:0; outline:none; box-shadow:none; background:transparent; }
 html[data-visual-style=elegant] :is(input[type=number],output,.basic-buffer) { font-variant-numeric:tabular-nums; }
 html[data-visual-style=elegant] .topbar {
@@ -90,11 +89,11 @@ html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equip
 }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card[data-equipment-type=CONVEYOR] { border-left-color:var(--secondary); }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header {
-  display:grid; grid-template-columns:var(--control-height) minmax(0,1fr) auto; align-items:start; gap:var(--space-2); padding:0; margin:0; background:transparent;
+  display:grid; grid-template-columns:var(--control-height) minmax(0,1fr) auto; align-items:center; gap:var(--space-2); padding:0; margin:0; background:transparent;
 }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-card-symbol { display:grid; place-items:center; width:var(--control-height); height:var(--control-height); color:var(--accent); }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list [data-equipment-type=CONVEYOR] .equipment-card-symbol { color:var(--secondary-text); }
-html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header strong { min-width:0; padding-top:var(--space-1); color:var(--secondary-text); }
+html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header strong { min-width:0; padding-top:0; color:var(--secondary-text); }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-title-name { display:block; overflow-wrap:anywhere; font-size:var(--font-card); line-height:var(--leading-tight); }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-title-meta { display:block; margin-top:var(--space-1); color:var(--muted); font-size:var(--font-caption); font-weight:var(--weight-regular); font-variant-numeric:tabular-nums; line-height:var(--leading-body); }
 html[data-visual-style=elegant]:not([data-ui-mode=basic]) #equipment-list .equipment-header .button-row { flex-wrap:nowrap; gap:var(--space-1); }

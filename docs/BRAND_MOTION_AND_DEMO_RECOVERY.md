@@ -22,8 +22,12 @@ data, consume simulation workers or call the server.
   while the belt continues. Release to resume. The pool is bounded to 15 bottles.
 - Drag more than 14 SVG units vertically away from the belt, or beyond an end,
   to remove a bottle. A cancelled gesture or an in-lane drop restores it.
-- A short click starts a downstream domino wave, then bottles stand up again.
-  A 280 ms delay distinguishes this from a double click.
+- A short click tips one bottle. The wave propagates only when its rotating
+  silhouette reaches the next bottle; a sufficiently large gap stops it.
+  Bottles settle horizontally and remain fallen until removed, carried off
+  the belt or explicitly reset with Escape. Reversal and hiding a view preserve
+  their orientation. Transport accounts for their wider footprint. A 280 ms
+  delay distinguishes a single click from a double click.
 - Double click activates a solid secondary-color gripper that descends vertically
   from above, picks up the primary-color bottle and retracts upward. Its upper
   mechanism is cropped away. Only one pickup runs per instance.

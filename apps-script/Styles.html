@@ -20,6 +20,7 @@ button[aria-busy="true"] .icon { animation: subtle-pulse var(--duration-loading)
 .icon { width: var(--icon-size); height: var(--icon-size); display: inline-block; flex-shrink: 0; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button { width: var(--control-height); padding: var(--space-2); flex-shrink: 0; }
 :focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: var(--size-2); }
+input:not([type=checkbox]):not([type=radio]):focus-visible,select:focus-visible,textarea:focus-visible { outline:none; box-shadow:none; border-color:var(--accent); }
 input,select,textarea { width: 100%; min-width: 0; min-height: var(--control-height); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--line-strong); background: var(--surface); color: var(--ink); }
 input::placeholder { color: var(--muted); } input[type=checkbox] { width: var(--icon-size); min-height: var(--icon-size); accent-color: var(--accent); }
 label { display: grid; gap: var(--space-2); color: var(--muted); font-size: var(--font-secondary); font-weight: var(--weight-medium); }
@@ -30,6 +31,7 @@ form { display: grid; gap: var(--space-3); } summary { cursor: pointer; }
 .button-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .card { min-width: 0; margin: 0; padding: var(--space-5); background: var(--surface); border: var(--border-width) solid var(--line); border-radius: var(--radius-md); }
 .status { color: var(--muted); font-size: var(--font-secondary); padding: var(--space-2) 0; min-height: var(--control-height); }
+html:not([data-ui-mode=basic]) #status { display:none; }
 .status.error { color: var(--danger); } .notice { background: var(--warning-soft); color: var(--warning); border: var(--border-width) solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); }
 .badge { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; padding: var(--size-2) var(--space-2); border-radius: var(--radius-pill); font-size: var(--font-caption); font-weight: var(--weight-medium); background: var(--stopped-soft); color: var(--stopped); }
 .badge.ready { background: var(--success-soft); color: var(--success); } .badge.critical { background: var(--critical-soft); color: var(--critical); }

@@ -62,10 +62,11 @@ test('bottle gestures distinguish domino, robot and removal, including cancellat
   const clicked=h.paths()[4];h.pointer('pointerdown',clicked);h.pointer('pointerup');h.advance(500);
   assert(!clicked.getAttribute('transform').includes('rotate(0 '),'single click tilts the first bottle');
   assert(h.paths().filter(path=>!path.getAttribute('transform').includes('rotate(0 ')).length>=2,'domino propagates downstream');
-  h.advance(1500);assert(h.paths().every(path=>path.getAttribute('transform').includes('rotate(0 ')),'bottles stand up again');
+  h.advance(1500);assert(clicked.getAttribute('transform').includes('rotate(90 '),'bottles remain lying on the belt');
+  h.key('ArrowLeft');assert(clicked.getAttribute('transform').includes('rotate(90 '),'reversal keeps the fallen orientation');h.key('ArrowRight');h.key('Escape');
   const picked=h.paths().find(path=>h.x(path)>70&&h.x(path)<120);h.pointer('pointerdown',picked);h.pointer('pointerup');h.advance(100);h.pointer('pointerdown',picked);h.pointer('pointerup');
   assert.equal(h.node.querySelector('.brand-robot').getAttribute('visibility'),'visible');const pickupX=h.x(picked)+6;h.advance(400);
-  const carried=h.node.querySelector('.brand-robot-bottle');assert(Math.abs(h.x(carried)-pickupX)<.001,'gripper picks up directly above the bottle');assert(carried.getAttribute('transform').endsWith(' 0)'));
+  const carried=h.node.querySelector('.brand-robot-bottle');assert(Math.abs(h.x(carried)-pickupX)<.001,'gripper picks up directly above the bottle');assert(carried.getAttribute('transform').includes(' 0) rotate(0 '));
   h.advance(250);assert(Math.abs(h.x(carried)-pickupX)<.001,'pickup stays vertical');assert(Number(carried.getAttribute('transform').match(/translate\([^ ]+ ([-\d.]+)/)[1])<0,'bottle moves upward');
   assert.equal(h.node.querySelector('.brand-robot-window').getAttribute('overflow'),'hidden','only the lower part of the robot appears');
   assert.equal(picked.getAttribute('visibility'),'hidden');assert.equal(h.node.querySelector('.brand-robot-bottle').getAttribute('visibility'),'visible');
@@ -91,4 +92,17 @@ test('interactive conveyor pauses when hidden and respects reduced motion and ke
   const bottle=reduced.paths()[4];reduced.pointer('pointerdown',bottle);reduced.pointer('pointermove',reduced.node,{x:100,y:-20});reduced.pointer('pointercancel');assert.equal(bottle.getAttribute('visibility'),'visible');
   reduced.key('r');assert.equal(reduced.paths().length,7,'keyboard robot removes without animated motion');reduced.key('Escape');assert.equal(reduced.paths().length,8);
  }finally{await reduced.close();}
+});
+
+test('domino stops at a gap and preserves fallen bottles across hidden views',async()=>{
+ const h=await interactiveHarness();try{
+  const fallen=h.paths()[4],next=h.paths()[6],gap=h.paths()[5];h.pointer('pointerdown',gap);h.pointer('pointermove',h.node,{x:100,y:-20});h.pointer('pointerup');
+  h.pointer('pointerdown',fallen);h.pointer('pointerup');h.advance(1000);
+  assert(fallen.getAttribute('transform').includes('rotate(90 '));assert(next.getAttribute('transform').includes('rotate(0 '),'a bottle beyond the fallen bottle reach stays upright');
+  h.d.getElementById('auth-panel').classList.add('hidden');h.w.STBrandConveyor.sync();assert(fallen.getAttribute('transform').includes('rotate(90 '),'hiding the view does not stand up the bottles');
+  h.d.getElementById('auth-panel').classList.remove('hidden');h.w.STBrandConveyor.sync();h.advance(200);assert(fallen.getAttribute('transform').includes('rotate(90 '));
+  h.key('Escape');h.key('ArrowLeft');const left=h.paths()[3],leftBeyond=h.paths()[1],leftGap=h.paths()[2];
+  h.pointer('pointerdown',leftGap);h.pointer('pointermove',h.node,{x:100,y:-20});h.pointer('pointerup');h.pointer('pointerdown',left);h.pointer('pointerup');h.advance(1000);
+  assert(left.getAttribute('transform').includes('rotate(-90 '));assert(leftBeyond.getAttribute('transform').includes('rotate(0 '),'a gap also stops propagation to the left');
+ }finally{await h.close();}
 });
