@@ -73,3 +73,13 @@ test('successful search preserves selected variables for the next search',async(
 test('stagnation does not stop before the first coordinate sweep reaches a useful later factor',async()=>{
  const h=harness(false);try{delete h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates;h.w.ST_SCENARIO_SEARCH_LIMITS.maxWithoutImprovement=1;const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const copy=JSON.parse(JSON.stringify(input)),unit=copy.case.equipment[0];unit.sensor=unit.speed>10?10:unit.sensor;unit.speed=10;return original(copy);};const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.evaluatedChanges.some(c=>c.path==='sensor'));}finally{h.dom.window.close();}
 });
+
+test('one search/stop action replaces calculate and results explain selected and evaluated targets',async()=>{
+ const h=harness(false);try{assert.equal(h.host.querySelectorAll('.scenario-search').length,1);assert.equal(h.host.querySelector('.scenario-evaluate'),null);assert.equal(h.host.querySelector('.scenario-doe-help'),null);
+ h.host.querySelector('.scenario-results').click();let body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/no evaluated scenario/);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,2);
+ const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');h.host.querySelector('.scenario-results').click();body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Independently evaluated/);assert.equal(body.querySelectorAll('.scenario-results-metrics tbody tr').length,2);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,result.evaluatedChanges.length);assert.equal(h.host.querySelector('.scenario-search').title,'Find best scenario');
+ }finally{h.dom.window.close();}
+});
+test('the search action becomes stop and can cancel without launching another search',async()=>{
+ const h=harness(false);try{const original=h.w.SimulatorEngine.simulateBatch;let release;h.w.SimulatorEngine.simulateBatch=async input=>{await new Promise(resolve=>release=resolve);return original(input);};const button=h.host.querySelector('.scenario-search');button.click();assert.match(button.title,/Finish search/);button.click();assert.match(button.title,/Cancel/);button.click();release();for(let i=0;i<20&&h.host.hasAttribute('aria-busy');i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(h.calls.length,1);assert.equal(h.sim.whatIf.evaluations[0].status,'CANCELLED');assert.equal(h.host.querySelector('.scenario-create').disabled,true);assert.equal(button.title,'Find best scenario');}finally{h.dom.window.close();}
+});

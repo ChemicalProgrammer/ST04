@@ -51,3 +51,7 @@ DOE and ANOVA evidence remains in saved evaluations, without rendering tables or
 ### Real-engine horizon check
 
 The unchanged prepared High CAPEX demo (37 target changes, saved eight-hour OEE 80.032896%) was simulated with three rounds and a new seed block starting at 20261008 + 1000003. OEE was 54.989798% at 600 s, 69.654401% at 1200 s, 75.586547% at 1800 s and 81.655462% at 28800 s. This checks horizon sensitivity of a fixed candidate; it is not a claim that every new search will select that candidate or achieve that OEE.
+
+## Scenario card actions
+
+The card provides configuration, a single Find best scenario / Stop action, Results, and Create scenario. The separate Calculate OEE action and How DOE works disclosure have been removed. Stop finishes exploration and proceeds to confirmation; a second press or a press during DOE/confirmation cancels. Results opens a dialog with selected or evaluated parameter changes, baseline and target values, each parameter's purpose, evaluation status, and the independent comparison when available. Historical results remain explicitly marked after configuration changes. Parameter purposes describe controls, not isolated causal attribution.
