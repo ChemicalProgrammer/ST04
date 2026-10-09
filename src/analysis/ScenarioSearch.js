@@ -1,13 +1,13 @@
 export const SCENARIO_SEARCH_PROFILES = Object.freeze({
-  LIGHT: {explorationSeconds:300,confirmationSeconds:600,maxCandidates:16,maxSearchMs:120000,maxWithoutImprovement:8,maxFactors:2,passes:1,finalists:2},
-  MEDIUM: {explorationSeconds:600,confirmationSeconds:1200,maxCandidates:28,maxSearchMs:300000,maxWithoutImprovement:10,maxFactors:3,passes:2,finalists:3},
-  HIGH: {explorationSeconds:900,confirmationSeconds:1800,maxCandidates:40,maxSearchMs:600000,maxWithoutImprovement:12,maxFactors:4,passes:3,finalists:3}
+  LIGHT: {explorationSeconds:300,confirmationSeconds:1800,maxCandidates:48,maxSearchMs:120000,maxWithoutImprovement:16,maxFactors:0,passes:1,finalists:4},
+  MEDIUM: {explorationSeconds:600,confirmationSeconds:1800,maxCandidates:128,maxSearchMs:300000,maxWithoutImprovement:32,maxFactors:3,passes:2,finalists:6},
+  HIGH: {explorationSeconds:900,confirmationSeconds:1800,maxCandidates:256,maxSearchMs:600000,maxWithoutImprovement:48,maxFactors:4,passes:3,finalists:6}
 });
 export function scenarioSearchProfile(level) { return SCENARIO_SEARCH_PROFILES[level]||SCENARIO_SEARCH_PROFILES.MEDIUM; }
 export function scenarioSearchRun(run,level,confirmation=false,rounds=3) {
   const profile=scenarioSearchProfile(level);
   // Independent What-If horizons; replay configuration and scheduled commands stay intact.
-  const copy={...run,durationMode:'FIXED',durationSeconds:confirmation?profile.confirmationSeconds:profile.explorationSeconds,rounds};
+  const copy={...run,durationMode:'FIXED',durationSeconds:confirmation==='validation'?Math.max(1800,Number(run.durationSeconds)||0):confirmation?profile.confirmationSeconds:profile.explorationSeconds,rounds};
   delete copy.shiftSeconds;delete copy.shiftHours;delete copy.shiftCount;
   return copy;
 }

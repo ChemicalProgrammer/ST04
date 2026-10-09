@@ -40,15 +40,36 @@ function harness(doe,depth='MEDIUM',uncertain=false){
  w.eval(fs.readFileSync('apps-script/ScenarioExplorer.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);w.STScenarioExplorer.connectCase(()=>record,()=>{});w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
  const host=w.document.querySelector('article');w.STScenarioExplorer.attach(host,{kind:'CUSTOM',tier:'HIGH',explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))},()=>{},sim);
  if(doe){for(const checkbox of host.querySelectorAll('.scenario-doe-select')){checkbox.checked=true;checkbox.onchange();}}
- return {dom,w,sim,host,calls};
+ return {dom,w,sim,host,calls,project:{kind:'CUSTOM',tier:'HIGH',explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))}};
 }
 async function search(h){h.host.querySelector('.scenario-search').click();for(let i=0;i<200;i++){if(h.sim.whatIf.evaluations?.[0]&&!['RUNNING','VALIDATING'].includes(h.sim.whatIf.evaluations[0].status))return h.sim.whatIf.evaluations[0];await new Promise(resolve=>setTimeout(resolve,5));}throw Error('Search did not finish');}
 test('reserved DOE completes after exploration exhausts its budget; confirmation uses common horizons',async()=>{
- const h=harness(true);try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.doe.analysis.complete);assert.equal(result.doe.observations.length,4);assert.equal(result.independentCheck.durationSeconds,1200);assert.equal(result.independentCheck.rounds,3);assert(h.calls.some(call=>call.run.durationSeconds===600));assert(h.calls.some(call=>call.run.durationSeconds===1200));assert.equal(h.sim.dynamicConfig.durationSeconds,99);assert.equal(h.sim.dynamicConfig.rounds,40);assert.equal(h.host.querySelector('.scenario-create').disabled,false);}finally{h.dom.window.close();}
+ const h=harness(true);try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.doe.analysis.complete);assert.equal(result.doe.observations.length,4);assert.equal(result.independentCheck.durationSeconds,1800);assert.equal(result.independentCheck.rounds,3);assert(h.calls.some(call=>call.run.durationSeconds===600));assert(h.calls.some(call=>call.run.durationSeconds===1800));assert.equal(h.sim.dynamicConfig.durationSeconds,99);assert.equal(h.sim.dynamicConfig.rounds,40);assert.equal(h.host.querySelector('.scenario-create').disabled,false);}finally{h.dom.window.close();}
 });
 test('without DOE the winner is independently confirmed and no factorial stage is created',async()=>{
- const h=harness(false,'LIGHT');try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert.equal(result.doe,undefined);assert.equal(result.independentCheck.durationSeconds,600);assert(h.calls.every(call=>call.run.rounds===3));}finally{h.dom.window.close();}
+ const h=harness(false,'LIGHT');try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert.equal(result.doe,undefined);assert.equal(result.independentCheck.durationSeconds,1800);assert(h.calls.every(call=>call.run.rounds===3));}finally{h.dom.window.close();}
 });
-test('High renders blocked ANOVA and expands uncertain confirmation to six rounds',async()=>{
- const h=harness(true,'HIGH',true);try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.doe.anova.complete);assert.equal(result.independentCheck.rounds,6);assert(h.host.textContent.includes('ANOVA with seed blocks'));}finally{h.dom.window.close();}
+test('High retains blocked ANOVA internally and expands uncertain confirmation to six rounds',async()=>{
+ const h=harness(true,'HIGH',true);try{const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.doe.anova.complete);assert.equal(result.independentCheck.rounds,6);assert.equal(h.host.querySelector('.scenario-doe-results'),null);assert(!h.host.textContent.includes('ANOVA with seed blocks'));}finally{h.dom.window.close();}
+});
+
+test('Light ignores enabled DOE and invalid retained factor levels',async()=>{
+ const h=harness(true,'LIGHT');try{for(const input of h.host.querySelectorAll('.scenario-doe-level'))input.value='';const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert.equal(result.doe,undefined);assert.equal(result.method,'BOUNDED_COORDINATE_SEARCH');}finally{h.dom.window.close();}
+});
+test('depth changes and card reopening preserve confirmed metrics, not provisional winner',async()=>{
+ const h=harness(false);try{const result=await search(h);result.candidate.oee=72;result.independentCheck.candidate.oee=65;h.sim.whatIf.evaluations=[result];h.host.remove();const reopened=h.w.document.createElement('article');reopened.className='analysis-recommendation';h.w.document.body.append(reopened);h.w.STScenarioExplorer.attach(reopened,h.project,()=>{},h.sim);
+ assert.match(reopened.querySelector('.scenario-basic-metric strong').textContent,/65/);
+ const depth=reopened.querySelector('.scenario-search-depth');depth.value='HIGH';depth.onchange();assert.equal(h.sim.whatIf.evaluations[0].lastResult.independentCheck.candidate.oee,65);assert.equal(reopened.querySelector('.scenario-create').disabled,true);reopened.remove();
+ const again=h.w.document.createElement('article');again.className='analysis-recommendation';h.w.document.body.append(again);h.w.STScenarioExplorer.attach(again,h.project,()=>{},h.sim);assert.match(again.querySelector('.scenario-basic-metric strong').textContent,/65/);assert.equal(again.querySelector('.scenario-search-depth').value,'HIGH');assert.equal(again.querySelector('.scenario-create').disabled,true);
+ }finally{h.dom.window.close();}
+});
+test('final confirmation preserves a long configured horizon across search depths',()=>{
+ for(const depth of ['LIGHT','MEDIUM','HIGH'])assert.equal(scenarioSearchRun({durationSeconds:28800,rounds:20},depth,'validation').durationSeconds,28800);
+});
+test('successful search preserves selected variables for the next search',async()=>{
+ const h=harness(false);try{await search(h);assert([...h.host.querySelectorAll('.scenario-change > td:first-child input')].every(input=>input.checked));}finally{h.dom.window.close();}
+});
+
+test('stagnation does not stop before the first coordinate sweep reaches a useful later factor',async()=>{
+ const h=harness(false);try{delete h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates;h.w.ST_SCENARIO_SEARCH_LIMITS.maxWithoutImprovement=1;const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const copy=JSON.parse(JSON.stringify(input)),unit=copy.case.equipment[0];unit.sensor=unit.speed>10?10:unit.sensor;unit.speed=10;return original(copy);};const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.evaluatedChanges.some(c=>c.path==='sensor'));}finally{h.dom.window.close();}
 });
