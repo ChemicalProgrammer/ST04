@@ -15,7 +15,8 @@ const sourceFiles = [
   'src/simulation/SimPyBrowserEngine.js',
   'src/analysis/LinePerformanceAnalysis.js',
   'src/analysis/ScenarioPlanner.js',
-  'src/analysis/ScenarioDOE.js'
+  'src/analysis/ScenarioDOE.js',
+  'src/analysis/ScenarioSearch.js'
 ];
 const targetFile = path.join(repositoryRoot, 'apps-script', 'SimulationEngine.html');
 const pythonRoot=path.join(repositoryRoot,'src/simulation/python');
@@ -111,7 +112,8 @@ window.SimulatorEngine = {
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance
 };
-window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE};
+window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
+window.STScenarioSearch = {profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore};
 window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })(window);
 </script>
@@ -130,4 +132,5 @@ function removeModuleSyntax(moduleSource) {
     .replace(/^import .*;\n/gm, '')
     .replace(/^export /gm, '');
 }
+
 
