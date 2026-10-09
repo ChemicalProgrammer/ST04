@@ -69,7 +69,7 @@ export function scenarioVariableCatalog(simulation){
     }
     if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedMmPerSecond')&&e.processData?.accumulation?.speedMode!=='MANUAL')disabledReason='Select manual conveyor speed in Equipment first.';
     if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedFactorPercent')&&e.processData?.accumulation?.speedMode==='MANUAL')disabledReason='Manual speed mode uses conveyor speed instead of its automatic factor.';
-    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,justification:external?'':undefined,disabledReason,catalogOnly:true};
+    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,disabledReason,catalogOnly:true};
   }));
 }
 export function applyScenarioChanges(simulation,changes){
@@ -86,7 +86,7 @@ export function applyScenarioChanges(simulation,changes){
       if(unit.type==='CONVEYOR'||unit.id===analyzeLinePerformance(simulation.equipment,simulation.results).referenceId||!(maximum>0)||change.after>maximum)throw new Error('SCENARIO_INSTALLED_SPEED_LIMIT');
     }
     if(change.path.startsWith('noiseProfile.reliability.')){
-      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true||typeof change.justification!=='string'||change.justification.trim().length<10)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
+      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
     seen.add(key);scenarioSet(unit,change.path,change.after);
@@ -185,3 +185,4 @@ export function planScenarios(simulation){
   });
   return {projects,checks,candidates,hasDynamicEvidence:!!result};
 }
+

@@ -6,7 +6,7 @@ export function createScenarioDOE(factors) {
     const key=f.equipmentId+':'+f.path;
     if(seen.has(key)||!Number.isFinite(f.low)||!Number.isFinite(f.high)||f.low>=f.high||!Number.isFinite(f.before))throw Error('DOE_INVALID_FACTOR');
     if(f.path.startsWith('noiseProfile.reliability.')){
-      if(f.external!==true||!(f.before>0)||typeof f.justification!=='string'||f.justification.trim().length<10)throw Error('DOE_EXTERNAL_EVIDENCE_REQUIRED');
+      if(f.external!==true||!(f.before>0))throw Error('DOE_EXTERNAL_EVIDENCE_REQUIRED');
       if(f.path.endsWith('mtbfMinutes')?f.low<f.before:f.high>f.before)throw Error('DOE_RELIABILITY_DIRECTION');
     }else if(f.external)throw Error('DOE_INVALID_FACTOR');
     seen.add(key);
@@ -27,3 +27,4 @@ export function analyzeScenarioDOE(design,observations) {
     return effect;
   })};
 }
+

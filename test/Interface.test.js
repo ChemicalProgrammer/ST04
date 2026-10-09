@@ -1808,15 +1808,14 @@ test('UI: scenario configuration suggests up to four DOE factors without simulat
  }finally{h.dom.window.close();}
 });
 
-test('UI: scenario intervention notes are edited outside the parameter table',async()=>{
+test('UI: intervention targets have no explanation field or edit button',async()=>{
  const h=await setup();try{
   const sim=h.storedCases()[0].simulations[0],e=sim.equipment[0],before=e.noiseProfile.reliability.mtbfMinutes;
-  const card=h.w.STWhatIf.card({title:'Intervention',kind:'CUSTOM',tier:'MEDIUM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before,after:before*2,external:true,justification:'Documented maintenance target',unit:'min'}]},()=>{},sim.equipment,sim);h.d.body.append(card);
-  card.querySelector('.scenario-configure').click();assert.equal(card.querySelectorAll('textarea').length,0);
-  card.querySelector('.scenario-intervention-basis').click();await waitFor(()=>h.d.querySelector('.message-dialog[open]'));
-  h.d.querySelector('.message-dialog input').value='Maintenance plan with measured target';await h.click('.message-dialog .dialog-actions button:last-child');
-  assert.equal(card.querySelector('.scenario-intervention-basis').title,'Maintenance plan with measured target');
-  assert.equal(sim.whatIf.evaluations[0].controls[0].justification,'Maintenance plan with measured target');assert.deepEqual(h.errors,[]);
+  const card=h.w.STWhatIf.card({title:'Intervention',kind:'CUSTOM',tier:'MEDIUM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before,after:before*2,external:true}]},()=>{},sim.equipment,sim);h.d.body.append(card);
+  card.querySelector('.scenario-configure').click();
+  assert.equal(card.querySelectorAll('textarea,.scenario-intervention-basis').length,0);
+  assert.doesNotThrow(()=>h.w.STScenarios.apply(sim,[{equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before,after:before*2,external:true}]));
+  assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 

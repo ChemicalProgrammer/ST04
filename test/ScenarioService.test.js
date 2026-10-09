@@ -98,3 +98,12 @@ test('reviewed validation drafts retain failed independent confirmation without 
  const response=h.ctx.createScenario_(h.request,{email:'owner@test'}),draft=response.case.simulations[1];
  assert.equal(draft.scenario.validation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.results,null);assert.equal(JSON.stringify(response.case.simulations[0]),baseline);assert.equal(h.writes(),1);
 });
+
+test('reviewed reliability targets can be created without intervention text',()=>{
+ const h=setup(),source=h.record().simulations[0],e=source.equipment[0],before=e.noiseProfile.reliability.mttrMinutes;
+ const proposal={...h.request.proposal,tier:'MEDIUM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true}]};
+ const result=h.ctx.createScenario_({...h.request,origin:'REVIEWED',proposal},{email:'owner@test'});
+ const change=result.case.simulations[1].scenario.changes[0];
+ assert.equal(change.after,before*.8);assert.equal(change.justification,undefined);
+ assert.equal(result.case.simulations[0].equipment[0].noiseProfile.reliability.mttrMinutes,before);
+});

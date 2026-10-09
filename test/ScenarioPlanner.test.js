@@ -72,7 +72,7 @@ test('sensor hypotheses cover all eligible conveyors and machine targets respect
  const sim=fixture(),snapshot=JSON.stringify(sim),catalog=scenarioVariableCatalog(sim);
  for(const machine of sim.equipment.filter(e=>e.type!=='CONVEYOR')){
   for(const key of ['mtbfMinutes','mttrMinutes']){
-   const variable=catalog.find(c=>c.equipmentId===machine.id&&c.path.endsWith(key));assert(variable);assert(variable.external);assert.equal(variable.after,variable.before);assert.equal(variable.justification,'');
+   const variable=catalog.find(c=>c.equipmentId===machine.id&&c.path.endsWith(key));assert(variable);assert(variable.external);assert.equal(variable.after,variable.before);assert.equal(variable.justification,undefined);
   }
  }
  assert(catalog.some(c=>c.path==='processData.geometry.lactMm'));

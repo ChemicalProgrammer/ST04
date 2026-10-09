@@ -330,6 +330,7 @@ function subtractIfFinite(first, ...rest) {
 }
 
 
+
 function resolveAccumulationZoneDefinition(allEquipment, ownerIndex) {
   const equipment = Array.isArray(allEquipment) ? allEquipment : [];
   const owner = equipment[ownerIndex];
@@ -653,6 +654,7 @@ function isFiniteNumber(value) {
 }
 
 
+
 function validateSimulationInput(input) {
   const details = [];
   validateCase(input?.case, details);
@@ -938,6 +940,7 @@ function nonNegativeNumber(value) { return typeof value === 'number' && Number.i
 function nonEmptyString(value) { return typeof value === 'string' && value.length > 0; }
 
 
+
 /** Design targets and observed flow. Recovery is an explicit planning estimate. */
 function analyzeLinePerformance(equipment, result) {
   const machines = (equipment || []).filter(item => item.type !== 'CONVEYOR' && item.processData?.role !== 'CONVEYOR');
@@ -1036,6 +1039,7 @@ function estimateRecoveryTarget(equipment, item, referenceId, normalBpm) {
 }
 
 
+
 // Scenario policy is separate from the unchanged simulation mathematics.
 const SCENARIO_POLICY = Object.freeze({microstopLimitMinutes:4,maxChanges:64});
 const SCENARIO_FIELDS = Object.freeze({
@@ -1102,7 +1106,7 @@ function scenarioVariableCatalog(simulation){
     }
     if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedMmPerSecond')&&e.processData?.accumulation?.speedMode!=='MANUAL')disabledReason='Select manual conveyor speed in Equipment first.';
     if(e.type==='CONVEYOR'&&path.endsWith('conveyorSpeedFactorPercent')&&e.processData?.accumulation?.speedMode==='MANUAL')disabledReason='Manual speed mode uses conveyor speed instead of its automatic factor.';
-    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,justification:external?'':undefined,disabledReason,catalogOnly:true};
+    return {equipmentId:e.id,path,before,after:before,unit:SCENARIO_FIELDS[path][2],external,disabledReason,catalogOnly:true};
   }));
 }
 function applyScenarioChanges(simulation,changes){
@@ -1119,7 +1123,7 @@ function applyScenarioChanges(simulation,changes){
       if(unit.type==='CONVEYOR'||unit.id===analyzeLinePerformance(simulation.equipment,simulation.results).referenceId||!(maximum>0)||change.after>maximum)throw new Error('SCENARIO_INSTALLED_SPEED_LIMIT');
     }
     if(change.path.startsWith('noiseProfile.reliability.')){
-      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true||typeof change.justification!=='string'||change.justification.trim().length<10)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
+      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
     seen.add(key);scenarioSet(unit,change.path,change.after);
@@ -1218,6 +1222,7 @@ function planScenarios(simulation){
   });
   return {projects,checks,candidates,hasDynamicEvidence:!!result};
 }
+
 
 return {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })();
