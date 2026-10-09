@@ -21,8 +21,8 @@ function stubScenarioGain(h){
 }
 
 async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false}={}) {
- const context={}; vm.createContext(context);vm.runInContext(read('PublicDemoCaseFactory.gs'),context);vm.runInContext(read('GeminiService.gs'),context);
- const initial=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_()));
+ const context={}; vm.createContext(context);vm.runInContext(read('DemoCaseFactory.gs'),context);vm.runInContext(read('GeminiService.gs'),context);
+ const initial=JSON.parse(JSON.stringify(context.createDemoCaseRequest_()));
  // Generic UI fixture uses the browser defaults supplied by this test.
  delete initial.metadata.consoleOptions;
  if(flowUnit)initial.unitOfFlow=flowUnit;
@@ -1797,9 +1797,9 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
 
 test('UI: prepared demo opens with matching scenario card results and OEE comparison without running the engine',async()=>{
  const h=await setup({uiMode:'BASIC'});try{
-  const f=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['PublicDemoCaseFactory.gs','PublicDemoResults.gs','ScenarioEngine.gs'])vm.runInContext(read(name),f);
+  const f=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['DemoCaseFactory.gs','DemoResults.gs','ScenarioEngine.gs'])vm.runInContext(read(name),f);
   vm.runInContext(read('ApiResponse.gs'),f);vm.runInContext(read('CaseService.gs'),f);
-  const record=JSON.parse(JSON.stringify(f.createPublicDemoCaseRequest_()));record.simulations=JSON.parse(JSON.stringify(f.normalizeSimulations_(record.simulations,[],{})));record.simulations.forEach(s=>{s.results={};s.equipment=s.equipment.map(unit=>Object.fromEntries(Object.entries(unit).reverse()));});f.applyPreparedPublicDemoResults_(record);assert.equal(record.simulations[0].whatIf.evaluations.length,3);record.id='demo';record.expectedRevision=1;h.api.saveCase(record);
+  const record=JSON.parse(JSON.stringify(f.createDemoCaseRequest_()));record.simulations=JSON.parse(JSON.stringify(f.normalizeSimulations_(record.simulations,[],{})));record.simulations.forEach(s=>{s.results={};s.equipment=s.equipment.map(unit=>Object.fromEntries(Object.entries(unit).reverse()));});f.applyPreparedDemoResults_(record);assert.equal(record.simulations[0].whatIf.evaluations.length,3);record.id='demo';record.expectedRevision=1;h.api.saveCase(record);
   let runs=0;h.w.SimulatorEngine.simulateBatch=()=>{runs++;throw Error('Prepared demo must not simulate on open');};
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="whatif"]');
   assert(!h.d.getElementById('header-case-icon').classList.contains('hidden'));assert(h.d.getElementById('header-case-icon').querySelector('svg'));

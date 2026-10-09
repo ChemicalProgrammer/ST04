@@ -118,7 +118,7 @@
       document.getElementById('retry-autosave').onclick = retryAutosave;
       document.getElementById('save-case').onclick = function(){flushCase(true).catch(function(error){showError(error);});};
       document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
-      document.getElementById('create-public-demo-case').addEventListener('click', createPublicDemoCase);
+      document.getElementById('create-demo-case').addEventListener('click', createDemoCase);
       document.getElementById('clone-case').addEventListener('click', cloneActiveSimulation);
       document.getElementById('rename-simulation').onclick = renameSimulation;
       document.getElementById('simulation-selector').onchange=function(){activatePersistentSimulation(this.value);this.value=state.activeSimulationId||'';};
@@ -327,10 +327,10 @@
 
 
 
-function createPublicDemoCase() {
-      setBusy('create-public-demo-case', true);
-      callServer('createPublicDemoCase', [], function(response) {
-        setBusy('create-public-demo-case', false);
+function createDemoCase() {
+      setBusy('create-demo-case', true);
+      callServer('createDemoCase', [], function(response) {
+        setBusy('create-demo-case', false);
         if (!response.ok) return showError(response.error);
         openCase(response.data.id,'editor');
         initialize();

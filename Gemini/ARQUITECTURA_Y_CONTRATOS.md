@@ -31,7 +31,7 @@ Esta API de recursos es nueva y reemplaza los marcadores de build del original.
 | Capa | Archivos |
 |---|---|
 | Entrada/config | Main.gs, appsscript.json, ApiResponse.gs, TextResources.gs |
-| Servidor de casos | AuthService.gs, ConfigService.gs, DriveService.gs, CaseService.gs, PublicDemoCaseFactory.gs |
+| Servidor de casos | AuthService.gs, ConfigService.gs, DriveService.gs, CaseService.gs, DemoCaseFactory.gs |
 | Integraciones | SheetImportService.gs, GeminiService.gs |
 | Recursos cliente | TextClient.html, DesignTokens.html, Icons.html, UiPreferences.html |
 | Estilos | Styles.html, ShellStyles.html, CasesStyles.html, DialogStyles.html, EditorStyles.html, SimulationStyles.html, AnalysisStyles.html, AssistantStyles.html, SheetImportStyles.html |
@@ -104,7 +104,7 @@ Errores inesperados se saneán. Las funciones internas terminan en _.
 | deleteCase | caseId | id y name; archivo a papelera |
 | cloneCase | caseId | resumen del caso nuevo |
 | cloneSimulation | caseId, simulationId | caso completo con nueva simulación |
-| createReferenceCase / createPublicDemoCase | sin argumentos | resumen del caso sintético |
+| createReferenceCase / createDemoCase | sin argumentos | resumen del caso sintético |
 | previewSheetImport | caseId, spreadsheet (URL/ID), sheetName opcional | equipos, metadatos, diagnósticos y procedencia |
 | askGemini | caseId, simulationId, question, history | text, model |
 

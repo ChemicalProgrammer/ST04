@@ -69,8 +69,8 @@ test('create, save and delete update the catalog without rebuilding complete cas
 
 test('creating a validated scenario updates the catalog revision in the same case write',()=>{
  const h=runtime();
- for(const name of ['PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),h.ctx);
- h.ctx.createCase_({...h.ctx.createPublicDemoCaseRequest_(),id:'scenario-case'},owner);
+ for(const name of ['DemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),h.ctx);
+ h.ctx.createCase_({...h.ctx.createDemoCaseRequest_(),id:'scenario-case'},owner);
  const source=h.ctx.getCase_('scenario-case',owner).simulations[0];
  const proposal=h.ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);assert(proposal);
  h.ctx.createScenario_({caseId:'scenario-case',simulationId:source.id,expectedRevision:1,sourceSignature:h.ctx.STScenarioEngine_.signature(source),proposal:{...proposal,title:'Selected scenario'},origin:'GEMINI'},owner);

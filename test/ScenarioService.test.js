@@ -2,8 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 function setup(){
  let record,writes=0,held=false,releases=0;
  const ctx={Utilities:{getUuid:()=> 'unique-scenario'},createSimulatorError_:(code,message)=>Object.assign(new Error(message),{code}),withCaseWriteLock_:fn=>{assert(!held);held=true;try{return fn();}finally{held=false;releases++;}},persistCaseRecord_:(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;},getOwnedCaseFile_:(id,user)=>{assert.equal(user.email,'owner@test');assert(held,'ownership and revision must be checked inside the lock');return {caseData:JSON.parse(JSON.stringify(record)),file:{setContent:value=>{assert(held);writes++;record=JSON.parse(value);}}};},ensureCaseSimulations_:c=>c,generateSimulationId_:()=> 'scenario'};
- vm.createContext(ctx);for(const file of ['PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
- const source={id:'a',name:'Baseline',equipment:JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:23,commands:[]},results:{summary:{throughput:41},replay:{samples:[1,2]}}};record={id:'case-a',revision:1,simulations:[source]};
+ vm.createContext(ctx);for(const file of ['DemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
+ const source={id:'a',name:'Baseline',equipment:JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:23,commands:[]},results:{summary:{throughput:41},replay:{samples:[1,2]}}};record={id:'case-a',revision:1,simulations:[source]};
  const proposal=ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);proposal.title='Infeed study';
  const request={caseId:'case-a',simulationId:'a',expectedRevision:1,sourceSignature:ctx.STScenarioEngine_.signature(source),proposal,origin:'GEMINI'};
  return {ctx,request,record:()=>record,writes:()=>writes,releases:()=>releases};

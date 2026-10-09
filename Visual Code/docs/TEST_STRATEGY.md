@@ -13,7 +13,7 @@ Usar exclusivamente fixtures sintéticos, mocks Google y claves ficticias.
 | Área | Pruebas de referencia | Evidencia requerida |
 |---|---|---|
 | Matemáticas | LineSimulationEngine.test.js, ConveyorEngineering.test.js | Repetibilidad completa, geometría, transporte congelado, Prime, debounce Back-up, fallas, OEE |
-| Formatos/demo | FormatLineTemplate.test.js, PublicDemoCaseFactory.test.js | Secuencia 13 objetos, NA explícito, demo ejecutable y procedencia sintética |
+| Formatos/demo | FormatLineTemplate.test.js, DemoCaseFactory.test.js | Secuencia 13 objetos, NA explícito, demo ejecutable y procedencia sintética |
 | Casos/settings | CaseEditorContract.test.js, AppsScriptSettingsContract.test.js | Borradores, propiedad, revisión obsoleta, conservación de parámetros y configuración segura |
 | Importación | SheetImport.test.js, SheetImportMerge.test.js | 23 columnas + metadatos, porcentajes, errores por celda, permisos, preview selectivo, cancelación y preservación de otras simulaciones |
 | Gemini | GeminiService.test.js | Propiedad antes de HTTP, ninguna clave en bootstrap, errores saneados, contexto guardado |

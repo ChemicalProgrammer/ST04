@@ -63,7 +63,7 @@ Positions are measured from upstream discharge toward downstream infeed.
 controls engineer, OEM or commissioning team chooses them from measured belt
 speed, package dimensions/gaps, photocell response and PLC logic. The simulator
 audits whether they are longer than the normal calculated product pulse and
-gap; the public-demo values remain synthetic assumptions.
+gap; the demo values remain synthetic assumptions.
 
 The line begins empty. A downstream machine remains `WAITING_FOR_PRIME` (and
 has zero effective speed) until its upstream conveyor has physically carried

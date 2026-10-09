@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 import {planScenarios,applyScenarioChanges,scenarioSignature,scenarioAudit,scenarioVariableCatalog} from '../src/analysis/ScenarioPlanner.js';
-function fixture(){const c={};vm.createContext(c);vm.runInContext(fs.readFileSync('apps-script/PublicDemoCaseFactory.gs','utf8'),c);return {id:'a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(c.createPublicDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]},results:null};}
+function fixture(){const c={};vm.createContext(c);vm.runInContext(fs.readFileSync('apps-script/DemoCaseFactory.gs','utf8'),c);return {id:'a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(c.createDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]},results:null};}
 test('static design produces three explicit categories without inventing dynamic metrics',()=>{
  const sim=fixture(),snapshot=JSON.stringify(sim),plan=planScenarios(sim);
  assert.deepEqual(plan.projects.map(p=>p.tier),['ZERO','MEDIUM','HIGH']);assert(plan.projects.every(p=>p.basis==='STATIC'));assert.equal(JSON.stringify(sim),snapshot);

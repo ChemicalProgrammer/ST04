@@ -82,7 +82,7 @@ Run against an older checkout containing the original source modules:
 node scripts/benchmark-simulation.mjs --baseline /path/to/old/ST01
 ```
 
-On this workspace, the four public demo models, each with three full 8-hour
+On this workspace, the four demo models, each with three full 8-hour
 replications at 0.25-second ticks, took **65.60 seconds before / 17.55 seconds
 after** in total: **3.74× faster, 73.3% less engine time**. Whole summary responses
 matched exactly for all twelve seeds; additional detailed runs compared event

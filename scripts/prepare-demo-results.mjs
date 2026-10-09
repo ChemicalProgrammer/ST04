@@ -4,15 +4,15 @@ import vm from 'node:vm';
 import {gzipSync} from 'node:zlib';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 const factory=vm.createContext({});
-vm.runInContext(fs.readFileSync('apps-script/PublicDemoCaseFactory.gs','utf8'),factory);
-const record=JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_()));
+vm.runInContext(fs.readFileSync('apps-script/DemoCaseFactory.gs','utf8'),factory);
+const record=JSON.parse(JSON.stringify(factory.createDemoCaseRequest_()));
 const engine=fs.readFileSync('apps-script/SimulationEngine.html','utf8');
 const start=engine.indexOf('function simulationInputSignature('),end=engine.indexOf('async function simulateBrowserBatch(',start);
 const signatureContext=vm.createContext({CURRENT_ENGINE_ID:'ST_CURRENT'});
 vm.runInContext(engine.slice(start,end),signatureContext);
 const data={revision:record.metadata.demoRevision,input:record.simulations.map(s=>({equipment:s.equipment,run:s.dynamicConfig})),results:[]};
 for(const simulation of record.simulations){
- const input={case:{id:'public-demo',unitOfFlow:record.unitOfFlow,equipment:simulation.equipment},run:simulation.dynamicConfig};
+ const input={case:{id:'demo',unitOfFlow:record.unitOfFlow,equipment:simulation.equipment},run:simulation.dynamicConfig};
  const response=await simulateBatch(input,{laterSummaryOnly:true,yieldControl:()=>Promise.resolve()});
  if(!response.ok)throw Error(JSON.stringify(response));
  const result=response.result,signature=signatureContext.simulationInputSignature(input);
@@ -27,4 +27,4 @@ for(const simulation of record.simulations){
  console.log(simulation.id+': '+result.batch.statistics.lineOeePercent.mean.toFixed(2)+'%');
 }
 const encoded=gzipSync(JSON.stringify(data)).toString('base64');
-fs.writeFileSync('apps-script/PublicDemoResults.gs','// GENERATED measured results. Rebuild with node scripts/prepare-public-demo-results.mjs.\nfunction preparedPublicDemoResults_(){return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode('+JSON.stringify(encoded)+'),"application/x-gzip")).getDataAsString("UTF-8"));}\n');
+fs.writeFileSync('apps-script/DemoResults.gs','function preparedDemoResults_(){return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode('+JSON.stringify(encoded)+'),"application/x-gzip")).getDataAsString("UTF-8"));}\n');

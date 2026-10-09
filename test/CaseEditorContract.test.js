@@ -94,15 +94,15 @@ test('preserves explicit real-format process data without inventing missing valu
 test('preserves Case metadata and exposes its data classification in the Case summary', () => {
   const runtime = createCaseRuntime();
   const metadata = {
-    dataClassification: 'PUBLIC_DEMONSTRATION_ONLY',
+    dataClassification: 'DEMO_ONLY',
     dataNote: 'Synthetic values for software testing only.',
     publicReferences: [{ title: 'Public source', url: 'https://example.com' }]
   };
 
-  const summary = runtime.createCase_({ name: 'Public demo', metadata }, owner);
+  const summary = runtime.createCase_({ name: 'Demo', metadata }, owner);
   const stored = runtime.getCase_(summary.id, owner);
 
-  assert.equal(summary.dataClassification, 'PUBLIC_DEMONSTRATION_ONLY');
+  assert.equal(summary.dataClassification, 'DEMO_ONLY');
   assert.deepEqual(toPlainObject(stored.metadata), metadata);
 });
 

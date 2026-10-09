@@ -21,9 +21,9 @@ window.STCaseGallery = (function() {
     items.slice(page*pageSize,(page+1)*pageSize).forEach(function(item,index){
       var row=document.createElement('article');row.className='case-row';
       row.innerHTML='<div class="case-identity"><span class="case-glyph" aria-hidden="true">'+STIcons.svg('folder')+'</span><div><button class="case-name open-case" type="button"></button><span class="case-description"></span></div></div><div class="case-actions"><span class="badge"></span><time class="case-date"></time></div><div class="case-tools"></div>';
-      var open=row.querySelector('.case-name');open.textContent=item.name;open.id='case-title-'+index;row.setAttribute('aria-labelledby',open.id);
+      var open=row.querySelector('.case-name');open.textContent=/^(?:PUBLIC_)?(?:DEMONSTRATION|DEMO)_ONLY$/.test(item.dataClassification||'')?item.name.replace(/public[ -]+(?=demo)/ig,''):item.name;open.id='case-title-'+index;row.setAttribute('aria-labelledby',open.id);
       var description=row.querySelector('.case-description');description.id='case-description-'+index;open.setAttribute('aria-describedby',description.id);
-      row.querySelector('.case-description').textContent=item.equipmentCount+__ST_TEXT__('casegallery.equipment_units')+(item.dataClassification==='PUBLIC_DEMONSTRATION_ONLY'?__ST_TEXT__('casegallery.public_demo'):'');
+      row.querySelector('.case-description').textContent=item.equipmentCount+__ST_TEXT__('casegallery.equipment_units')+(/^(?:PUBLIC_)?(?:DEMONSTRATION|DEMO)_ONLY$/.test(item.dataClassification||'')?__ST_TEXT__('casegallery.demo'):'');
       var badge=row.querySelector('.badge');badge.classList.toggle('ready',Boolean(item.isSimulationReady));badge.innerHTML=STIcons.svg(item.isSimulationReady?'check':'edit')+(item.isSimulationReady?__ST_TEXT__('casegallery.ready'):__ST_TEXT__('casegallery.draft'));
       var date=new Date(item.updatedAt);if(!Number.isNaN(date.getTime()))row.querySelector('time').dateTime=date.toISOString();row.querySelector('time').textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
       open.onclick=function(){openCase(item.id);};
