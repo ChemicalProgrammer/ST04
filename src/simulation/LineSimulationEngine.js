@@ -2,6 +2,14 @@ import { createSeededRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
 import { resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
+// Prepare field names once rather than concatenate them for every packet/tick.
+// Backup must still be processed before prime: sensor events share the same clock.
+const PHOTOEYE_FIELDS = {
+  backup: {name:'backup',enabled:'hasBackupSensor',position:'backupSensorPositionMm',at:'backupAtVirtualSecond',fraction:'backupPassedFraction',units:'backupPassedUnits',last:'backupLastPassAtVirtualSecond',pulse:'backupPulseUntilVirtualSecond'},
+  prime: {name:'prime',enabled:'hasPrimeSensor',position:'primeSensorPositionMm',at:'primeAtVirtualSecond',fraction:'primePassedFraction',units:'primePassedUnits',last:'primeLastPassAtVirtualSecond',pulse:'primePulseUntilVirtualSecond'}
+};
+const TRANSPORT_PHOTOEYES = [PHOTOEYE_FIELDS.backup, PHOTOEYE_FIELDS.prime];
+
 export function simulateLine(input) {
   const validation = validateSimulationInput(input);
   if (!validation.ok) return validation;
@@ -168,6 +176,7 @@ function createAccumulationZoneRuntime(owner, downstreamModel, allEquipment, own
     visible: Boolean(physical),
     internalHandoff: isInternalHandoff,
     physicalModelEnabled: Boolean(physical),
+    transportPhotoeyes: physical ? TRANSPORT_PHOTOEYES.filter(sensor => physical[sensor.enabled]) : [],
     modelOrigin: resolvedDefinition.origin,
     geometrySources: resolvedDefinition.sources || {},
     formatAssumptions: resolvedDefinition.assumptions || [],
@@ -394,18 +403,17 @@ function advanceAccumulationZones(runtime) {
       // Each packet represents uniform flow during its entry tick. Split a
       // crossing packet instead of rounding its whole travel to the next tick.
       // This prevents discretization from becoming a fictitious bottleneck.
-      ['backup', 'prime'].forEach((sensor) => {
-        if (!zone[sensor === 'backup' ? 'hasBackupSensor' : 'hasPrimeSensor']) return;
-        const position = zone[sensor + 'SensorPositionMm'];
-        if (position > queueTailMm && stationaryQueueUnits > 1e-9) return;
-        const fraction = fractionPassed(endSecond, packet[sensor + 'AtVirtualSecond'], packet.entryDurationSeconds);
-        const previous = packet[sensor + 'PassedFraction'] || 0;
+      for (const sensor of zone.transportPhotoeyes) {
+        const position = zone[sensor.position];
+        if (position > queueTailMm && stationaryQueueUnits > 1e-9) continue;
+        const fraction = fractionPassed(endSecond, packet[sensor.at], packet.entryDurationSeconds);
+        const previous = packet[sensor.fraction] || 0;
         if (fraction > previous) {
-          recordNormalPhotoeyePass(runtime, zone, sensor, (fraction - previous) * packet.initialUnits);
-          packet[sensor + 'PassedFraction'] = fraction;
-          if (sensor === 'prime') triggerPrimeSensor(runtime, zone);
+          recordNormalPhotoeyePass(runtime, zone, sensor.name, (fraction - previous) * packet.initialUnits);
+          packet[sensor.fraction] = fraction;
+          if (sensor.name === 'prime') triggerPrimeSensor(runtime, zone);
         }
-      });
+      }
       const arrivals = Math.min(packet.units, Math.max(0, arrivedFraction - packet.arrivedFraction) * packet.initialUnits);
       zone.waitingUnits += arrivals;
       packet.units = Math.max(0, packet.units - arrivals);
@@ -446,11 +454,11 @@ function updatePrimeSensorSignal(runtime, zone) {
 
 function recordNormalPhotoeyePass(runtime, zone, sensor, units) {
   const duration = sensorBlockedDurationSeconds(zone, units);
-  const prefix = sensor === 'prime' ? 'prime' : 'backup';
-  zone[prefix + 'PassedUnits'] += units;
-  zone[prefix + 'LastPassAtVirtualSecond'] = runtime.virtualSecond;
+  const fields = PHOTOEYE_FIELDS[sensor];
+  zone[fields.units] += units;
+  zone[fields.last] = runtime.virtualSecond;
   if (!(duration > 0)) return;
-  const untilField = prefix + 'PulseUntilVirtualSecond';
+  const untilField = fields.pulse;
   zone[untilField] = Math.max(runtime.virtualSecond, zone[untilField] || 0) + duration;
 }
 
@@ -1017,13 +1025,23 @@ function getEquipment(runtime, equipmentId) {
 }
 
 function getZoneEntrySpace(zone) {
-  if (!zone.physicalModelEnabled) return Math.max(0, zone.capacityUnits - getZoneInventory(zone));
-  const occupiedLength = zone.waitingUnits * zone.accumulatedPitchMm + sum(zone.transit.map(packet => packet.units)) * zone.productPitchMm;
-  return Math.max(0, Math.min(zone.capacityUnits - getZoneInventory(zone), (zone.usableLengthMm - occupiedLength) / zone.productPitchMm));
+  const transitUnits = getTransitUnits(zone);
+  const inventory = zone.waitingUnits + transitUnits;
+  if (!zone.physicalModelEnabled) return Math.max(0, zone.capacityUnits - inventory);
+  const occupiedLength = zone.waitingUnits * zone.accumulatedPitchMm + transitUnits * zone.productPitchMm;
+  return Math.max(0, Math.min(zone.capacityUnits - inventory, (zone.usableLengthMm - occupiedLength) / zone.productPitchMm));
 }
 
 function getZoneInventory(zone) {
-  return zone.waitingUnits + sum(zone.transit.map((packet) => packet.units));
+  return zone.waitingUnits + getTransitUnits(zone);
+}
+
+function getTransitUnits(zone) {
+  // Keep the original addition order; incremental inventory counters would
+  // accumulate different floating-point errors over long replications.
+  let total = 0;
+  for (let i = 0; i < zone.transit.length; i++) total += zone.transit[i].units;
+  return total;
 }
 
 function addSampleIfDue(runtime) {
@@ -1094,7 +1112,7 @@ function createZoneSample(zone) {
     waitingUnits: round(zone.waitingUnits),
     queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
     queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
-    inTransitUnits: round(sum(zone.transit.map((packet) => packet.units))),
+    inTransitUnits: round(getTransitUnits(zone)),
     capacityUnits: round(zone.capacityUnits),
     fillPercent: zone.capacityUnits > 0 ? round(inventoryUnits / zone.capacityUnits * 100) : 0,
     prime: {
@@ -1285,7 +1303,7 @@ function createZoneMetrics(zone, durationSeconds) {
     conveyorConstraintLossPercent: round(100*zone.constraintLossEquivalentSeconds/Math.max(durationSeconds,1e-9)),
     finalInventoryUnits: round(getZoneInventory(zone)),
     finalWaitingUnits: round(zone.waitingUnits),
-    finalInTransitUnits: round(sum(zone.transit.map((packet) => packet.units))),
+    finalInTransitUnits: round(getTransitUnits(zone)),
     minimumInventoryUnits: round(zone.minimumInventoryUnits),
     averageInventoryUnits: round(zone.inventoryIntegralUnitSeconds / Math.max(1, durationSeconds)),
     maximumInventoryUnits: round(zone.maximumInventoryUnits),
@@ -1332,3 +1350,4 @@ function sum(values) {
 function round(value) {
   return Number(value.toFixed(6));
 }
+

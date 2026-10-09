@@ -444,11 +444,12 @@ async function openCase(caseId, initialView) {
       var simulation=activePersistentSimulation(),run=readRunConfiguration();if(!run)return null;
       if(simulation){var before=JSON.stringify([simulation.equipment,simulation.dynamicConfig]);simulation.equipment=cloneJson(next.equipment);simulation.dynamicConfig=cloneJson(run);if(before!==JSON.stringify([simulation.equipment,simulation.dynamicConfig]))simulation.updatedAt=new Date().toISOString();captureSimulationView();}
       compactStoredReplays(state.activeCase.simulations);
-      next.simulations=cloneJson(state.activeCase.simulations);
+      next.simulations=state.activeCase.simulations;
       return fitCaseSave(cloneJson(next));
     }
     function fitCaseSave(draft){
       draft.activeSimulationId=state.activeSimulationId;
+      draft.compactStorage=true;
       compactStoredReplays(draft.simulations);
       function bytes(){return new Blob([JSON.stringify(draft)]).size;}
       while(bytes()>window.ST_CASE_SAVE_LIMITS.maxBytes){
@@ -1644,7 +1645,7 @@ function renderRawJson() {
     function calculateBatch(run){
       cancelRoundSession();stopPlaybackTimer();
       return new Promise(function(resolve){
-        var session={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson(state.activeCase),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false,resolveFirst:resolve};roundSession=session;
+        var session={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson({id:state.activeCase.id,unitOfFlow:state.activeCase.unitOfFlow,equipment:state.activeCase.equipment}),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false,resolveFirst:resolve};roundSession=session;
         document.getElementById('batch-cancel').onclick=function(){
           if(!roundSessionActive(session))return;
           var playing=state.run.active;

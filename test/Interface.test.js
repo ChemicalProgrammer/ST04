@@ -1473,6 +1473,45 @@ test('UI: pinned header contains activity at its lower edge and Basic conveyor c
  }finally{h.dom.window.close();}
 });
 
+test('UI: parallel CAPEX alternatives preserve serial winners, evidence and full configured rounds',async()=>{
+ const evidence=[];
+ for(const concurrency of [1,2]){
+  const h=await setup({remember:true});try{
+   h.w.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:200,maxSearchMs:600000,maxWithoutImprovement:200,parallelCandidates:concurrency};
+   const sim=h.storedCases()[0].simulations[0],belts=sim.equipment.filter(e=>e.type==='CONVEYOR').slice(0,2);belts.forEach(e=>e.processData.geometry.lactMm=10000);sim.dynamicConfig={durationSeconds:60,tickSeconds:.25,seed:42,rounds:5};
+   const changes=belts.map(e=>({equipmentId:e.id,path:'processData.geometry.lactMm',before:10000,after:15000,unit:'mm'}));
+   let active=0,maxRefining=0;
+   h.w.SimulatorEngine.simulateBatch=async input=>{
+    assert.equal(input.run.rounds,5);assert.equal(input.run.tickSeconds,.25);assert.equal(input.run.durationSeconds,60);
+    active++;if(h.d.querySelector('.scenario-search-progress').textContent.includes('Refining'))maxRefining=Math.max(maxRefining,active);
+    const lengths=belts.map(b=>input.case.equipment.find(e=>e.id===b.id).processData.geometry.lactMm);
+    await new Promise(resolve=>setTimeout(resolve,lengths[1]===10000?25:2));active--;
+    const gain=5-Math.abs(lengths[0]-12500)/1000-Math.abs(lengths[1]-15000)/1000;
+    return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};
+   };
+   const card=h.w.STWhatIf.card({title:'Exact alternatives',kind:'CUSTOM',tier:'HIGH',changes,explore:true},()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+   const record=sim.whatIf.evaluations[0];assert.deepEqual(belts.map(b=>record.evaluatedChanges.find(c=>c.equipmentId===b.id).after),[12500,15000]);assert(record.independentCheck.passed);assert.equal(maxRefining,concurrency);
+   evidence.push(JSON.parse(JSON.stringify({changes:record.evaluatedChanges,candidate:record.candidate,delta:record.delta,trials:record.trials,history:record.trialHistory,variables:record.searchVariables,bestAtTrial:record.bestAtTrial,independentCheck:record.independentCheck})));
+   assert(belts.every(e=>e.processData.geometry.lactMm===10000));assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+ assert.deepEqual(evidence[1],evidence[0]);
+});
+
+test('UI: repeated CAPEX configurations reuse exact metrics across more than 32 cache entries',async()=>{
+ const h=await setup({remember:true});try{
+  const sim=h.storedCases()[0].simulations[0],belt=sim.equipment.find(e=>e.type==='CONVEYOR');belt.processData.geometry.lactMm=10000;sim.dynamicConfig={durationSeconds:60,seed:42,rounds:3};
+  let calls=0;h.w.SimulatorEngine.simulateBatch=async input=>{calls++;const gain=input.case.equipment.find(e=>e.id===belt.id).processData.geometry.lactMm>10000?2:0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
+  const card=h.w.STWhatIf.card({title:'Cached alternatives',kind:'CUSTOM',tier:'HIGH',changes:[{equipmentId:belt.id,path:'processData.geometry.lactMm',before:10000,after:20000,unit:'mm'}],explore:true},()=>{},sim.equipment,sim);h.d.body.append(card);
+  const input=card.querySelector('.scenario-change input[type=number]'),run=card.querySelector('.scenario-evaluate'),save=card.querySelector('.scenario-create');
+  for(let i=0;i<40;i++){input.value=String(11+i/10);input.dispatchEvent(new h.w.Event('input'));run.click();await waitFor(()=>!save.disabled);}
+  const before=calls;assert(before>64,'expected distinct configurations; calculated '+before+' batches');
+  input.value='11';input.dispatchEvent(new h.w.Event('input'));run.click();await waitFor(()=>!save.disabled);assert.equal(calls,before,'same inputs, seeds and rounds reuse both evaluation and confirmation');
+  sim.dynamicConfig.seed=43;card.remove();
+  const revised=h.w.STWhatIf.card({title:'Cached alternatives',kind:'CUSTOM',tier:'HIGH',changes:[{equipmentId:belt.id,path:'processData.geometry.lactMm',before:10000,after:11000,unit:'mm'}],explore:true},()=>{},sim.equipment,sim);h.d.body.append(revised);revised.querySelector('.scenario-evaluate').click();await waitFor(()=>!revised.querySelector('.scenario-create').disabled);assert(calls>before,'a changed seed must be recalculated');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
 test('UI: scenario budgets and stagnation finish with full-round independent confirmation',async()=>{
  for(const reason of ['budget','stagnation']){
  const h=await setup({remember:true});try{

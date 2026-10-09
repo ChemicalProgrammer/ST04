@@ -1,11 +1,17 @@
 <script>
 // Editable exploration limits; confirmation always uses the full configured rounds.
-window.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:40,maxSearchMs:600000,maxWithoutImprovement:12};
+window.ST_SCENARIO_SEARCH_LIMITS={maxCandidates:40,maxSearchMs:600000,maxWithoutImprovement:12,parallelCandidates:2};
 window.STScenarioExplorer=(function(){
   function unitLabel(unit){return window.STBasicMode?.unitLabel(unit)||unit||'units';}
   // Evidence belongs to the simulation and is saved through the case autosave.
   var activeHost=null,activeRecordKey=null,caseProvider,caseChanged;
-  var summaryCache=new Map(); // Small shared LRU: metrics only, never replay data.
+  var summaryCache=new Map(),summaryCacheLimit=128,summaryCacheBytes=0,summaryCacheMaxBytes=8*1024*1024;
+  function rememberMetrics(key,value){
+    if(summaryCache.has(key)){summaryCache.delete(key);summaryCacheBytes-=key.length*2;}
+    if(key.length*2>summaryCacheMaxBytes)return;
+    summaryCache.set(key,value);summaryCacheBytes+=key.length*2;
+    while(summaryCache.size>summaryCacheLimit||summaryCacheBytes>summaryCacheMaxBytes){var oldest=summaryCache.keys().next().value;summaryCache.delete(oldest);summaryCacheBytes-=oldest.length*2;}
+  } // Bounded LRU: exact metrics only, never replay data.
   function doeEnabled(){var record=caseProvider?.();return record?record.metadata?.includeDOE===true:window.STPreferences?.read('scenarioDoe')==='yes';}
   function setDOE(enabled){var record=caseProvider?.();if(!record&&!STPreferences.write('scenarioDoe',enabled?'yes':'no'))return false;if(record){record.metadata=record.metadata||{};record.metadata.includeDOE=enabled;caseChanged?.();}window.dispatchEvent(new Event('st-doe-change'));return true;}
   function savedEntries(simulation){return simulation.whatIf?.evaluations||[];}
@@ -26,12 +32,12 @@ window.STScenarioExplorer=(function(){
     var validity=SimulatorEngine.validateSimulationInput?.(input);if(validity&&!validity.ok)throw Error(validity.error?.message||'Invalid simulation input.');
     var key=SimulatorEngine.inputSignature?.(input),cached=key&&summaryCache.get(key),saved=sim.results;
     if(key&&!cached&&!changes.length&&saved?.inputSignature===key&&saved.replicationStatus?.state==='COMPLETE')cached=metric(saved);
-    if(cached){summaryCache.delete(key);summaryCache.set(key,cached);while(summaryCache.size>32)summaryCache.delete(summaryCache.keys().next().value);onProgress?.(1);return Object.assign({},cached,{warnings:candidate.scenarioWarnings||[]});}
+    if(cached){rememberMetrics(key,cached);onProgress?.(1);return Object.assign({},cached,{warnings:candidate.scenarioWarnings||[]});}
     var response=await SimulatorEngine.simulateBatch(input,{cancelled:cancelled,summaryOnly:true,progress:onProgress});
     if(!response.ok)throw Error(response.error?.message||JSON.stringify(response.errors||response));
     if(cancelled?.())throw Error('BATCH_CANCELLED');
     var value=metric(response.result);
-    if(key){summaryCache.set(key,value);while(summaryCache.size>32)summaryCache.delete(summaryCache.keys().next().value);}
+    if(key)rememberMetrics(key,value);
     return Object.assign({},value,{warnings:candidate.scenarioWarnings||[]});
   }
   function attach(host,project,create,simulation){
@@ -197,7 +203,10 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
         var best=baseline,bestChanges=[],done=0,invalid=0,cache=new Map(),reviewBest=null,reviewChanges=[];
         async function trial(proposal,prepared){
           if(cancelled())return null;
-          var key=keyOf(proposal);if(cache.has(key))return cache.get(key);exhausted();if(finishRequested)return null;var previousThroughput=best.throughput;
+          var key=keyOf(proposal);if(cache.has(key))return cache.get(key);
+          // A prepared batch was already admitted to the budget before launch.
+          // Keep its in-flight winner when the user asks to finish the search.
+          if(!prepared)exhausted();if(finishRequested&&(!prepared||stopReason))return null;var previousThroughput=best.throughput;
           var result;
           try{if(prepared?.error)throw prepared.error;result=prepared?prepared.value:proposal.length?await measured(proposal,0):baseline;}
           catch(error){if(cancelled())return null;if(!String(error.message).startsWith('SCENARIO_'))throw error;invalid++;result=null;}
@@ -210,6 +219,19 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           if(!cancelled()){status.textContent=done+' candidates checked · '+invalid+' infeasible · '+show(baseline,best);record('RUNNING',Object.assign({},evidence,{baseline:baseline,candidate:best,evaluatedChanges:bestChanges,trials:done,infeasibleTrials:invalid}));}
           await new Promise(function(resolve){setTimeout(resolve,0);});return result;
         }
+        async function trialsInOrder(proposals){
+          for(var index=0;index<proposals.length;){
+            exhausted();if(finishRequested||cancelled())return;
+            var concurrency=Math.max(1,Math.min(2,Math.floor(Number(limits.parallelCandidates)||2)));
+            var size=Math.min(concurrency,limits.maxCandidates-done,limits.maxWithoutImprovement-stagnant),group=proposals.slice(index,index+size);index+=group.length;
+            var prepared=await Promise.all(group.map(async function(proposal){
+              try{return {value:cache.has(keyOf(proposal))?cache.get(keyOf(proposal)):proposal.length?await measured(proposal,0):baseline};}catch(error){return {error:error};}
+            }));
+            // Original order preserves ties, budgets and stagnation regardless
+            // of which worker finishes first. All rounds still use full inputs.
+            for(var i=0;i<group.length;i++){await trial(group[i],prepared[i]);if(cancelled()||finishRequested)return;}
+          }
+        }
         stage=all?'Searching category':'Evaluating selection';
         if(!all){best=await trial(changes);bestChanges=changes;if(cancelled())return;}
         else searchPhase:{
@@ -220,12 +242,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
           var blocks=Array.from(new Set(changes.map(c=>c.equipmentId))).map(function(id){return changes.filter(c=>c.equipmentId===id);}).filter(function(proposal){return !cache.has(keyOf(proposal));});
           // Blocks are independent; consume in original order so worker timing
           // cannot change winner selection, tie breaking or stagnation accounting.
-          for(var blockIndex=0;blockIndex<blocks.length;){
-            exhausted();if(finishRequested)break searchPhase;
-            var group=blocks.slice(blockIndex,blockIndex+Math.min(2,limits.maxCandidates-done,limits.maxWithoutImprovement-stagnant));blockIndex+=group.length;
-            var prepared=await Promise.all(group.map(async function(proposal){try{return {value:await measured(proposal,0)};}catch(error){return {error:error};}}));
-            for(var groupIndex=0;groupIndex<group.length;groupIndex++){await trial(group[groupIndex],prepared[groupIndex]);if(cancelled())return;if(finishRequested)break searchPhase;}
-          }
+          await trialsInOrder(blocks);if(cancelled())return;if(finishRequested)break searchPhase;
           // Bounded coordinate search across the entire selected category.
           // Revisit coordinates to capture interactions; never claim a global optimum.
           for(var pass=0;pass<3;pass++){
@@ -233,11 +250,11 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
             var previous=keyOf(bestChanges);
             for(var c of changes){
               var alternatives=c.external?[c.after]:[c.before,(Number(c.before)+c.after)/2,c.after];
-              for(var value of alternatives){
-                var proposal=bestChanges.filter(x=>!(x.equipmentId===c.equipmentId&&x.path===c.path));
-                if(value!==c.before)proposal=proposal.concat([Object.assign({},c,{after:value})]);
-                await trial(proposal);if(cancelled())return;if(finishRequested)break searchPhase;
-              }
+              // Alternatives of one coordinate share the same other targets;
+              // evaluate together, then select in the original serial order.
+              var fixedCoordinate=bestChanges.filter(x=>!(x.equipmentId===c.equipmentId&&x.path===c.path));
+              var proposals=alternatives.map(value=>value===c.before?fixedCoordinate:fixedCoordinate.concat([Object.assign({},c,{after:value})]));
+              await trialsInOrder(proposals);if(cancelled())return;if(finishRequested)break searchPhase;
             }
             if(previous===keyOf(bestChanges))break;
           }

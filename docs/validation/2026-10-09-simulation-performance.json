@@ -1,0 +1,57 @@
+{
+  "roundsPerSimulation": 3,
+  "durationSeconds": 28800,
+  "rows": [
+    {
+      "simulation": "simulation-a",
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "beforeMs": 23598,
+      "afterMs": 5596,
+      "speedup": 4.22,
+      "exactMatch": true
+    },
+    {
+      "simulation": "demo-zero",
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "beforeMs": 9422,
+      "afterMs": 3041,
+      "speedup": 3.1,
+      "exactMatch": true
+    },
+    {
+      "simulation": "demo-medium",
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "beforeMs": 12952,
+      "afterMs": 3832,
+      "speedup": 3.38,
+      "exactMatch": true
+    },
+    {
+      "simulation": "demo-high",
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "beforeMs": 19629,
+      "afterMs": 5078,
+      "speedup": 3.87,
+      "exactMatch": true
+    }
+  ],
+  "total": {
+    "beforeMs": 65601,
+    "afterMs": 17547,
+    "speedup": 3.74,
+    "reductionPercent": 73.3,
+    "exactMatch": true
+  },
+  "date": "2026-10-09",
+  "baselineCommit": "1949afe5fb009d74ec246d252a996b552575edf0",
+  "scope": "Local JavaScript motor; full 8-hour seeded summary responses plus detailed 10-minute event/replay equality. Not browser, Python DES or Drive wall-clock latency.",
+  "runtime": "v24.19.0",
+  "engineSha256": {
+    "before": "86a24c8be8b9fe8185311742eeba632338424a10d8c3b0d4ee806161c5455768",
+    "after": "e7519577cb83da2521dd0cd3ef6cd009bcdb5b49bedc21b4e06df3671da9d0f8"
+  }
+}

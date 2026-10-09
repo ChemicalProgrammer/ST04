@@ -201,3 +201,51 @@ test('an unchanged digest still verifies the simulation exists and recreates a m
  assert.equal(h.ctx.getCase_('missing-file',owner).revision,2);
 });
 
+test('compact saves commit small simulations together and retain a lightweight acknowledgement',()=>{
+ const h=runtime();h.ctx.createCase_({id:'compact',name:'Compact',simulations:[{id:'a',name:'A'},{id:'b',name:'B'}]},owner);
+ let record=h.ctx.getCase_('compact',owner),child=h.folder().getFoldersByName('compact').next();
+ record.expectedRevision=record.revision;record.compactStorage=true;
+ const ack=h.ctx.saveCase(record);assert(ack.ok);assert.equal(ack.data.revision,2);assert.equal(ack.data.simulations,undefined);
+ let manifest=JSON.parse(child.files.get('case.json').content);assert.equal(manifest.storageVersion,'case-folder-2');assert(manifest.simulationFiles.every(e=>e.inline?.id===e.id&&!e.fileName));
+ assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getCase_('compact',owner).simulations)),JSON.parse(JSON.stringify(record.simulations)));
+ assert.equal(h.ctx.getCase_('compact',owner).simulationFiles,undefined,'storage entries are omitted from the client response');
+ assert.throws(()=>h.ctx.getCase_('compact',{email:'other@example.test'}),e=>e.simulatorError.code==='CASE_NOT_FOUND');
+ const queries=[],mutations=[],lookup=child.getFilesByName,listing=child.getFiles,create=child.createFile;
+ child.getFilesByName=name=>{queries.push(name);return lookup(name);};child.getFiles=()=>{queries.push('list');return listing();};child.createFile=(name,...args)=>{mutations.push(name);return create(name,...args);};
+ record=h.ctx.getCase_('compact',owner);queries.length=0;record.expectedRevision=2;record.compactStorage=true;record.simulations[0].name='Edited';
+ h.ctx.saveCase_(record,owner);assert.deepEqual(queries,['case.json']);assert.deepEqual(mutations,[],'small edits need no simulation file creation or cleanup');
+ assert.equal(h.ctx.getCase_('compact',owner).simulations[0].name,'Edited');
+});
+
+test('compact storage bounds UTF-8 bytes, keeps larger results external and verifies them in one listing',()=>{
+ const h=runtime();h.ctx.createCase_({id:'mixed',name:'Mixed',simulations:[{id:'a',results:{note:'瓶'.repeat(8000)}},{id:'b',results:{note:'large'.repeat(10000)}},{id:'c',name:'Small'}]},owner);
+ let record=h.ctx.getCase_('mixed',owner),child=h.folder().getFoldersByName('mixed').next();record.expectedRevision=1;record.compactStorage=true;h.ctx.saveCase_(record,owner);
+ const manifest=JSON.parse(child.files.get('case.json').content);assert(manifest.simulationFiles[0].fileName);assert(manifest.simulationFiles[1].fileName);assert(manifest.simulationFiles[2].inline);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getCase_('mixed',owner).simulations)),JSON.parse(JSON.stringify(record.simulations)));
+ const queries=[],lookup=child.getFilesByName,listing=child.getFiles;child.getFilesByName=name=>{queries.push(name);return lookup(name);};child.getFiles=()=>{queries.push('list');return listing();};
+ record=h.ctx.getCase_('mixed',owner);queries.length=0;record.expectedRevision=2;record.compactStorage=true;h.ctx.saveCase_(record,owner);assert.deepEqual(queries,['case.json','list']);
+ assert.equal(h.ctx.caseJsonBytesWithin_('abc瓶😀',10),10);assert.equal(h.ctx.caseJsonBytesWithin_('abc瓶😀',9),null);
+});
+
+test('failed compact commits keep old data and size growth safely moves inline results into files',()=>{
+ const h=runtime();h.ctx.createCase_({id:'atomic-inline',name:'Atomic',simulations:[{id:'a',name:'Original'}]},owner);
+ const child=h.folder().getFoldersByName('atomic-inline').next(),manifest=child.files.get('case.json');let record=h.ctx.getCase_('atomic-inline',owner);record.expectedRevision=1;record.compactStorage=true;
+ const old=manifest.content;manifest.fail=true;assert.throws(()=>h.ctx.saveCase_(record,owner));assert.equal(manifest.content,old);assert.equal(h.ctx.getCase_('atomic-inline',owner).simulations[0].name,'Original');
+ manifest.fail=false;h.ctx.saveCase_(record,owner);assert(JSON.parse(manifest.content).simulationFiles[0].inline);
+ record=h.ctx.getCase_('atomic-inline',owner);record.expectedRevision=2;record.compactStorage=true;record.simulations[0].results={large:'x'.repeat(20000)};const beforeGrowth=manifest.content;
+ manifest.fail=true;assert.throws(()=>h.ctx.saveCase_(record,owner));assert.equal(manifest.content,beforeGrowth);assert.equal(h.ctx.getCase_('atomic-inline',owner).simulations[0].results.large,undefined);
+ manifest.fail=false;h.ctx.saveCase_(record,owner);assert(JSON.parse(manifest.content).simulationFiles[0].fileName);assert.equal(h.ctx.getCase_('atomic-inline',owner).simulations[0].results.large.length,20000);
+ assert.throws(()=>h.ctx.saveCase_(record,owner),e=>e.simulatorError.code==='CASE_CONFLICT');
+});
+
+test('inline storage respects the total manifest budget and survives cloning and later server writes',()=>{
+ const h=runtime(),simulations=['a','b','c','d'].map(id=>({id,name:id,results:{payload:'x'.repeat(12000)}}));
+ h.ctx.createCase_({id:'bounded-inline',name:'Bounded',simulations},owner);let record=h.ctx.getCase_('bounded-inline',owner);record.expectedRevision=1;record.compactStorage=true;h.ctx.saveCase_(record,owner);
+ const child=h.folder().getFoldersByName('bounded-inline').next(),refs=JSON.parse(child.files.get('case.json').content).simulationFiles,inline=refs.filter(e=>e.inline);
+ assert.equal(inline.length,2);assert(inline.reduce((bytes,e)=>bytes+Buffer.byteLength(JSON.stringify(e.inline)),0)<=h.ctx.ST_CASE_STORAGE_LIMITS.inlineCaseBytes);
+ const clone=h.ctx.cloneCase_('bounded-inline',owner),loaded=h.ctx.getCase_(clone.id,owner);assert.deepEqual(JSON.parse(JSON.stringify(loaded.simulations)),JSON.parse(JSON.stringify(record.simulations)));
+ record=h.ctx.getCase_('bounded-inline',owner);record.expectedRevision=2;record.name='Server update';h.ctx.saveCase_(record,owner);
+ assert.equal(JSON.parse(child.files.get('case.json').content).simulationFiles.filter(e=>e.inline).length,2,'existing inline storage is retained without the client hint');
+ assert.equal(h.ctx.getCase_('bounded-inline',owner).simulations[3].results.payload.length,12000);
+});
+

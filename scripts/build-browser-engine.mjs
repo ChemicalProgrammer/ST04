@@ -56,7 +56,7 @@ self.onmessage=async function(event){
 self.postMessage({type:'ready'});
 }
 
-let workerPool,workersUnavailable=false;
+let workerPool,workerSource,workersUnavailable=false;
 const simPyRuntime=createSimPyBrowserEngine(window,${JSON.stringify(pythonFiles).replace(/</g,'\\u003c')});
 function selectedEngine(input){
   const id=input.run.engineId||CURRENT_ENGINE_ID;
@@ -75,8 +75,9 @@ async function calculateBrowserBatch(input,options={}){
   if((count<2&&!options.summaryOnly)||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
   if(!workerPool){
     const size=Math.min(4,Math.max(1,(window.navigator?.hardwareConcurrency||3)-1));
+    workerSource=workerSource||["'use strict';\\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'].join('');
     workerPool=createSimulationWorkerPool(()=>{
-      const url=window.URL.createObjectURL(new window.Blob(["'use strict';\\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'],{type:'text/javascript'}));
+      const url=window.URL.createObjectURL(new window.Blob([workerSource],{type:'text/javascript'}));
       try{return new window.Worker(url);}finally{window.URL.revokeObjectURL(url);}
     },size);
   }
