@@ -541,27 +541,24 @@ async function openCase(caseId, initialView) {
     function cancelCaseCatalog(){
       catalogGeneration++;clearTimeout(catalogTimer);state.catalogLoading=false;
       document.getElementById('refresh-case-catalog').disabled=false;
-      document.getElementById('case-catalog-status').textContent='';
     }
     function refreshCaseCatalog(){
       if(!state.bootstrap?.settings?.workspaceRootFolderId)return;
       cancelCaseCatalog();state.catalogLoading=true;
       var generation=catalogGeneration,folderId=state.bootstrap.settings.workspaceRootFolderId;
       var original=new Map((state.bootstrap.cases||[]).map(function(c){return [c.id,JSON.stringify(c)];}));
-      var status=document.getElementById('case-catalog-status');status.classList.remove('error');
-      status.textContent=__ST_TEXT__('cases.catalog_loading');document.getElementById('refresh-case-catalog').disabled=true;
+      document.getElementById('refresh-case-catalog').disabled=true;
       renderCases(state.bootstrap.cases);
       function load(cursor){
         if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
         callServer('refreshCaseCatalog',[{cursor:cursor}],function(response){
           if(generation!==catalogGeneration||!state.bootstrap||folderId!==state.bootstrap.settings.workspaceRootFolderId)return;
-          if(!response.ok){state.catalogLoading=false;status.textContent=__ST_TEXT__('cases.catalog_failed');status.classList.add('error');STErrors.capture(status,response.error);document.getElementById('refresh-case-catalog').disabled=false;renderCases(state.bootstrap.cases);return;}
+          if(!response.ok){state.catalogLoading=false;showError(response.error);document.getElementById('refresh-case-catalog').disabled=false;renderCases(state.bootstrap.cases);return;}
           var incoming=new Map(response.data.cases.map(function(c){return [c.id,c];}));
           // Keep local saves and clones made while this background scan was running.
           (state.bootstrap.cases||[]).forEach(function(c){if(original.get(c.id)!==JSON.stringify(c)&&Number(incoming.get(c.id)?.revision||0)<=Number(c.revision||0))incoming.set(c.id,c);});
           state.bootstrap.cases=Array.from(incoming.values());state.catalogLoading=!!response.data.hasMore;
           renderCases(state.bootstrap.cases);
-          status.textContent=state.catalogLoading?__ST_TEXT__('cases.catalog_loading'):'';
           document.getElementById('refresh-case-catalog').disabled=state.catalogLoading;
           if(response.data.hasMore)catalogTimer=setTimeout(function(){load(response.data.cursor);},150);
         });
