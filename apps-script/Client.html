@@ -31,6 +31,7 @@
     };
 
     var roundSession=null;
+    var runGeneration=0;
     var charts = STCharts(state,formatNumber);
     var drawSimulationChart = charts.drawSimulationChart, drawEquipmentSpeedChart = charts.drawEquipmentSpeedChart, drawEquipmentSpeedSparkline = charts.drawEquipmentSpeedSparkline;
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
@@ -1577,6 +1578,7 @@ function renderRawJson() {
 
     function roundSessionActive(session){return roundSession===session&&!session.cancelled&&state.activeCase?.id===session.caseId&&state.activeSimulationId===session.simulationId;}
     function cancelRoundSession(){
+      runGeneration++;
       if(roundSession){roundSession.cancelled=true;roundSession.resolveFirst?.(false);roundSession=null;}
       state.run.active=false;syncRunControls();
       toggle('batch-dialog',false);toggle('rounds-warning',false);
@@ -1665,7 +1667,10 @@ function renderRawJson() {
       cancelRoundSession();
       state.run.configuration = copyRunConfiguration(run);
       state.run.active=true;syncRunControls();
-      if(!await calculateBatch(run)){state.run.active=false;syncRunControls();return;}
+      var calculation=calculateBatch(run),session=roundSession;
+      var ready=await calculation;
+      if(!roundSessionActive(session))return;
+      if(!ready){state.run.active=false;syncRunControls();return;}
       var tab = activePersistentSimulation();
       if (tab) {
         tab.dynamicConfig=cloneJson(run);
@@ -1743,11 +1748,16 @@ function renderRawJson() {
     }
 
     async function calculateSimulation(run, resumeAtVirtualSecond) {
+      var generation=runGeneration;
       var input = {
         case: JSON.parse(JSON.stringify(state.activeCase)),
         run: run
       };
-      var response = await window.SimulatorEngine.simulateLineAsync(input);
+      var response;
+      try{
+        response=await window.SimulatorEngine.simulateLineAsync(input,{cancelled:function(){return generation!==runGeneration;}});
+      }catch(error){if(generation!==runGeneration||error.message==='BATCH_CANCELLED')return false;throw error;}
+      if(generation!==runGeneration)return false;
       if (!response.ok) {
         showError(response.error);
         return false;
@@ -1789,12 +1799,24 @@ function renderRawJson() {
     }
 
     function resetPlayback() {
-      pausePlayback();
-      if (!state.run.result) return;
+      stopPlaybackTimer();
+      var session=roundSession;
+      if(state.run.result?.provisional){
+        state.run.result=null;state.run.representative=null;
+        toggle('simulation-results',false);
+      }else if(session&&(session.pending||session.firstUpdating||session.dirty)&&session.first){
+        delete session.first.batch;
+        persistRoundResult(session,session.first,'CANCELLED');
+      }
+      cancelRoundSession();
+      state.run.roundIndex=0;
+      if(state.run.representative)state.run.result=state.run.representative;
       state.run.sampleIndex = 0;
+      syncPlaybackRounds();
       renderPlaybackFrame();
       setPlaybackStatus(__ST_TEXT__('client.reset'));
       captureSimulationView();
+      autosave.change();
     }
 
     function schedulePlaybackStep() {
