@@ -1,10 +1,10 @@
-# Public demonstration Case
+# Demo Case
 
 The console can create **Public 13-unit demo** from the Cases panel. It contains a baseline and three separate, runnable CAPEX scenarios for testing the editor, playback, physical conveyor geometry, seeded micro-stops, and reliability events without adding confidential plant data.
 
 ## Data boundary
 
-The Case is labelled `PUBLIC_DEMONSTRATION_ONLY` and carries its own `metadata.dataNote` and public reference links. Public Krones pages provide broad equipment-capacity context for blow moulding, filling, packing, and palletising. They do not provide the specification of one integrated line.
+The Case is labelled `DEMO_ONLY` and carries its own `metadata.dataNote` and public reference links. Public Krones pages provide broad equipment-capacity context for blow moulding, filling, packing, and palletising. They do not provide the specification of one integrated line.
 
 Therefore, its MTBF, MTTR, physical geometry, sensor positions, speed factors, pack configuration, and equivalent-flow values are deliberately marked as transparent **synthetic assumptions**. They must not be used as a design limit, a plant benchmark, or a CAPEX recommendation.
 
@@ -73,7 +73,7 @@ results on open. Edited inputs and existing user results are never replaced.
 The prepared result retains full aggregate and per-round metrics, with only the
 initial and final frames for representative-round playback. Run a simulation
 again for full playback history. Rebuild the fixture after changing demo inputs
-or engine mathematics with `node scripts/prepare-public-demo-results.mjs`.
+or engine mathematics with `node scripts/prepare-demo-results.mjs`.
 
 The default run is one 8-hour shift, three rounds, fixed base seed `20261008`.
 The current ST engine produces these mean OEE values over seeds 20261008–20261010:
@@ -90,4 +90,4 @@ identical in all four runs. All speed targets stay within installed maxima. The
 scenario adapter reports no newly regressed engineering checks for these targets.
 These are model measurements of synthetic inputs, not efficiency guarantees;
 changing duration, seed, controls or engine changes the result. DES does not yet
-report validated OEE. Reproduce with `node --test test/PublicDemoCaseFactory.test.js`.
+report validated OEE. Reproduce with `node --test test/DemoCaseFactory.test.js`.

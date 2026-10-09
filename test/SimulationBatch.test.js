@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import fs from 'node:fs';
 import {simulateLine,simulateLineAsync} from '../src/simulation/LineSimulationEngine.js';
 import {simulateBatch,summarizeReplications} from '../src/simulation/SimulationBatch.js';
-function input(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/PublicDemoCaseFactory.gs','utf8'),ctx);return {case:JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_())),run:{durationSeconds:600,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]}};}
+function input(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/DemoCaseFactory.gs','utf8'),ctx);return {case:JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_())),run:{durationSeconds:600,tickSeconds:.25,sampleEverySeconds:1,seed:17,commands:[]}};}
 test('async ticks and shift boundaries preserve the single-run physical result',async()=>{
  const data=input(),single=simulateLine(data);const asyncResult=await simulateLineAsync({...data,run:{...data.run,shiftSeconds:200}},{detail:true});
  assert.deepEqual(asyncResult.result.summary,single.result.summary);assert.deepEqual(asyncResult.result.equipmentMetrics,single.result.equipmentMetrics);

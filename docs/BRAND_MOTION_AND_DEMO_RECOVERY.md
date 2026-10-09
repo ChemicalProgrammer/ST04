@@ -57,5 +57,5 @@ broken quotation marks in the conveyor's accessibility attributes.
 
 Add `BrandConveyor.html`, `BrandConveyorStyles.html` and `BrandConveyorMotion.html`.
 Update `WebApp.html`, `Shell.html`, `ShellStyles.html`, `TextResources.gs`,
-`Main.gs` and `PublicDemoCaseFactory.gs`. Ensure `PublicDemoResults.gs` from the
+`Main.gs` and `DemoCaseFactory.gs`. Ensure `DemoResults.gs` from the
 prepared demo update is present. Publish a new Apps Script deployment version.

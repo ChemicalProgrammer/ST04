@@ -17,8 +17,8 @@ const baseline=await import(pathToFileURL(path.resolve(baselineRoot,'src/simulat
 const rounds=Number(argument('--rounds')||3),durationSeconds=Number(argument('--duration')||28800);
 if(!Number.isInteger(rounds)||rounds<1||rounds>100||!Number.isFinite(durationSeconds)||durationSeconds<=0)throw new Error('Invalid benchmark options.');
 const context=vm.createContext({});
-vm.runInContext(fs.readFileSync(path.join(root,'apps-script/PublicDemoCaseFactory.gs'),'utf8'),context);
-const record=JSON.parse(JSON.stringify(context.createPublicDemoCaseRequest_())),rows=[];
+vm.runInContext(fs.readFileSync(path.join(root,'apps-script/DemoCaseFactory.gs'),'utf8'),context);
+const record=JSON.parse(JSON.stringify(context.createDemoCaseRequest_())),rows=[];
 const options={summaryOnly:true,yieldBetweenChunks:false};
 const inputFor=(sim,seed,duration=durationSeconds)=>({case:{id:record.id,unitOfFlow:record.unitOfFlow,equipment:sim.equipment},run:{...sim.dynamicConfig,durationSeconds:duration,seed}});
 for(const sim of record.simulations){

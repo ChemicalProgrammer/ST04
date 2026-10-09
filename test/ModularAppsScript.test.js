@@ -13,7 +13,7 @@ test('modular Apps Script application contains all server modules and resolved H
   const index = output.html;
 
 
-  for (const sourceFile of ['ApiResponse.gs', 'AuthService.gs', 'ConfigService.gs', 'DriveService.gs', 'CaseService.gs', 'PublicDemoCaseFactory.gs', 'Main.gs']) {
+  for (const sourceFile of ['ApiResponse.gs', 'AuthService.gs', 'ConfigService.gs', 'DriveService.gs', 'CaseService.gs', 'DemoCaseFactory.gs', 'Main.gs']) {
     assert.match(code, new RegExp(`Source: apps-script/${sourceFile.replace('.', '\\.')}`));
   }
   assert.match(code, /function doGet\(\)/);

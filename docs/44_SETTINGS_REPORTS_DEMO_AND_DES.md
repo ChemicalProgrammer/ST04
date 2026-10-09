@@ -32,10 +32,10 @@ Cancellation still terminates the worker and prevents saving stale results.
 
 ## Demo
 
-New public demo cases contain four independent simulations with no preset
+New demo cases contain four independent simulations with no preset
 results. Existing stored cases remain intact. An 8-hour shift, three rounds and
 fixed seed 20261008 reproduce mean OEE 29.97 / 49.20 / 59.19 / 80.29 percent.
-See 14_PUBLIC_DEMO_CASE.md for the physical targets and interpretation.
+See 14_DEMO_CASE.md for the physical targets and interpretation.
 Reliability and the 400 BPM OEE reference are unchanged across the scenarios.
 What-If may find other targets; these four configurations are reproducible
 examples, not hard limits on further optimization or plant guarantees.
@@ -66,7 +66,7 @@ examples, not hard limits on further optimization or plant guarantees.
 ## Apps Script files to update
 
 BasicMode.html, Client.html, Comparison.html, ElegantStyles.html,
-PublicDemoCaseFactory.gs, ReportStyles.html, Reports.html, Results.html,
+DemoCaseFactory.gs, ReportStyles.html, Reports.html, Results.html,
 SimulationEngine.html and WebApp.html. Publish a new deployment version after
 copying these modules. Python, Node tests and build scripts remain repository
 files rather than separate Apps Script modules.

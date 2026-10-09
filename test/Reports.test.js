@@ -7,7 +7,7 @@ function setup(){
  const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+read('ReportComparisonTemplate.html')+['export-results-pdf','export-whatif-json','export-whatif-pdf','export-comparison-json','export-comparison-html','export-comparison-pdf'].map(id=>'<button id="'+id+'"></button>').join(''),{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  w.eval(read('TextResources.gs'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
  for(const file of ['SimulationEngine.html','WhatIf.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
- w.eval(read('PublicDemoCaseFactory.gs'));const c=w.createPublicDemoCaseRequest_();c.name='Synthetic line';
+ w.eval(read('DemoCaseFactory.gs'));const c=w.createDemoCaseRequest_();c.name='Synthetic line';
  const sim={id:'a',name:'Simulation A',equipment:c.equipment,dynamicConfig:{seed:17,commands:[]}};
  const result={seed:17,durationSeconds:60,unitOfFlow:'bottles',summary:{outputCount:120,lineOeePercent:80},equipmentMetrics:{},samples:[{privateRaw:'raw-not-for-export'}],events:[{privateEvent:'events-not-for-export'}]};
  return {dom,w,c,sim,result};

@@ -13,8 +13,8 @@ const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
 test('demo starts with low series availability and a varied instantaneous recovery profile',()=>{
   const factory=vm.createContext({});
-  vm.runInContext(fs.readFileSync(path.join(repositoryRoot,'apps-script/PublicDemoCaseFactory.gs'),'utf8'),factory);
-  const record=JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_()));
+  vm.runInContext(fs.readFileSync(path.join(repositoryRoot,'apps-script/DemoCaseFactory.gs'),'utf8'),factory);
+  const record=JSON.parse(JSON.stringify(factory.createDemoCaseRequest_()));
   const machines=record.equipment.filter(e=>e.type!=='CONVEYOR');
   const availability=machines.reduce((product,e)=>product*e.noiseProfile.reliability.mtbfMinutes/(e.noiseProfile.reliability.mtbfMinutes+e.noiseProfile.reliability.mttrMinutes),1);
   assert(availability>.25&&availability<.35);
@@ -28,16 +28,16 @@ test('demo starts with low series availability and a varied instantaneous recove
   assert(points.every(p=>p.hasDynamicEvidence===false));
 });
 
-test('public demo factory creates a runnable 13-step Case with explicit provenance', () => {
+test('demo factory creates a runnable 13-step Case with explicit provenance', () => {
   const factory = vm.createContext({ Date, Array, Object });
   vm.runInContext(
-    fs.readFileSync(path.join(repositoryRoot, 'apps-script', 'PublicDemoCaseFactory.gs'), 'utf8'),
+    fs.readFileSync(path.join(repositoryRoot, 'apps-script', 'DemoCaseFactory.gs'), 'utf8'),
     factory,
-    { filename: 'PublicDemoCaseFactory.gs' }
+    { filename: 'DemoCaseFactory.gs' }
   );
-  const caseModel = factory.createPublicDemoCaseRequest_();
+  const caseModel = factory.createDemoCaseRequest_();
 
-  assert.equal(caseModel.metadata.dataClassification, 'PUBLIC_DEMONSTRATION_ONLY');
+  assert.equal(caseModel.metadata.dataClassification, 'DEMO_ONLY');
   assert.match(caseModel.metadata.dataNote, /synthetic assumptions/i);
   assert.equal(caseModel.metadata.publicReferences.length, 4);
   assert.deepEqual(Array.from(caseModel.equipment, (item) => item.type), [
@@ -97,8 +97,8 @@ test('public demo factory creates a runnable 13-step Case with explicit provenan
 // Results are calculated, never preset. Check one 8-hour shift and three paired seeds.
 test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physical inputs', (t) => {
   const factory = vm.createContext({});
-  vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script/PublicDemoCaseFactory.gs'), 'utf8'), factory);
-  const record = JSON.parse(JSON.stringify(factory.createPublicDemoCaseRequest_()));
+  vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script/DemoCaseFactory.gs'), 'utf8'), factory);
+  const record = JSON.parse(JSON.stringify(factory.createDemoCaseRequest_()));
   const simulation = record.simulations[0];
   assert.equal(record.metadata.consoleOptions.seedPolicy, 'FIXED');
   assert.equal(simulation.dynamicConfig.durationSeconds, 28800);

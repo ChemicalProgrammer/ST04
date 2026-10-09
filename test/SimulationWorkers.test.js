@@ -6,7 +6,7 @@ import {Worker} from 'node:worker_threads';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {simulateLineAsync} from '../src/simulation/LineSimulationEngine.js';
 import {createSimulationWorkerPool} from '../src/simulation/SimulationWorkers.js';
-function data(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/PublicDemoCaseFactory.gs','utf8'),ctx);return {case:JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_())),run:{durationSeconds:30,tickSeconds:.25,sampleEverySeconds:1,seed:4294967294,rounds:5,commands:[]}};}
+function data(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/DemoCaseFactory.gs','utf8'),ctx);return {case:JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_())),run:{durationSeconds:30,tickSeconds:.25,sampleEverySeconds:1,seed:4294967294,rounds:5,commands:[]}};}
 function browser({blocked=false}={}){
  const all=[],urls=new Map(),handlers={};let active=0,maxActive=0;
  class BrowserWorker{

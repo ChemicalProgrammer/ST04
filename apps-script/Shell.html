@@ -30,7 +30,7 @@ window.STShell = function(state,actions) {
     document.getElementById('header-case-actions').classList.toggle('hidden',!active);
     document.getElementById('workspace-folder-id').disabled=false;
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
-    document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-public-demo-case').disabled=!connected;
+    document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
     if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);

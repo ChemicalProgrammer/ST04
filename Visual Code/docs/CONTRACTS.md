@@ -19,7 +19,7 @@ Errores inesperados se saneán. Las funciones internas terminan en _.
 | deleteCase | caseId | id y name; archivo a papelera |
 | cloneCase | caseId | resumen del caso nuevo |
 | cloneSimulation | caseId, simulationId | caso completo con nueva simulación |
-| createPublicDemoCase | sin argumentos | resumen del caso sintético |
+| createDemoCase | sin argumentos | resumen del caso sintético |
 | previewSheetImport | caseId, spreadsheet (URL/ID), sheetName opcional | equipos, metadatos, diagnósticos y procedencia |
 | askGemini | caseId, simulationId, question, history | text, model |
 

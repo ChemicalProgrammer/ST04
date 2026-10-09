@@ -7,8 +7,8 @@ function setup({status=200,denied=false,answer='Observed throughput: 42.'}={}) {
  let record;
  const ctx={PropertiesService:{getUserProperties:()=>({getProperty:k=>values[k]??null,setProperties:entries=>Object.assign(values,entries),deleteProperty:k=>delete values[k]})},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details,simulatorError:{code,message,details}}),getCase_:(id,user)=>{assert.equal(user.email,'owner@test');if(denied)throw Error('Access denied');return record;},UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>status,getContentText:()=>JSON.stringify({candidates:[{content:{parts:[{text:answer}]}}]})};}}};
  vm.createContext(ctx);
- for(const file of ['TextResources.gs','PublicDemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','ApplicationGuide.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
- const demo=JSON.parse(JSON.stringify(ctx.createPublicDemoCaseRequest_()));
+ for(const file of ['TextResources.gs','DemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiContext.gs','ApplicationGuide.gs','GeminiService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
+ const demo=JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_()));
  record={id:'case-a',name:'Case A',revision:1,unitOfFlow:'units',simulations:[{id:'a',name:'Simulation A',equipment:demo.equipment,dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:7,commands:[]},results:{summary:{throughput:42},equipmentMetrics:{},replay:{samples:[{privateReplay:'x'.repeat(2100000)}]}}}]};
  return {ctx,calls,values,record};
 }
