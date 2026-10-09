@@ -168,5 +168,10 @@
 .scenario-metrics { overflow-x:auto; }
 .scenario-config-dialog .scenario-limit { display:flex; align-items:center; gap:var(--space-2); white-space:nowrap; }
 .scenario-config-dialog .scenario-limit input[type=number] { width:95px; }
+/* Compact intervention action stays beside its parameter, without inflating rows. */
+.scenario-config-dialog .scenario-intervention-field { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); }
+.scenario-config-dialog .scenario-intervention-label { min-width:0; }
+.scenario-config-dialog .scenario-intervention-basis { width:24px; height:24px; min-height:24px; flex:0 0 24px; padding:3px; margin:0; }
+.scenario-config-dialog .scenario-parameter-table th .scenario-column-select { font:inherit; color:inherit; letter-spacing:inherit; text-transform:inherit; }
 </style>
 
