@@ -10,9 +10,9 @@
 .brand-belt-lower { animation-direction:reverse; }
 .brand-conveyor[data-direction=left] :is(.brand-bottles,.brand-belt-upper) { animation-direction:reverse; }
 .brand-conveyor[data-direction=left] .brand-belt-lower { animation-direction:normal; }
-.app-info-brand { align-items:center; }
+.app-info-brand { align-items:center; justify-content:center; gap:var(--space-3); }
 .app-info-brand-copy { min-width:0; }
-.app-info-brand .brand-conveyor { align-self:center; }
+.app-info-brand .brand-conveyor { align-self:center; margin-left:0; }
 @keyframes brand-travel { from { transform:translateX(0); } to { transform:translateX(28px); } }
 @media(max-width:520px) {
   .auth-shell { padding:16px; }.auth-card { padding:24px; }
