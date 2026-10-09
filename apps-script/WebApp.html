@@ -159,11 +159,11 @@
         <div id="run-not-ready" class="notice hidden"><?= __ST_TEXT__('view.save_a_valid_physical_line_before_running_machine_conveyor_machine_with_geo') ?></div>
         <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
-            <label><?= __ST_TEXT__('view.duration_mode') ?><select id="duration-mode"><option value="FIXED"><?= __ST_TEXT__('view.fixed_virtual_duration') ?></option><option value="SHIFTS"><?= __ST_TEXT__('batch.shifts') ?></option><option value="INDEFINITE"><?= __ST_TEXT__('view.indefinite_safety_ceiling') ?></option></select></label>
-            <label><?= __ST_TEXT__('view.virtual_duration_safety_ceiling_s') ?><input id="run-duration" type="number" min="1" step="1" value="300"></label>
-            <label><?= __ST_TEXT__('view.display_sample_interval_s') ?><input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
+            
+            
+            
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
-            <label><?= __ST_TEXT__('batch.hours') ?><input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
+            
             <label><?= __ST_TEXT__('batch.shift_count') ?><select id="run-shift-count"><option>1</option><option>2</option><option>3</option></select></label>
             <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label>
             <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
@@ -313,7 +313,8 @@
         <div id="settings-page-simulation" class="hidden" role="tabpanel" aria-labelledby="settings-tab-simulation">
           <section class="settings-section"><h3>General</h3><div class="settings-simulation-grid"><div id="settings-seed-section" class="settings-option-group"><label for="settings-seed-policy">Seed policy</label><select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM" selected>Random — new base seed for each run</option></select><p>Rounds use base seed + round index. The actual seed is saved with results. This policy is saved in this case and also applies in Basic. What-If comparisons keep matched seeds.</p></div>
           <div id="settings-engine-section" class="settings-option-group hidden"><label for="settings-simulation-engine">Engine for the selected simulation</label><select id="settings-simulation-engine"><option value="ST_CURRENT">Current engine (default)</option><option value="DES_SIMPY_EXPERIMENTAL">DES · Python / SimPy (experimental)</option></select><p id="settings-engine-note" class="chart-note">SimPy runs in this browser. Its first run downloads Pyodide over HTTPS from cdn.jsdelivr.net, with unpkg.com as a fallback. Supports alternating machine–conveyor lines; supports spatial products, packed queues, Prime/Back-up sensors, downtime, ramps and residual discharge. OEE and What-If are not validated for this engine. Changing the engine clears this simulation’s previous results.</p></div></div></section>
-          <p id="settings-basic-simulation-note" class="chart-note hidden">Basic uses manual saving with the Save icon. Choose the seed policy here; duration, rounds and playback speed are set in Simulation.</p>
+          <section id="settings-run-options" class="settings-section"><h3>Selected simulation</h3><div class="settings-simulation-grid"><label><?= __ST_TEXT__('view.duration_mode') ?><select id="duration-mode"><option value="FIXED"><?= __ST_TEXT__('view.fixed_virtual_duration') ?></option><option value="SHIFTS"><?= __ST_TEXT__('batch.shifts') ?></option><option value="INDEFINITE"><?= __ST_TEXT__('view.indefinite_safety_ceiling') ?></option></select></label><label><?= __ST_TEXT__('view.virtual_duration_safety_ceiling_s') ?><input id="run-duration" type="number" min="1" step="1" value="300"></label><label><?= __ST_TEXT__('view.display_sample_interval_s') ?><input id="run-sample-interval" type="number" min="1" step="1" value="5"></label><label><?= __ST_TEXT__('batch.hours') ?><input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label></div></section>
+          <p id="settings-basic-simulation-note" class="chart-note hidden">Basic uses manual saving with the Save icon. Set duration, sample interval and hours per shift here. Rounds, shift count and playback speed are set in Simulation.</p>
 
 
         </div>
