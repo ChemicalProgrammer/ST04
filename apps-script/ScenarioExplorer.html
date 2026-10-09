@@ -200,6 +200,8 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       var includeDOE=all&&doeEnabled(),method=includeDOE?'COORDINATE_SEARCH_WITH_DOE':all?'BOUNDED_COORDINATE_SEARCH':'SELECTED_CHANGES';
       previewRun=config(source);if(includeDOE)previewRun.rounds=Math.max(3,Number(previewRun.rounds)||1);contextText();
       if(baselineRun!==JSON.stringify(previewRun)){baseline=null;baselineRun=JSON.stringify(previewRun);}
+      // A fresh evaluation replaces the previous estimate, including its fallback.
+      latest=null;
       record('RUNNING',{method:method});
       var limits=Object.assign({},window.ST_SCENARIO_SEARCH_LIMITS),stopReason=null,lastGainAt=Date.now(),bestAtTrial=0,stagnant=0;
       var evidence={method:method,searchLimits:limits},evaluatedVariables=new Map();
