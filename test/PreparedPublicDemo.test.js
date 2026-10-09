@@ -32,7 +32,7 @@ test('demo RPC reports a missing prepared-results module instead of creating emp
  const response=f.createPublicDemoCase();assert.equal(response.error.code,'DEMO_RESULTS_UNAVAILABLE');assert(!created);
 });
 
-test('prepared scenario summaries are stored on the baseline and repaired without retaining stale cards',()=>{
+test('prepared scenario summaries are stored, repaired and retained as history when inputs change',()=>{
  const f=factory(),record=f.createPublicDemoCaseRequest_(),base=record.simulations[0];
  assert.equal(base.whatIf.evaluations.length,3);
  base.whatIf.evaluations.forEach((entry,index)=>{
@@ -41,6 +41,6 @@ test('prepared scenario summaries are stored on the baseline and repaired withou
   assert.equal(entry.sourceSignature,f.STScenarioEngine_.signature(base));assert.equal(entry.status,'PREPARED_DEMO');assert.equal(entry.independentCheck,undefined);
  });
  base.whatIf.evaluations=[];f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,3);
- record.simulations[1].equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,2);
- base.equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,0);
+ record.simulations[1].equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,3);assert.notEqual(base.whatIf.evaluations.find(e=>e.linkedSimulationId===record.simulations[1].id).linkedSignature,f.STScenarioEngine_.signature(record.simulations[1]));
+ base.equipment[0].nominalRatePerSecond+=1;f.applyPreparedPublicDemoResults_(record);assert.equal(base.whatIf.evaluations.length,3);assert(base.whatIf.evaluations.every(e=>e.sourceSignature!==f.STScenarioEngine_.signature(base)));
 });

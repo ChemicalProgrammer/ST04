@@ -1238,7 +1238,7 @@ test('UI: case autosave restores card evidence, metrics and controls without cha
   await h.click('.open-case');await h.click('.sidebar [data-view="whatif"]');stubScenarioGain(h);
   const baseline=JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig);
   let card=h.d.querySelector('.scenario-tier-grid .analysis-recommendation');card.querySelector('.scenario-evaluate').click();await waitFor(()=>!card.querySelector('.scenario-create').disabled);
-  await waitFor(()=>h.storedCases()[0].simulations[0].whatIf?.evaluations?.some(e=>e.status==='IMPROVEMENT_REPRODUCED'));
+  await waitFor(()=>h.storedCases()[0].simulations[0].whatIf?.evaluations?.some(e=>['IMPROVEMENT_REPRODUCED','ENGINEERING_REVIEW_REQUIRED'].includes(e.status)));
   assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].dynamicConfig),baseline);
   const metric=card.querySelector('.scenario-metrics').textContent;assert.match(metric,/BaseProposedChange/);assert.equal(card.querySelectorAll('.scenario-metric-table').length,1);
   assert.equal(card.querySelector('.scenario-verification'),null);
@@ -1259,7 +1259,7 @@ test('UI: stored DOE results survive serialization and stale inputs never restor
   let card=h.w.STWhatIf.card(project,()=>{},sim.equipment,sim);h.d.body.append(card);card.querySelectorAll('.scenario-doe-select').forEach(input=>{input.checked=true;input.dispatchEvent(new h.w.Event('change'));});card.querySelector('.scenario-search').click();await waitFor(()=>card.querySelector('.scenario-preview-status').dataset.state==='rejected');
   const saved=JSON.parse(JSON.stringify(sim)),entry=saved.whatIf.evaluations[0];assert(entry.doe.observations.length);card.remove();
   card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert.match(card.textContent,/No demonstrated improvement/);assert.equal(h.w.STScenarioExplorer.evaluations(saved)[0].doe.observations.length,entry.doe.observations.length);
-  saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert.equal(card.querySelector('.scenario-doe-results'),null);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
+  saved.dynamicConfig.seed=991;card.remove();card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);assert(card.querySelector('.scenario-doe-results'));assert(card.querySelector('.scenario-metrics').textContent);assert.match(card.querySelector('.scenario-preview-status').textContent,/previous inputs/);assert(card.querySelector('.scenario-create').disabled);assert.equal(h.w.STScenarioExplorer.evaluations(saved).length,0);assert(saved.whatIf.evaluations.length);
  }finally{h.dom.window.close();}
 });
 
@@ -2338,5 +2338,23 @@ test('UI: gallery pin order, Basic equipment icons and independent appearance co
   assert(cards.some(card=>card.dataset.equipmentType==='CONVEYOR'));
   cards.forEach(card=>{const symbol=card.querySelector('.equipment-card-symbol');assert(symbol?.querySelector('svg'));assert.equal(symbol.dataset.type,card._fields.querySelector('.equipment-type').value);});
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: latest CAPEX card survives changed proposal order, mode and configuration without stale approval',async()=>{
+ const h=await setup({remember:true});try{
+  const sim=h.storedCases()[0].simulations[0],changes=h.w.STScenarios.catalog(sim).slice(0,3);
+  const project={catalog:true,explore:true,kind:'CUSTOM',tier:'HIGH',searchScope:'HIGH',changes:changes};
+  const signature=h.w.STScenarios.signature(sim);
+  sim.whatIf={evaluations:[{sourceSimulationId:sim.id,sourceSignature:signature,kind:'CUSTOM',tier:'HIGH',searchScope:'HIGH',baseRecordKey:JSON.stringify([sim.id,signature,'CUSTOM','HIGH','HIGH',true,changes]),uiMode:'advance',status:'NO_DEMONSTRATED_IMPROVEMENT',updatedAt:'2026-10-09T16:00:00Z',baseline:{oee:30,throughput:120},candidate:{oee:48,throughput:192},message:'Previous search complete.'}]};
+  sim.whatIf.evaluations.push({...sim.whatIf.evaluations[0],recordKey:'legacy-draft',status:'NOT_EVALUATED',updatedAt:'2026-10-09T17:00:00Z',baseline:undefined,candidate:undefined,message:'Selections changed.'});
+  h.d.documentElement.dataset.uiMode='basic';
+  let card=h.w.STWhatIf.card({...project,changes:changes.slice().reverse()},()=>{},sim.equipment,sim);h.d.body.append(card);
+  assert(card.querySelector('.scenario-basic-metrics').textContent.includes('48.0%'));assert.match(card.querySelector('.scenario-preview-status').textContent,/Configuration changed/);
+  card.querySelector('.scenario-configure').click();const checkbox=card.querySelector('.scenario-change input');checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new h.w.Event('change'));
+  assert(sim.whatIf.evaluations[0].lastResult);assert(card.querySelector('.scenario-basic-metrics').textContent.includes('48.0%'));
+  const saved=JSON.parse(JSON.stringify(sim));saved.dynamicConfig.seed=123456;card.remove();
+  card=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(card);
+  assert(card.querySelector('.scenario-basic-metrics').textContent.includes('48.0%'));assert.match(card.querySelector('.scenario-preview-status').textContent,/previous inputs/);assert(card.querySelector('.scenario-create').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
