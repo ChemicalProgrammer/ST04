@@ -2358,3 +2358,21 @@ test('UI: latest CAPEX card survives changed proposal order, mode and configurat
   assert(card.querySelector('.scenario-basic-metrics').textContent.includes('48.0%'));assert.match(card.querySelector('.scenario-preview-status').textContent,/previous inputs/);assert(card.querySelector('.scenario-create').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI Basic: duration and sampling options persist and shift buttons retain hours per shift',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  for(const id of ['duration-mode','run-duration','run-sample-interval','run-shift-hours'])assert(h.d.getElementById(id).closest('#basic-run-controls'));
+  const mode=h.d.getElementById('duration-mode');mode.value='FIXED';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert(!h.d.getElementById('run-duration').disabled);assert(h.d.querySelector('[data-run-control=run-shift-hours]').hidden);
+  h.d.getElementById('run-duration').value=120;h.d.getElementById('run-duration').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  h.d.getElementById('run-sample-interval').value=3;h.d.getElementById('run-sample-interval').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  mode.value='SHIFTS';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert(!h.d.querySelector('[data-run-control=run-shift-hours]').hidden);assert(h.d.getElementById('run-duration').disabled);
+  h.d.getElementById('run-shift-hours').value=6;h.d.getElementById('run-shift-hours').dispatchEvent(new h.w.Event('input',{bubbles:true}));
+  await h.click('#basic-run-controls button[data-control=run-shift-count][data-value="2"]');
+  assert.equal(h.d.getElementById('run-shift-hours').value,'6');
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.shiftHours===6);
+  const run=h.storedCases()[0].simulations[0].dynamicConfig;assert.equal(run.durationMode,'SHIFTS');assert.equal(run.durationSeconds,43200);assert.equal(run.sampleEverySeconds,3);assert.equal(run.shiftCount,2);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

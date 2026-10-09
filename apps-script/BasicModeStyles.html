@@ -97,7 +97,7 @@ html[data-ui-mode=basic] .basic-buffer { display:block; text-align:right; paddin
 html[data-ui-mode=basic] .basic-availability { color:var(--accent); }
 html[data-ui-mode=basic] #basic-efficiencies { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
 html[data-ui-mode=basic] #basic-efficiencies > div { border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); flex-direction:column; align-items:start; }
-html[data-ui-mode=basic] #basic-run-controls { display:grid; grid-template-columns:1.2fr 1.2fr .6fr; gap:var(--space-3); margin:var(--space-3) 0; }
+html[data-ui-mode=basic] #basic-run-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:var(--space-3); margin:var(--space-3) 0; }
 html[data-ui-mode=basic] #basic-run-controls > section { display:grid; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
 html[data-ui-mode=basic] #basic-run-controls .button-row { flex-wrap:wrap; }
 html[data-ui-mode=basic] #basic-run-controls button[aria-pressed=true],
@@ -205,3 +205,4 @@ html[data-ui-mode=advance][data-header-view=results] #line-performance { display
 
 html[data-ui-mode=basic] .equipment-options-button { display:none !important; }
 </style>
+
