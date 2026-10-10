@@ -629,7 +629,7 @@ async function openCase(caseId, initialView) {
       unitLabel.textContent=__ST_TEXT__('client.equipment_unit_label');unitLabel.title=__ST_TEXT__('client.equipment_unit_help');
       unitInput.className='equipment-unit';unitInput.maxLength=40;unitInput.placeholder='units';
       unitLabel.appendChild(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
-      equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + (Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
+      equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + formatNumber(Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
       equipmentField(card, '.equipment-id').readOnly = true;
@@ -1869,7 +1869,7 @@ function renderRawJson() {
       var sample = state.run.result.samples[state.run.sampleIndex];
       var time = sample.virtualSecond;
       var duration=Number(state.run.result.durationSeconds);if(progress)progress.textContent=(duration>0?Math.max(0,Math.min(100,time/duration*100)).toFixed(1):'0')+'%';
-      document.getElementById('metric-time').textContent = time + ' s';
+      document.getElementById('metric-time').textContent = formatSeconds(time);
       document.getElementById('metric-output').textContent = formatNumber(sample.outputCount);
       document.getElementById('metric-instant-rate').textContent = formatInstantaneousOutputRate();
       document.getElementById('metric-rate').textContent = time > 0 ? formatRatePerMinute(sample.outputCount / time) : '—';
@@ -1877,7 +1877,7 @@ function renderRawJson() {
       document.getElementById('metric-overflow').textContent = formatNumber(sum((sample.accumulationZones || []).map(function(zone) { return zone.overflowUnits || 0; })));
       document.getElementById('metric-backup-stop').textContent = formatMinutes(sum(sample.equipment.map(function(unit) { return unit.backupStopSeconds || 0; })));
       document.getElementById('metric-line-oee').textContent = formatLineOeeAtSample(sample);
-      setPlaybackStatus((state.run.result.batch?__ST_TEXT__('batch.round')+' '+(state.run.roundIndex+1)+' / '+state.run.result.batch.rounds+' · ':'')+(state.run.playing ? 'Playing' : 'At') + ' ' + time + __ST_TEXT__('client.s_frame') + state.run.sampleIndex + ' / ' + (state.run.result.samples.length - 1));
+      setPlaybackStatus((state.run.result.batch?__ST_TEXT__('batch.round')+' '+(state.run.roundIndex+1)+' / '+state.run.result.batch.rounds+' · ':'')+(state.run.playing ? 'Playing' : 'At') + ' ' + formatNumber(time) + __ST_TEXT__('client.s_frame') + state.run.sampleIndex + ' / ' + (state.run.result.samples.length - 1));
       if (state.uiView === 'simulation') renderLiveEquipment(sample);
       drawSimulationChart();
       drawEquipmentSpeedChart();

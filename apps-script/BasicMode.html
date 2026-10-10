@@ -153,7 +153,8 @@ window.STBasicMode=(function(){
         var label=node('label','Buffer post (min)'),output=node('output',number(buffer));output.className='basic-buffer';label.appendChild(output);data.append(label,node('strong','Avail (%): '+number(a*100,1)+(Number.isFinite(a)?'%':''),'basic-availability'));
       }
     });
-    efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',state.run.result?.provisional?__ST_TEXT__('batch.calculating_first'):number(state.run.result?.summary?.lineOeePercent,1)+(state.run.result?'%':''));
+    var simulatedEfficiency=state.run.result?.provisional?null:state.run.result?.summary?.lineOeePercent;
+    efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(simulatedEfficiency,1)+(Number.isFinite(simulatedEfficiency)?'%':''));
     var shifts=document.getElementById('duration-mode').value==='SHIFTS';setupControls.querySelectorAll('[data-run-control]').forEach(function(group){group.hidden=['run-shift-hours','run-shift-count'].includes(group.dataset.runControl)&&!shifts;});
     setupControls.querySelectorAll('[data-control]').forEach(function(b){var control=document.getElementById(b.dataset.control);b.setAttribute('aria-pressed',String(control.value===b.dataset.value));b.disabled=control.disabled;});
     var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;}),c=audit?.engineering?.calculated,unit=equipment.find(function(e){return e.id===audit?.downstreamId;});

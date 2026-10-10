@@ -19,6 +19,9 @@ table tr { height:var(--table-row-height); }
 table :is(th,td),.markdown-table :is(th,td),#sheet-import-preview :is(th,td),.scenario-metric-table :is(th,td),.scenario-results-dialog :is(th,td),.scenario-config-dialog .scenario-parameter-table :is(th,td) { padding:var(--table-cell-block) var(--table-cell-inline); vertical-align:middle; line-height:var(--leading-body); }
 .comparison-row { min-height:var(--table-row-height); align-items:center; gap:var(--field-gap); padding:var(--table-cell-block) var(--table-cell-inline); }
 .comparison-row span { padding:0; overflow-wrap:anywhere; }
+.metrics-grid article { min-width:0; }
+.metrics-grid strong { max-width:100%; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+#playback-status { min-width:0; overflow-wrap:anywhere; }
 #settings-dialog .settings-color-table :is(th,td),#settings-dialog .settings-color-columns td { padding:var(--table-cell-block) var(--table-cell-inline); }
 input[type=number],input[inputmode=numeric],input[inputmode=decimal] { text-align:right; font-variant-numeric:tabular-nums; }
 /* Fixed dimensions override field-grid rules which also match checkboxes. */

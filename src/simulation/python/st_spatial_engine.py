@@ -84,6 +84,8 @@ class SpatialConveyor(Conveyor):
     failure_count: int = 0
     micro_count: int = 0
     overflow: int = 0
+    queued_cache: list | None = field(default=None, init=False, repr=False)
+    parked_cache: set | None = field(default=None, init=False, repr=False)
 
     @property
     def inventory(self):
@@ -111,31 +113,36 @@ class SpatialConveyor(Conveyor):
 
     @property
     def queued(self):
-        result=[];limit=self.model['lengthMm']
+        if self.queued_cache is not None: return self.queued_cache
+        result=[];limit=self.model['lengthMm'];pitch=self.pitch
         for item in self.items:
             if abs(self.positions[item]-limit)>EPS*10: break
-            result.append(item);limit-=self.pitch
+            result.append(item);limit-=pitch
+        self.queued_cache=result
+        self.parked_cache=set(result)
         return result
 
     def occupied(self, position):
         if position is None: return False
-        parked=set(self.queued)
-        return any(p>=position-EPS and (p-self.product_length<=position+EPS if item in parked else p-self.product_length<position-EPS) for item,p in self.positions.items())
+        self.queued
+        parked=self.parked_cache;length=self.product_length
+        return any(p>=position-EPS and (p-length<=position+EPS if item in parked else p-length<position-EPS) for item,p in self.positions.items())
 
     def can_enter(self):
         return self.inventory < self.capacity and (not self.items or self.positions[self.items[-1]] >= self.model['movingPitchMm'] - EPS)
 
     def refresh(self):
+        self.queued_cache=None;self.parked_cache=None
         self.ready = deque([self.items[0]]) if self.items and self.positions[self.items[0]] >= self.model['lengthMm'] - EPS else deque()
         self.moving = {item: self.positions[item] for item in self.items if item not in self.ready}
 
 
 class SpatialSimulation(SimPySimulation):
-    def __init__(self, payload, progress=None, cancelled=None, on_partial=None):
+    def __init__(self, payload, progress=None, cancelled=None, on_partial=None, summary_only=False):
         machine_ids = {m['id'] for m in payload['machines']}
         compatible = deepcopy(payload)
         compatible['run']['commands'] = [c for c in payload['run'].get('commands', []) if c['equipmentId'] in machine_ids]
-        super().__init__(compatible, progress, cancelled, on_partial)
+        super().__init__(compatible, progress, cancelled, on_partial, summary_only)
         self.payload, self.run = payload, payload['run']
         self.conveyors = [SpatialConveyor(c, i, mode=c.get('initialMode', 'AUTO')) for i, c in enumerate(payload['conveyors'])]
         self.initial_inventory = 0
@@ -238,13 +245,15 @@ class SpatialSimulation(SimPySimulation):
 
     def advance(self, at):
         dt = max(0., at-self.now)
+        if dt == 0: self.now=at;return
         for machine in self.machines: machine.state_seconds[machine.state] += dt
         for belt in self.conveyors:
             belt.integral += belt.inventory*dt; belt.state_seconds[belt.state] += dt
             limit = belt.model['lengthMm']
+            travel=belt.velocity*dt;pitch=belt.pitch
             for item in belt.items:
-                belt.positions[item] = min(belt.positions[item]+belt.velocity*dt, limit)
-                limit = belt.positions[item]-belt.pitch
+                belt.positions[item] = min(belt.positions[item]+travel, limit)
+                limit = belt.positions[item]-pitch
             belt.refresh()
         self.now = at
 
@@ -258,7 +267,8 @@ class SpatialSimulation(SimPySimulation):
         # Moving product pulses are not a stationary Back-up queue. Debounce
         # applies to sustained occupation by the physically packed queue.
         control_sensor=belt.model.get('backupRestartPositionMm', sensor) if belt.backup_latched else sensor
-        blocked=control_sensor is not None and any(belt.positions[item]>=control_sensor-EPS and belt.positions[item]-belt.product_length<=control_sensor+EPS for item in belt.queued)
+        product_length=belt.product_length
+        blocked=control_sensor is not None and any(belt.positions[item]>=control_sensor-EPS and belt.positions[item]-product_length<=control_sensor+EPS for item in belt.queued)
         if blocked != belt.backup_signal:
             belt.backup_signal = blocked; belt.sensor_token += 1
             kind = 'BACKUP_CONFIRM' if blocked else 'BACKUP_CLEAR'
@@ -266,22 +276,25 @@ class SpatialSimulation(SimPySimulation):
             self.schedule(self.now+delay, 1, kind, (belt.index, belt.sensor_token))
 
     def predict(self, belt):
-        if belt.velocity <= EPS or not belt.items:
+        velocity=belt.velocity
+        if velocity <= EPS or not belt.items:
             belt.wake_token += 1; belt.wake_at = None; return
         candidates = []; previous = None; previous_stopped = True
+        length=belt.model['lengthMm'];pitch=belt.pitch;product_length=belt.product_length
+        sensors=tuple(value for value in (belt.model.get('primeSensorPositionMm'),belt.model.get('backupSensorPositionMm'),belt.model.get('backupRestartPositionMm')) if value is not None)
+        last_item=belt.items[-1];moving_pitch=belt.model['movingPitchMm']
         for item in belt.items:
             position = belt.positions[item]
-            limit = belt.model['lengthMm'] if previous is None else previous-belt.pitch
+            limit = length if previous is None else previous-pitch
             stopped = previous_stopped and position >= limit-EPS
             if not stopped:
-                if previous_stopped and limit-position > EPS: candidates.append((limit-position)/belt.velocity)
-                for sensor in (belt.model.get('primeSensorPositionMm'), belt.model.get('backupSensorPositionMm'), belt.model.get('backupRestartPositionMm')):
-                    if sensor is not None:
-                        for boundary in (sensor, sensor+belt.product_length):
-                            if boundary-position > EPS: candidates.append((boundary-position)/belt.velocity)
-                if item == belt.items[-1]:
-                    boundary = belt.model['movingPitchMm']
-                    if boundary-position > EPS: candidates.append((boundary-position)/belt.velocity)
+                if previous_stopped and limit-position > EPS: candidates.append((limit-position)/velocity)
+                for sensor in sensors:
+                    for boundary in (sensor, sensor+product_length):
+                        if boundary-position > EPS: candidates.append((boundary-position)/velocity)
+                if item == last_item:
+                    boundary = moving_pitch
+                    if boundary-position > EPS: candidates.append((boundary-position)/velocity)
             previous, previous_stopped = position, stopped
         at = self.now+min(candidates) if candidates else None
         if at is not None and (belt.wake_at is None or abs(at-belt.wake_at)>EPS):
@@ -339,13 +352,14 @@ class SpatialSimulation(SimPySimulation):
         if self.initial_inventory+self.source_started != self.output+wip+self.overflow: raise RuntimeError('Spatial material balance failed')
         for belt in self.conveyors:
             if belt.inventory > belt.capacity: raise RuntimeError('Spatial packed capacity exceeded')
-            previous = belt.model['lengthMm']+belt.pitch
+            pitch=belt.pitch;previous = belt.model['lengthMm']+pitch
             for item in belt.items:
                 position = belt.positions[item]
-                if position < -EPS or position > previous-belt.pitch+EPS: raise RuntimeError('Spatial product overlap or out-of-bounds position')
+                if position < -EPS or position > previous-pitch+EPS: raise RuntimeError('Spatial product overlap or out-of-bounds position')
                 previous = position
 
     def sample(self):
+        if not self.should_sample(): return
         super().sample()
         for frame, belt in zip(self.samples[-1]['zones'], self.conveyors):
             frame.update(readyUnits=len(belt.queued),movingUnits=belt.inventory-len(belt.queued),positionsMm=list(belt.positions.values()),overflowUnits=belt.overflow, queueTailPositionMm=belt.positions[belt.queued[-1]]-belt.product_length if belt.queued else belt.model['lengthMm'], prime={'configured':belt.model.get('primeSensorPositionMm') is not None,'detected':belt.prime_latched,'occupied':belt.prime_occupied},backup={'configured':belt.model.get('backupSensorPositionMm') is not None,'occupied':belt.backup_occupied,'blocked':belt.backup_latched},state=belt.state,stateSeconds=dict(belt.state_seconds))

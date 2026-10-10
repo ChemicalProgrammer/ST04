@@ -145,11 +145,12 @@ export function simPyWorkerMain(compactResponse) {
       let lastProgressAt=0;
       pyodide.globals.set('_st_progress',value=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value});}});
       pyodide.globals.set('_st_partial',task.stream?json=>self.postMessage({type:'partial',id:task.id,result:JSON.parse(json)}):null);
+      pyodide.globals.set('_st_summary_only',task.summaryOnly===true);
       try {
-        const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress, on_partial=_st_partial), allow_nan=False)');
+        const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress, on_partial=_st_partial, summary_only=_st_summary_only), allow_nan=False)');
         const response=JSON.parse(json);
         self.postMessage({type:'result',id:task.id,response:task.summaryOnly?compactResponse(response,task.payload):response});
-      } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');pyodide.globals.delete('_st_partial');}
+      } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');pyodide.globals.delete('_st_partial');pyodide.globals.delete('_st_summary_only');}
     } catch(error) {self.postMessage({type:'error',id:task.id,message:error.message,phase});}
   };
 }
@@ -168,7 +169,10 @@ function createSerialSimPyBrowserEngine(host, files) {
     return new Promise((resolve,reject)=>{
       const id=++nextId,activeWorker=worker;
       let completed=false,lastProgress=0;
-      let ready=false,timer=host.setTimeout(()=>finish(Object.assign(new Error('Python runtime download timed out: '+indexURL),{code:'SIMPY_RUNTIME_LOAD_FAILED'})),60000);
+      let ready=false,timer;
+      function watchdog(milliseconds,error){host.clearTimeout(timer);timer=host.setTimeout(()=>finish(error),milliseconds);}
+      function simulationHeartbeat(){watchdog(120000,new Error('DES stopped reporting progress for two minutes. Cancel and retry, or shorten the duration.'));}
+      watchdog(60000,Object.assign(new Error('Python runtime download timed out: '+indexURL),{code:'SIMPY_RUNTIME_LOAD_FAILED'}));
       const monitor=host.setInterval(()=>{if(options.cancelled?.())finish(new Error('BATCH_CANCELLED'));},50);
       function finish(error,response) {
         if(completed)return;completed=true;host.clearTimeout(timer);host.clearInterval(monitor);abortActive=null;
@@ -188,9 +192,10 @@ function createSerialSimPyBrowserEngine(host, files) {
       activeWorker.onmessageerror=()=>finish(new Error('Invalid SimPy worker response'));
       activeWorker.onmessage=event=>{
         const message=event.data;if(message.id!==id||completed)return;
-        if(message.type==='progress'){lastProgress=Math.max(lastProgress,Math.min(1,message.value));options.progress?.(lastProgress);}
+        if(message.type==='progress'&&Number.isFinite(message.value)){if(ready)simulationHeartbeat();lastProgress=Math.max(lastProgress,Math.min(1,message.value));options.progress?.(lastProgress);}
         if(message.type==='partial'&&options.onPartial&&!options.summaryOnly){
           try {
+            if(ready)simulationHeartbeat();
             const elapsed=message.result.calculatedThroughSeconds;
             if(!(elapsed>0&&elapsed<input.run.durationSeconds))throw new Error('Invalid DES partial horizon');
             const partial=normalizeSimPyResult(message.result,{...input,run:{...input.run,durationSeconds:elapsed}},payload);
@@ -199,7 +204,7 @@ function createSerialSimPyBrowserEngine(host, files) {
           }catch(error){finish(error);}
         }
         if(message.type==='loading')host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Loading Python runtime · '+new URL(indexURL).hostname+'…'}}));
-        if(message.type==='ready'){ready=true;host.clearTimeout(timer);timer=host.setTimeout(()=>finish(new Error('SimPy calculation timed out. Shorten the duration or simplify the line.')),300000);host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Calculating with SimPy 4.1.2…'}}));}
+        if(message.type==='ready'){ready=true;simulationHeartbeat();host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Calculating with SimPy 4.1.2…'}}));}
         if(message.type==='result')finish(null,message.response);
         if(message.type==='error')finish(Object.assign(new Error(message.message),{code:message.phase==='runtime'?'SIMPY_RUNTIME_LOAD_FAILED':'SIMPY_MODEL_FAILED'}));
       };

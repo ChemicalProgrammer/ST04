@@ -130,3 +130,41 @@ print(json.dumps(dict(reference=reference,final=final,partials=partials),allow_n
  assert(partials.at(-1).shifts.length>=2);engine.close();
 });
 
+test('DES watchdog permits long progressing calculations and stops a stalled worker',async()=>{
+ let now=0,nextTimer=0,worker;const timers=new Map(),intervals=new Map();
+ const advance=ms=>{now+=ms;for(const [id,t] of [...timers])if(t.at<=now){timers.delete(id);t.fn();}for(const fn of [...intervals.values()])fn();};
+ class Worker {constructor(){worker=this;}postMessage(task){this.task=task;this.onmessage({data:{type:'ready',id:task.id}});}terminate(){this.closed=true;}}
+ const host={Worker,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout(fn,ms){const id=++nextTimer;timers.set(id,{at:now+ms,fn});return id;},clearTimeout:id=>timers.delete(id),setInterval(fn){const id=++nextTimer;intervals.set(id,fn);return id;},clearInterval:id=>intervals.delete(id)};
+ const engine=createSimPyBrowserEngine(host,{}),job=engine.run(fixture());job.catch(()=>{});
+ await new Promise(setImmediate);
+ for(let i=0;i<20;i++){advance(30000);assert(!worker.closed);worker.onmessage({data:{type:'progress',id:worker.task.id,value:(i+1)/100}});}
+ assert.equal(now,600000);assert(!worker.closed);
+ advance(120001);await assert.rejects(job,/stopped reporting progress/);assert(worker.closed);assert.equal(timers.size,0);assert.equal(intervals.size,0);engine.close();
+});
+
+test('DES background summaries skip replay allocation while preserving exact metrics and shift boundaries',()=>{
+ const input=fixture();input.run.durationSeconds=120;input.run.shiftSeconds=40;input.run.sampleEverySeconds=1;
+ const payload=adaptSimPyInput(input),code=`import sys,json,itertools
+from unittest.mock import patch
+sys.path[:0]=["src/simulation/python","src/simulation/python/vendor/simpy-4.1.2-py3-none-any.whl"]
+from st_simpy_engine import simulate_line
+p=json.load(sys.stdin)
+full=simulate_line(p)
+progress=[]
+with patch("st_simpy_engine.time.perf_counter",side_effect=itertools.count()):
+    summary=simulate_line(p,summary_only=True,progress=progress.append)
+full['result']['diagnostics'].pop('wallTimeSeconds')
+summary['result']['diagnostics'].pop('wallTimeSeconds')
+heartbeat=[]
+p['run']['sampleEverySeconds']=120
+with patch("st_simpy_engine.time.perf_counter",side_effect=itertools.count()):
+    simulate_line(p,summary_only=True,progress=heartbeat.append)
+print(json.dumps(dict(full=full,summary=summary,progress=progress,heartbeat=heartbeat),allow_nan=False))`;
+ const r=JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify(payload),encoding:'utf8'}));
+ assert.equal(r.summary.ok,true);assert.deepEqual(r.summary.result.samples.map(f=>f.virtualSecond),[0,40,80,120]);assert(r.full.result.samples.length>100);
+ const full=normalizeSimPyResult(r.full.result,input,payload),summary=normalizeSimPyResult(r.summary.result,input,payload);
+ for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts','diagnostics'])assert.deepEqual(summary[key],full[key],key);
+ assert(r.progress.some(f=>f>0&&f<1));
+ assert(r.heartbeat.some(f=>f>0&&f<1),'Long sample intervals must still report calculation progress');
+});
+

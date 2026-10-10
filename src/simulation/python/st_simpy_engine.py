@@ -61,13 +61,16 @@ if simpy is not None:
 
 
 class SimPySimulation(Simulation):
-    def __init__(self, payload, progress=None, cancelled=None, on_partial=None):
+    def __init__(self, payload, progress=None, cancelled=None, on_partial=None, summary_only=False):
         self.env = PriorityEnvironment()
         self.progress = progress
         self.cancelled = cancelled
+        self.summary_only = summary_only
         self.on_partial = on_partial
         self.partial_sent_samples = 0
         self.partial_sent_at = None
+        self.progress_events = 0
+        self.progress_sent_at = time.perf_counter()
         self.pending_sample = False
         super().__init__(payload)
         shift = self.run.get("shiftSeconds", self.duration)
@@ -126,7 +129,14 @@ class SimPySimulation(Simulation):
                 self.sample()
                 if self.progress:
                     self.progress(min(1.0, self.now / self.duration))
+                    self.progress_sent_at = time.perf_counter()
                 self.publish_partial()
+            if self.progress and self.executed - self.progress_events >= 256:
+                self.progress_events = self.executed
+                wall = time.perf_counter()
+                if wall - self.progress_sent_at >= 0.5:
+                    self.progress(min(1.0, self.now / self.duration))
+                    self.progress_sent_at = wall
         self.advance(self.duration)
         if not self.samples or self.samples[-1]["virtualSecond"] != self.duration:
             self.sample()
@@ -134,6 +144,13 @@ class SimPySimulation(Simulation):
         if self.progress:
             self.progress(1.0)
         return self.result()
+
+    def should_sample(self):
+        shift = self.run.get('shiftSeconds', self.duration)
+        return not self.summary_only or self.now <= EPS or self.now >= self.duration - EPS or abs(self.now / shift - round(self.now / shift)) < EPS
+
+    def sample(self):
+        if self.should_sample(): super().sample()
 
     def publish_partial(self):
         if not self.on_partial or self.now <= EPS or self.now >= self.duration - EPS:
@@ -169,7 +186,7 @@ class SimPySimulation(Simulation):
         return result
 
 
-def simulate_line(payload, progress=None, cancelled=None, on_partial=None):
+def simulate_line(payload, progress=None, cancelled=None, on_partial=None, summary_only=False):
     if simpy is None:
         return {"ok": False, "error": {"code": "MISSING_DEPENDENCY",
             "message": "Install SimPy locally: python -m pip install -r requirements.txt"}}
@@ -178,10 +195,10 @@ def simulate_line(payload, progress=None, cancelled=None, on_partial=None):
         if isinstance(payload, dict) and isinstance(payload.get('metadata'), dict) and payload['metadata'].get('conveyorModel') == 'SPATIAL_FINITE_PRODUCTS':
             from st_spatial_engine import SpatialSimulation, validate as validate_spatial
             validate_spatial(payload)
-            result = SpatialSimulation(deepcopy(payload), progress, cancelled, on_partial).execute()
+            result = SpatialSimulation(deepcopy(payload), progress, cancelled, on_partial, summary_only).execute()
         else:
             validate(payload)
-            result = SimPySimulation(deepcopy(payload), progress, cancelled, on_partial).execute()
+            result = SimPySimulation(deepcopy(payload), progress, cancelled, on_partial, summary_only).execute()
         result["diagnostics"]["wallTimeSeconds"] = time.perf_counter() - started
         return {"ok": True, "result": result}
     except Cancelled as error:
