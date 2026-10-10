@@ -44,7 +44,18 @@ window.STShell = function(state,actions) {
   function init(){
     window.STBasicMode?.init(state,{navigate:actions.navigate,refresh:sync,preview:actions.preview});
     var pin=document.getElementById('pin-header'),header=pin.closest('header');
-    function pinHeader(pinned){header.dataset.pinned=String(pinned);pin.setAttribute('aria-pressed',String(pinned));pin.title=pinned?'Unpin header':'Pin header';pin.setAttribute('aria-label',pin.title);}
+    var panelFrame=null,lastPanelTop;
+    function alignAssistant(){
+      panelFrame=null;
+      var top=Math.max(0,Math.min(window.innerHeight,header.getBoundingClientRect().bottom));
+      if(top!==lastPanelTop){lastPanelTop=top;document.getElementById('application').style.setProperty('--assistant-top',top+'px');}
+    }
+    function scheduleAssistantAlignment(){if(panelFrame===null)panelFrame=requestAnimationFrame(alignAssistant);}
+    if(typeof ResizeObserver!=='undefined')new ResizeObserver(scheduleAssistantAlignment).observe(header);
+    window.addEventListener('resize',scheduleAssistantAlignment);
+    window.addEventListener('scroll',scheduleAssistantAlignment,{passive:true});
+    alignAssistant();
+    function pinHeader(pinned){header.dataset.pinned=String(pinned);pin.setAttribute('aria-pressed',String(pinned));pin.title=pinned?'Unpin header':'Pin header';pin.setAttribute('aria-label',pin.title);scheduleAssistantAlignment();}
     pinHeader(STPreferences.read('headerPinned')!=='no');pin.onclick=function(){var pinned=pin.getAttribute('aria-pressed')!=='true';STPreferences.write('headerPinned',pinned?'yes':'no');pinHeader(pinned);};
     var info=document.getElementById('app-info-dialog'),infoButton=document.getElementById('show-app-info');
     function openInfo(){infoButton=this;info.showModal();}

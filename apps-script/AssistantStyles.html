@@ -61,4 +61,11 @@
 .math-invalid { color:var(--muted); white-space:pre-wrap; }
 .gemini-scope-control { display:flex; align-items:center; gap:var(--space-2); margin:0; font-size:var(--font-secondary); }
 .gemini-scope-control input { width:auto; margin:0; flex-shrink:0; accent-color:var(--accent); }
+html[data-ui-mode=advance] .app-shell.assistant-open { padding-right:0; }
+html[data-ui-mode=advance] .gemini-panel { top:var(--assistant-top,var(--header-height)); }
+html[data-ui-mode=advance] .workspace-content { transition:padding-right 180ms ease-out; }
+html[data-ui-mode=advance] .assistant-resizing .workspace-content { transition:none; }
+@media(min-width:1101px) {
+ html[data-ui-mode=advance] .assistant-open .workspace-content { padding-right:calc(var(--page-padding) + var(--assistant-width)); }
+}
 </style>
