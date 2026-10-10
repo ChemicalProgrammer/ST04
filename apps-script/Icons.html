@@ -28,7 +28,7 @@ window.STIcons = (function() {
     });
   }
   function button(el,name) { if (el && !el.querySelector('.icon')) el.insertAdjacentHTML('afterbegin',svg(name)); }
-  return { svg:svg, equipment:function(type){return svg(type==='CONVEYOR'?'conveyor':'settings');}, decorate:decorate, button:button };
+  return { svg:svg, equipment:function(type){return svg(type==='CONVEYOR'?'conveyor':'machine');}, decorate:decorate, button:button };
 })();
 </script>
 
