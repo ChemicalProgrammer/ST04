@@ -1,7 +1,7 @@
 <style>
 /* Shared visual hierarchy for Advance and Basic. Mode scaling is applied once,
    to the root font size by STPreferences; layout can still vary by mode. */
-:root { --section-gap:var(--space-4); --panel-padding:var(--space-5); --checkbox-size:16px; }
+:root { --section-gap:var(--space-4); --panel-padding:var(--space-5); --checkbox-size:16px; --table-row-height:42px; --table-cell-block:var(--space-2); --table-cell-inline:var(--space-3); --field-gap:var(--space-3); }
 h1,h2,h3,h4 { color:var(--ink); font-weight:var(--weight-semibold); line-height:var(--leading-tight); text-transform:none; letter-spacing:normal; }
 h1 { font-size:var(--font-page); }
 h2,.dialog-heading h2 { font-size:var(--font-section); }
@@ -12,6 +12,14 @@ h3,h4,.equipment-header strong,.format-zone-heading strong,.basic-conveyor-headi
 label,.field-label,.basic-control-heading { color:var(--ink); font-size:var(--font-body); font-weight:var(--weight-medium); line-height:var(--leading-body); }
 .equipment-grid label,.format-zone-grid label,.reliability-controls label { font-size:var(--font-body); font-weight:var(--weight-medium); }
 input,select,textarea { font-size:var(--font-input); font-weight:var(--weight-regular); }
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select { height:var(--control-height); min-height:var(--control-height); line-height:var(--leading-tight); padding-block:var(--space-1); margin-block:0; }
+.field-grid,.equipment-grid,.format-zone-grid,.gemini-connection-grid,.color-rgb-grid { gap:var(--field-gap); align-items:end; }
+.field-grid > label,.equipment-grid > label,.format-zone-grid > label { min-width:0; gap:var(--space-2); }
+table tr { height:var(--table-row-height); }
+table :is(th,td),.markdown-table :is(th,td),#sheet-import-preview :is(th,td),.scenario-metric-table :is(th,td),.scenario-results-dialog :is(th,td),.scenario-config-dialog .scenario-parameter-table :is(th,td) { padding:var(--table-cell-block) var(--table-cell-inline); vertical-align:middle; line-height:var(--leading-body); }
+.comparison-row { min-height:var(--table-row-height); align-items:center; gap:var(--field-gap); padding:var(--table-cell-block) var(--table-cell-inline); }
+.comparison-row span { padding:0; overflow-wrap:anywhere; }
+#settings-dialog .settings-color-table :is(th,td),#settings-dialog .settings-color-columns td { padding:var(--table-cell-block) var(--table-cell-inline); }
 input[type=number],input[inputmode=numeric],input[inputmode=decimal] { text-align:right; font-variant-numeric:tabular-nums; }
 /* Fixed dimensions override field-grid rules which also match checkboxes. */
 input[type=checkbox] { width:var(--checkbox-size) !important; min-width:var(--checkbox-size) !important; max-width:var(--checkbox-size) !important; height:var(--checkbox-size) !important; min-height:var(--checkbox-size) !important; max-height:var(--checkbox-size) !important; padding:0 !important; margin:0; flex:0 0 var(--checkbox-size) !important; appearance:auto; accent-color:var(--accent); vertical-align:middle; }
@@ -211,4 +219,5 @@ tbody tr:is(:hover,:focus-within) > :is(th,td) { background:var(--table-row-hove
 .comparison-kpi .chart-note { margin:0; }
 @media(max-width:700px) { .comparison-highlights { grid-template-columns:1fr; } }
 </style>
+
 

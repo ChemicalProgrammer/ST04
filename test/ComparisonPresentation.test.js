@@ -6,7 +6,7 @@ function setup(basic){
  const dom=new JSDOM('<select id="case-compare-a"><option value="a" selected>A</option></select><select id="case-compare-b"><option value="b" selected>B</option></select><div id="case-comparison-content"></div>',{runScripts:'outside-only'}),w=dom.window;
  const text={'results.global_oee':'Global OEE','results.throughput':'Throughput','results.outcome_comparison':'Outcome comparison','results.pp':' pp','results.metric':'Metric','results.proposed':'Proposed','view.baseline':'Baseline'};
  w.__ST_TEXT__=w.__ST_HTML_TEXT__=key=>text[key]||key;w.STBasicMode={isBasic:()=>basic,unitLabel:value=>value};w.STReports={bindComparison(){}};
- for(const file of ['Results.html','Comparison.html'])w.eval(fs.readFileSync('apps-script/'+file,'utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
+ for(const file of ['Results.html','WhatIf.html','Comparison.html'])w.eval(fs.readFileSync('apps-script/'+file,'utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
  function simulation(id,oee,throughput){return {id,name:id.toUpperCase(),equipment:[],dynamicConfig:{},results:{unitOfFlow:'bottles',seed:42,durationSeconds:60,replay:{},summary:{lineOeePercent:1,outputCount:2,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0},batch:{rounds:3,rows:[{seed:42},{seed:43},{seed:44}],statistics:{lineOeePercent:{mean:oee},throughputPerMinute:{mean:throughput},outputCount:{mean:throughput}}}}};}
  const a=simulation('a',30,100),b=simulation('b',60,200),state={activeCase:{simulations:[a,b]}};
  return {dom,w,a,b,render:()=>w.STComparison(state,Number.isFinite).render()};
@@ -26,3 +26,17 @@ test('OEE comparison includes global and machine rows in Basic and Advance using
   const rows=h.w.document.querySelectorAll('.comparison-equipment-oee tbody tr');assert.equal(rows.length,2);assert.match(rows[0].textContent,/Global OEE.*30%.*60%.*\+30/);assert.match(rows[1].textContent,/Filler.*40%.*70%.*\+30/);
  }finally{h.dom.window.close();}}
 });
+
+test('changed inputs exclude runtime outputs and provenance while retaining precise saved input differences',()=>{
+ for(const basic of [true,false]){const h=setup(basic);try{
+  const equipment={id:'machine',name:'Filler',type:'FILLER',initialMode:'AUTO',nominalRatePerSecond:2,processData:{equipment:{maximumSpeedBpm:200}},noiseProfile:{reliability:{mtbfMinutes:50,mttrMinutes:2}},characteristics:{criticalMachine:true}};
+  h.a.equipment=[structuredClone(equipment)];h.b.equipment=[{...structuredClone(equipment),actualRatePerSecond:123,outputCount:800,blockedSeconds:20,stateSeconds:{RUNNING:40},updatedAt:'later'}];
+  h.b.scenario={changes:[{after:50}]};h.b.results.summary.outputCount=999;
+  h.render();let section=Array.from(h.w.document.querySelectorAll('section.comparison-section')).find(e=>e.querySelector('h3')?.textContent.startsWith('comparison.changed_inputs'));
+  assert.equal(section.querySelector('table'),null);assert.match(section.querySelector('h3').textContent,/changed_inputs0/);
+  h.b.equipment[0].nominalRatePerSecond=2.000001;h.b.equipment[0].processData.equipment.maximumSpeedBpm=220;h.render();
+  section=Array.from(h.w.document.querySelectorAll('section.comparison-section')).find(e=>e.querySelector('h3')?.textContent.startsWith('comparison.changed_inputs'));assert.equal(section.querySelectorAll('tbody tr').length,2);assert(!section.textContent.includes('outputCount'));assert(!section.textContent.includes('actualRatePerSecond'));
+  h.b.equipment=[];h.render();section=Array.from(h.w.document.querySelectorAll('section.comparison-section')).find(e=>e.querySelector('h3')?.textContent.startsWith('comparison.changed_inputs'));assert.equal(section.querySelectorAll('tbody tr').length,1);assert.match(section.textContent,/Removed equipment/);
+ }finally{h.dom.window.close();}}
+});
+

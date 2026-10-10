@@ -37,9 +37,10 @@ window.STComparison=function(state,isFiniteNumber){
       var changes=[],affected=new Set();
       var right=Object.fromEntries((b.equipment||[]).map(function(e){return [e.id,e];}));
       (a.equipment||[]).forEach(function(e){
-        var l=flattenComparisonValues(e),r=flattenComparisonValues(right[e.id]||{});
+        if(!right[e.id]){changes.push([e.name||e.id,'Removed equipment',e.type,'—']);affected.add(e.id);return;}
+        var l=flattenComparisonValues(equipmentInputs(e)),r=flattenComparisonValues(equipmentInputs(right[e.id]));
         Array.from(new Set(Object.keys(l).concat(Object.keys(r)))).forEach(function(key){
-          if(formatComparisonValue(l[key])!==formatComparisonValue(r[key])){var info=basic?STWhatIf.changeInfo({equipmentId:e.id,path:key,before:l[key],after:r[key]},a.equipment):null;changes.push(info?[info.equipment,info.parameter,info.before,info.after]:[e.name||e.id,key,formatComparisonValue(l[key]),formatComparisonValue(r[key])]);affected.add(e.id);}
+          if(JSON.stringify(l[key])!==JSON.stringify(r[key])){var info=basic?STWhatIf.changeInfo({equipmentId:e.id,path:key,before:l[key],after:r[key]},a.equipment):null;changes.push(info?[info.equipment,info.parameter,info.before,info.after]:[e.name||e.id,key,formatComparisonValue(l[key]),formatComparisonValue(r[key])]);affected.add(e.id);}
         });
       });
       (b.equipment||[]).filter(function(e){return !(a.equipment||[]).some(function(x){return x.id===e.id;});}).forEach(function(e){changes.push([e.name||e.id,__ST_TEXT__('comparison.added_equipment'),'—',e.type]);affected.add(e.id);});
@@ -51,6 +52,12 @@ window.STComparison=function(state,isFiniteNumber){
         changes.forEach(function(change){var tr=document.createElement('tr');change.forEach(function(v){var td=document.createElement('td');td.textContent=v;tr.appendChild(td);});table.querySelector('tbody').appendChild(tr);});scroll.appendChild(table);section.appendChild(scroll);
       }
       target.appendChild(section);
+    }
+    function equipmentInputs(e) {
+      // Saved configuration only; runtime state, calculated metrics and provenance are excluded.
+      var inputs={};
+      ['name','type','unitOfFlow','nominalRatePerSecond','initialMode','characteristics','noiseProfile','processData'].forEach(function(key){if(e[key]!==undefined)inputs[key]=e[key];});
+      return inputs;
     }
     function appendComparisonContext(target, left, right) {
       var context = document.createElement('section');
@@ -126,4 +133,5 @@ window.STComparison=function(state,isFiniteNumber){
 return {render:renderCaseComparison};
 };
 </script>
+
 
