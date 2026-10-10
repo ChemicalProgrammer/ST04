@@ -93,6 +93,34 @@ function getGeminiClientConfig_() {
   return {configured: Boolean(properties.getProperty('GEMINI_API_KEY')), model: properties.getProperty('GEMINI_MODEL') || 'gemini-2.5-flash',prompts:geminiPromptDefinitions_(),promptOverrides:getGeminiPrompts_(),generation:getGeminiGeneration_()};
 }
 
+
+function listGeminiModels_() {
+  var key=PropertiesService.getUserProperties().getProperty('GEMINI_API_KEY');
+  if(!key)throw createSimulatorError_('GEMINI_NOT_CONFIGURED','Add and save your Gemini API key in Settings first.');
+  var models={},token='',seen={};
+  for(var page=0;page<10;page++){
+    var response;
+    try{response=UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000'+(token?'&pageToken='+encodeURIComponent(token):''),{method:'get',headers:{'x-goog-api-key':key},muteHttpExceptions:true});}
+    catch(_){throw createSimulatorError_('GEMINI_MODELS_UNAVAILABLE','The Gemini model list could not be reached. Try refreshing it.');}
+    var status=response.getResponseCode();
+    if(status!==200)throw createSimulatorError_('GEMINI_MODELS_UNAVAILABLE','The Gemini model list could not be loaded (HTTP '+status+'). Check the saved API key and try again.');
+    var data;
+    try{data=JSON.parse(response.getContentText());}catch(_){throw createSimulatorError_('GEMINI_MODELS_UNAVAILABLE','Gemini returned an invalid model list. Try refreshing it.');}
+    if(!Array.isArray(data.models))throw createSimulatorError_('GEMINI_MODELS_UNAVAILABLE','Gemini returned an invalid model list. Try refreshing it.');
+    data.models.forEach(function(model){
+      var id=String(model.name||'').replace(/^models\//,'');
+      if(!/^gemini-[a-zA-Z0-9.-]{1,90}$/.test(id)||!Array.isArray(model.supportedGenerationMethods)||!model.supportedGenerationMethods.includes('generateContent'))return;
+      // Specialist media, Live and embedding models do not serve this text chat.
+      if(/image|tts|audio|live|embedding|robotics|computer-use/i.test(id))return;
+      models[id]={id:id,label:typeof model.displayName==='string'?model.displayName.slice(0,128):id};
+    });
+    token=typeof data.nextPageToken==='string'?data.nextPageToken:'';
+    if(!token)return {models:Object.keys(models).sort().map(function(id){return models[id];})};
+    if(seen[token])break;seen[token]=true;
+  }
+  throw createSimulatorError_('GEMINI_MODELS_UNAVAILABLE','The Gemini model list is incomplete. Try refreshing it.');
+}
+
 function deleteGeminiApiKey_() {
   PropertiesService.getUserProperties().deleteProperty('GEMINI_API_KEY');
   return getGeminiClientConfig_();

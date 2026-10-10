@@ -1,12 +1,39 @@
 <script>
 window.STSettings = (function() {
   var save, flushCase, removeKey, resetApp, resetting=false, applyMode, caseProvider, caseChanged, promptDefinitions=[], modeCount=0, modeStarted=0, timer, version=0, savedVersion=0, sending=false, removing=false, hasKey=false, modeChanging=false, lastFocus, failure=null, waiters=[];
+  var readModels,modelList=[],modelsLoaded=false,modelsLoading=false,modelsTicket=0;
   function el(id){return document.getElementById(id);}
+
+  function renderModels(selected){
+    var picker=el('gemini-model');selected=selected||picker.value||'gemini-2.5-flash';picker.replaceChildren();
+    if(!modelList.some(function(model){return model.id===selected;})){
+      var saved=document.createElement('option');saved.value=selected;saved.textContent=selected+(modelsLoaded?' (saved · not in list)':'');picker.append(saved);
+    }
+    modelList.forEach(function(model){var option=document.createElement('option');option.value=model.id;option.textContent=model.label===model.id?model.id:model.label+' · '+model.id;picker.append(option);});
+    picker.value=selected;
+  }
+  function modelControls(){el('gemini-refresh-models').disabled=!hasKey||modelsLoading||sending||removing||!!el('gemini-api-key').value.trim();}
+  function invalidateModels(){
+    modelsTicket++;modelsLoaded=false;modelsLoading=false;modelList=[];renderModels();modelControls();
+    el('gemini-model-status').textContent=hasKey?'Refresh to load models for the saved API key.':'Save an API key to load available models.';
+  }
+  function loadModels(force){
+    if(!readModels||!hasKey||modelsLoading||sending||removing||el('gemini-api-key').value.trim()||(!force&&modelsLoaded))return;
+    var ticket=++modelsTicket;modelsLoading=true;modelControls();el('gemini-model-status').textContent='Loading available models…';
+    readModels(function(response){
+      if(ticket!==modelsTicket)return;
+      modelsLoading=false;
+      if(!response.ok){el('gemini-model-status').textContent=response.error.message;modelControls();return;}
+      modelList=Array.isArray(response.data.models)?response.data.models:[];modelsLoaded=true;renderModels();modelControls();
+      el('gemini-model-status').textContent=modelList.length?'Models reported by Gemini for the saved API key. Usage depends on its quota and permissions.':'No compatible text models were returned for this API key.';
+    });
+  }
+
   var simulationProvider,engineChanged,engineLocked;
   function renderEngine(){var simulation=simulationProvider?.();el('settings-engine-section').classList.toggle('hidden',!simulation);el('settings-simulation-engine').value=simulation?.dynamicConfig?.engineId||'ST_CURRENT';el('settings-simulation-engine').disabled=!simulation||!!engineLocked?.();el('settings-run-options').classList.toggle('hidden',!simulation);['duration-mode','run-duration','run-sample-interval','run-shift-hours'].forEach(function(id){el(id).disabled=!simulation||!!engineLocked?.()||(id==='run-duration'&&el('duration-mode').value==='SHIFTS');});}
   function promptOverrides(){var result={};promptDefinitions.forEach(function(def){var card=el('gemini-prompt-'+def.id),text=card.querySelector('textarea').value,enabled=card.querySelector('input').checked;if(!enabled||text!==def.defaultText)result[def.id]={enabled:enabled,text:text};});return result;}
   function request(){var gemini={model:el('gemini-model').value,apiKey:el('gemini-api-key').value};gemini.generation={temperature:el('gemini-temperature').value===''?null:Number(el('gemini-temperature').value),responseMode:el('gemini-response-mode').value,maxOutputTokens:Number(el('gemini-max-output').value),displayMode:el('gemini-display-mode').value};if(promptDefinitions.length)gemini.prompts=promptOverrides();return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:gemini};}
-  function selectTab(name,focus){if(el('settings-tab-'+name).classList.contains('hidden'))name='appearance';if(name==='case')renderCaseCharts();document.querySelectorAll('[data-settings-tab]').forEach(function(button){var selected=button.dataset.settingsTab===name,changed=button.getAttribute('aria-selected')!=='true';button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;el(button.getAttribute('aria-controls')).classList.toggle('hidden',!selected);if(selected&&changed)STMotion.reveal(el(button.getAttribute('aria-controls')));if(selected&&focus)button.focus();});}
+  function selectTab(name,focus){if(el('settings-tab-'+name).classList.contains('hidden'))name='appearance';if(name==='case')renderCaseCharts();document.querySelectorAll('[data-settings-tab]').forEach(function(button){var selected=button.dataset.settingsTab===name,changed=button.getAttribute('aria-selected')!=='true';button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;el(button.getAttribute('aria-controls')).classList.toggle('hidden',!selected);if(selected&&changed)STMotion.reveal(el(button.getAttribute('aria-controls')));if(selected&&focus)button.focus();});if(name==='gemini')loadModels(false);}
   function promptBudget(){var total=0,included=0;promptDefinitions.forEach(function(def){var card=el('gemini-prompt-'+def.id),text=card.querySelector('textarea').value,enabled=card.querySelector('input').checked;total+=text.length;if(enabled)included+=text.length;card.dataset.included=String(enabled);card.querySelector('.gemini-prompt-count').textContent=text.length+' / 8,000';});el('gemini-prompt-budget').textContent=included.toLocaleString()+' included characters before mode filtering · '+total.toLocaleString()+' / 40,000 across all sections. Each section: up to 8,000. Case context and conversation share the existing request budget.';return total;}
   function renderPrompts(overrides){el('gemini-prompt-editor').replaceChildren();promptDefinitions.forEach(function(def){var value=overrides[def.id],card=document.createElement('section');card.id='gemini-prompt-'+def.id;card.className='gemini-prompt-card';var label=document.createElement('label');label.className='scenario-scope';var check=document.createElement('input');check.type='checkbox';check.checked=value?value.enabled:true;check.setAttribute('aria-label','Include '+def.label+' prompt');label.append(check,document.createTextNode(def.label));var text=document.createElement('textarea');text.rows=5;text.maxLength=8000;text.value=value?value.text:def.defaultText;text.setAttribute('aria-label',def.label+' prompt');text.spellcheck=false;var footer=document.createElement('div');footer.className='gemini-prompt-footer';var count=document.createElement('span');count.className='gemini-prompt-count';var reset=document.createElement('button');reset.type='button';reset.className='ghost';reset.textContent='Reset text';reset.onclick=function(){text.value=def.defaultText;text.dispatchEvent(new Event('input',{bubbles:true}));};footer.append(count,reset);card.append(label,text,footer);el('gemini-prompt-editor').append(card);});promptBudget();promptVisibility();}
   function activeCase(){return caseProvider?.();}
@@ -19,7 +46,7 @@ window.STSettings = (function() {
   function colorButton(container,labelText,variable,key,kind){var row=document.createElement('tr'),name=document.createElement('td'),cell=document.createElement('td'),value=document.createElement('div'),code=document.createElement('span'),button=document.createElement('button');name.className='settings-color-name';name.textContent=labelText;button.type='button';button.className='series-color-button';var hex=getComputedStyle(document.documentElement).getPropertyValue(variable).trim();button.style.backgroundColor=hex;button.setAttribute('aria-label',labelText+' color');button.title=labelText+' color';code.textContent=hex.toUpperCase();code.className='settings-color-hex';value.className='settings-color-value';button.onclick=function(){colorTarget={caseId:activeCase()?.id,key:key,kind:kind};setColorDraft(hex);el('series-color-copy-status').textContent='';el('series-color-title').textContent=labelText+' color';el('series-color-dialog').showModal();};value.append(button,code);cell.append(value);row.append(name,cell);container.append(row);}
   function colorColumns(container,label){return [0,1].map(function(){var table=document.createElement('table');table.className='settings-color-table';var head=document.createElement('thead'),row=document.createElement('tr');[label,'Color / HEX'].forEach(function(text){var th=document.createElement('th');th.scope='col';th.textContent=text;row.append(th);});head.append(row);var body=document.createElement('tbody');table.append(head,body);container.append(table);return body;});}
   function renderCaseCharts(){var record=activeCase();applyCaseCharts();el('settings-case-note').classList.toggle('hidden',!!record);el('settings-doe-section').classList.toggle('hidden',!record);el('settings-chart-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-vgraph-section').classList.toggle('hidden',!record);el('settings-chart-colors').replaceChildren();el('settings-vgraph-colors').replaceChildren();STPreferences.applyJsonFields(document.documentElement.dataset.uiMode);if(!record)return;var equipmentList=record.equipment||[],columns=colorColumns(el('settings-chart-colors'),'Equipment'),split=Math.ceil(equipmentList.length/2),graphColumns=colorColumns(el('settings-vgraph-colors'),'Series');equipmentList.forEach(function(equipment,index){colorButton(columns[index<split?0:1],(index+1)+'. '+equipment.name,'--series-'+(index%13),index%13,'chartColors');});colorButton(graphColumns[0],__ST_TEXT__('performance.normal'),'--vgraph-current','current','vgraphColors');colorButton(graphColumns[1],__ST_TEXT__('performance.recommended'),'--vgraph-recommended','recommended','vgraphColors');}
-  function refresh(){el('settings-unsaved').dataset.state=failure?'error':sending?'saving':version>savedVersion?'pending':'saved';el('settings-factory-reset').disabled=!!activeCase()||sending||resetting;el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
+  function refresh(){modelControls();el('settings-unsaved').dataset.state=failure?'error':sending?'saving':version>savedVersion?'pending':'saved';el('settings-factory-reset').disabled=!!activeCase()||sending||resetting;el('settings-unsaved').textContent=failure?__ST_TEXT__('autosave.error'):sending?__ST_TEXT__('autosave.saving'):version>savedVersion?__ST_TEXT__('autosave.pending'):__ST_TEXT__('autosave.saved');el('settings-retry').classList.toggle('hidden',!failure);}
   function open(){var dialog=el('settings-dialog');if(dialog.open)return;lastFocus=document.activeElement;resetModeSelector();renderEngine();renderCaseCharts();var tab=document.querySelector('[data-settings-tab][aria-selected="true"]');selectTab(tab?.dataset.settingsTab||'appearance');refresh();dialog.showModal();}
   function resetModeSelector(preserveUnlock){var options=STPreferences.caseOptions(),record=activeCase();['case','simulation'].forEach(function(name){el('settings-tab-'+name).classList.toggle('hidden',!record);});el('settings-factory-section').classList.toggle('hidden',document.documentElement.dataset.uiMode!=='advance');el('settings-factory-note').textContent=record?__ST_TEXT__('settings.factory_close_case'):__ST_TEXT__('settings.factory_note');el('settings-factory-reset').disabled=!!record||sending||resetting;el('settings-save-section').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='advance');el('settings-autosave').checked=options.autosaveEnabled;el('settings-autosave-seconds').value=String(options.autosaveSeconds);el('settings-autosave-seconds').disabled=!el('settings-autosave').checked;el('settings-seed-section').classList.toggle('hidden',!record);promptVisibility();el('settings-seed-policy').value=options.seedPolicy;el('settings-scenario-doe').checked=STScenarioExplorer.doeEnabled();el('settings-basic-simulation-note').classList.toggle('hidden',!record||document.documentElement.dataset.uiMode!=='basic');if(preserveUnlock!==true){modeCount=0;modeStarted=0;el('settings-interface-section').classList.add('hidden');}el('settings-interface-mode').value=document.documentElement.dataset.uiMode==='advance'?'ADVANCE':'BASIC';}
   async function changeMode(){
@@ -64,7 +91,8 @@ window.STSettings = (function() {
       if(!response.ok){failure=true;el('settings-error').textContent=response.error.message;STErrors.capture('settings-error',response.error);refresh();settle(false);return;}
       savedVersion=ticket;el('settings-error').textContent='';
       if(version===ticket)el('gemini-api-key').value='';
-      if(version>savedVersion)write();else{refresh();settle(true);}
+      if(payload.gemini.apiKey)invalidateModels();
+      if(version>savedVersion)write();else{refresh();settle(true);if(el('settings-tab-gemini').getAttribute('aria-selected')==='true')loadModels(false);}
     });
   }
   function flush(){return new Promise(function(resolve){waiters.push(resolve);write();});}
@@ -91,7 +119,7 @@ window.STSettings = (function() {
     if(changed)applyMode?.(mode);
     window.dispatchEvent(new Event('st-save-policy-change'));
   }
-  function keyStatus(){el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
+  function keyStatus(){modelControls();if(!hasKey)el('gemini-model-status').textContent='Save an API key to load available models.';el('gemini-api-key').placeholder=hasKey?__ST_TEXT__('settings.api_key_mask'):__ST_TEXT__('settings.enter_api_key');el('gemini-key-status').textContent=removing?__ST_TEXT__('settings.removing_api_key'):hasKey?__ST_TEXT__('settings.api_key_saved_for_your_google_account'):__ST_TEXT__('settings.no_api_key_configured');el('gemini-delete-key').disabled=removing||!hasKey;}
   async function deleteKey(){
     if(removing||!hasKey||!removeKey)return;
     if(!await STDialog.confirm(__ST_TEXT__('settings.delete_api_key_title'),__ST_TEXT__('settings.delete_api_key_message'),true))return;
@@ -115,7 +143,7 @@ window.STSettings = (function() {
       el('settings-dialog').close();selectTab('appearance');refresh();
     });
   }
-  function clearDraft(){clearTimeout(timer);version=0;savedVersion=0;failure=null;settle(true);el('gemini-api-key').value='';el('settings-error').textContent='';}
+  function clearDraft(){clearTimeout(timer);version=0;savedVersion=0;failure=null;settle(true);el('gemini-api-key').value='';invalidateModels();el('settings-error').textContent='';}
   function init(){
     el('settings-interface-mode').onchange=changeMode;
     el('settings-simulation-engine').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(this.value);renderEngine();};
@@ -134,6 +162,8 @@ window.STSettings = (function() {
     el('settings-autosave').onchange=function(){el('settings-autosave-seconds').disabled=!this.checked;};
     el('settings-close').onclick=close;el('settings-cancel').onclick=close;el('settings-retry').onclick=write;
     el('gemini-delete-key').onclick=deleteKey;
+    el('gemini-refresh-models').onclick=function(){loadModels(true);};
+    el('gemini-api-key').addEventListener('input',function(){modelsTicket++;modelsLoading=false;modelControls();if(this.value.trim())el('gemini-model-status').textContent='The model list will refresh after the new API key is saved.';});
     el('settings-factory-reset').onclick=factoryReset;
     el('settings-dialog').addEventListener('keydown',unlockMode);
     el('settings-dialog').addEventListener('close',resetModeSelector);
@@ -141,9 +171,9 @@ window.STSettings = (function() {
     function change(){if(resetting)return;promptBudget();version++;failure=null;refresh();clearTimeout(timer);timer=setTimeout(write,600);}
     el('workspace-form').addEventListener('input',change);el('workspace-form').addEventListener('change',change);el('settings-page-gemini').addEventListener('input',change);el('settings-page-gemini').addEventListener('change',change);
   }
-  function configureGemini(config){if(!sending&&version===savedVersion){el('gemini-model').value=config.model||'gemini-2.5-flash';var generation=config.generation||{};el('gemini-temperature').value=generation.temperature??'';el('gemini-response-mode').value=generation.responseMode||'DEFAULT';el('gemini-max-output').value=String(generation.maxOutputTokens||8192);el('gemini-display-mode').value=generation.displayMode||'PROGRESSIVE';if(Array.isArray(config.prompts)){promptDefinitions=config.prompts;renderPrompts(config.promptOverrides||{});}}hasKey=Boolean(config.configured);keyStatus();}
-  function setKeyConfigured(value){hasKey=Boolean(value);keyStatus();}
-  return {clearDraft:clearDraft,connectReset:function(fn){resetApp=fn;},connectSimulation:function(provider,changed,locked){simulationProvider=provider;engineChanged=changed;engineLocked=locked;},applyCaseCharts:applyCaseCharts,connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectInterfaceMode:function(fn){applyMode=fn;},connectCaseFlush:function(fn){flushCase=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(error){failure=true;var message=typeof error==='string'?error:error.message;el('settings-error').textContent=message;STErrors.capture('settings-error',error);refresh();}};
+  function configureGemini(config){if(!sending&&version===savedVersion){renderModels(config.model||'gemini-2.5-flash');var generation=config.generation||{};el('gemini-temperature').value=generation.temperature??'';el('gemini-response-mode').value=generation.responseMode||'DEFAULT';el('gemini-max-output').value=String(generation.maxOutputTokens||8192);el('gemini-display-mode').value=generation.displayMode||'PROGRESSIVE';if(Array.isArray(config.prompts)){promptDefinitions=config.prompts;renderPrompts(config.promptOverrides||{});}}var changedKey=hasKey!==Boolean(config.configured);hasKey=Boolean(config.configured);if(changedKey)invalidateModels();keyStatus();}
+  function setKeyConfigured(value){var changed=hasKey!==Boolean(value);hasKey=Boolean(value);if(changed)invalidateModels();keyStatus();}
+  return {connectModels:function(fn){readModels=fn;},clearDraft:clearDraft,connectReset:function(fn){resetApp=fn;},connectSimulation:function(provider,changed,locked){simulationProvider=provider;engineChanged=changed;engineLocked=locked;},applyCaseCharts:applyCaseCharts,connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},init:init,open:open,close:close,configureGemini:configureGemini,setKeyConfigured:setKeyConfigured,connect:function(fn){save=fn;},connectInterfaceMode:function(fn){applyMode=fn;},connectCaseFlush:function(fn){flushCase=fn;},connectRemoval:function(fn){removeKey=fn;},flush:flush,pending:function(){return sending||version>savedVersion;},error:function(error){failure=true;var message=typeof error==='string'?error:error.message;el('settings-error').textContent=message;STErrors.capture('settings-error',error);refresh();}};
 })();
 </script>
 

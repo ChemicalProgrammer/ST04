@@ -114,6 +114,7 @@
         if(state.activeCase)renderSimulationAnalysis();
         if(state.run.result)renderPlaybackFrame();
       });
+      STSettings.connectModels(function(done){callServer('listGeminiModels',[],done);});
       STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});
       document.getElementById('retry-autosave').onclick = retryAutosave;
       document.getElementById('save-case').onclick = function(){flushCase(true).catch(function(error){showError(error);});};

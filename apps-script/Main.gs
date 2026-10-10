@@ -52,6 +52,10 @@ function saveUserSettings(request) {
   });
 }
 
+function listGeminiModels() {
+  return executeServerAction_(function() { return listGeminiModels_(); });
+}
+
 function deleteGeminiApiKey() {
   return executeServerAction_(function() {
     return deleteGeminiApiKey_();
