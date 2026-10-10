@@ -365,5 +365,35 @@ html[data-ui-mode=basic] #equipment-list .equipment-header strong { flex:1; min-
 html[data-ui-mode=basic] #equipment-list .equipment-card-symbol { display:grid; place-items:center; flex:0 0 var(--control-height); height:var(--control-height); color:var(--accent); }
 html[data-ui-mode=basic] #equipment-list [data-equipment-type=CONVEYOR] .equipment-card-symbol { color:var(--secondary-text); }
 @media(max-width:640px) { .settings-appearance-grid { grid-template-columns:1fr; gap:var(--space-3); } }
+/* Select pickers have their own scroll container; share the normal scrollbar appearance. */
+@supports (appearance:base-select) {
+ html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select) { scrollbar-color:var(--secondary) var(--surface-soft); scrollbar-width:thin; } }
+@supports selector(select::picker(select)::-webkit-scrollbar) {
+ html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select) { scrollbar-color:auto; scrollbar-width:auto; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar { width:12px; height:12px; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-track,
+html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-corner { background:var(--surface-soft); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-thumb {
+    background:var(--secondary); border:3px solid var(--surface-soft); border-radius:var(--radius-pill);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-thumb:active { background:var(--accent); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button {
+    display:none; --scrollbar-arrow:var(--secondary); background-color:var(--surface-soft); background-repeat:no-repeat;
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:single-button { display:block; width:12px; height:12px; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:active { --scrollbar-arrow:var(--accent); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:vertical { background-size:4px 4px; background-position:calc(50% - 2px) center,calc(50% + 2px) center; }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:vertical:decrement {
+    background-image:linear-gradient(135deg,transparent 50%,var(--scrollbar-arrow) 50%),linear-gradient(45deg,var(--scrollbar-arrow) 50%,transparent 50%);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:vertical:increment {
+    background-image:linear-gradient(45deg,transparent 50%,var(--scrollbar-arrow) 50%),linear-gradient(135deg,var(--scrollbar-arrow) 50%,transparent 50%);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:horizontal { background-size:4px 4px; background-position:center calc(50% - 2px),center calc(50% + 2px); }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:horizontal:decrement {
+    background-image:linear-gradient(135deg,transparent 50%,var(--scrollbar-arrow) 50%),linear-gradient(45deg,transparent 50%,var(--scrollbar-arrow) 50%);
+  }
+  html[data-visual-style=elegant] select:not([multiple]):not([size])::picker(select)::-webkit-scrollbar-button:horizontal:increment {
+    background-image:linear-gradient(45deg,var(--scrollbar-arrow) 50%,transparent 50%),linear-gradient(135deg,var(--scrollbar-arrow) 50%,transparent 50%);
+  } }
 </style>
-
