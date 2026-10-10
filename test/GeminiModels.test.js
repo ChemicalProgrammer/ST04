@@ -47,9 +47,12 @@ function client() {
 }
 test('model selector loads on the Gemini tab, preserves selection and refreshes on demand',()=>{
  const h=client();assert.equal(h.el('gemini-model').tagName,'SELECT');
+ const columns=h.el('gemini-model').closest('.gemini-connection-grid').children;
+ assert(columns[0].contains(h.el('gemini-api-key')));assert(columns[1].contains(h.el('gemini-model')));
+ assert(h.el('gemini-key-verified').classList.contains('hidden'));
  h.el('settings-tab-gemini').click();assert.equal(h.requests.length,1);assert(h.el('gemini-refresh-models').disabled);
  h.requests[0]({ok:true,data:{models:[{id:'gemini-2.5-flash',label:'Flash'},{id:'gemini-2.5-pro',label:'Pro'}]}});
- assert.equal(h.el('gemini-model').value,'gemini-2.5-flash');h.el('gemini-model').value='gemini-2.5-pro';
+ assert.equal(h.el('gemini-model').value,'gemini-2.5-flash');assert(!h.el('gemini-key-verified').classList.contains('hidden'));h.el('gemini-model').value='gemini-2.5-pro';
  h.el('settings-tab-gemini').click();assert.equal(h.requests.length,1);
  h.el('gemini-refresh-models').click();assert.equal(h.requests.length,2);
  h.requests[1]({ok:true,data:{models:[{id:'gemini-2.5-flash',label:'Flash'}]}});
@@ -58,19 +61,19 @@ test('model selector loads on the Gemini tab, preserves selection and refreshes 
 test('model selector ignores stale results after key deletion and retains selection on errors',()=>{
  const h=client();h.el('settings-tab-gemini').click();h.settings.setKeyConfigured(false);
  h.requests[0]({ok:true,data:{models:[{id:'gemini-other',label:'Other'}]}});
- assert.equal(h.el('gemini-model').options.length,1);assert(h.el('gemini-refresh-models').disabled);
+ assert.equal(h.el('gemini-model').options.length,1);assert(h.el('gemini-refresh-models').disabled);assert(h.el('gemini-key-verified').classList.contains('hidden'));
  h.settings.setKeyConfigured(true);h.el('gemini-refresh-models').click();
  h.requests[1]({ok:false,error:{message:'HTTP 403'}});
- assert.equal(h.el('gemini-model').value,'gemini-2.5-flash');assert.match(h.el('gemini-model-status').textContent,/403/);assert(!h.el('gemini-refresh-models').disabled);
+ assert.equal(h.el('gemini-model').value,'gemini-2.5-flash');assert.match(h.el('gemini-model-status').textContent,/403/);assert(!h.el('gemini-refresh-models').disabled);assert(h.el('gemini-key-verified').classList.contains('hidden'));
 });
 test('saving a replacement key refreshes the catalog and ignores its previous pending response',async()=>{
  const h=client();h.el('settings-tab-gemini').click();
  h.el('gemini-api-key').value='new-key';h.el('gemini-api-key').dispatchEvent(new h.window.Event('input',{bubbles:true}));
- assert(h.el('gemini-refresh-models').disabled);
+ assert(h.el('gemini-refresh-models').disabled);assert(h.el('gemini-key-verified').classList.contains('hidden'));
  h.requests[0]({ok:true,data:{models:[{id:'gemini-old',label:'Old'}]}});assert.equal(h.el('gemini-model').options.length,1);
  const saved=h.settings.flush();assert.equal(h.saves[0].payload.gemini.apiKey,'new-key');
  h.saves[0].done({ok:true,data:{}});assert.equal(await saved,true);assert.equal(h.requests.length,2);
  h.requests[1]({ok:true,data:{models:[{id:'gemini-new',label:'New'}]}});
- assert(Array.from(h.el('gemini-model').options).some(o=>o.value==='gemini-new'));
+ assert(Array.from(h.el('gemini-model').options).some(o=>o.value==='gemini-new'));assert(!h.el('gemini-key-verified').classList.contains('hidden'));
  assert(!Array.from(h.el('gemini-model').options).some(o=>o.value==='gemini-old'));
 });

@@ -13,17 +13,20 @@ window.STSettings = (function() {
     picker.value=selected;
   }
   function modelControls(){el('gemini-refresh-models').disabled=!hasKey||modelsLoading||sending||removing||!!el('gemini-api-key').value.trim();}
+  function showKeyVerified(verified){el('gemini-key-verified').classList.toggle('hidden',!verified);}
   function invalidateModels(){
+    showKeyVerified(false);
     modelsTicket++;modelsLoaded=false;modelsLoading=false;modelList=[];renderModels();modelControls();
     el('gemini-model-status').textContent=hasKey?'Refresh to load models for the saved API key.':'Save an API key to load available models.';
   }
   function loadModels(force){
     if(!readModels||!hasKey||modelsLoading||sending||removing||el('gemini-api-key').value.trim()||(!force&&modelsLoaded))return;
-    var ticket=++modelsTicket;modelsLoading=true;modelControls();el('gemini-model-status').textContent='Loading available models…';
+    var ticket=++modelsTicket;modelsLoading=true;showKeyVerified(false);modelControls();el('gemini-model-status').textContent='Loading available models…';
     readModels(function(response){
       if(ticket!==modelsTicket)return;
       modelsLoading=false;
       if(!response.ok){el('gemini-model-status').textContent=response.error.message;modelControls();return;}
+      showKeyVerified(true);
       modelList=Array.isArray(response.data.models)?response.data.models:[];modelsLoaded=true;renderModels();modelControls();
       el('gemini-model-status').textContent=modelList.length?'Models reported by Gemini for the saved API key. Usage depends on its quota and permissions.':'No compatible text models were returned for this API key.';
     });
@@ -163,7 +166,7 @@ window.STSettings = (function() {
     el('settings-close').onclick=close;el('settings-cancel').onclick=close;el('settings-retry').onclick=write;
     el('gemini-delete-key').onclick=deleteKey;
     el('gemini-refresh-models').onclick=function(){loadModels(true);};
-    el('gemini-api-key').addEventListener('input',function(){modelsTicket++;modelsLoading=false;modelControls();if(this.value.trim())el('gemini-model-status').textContent='The model list will refresh after the new API key is saved.';});
+    el('gemini-api-key').addEventListener('input',function(){showKeyVerified(false);modelsTicket++;modelsLoading=false;modelControls();if(this.value.trim())el('gemini-model-status').textContent='The model list will refresh after the new API key is saved.';});
     el('settings-factory-reset').onclick=factoryReset;
     el('settings-dialog').addEventListener('keydown',unlockMode);
     el('settings-dialog').addEventListener('close',resetModeSelector);
