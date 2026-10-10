@@ -213,7 +213,7 @@ var ST_TEXT_RESOURCES = {
   "assistant.missing_explanation": "Gemini returned no explanation. Ask it to explain the selected variables, assumptions and supporting evidence before evaluating these proposals.",
   "assistant.review_proposals": "Review the proposed scenario below before creating a simulation.",
   "assistant.incomplete_response": "Gemini returned incomplete scenario data. Please try again.",
-  "assistant.history_saved": "Messages are saved with this simulation. Sending shares the selected saved simulation with Google Gemini.",
+  "assistant.history_saved": "Messages are saved with this simulation. Sending saves pending case changes and shares the selected simulation with Google Gemini.",
   "assistant.progress_saved": "Check the saved case",
   "assistant.progress_waiting": "Wait for Gemini and validate proposed changes",
   "assistant.progress_ready": "Response ready to review",
@@ -846,4 +846,5 @@ function resolveTextResources_(source) {
     return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   });
 }
+
 

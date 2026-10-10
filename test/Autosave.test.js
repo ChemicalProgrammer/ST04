@@ -69,3 +69,31 @@ test('disabling autosave cancels an already scheduled background write',()=>{
  const c=clock(),h=setup(c);h.edit('pending');c.advance(1000);h.queue.configure({enabled:false,intervalMs:1000});c.advance(60000);
  assert.equal(h.sent.length,0);assert(h.queue.pending());
 });
+
+function geminiFlush(h,prepareCaseDraft){
+ const source=fs.readFileSync('apps-script/Client.html','utf8');
+ const start=source.indexOf('    function flushForServer()');
+ const end=source.indexOf('    async function leaveCase()',start);
+ const ctx={prepareCaseDraft,autosave:h.queue,automaticSaving:()=>false,Promise};
+ vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);
+ return ctx.flushForServer;
+}
+test('Gemini saves the current manual draft and waits for all pending edits',async()=>{
+ const c=clock(),h=setup(c);h.queue.configure({enabled:false});
+ const flush=geminiFlush(h,()=>{h.edit('current simulation inputs');return Promise.resolve();});
+ let ready=false;const prepared=flush().then(()=>{ready=true;});await Promise.resolve();
+ assert.equal(h.sent[0].payload.value,'current simulation inputs');assert.equal(ready,false);
+ h.edit('newer simulation inputs');h.sent[0].done({ok:true,data:{revision:2}});
+ assert.equal(h.sent[1].payload.value,'newer simulation inputs');assert.equal(ready,false);
+ h.sent[1].done({ok:true,data:{revision:3}});await prepared;assert.equal(ready,true);
+ h.edit('later edit');c.advance(60000);assert.equal(h.sent.length,2);h.queue.reset();
+});
+test('Gemini preparation blocks invalid drafts and save failures',async()=>{
+ const c=clock(),h=setup(c);h.queue.configure({enabled:false});
+ await assert.rejects(geminiFlush(h,()=>Promise.reject(new Error('invalid inputs')))(),/invalid inputs/);
+ assert.equal(h.sent.length,0);h.edit('unsaved');
+ const prepared=geminiFlush(h,()=>Promise.resolve())();await Promise.resolve();
+ h.sent[0].done({ok:false,error:{code:'NETWORK_ERROR',message:'offline'}});
+ await assert.rejects(prepared,/offline/);assert.equal(h.queue.pending(),true);h.queue.reset();
+});
+

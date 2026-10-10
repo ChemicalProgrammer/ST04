@@ -176,7 +176,9 @@
     window.addEventListener('st-save-policy-change',configureSaving);
     function prepareCaseDraft(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
     function flushCase(force){return prepareCaseDraft().then(function(){return force===true||automaticSaving()?autosave.flush():undefined;});}
-    function flushForServer(){return prepareCaseDraft().then(function(){if(!automaticSaving()&&autosave.pending())throw new Error('Save the case using the Save icon before asking Gemini.');return autosave.flush();});}
+    // Case questions use the server's saved context: explicitly save the latest
+    // draft before sending, including when background autosave is disabled.
+    function flushForServer(){return prepareCaseDraft().then(function(){return autosave.flush();});}
     async function leaveCase(){
       if(!state.activeCase||!autosave.pending())return true;
       if(automaticSaving()){await flushCase();return true;}
