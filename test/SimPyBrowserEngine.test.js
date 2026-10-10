@@ -95,3 +95,38 @@ test('DES pool uses two independent runtimes, reuses them and bounds queued jobs
  cancelled=true;const results=await settled;assert(results.every(r=>r.reason.message==='BATCH_CANCELLED'));assert.equal(live,0);engine.close();
  const small=createSimPyBrowserEngine({...host,navigator:{hardwareConcurrency:8,deviceMemory:2}},{});assert.equal(small.size,1);small.close();
 });
+
+test('DES streams provisional round-one frames before completion without changing final physics',async()=>{
+ const input=fixture();input.run.durationSeconds=60;input.run.shiftSeconds=20;
+ const payload=adaptSimPyInput(input);
+ const code=`import sys,json,itertools
+from unittest.mock import patch
+sys.path[:0]=["src/simulation/python","src/simulation/python/vendor/simpy-4.1.2-py3-none-any.whl"]
+from st_simpy_engine import simulate_line
+payload=json.load(sys.stdin)
+reference=simulate_line(payload)
+partials=[]
+with patch("st_simpy_engine.time.perf_counter",side_effect=itertools.count()):
+    final=simulate_line(payload,on_partial=lambda text:partials.append(json.loads(text)))
+reference['result']['diagnostics'].pop('wallTimeSeconds')
+final['result']['diagnostics'].pop('wallTimeSeconds')
+print(json.dumps(dict(reference=reference,final=final,partials=partials),allow_nan=False))`;
+ const evidence=JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify(payload),encoding:'utf8'}));
+ assert.deepEqual(evidence.final,evidence.reference);assert(evidence.partials.length>1);assert(evidence.partials[0].calculatedThroughSeconds<60);
+ const partials=[];let completed=false;
+ class Worker {
+  postMessage(task){assert.equal(task.stream,true);queueMicrotask(()=>{
+   this.onmessage({data:{type:'ready',id:task.id}});
+   for(const result of evidence.partials)this.onmessage({data:{type:'partial',id:task.id,result}});
+   this.onmessage({data:{type:'result',id:task.id,response:evidence.final}});
+  });}terminate(){}
+ }
+ const host={Worker,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout,clearTimeout,setInterval,clearInterval};
+ const engine=createSimPyBrowserEngine(host,{});
+ const response=await engine.run(input,{onPartial:partial=>{assert.equal(completed,false);assert.equal(partial.provisional,true);assert.equal(partial.durationSeconds,60);assert(partial.calculatedThroughSeconds>0&&partial.calculatedThroughSeconds<60);assert.equal(partial.summary.lineOeePercent,null);partials.push(partial);}});completed=true;
+ assert.equal(response.ok,true);assert.equal(response.result.provisional,undefined);assert.deepEqual(response.result,normalizeSimPyResult(evidence.final.result,input,payload));
+ const merged=[];for(const partial of partials){const last=merged.at(-1)?.virtualSecond??-1;merged.push(...partial.samples.filter(f=>f.virtualSecond>last));}
+ assert.deepEqual(merged,response.result.samples.filter(f=>f.virtualSecond<60));
+ assert(partials.at(-1).shifts.length>=2);engine.close();
+});
+

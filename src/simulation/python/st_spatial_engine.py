@@ -131,11 +131,11 @@ class SpatialConveyor(Conveyor):
 
 
 class SpatialSimulation(SimPySimulation):
-    def __init__(self, payload, progress=None, cancelled=None):
+    def __init__(self, payload, progress=None, cancelled=None, on_partial=None):
         machine_ids = {m['id'] for m in payload['machines']}
         compatible = deepcopy(payload)
         compatible['run']['commands'] = [c for c in payload['run'].get('commands', []) if c['equipmentId'] in machine_ids]
-        super().__init__(compatible, progress, cancelled)
+        super().__init__(compatible, progress, cancelled, on_partial)
         self.payload, self.run = payload, payload['run']
         self.conveyors = [SpatialConveyor(c, i, mode=c.get('initialMode', 'AUTO')) for i, c in enumerate(payload['conveyors'])]
         self.initial_inventory = 0
@@ -362,3 +362,4 @@ class SpatialSimulation(SimPySimulation):
         result['limitations'] = ['Serial single-item machines; no batches, merges, splits, conversion ratios or rejects.', 'Spatial discrete products differ from the current fluid packet model; stochastic schedules are not paired.', 'Conveyor speed is constant while enabled; no conveyor acceleration ramp.', 'Residual discharge after Back-up stop spills at a full inlet, recorded as material loss; this requires plant calibration.', 'OEE remains unavailable pending a validated plant reference and reject/quality model.']
         result['diagnostics'].update(spatialCoordinates='product leading edges in mm; head stops at length, followers at packed pitch',photoeyes='per-product leading/trailing edge crossings, sustained occupancy debounce',overflowModel='counted residual discharge after response delay; full inlet spills')
         return result
+

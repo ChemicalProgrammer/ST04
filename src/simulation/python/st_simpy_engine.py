@@ -61,10 +61,13 @@ if simpy is not None:
 
 
 class SimPySimulation(Simulation):
-    def __init__(self, payload, progress=None, cancelled=None):
+    def __init__(self, payload, progress=None, cancelled=None, on_partial=None):
         self.env = PriorityEnvironment()
         self.progress = progress
         self.cancelled = cancelled
+        self.on_partial = on_partial
+        self.partial_sent_samples = 0
+        self.partial_sent_at = None
         self.pending_sample = False
         super().__init__(payload)
         shift = self.run.get("shiftSeconds", self.duration)
@@ -123,6 +126,7 @@ class SimPySimulation(Simulation):
                 self.sample()
                 if self.progress:
                     self.progress(min(1.0, self.now / self.duration))
+                self.publish_partial()
         self.advance(self.duration)
         if not self.samples or self.samples[-1]["virtualSecond"] != self.duration:
             self.sample()
@@ -130,6 +134,30 @@ class SimPySimulation(Simulation):
         if self.progress:
             self.progress(1.0)
         return self.result()
+
+    def publish_partial(self):
+        if not self.on_partial or self.now <= EPS or self.now >= self.duration - EPS:
+            return
+        wall = time.perf_counter()
+        if self.partial_sent_at is not None and wall - self.partial_sent_at < 0.5:
+            return
+        planned_duration = self.duration
+        try:
+            # Reporting uses elapsed time; the scheduler keeps its full horizon.
+            self.duration = self.now
+            snapshot = self.result()
+        finally:
+            self.duration = planned_duration
+        shift = self.run.get('shiftSeconds', planned_duration)
+        start = max(1, self.partial_sent_samples - 1)
+        snapshot['samples'] = [frame for index, frame in enumerate(self.samples)
+            if index == 0 or index >= start or abs(frame['virtualSecond'] / shift - round(frame['virtualSecond'] / shift)) < EPS]
+        snapshot['events'] = []
+        snapshot['calculatedThroughSeconds'] = self.now
+        # Serialize now so subsequent events cannot mutate the published snapshot.
+        self.on_partial(json.dumps(snapshot, allow_nan=False))
+        self.partial_sent_samples = len(self.samples)
+        self.partial_sent_at = wall
 
     def result(self):
         result = super().result()
@@ -141,7 +169,7 @@ class SimPySimulation(Simulation):
         return result
 
 
-def simulate_line(payload, progress=None, cancelled=None):
+def simulate_line(payload, progress=None, cancelled=None, on_partial=None):
     if simpy is None:
         return {"ok": False, "error": {"code": "MISSING_DEPENDENCY",
             "message": "Install SimPy locally: python -m pip install -r requirements.txt"}}
@@ -150,10 +178,10 @@ def simulate_line(payload, progress=None, cancelled=None):
         if isinstance(payload, dict) and isinstance(payload.get('metadata'), dict) and payload['metadata'].get('conveyorModel') == 'SPATIAL_FINITE_PRODUCTS':
             from st_spatial_engine import SpatialSimulation, validate as validate_spatial
             validate_spatial(payload)
-            result = SpatialSimulation(deepcopy(payload), progress, cancelled).execute()
+            result = SpatialSimulation(deepcopy(payload), progress, cancelled, on_partial).execute()
         else:
             validate(payload)
-            result = SimPySimulation(deepcopy(payload), progress, cancelled).execute()
+            result = SimPySimulation(deepcopy(payload), progress, cancelled, on_partial).execute()
         result["diagnostics"]["wallTimeSeconds"] = time.perf_counter() - started
         return {"ok": True, "result": result}
     except Cancelled as error:
@@ -209,3 +237,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

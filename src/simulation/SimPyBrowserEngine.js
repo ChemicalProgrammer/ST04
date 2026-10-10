@@ -144,11 +144,12 @@ export function simPyWorkerMain(compactResponse) {
       pyodide.globals.set('_st_input',JSON.stringify(task.payload));
       let lastProgressAt=0;
       pyodide.globals.set('_st_progress',value=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value});}});
+      pyodide.globals.set('_st_partial',task.stream?json=>self.postMessage({type:'partial',id:task.id,result:JSON.parse(json)}):null);
       try {
-        const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress), allow_nan=False)');
+        const json=pyodide.runPython('import json\njson.dumps(simulate_line(json.loads(_st_input), progress=_st_progress, on_partial=_st_partial), allow_nan=False)');
         const response=JSON.parse(json);
         self.postMessage({type:'result',id:task.id,response:task.summaryOnly?compactResponse(response,task.payload):response});
-      } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');}
+      } finally {pyodide.globals.delete('_st_input');pyodide.globals.delete('_st_progress');pyodide.globals.delete('_st_partial');}
     } catch(error) {self.postMessage({type:'error',id:task.id,message:error.message,phase});}
   };
 }
@@ -188,12 +189,21 @@ function createSerialSimPyBrowserEngine(host, files) {
       activeWorker.onmessage=event=>{
         const message=event.data;if(message.id!==id||completed)return;
         if(message.type==='progress'){lastProgress=Math.max(lastProgress,Math.min(1,message.value));options.progress?.(lastProgress);}
+        if(message.type==='partial'&&options.onPartial&&!options.summaryOnly){
+          try {
+            const elapsed=message.result.calculatedThroughSeconds;
+            if(!(elapsed>0&&elapsed<input.run.durationSeconds))throw new Error('Invalid DES partial horizon');
+            const partial=normalizeSimPyResult(message.result,{...input,run:{...input.run,durationSeconds:elapsed}},payload);
+            partial.durationSeconds=input.run.durationSeconds;partial.provisional=true;partial.calculatedThroughSeconds=elapsed;
+            options.onPartial(partial);
+          }catch(error){finish(error);}
+        }
         if(message.type==='loading')host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Loading Python runtime · '+new URL(indexURL).hostname+'…'}}));
         if(message.type==='ready'){ready=true;host.clearTimeout(timer);timer=host.setTimeout(()=>finish(new Error('SimPy calculation timed out. Shorten the duration or simplify the line.')),300000);host.dispatchEvent?.(new host.CustomEvent('st-simpy-status',{detail:{message:'Calculating with SimPy 4.1.2…'}}));}
         if(message.type==='result')finish(null,message.response);
         if(message.type==='error')finish(Object.assign(new Error(message.message),{code:message.phase==='runtime'?'SIMPY_RUNTIME_LOAD_FAILED':'SIMPY_MODEL_FAILED'}));
       };
-      activeWorker.postMessage({id,payload,files,indexURL:indexURL,summaryOnly:options.summaryOnly===true});
+      activeWorker.postMessage({id,payload,files,indexURL:indexURL,summaryOnly:options.summaryOnly===true,stream:!!options.onPartial&&!options.summaryOnly});
     });
   }
   host.addEventListener?.('pagehide',()=>{closed=true;abortActive?.();dispose();});
@@ -226,3 +236,4 @@ export function createSimPyBrowserEngine(host, files) {
     return slot.engine.run(input,options).finally(()=>slot.pending--);
   },close(){closed=true;slots.forEach(slot=>slot.engine.close());}};
 }
+
