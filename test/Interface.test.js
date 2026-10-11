@@ -79,6 +79,25 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const w=dom.window,d=w.document;
  return {w,d,dom,errors,calls,media,storedCases:()=>copy(cases),api,click:async selector=>{if(selector.startsWith('.message-dialog'))await waitFor(()=>d.querySelector(selector));d.querySelector(selector).click();await settle();},visible:id=>!d.getElementById(id).classList.contains('hidden')};
 }
+test('UI: session transitions finish the outgoing animation before switching screens',async()=>{
+ const h=await setup({uiMode:'BASIC'});try{
+  const animations=[];
+  h.w.HTMLElement.prototype.animate=function(frames,options){
+   let resolve,reject;const finished=new Promise((ok,fail)=>{resolve=ok;reject=fail;});
+   const animation={target:this,frames,options,finished,pause(){},play(){resolve();},finish(){resolve();},cancel(){reject(Error('cancelled'));}};
+   animations.push(animation);return animation;
+  };
+  await h.click('#sign-in-button');await waitFor(()=>animations.some(a=>a.options.duration===180));
+  const exit=animations.find(a=>a.options.duration===180);assert(h.visible('auth-panel'));assert(!h.visible('application'));exit.finish();
+  await waitFor(()=>h.visible('application'));assert(animations.some(a=>a.target.id==='application'&&a.options.duration===480));
+  await h.click('#cases-sign-out');await waitFor(()=>animations.some(a=>a.options.duration===140));
+  assert(h.visible('application'));assert(!h.visible('auth-panel'));animations.find(a=>a.options.duration===140).finish();
+  await waitFor(()=>h.visible('auth-panel'));assert(animations.some(a=>a.options.duration===260));
+  assert.equal(h.d.activeElement.id,'sign-in-button');assert.deepEqual(h.errors,[]);
+  const count=animations.length;h.media.matches=true;await h.click('#sign-in-button');await waitFor(()=>h.visible('application'));assert.equal(animations.length,count);
+ }finally{h.dom.window.close();}
+});
+
 test('UI: Equipment exports current inputs to Sheets in both modes, opens a safe link and recovers from failure',async()=>{
  for(const uiMode of ['BASIC','ADVANCE']){
   const h=await setup({uiMode,autosaveSeconds:180});try{

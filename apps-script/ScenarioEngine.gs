@@ -1223,5 +1223,6 @@ function planScenarios(simulation){
 }
 
 
+
 return {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })();
