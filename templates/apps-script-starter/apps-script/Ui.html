@@ -1,0 +1,18 @@
+<script>
+window.AppUI=(function(){
+  var paths={grid:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',plus:'M12 5v14M5 12h14',close:'m6 6 12 12M18 6 6 18',settings:'M4 7h16M4 17h16M8 4v6M16 14v6',logout:'M10 4H4v16h6M14 8l4 4-4 4M8 12h10',refresh:'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1'};
+  function icons(){document.querySelectorAll('[data-icon]').forEach(function(element){var path=paths[element.dataset.icon];if(!path)return;var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('class','icon');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');var line=document.createElementNS(svg.namespaceURI,'path');line.setAttribute('d',path);svg.appendChild(line);element.prepend(svg);});}
+  var timer;
+  function notice(message){var target=document.getElementById('notice');target.textContent=message;target.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(function(){target.classList.add('hidden');},4000);}
+  function download(record){var blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=record.id+'.json';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+  return {icons:icons,notice:notice,download:download};
+})();
+window.AppDialog={confirm:function(message){return new Promise(function(resolve){
+  var focus=document.activeElement,dialog=document.createElement('dialog');dialog.setAttribute('aria-label','Confirm action');
+  var body=document.createElement('div');body.className='dialog-content';var text=document.createElement('p');text.textContent=message;
+  var actions=document.createElement('div');actions.className='dialog-actions';
+  function finish(value){dialog.close();dialog.remove();if(focus?.isConnected)focus.focus();resolve(value);}
+  [['Cancel',false],['Continue',true]].forEach(function(pair){var button=document.createElement('button');button.textContent=pair[0];if(!pair[1])button.className='secondary';button.onclick=function(){finish(pair[1]);};actions.appendChild(button);});
+  dialog.addEventListener('cancel',function(event){event.preventDefault();finish(false);});body.append(text,actions);dialog.append(body);document.body.append(dialog);dialog.showModal();
+});}};
+</script>

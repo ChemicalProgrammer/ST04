@@ -1,0 +1,42 @@
+<script>
+window.AppMotion=(function(){
+  var active=new WeakMap();
+  function reduced(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;}
+  function token(name,fallback){return getComputedStyle(document.documentElement).getPropertyValue('--motion-'+name).trim()||fallback;}
+  function duration(name,fallback){var value=token(name,''),number=parseFloat(value);return Number.isFinite(number)?Math.max(0,number*(value.endsWith('ms')?1:value.endsWith('s')?1000:1)):fallback;}
+  function cancel(element){var animation=element&&active.get(element);if(animation){active.delete(element);animation.cancel();}}
+  function play(element,frames,options){
+    cancel(element);
+    if(!element?.animate||reduced())return null;
+    var animation=element.animate(frames,options);active.set(element,animation);
+    function clear(){if(active.get(element)===animation)active.delete(element);}
+    animation.finished?.then(clear,clear);
+    return animation;
+  }
+  function reveal(element){return play(element,[{opacity:.65,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:duration('reveal',160),easing:'ease-out'});}
+  function enter(element,preset){
+    var workspace=preset==='workspace';
+    var animation=play(element,[{opacity:0,transform:'translateY('+(workspace?22:8)+'px)'},{opacity:1,transform:'translateY(0)'}],{
+      duration:duration(workspace?'workspace-enter':'welcome-enter',workspace?480:260),easing:token('ease-enter','cubic-bezier(0.22, 1, 0.36, 1)'),fill:'both'
+    });
+    if(!animation)return null;
+    animation.pause();
+    requestAnimationFrame(function(){if(active.get(element)===animation)animation.play();});
+    animation.finished.then(function(){animation.cancel();},function(){});
+    return animation;
+  }
+  async function exit(element,preset){
+    var welcome=preset==='welcome',milliseconds=duration(welcome?'welcome-exit':'workspace-exit',welcome?180:140);
+    var animation=play(element,[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY('+(welcome?-10:-4)+'px)'}],{duration:milliseconds,easing:'ease-in',fill:'both'});
+    if(!animation)return;
+    var timer=setTimeout(function(){animation.finish();},Math.max(500,milliseconds+100));
+    try{await animation.finished;}catch(ignore){}finally{clearTimeout(timer);animation.cancel();}
+  }
+  function panel(element,visible){return play(element,visible?
+    [{transform:'translateX(18px)',opacity:.25},{transform:'translateX(0)',opacity:1}]:
+    [{transform:'translateX(0)',opacity:1},{transform:'translateX(18px)',opacity:0}],
+    {duration:duration(visible?'panel-enter':'panel-exit',visible?180:150),easing:visible?'ease-out':'ease-in'});
+  }
+  return {reduced:reduced,duration:duration,cancel:cancel,play:play,reveal:reveal,enter:enter,exit:exit,panel:panel};
+})();
+</script>

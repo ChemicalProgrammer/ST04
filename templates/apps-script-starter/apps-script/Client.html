@@ -1,0 +1,111 @@
+<script>
+(function(){
+  var state={bootstrap:null,projects:[],selected:null,dirty:false,busy:false};
+  var el=function(id){return document.getElementById(id);};
+  var labels={PLANNED:'Planned',ACTIVE:'Active',COMPLETE:'Complete'};
+  function fields(){return {name:el('project-name').value.trim(),status:el('project-status').value,dueDate:el('project-date').value,description:el('project-description').value};}
+  function editable(record){return {name:record.name,status:record.status,dueDate:record.dueDate,description:record.description};}
+  function syncEditor(){
+    var saved=!!state.selected?.id;
+    el('save-project').disabled=state.busy||saved&&!state.dirty;
+    ['delete-project','reload-project'].forEach(function(id){el(id).disabled=state.busy||!saved;});
+    el('export-project').disabled=state.busy||!state.selected;
+    el('editor-state').textContent=state.dirty?'Unsaved changes':saved?'Saved · revision '+state.selected.revision:state.selected?'New project':'';
+  }
+  async function perform(task,errorId){
+    if(state.busy)return;
+    state.busy=true;el(errorId).textContent='';el('request-progress').classList.remove('hidden');
+    var controls=Array.from(document.querySelectorAll('button,input,select,textarea')).map(function(node){var previous=node.disabled;node.disabled=true;return {node:node,previous:previous};});
+    try{await task();}catch(error){el(errorId).textContent=error.message||'The operation failed.';}
+    finally{state.busy=false;controls.forEach(function(item){if(item.node.isConnected)item.node.disabled=item.previous;});el('request-progress').classList.add('hidden');el('project-list').querySelectorAll('button').forEach(function(button){button.disabled=false;});syncEditor();}
+  }
+  function renderProjects(){
+    var query=el('project-search').value.trim().toLowerCase(),status=el('project-filter').value;
+    var visible=state.projects.filter(function(project){return project.name.toLowerCase().includes(query)&&(status==='ALL'||project.status===status);});
+    el('project-count').textContent=state.projects.length+' project'+(state.projects.length===1?'':'s')+' in your workspace';el('project-list').replaceChildren();
+    visible.forEach(function(project){
+      var card=document.createElement('button');card.className='project-card';card.dataset.projectId=project.id;card.setAttribute('aria-pressed',String(state.selected?.id===project.id));card.disabled=state.busy;
+      var name=document.createElement('strong');name.textContent=project.name;var footer=document.createElement('span');footer.className='card-footer';
+      var badge=document.createElement('span');badge.className='badge';badge.textContent=labels[project.status]||project.status;
+      var date=document.createElement('small');date.textContent=project.dueDate?'Due '+project.dueDate:'No due date';footer.append(badge,date);card.append(name,footer);card.onclick=function(){openProject(project.id);};el('project-list').append(card);
+    });
+    el('empty-state').classList.toggle('hidden',visible.length>0);
+    el('empty-state').textContent=state.projects.length?'No projects match your filters.':'No projects yet. Create your first project to get started.';
+  }
+  function upsert(record){state.projects=state.projects.filter(function(item){return item.id!==record.id;}).concat([{id:record.id,name:record.name,status:record.status,dueDate:record.dueDate,revision:record.revision,updatedAt:record.updatedAt}]).sort(function(a,b){return b.updatedAt.localeCompare(a.updatedAt);});}
+  function showEditor(record){
+    state.selected=record;state.dirty=false;
+    el('project-name').value=record.name;el('project-status').value=record.status;el('project-date').value=record.dueDate;el('project-description').value=record.description;
+    el('editor-title').textContent=record.id?'Project details':'New project';el('editor-error').textContent='';
+    var panel=el('project-editor');panel.classList.remove('hidden');panel.inert=false;panel.setAttribute('aria-hidden','false');el('workspace').classList.add('editor-open');AppMotion.panel(panel,true);
+    syncEditor();renderProjects();if(!state.busy)el('project-name').focus();
+  }
+  function hideEditor(){
+    AppMotion.cancel(el('project-editor'));el('project-editor').classList.add('hidden');el('project-editor').inert=true;el('project-editor').setAttribute('aria-hidden','true');el('workspace').classList.remove('editor-open');
+    state.selected=null;state.dirty=false;el('project-form').reset();el('editor-error').textContent='';syncEditor();renderProjects();
+  }
+  async function discard(){return !state.dirty||await AppDialog.confirm('Discard the unsaved changes in this project?');}
+  async function openProject(id){
+    if(state.busy||!await discard())return;
+    await perform(async function(){showEditor(await AppApi.call('getProject',[id]));},'page-error');
+    if(state.selected?.id===id)el('project-name').focus();
+  }
+  async function signIn(){
+    if(state.busy)return;el('auth-status').dataset.state='loading';el('auth-status').textContent='Preparing your workspace…';
+    await perform(async function(){
+      var bootstrap=await AppApi.call('getBootstrap');
+      await AppMotion.exit(document.querySelector('.auth-card'),'welcome');
+      state.bootstrap=bootstrap;state.projects=bootstrap.projects;AppPreferences.apply(bootstrap.preferences);
+      el('app-name').textContent=bootstrap.app.name;el('account-label').textContent=bootstrap.user.email;el('app-version').textContent='Version '+bootstrap.app.version;
+      el('auth-panel').classList.add('hidden');el('application').classList.remove('hidden');renderProjects();AppMotion.enter(el('application'),'workspace');headerSize();
+    },'auth-error');
+    el('auth-status').textContent='';el('auth-status').dataset.state='idle';
+  }
+  async function signOut(){
+    if(state.busy||!await discard())return;
+    await perform(async function(){
+      await AppMotion.exit(el('application'),'workspace');hideEditor();state.bootstrap=null;state.projects=[];
+      el('project-list').replaceChildren();el('project-search').value='';el('project-filter').value='ALL';el('account-label').textContent='';el('notice').classList.add('hidden');el('page-error').textContent='';
+      el('application').classList.add('hidden');el('auth-panel').classList.remove('hidden');AppMotion.enter(document.querySelector('.auth-card'),'welcome');
+    },'page-error');
+    el('sign-in').focus();
+  }
+  async function saveProject(event){
+    event.preventDefault();if(!state.selected)return;
+    await perform(async function(){
+      var request=fields(),record;
+      if(state.selected.id){request.id=state.selected.id;request.expectedRevision=state.selected.revision;record=await AppApi.call('saveProject',[request]);}
+      else record=await AppApi.call('createProject',[request]);
+      upsert(record);showEditor(record);AppUI.notice('Project saved.');
+    },'editor-error');
+  }
+  async function deleteProject(){
+    if(state.busy||!state.selected?.id)return;
+    if(!await AppDialog.confirm('Move this project to the trash? Unsaved edits will be discarded.'))return;
+    await perform(async function(){var id=state.selected.id;await AppApi.call('deleteProject',[{id:id,expectedRevision:state.selected.revision}]);state.projects=state.projects.filter(function(item){return item.id!==id;});hideEditor();AppUI.notice('Project moved to the trash.');},'editor-error');
+  }
+  function openSettings(){
+    if(state.busy||!state.bootstrap)return;
+    el('theme').value=state.bootstrap.preferences.theme;el('accent').value=state.bootstrap.preferences.accent;el('settings-error').textContent='';
+    el('settings-about').textContent=state.bootstrap.app.name+' · '+state.bootstrap.app.version+' — '+state.bootstrap.app.description;
+    el('developer-links').replaceChildren();state.bootstrap.app.developers.forEach(function(developer){var line=document.createElement('p');line.textContent=developer.name+' · '+developer.email;el('developer-links').append(line);});
+    el('settings-dialog').showModal();
+  }
+  function headerSize(){var height=document.querySelector('.app-header').getBoundingClientRect().height;if(height>0)document.documentElement.style.setProperty('--header-height',height+'px');}
+  document.addEventListener('DOMContentLoaded',function(){
+    AppUI.icons();el('sign-in').onclick=signIn;el('sign-out').onclick=signOut;
+    el('new-project').onclick=async function(){if(state.busy||!await discard())return;showEditor({name:'',status:'PLANNED',dueDate:'',description:''});};
+    el('close-editor').onclick=async function(){if(state.busy||!await discard())return;hideEditor();el('new-project').focus();};el('show-projects').onclick=el('close-editor').onclick;
+    el('project-search').oninput=renderProjects;el('project-filter').onchange=renderProjects;
+    el('refresh-projects').onclick=function(){perform(async function(){state.projects=await AppApi.call('listProjects');renderProjects();AppUI.notice('Project list updated.');},'page-error');};
+    el('project-form').onsubmit=saveProject;el('project-form').oninput=function(){if(!state.selected)return;state.dirty=JSON.stringify(fields())!==JSON.stringify(editable(state.selected));syncEditor();};
+    el('reload-project').onclick=function(){if(state.selected?.id)openProject(state.selected.id);};el('delete-project').onclick=deleteProject;
+    el('export-project').onclick=function(){if(state.selected)AppUI.download(Object.assign({},state.selected,fields(),{id:state.selected.id||'project-draft',draft:state.dirty||!state.selected.id}));};
+    el('open-settings').onclick=openSettings;el('close-settings').onclick=function(){if(!state.busy)el('settings-dialog').close();};
+    el('settings-dialog').addEventListener('cancel',function(event){if(state.busy)event.preventDefault();});
+    el('settings-form').onsubmit=function(event){event.preventDefault();perform(async function(){var settings=await AppApi.call('savePreferences',[{theme:el('theme').value,accent:el('accent').value}]);state.bootstrap.preferences=settings;AppPreferences.apply(settings);el('settings-dialog').close();AppUI.notice('Settings saved.');},'settings-error');};
+    window.addEventListener('resize',headerSize);if(window.ResizeObserver)new ResizeObserver(headerSize).observe(document.querySelector('.app-header'));
+    window.addEventListener('beforeunload',function(event){if(state.dirty||state.busy){event.preventDefault();event.returnValue='';}});
+  });
+})();
+</script>

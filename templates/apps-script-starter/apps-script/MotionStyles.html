@@ -1,0 +1,29 @@
+<style>
+:root {
+  --motion-ease-enter:cubic-bezier(0.22,1,0.36,1);
+  --motion-reveal:160ms;
+  --motion-dialog:150ms;
+  --motion-panel-enter:180ms;
+  --motion-panel-exit:150ms;
+  --motion-workspace-enter:480ms;
+  --motion-workspace-exit:140ms;
+  --motion-welcome-enter:260ms;
+  --motion-welcome-exit:180ms;
+  --motion-welcome-initial:280ms;
+  --motion-status-enter:240ms;
+}
+#auth-panel:not(.hidden) .auth-card { animation:welcome-card-enter var(--motion-welcome-initial) var(--motion-ease-enter) both; }
+@keyframes welcome-card-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+#auth-status[data-state=loading]:not(:empty) { animation:workspace-status-enter var(--motion-status-enter) ease-out both; }
+@keyframes workspace-status-enter { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+/* Native close is immediate; supporting browsers retain the top layer briefly
+   for a subtle exit transition. Older browsers retain normal dialog behavior. */
+dialog { opacity:0; transform:translateY(5px) scale(.995); transition:opacity var(--motion-dialog) ease,transform var(--motion-dialog) ease,overlay var(--motion-dialog) allow-discrete,display var(--motion-dialog) allow-discrete; }
+dialog[open] { opacity:1; transform:translateY(0) scale(1); }
+dialog::backdrop { opacity:0; transition:opacity var(--motion-dialog) ease,overlay var(--motion-dialog) allow-discrete,display var(--motion-dialog) allow-discrete; }
+dialog[open]::backdrop { opacity:1; }
+@starting-style { dialog[open] { opacity:0; transform:translateY(5px) scale(.995); } dialog[open]::backdrop { opacity:0; } }
+@media(prefers-reduced-motion:reduce) { dialog,dialog::backdrop { transition:none; transform:none; } }
+@keyframes subtle-pulse { to { opacity: .35; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+</style>

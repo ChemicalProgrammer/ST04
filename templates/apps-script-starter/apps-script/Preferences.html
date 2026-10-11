@@ -1,0 +1,10 @@
+<script>
+window.AppPreferences=(function(){
+  var current={theme:'system',accent:'indigo'},media=window.matchMedia('(prefers-color-scheme: dark)');
+  function paint(){document.documentElement.dataset.theme=current.theme==='system'?(media.matches?'dark':'light'):current.theme;document.documentElement.dataset.accent=current.accent;}
+  function apply(value){current={theme:value.theme,accent:value.accent};paint();try{localStorage.setItem('starter.appearance.v1',JSON.stringify(current));}catch(ignore){}}
+  try{var saved=JSON.parse(localStorage.getItem('starter.appearance.v1'));if(saved&&['system','light','dark'].includes(saved.theme)&&['indigo','teal','blue'].includes(saved.accent))current=saved;}catch(ignore){}
+  paint();media.addEventListener?.('change',paint);
+  return {apply:apply};
+})();
+</script>

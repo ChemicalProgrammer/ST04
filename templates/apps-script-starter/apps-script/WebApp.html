@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_top">
+  <?!= include_('DesignTokens'); ?>
+  <?!= include_('Styles'); ?>
+  <?!= include_('MotionStyles'); ?>
+  <?!= include_('Preferences'); ?>
+</head>
+<body>
+  <section id="auth-panel" class="auth-shell" aria-labelledby="welcome-title">
+    <div class="auth-card">
+      <div class="brand"><span class="brand-mark" data-icon="grid"></span><span>Workspace</span></div>
+      <div><h1 id="welcome-title">A place for your projects</h1><p class="muted">Keep the next step clear. Organize your work in one simple workspace.</p></div>
+      <button id="sign-in">Open workspace</button>
+      <p id="auth-status" role="status" aria-live="polite"></p>
+      <p id="auth-error" class="error-message" role="alert"></p>
+    </div>
+  </section>
+  <main id="application" class="hidden">
+    <header class="app-header">
+      <div class="brand"><span class="brand-mark" data-icon="grid"></span><span id="app-name">Projects</span></div>
+      <div class="header-actions"><span id="account-label"></span><button id="open-settings" class="secondary icon-button" data-icon="settings" title="Settings" aria-label="Settings"></button><button id="sign-out" class="secondary icon-button" data-icon="logout" title="Sign out" aria-label="Sign out"></button></div>
+    </header>
+    <div id="workspace" class="workspace">
+      <nav class="sidebar" aria-label="Workspace navigation"><button id="show-projects" data-icon="grid" aria-current="page">Projects</button><small id="app-version"></small></nav>
+      <section class="content" aria-labelledby="projects-title">
+        <div class="page-heading"><div><h1 id="projects-title">Your projects</h1><p id="project-count">A clear view of what matters.</p></div><button id="new-project" data-icon="plus">New project</button></div>
+        <div class="filters"><label>Search<input id="project-search" type="search" placeholder="Search projects"></label><label>Status<select id="project-filter"><option value="ALL">All statuses</option><option value="PLANNED">Planned</option><option value="ACTIVE">Active</option><option value="COMPLETE">Complete</option></select></label></div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button id="refresh-projects" class="secondary" data-icon="refresh">Refresh</button></div>
+        <p id="page-error" class="error-message" role="alert"></p>
+        <div id="project-list" class="project-grid"></div><p id="empty-state" class="empty hidden">No projects yet. Create your first project to get started.</p>
+      </section>
+    </div>
+    <aside id="project-editor" class="editor hidden" aria-labelledby="editor-title" aria-hidden="true" inert>
+      <div class="editor-heading"><h2 id="editor-title">Project</h2><button id="close-editor" class="secondary icon-button" data-icon="close" aria-label="Close project"></button></div>
+      <form id="project-form">
+        <label>Name<input id="project-name" maxlength="120" required autocomplete="off"></label>
+        <div class="field-row"><label>Status<select id="project-status"><option value="PLANNED">Planned</option><option value="ACTIVE">Active</option><option value="COMPLETE">Complete</option></select></label><label>Due date<input id="project-date" type="date"></label></div>
+        <label>Description<textarea id="project-description" maxlength="4000" placeholder="What needs to happen?"></textarea></label>
+        <p id="editor-error" class="error-message" role="alert"></p><p id="editor-state" class="muted" aria-live="polite"></p>
+        <div class="editor-actions"><button id="save-project" type="submit">Save project</button><button id="reload-project" class="secondary" type="button">Reload</button><button id="export-project" class="secondary" type="button">Export JSON</button><button id="delete-project" class="secondary" type="button">Delete</button></div>
+      </form>
+    </aside>
+  </main>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form"><h2 id="settings-title">Settings</h2><label>Theme<select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><label>Accent<select id="accent"><option value="indigo">Indigo</option><option value="teal">Teal</option><option value="blue">Blue</option></select></label><p id="settings-about" class="muted"></p><div id="developer-links"></div><p id="settings-error" class="error-message" role="alert"></p><div class="dialog-actions"><button id="close-settings" class="secondary" type="button">Cancel</button><button id="save-settings" type="submit">Save settings</button></div></form>
+  </dialog>
+  <div id="request-progress" class="hidden" role="status" aria-label="Working" aria-live="polite"><span></span></div>
+  <div id="notice" class="hidden" role="status" aria-live="polite"></div>
+  <?!= include_('Motion'); ?>
+  <?!= include_('ApiClient'); ?>
+  <?!= include_('Ui'); ?>
+  <?!= include_('Client'); ?>
+</body>
+</html>

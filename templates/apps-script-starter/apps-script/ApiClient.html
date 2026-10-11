@@ -1,0 +1,15 @@
+<script>
+window.AppApi=(function(){
+  var allowed=new Set(['getBootstrap','listProjects','getProject','createProject','saveProject','deleteProject','savePreferences']);
+  function call(name,args){return new Promise(function(resolve,reject){
+    if(!allowed.has(name)){reject(new Error('Unknown operation.'));return;}
+    if(!window.google?.script?.run){reject(new Error('Open the deployed app to connect to your workspace.'));return;}
+    var runner=google.script.run.withSuccessHandler(function(response){
+      if(!response||typeof response.ok!=='boolean'){reject(new Error('The server returned an incomplete response. Refresh before retrying a create operation.'));return;}
+      if(response.ok)resolve(response.data);else reject(Object.assign(new Error(response.error?.message||'The request failed.'),{code:response.error?.code}));
+    }).withFailureHandler(function(){reject(new Error('The connection failed. Refresh the project list before repeating a create operation.'));});
+    try{runner[name].apply(runner,args||[]);}catch(error){reject(error);}
+  });}
+  return {call:call};
+})();
+</script>
