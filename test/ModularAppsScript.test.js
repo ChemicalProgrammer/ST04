@@ -7,6 +7,15 @@ import { renderAppsScript } from '../scripts/render-apps-script.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+test('Client wrapper parses directly without server template syntax inside JavaScript',()=>{
+  const source=fs.readFileSync(path.join(repositoryRoot,'apps-script','Client.html'),'utf8');
+  assert(!source.includes('<?'));
+  new Function(source.replace(/<\/?script>/g,''));
+  const rendered=renderAppsScript(repositoryRoot).html;
+  assert(!/\/\/ include Client[A-Za-z]+/.test(rendered));
+  assert.match(rendered,/function renderPlaybackFrame\(/);
+});
+
 test('modular Apps Script application contains all server modules and resolved HTML includes', () => {
   const output = renderAppsScript(repositoryRoot);
   const code = output.server;
@@ -117,4 +126,5 @@ test('modular application includes shared three-tier planning, dialogs and autom
   assert(index.includes('id="settings-autosave-seconds"'));
   assert(!index.includes('id="reload-case"'));
 });
+
 

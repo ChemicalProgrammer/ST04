@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export function readClientSource(repositoryRoot = root) {
   const read = name => fs.readFileSync(path.join(repositoryRoot,'apps-script',name+'.html'),'utf8');
   function expand(source) {
-    return source.replace(/<\?!=\s*include_\('([A-Za-z0-9]+)'\);\s*\?>/g,(_,name)=>expand(read(name)));
+    return source.replace(/^[ \t]*\/\/ include (Client[A-Za-z]+)[ \t]*$/gm,(_,name)=>expand(read(name)));
   }
   return expand(read('Client'));
 }
