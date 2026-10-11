@@ -12,6 +12,7 @@ window.STWhatIf = (function() {
     return item;
   }
   function render(simulation,target,create){
+    window.STMotion?.watchCards(target);
     var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
     var proposals=visibleProjects(plan);STScenarioExplorer.tools(target,simulation,plan,create);
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));

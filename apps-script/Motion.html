@@ -1,6 +1,7 @@
 <script>
 window.STMotion=(function(){
   var active=new WeakMap();
+  var cardObservers=new WeakMap();
   function reduced(){return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;}
   function token(name,fallback){return getComputedStyle(document.documentElement).getPropertyValue('--motion-'+name).trim()||fallback;}
   function duration(name,fallback){var value=token(name,''),number=parseFloat(value);return Number.isFinite(number)?Math.max(0,number*(value.endsWith('ms')?1:value.endsWith('s')?1000:1)):fallback;}
@@ -37,6 +38,33 @@ window.STMotion=(function(){
     [{transform:'translateX(0)',opacity:1},{transform:'translateX(18px)',opacity:0}],
     {duration:duration(visible?'panel-enter':'panel-exit',visible?180:150),easing:visible?'ease-out':'ease-in'});
   }
-  return {reduced:reduced,duration:duration,cancel:cancel,play:play,reveal:reveal,enter:enter,exit:exit,panel:panel};
+  function watchCards(container){
+    if(!container||cardObservers.has(container))return;
+    var sizes=new Map(),frame=0;
+    function cards(){return Array.from(container.querySelectorAll('.analysis-recommendation[data-motion-key]'));}
+    function measure(element){return element.getBoundingClientRect().height;}
+    cards().forEach(function(element){sizes.set(element.dataset.motionKey,measure(element));});
+    var observer=new MutationObserver(function(){
+      if(frame)return;
+      frame=requestAnimationFrame(function(){
+        frame=0;var next=new Map();
+        cards().forEach(function(element){
+          var key=element.dataset.motionKey,animation=active.get(element);
+          // Preserve the visible height when a second update interrupts a transition.
+          var before=animation?measure(element):sizes.get(key);
+          cancel(element);
+          var after=measure(element);next.set(key,after);
+          if(before>0&&after>0&&Math.abs(before-after)>1){
+            play(element,[{height:before+'px',boxSizing:'border-box',overflow:'hidden',opacity:.92},{height:after+'px',boxSizing:'border-box',overflow:'hidden',opacity:1}],
+              {duration:duration('card-update',220),easing:token('ease-enter','ease-out')});
+          }
+        });
+        sizes=next;
+      });
+    });
+    observer.observe(container,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style']});
+    cardObservers.set(container,observer);
+  }
+  return {reduced:reduced,duration:duration,cancel:cancel,play:play,reveal:reveal,enter:enter,exit:exit,panel:panel,watchCards:watchCards};
 })();
 </script>
