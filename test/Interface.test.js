@@ -299,10 +299,10 @@ test('UI: invalid JSON remains visible and blocks closing until corrected; faile
  }finally{h.dom.window.close();}
  const failed=await setup({remember:true,fail:true});try{assert(failed.visible('auth-panel'));assert(!failed.d.documentElement.classList.contains('restoring-session'));}finally{failed.dom.window.close();}
 });
-test('styles have valid selectors and all custom properties are defined',()=>{
+test('styles have valid selectors and all required custom properties are defined',()=>{
  const html=renderAppsScript().html,parsed=new JSDOM(html),css=Array.from(parsed.window.document.querySelectorAll('style')).map(el=>el.textContent).join('\n');parsed.window.close();const ast=postcss.parse(css),defined=new Set(),used=new Set();
  ast.walkRules(rule=>{selectorParser().astSync(rule.selector);assert.doesNotMatch(rule.selector,/:\s+(?:hover|not|active|disabled)/);});
- ast.walkDecls(decl=>{if(decl.prop.startsWith('--'))defined.add(decl.prop);for(const m of decl.value.matchAll(/var\((--[\w-]+)/g))used.add(m[1]);});
+ ast.walkDecls(decl=>{if(decl.prop.startsWith('--'))defined.add(decl.prop);for(const m of decl.value.matchAll(/var\((--[\w-]+)\s*\)/g))used.add(m[1]);});
  assert.deepEqual([...used].filter(name=>!defined.has(name)),[]);
  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(ids.length,new Set(ids).size,'IDs must remain unique');
 });

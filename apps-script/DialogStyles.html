@@ -1,14 +1,6 @@
 <style>
 dialog { width: min(var(--dialog-width),calc(100vw - var(--space-6))); max-height: calc(100dvh - var(--space-6)); padding: 0; border: var(--border-width) solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-dialog); overflow: hidden; }
 dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; flex-direction:column; }
-/* Native close is immediate; supporting browsers retain the top layer briefly
-   for a subtle exit transition. Older browsers retain normal dialog behavior. */
-dialog { opacity:0; transform:translateY(5px) scale(.995); transition:opacity 150ms ease,transform 150ms ease,overlay 150ms allow-discrete,display 150ms allow-discrete; }
-dialog[open] { opacity:1; transform:translateY(0) scale(1); }
-dialog::backdrop { opacity:0; transition:opacity 150ms ease,overlay 150ms allow-discrete,display 150ms allow-discrete; }
-dialog[open]::backdrop { opacity:1; }
-@starting-style { dialog[open] { opacity:0; transform:translateY(5px) scale(.995); } dialog[open]::backdrop { opacity:0; } }
-@media(prefers-reduced-motion:reduce) { dialog,dialog::backdrop { transition:none; transform:none; } }
 .dialog-heading { flex-shrink:0; display: flex; align-items: center; justify-content: space-between; padding: var(--space-5); border-bottom: var(--border-width) solid var(--line); } .dialog-heading h2 { margin: 0; }
 .dialog-body { padding: var(--space-5); overflow-y:auto; min-height:0; } .settings-section { padding-bottom: var(--space-5); margin-bottom: var(--space-5); border-bottom: var(--border-width) solid var(--line); }
 .settings-section:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; } .settings-section p { font-size: var(--font-secondary); }

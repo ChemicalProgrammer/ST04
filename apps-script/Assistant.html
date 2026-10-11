@@ -88,10 +88,10 @@ window.STAssistant = function(state,actions) {
     var panel=el('gemini-panel'),shell=el('application');
     if(visible===panelVisible)return;panelVisible=visible;
     panelAnimation?.cancel();panelAnimation=null;
-    var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches||typeof panel.animate!=='function';
+    var reduced=STMotion.reduced()||typeof panel.animate!=='function';
     shell.classList.toggle('assistant-open',visible);panel.setAttribute('aria-hidden',String(!visible));panel.inert=!visible;
-    if(visible){panel.classList.remove('hidden');if(!reduced)panelAnimation=panel.animate([{transform:'translateX(18px)',opacity:.25},{transform:'translateX(0)',opacity:1}],{duration:180,easing:'ease-out'});}
-    else if(!reduced&&!panel.classList.contains('hidden')){var animation=panel.animate([{transform:'translateX(0)',opacity:1},{transform:'translateX(18px)',opacity:0}],{duration:150,easing:'ease-in'});panelAnimation=animation;animation.onfinish=function(){if(!panelVisible){panel.classList.add('hidden');window.dispatchEvent(new Event('resize'));}if(panelAnimation===animation)panelAnimation=null;};}
+    if(visible){panel.classList.remove('hidden');if(!reduced)panelAnimation=STMotion.panel(panel,true);}
+    else if(!reduced&&!panel.classList.contains('hidden')){var animation=STMotion.panel(panel,false);panelAnimation=animation;animation.onfinish=function(){if(!panelVisible){panel.classList.add('hidden');window.dispatchEvent(new Event('resize'));}if(panelAnimation===animation)panelAnimation=null;};}
     else panel.classList.add('hidden');
   }
   function sync(){
@@ -193,3 +193,4 @@ window.STAssistant = function(state,actions) {
   return {init:init,sync:sync,reset:reset};
 };
 </script>
+
