@@ -1,0 +1,147 @@
+    var state = {
+      bootstrap: null,
+      catalogLoading: false,
+      requestEpoch: 0,
+      pendingRequests: 0,
+      openSequence: 0,
+      saving: false,
+      activeCase: null,
+      activeSimulationId: null,
+      workspaceView: 'simulation',
+      uiView: 'simulation',
+      isDirty: false,
+      liveZoneDetails: {},
+      lastUserScrollAt: 0,
+      scrollRestoreFrame: null,
+      scrollRestoreUntil: 0,
+      run: {
+        active: false,
+        commands: [],
+        result: null,
+        representative: null,
+        roundIndex: 0,
+        sampleIndex: 0,
+        timer: null,
+        playing: false,
+        durationMode: 'FIXED',
+        configuration: null
+      }
+    };
+
+    var roundSession=null;
+    var runGeneration=0;
+    var charts = STCharts(state,formatNumber);
+    var drawSimulationChart = charts.drawSimulationChart, drawEquipmentSpeedChart = charts.drawEquipmentSpeedChart, drawEquipmentSpeedSparkline = charts.drawEquipmentSpeedSparkline;
+    var renderCaseComparison = STComparison(state,isFiniteNumber).render;
+    var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
+    var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
+    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
+    function caseViewKey(caseId) {
+      return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
+    }
+    function rememberCaseView(view) {
+      if(!state.activeCase||state.restoringCaseView||!['editor','simulation','results','whatif','comparison'].includes(view))return;
+      var key=caseViewKey(state.activeCase.id);
+      var basicView=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':state.basicView==='vgraph'?'vgraph':null):view;
+      var saved=JSON.stringify({view:view,basicView:basicView});
+      if(STPreferences.read(key)!==saved)STPreferences.write(key,saved);
+    }
+    function navigateView(view) {
+      if (!state.activeCase) return false;
+      if (!syncPersistentSimulation()) return false;
+      state.uiView = view;
+      if(view==='whatif')renderSimulationAnalysis();
+      if (view === 'comparison') showCaseComparison();
+      else { state.workspaceView = 'simulation'; renderWorkspaceTabs(); }
+      shell.sync(); renderPlaybackFrame();
+      return true;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      bindEvents();
+      STEquipmentInspector.init(state,markCaseDirty);
+      assistant.init();
+      sheetImport.init();
+      STConfigurationEditor.init(state, {
+        capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
+        apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
+      });
+      shell.init();
+      if (STPreferences.read('remember') === 'yes') {
+        document.getElementById('remember-session').checked = true;
+        signIn();
+      }
+    });
+    window.addEventListener('resize', function() { renderPlaybackFrame(); });
+    window.addEventListener('scroll', function() {
+      if (Date.now() >= state.scrollRestoreUntil) state.lastUserScrollAt = Date.now();
+    }, { passive: true });
+
+    function bindEvents() {
+      document.getElementById('sign-in-form').addEventListener('submit', function(event) { event.preventDefault(); signIn(); });
+      document.getElementById('sign-out').addEventListener('click', lockWorkspace);
+      document.getElementById('home-cases').addEventListener('click', showCaseHome);
+      document.getElementById('open-settings').addEventListener('click', STSettings.open);
+      document.getElementById('show-new-case').addEventListener('click', function() {
+        toggle('new-case-form', true); document.getElementById('new-case-name').focus();
+      });
+      document.getElementById('refresh-case-catalog').onclick=refreshCaseCatalog;
+      document.getElementById('case-search').addEventListener('input', function() { renderCases(state.bootstrap ? state.bootstrap.cases : []); });
+      document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
+      STSettings.connect(saveWorkspace);
+      STSettings.connectReset(resetApplication);
+      STSettings.connectSimulation(activePersistentSimulation,function(engineId){
+        var simulation=activePersistentSimulation();if(!simulation||runControlsLocked())return;
+        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});simulation.results=null;
+        cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;
+        toggle('simulation-results',false);markCaseDirty();renderSimulationAnalysis();shell.sync();
+      },runControlsLocked);
+      window.addEventListener('st-simpy-status',function(event){if(roundSession?.pending)document.getElementById('batch-status').textContent=event.detail.message;});
+      STPreferences.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STSettings.connectCaseFlush(function(){return prepareCaseDraft();});
+      STSettings.connectInterfaceMode(function(mode){
+        STEquipmentInspector.release();
+        document.getElementById('equipment-list').replaceChildren();
+        state.bootstrap.uiMode=mode;
+        configureSaving();
+        STBasicMode.sync(state);
+        if(state.activeCase)renderEquipment();
+        shell.sync();
+        if(state.activeCase)renderSimulationAnalysis();
+        if(state.run.result)renderPlaybackFrame();
+      });
+      STSettings.connectModels(function(done){callServer('listGeminiModels',[],done);});
+      STSettings.connectRemoval(function(done){callServer('deleteGeminiApiKey',[],function(response){if(response.ok){state.bootstrap.gemini=response.data;STSettings.configureGemini(response.data);}done(response);});});
+      document.getElementById('retry-autosave').onclick = retryAutosave;
+      document.getElementById('save-case').onclick = function(){flushCase(true).catch(function(error){showError(error);});};
+      document.getElementById('new-case-form').addEventListener('submit', createDraftCase);
+      document.getElementById('create-demo-case').addEventListener('click', createDemoCase);
+      document.getElementById('clone-case').addEventListener('click', cloneActiveSimulation);
+      document.getElementById('rename-simulation').onclick = renameSimulation;
+      document.getElementById('simulation-selector').onchange=function(){activatePersistentSimulation(this.value);this.value=state.activeSimulationId||'';};
+      document.getElementById('delete-simulation').onclick = deleteSimulation;
+      document.getElementById('add-equipment').addEventListener('click', addEquipment);
+      document.getElementById('export-equipment-sheet').onclick=exportEquipmentSheet;
+      document.getElementById('case-editor-form').addEventListener('input', markCaseDirty);
+      document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
+      document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
+      document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
+      document.getElementById('add-control-event').addEventListener('click', addControlEvent);
+      document.getElementById('run-simulation').addEventListener('click', runSimulation);
+      document.getElementById('play-simulation').addEventListener('click', startPlayback);
+      document.getElementById('pause-simulation').addEventListener('click', pausePlayback);
+      document.getElementById('reset-playback').addEventListener('click', resetPlayback);
+      document.getElementById('playback-round').addEventListener('change',function(){selectPlaybackRound(Number(this.value),false);});
+      document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
+      ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
+      document.getElementById('duration-mode').addEventListener('change', function(event) {
+        if(runControlsLocked()){applyScenarioRunInputs(state.run.configuration);return;}
+        state.run.durationMode = event.target.value;
+        syncDurationControls();
+        markCaseDirty();
+      });
+    }
+
+

@@ -1,3 +1,4 @@
+import {readClientSource} from '../scripts/render-apps-script.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 function setup(clock){
  const sent=[],statuses=[];let value='first',revision=1;
@@ -71,7 +72,7 @@ test('disabling autosave cancels an already scheduled background write',()=>{
 });
 
 function geminiFlush(h,prepareCaseDraft){
- const source=fs.readFileSync('apps-script/Client.html','utf8');
+ const source=readClientSource();
  const start=source.indexOf('    function flushForServer()');
  const end=source.indexOf('    async function leaveCase()',start);
  const ctx={prepareCaseDraft,autosave:h.queue,automaticSaving:()=>false,Promise};

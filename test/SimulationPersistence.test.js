@@ -1,10 +1,11 @@
+import {readClientSource} from '../scripts/render-apps-script.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 function persistence(){
- const code=fs.readFileSync('apps-script/Client.html','utf8'),context=vm.createContext({cloneJson:value=>JSON.parse(JSON.stringify(value))});
+ const code=readClientSource(),context=vm.createContext({cloneJson:value=>JSON.parse(JSON.stringify(value))});
  for(const name of ['findSampleIndexAtOrBefore','retainedReplaySamples','compactReplay','expandStoredReplay']){
   const start=code.indexOf('    function '+name+'('),end=code.indexOf('\n    function ',start+10);assert(start>=0);
   vm.runInContext(code.slice(start,end),context);
@@ -27,3 +28,4 @@ test('legacy replay still opens with its original metrics and empty history is v
  const h=persistence(),legacy={summary:{outputCount:15},equipmentMetrics:{m:{oee:75}},samples:[{virtualSecond:60,accumulationZones:[{id:'z',geometry:{usableLengthMm:1500}}]}]};
  assert.deepEqual(JSON.parse(JSON.stringify(h.expandStoredReplay(legacy))),legacy);const empty={samples:[]};assert.equal(h.compactReplay(empty,600),empty);
 });
+

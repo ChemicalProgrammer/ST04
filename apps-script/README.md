@@ -7,3 +7,6 @@ Los módulos usan `__ST_TEXT__('clave')` para cadenas JavaScript, `__ST_HTML_TEX
 El despliegue usa los archivos `.gs` y `.html` individuales de esta carpeta y `appsscript.json`. `Main.gs` carga `WebApp.html`, que incluye los módulos. No se generan `Code.gs` ni `Index.html`. Los módulos conservan la lógica de la aplicación; los identificadores técnicos, datos del usuario y parámetros del motor no son textos de interfaz.
 
 Si el proyecto de Apps Script contiene `Code.gs`, `Index.html` o `ReferenceCaseFactory.gs` de una versión anterior, elimínalos al actualizar los módulos. Conserva el manifiesto y sus permisos configurados. Las pruebas y la vista previa resuelven los módulos en memoria, sin crear archivos de despliegue duplicados.
+
+`Client.html` compone seis secciones: `ClientCore.html` (estado, arranque y eventos), `ClientCases.html` (sesión, casos y guardado), `ClientEquipment.html` (edición de equipos), `ClientSimulation.html` (configuración, escenarios y cálculo), `ClientPlayback.html` (reproducción y equipos en vivo) y `ClientUtils.html` (formato y comunicación con el servidor). Crea las seis como archivos HTML en Apps Script y conserva su contenido sin añadir etiquetas `<script>`: `Main.gs` las inserta dentro del controlador de `Client.html`. Comparten un único estado privado y no se cargan por separado en el navegador.
+

@@ -1,0 +1,608 @@
+    function renderEditor() {
+      if (!state.activeCase) return;
+      toggle('editor-panel', true);
+      var activeSimulation = activePersistentSimulation();
+      document.getElementById('editor-title').textContent = state.activeCase.name + (activeSimulation ? ' · ' + activeSimulation.name : '');
+      document.getElementById('case-name').value = state.activeCase.name;
+      renderEditorMeta();
+      renderCaseDataNote();
+      renderEquipment();
+      renderRawJson();
+      renderRunWorkspace();
+    }
+
+    function renderEditorMeta() {
+      if (!state.activeCase) return;
+      var dirtyText = state.isDirty ? __ST_TEXT__('client.unsaved_changes') : '';
+      var activeSimulation = activePersistentSimulation();
+      var scenarioText = activeSimulation && activeSimulation.scenario && activeSimulation.scenario.title
+        ? __ST_TEXT__('client.what_if') + activeSimulation.scenario.title
+        : '';
+      shell.sync();
+      document.getElementById('editor-meta').textContent = __ST_TEXT__('client.id') + state.activeCase.id + __ST_TEXT__('client.active') + (activeSimulation ? activeSimulation.name : '—') + scenarioText + dirtyText;
+    }
+
+    function renderCaseDataNote() {
+      var target = document.getElementById('case-data-note');
+      var metadata = state.activeCase && state.activeCase.metadata ? state.activeCase.metadata : {};
+      var source=activePersistentSimulation()?.sourceImport;
+      var note = source?.source ? __ST_TEXT__('client.imported_from')+source.source.sheetName+' · '+source.source.readAt+__ST_TEXT__('client.mtbf_drives_random_failure_intervals_mttr_is_a_fixed_repair_duration_review') : typeof metadata.dataNote === 'string' ? metadata.dataNote : '';
+      target.textContent = note;
+      toggle('case-data-note', Boolean(note));
+    }
+
+    function renderEquipment() {
+      var selection = STEquipmentInspector.release();
+      var target = document.getElementById('equipment-list');
+      target.textContent = '';
+      state.activeCase.equipment.forEach(function(equipment, index) {
+        target.appendChild(createEquipmentCard(equipment, index));
+      });
+      if (!state.activeCase.equipment.length) {
+        target.innerHTML = ("<p class=\"empty\">" + __ST_HTML_TEXT__('client.this_draft_has_no_equipment_add_at_least_two_units_before_simulation_2') + "</p>");
+      }
+      STEquipmentInspector.restore(selection);
+      STEquipmentFilter.apply();
+      assistant.sync();
+      renderRawJson();
+      window.STBasicMode?.sync(state);
+      refreshDesignGraph();
+    }
+
+    function equipmentField(card, selector) { return card.querySelector(selector) || card._fields?.querySelector(selector); }
+    function equipmentFields(card, selector) { return card.contains(card._fields) ? card.querySelectorAll(selector) : Array.from(card.querySelectorAll(selector)).concat(Array.from(card._fields?.querySelectorAll(selector)||[])); }
+
+    function createEquipmentCard(equipment, index) {
+      var card = document.createElement('article');
+      card.className = 'equipment-card';
+      card.dataset.index = String(index);
+      card.innerHTML = ("<div class=\"equipment-header\"><strong></strong><div class=\"button-row\"><button class=\"equipment-drag ghost icon-button\" type=\"button\" aria-label=\"" + __ST_HTML_TEXT__('client.reorder_equipment') + "\" title=\"" + __ST_HTML_TEXT__('client.drag_to_reorder_use_arrow_up_or_down_on_this_handle') + "\"></button><button class=\"remove-equipment danger\" type=\"button\">" + __ST_HTML_TEXT__('client.remove') + "</button></div></div><div class=\"equipment-grid\"><label>" + __ST_HTML_TEXT__('client.equipment_id') + "<input class=\"equipment-id\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.type') + "<select class=\"equipment-type\"><option value=\"BLOWER\">" + __ST_HTML_TEXT__('client.blower') + "</option><option value=\"BLOWMOLDER\">" + __ST_HTML_TEXT__('client.blowmolder') + "</option><option value=\"CONVEYOR\">" + __ST_HTML_TEXT__('client.conveyor') + "</option><option value=\"PUCKER\">" + __ST_HTML_TEXT__('client.pucker') + "</option><option value=\"FILLER\">" + __ST_HTML_TEXT__('client.filler') + "</option><option value=\"DEPUCKER\">" + __ST_HTML_TEXT__('client.de_pucker') + "</option><option value=\"SLEEVER\">" + __ST_HTML_TEXT__('client.sleever') + "</option><option value=\"CASE_PACKER\">" + __ST_HTML_TEXT__('client.case_packer') + "</option><option value=\"PALLETIZER\">" + __ST_HTML_TEXT__('client.palletizer') + "</option><option value=\"CUSTOM\">" + __ST_HTML_TEXT__('client.other_custom') + "</option></select></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.name') + "<input class=\"equipment-name\"></label><label>" + __ST_HTML_TEXT__('client.nominal_rate_bpm') + "<input class=\"equipment-rate\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.initial_mode') + "<select class=\"equipment-mode\"><option value=\"AUTO\">" + __ST_HTML_TEXT__('client.automatic') + "</option><option value=\"MANUAL\">" + __ST_HTML_TEXT__('client.manual') + "</option><option value=\"PAUSE\">" + __ST_HTML_TEXT__('client.paused') + "</option><option value=\"STOP\">" + __ST_HTML_TEXT__('client.stopped') + "</option></select></label></div><section class=\"format-zone-setup\"><div class=\"format-zone-heading\"><div><strong>" + __ST_HTML_TEXT__('client.flowpilot_conveyor_design') + "</strong><p>" + __ST_HTML_TEXT__('client.required_for_every_conveyor_geometry_is_always_active_the_engine_derives_co') + "</p></div></div><div class=\"format-zone-grid\"><label>" + __ST_HTML_TEXT__('client.installed_length_l_act_mm') + "<input class=\"format-zone-lact\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.prime_reserve_l_p_mm') + "<input class=\"format-zone-lp-prime\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.package_length_mm') + "<input class=\"format-zone-package-length\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_discharge_pitch_mm') + "<input class=\"format-zone-discharge-pitch\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.conveyor_speed_factor') + "<input class=\"format-zone-speed-factor\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.installed_back_up_position_mm') + "<input class=\"format-zone-backup\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.discharge_runout_mm') + "<input class=\"format-zone-discharge-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.reject_runout_mm') + "<input class=\"format-zone-reject-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.blocked_time_delay_s') + "<input class=\"format-zone-blocked-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.clear_time_delay_s') + "<input class=\"format-zone-clear-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.insurance_factor_units') + "<input class=\"format-zone-insurance\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_stop_response_s') + "<input class=\"format-zone-stop-response\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.bottles_discharged_at_stop') + "<input class=\"format-zone-residual\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.downstream_ramp_up_s') + "<input class=\"format-zone-downstream-ramp\" type=\"number\" min=\"0\" step=\"any\"></label></div><p class=\"format-zone-preview\"></p></section><details class=\"equipment-json-details\"><summary>" + __ST_HTML_TEXT__('client.advanced_json_fields') + "</summary><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.characteristics_json_optional') + "<textarea class=\"equipment-characteristics\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.noise_profile_json_optional') + "<textarea class=\"equipment-noise-profile\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.advanced_process_format_json_optional') + "<textarea class=\"equipment-process-data\" spellcheck=\"false\"></textarea></label></details>");
+      var unitLabel=document.createElement('label'),unitInput=document.createElement('input');
+      unitLabel.textContent=__ST_TEXT__('client.equipment_unit_label');unitLabel.title=__ST_TEXT__('client.equipment_unit_help');
+      unitInput.className='equipment-unit';unitInput.maxLength=40;unitInput.placeholder='units';
+      unitLabel.appendChild(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
+      equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + formatNumber(Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
+      var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
+      equipmentField(card, '.equipment-id').value = equipment.id || '';
+      equipmentField(card, '.equipment-id').readOnly = true;
+      equipmentField(card, '.equipment-type').value = STEquipmentRoles.machineType(equipment);
+      equipmentField(card, '.equipment-name').value = equipment.name || '';
+      unitInput.value=equipment.unitOfFlow||'';
+      var rateInput=equipmentField(card,'.equipment-rate');
+      rateInput.value=equipment.nominalRatePerSecond==null?'':Number((equipment.nominalRatePerSecond*60).toPrecision(15));
+      rateInput.dataset.originalBpm=rateInput.value;
+      rateInput.dataset.originalRate=equipment.nominalRatePerSecond==null?'':String(equipment.nominalRatePerSecond);
+      equipmentField(card, '.equipment-mode').value = window.STBasicMode?.isBasic() ? 'AUTO' : equipment.initialMode || 'AUTO';
+      equipmentField(card, '.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
+      equipmentField(card, '.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
+      var guidedData=cloneJson(equipment.processData||{});
+      if(equipment.startupDelaySeconds!=null)guidedData.upstream=Object.assign({},guidedData.upstream,{startupTimeSeconds:equipment.startupDelaySeconds});
+      if(equipment.restartRampUpSeconds!=null)guidedData.downstream=Object.assign({},guidedData.downstream,{rampUpTimeSeconds:equipment.restartRampUpSeconds});
+      equipmentField(card, '.equipment-process-data').value = JSON.stringify(guidedData, null, 2);
+
+      card.dataset.equipmentId = equipment.id;
+      var fields = document.createElement('div'); fields.className = 'equipment-fields';
+      Array.from(card.children).slice(1).forEach(function(child){fields.appendChild(child);});
+      card.appendChild(fields); card._fields = fields; fields._owner = card; card._refreshFormatPreview = function(){ updateFormatZoneVisibility(card); renderFormatZonePreview(card); };
+      STReliabilityControls(card);
+      STEquipmentRoles.attach(card,equipment);
+      STEquipmentOptions.attach(card);
+      addConveyorPhysicsInputs(card);
+      applyConceptTooltips(card);
+      populateFormatZoneInputs(card, equipment);
+      updateFormatZoneVisibility(card);
+      renderFormatZonePreview(card);
+
+      STEquipmentDrag.bind(card,index,moveEquipment);
+      var remove=equipmentField(card, '.remove-equipment');remove.innerHTML=STIcons.svg('trash');remove.classList.add('icon-button');remove.title=__ST_TEXT__('client.delete_equipment');remove.setAttribute('aria-label',__ST_TEXT__('client.delete_equipment'));
+      equipmentField(card, '.remove-equipment').addEventListener('click', function() { removeEquipment(index); });
+      card.tabIndex=0;
+      card.setAttribute('aria-label',__ST_TEXT__('inspector.select')+' '+equipment.name);
+      card.addEventListener('click',function(event){if(!event.target.closest('button,input,select,textarea,details'))STEquipmentInspector.select(card);});
+      card.addEventListener('keydown',function(event){if(event.target===card&&(event.key==='Enter'||event.key===' ')){event.preventDefault();STEquipmentInspector.select(card);}});
+      equipmentField(card, '.equipment-type').addEventListener('change', function() {
+        updateFormatZoneVisibility(fields._owner);
+        renderFormatZonePreview(fields._owner);
+      });
+      Array.prototype.slice.call(equipmentFields(card, '.format-zone-grid input, .format-zone-grid select')).forEach(function(input) {
+        input.addEventListener('input', function() {
+          state.isDirty = true;
+          renderFormatZonePreview(fields._owner);
+        });
+        input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(fields._owner); });
+      });
+      return card;
+    }
+
+    function addConveyorPhysicsInputs(card) {
+      var grid = equipmentField(card, '.format-zone-grid');
+      [
+        ['population-enabled','Set target Population (%)','Adjusts accumulation belt speed and product spacing to achieve design occupancy.','checkbox'],
+        ['population','Population (%)','Design occupancy; not initial inventory. Leave target disabled for automatic calculation.','number'],
+        ['lba-enabled','Edit LBA','Manual LBA sets Back-up position = Prime position − LBA. Must preserve required overflow.','checkbox'],
+        ['overspeed-enabled','Set target Overspeed','Sets belt speed relative to downstream infeed; exclusive with target Population.','checkbox'],
+        ['overspeed','Conveyor overspeed (%)','Automatic: actual infeed speed margin. Manual: target margin sets belt speed.','number'],
+        ['lba','LBA (mm)','Useful accumulation length; must fit after Prime and required overflow reserves.','number'],
+        ['speed-mode',__ST_TEXT__('conveyor.speed_mode'),__ST_TEXT__('conveyor.help_speed_mode'),'select'],
+        ['belt-speed',window.STBasicMode?.isBasic()?__ST_TEXT__('conveyor.belt_speed_m_min'):__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
+        ['moving-gap',__ST_TEXT__('conveyor.moving_gap'),__ST_TEXT__('conveyor.help_moving_gap'),'number'],
+        ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number']
+      ].concat(window.STBasicMode?.isBasic()?[
+        ['startup','Startup Time (sec)','Upstream restart delay for this connection.','number'],
+        ['infeed','Infeed Pitch (mm)','Downstream infeed pitch for this connection.','number'],
+        ['coding-factor','Coding factor (%)','Speed increase relative to the discharge zone.','number'],
+        ['acc-factor','Acc Zone factor (%)','Speed increase relative to the coding zone.','number']
+      ]:[]).forEach(function(spec) {
+        var label = document.createElement('label'); label.textContent = spec[1]; label.title = spec[2];
+        var control = document.createElement(spec[3] === 'select' ? 'select' : 'input');
+        control.className = 'format-zone-' + spec[0];
+        if (spec[3] === 'select') [['AUTO',__ST_TEXT__('conveyor.auto')],['MANUAL',__ST_TEXT__('conveyor.manual')]].forEach(function(option) {
+          var item = document.createElement('option'); item.value = option[0]; item.textContent = option[1]; control.appendChild(item);
+        });
+        else { control.type = spec[3]; control.min = '0'; control.step = 'any'; if(spec[0]==='population'){control.min='0.01';control.max='100';} }
+        label.appendChild(control); grid.appendChild(label);
+      });
+      prepareSwitchableFields(card);
+    }
+
+    function prepareSwitchableFields(card){
+      ['population','lba','overspeed'].forEach(function(key){
+        var input=equipmentField(card,'.format-zone-'+key),toggle=equipmentField(card,'.format-zone-'+key+'-enabled'),label=input.closest('label');
+        var oldLabel=toggle.closest('label');toggle.remove();oldLabel.remove();
+        var group=document.createElement('span');group.className='switchable-value';group.append(toggle,input);label.appendChild(group);
+        input.id='conveyor-'+card.dataset.index+'-'+key;label.htmlFor=input.id;toggle.setAttribute('aria-label','Use manual '+key);toggle.title='Checked: manual input. Unchecked: calculated output.';
+        function exclusiveTarget(){if(toggle.checked&&key!=='lba')equipmentField(card,'.format-zone-'+(key==='population'?'overspeed':'population')+'-enabled').checked=false;}
+        toggle.addEventListener('input',exclusiveTarget);toggle.addEventListener('change',exclusiveTarget);
+      });
+    }
+    function syncSwitchableFields(card){
+      ['population','lba','overspeed'].forEach(function(key){
+        var input=equipmentField(card,'.format-zone-'+key),toggle=equipmentField(card,'.format-zone-'+key+'-enabled'),enabled=toggle.checked,was=input.dataset.inputMode==='true';
+        if(enabled&&!was){input.value=input.dataset.manualValue!==undefined&&input.dataset.manualValue!==''?input.dataset.manualValue:input.value;}
+        if(enabled||was)input.dataset.manualValue=input.value;
+        input.dataset.inputMode=String(enabled);input.readOnly=!enabled;input.required=enabled;input.classList.toggle('calculated-value',!enabled);
+      });
+    }
+
+    function applyConceptTooltips(card) {
+      var concepts = [
+        ['.format-zone-lact', __ST_TEXT__('client.total_installed_conveyor_length_measured_from_the_upstream_discharge_toward')],
+        ['.format-zone-lp-prime', __ST_TEXT__('client.reserved_downstream_length_between_the_prime_photocell_and_the_downstream_m')],
+        ['.format-zone-package-length', __ST_TEXT__('client.physical_package_length_in_the_direction_of_travel_it_determines_the_photoe')],
+        ['.format-zone-discharge-pitch', __ST_TEXT__('client.centre_to_centre_distance_between_packages_leaving_the_upstream_machine')],
+        ['.format-zone-speed-factor', __ST_TEXT__('client.belt_speed_increase_relative_to_upstream_package_discharge_velocity_it_chan')],
+        ['.format-zone-backup', __ST_TEXT__('client.installed_back_up_photocell_position_measured_from_the_upstream_discharge_a')],
+        ['.format-zone-discharge-runout', __ST_TEXT__('client.length_that_must_be_cleared_after_the_upstream_discharge_before_a_stop_full')],
+        ['.format-zone-reject-runout', __ST_TEXT__('client.additional_reject_runout_length_that_must_be_cleared_during_an_upstream_sto')],
+        ['.format-zone-blocked-delay', __ST_TEXT__('client.continuous_back_up_blocked_time_required_before_the_simulator_requests_the_')],
+        ['.format-zone-clear-delay', __ST_TEXT__('client.continuous_back_up_clear_time_required_before_the_simulator_releases_the_up')],
+        ['.format-zone-insurance', __ST_TEXT__('client.extra_package_margin_reserved_in_the_required_overflow_calculation_it_is_a_')],
+        ['.format-zone-stop-response', __ST_TEXT__('client.delay_from_the_upstream_stop_request_until_its_discharge_response_is_comple')],
+        ['.format-zone-residual', __ST_TEXT__('client.packages_that_can_still_leave_the_upstream_machine_after_the_stop_request')],
+        ['.format-zone-downstream-ramp', __ST_TEXT__('client.time_for_the_downstream_machine_to_ramp_after_prime_authorizes_its_start')]
+      ];
+      concepts.forEach(function(entry) {
+        var input = equipmentField(card, entry[0]);
+        if (input && input.closest('label')) input.closest('label').title = entry[1];
+      });
+      setFormatFieldLabel(card, '.format-zone-blocked-delay', __ST_TEXT__('client.back_up_blocked_delay_s'));
+      setFormatFieldLabel(card, '.format-zone-clear-delay', __ST_TEXT__('client.back_up_clear_delay_s'));
+    }
+
+    function setFormatFieldLabel(card, selector, labelText) {
+      var input = equipmentField(card, selector);
+      var label = input && input.closest('label');
+      if (label && label.firstChild && label.firstChild.nodeType === Node.TEXT_NODE) {
+        label.firstChild.nodeValue = labelText;
+      }
+    }
+
+function populateFormatZoneInputs(card, equipment) {
+      var formatZone = equipment.processData?.accumulation || {};
+      var geometry = equipment.processData?.geometry || {};
+      var upstream = equipment.processData?.upstream || {};
+      var values = {
+        populationEnabled: formatZone.targetPopulationPercent !== undefined,
+        population: formatZone.targetPopulationPercent ?? formatZone.inputValues?.populationPercent,
+        lbaEnabled: formatZone.manualLbaMm !== undefined,
+        lba: formatZone.manualLbaMm ?? formatZone.inputValues?.lbaMm,
+        overspeedEnabled:formatZone.targetOverspeedPercent!==undefined,
+        lact: geometry.lactMm,
+        lpPrime: geometry.lpPrimeMm,
+        packageLength: upstream.packageLengthMm,
+        dischargePitch: upstream.dischargePitchMm,
+        speedMode: formatZone.speedMode || 'AUTO',
+        beltSpeed: formatZone.conveyorSpeedMmPerSecond,
+        movingGap: formatZone.movingGapMm,
+        accumulatedGap: firstDefinedValue(formatZone.accumulatedGapMm, formatZone.accumulatedPitchMm !== undefined ? formatZone.accumulatedPitchMm - firstDefinedValue(upstream.packageLengthMm, formatZone.productLengthMm) : 0),
+        speedFactor: firstDefinedValue(formatZone.conveyorSpeedFactorPercent, equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent),
+        backup: formatZone.backupSensorPositionMm,
+        dischargeRunout: firstDefinedValue(geometry.actualDischargeMm,formatZone.dischargeRunoutLengthMm),
+        rejectRunout: firstDefinedValue(geometry.actualCodingMm,formatZone.rejectRunoutLengthMm),
+        blockedDelay: formatZone.blockedTimeDelaySeconds,
+        clearDelay: formatZone.clearTimeDelaySeconds,
+        insurance: formatZone.insuranceFactorUnits,
+        stopResponse: formatZone.upstreamStopResponseSeconds,
+        residual: formatZone.bottlesDischargedAtStop,
+        downstreamRamp: firstDefinedValue(formatZone.downstreamRampUpSeconds,equipment.processData?.downstream?.rampUpTimeSeconds),
+        startup: upstream.startupTimeSeconds,
+        infeed: equipment.processData?.downstream?.infeedPitchMm,
+        codingFactor: equipment.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
+        accFactor: equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
+        overspeed: formatZone.targetOverspeedPercent ?? formatZone.inputValues?.overspeedPercent ?? equipment.processData?.speedAndSensors?.overspeedVsInfeedScrewPercent ?? 5
+      };
+      if(window.STBasicMode?.isBasic()&&equipment.type==='CONVEYOR'){
+        var up=state.activeCase?.equipment?.[Number(card.dataset.index)-1],down=state.activeCase?.equipment?.[Number(card.dataset.index)+1];
+        values.startup=firstDefinedValue(values.startup,up?.processData?.upstream?.startupTimeSeconds,0);
+        values.infeed=firstDefinedValue(values.infeed,down?.processData?.downstream?.infeedPitchMm);
+        values.downstreamRamp=firstDefinedValue(values.downstreamRamp,down?.processData?.downstream?.rampUpTimeSeconds,0);
+        if(formatZone.speedMode!=='MANUAL'||values.beltSpeed===undefined){
+          var audit=STScenarios.audit({equipment:state.activeCase.equipment}).find(function(item){return item.equipmentId===equipment.id;});
+          values.beltSpeed=audit?.engineering?.runtimeGeometry?.conveyorSpeedMmPerSecond;
+        }
+        if(values.beltSpeed!==undefined)values.beltSpeed=Number((values.beltSpeed*.06).toPrecision(15));
+      }
+      Object.keys(values).forEach(function(key) {
+        var input = equipmentField(card, '.format-zone-' + kebabCase(key));
+        if(input?.type==='checkbox'){input.checked=Boolean(values[key]);return;}
+        if (input) input.value = values[key] === undefined || values[key] === null ? '' : values[key];
+      });
+      ['population','lba','overspeed'].forEach(function(key){var input=equipmentField(card,'.format-zone-'+key);input.dataset.manualValue=input.value;input.dataset.inputMode=String(equipmentField(card,'.format-zone-'+key+'-enabled').checked);});
+    }
+
+function updateFormatZoneVisibility(card) {
+      var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
+      equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
+      equipmentField(card, '.equipment-rate').readOnly = isConveyor;
+      equipmentField(card, '.equipment-rate').closest('label').classList.toggle('hidden', isConveyor);
+      if (isConveyor) equipmentField(card, '.equipment-rate').title = __ST_TEXT__('conveyor.help_belt_speed');
+    }
+
+    function renderFormatZonePreview(card) {
+      var target = equipmentField(card, '.format-zone-preview');
+      if (!target) return;
+      if (equipmentField(card, '.equipment-type').value !== 'CONVEYOR') {
+        target.textContent = '';
+        return;
+      }
+
+      syncSwitchableFields(card);
+      var values = readFormatZoneInputs(card);
+      var populationEnabled=equipmentField(card,'.format-zone-population-enabled').checked;
+      var lbaEnabled=equipmentField(card,'.format-zone-lba-enabled').checked;
+      equipmentField(card,'.format-zone-population').readOnly=!populationEnabled;
+      equipmentField(card,'.format-zone-population').required=populationEnabled;
+      equipmentField(card,'.format-zone-lba').readOnly=!lbaEnabled;
+      equipmentField(card,'.format-zone-lba').required=lbaEnabled;
+      equipmentField(card,'.format-zone-lba').min='0.01';
+      equipmentField(card,'.format-zone-backup').disabled=lbaEnabled;
+      equipmentField(card,'.format-zone-moving-gap').disabled=populationEnabled||equipmentField(card,'.format-zone-overspeed-enabled').checked;
+      var overspeedEnabled=equipmentField(card,'.format-zone-overspeed-enabled').checked;
+      var manual = !populationEnabled && !overspeedEnabled && values.speedMode === 'MANUAL';
+      equipmentField(card, '.format-zone-belt-speed').disabled = !manual;
+      equipmentField(card, '.format-zone-speed-factor').disabled = manual&&!window.STBasicMode?.isBasic();
+      var processData = parseJsonForPreview(equipmentField(card, '.equipment-process-data').value);
+      var index = Number(card.dataset.index);
+      var upstreamMachine = state.activeCase?.equipment?.[index - 1];
+      var downstreamMachine = state.activeCase?.equipment?.[index + 1];
+      var calculator = window.SimulatorEngine?.calculateConveyorEngineering;
+      if (!calculator || !upstreamMachine || !downstreamMachine) {
+        target.textContent = __ST_TEXT__('client.flowpilot_preview_becomes_available_when_this_conveyor_sits_between_an_upst');
+        return;
+      }
+      var calculation = calculator({
+        targetOverspeedPercent: values.targetOverspeedPercent,
+        targetPopulationPercent: values.targetPopulationPercent,
+        manualLbaMm: values.manualLbaMm,
+        codingSpeedFactorPercent: values.codingFactorPercent ?? processData.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent,
+        accumulationSpeedFactorPercent: values.accFactorPercent ?? processData.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent,
+        installedLengthMm: values.lactMm,
+        primeReserveMm: values.lpPrimeMm,
+        packageLengthMm: values.packageLengthMm,
+        upstreamDischargePitchMm: values.dischargePitchMm,
+        upstreamNominalSpeedBpm: Number(upstreamMachine.nominalRatePerSecond) * 60,
+        downstreamHighSpeedBpm: window.STBasicMode?.isBasic()||processData.accumulation?.useNominalDesignSpeed?Number(downstreamMachine.nominalRatePerSecond)*60:firstDefinedValue(downstreamMachine.processData?.equipment?.maximumSpeedBpm, Number(downstreamMachine.nominalRatePerSecond) * 60),
+        downstreamInfeedPitchMm: values.downstreamInfeedPitchMm ?? downstreamMachine.processData?.downstream?.infeedPitchMm,
+        conveyorSpeedFactorPercent: values.conveyorSpeedFactorPercent,
+        dischargeRunoutLengthMm: values.dischargeRunoutLengthMm,
+        rejectRunoutLengthMm: values.rejectRunoutLengthMm,
+        blockedTimeDelaySeconds: values.blockedTimeDelaySeconds,
+        clearTimeDelaySeconds: values.clearTimeDelaySeconds,
+        insuranceFactorUnits: values.insuranceFactorUnits,
+        backupSensorPositionMm: values.backupSensorPositionMm,
+        upstreamStopResponseSeconds: values.upstreamStopResponseSeconds,
+        bottlesDischargedAtStop: values.bottlesDischargedAtStop,
+        downstreamRampUpSeconds: values.downstreamRampUpSeconds,
+        upstreamStartupTimeSeconds: upstreamMachine.processData?.upstream?.startupTimeSeconds
+      });
+      var derived = calculation.calculated;
+      if(!lbaEnabled)equipmentField(card,'.format-zone-lba').value=Number.isFinite(derived.usefulAccumulationLengthMm)?Number(derived.usefulAccumulationLengthMm.toFixed(2)):'';
+      equipmentField(card,'.format-zone-lba').max=derived.calculatedUsefulAccumulationLengthMm;
+      if(populationEnabled||overspeedEnabled)values.movingGapMm=derived.productGapMm;
+      var beltSpeed = manual ? values.conveyorSpeedMmPerSecond : derived.conveyorSpeedMmPerSecond;
+      var actualPopulation=beltSpeed>0?derived.machineOutputRateMmPerSecond/beltSpeed*100:undefined;
+      if(!populationEnabled)equipmentField(card,'.format-zone-population').value=Number.isFinite(actualPopulation)?Number(actualPopulation.toFixed(2)):'';
+      var infeedRate=derived.downstreamInfeedRateMmPerSecond,actualOverspeed=infeedRate>0?(beltSpeed/infeedRate-1)*100:undefined;
+      if(!overspeedEnabled)equipmentField(card,'.format-zone-overspeed').value=Number.isFinite(actualOverspeed)?Number(actualOverspeed.toFixed(2)):'';
+      var movingPitch = values.movingGapMm !== undefined ? values.packageLengthMm + values.movingGapMm : derived.effectiveProductPitchMm;
+      var packedPitch = values.packageLengthMm + (values.accumulatedGapMm ?? 0);
+      if (!(beltSpeed > 0 && movingPitch >= packedPitch && packedPitch > 0 && values.lactMm >= movingPitch)) {
+        target.textContent = __ST_TEXT__('conveyor.invalid_geometry');
+        return;
+      }
+      {
+        target.textContent = __ST_TEXT__('conveyor.belt_speed') + ': ' + formatNumber(beltSpeed) + ' · ' +
+          __ST_TEXT__('conveyor.transfer_capacity') + ': ' + formatNumber(60 * beltSpeed / movingPitch) + ' BPM · ' +
+          __ST_TEXT__('conveyor.packed_capacity') + ': ' + formatNumber(Math.floor(values.lactMm / packedPitch)) + ' · ' +
+          __ST_TEXT__('conveyor.free_travel') + ': ' + formatSeconds(values.lactMm / beltSpeed) + '. ' + __ST_TEXT__('conveyor.audit_note') + (populationEnabled?' Target Population overrides the stored manual speed and moving gap.':'') + (lbaEnabled?' Back-up from LBA: '+formatNumber(derived.actualBackupSensorPositionMm)+' mm.':'') + (actualPopulation>50?' ⚠ Population exceeds 50%. Consider 50% or less; verify the required belt speed and infeed capacity.':'') + (lbaEnabled&&!(values.manualLbaMm>0&&values.manualLbaMm<=derived.calculatedUsefulAccumulationLengthMm)?' ⚠ LBA exceeds the available length after Prime and required overflow reserves.':'');
+      }
+    }
+
+function readFormatZoneInputs(card) {
+      function manualFieldValue(key){var text=equipmentField(card,'.format-zone-'+key).dataset.manualValue;return text!==undefined&&text!==''&&Number.isFinite(Number(text))?Number(text):undefined;}
+      var basic=window.STBasicMode?.isBasic(),beltSpeed=numericInputValue(equipmentField(card,'.format-zone-belt-speed'));
+      if(basic&&beltSpeed!==undefined)beltSpeed=Number((beltSpeed/.06).toPrecision(15));
+      return {
+        inputValues:{populationPercent:manualFieldValue('population'),lbaMm:manualFieldValue('lba'),overspeedPercent:manualFieldValue('overspeed')},
+        targetOverspeedPercent:equipmentField(card,'.format-zone-overspeed-enabled').checked?numericInputValue(equipmentField(card,'.format-zone-overspeed')):undefined,
+        targetPopulationPercent: equipmentField(card,'.format-zone-population-enabled').checked ? numericInputValue(equipmentField(card,'.format-zone-population')) : undefined,
+        manualLbaMm: equipmentField(card,'.format-zone-lba-enabled').checked ? numericInputValue(equipmentField(card,'.format-zone-lba')) : undefined,
+        lactMm: numericInputValue(equipmentField(card, '.format-zone-lact')),
+        lpPrimeMm: numericInputValue(equipmentField(card, '.format-zone-lp-prime')),
+        packageLengthMm: numericInputValue(equipmentField(card, '.format-zone-package-length')),
+        dischargePitchMm: numericInputValue(equipmentField(card, '.format-zone-discharge-pitch')),
+        conveyorSpeedFactorPercent: numericInputValue(equipmentField(card, '.format-zone-speed-factor')),
+        speedMode: basic?'MANUAL':equipmentField(card, '.format-zone-speed-mode').value || 'AUTO',
+        conveyorSpeedMmPerSecond: beltSpeed,
+        movingGapMm: numericInputValue(equipmentField(card, '.format-zone-moving-gap')),
+        accumulatedGapMm: numericInputValue(equipmentField(card, '.format-zone-accumulated-gap')),
+        backupSensorPositionMm: numericInputValue(equipmentField(card, '.format-zone-backup')),
+        dischargeRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-discharge-runout')),
+        rejectRunoutLengthMm: numericInputValue(equipmentField(card, '.format-zone-reject-runout')),
+        blockedTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-blocked-delay')),
+        clearTimeDelaySeconds: numericInputValue(equipmentField(card, '.format-zone-clear-delay')),
+        insuranceFactorUnits: numericInputValue(equipmentField(card, '.format-zone-insurance')),
+        upstreamStopResponseSeconds: numericInputValue(equipmentField(card, '.format-zone-stop-response')),
+        bottlesDischargedAtStop: numericInputValue(equipmentField(card, '.format-zone-residual')),
+        downstreamRampUpSeconds: numericInputValue(equipmentField(card, '.format-zone-downstream-ramp')),
+        upstreamStartupTimeSeconds: numericInputValue(equipmentField(card, '.format-zone-startup')),
+        downstreamInfeedPitchMm: numericInputValue(equipmentField(card, '.format-zone-infeed')),
+        codingFactorPercent: numericInputValue(equipmentField(card, '.format-zone-coding-factor')),
+        accFactorPercent: numericInputValue(equipmentField(card, '.format-zone-acc-factor')),
+        overspeedPercent: numericInputValue(equipmentField(card, '.format-zone-overspeed'))
+      };
+    }
+
+    function mergeFormatZoneData(processData, values) {
+      var result = Object.assign({}, processData);
+      result.geometry = Object.assign({}, result.geometry || {}, {
+        lactMm: values.lactMm,
+        lpPrimeMm: values.lpPrimeMm
+      });
+      result.upstream = Object.assign({}, result.upstream || {}, {
+        packageLengthMm: values.packageLengthMm,
+        dischargePitchMm: values.dischargePitchMm,
+        bottlesDischargedAtStop: values.bottlesDischargedAtStop
+      });
+      result.speedAndSensors = Object.assign({}, result.speedAndSensors || {}, {
+        conveyorSpeedFactorVsDischargeVelocityPercent: values.conveyorSpeedFactorPercent
+      });
+      result.accumulation = Object.assign({}, result.accumulation || {}, {
+        inputValues:values.inputValues,
+        targetOverspeedPercent: values.targetOverspeedPercent,
+        targetPopulationPercent: values.targetPopulationPercent,
+        manualLbaMm: values.manualLbaMm,
+        conveyorSpeedFactorPercent: values.conveyorSpeedFactorPercent,
+        speedMode: values.speedMode,
+        conveyorSpeedMmPerSecond: values.conveyorSpeedMmPerSecond,
+        movingGapMm: values.movingGapMm,
+        accumulatedGapMm: values.accumulatedGapMm,
+        backupSensorPositionMm: values.backupSensorPositionMm,
+        dischargeRunoutLengthMm: values.dischargeRunoutLengthMm,
+        rejectRunoutLengthMm: values.rejectRunoutLengthMm,
+        blockedTimeDelaySeconds: values.blockedTimeDelaySeconds,
+        clearTimeDelaySeconds: values.clearTimeDelaySeconds,
+        insuranceFactorUnits: values.insuranceFactorUnits,
+        upstreamStopResponseSeconds: values.upstreamStopResponseSeconds,
+        bottlesDischargedAtStop: values.bottlesDischargedAtStop,
+        downstreamRampUpSeconds: values.downstreamRampUpSeconds
+      });
+      if(result.geometry.actualDischargeMm!==undefined)result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
+      if(result.geometry.actualCodingMm!==undefined)result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
+      if(window.STBasicMode?.isBasic()){
+        result.accumulation.useNominalDesignSpeed=true;
+        result.accumulation.speedMode='MANUAL';
+        result.accumulation.conveyorSpeedMmPerSecond=values.conveyorSpeedMmPerSecond;
+        result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
+        result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
+        result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;
+        result.downstream=Object.assign({},result.downstream,{infeedPitchMm:values.downstreamInfeedPitchMm,rampUpTimeSeconds:values.downstreamRampUpSeconds});
+        result.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent=values.codingFactorPercent;
+        result.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent=values.accFactorPercent;
+        // The existing required infeed audit margin remains separate from the target.
+      }
+      Object.keys(result.accumulation).forEach(function(key) {
+        if (result.accumulation[key] === undefined) delete result.accumulation[key];
+      });
+      ['usableLengthMm', 'productLengthMm', 'gapMm', 'productPitchMm', 'accumulatedPitchMm', 'primeSensorPositionMm', 'backupRestartPositionMm'].forEach(function(key) {
+        delete result.accumulation[key];
+      });
+      return result;
+    }
+
+
+
+function numericInputValue(input) {
+      if (!input || !String(input.value).trim()) return undefined;
+      return Number(input.value);
+    }
+
+    function parseJsonForPreview(rawValue) {
+      if (!rawValue || !rawValue.trim()) return {};
+      try {
+        var parsed = JSON.parse(rawValue);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function firstDefinedValue() {
+      for (var index = 0; index < arguments.length; index += 1) {
+        var value = arguments[index];
+        if (value !== undefined && value !== null) return value;
+      }
+      return undefined;
+    }
+
+    function kebabCase(value) {
+      return String(value).replace(/[A-Z]/g, function(letter) { return '-' + letter.toLowerCase(); });
+    }
+
+    function isFiniteNumber(value) {
+      return typeof value === 'number' && Number.isFinite(value);
+    }
+
+    function moveEquipment(index, direction) {
+      if(!STEquipmentFilter.all())return;
+      if (!syncEquipmentFromEditor()) return;
+      var targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= state.activeCase.equipment.length) return;
+      var positions=STEquipmentDrag.positions();
+      var moved = state.activeCase.equipment.splice(index, 1)[0];
+      state.activeCase.equipment.splice(targetIndex, 0, moved);
+      state.isDirty = true;
+      renderEquipment();
+      STEquipmentDrag.animate(positions,targetIndex);
+      invalidateActiveResult();autosave.change(true);
+      renderRunWorkspace();
+    }
+
+    async function removeEquipment(index) {
+      if (!await STDialog.confirm(__ST_TEXT__('dialog.delete_equipment'),__ST_TEXT__('dialog.delete_equipment_message'),true))return;
+      if (!syncEquipmentFromEditor()) return;
+      state.activeCase.equipment.splice(index, 1);
+      state.isDirty = true;
+      renderEquipment();
+      invalidateActiveResult();autosave.change(true);
+      renderRunWorkspace();
+    }
+
+    function collectCaseEditor() {
+      if (!state.activeCase || !syncEquipmentFromEditor()) return null;
+      state.activeCase.name = document.getElementById('case-name').value;
+      return {
+        id: state.activeCase.id,
+        expectedRevision: state.activeCase.revision,
+        name: state.activeCase.name,
+        unitOfFlow: state.activeCase.unitOfFlow,
+        equipment: state.activeCase.equipment,
+        engineConfig: state.activeCase.engineConfig || {},
+        metadata: state.activeCase.metadata || {},
+        simulations: state.activeCase.simulations || []
+      };
+    }
+
+    function basicEquipmentPreview(){
+      return Array.from(document.querySelectorAll('#equipment-list .equipment-card')).map(function(card){
+        var type=equipmentField(card,'.equipment-type').value,data=parseJsonForPreview(equipmentField(card,'.equipment-process-data').value);
+        var characteristics=parseJsonForPreview(equipmentField(card,'.equipment-characteristics').value),noise=parseJsonForPreview(equipmentField(card,'.equipment-noise-profile').value);
+        var critical=type!=='CONVEYOR'&&equipmentField(card,'.equipment-pacemaker').checked;
+        characteristics.isPacemaker=critical;data.role=type==='CONVEYOR'?'CONVEYOR':critical?'PACEMAKER':'MACHINE';data.machineType=type;
+        data.equipment=Object.assign({},data.equipment);
+        [['maximum-speed','maximumSpeedBpm'],['recovery-time','recoveryTimeSeconds']].forEach(function(spec){var input=equipmentField(card,'.equipment-'+spec[0]);if(input.value==='')delete data.equipment[spec[1]];else data.equipment[spec[1]]=Number(input.value);});
+        if(equipmentField(card,'.reliability-enabled').checked||window.STBasicMode?.isBasic()&&type!=='CONVEYOR')noise.reliability=Object.assign({},noise.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
+        else delete noise.reliability;
+        if(type==='CONVEYOR')data=mergeFormatZoneData(data,readFormatZoneInputs(card));
+        return {id:equipmentField(card,'.equipment-id').value,type:type,name:equipmentField(card,'.equipment-name').value,
+          nominalRatePerSecond:readEquipmentRate(card),characteristics:characteristics,processData:data,noiseProfile:noise};
+      });
+    }
+    function refreshDesignGraph(){if(state.activeCase)STLinePerformance.render(null,basicEquipmentPreview());}
+    function readEquipmentRate(card){
+      var input=equipmentField(card,'.equipment-rate');
+      return input.value!==''&&Number(input.value)===Number(input.dataset.originalBpm)&&input.dataset.originalRate!==''?Number(input.dataset.originalRate):Number(input.value)/60;
+    }
+    function syncEquipmentFromEditor() {
+      if (!state.activeCase) return false;
+      var cards = Array.prototype.slice.call(document.querySelectorAll('.equipment-card'));
+      var equipment = [];
+      for (var index = 0; index < cards.length; index += 1) {
+        var card = cards[index];
+        var characteristics = parseJsonObject(equipmentField(card, '.equipment-characteristics').value, 'Characteristics', index + 1);
+        if (characteristics === null) return false;
+        var noiseProfile = parseJsonObject(equipmentField(card, '.equipment-noise-profile').value, __ST_TEXT__('client.noise_profile'), index + 1);
+        if (noiseProfile === null) return false;
+        var processData = parseJsonObject(equipmentField(card, '.equipment-process-data').value, __ST_TEXT__('client.process_format_data'), index + 1);
+        if (processData === null) return false;
+        var type = equipmentField(card, '.equipment-type').value;
+        if(window.STBasicMode?.isBasic()&&type!=='CONVEYOR'){
+          equipmentField(card,'.reliability-enabled').checked=true;
+          noiseProfile.reliability=Object.assign({},noiseProfile.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
+        }
+        if(!STReliabilityControls.valid(card)){showError({message:'MTBF and MTTR must be positive numbers when failures are enabled.'});return false;}
+        if(!STEquipmentRoles.read(card,characteristics,processData,type)){showError({message:__ST_TEXT__('equipment.design_invalid')});return false;}
+        if (type === 'CONVEYOR') {
+          processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));
+        } else {
+          delete processData.accumulation;
+        }
+        equipment.push({
+          id: equipmentField(card, '.equipment-id').value.trim(),
+          type: type,
+          name: equipmentField(card, '.equipment-name').value.trim(),
+          unitOfFlow: equipmentField(card, '.equipment-unit').value.trim()||undefined,
+          nominalRatePerSecond: readEquipmentRate(card),
+          initialMode: window.STBasicMode?.isBasic() ? 'AUTO' : equipmentField(card, '.equipment-mode').value,
+          characteristics: characteristics,
+          noiseProfile: noiseProfile,
+          processData: processData
+        });
+      }
+      if(equipment.filter(function(e){return e.characteristics.isPacemaker;}).length>1){showError({message:__ST_TEXT__('equipment.one_pacemaker')});return false;}
+      state.activeCase.equipment = equipment;
+      renderRawJson();
+      return true;
+    }
+
+function parseJsonObject(rawValue, label, step) {
+      if (!rawValue.trim()) return {};
+      try {
+        var parsed = JSON.parse(rawValue);
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('not an object');
+        return parsed;
+      } catch (error) {
+        showError({ code: 'INVALID_EQUIPMENT_JSON', message: label + __ST_TEXT__('client.for_equipment_step') + step + __ST_TEXT__('client.must_contain_a_json_object') });
+        return null;
+      }
+    }
+
+
+
+function createBlankEquipment() {
+      return {
+        id: 'equipment-'+Date.now().toString(36),
+        type: window.STBasicMode?.newType() || 'CUSTOM',
+        name: __ST_TEXT__('simulation.new_equipment'),
+        nominalRatePerSecond: 1,
+        initialMode: 'AUTO',
+        characteristics: {},
+        noiseProfile: {},
+        processData: {}
+      };
+    }
+
+function renderRawJson() {
+      var preview = document.getElementById('case-json-preview');
+      if (state.activeCase) {
+        function configuration() {
+          var editor=collectCaseEditor(),run=readRunConfiguration();
+          if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid'));
+          return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run}));
+        }
+        preview.value=JSON.stringify(STReports.configuration(state.activeCase,Object.assign({},activePersistentSimulation(),{equipment:state.activeCase.equipment})),null,2);
+        STReports.bindConfiguration(configuration);
+      }
+    }
+
+

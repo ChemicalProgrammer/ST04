@@ -1,0 +1,507 @@
+    function startPlayback() {
+      if (!state.run.result || state.run.playing) return;
+      state.run.active=true;syncRunControls();
+      state.run.playing = true;
+      schedulePlaybackStep();
+    }
+
+    function pausePlayback() {
+      state.run.playing = false;
+      if(roundSession?.firstUpdating)roundSession.resumeAfterEdit=false;
+      stopPlaybackTimer();
+      setPlaybackStatus('Paused');
+      if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}
+    }
+
+    function resetPlayback() {
+      stopPlaybackTimer();
+      var session=roundSession;
+      if(state.run.result?.provisional){
+        state.run.result=null;state.run.representative=null;
+        toggle('simulation-results',false);
+      }else if(session&&(session.pending||session.firstUpdating||session.dirty)&&session.first){
+        delete session.first.batch;
+        persistRoundResult(session,session.first,'CANCELLED');
+      }
+      cancelRoundSession();
+      state.run.roundIndex=0;
+      if(state.run.representative)state.run.result=state.run.representative;
+      state.run.sampleIndex = 0;
+      syncPlaybackRounds();
+      renderPlaybackFrame();
+      setPlaybackStatus(__ST_TEXT__('client.reset'));
+      captureSimulationView();
+      autosave.change();
+    }
+
+    function schedulePlaybackStep() {
+      renderPlaybackFrame();
+      var samples = state.run.result.samples;
+      if (state.run.sampleIndex >= samples.length - 1) {
+        if(roundSession?.streaming){state.run.timer=window.setTimeout(function(){if(state.run.playing)schedulePlaybackStep();},50);return;}
+        if(state.run.representative?.batch?.replays?.[state.run.roundIndex]){
+          selectPlaybackRound(state.run.roundIndex+1,true);return;
+        }
+        state.run.playing = false;
+        state.run.active=false;syncRunControls();
+        setPlaybackStatus('Completed');
+        captureSimulationView();
+        autosave.change();
+        finishRoundSession();
+        return;
+      }
+      var started=performance.now(),delay=playbackDelayMilliseconds();
+      var rate=Number(document.getElementById('run-playback-rate').value||1);
+      var virtualStart=samples[state.run.sampleIndex].virtualSecond;
+      state.run.timer = window.setTimeout(function() {
+        if (!state.run.playing) return;
+        var target=virtualStart+(performance.now()-started)*rate/1000;
+        state.run.sampleIndex=Math.min(samples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(samples,target)));
+        schedulePlaybackStep();
+      }, delay);
+    }
+
+    function playbackDelayMilliseconds() {
+      var samples = state.run.result ? state.run.result.samples : [];
+      var current = samples[state.run.sampleIndex];
+      var next = samples[state.run.sampleIndex + 1];
+      if (!current || !next) return 0;
+      var virtualSeconds = Math.max(0, next.virtualSecond - current.virtualSecond);
+      var playbackRate = Number(document.getElementById('run-playback-rate').value || 1);
+      // At 1×, virtual and wall-clock seconds match. A higher multiplier only
+      // speeds up playback; it never changes the deterministic calculation.
+      return Math.max(35, virtualSeconds * 1000 / playbackRate);
+    }
+
+    function stopPlaybackTimer() {
+      if (state.run.timer) window.clearTimeout(state.run.timer);
+      state.run.timer = null;
+      state.run.playing = false;
+    }
+
+    function renderPlaybackFrame() {
+      syncRunControls();
+      var progress=document.getElementById('playback-progress');
+      if (!state.run.result || !state.run.result.samples.length){if(progress)progress.textContent='0%';return;}
+      var scrollAnchor = captureLiveEquipmentScrollAnchor();
+      var sample = state.run.result.samples[state.run.sampleIndex];
+      var time = sample.virtualSecond;
+      var duration=Number(state.run.result.durationSeconds);if(progress)progress.textContent=(duration>0?Math.max(0,Math.min(100,time/duration*100)).toFixed(1):'0')+'%';
+      document.getElementById('metric-time').textContent = formatSeconds(time);
+      document.getElementById('metric-output').textContent = formatNumber(sample.outputCount);
+      document.getElementById('metric-instant-rate').textContent = formatInstantaneousOutputRate();
+      document.getElementById('metric-rate').textContent = time > 0 ? formatRatePerMinute(sample.outputCount / time) : '—';
+      document.getElementById('metric-buffer').textContent = formatNumber(sum(sample.buffers));
+      document.getElementById('metric-overflow').textContent = formatNumber(sum((sample.accumulationZones || []).map(function(zone) { return zone.overflowUnits || 0; })));
+      document.getElementById('metric-backup-stop').textContent = formatMinutes(sum(sample.equipment.map(function(unit) { return unit.backupStopSeconds || 0; })));
+      document.getElementById('metric-line-oee').textContent = formatLineOeeAtSample(sample);
+      setPlaybackStatus((state.run.result.batch?__ST_TEXT__('batch.round')+' '+(state.run.roundIndex+1)+' / '+state.run.result.batch.rounds+' · ':'')+(state.run.playing ? 'Playing' : 'At') + ' ' + formatNumber(time) + __ST_TEXT__('client.s_frame') + state.run.sampleIndex + ' / ' + (state.run.result.samples.length - 1));
+      if (state.uiView === 'simulation') renderLiveEquipment(sample);
+      drawSimulationChart();
+      drawEquipmentSpeedChart();
+      restoreLiveEquipmentScrollAnchor(scrollAnchor);
+    }
+
+    function captureLiveEquipmentScrollAnchor() {
+      var target = document.getElementById('live-equipment');
+      if (!target) return null;
+      var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!(viewportHeight > 0)) return null;
+      var cards = target.querySelectorAll('.live-equipment-card');
+      for (var index = 0; index < cards.length; index += 1) {
+        var bounds = cards[index].getBoundingClientRect();
+        if (bounds.bottom > 0 && bounds.top < viewportHeight) {
+          return {
+            equipmentId: cards[index].getAttribute('data-equipment-id'),
+            top: bounds.top
+          };
+        }
+      }
+      return null;
+    }
+
+    function restoreLiveEquipmentScrollAnchor(anchor) {
+      if (!anchor || Date.now() - state.lastUserScrollAt < 140) return;
+      if (state.scrollRestoreFrame) window.cancelAnimationFrame(state.scrollRestoreFrame);
+      state.scrollRestoreFrame = window.requestAnimationFrame(function() {
+        state.scrollRestoreFrame = null;
+        if (Date.now() - state.lastUserScrollAt < 140) return;
+        var target = document.getElementById('live-equipment');
+        if (!target) return;
+        var cards = target.querySelectorAll('.live-equipment-card');
+        var card = null;
+        for (var index = 0; index < cards.length; index += 1) {
+          if (cards[index].getAttribute('data-equipment-id') === anchor.equipmentId) {
+            card = cards[index];
+            break;
+          }
+        }
+        if (!card) return;
+        var delta = card.getBoundingClientRect().top - anchor.top;
+        if (Math.abs(delta) < 2) return;
+        state.scrollRestoreUntil = Date.now() + 100;
+        window.scrollBy(0, delta);
+      });
+    }
+
+    function formatInstantaneousOutputRate() {
+      if (!state.run.result || state.run.sampleIndex === 0) return '—';
+      var current = state.run.result.samples[state.run.sampleIndex];
+      var previous = state.run.result.samples[state.run.sampleIndex - 1];
+      var elapsed = current.virtualSecond - previous.virtualSecond;
+      if (!(elapsed > 0)) return '—';
+      return formatRatePerMinute((current.outputCount - previous.outputCount) / elapsed);
+    }
+
+    function formatLineOeeAtSample(sample) {
+      if(state.run.result?.engineId==='DES_SIMPY_EXPERIMENTAL')return '—';
+      var pacemakerRate = state.run.result?.summary?.lineOeePacemakerRatePerSecond;
+      if (!(sample.virtualSecond > 0) || !isFiniteNumber(pacemakerRate) || pacemakerRate <= 0) return '—';
+      return formatPercent(Math.min(1, sample.outputCount / (pacemakerRate * sample.virtualSecond)));
+    }
+
+    function renderLiveEquipment(sample) {
+      var target = document.getElementById('live-equipment');
+      target.setAttribute('role', 'list');
+      var columns = ensureLiveEquipmentColumns(target);
+      var cardsByEquipmentId = {};
+      Array.prototype.forEach.call(target.querySelectorAll('.live-equipment-card'), function(card) {
+        cardsByEquipmentId[card.getAttribute('data-equipment-id')] = card;
+      });
+      var displayedEquipmentIds = {};
+      var previousElement = columns;
+      sample.equipment.forEach(function(unit, index) {
+        var model = state.activeCase.equipment[index] || {};
+        var equipmentId = unit.id || ('unit-' + index);
+        var card = cardsByEquipmentId[equipmentId] || createLiveEquipmentCard(equipmentId);
+        displayedEquipmentIds[equipmentId] = true;
+        updateLiveEquipmentCard(card, unit, model, index, sample);
+        if (card.parentNode !== target || card.previousElementSibling !== previousElement) {
+          target.insertBefore(card, previousElement.nextElementSibling);
+        }
+        previousElement = card;
+        drawEquipmentSpeedSparkline(card.querySelector('.equipment-speed-sparkline'), index, model);
+      });
+      Array.prototype.forEach.call(target.querySelectorAll('.live-equipment-card'), function(card) {
+        if (!displayedEquipmentIds[card.getAttribute('data-equipment-id')]) card.remove();
+      });
+    }
+
+    function ensureLiveEquipmentColumns(target) {
+      var columns = target.querySelector('.live-equipment-columns');
+      if (!columns) {
+        columns = document.createElement('div');
+        columns.className = 'live-equipment-columns';
+        columns.setAttribute('aria-hidden', 'true');
+        columns.innerHTML = ("<span>" + __ST_HTML_TEXT__('client.equipment') + "</span><span>" + __ST_HTML_TEXT__('client.state_rate') + "</span><span>" + __ST_HTML_TEXT__('client.units_oee') + "</span><span>" + __ST_HTML_TEXT__('client.time_losses') + "</span><span>" + __ST_HTML_TEXT__('client.speed_trend') + "</span><span>" + __ST_HTML_TEXT__('client.scenario_controls') + "</span>");
+        target.insertBefore(columns, target.firstChild);
+      }
+      return columns;
+    }
+
+    function createLiveEquipmentCard(equipmentId) {
+      var card = document.createElement('article');
+      card.className = 'live-equipment-card';
+      card.setAttribute('data-equipment-id', equipmentId);
+      card.setAttribute('role', 'listitem');
+      card.innerHTML = ("<div class=\"live-equipment-card__row\"><div class=\"live-equipment-identity live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.equipment') + "\"><strong></strong><span class=\"live-command\"></span></div><div class=\"live-equipment-operation live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.state_rate') + "\"><span class=\"live-state\"></span><b class=\"live-rate\"></b><span class=\"live-nominal-rate\"></span></div><div class=\"live-equipment-flow live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.units_oee') + "\"><span class=\"live-flow-label\"></span><b class=\"live-processed\"></b><span class=\"live-oee-label\" title=\"" + __ST_HTML_TEXT__('client.oee_availability_performance_quality_quality_is_assumed_100_until_the_model') + "\">" + __ST_HTML_TEXT__('client.oee') + "</span><b class=\"live-oee\"></b></div><div class=\"live-equipment-stats live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.time_losses') + "\"><div><span>" + __ST_HTML_TEXT__('client.starved') + "</span><b class=\"live-starved\"></b></div><div><span>" + __ST_HTML_TEXT__('client.blocked_2') + "</span><b class=\"live-blocked\"></b></div><div><span>" + __ST_HTML_TEXT__('client.waiting_prime') + "</span><b class=\"live-waiting-prime\"></b></div><div><span>" + __ST_HTML_TEXT__('client.back_up_stop') + "</span><b class=\"live-backup-stop\"></b></div><div><span>" + __ST_HTML_TEXT__('client.failure_2') + "</span><b class=\"live-failure\"></b></div><div><span>" + __ST_HTML_TEXT__('client.emergency') + "</span><b class=\"live-emergency\"></b></div></div><div class=\"live-speed-cell live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.speed_trend') + "\"><div class=\"equipment-speed-sparkline-heading\"><span>" + __ST_HTML_TEXT__('client.actual_last_60_s') + "</span><b class=\"live-sparkline-nominal-rate\"></b></div><canvas class=\"equipment-speed-sparkline\" height=\"56\" aria-label=\"" + __ST_HTML_TEXT__('client.rolling_actual_speed_chart') + "\"></canvas></div><div class=\"live-equipment-controls live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.scenario_controls') + "\"><button class=\"secondary live-control-run\" type=\"button\">" + __ST_HTML_TEXT__('client.run_resume') + "</button><button class=\"live-control-pause\" type=\"button\">" + __ST_HTML_TEXT__('client.pause') + "</button><button class=\"live-control-stop\" type=\"button\">" + __ST_HTML_TEXT__('client.planned_stop') + "</button><button class=\"live-control-emergency\" type=\"button\">" + __ST_HTML_TEXT__('client.emergency_stop') + "</button><button class=\"secondary live-control-reset\" type=\"button\">" + __ST_HTML_TEXT__('client.reset_run') + "</button></div></div><div class=\"live-equipment-zone\"></div>");
+      var title=card.querySelector('.live-equipment-identity strong'),heading=document.createElement('div'),symbol=document.createElement('span');
+      heading.className='live-equipment-heading';symbol.className='live-equipment-symbol';symbol.setAttribute('aria-hidden','true');title.before(heading);heading.append(symbol,title);
+      var meta=document.createElement('span');meta.className='critical-label';card.querySelector('.live-equipment-identity').appendChild(meta);
+      var reliability=document.createElement('span');reliability.className='case-description reliability-label';card.querySelector('.live-equipment-identity').appendChild(reliability);
+      var losses=document.createElement('button');losses.className='ghost loss-toggle';losses.type='button';losses.innerHTML=STIcons.svg('chart');losses.title=__ST_TEXT__('client.time_losses');losses.setAttribute('aria-label',__ST_TEXT__('client.time_losses'));losses.setAttribute('aria-expanded','false');losses.onclick=function(){var open=card.dataset.losses!=='open';card.dataset.losses=open?'open':'closed';card.classList.toggle('show-losses',open);losses.setAttribute('aria-expanded',String(open));if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}};card.querySelector('.live-equipment-controls').appendChild(losses);
+      [['run','play',__ST_TEXT__('client.run_resume')],['pause','pause',__ST_TEXT__('client.pause')],['stop','stop',__ST_TEXT__('client.planned_stop')],['emergency','warning',__ST_TEXT__('client.emergency_stop')],['reset','refresh',__ST_TEXT__('client.reset_run')]].forEach(function(pair){var button=card.querySelector('.live-control-'+pair[0]);button.innerHTML=STIcons.svg(pair[1]);button.setAttribute('aria-label',pair[2]);button.dataset.actionLabel=pair[2];button.title=pair[2];});
+      bindLiveEquipmentControl(card.querySelector('.live-control-run'), equipmentId, 'RUN');
+      bindLiveEquipmentControl(card.querySelector('.live-control-pause'), equipmentId, 'PAUSE');
+      bindLiveEquipmentControl(card.querySelector('.live-control-stop'), equipmentId, 'STOP');
+      bindLiveEquipmentControl(card.querySelector('.live-control-emergency'), equipmentId, 'EMERGENCY_STOP');
+      bindLiveEquipmentControl(card.querySelector('.live-control-reset'), equipmentId, 'RESET_AND_RUN');
+      return card;
+    }
+
+    function updateLiveEquipmentCard(card, unit, model, index, sample) {
+      var availabilityState = unit.availabilityState || unit.mode || 'UNKNOWN';
+      card.className = 'live-equipment-card state-' + availabilityState.toLowerCase().replace(/_/g, '-') + (card.dataset.losses === 'open' ? __ST_TEXT__('client.show_losses') : '');
+      var symbol=card.querySelector('.live-equipment-symbol');
+      if(symbol.dataset.type!==model.type){symbol.innerHTML=STIcons.equipment(model.type);symbol.dataset.type=model.type;}
+      card.querySelector('.live-equipment-identity strong').textContent = model.name || unit.id;
+      card.querySelector('.live-equipment-identity strong').title=__ST_TEXT__('client.equipment_unit_label')+': '+(window.STBasicMode?.unitLabel(model.unitOfFlow)||model.unitOfFlow||'units')+' · '+__ST_TEXT__('client.equipment_unit_help');
+      card.querySelector('.live-state').textContent = availabilityState.replace(/_/g,' ');
+      card.querySelector('.critical-label').textContent = model.processData?.role === 'PACEMAKER' ? __ST_TEXT__('client.critical_pacemaker') : model.processData?.role === 'CRITICAL_MACHINE' ? __ST_TEXT__('client.critical_equipment') : '';
+      card.querySelector('.reliability-label').textContent = model.noiseProfile?.reliability ? __ST_TEXT__('client.mtbf')+formatNumber(model.noiseProfile?.reliability.mtbfMinutes)+__ST_TEXT__('client.min_mttr')+formatNumber(model.noiseProfile?.reliability.mttrMinutes)+__ST_TEXT__('client.min') : '';
+      card.querySelector('.live-command').textContent = __ST_TEXT__('client.command') + unit.mode;
+      card.querySelector('.live-flow-label').textContent = index === 0 ? 'Produced' : 'Processed';
+      card.querySelector('.live-processed').textContent = formatNumber(unit.processedUnits === undefined ? unit.outputCount : unit.processedUnits);
+      card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 && Number.isFinite(unit.oeePercent) ? formatPercent(unit.oeePercent / 100) : '—';
+      card.querySelector('.live-rate').textContent = formatRatePerMinute(unit.actualRatePerSecond);
+      card.querySelector('.live-starved').textContent = formatMinutes(unit.starvedSeconds);
+      card.querySelector('.live-blocked').textContent = formatMinutes(unit.blockedSeconds);
+      card.querySelector('.live-waiting-prime').textContent = formatMinutes(unit.waitingForPrimeSeconds);
+      card.querySelector('.live-backup-stop').textContent = formatMinutes(unit.backupStopSeconds);
+      card.querySelector('.live-failure').textContent = formatMinutes(unit.failureSeconds);
+      card.querySelector('.live-emergency').textContent = formatMinutes(unit.emergencyStopSeconds);
+      card.querySelector('.live-nominal-rate').textContent = __ST_TEXT__('client.nominal') + formatRatePerMinute(model.nominalRatePerSecond) + (model.processData?.equipment?.maximumSpeedBpm ? __ST_TEXT__('client.max') + formatNumber(model.processData.equipment.maximumSpeedBpm) + __ST_TEXT__('client.min_2') : '');
+      card.querySelector('.live-sparkline-nominal-rate').textContent = formatRatePerMinute(model.nominalRatePerSecond);
+      card.querySelector('.equipment-speed-sparkline-heading span').textContent=state.run.roundIndex>0&&state.run.result.samples.length>1&&state.run.result.samples[1].virtualSecond-state.run.result.samples[0].virtualSecond>60?__ST_TEXT__('batch.sampled_speed'):__ST_TEXT__('client.actual_last_60_s');
+      Array.prototype.forEach.call(card.querySelectorAll('.live-equipment-controls button:not(.loss-toggle)'), updateLiveEquipmentControl);
+
+      var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
+        return candidate.ownerEquipmentId === unit.id;
+      }) : null;
+      updateAccumulationZoneDetails(card.querySelector('.live-equipment-zone'), zone);
+    }
+
+    function createAccumulationZoneDetails(zone) {
+      var details = document.createElement('details');
+      details.className = 'accumulation-zone-details';
+      details.open = Boolean(state.liveZoneDetails[zone.ownerEquipmentId]);
+      details.innerHTML = ("<summary><span class=\"accumulation-zone-summary-name\"></span><span class=\"accumulation-zone-summary-reading\"></span></summary>");
+      details.appendChild(createAccumulationZonePanel(zone));
+      details.addEventListener('toggle', function() {
+        var changed=Boolean(state.liveZoneDetails[zone.ownerEquipmentId])!==details.open;
+        state.liveZoneDetails[zone.ownerEquipmentId] = details.open;
+        if(changed&&activePersistentSimulation()?.results){captureSimulationView();autosave.change();}
+      });
+      updateAccumulationZoneDetailsContent(details, zone);
+      return details;
+    }
+
+    function updateAccumulationZoneDetails(host, zone) {
+      if (!zone || !zone.physicalModelEnabled) {
+        if (host.firstChild) host.textContent = '';
+        return;
+      }
+      var details = host.querySelector('.accumulation-zone-details');
+      if (!details) {
+        host.appendChild(createAccumulationZoneDetails(zone));
+        return;
+      }
+      updateAccumulationZoneDetailsContent(details, zone);
+    }
+
+    function updateAccumulationZoneDetailsContent(details, zone) {
+      details.querySelector('.accumulation-zone-summary-name').textContent = (zone.name || __ST_TEXT__('client.accumulation_zone')) + __ST_TEXT__('client.physical_accumulation');
+      details.querySelector('.accumulation-zone-summary-reading').textContent = formatNumber(zone.inventoryUnits) + ' / ' + formatNumber(zone.capacityUnits) + __ST_TEXT__('client.units_waiting') + formatNumber(zone.waitingUnits) + ' · ' + formatNumber(zone.fillPercent) + '%';
+      var panel = details.querySelector('.accumulation-zone');
+      if (!panel) {
+        panel = createAccumulationZonePanel(zone);
+        details.appendChild(panel);
+        return;
+      }
+      updateAccumulationZonePanel(panel, zone);
+    }
+
+    function createAccumulationZonePanel(zone) {
+      var panel = document.createElement('section');
+      panel.innerHTML = ("<div class=\"accumulation-zone-heading\"><strong></strong><span></span></div><div class=\"accumulation-zone-stats\"><div><span>" + __ST_HTML_TEXT__('client.inventory') + "</span><b class=\"zone-inventory\"></b></div><div><span>" + __ST_HTML_TEXT__('client.in_transit') + "</span><b class=\"zone-transit\"></b></div><div><span>" + __ST_HTML_TEXT__('client.prime') + "</span><b class=\"zone-prime\"></b></div><div><span>" + __ST_HTML_TEXT__('client.back_up') + "</span><b class=\"zone-backup\"></b></div><div><span>" + __ST_HTML_TEXT__('client.geometry') + "</span><b class=\"zone-geometry\"></b></div><div><span>" + __ST_HTML_TEXT__('client.travel') + "</span><b class=\"zone-travel\"></b></div><div><span>" + __ST_HTML_TEXT__('client.overflow') + "</span><b class=\"zone-overflow\"></b></div></div><section class=\"zone-engineering hidden\"><div class=\"zone-engineering-heading\"><strong>" + __ST_HTML_TEXT__('client.conveyor_design_audit') + "</strong><span class=\"zone-audit-status\"></span></div><div class=\"zone-engineering-stats\"><div><span>" + __ST_HTML_TEXT__('client.required_overflow_l_bu') + "</span><b class=\"zone-overflow-length\"></b></div><div><span>" + __ST_HTML_TEXT__('client.useful_accumulation_l_ba') + "</span><b class=\"zone-accumulation-length\"></b></div><div><span>" + __ST_HTML_TEXT__('client.recovery_l_rec') + "</span><b class=\"zone-recovery-length\"></b></div><div><span>" + __ST_HTML_TEXT__('client.anti_starve') + "</span><b class=\"zone-anti-starve\"></b></div><div><span>" + __ST_HTML_TEXT__('client.anti_block') + "</span><b class=\"zone-anti-block\"></b></div><div><span>" + __ST_HTML_TEXT__('client.recommended_speed') + "</span><b class=\"zone-recommended-speed\"></b></div></div><p class=\"zone-audit-goals\"></p></section><p class=\"zone-caption\"></p><p class=\"zone-assumptions\"></p>");
+      var statistics = panel.querySelector('.accumulation-zone-stats');
+      appendZoneMetric(statistics, 'Waiting', 'zone-waiting', __ST_TEXT__('client.product_already_at_the_downstream_end_of_the_conveyor_and_available_to_the_'));
+      appendZoneMetric(statistics, __ST_TEXT__('client.sensor_timing'), 'zone-sensor-timing', __ST_TEXT__('client.normal_photoeye_occupied_time_and_clear_gap_derived_from_product_length_pit'));
+      var engineeringStatistics = panel.querySelector('.zone-engineering-stats');
+      appendZoneMetric(engineeringStatistics, __ST_TEXT__('client.normal_sensor_pulse'), 'zone-sensor-pulse', __ST_TEXT__('client.time_one_package_normally_blocks_a_photoeye_at_the_calculated_belt_speed'));
+      appendZoneMetric(engineeringStatistics, __ST_TEXT__('client.normal_clear_gap_2'), 'zone-sensor-gap', __ST_TEXT__('client.time_the_normal_gap_between_packages_leaves_a_photoeye_clear'));
+      appendZoneMetric(engineeringStatistics, __ST_TEXT__('client.insurance_margin'), 'zone-insurance', __ST_TEXT__('client.extra_package_margin_included_in_the_required_overflow_calculation_it_is_no'));
+      applyZoneConceptTooltips(panel);
+      updateAccumulationZonePanel(panel, zone);
+      return panel;
+    }
+
+    function appendZoneMetric(host, labelText, valueClass, tooltip) {
+      if (!host) return;
+      var cell = document.createElement('div');
+      var label = document.createElement('span');
+      var value = document.createElement('b');
+      label.textContent = labelText;
+      label.title = tooltip;
+      value.className = valueClass;
+      cell.appendChild(label);
+      cell.appendChild(value);
+      host.appendChild(cell);
+    }
+
+    function applyZoneConceptTooltips(panel) {
+      setZoneMetricTooltip(panel, '.zone-inventory', __ST_TEXT__('client.all_material_on_this_physical_conveyor_in_transit_plus_waiting'));
+      setZoneMetricTooltip(panel, '.zone-transit', __ST_TEXT__('client.product_moving_between_the_upstream_discharge_and_the_downstream_end_of_the'));
+      setZoneMetricTooltip(panel, '.zone-prime', __ST_TEXT__('client.prime_photocell_signal_a_product_pass_authorizes_the_downstream_start_a_blo'));
+      setZoneMetricTooltip(panel, '.zone-backup', __ST_TEXT__('client.back_up_photocell_signal_only_a_continuously_blocked_signal_starts_the_stop'));
+      setZoneMetricTooltip(panel, '.zone-geometry', __ST_TEXT__('client.installed_usable_length_and_effective_product_pitch_used_to_calculate_physi'));
+      setZoneMetricTooltip(panel, '.zone-travel', __ST_TEXT__('client.nominal_time_for_material_to_travel_through_the_physical_conveyor'));
+      setZoneMetricTooltip(panel, '.zone-overflow', __ST_TEXT__('client.material_that_could_not_enter_a_full_physical_zone'));
+      setZoneMetricTooltip(panel, '.zone-overflow-length', __ST_TEXT__('client.required_overflow_length_including_runout_residual_discharge_blocked_delay_'));
+      setZoneMetricTooltip(panel, '.zone-accumulation-length', __ST_TEXT__('client.usable_accumulation_length_after_reserving_prime_and_required_overflow_spac'));
+      setZoneMetricTooltip(panel, '.zone-recovery-length', __ST_TEXT__('client.calculated_recovery_margin_after_back_up_clears_positive_values_indicate_a_'));
+      setZoneMetricTooltip(panel, '.zone-anti-starve', __ST_TEXT__('client.time_the_useful_accumulation_can_continue_feeding_the_downstream_critical_m'));
+      setZoneMetricTooltip(panel, '.zone-anti-block', __ST_TEXT__('client.time_the_useful_accumulation_can_accept_upstream_output_before_the_upstream'));
+      setZoneMetricTooltip(panel, '.zone-recommended-speed', __ST_TEXT__('client.minimum_downstream_infeed_conveyor_speed_with_the_worksheet_5_overspeed_mar'));
+    }
+
+    function setZoneMetricTooltip(panel, valueSelector, tooltip) {
+      var value = panel.querySelector(valueSelector);
+      var label = value && value.parentElement && value.parentElement.querySelector('span');
+      if (label) label.title = tooltip;
+    }
+
+    function updateAccumulationZonePanel(panel, zone) {
+      panel.className = 'accumulation-zone state-' + String(zone.state || 'EMPTY').toLowerCase().replace(/_/g, '-');
+      var geometry = zone.geometry || {};
+      panel.querySelector('strong').textContent = zone.name || __ST_TEXT__('client.accumulation_zone');
+      panel.querySelector('.accumulation-zone-heading span').textContent = String(zone.state || 'EMPTY').replace(/_/g, ' ');
+      panel.querySelector('.zone-inventory').textContent = formatNumber(zone.inventoryUnits) + ' / ' + formatNumber(zone.capacityUnits) + ' (' + formatNumber(zone.fillPercent) + '%)';
+      panel.querySelector('.zone-transit').textContent = formatNumber(zone.inTransitUnits);
+      panel.querySelector('.zone-waiting').textContent = formatNumber(zone.waitingUnits);
+      panel.querySelector('.zone-prime').textContent = formatPrimeSensorReading(zone.prime);
+      panel.querySelector('.zone-backup').textContent = formatBackupSensorReading(zone.backup);
+      panel.querySelector('.zone-geometry').textContent = geometry.usableLengthMm && geometry.productPitchMm
+        ? formatNumber(geometry.usableLengthMm) + __ST_TEXT__('client.mm_3') + formatNumber(geometry.productPitchMm) + __ST_TEXT__('client.mm_2') + ' · ' + __ST_TEXT__('conveyor.packed_pitch') + ': ' + formatNumber(geometry.accumulatedPitchMm ?? geometry.productPitchMm) + __ST_TEXT__('client.mm_2')
+        : __ST_TEXT__('client.not_available');
+      panel.querySelector('.zone-travel').textContent = geometry.travelSeconds > 0
+        ? formatNumber(geometry.travelSeconds) + ' s'
+        : '—';
+      panel.querySelector('.zone-sensor-timing').textContent = formatSensorTiming(geometry);
+      panel.querySelector('.zone-overflow').textContent = zone.overflowUnits===null?'—':formatNumber(zone.overflowUnits);
+      panel.querySelector('.zone-caption').textContent = zoneOriginLabel(zone.modelOrigin) + __ST_TEXT__('conveyor.capacity_formula') +
+        formatNumber(zone.capacityUnits) + __ST_TEXT__('client.units_controls_upstream') + zone.upstreamControlEquipmentId +
+        __ST_TEXT__('client.starts_downstream') + zone.downstreamControlEquipmentId;
+      panel.querySelector('.zone-assumptions').textContent = summarizeGeometrySources(zone.geometrySources, zone.formatAssumptions);
+      updateZoneEngineeringAudit(panel, zone);
+    }
+
+    function formatPrimeSensorReading(prime) {
+      if (!prime || !prime.configured) return __ST_TEXT__('client.not_configured');
+      if (prime.state === 'PULSING') return __ST_TEXT__('client.pulsing_product_passing');
+      if (prime.state === 'BLOCKED') return __ST_TEXT__('client.blocked_queue_present');
+      return prime.latched ? __ST_TEXT__('client.clear_start_sent') : __ST_TEXT__('client.clear_waiting');
+    }
+
+    function formatBackupSensorReading(backup) {
+      if (!backup || !backup.configured) return __ST_TEXT__('client.not_configured');
+      if (backup.state === 'PULSING') return __ST_TEXT__('client.pulsing_normal_flow');
+      if (backup.state === 'BLOCKED') {
+        return backup.controlActive
+          ? __ST_TEXT__('client.blocked_control_active')
+          : __ST_TEXT__('client.blocked') + formatSeconds(backup.blockedCandidateSeconds) + ' / ' + formatSeconds(backup.blockedTimeDelaySeconds);
+      }
+      if (backup.controlActive && backup.clearCandidateSeconds > 0) {
+        return __ST_TEXT__('client.clear') + formatSeconds(backup.clearCandidateSeconds) + ' / ' + formatSeconds(backup.clearTimeDelaySeconds);
+      }
+      return backup.controlActive ? __ST_TEXT__('client.clear_awaiting_delay') : 'CLEAR';
+    }
+
+    function formatSensorTiming(geometry) {
+      if (!geometry) return '—';
+      var pulse = formatSeconds(geometry.packagePassSensorSeconds);
+      var gap = formatSeconds(geometry.sensorClearGapSeconds);
+      return pulse === '—' && gap === '—' ? '—' : pulse + ' / ' + gap;
+    }
+
+    function zoneOriginLabel(origin) {
+      return origin === 'FLOWPILOT_ENGINEERING'
+        ? __ST_TEXT__('client.flowpilot_physical_conveyor_zone')
+        : origin === 'FORMAT_GEOMETRY' ? __ST_TEXT__('client.direct_physical_conveyor_zone') : __ST_TEXT__('client.physical_zone');
+    }
+
+    function updateZoneEngineeringAudit(panel, zone) {
+      var host = panel.querySelector('.zone-engineering');
+      var engineering = state.run.result?.accumulationZoneMetrics?.[zone.id]?.engineering;
+      if (!engineering || !engineering.calculated || !engineering.audit) {
+        host.classList.add('hidden');
+        return;
+      }
+      host.classList.remove('hidden');
+      var calculated = engineering.calculated;
+      host.querySelector('.zone-audit-status').textContent = String(engineering.audit.status || 'NOT_EVALUATED').replace(/_/g, ' ');
+      host.querySelector('.zone-audit-status').className = 'zone-audit-status audit-' + String(engineering.audit.status || 'NOT_EVALUATED').toLowerCase().replace(/_/g, '-');
+      host.querySelector('.zone-overflow-length').textContent = engineeringNumber(calculated.overflowLengthMm, __ST_TEXT__('client.mm_2'));
+      host.querySelector('.zone-accumulation-length').textContent = engineeringNumber(calculated.usefulAccumulationLengthMm, __ST_TEXT__('client.mm_2'));
+      host.querySelector('.zone-recovery-length').textContent = engineeringNumber(calculated.recoveryLengthMm, __ST_TEXT__('client.mm_2'));
+      host.querySelector('.zone-anti-starve').textContent = engineeringNumber(calculated.antiStarveSeconds, ' s');
+      host.querySelector('.zone-anti-block').textContent = engineeringNumber(calculated.antiBlockSeconds, ' s');
+      host.querySelector('.zone-recommended-speed').textContent = engineeringNumber(calculated.recommendedInfeedConveyorSpeedMmPerSecond, __ST_TEXT__('client.mm_s_2'));
+      host.querySelector('.zone-sensor-pulse').textContent = engineeringNumber(calculated.packagePassSensorSeconds, ' s');
+      host.querySelector('.zone-sensor-gap').textContent = engineeringNumber(calculated.sensorClearGapSeconds, ' s');
+      host.querySelector('.zone-insurance').textContent = engineeringNumber(engineering.input.insuranceFactorUnits, __ST_TEXT__('client.units'));
+      host.querySelector('.zone-audit-goals').textContent = engineering.audit.goals.map(function(goal) {
+        return goal.id.replace(/_/g, ' ') + ': ' + goal.status.replace(/_/g, ' ') + ' — ' + goal.message;
+      }).join(' · ');
+    }
+
+    function engineeringNumber(value, suffix) {
+      return isFiniteNumber(value) ? formatNumber(value) + suffix : '—';
+    }
+
+function summarizeGeometrySources(sources, assumptions) {
+      var details = [];
+      if (sources && sources.productPitchMm) details.push(__ST_TEXT__('client.pitch') + sources.productPitchMm);
+      if (sources && sources.conveyorSpeedMmPerSecond) details.push(__ST_TEXT__('client.speed') + sources.conveyorSpeedMmPerSecond);
+      if (!details.length && Array.isArray(assumptions) && assumptions.length) details.push(assumptions[0]);
+      return details.join(' · ');
+    }
+
+    function bindLiveEquipmentControl(button, equipmentId, action) {
+      button.addEventListener('click', function() {
+        applyLiveScenarioControl(equipmentId, action);
+      });
+    }
+
+    function updateLiveEquipmentControl(button) {
+      if(state.run.result?.engineId==='DES_SIMPY_EXPERIMENTAL'&&state.activeCase.equipment.find(function(e){return e.id===button.closest('.live-equipment-card')?.dataset.equipmentId;})?.type==='CONVEYOR'){button.disabled=true;button.title='Conveyor controls are not supported by the experimental SimPy engine.';return;}
+      var sample = state.run.result && state.run.result.samples[state.run.sampleIndex];
+      var isAtRunEnd = !sample || sample.virtualSecond >= state.run.result.durationSeconds;
+      if(state.run.result?.batch&&state.run.roundIndex!==0){button.disabled=true;button.title=__ST_TEXT__('batch.later_controls');return;}
+      button.disabled = isAtRunEnd||Boolean(roundSession?.firstUpdating);
+      button.title = (button.dataset.actionLabel || '') + ' — ' + (isAtRunEnd
+        ? __ST_TEXT__('client.reset_playback_to_an_earlier_virtual_time_before_applying_a_scenario_contro')
+        : __ST_TEXT__('client.apply_at_the_displayed_virtual_second_and_recalculate_this_simulation_scena'));
+    }
+
+    async function applyLiveScenarioControl(equipmentId, action) {
+      if (!state.run.result||roundSession?.firstUpdating) return;
+      if(state.run.result.batch&&state.run.roundIndex!==0)return setStatus(__ST_TEXT__('batch.later_controls'));
+      var sample = state.run.result.samples[state.run.sampleIndex];
+      if (!sample || sample.virtualSecond >= state.run.result.durationSeconds) {
+        return setStatus(__ST_TEXT__('client.reset_playback_to_an_earlier_virtual_time_before_applying_a_scenario_contro'));
+      }
+
+      var wasPlaying = state.run.playing;
+      var actions = action === 'RESET_AND_RUN' ? ['RESET', 'RUN'] : [action];
+      var commands=actions.map(function(nextAction) {
+        return {
+          atVirtualSecond: sample.virtualSecond,
+          equipmentId: equipmentId,
+          action: nextAction
+        };
+      });
+      var run = createStoredRunConfiguration();
+      if(!run)return;
+      run.commands=run.commands.concat(commands);
+      if(!roundSession&&(run.rounds>1||run.shiftSeconds))roundSession={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson(state.activeCase),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false};
+      if(roundSession&&roundSessionActive(roundSession)){
+        var session=roundSession;session.run=cloneJson(run);session.version++;session.dirty=run.rounds>1;session.finishing=false;session.firstUpdating=true;session.resumeAfterEdit=wasPlaying;
+        if(session.streaming){session.generation++;session.streaming=false;session.pending=false;}
+        state.run.commands=cloneJson(run.commands);delete state.run.result.batch;state.run.result.replicationStatus={state:'STALE',rounds:run.rounds,baseSeed:run.seed};
+        var active=activePersistentSimulation();if(active)active.results=null;
+        stopPlaybackTimer();renderPlaybackFrame();
+        try{
+          var first=await SimulatorEngine.simulateLineAsync({case:cloneJson(session.caseModel),run:run},{detail:true,cancelled:function(){return !roundSessionActive(session);}});
+          if(!roundSessionActive(session))return;
+          if(!first.ok){showError(first.error);return;}
+          session.first=first.result;state.run.sampleIndex=findSampleIndexAtOrBefore(first.result.samples,sample.virtualSecond);persistRoundResult(session,first.result,run.rounds>1?'STALE':'PENDING');
+          if(run.rounds<=1)computeRoundSession(session,first.result);
+          wasPlaying=session.resumeAfterEdit;
+        }catch(error){if(error.message!=='BATCH_CANCELLED')showError(error);return;}
+        finally{session.firstUpdating=false;if(roundSessionActive(session))renderPlaybackFrame();}
+      }else if(!await calculateSimulation(run,sample.virtualSecond))return;
+      state.run.commands=cloneJson(run.commands);renderControlEvents();
+      var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(run);tab.run=cloneJson(run);tab.results=createStoredSimulationResult(state.run.result,run);state.isDirty=true;saveActiveCase();}
+      var equipment = state.activeCase.equipment.find(function(item) { return item.id === equipmentId; });
+      var label = equipment ? equipment.name : equipmentId;
+      setStatus((action === 'RESET_AND_RUN' ? __ST_TEXT__('client.reset_and_run') : action.replace(/_/g, ' ').toLowerCase()) + __ST_TEXT__('client.scheduled_for') + label + __ST_TEXT__('client.at_virtual') + sample.virtualSecond + __ST_TEXT__('client.s_the_deterministic_path_was_recalculated'));
+      if (wasPlaying) startPlayback();
+    }
+
+    function setPlaybackStatus(message) {
+      var target = document.getElementById('playback-status');
+      if (target) target.textContent = message;
+    }
+
+

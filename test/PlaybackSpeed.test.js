@@ -1,9 +1,10 @@
+import {readClientSource} from '../scripts/render-apps-script.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 test('1000x playback skips display samples and reaches the final frame without changing results',()=>{
- const code=fs.readFileSync('apps-script/Client.html','utf8');
+ const code=readClientSource();
  const samples=Array.from({length:101},(_,i)=>({virtualSecond:i}));
  const state={run:{result:{samples,summary:{outputCount:77}},sampleIndex:0,playing:true}};
  const before=JSON.stringify(state.run.result);let callback,now=0,delay,finished=0,captured=0,saveChanges=0;
@@ -19,3 +20,4 @@ test('1000x playback skips display samples and reaches the final frame without c
  assert.equal(finished,1);assert.equal(captured,1);assert.equal(saveChanges,1);
  assert.equal(JSON.stringify(state.run.result),before);
 });
+

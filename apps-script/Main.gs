@@ -12,7 +12,9 @@ function doGet() {
 
 function include_(filename) {
   // Resolve resource attributes before HtmlOutput processes template delimiters.
-  return resolveTextResources_(HtmlService.createTemplateFromFile(filename).getRawContent());
+  var source=HtmlService.createTemplateFromFile(filename).getRawContent();
+  source=source.replace(/<\?!=\s*include_\('([A-Za-z0-9]+)'\);\s*\?>/g,function(_,name){return include_(name);});
+  return resolveTextResources_(source);
 }
 
 function getBootstrap() {

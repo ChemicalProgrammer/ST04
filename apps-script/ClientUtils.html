@@ -1,0 +1,70 @@
+    function sum(values) {
+      return values.reduce(function(total, value) { return total + value; }, 0);
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function formatSeconds(value) {
+      return isFiniteNumber(value) ? formatNumber(value) + ' s' : '—';
+    }
+
+    function formatRatePerMinute(ratePerSecond) {
+      return formatNumber(Number(ratePerSecond || 0) * 60) + __ST_TEXT__('client.min_3');
+    }
+
+    function formatPercent(value) {
+      return isFiniteNumber(value) ? formatNumber(value * 100) + '%' : '—';
+    }
+
+    function formatMinutes(seconds) {
+      return seconds===null?'—':formatNumber(Number(seconds || 0) / 60) + __ST_TEXT__('client.min');
+    }
+
+    function callServer(name, args, onSuccess, onSettled) {
+      var epoch = state.requestEpoch;
+      state.pendingRequests += 1;
+      activity();
+      function done() {
+        state.pendingRequests = Math.max(0,state.pendingRequests-1);
+        activity();
+        if(onSettled)onSettled();
+      }
+      var runner = google.script.run
+        .withFailureHandler(function(error) {
+          done();
+          if(epoch !== state.requestEpoch) return;
+          if(name!=='refreshCaseCatalog'){
+            state.saving=false;
+            document.querySelectorAll('[data-busy="true"]').forEach(function(button){button.disabled=false;delete button.dataset.busy;});
+            shell.sync();
+          }
+          var detail=name==='saveCase'&&typeof error?.message==='string'?error.message.slice(0,300):'';
+          onSuccess({ok:false,error:{ code: 'NETWORK_ERROR', message: __ST_TEXT__('client.the_server_request_could_not_be_completed_please_try_again')+(detail?' '+detail:'') }});
+        })
+        .withSuccessHandler(function(response) { done(); if(epoch === state.requestEpoch) onSuccess(response); });
+      runner[name].apply(runner, args);
+    }
+
+    function toggle(id, visible) { document.getElementById(id).classList.toggle('hidden', !visible); }
+    function setStatus(message) { var target = document.getElementById('status'); target.className = 'status'; target.textContent = message; }
+    function showError(error) {
+      var message = (error.code || 'ERROR') + ': ' + (error.message || __ST_TEXT__('client.the_request_failed'));
+      var target = document.getElementById('status'); target.className = 'status error'; target.textContent = message;
+      if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){
+        var list=document.createElement('ul');
+        error.details.forEach(function(detail){
+          var item=document.createElement('li');item.textContent=STSheetImportMerge.physicalIssue(detail,state.activeCase?.equipment);list.appendChild(item);
+        });
+        target.appendChild(list);
+      }
+      document.documentElement.classList.remove('restoring-session');
+      if(!state.bootstrap)toggle('auth-panel',true);
+      document.getElementById('auth-status').dataset.state = 'error';
+      document.getElementById('auth-status').textContent = message;STErrors.capture(target,error);STErrors.capture('auth-status',error);
+      document.getElementById('sign-in-button').disabled = false;
+      if (document.getElementById('settings-dialog').open) STSettings.error(error);
+    }
+    function setBusy(targetId, busy) { var target = document.getElementById(targetId); var button = target.tagName === 'FORM' ? target.querySelector('button') : target; button.disabled = busy; button.dataset.busy=String(busy); button.setAttribute("aria-busy",String(busy)); }
+

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readClientSource} from '../scripts/render-apps-script.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -58,7 +59,7 @@ test('dictionary edits reach static views and dynamic messages through the same 
   const ctx=resources();
   ctx.ST_TEXT_RESOURCES['client.loading_console']='Preparando espacio de trabajo…';
   const view=ctx.resolveTextResources_(fs.readFileSync('apps-script/WebApp.html','utf8'));
-  const controller=ctx.resolveTextResources_(fs.readFileSync('apps-script/Client.html','utf8'));
+  const controller=ctx.resolveTextResources_(readClientSource());
   assert(view.includes('Preparando espacio de trabajo…'));
   assert(controller.includes('Preparando espacio de trabajo…'));
   assert(!/__ST_(?:HTML_)?TEXT__\('/.test(view));
@@ -72,4 +73,5 @@ test('critical machine terminology replaces the legacy name in all interface tex
   assert.equal(ctx.ST_TEXT_RESOURCES['equipment.pacemaker'],'Critical machine');
   for(const [key,value] of Object.entries(ctx.ST_TEXT_RESOURCES))assert(!/pacemaker/i.test(value),key);
 });
+
 
