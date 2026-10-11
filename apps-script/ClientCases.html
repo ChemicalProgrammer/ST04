@@ -60,6 +60,17 @@
       initialize();
     }
 
+    var sessionEntryAnimation=null;
+    function animateSessionEntry(signedIn) {
+      if(sessionEntryAnimation){sessionEntryAnimation.cancel();sessionEntryAnimation=null;}
+      var target=document.querySelector(signedIn?'#application':'#auth-panel .auth-card');
+      if(!target?.animate||STMotion.reduced())return;
+      sessionEntryAnimation=target.animate([
+        {opacity:signedIn?0.25:0.7,transform:'translateY('+(signedIn?12:3)+'px)'},
+        {opacity:1,transform:'translateY(0)'}
+      ],{duration:signedIn?340:180,easing:'cubic-bezier(0.22, 1, 0.36, 1)'});
+    }
+
     async function showCaseHome() {
       try { if(!await leaveCase())return false; } catch(error) { showError(error); return false; }
       state.openSequence += 1;
@@ -91,6 +102,7 @@
       document.getElementById('auth-status').dataset.state = 'idle';
       document.getElementById('auth-status').textContent = __ST_TEXT__('client.signed_out_of_flow_pilot_your_google_account_remains_signed_in');
       document.getElementById('sign-in-button').focus();
+      animateSessionEntry(false);
     }
 
     function resetApplication(done) {
@@ -127,6 +139,7 @@
         var error=response?.error||{code:'SIGNIN_EMPTY_RESPONSE',message:'The server returned no startup response.'};
         return showError(Object.assign({},error,{details:['Startup client: startup-20261008-2','Startup server: '+(response?.startupVersion||'not reported')].concat(Array.isArray(error.details)?error.details:[])}));
       }
+      var enteringWorkspace=document.getElementById('application').classList.contains('hidden');
       document.getElementById('sign-in-button').disabled = false;
       document.getElementById('auth-status').dataset.state = 'idle';
       document.getElementById('auth-status').textContent = '';
@@ -148,6 +161,7 @@
       renderCases(response.data.cases);
       setStatus(state.activeCase ? '' : (hasWorkspace ? '' : __ST_TEXT__('client.open_settings_to_connect_a_drive_folder_before_creating_a_case')));
       shell.sync();
+      if(enteringWorkspace)animateSessionEntry(true);
       if(response.data.caseCatalog?.refreshRequired)refreshCaseCatalog();
     }
 
