@@ -51,12 +51,12 @@ function exportEquipmentSheet_(request, user) {
     SpreadsheetApp.flush();
     return {spreadsheetId:book.getId(),url:book.getUrl(),sheetName:sheet.getName(),equipmentCount:data.rows.length};
   } catch (error) {
-    var details=['Exporter: equipment-sheet-20261008-2','Stage: '+stage,'Google: '+safeSheetErrorDetail_(error)];
+    var details=['Exporter: equipment-sheet-20261008-2','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
     // Only the new export belongs to this operation; clean up an incomplete export.
     if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){details.push('The incomplete export could not be removed.');}
     if(error?.simulatorError)throw error;
     console.error(JSON.stringify({event:'SHEET_EXPORT_FAILED',stage:stage,message:safeSheetErrorDetail_(error)}));
-    throw createSimulatorError_('SHEET_EXPORT_FAILED','Google Sheets export could not be completed. See the technical details below.',details);
+    throw createSimulatorError_('SHEET_EXPORT_FAILED','Spreadsheet export could not be completed. See the technical details below.',details);
   }
 }
 
@@ -91,3 +91,4 @@ function sheetExportLiteral_(value) {
 }
 function sheetExportColor_(value,fallback){return /^#[0-9a-f]{6}$/i.test(value||'')?value:fallback;}
 function sheetExportInk_(hex){var channels=[1,3,5].map(function(offset){return parseInt(hex.slice(offset,offset+2),16)/255;}).map(function(c){return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);});return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722>.179?'#18212a':'#ffffff';}
+

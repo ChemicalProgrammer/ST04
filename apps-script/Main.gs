@@ -45,7 +45,7 @@ function getBootstrap() {
     console.error(JSON.stringify({event:'BOOTSTRAP_FAILURE',reference:reference,stage:stage,type:error?.name||'Error'}));
     var authorization=/authorization|authorisation|permission|autorizaci[oó]n|permisos/i.test(String(error?.message||''));
     var missingModule=error?.name==='ReferenceError';
-    var message=authorization?'Google authorization is missing or incomplete. Reopen this web app with the intended Google account and authorize the requested permissions.':missingModule?'A required Apps Script module is missing from this deployment. Update all app modules and deploy a new version.':'Sign-in could not complete. The developer can locate this failure in Apps Script Executions using the reference below.';
+    var message=authorization?'Account authorization is missing or incomplete. Reopen this web app with the intended account and authorize the requested permissions.':missingModule?'A required Apps Script module is missing from this deployment. Update all app modules and deploy a new version.':'Sign-in could not complete. The developer can locate this failure in Apps Script Executions using the reference below.';
     return startupResponse_({ok:false,error:{code:authorization?'SIGNIN_AUTHORIZATION_REQUIRED':missingModule?'SIGNIN_MODULE_MISSING':'SIGNIN_START_FAILED',message:message,details:['Reference: '+reference]}},stage);
   }
 }

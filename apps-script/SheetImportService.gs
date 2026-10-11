@@ -35,7 +35,7 @@ function sheetImportColumns_() {
 }
 
 function previewSheetImport_(request, user) {
-  if (!request || typeof request !== 'object') throw createSimulatorError_('INVALID_SHEET_REQUEST','Enter a Google Sheets URL or spreadsheet ID.');
+  if (!request || typeof request !== 'object') throw createSimulatorError_('INVALID_SHEET_REQUEST','Enter a spreadsheet URL or spreadsheet ID.');
   getCase_(request.caseId, user); // Check target ownership before reading any spreadsheet.
   var reference = parseSheetReference_(request.spreadsheet);
   var book = openImportSpreadsheet_(reference.id);
@@ -68,7 +68,7 @@ function openImportSpreadsheet_(spreadsheetId) {
     if (mime !== 'application/vnd.google-apps.spreadsheet') {
       throw createSimulatorError_(
         'SHEET_NOT_NATIVE',
-        'This file is ' + (mime || 'not a native Google Sheet') + '. In Google Sheets use File → Save as Google Sheets, then paste the URL of the new copy.'
+        'This file is ' + (mime || 'not a native spreadsheet') + '. Open the file in Sheets and use File → Save as Sheets, then paste the URL of the new copy.'
       );
     }
   } catch (error) {
@@ -77,12 +77,12 @@ function openImportSpreadsheet_(spreadsheetId) {
   }
   var authorization = /authoriz|permission|scope|privilege|autoriz|permiso/i.test(detail);
   throw createSimulatorError_(authorization ? 'SHEET_AUTHORIZATION_REQUIRED' : 'SHEET_OPEN_FAILED',
-    'Google Sheets could not open the file. Google reported: ' + detail,
+    'The spreadsheet could not be opened. The service reported: ' + detail,
     driveDetail ? [driveDetail] : []);
 }
 
 function safeSheetErrorDetail_(error) {
-  var message = error && error.message ? String(error.message) : String(error || 'Unknown Google service error');
+  var message = error && error.message ? String(error.message) : String(error || 'Unknown spreadsheet service error');
   return message.replace(/\s+/g, ' ').trim().slice(0, 300);
 }
 
@@ -90,7 +90,7 @@ function parseSheetReference_(input) {
   var text = typeof input === 'string' ? input.trim() : '';
   var match = text.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s]*)?$/);
   var id = match ? match[1] : /^[a-zA-Z0-9_-]{10,200}$/.test(text) ? text : null;
-  if (!id) throw createSimulatorError_('INVALID_SHEET_URL','Use a Google Sheets URL or spreadsheet ID.');
+  if (!id) throw createSimulatorError_('INVALID_SHEET_URL','Use a spreadsheet URL or spreadsheet ID.');
   var gid = text.match(/[?#&]gid=(\d+)/);
   return {id:id,gid:gid?gid[1]:null};
 }
@@ -166,3 +166,4 @@ function parseEquipmentSheet_(metadataCells, rows, formats) {
   ];
   return {metadata:metadata,equipment:equipment,sourceRows:sourceRows,errors:errors,warnings:warnings,notes:notes,canImport:errors.length===0};
 }
+

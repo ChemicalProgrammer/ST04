@@ -21,7 +21,7 @@ window.STDialog = (function() {
     var message = document.createElement('p'); message.id = 'message-dialog-message'; message.textContent = options.message || ''; body.appendChild(message);if(options.details){var detail=document.createElement('pre');detail.className='error-detail-text';detail.textContent=options.details;body.appendChild(detail);}
     var input;
     if (options.link && /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+(?:\/|$)/.test(options.link.url || '')) {
-      var link=document.createElement('a');link.href=options.link.url;link.textContent=options.link.label || 'Google Sheets';link.target='_blank';link.rel='noopener noreferrer';body.appendChild(link);
+      var link=document.createElement('a');link.href=options.link.url;link.textContent=options.link.label || 'Spreadsheet';link.target='_blank';link.rel='noopener noreferrer';body.appendChild(link);
     }
     if (options.input) {
       var label = document.createElement('label'); label.textContent = options.input.label || title.textContent;
@@ -103,4 +103,5 @@ window.STErrors=(function(){
   return {register:register,capture:capture};
 })();
 </script>
+
 
