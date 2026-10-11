@@ -264,9 +264,12 @@ test('Product-support role survives restrictive saved prompts and earlier assist
   h.ctx.saveGeminiPrompts_({personality:{enabled:true,text:'CUSTOM: only engineering; app navigation is outside your role.'},engineering:{enabled:true,text:'CUSTOM_ENGINEERING_ONLY'},basic:{enabled:true,text:'CUSTOM_BASIC_ONLY'}});
   h.ctx.askGemini_({...request,scope,uiMode,question:'¿Sabes cómo funciona la app?',history:[{role:'user',text:'Help with the app'},{role:'model',text:'My role is not to guide app use.'}]},user);
   const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
-  assert.match(policy,/two supported responsibilities/);assert.match(policy,/BOTH Basic and Advance/);assert.match(policy,/outdated refusal/);assert.match(policy,/For app guidance return JSON/);
+  assert.match(policy,/two supported responsibilities/);assert.match(policy,/App guidance is part of your role in both question contexts/);
+  assert.doesNotMatch(h.ctx.flowPilotApplicationGuide_(),/advance/i);assert.doesNotMatch(h.ctx.flowPilotAssistantRole_(),/advance/i);
+  assert.match(h.ctx.flowPilotAssistantRole_(),/Do not mention hidden interface modes or provide their activation or unlocking instructions/);assert.match(policy,/outdated refusal/);assert.match(policy,/For app guidance return JSON/);
   assert(policy.indexOf('assistant role contract')>policy.indexOf('CUSTOM: only engineering'));
   assert.equal(policy.includes('CUSTOM_ENGINEERING_ONLY'),scope==='CASE');assert.equal(policy.includes('CUSTOM_BASIC_ONLY'),scope==='CASE'&&uiMode==='BASIC');
   assert.match(h.ctx.ST_GEMINI_PERSONALITY,/web-app guidance/);
  }
 });
+
