@@ -289,7 +289,7 @@ var ST_TEXT_RESOURCES = {
   "assistant.rejected_proposals": "Some proposed changes did not pass the model checks and cannot be applied. Request a revised proposal.",
   "assistant.answer_shortened": "Answer shortened for conversation storage.",
   "auth.restoring": "Connecting to your workspace…",
-  "client.verifying_your_google_access": "Verifying your Google access…",
+  "client.preparing_workspace": "Preparing your workspace…",
   "client.signed_out_of_flow_pilot_your_google_account_remains_signed_in": "Signed out of Flow Pilot. Your Google account remains signed in.",
   "client.loading_console": "Loading console…",
   "client.open_settings_to_connect_a_drive_folder_before_creating_a_case": "Open Settings to connect a Drive folder before creating a case.",

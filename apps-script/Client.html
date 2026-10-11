@@ -203,7 +203,8 @@
     }
     function signIn() {
       document.getElementById('sign-in-button').disabled = true;
-      document.getElementById('auth-status').textContent = __ST_TEXT__('client.verifying_your_google_access');
+      document.getElementById('auth-status').dataset.state = 'loading';
+      document.getElementById('auth-status').textContent = __ST_TEXT__('client.preparing_workspace');
       initialize();
     }
 
@@ -235,6 +236,7 @@
       assistant.reset();
       document.getElementById('cases-list').textContent = '';
       toggle('application', false); toggle('auth-panel', true);
+      document.getElementById('auth-status').dataset.state = 'idle';
       document.getElementById('auth-status').textContent = __ST_TEXT__('client.signed_out_of_flow_pilot_your_google_account_remains_signed_in');
       document.getElementById('sign-in-button').focus();
     }
@@ -274,6 +276,7 @@
         return showError(Object.assign({},error,{details:['Startup client: startup-20261008-2','Startup server: '+(response?.startupVersion||'not reported')].concat(Array.isArray(error.details)?error.details:[])}));
       }
       document.getElementById('sign-in-button').disabled = false;
+      document.getElementById('auth-status').dataset.state = 'idle';
       document.getElementById('auth-status').textContent = '';
       STPreferences.write('remember', document.getElementById('remember-session').checked ? 'yes' : null);
       document.documentElement.classList.remove('restoring-session');
@@ -2352,6 +2355,7 @@ function summarizeGeometrySources(sources, assumptions) {
       }
       document.documentElement.classList.remove('restoring-session');
       if(!state.bootstrap)toggle('auth-panel',true);
+      document.getElementById('auth-status').dataset.state = 'error';
       document.getElementById('auth-status').textContent = message;STErrors.capture(target,error);STErrors.capture('auth-status',error);
       document.getElementById('sign-in-button').disabled = false;
       if (document.getElementById('settings-dialog').open) STSettings.error(error);

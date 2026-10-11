@@ -36,7 +36,10 @@
 .auth-card .brand-mark { width:64px; height:64px; border-radius:var(--radius-md); }
 .auth-card .brand-mark svg { width:44px; height:44px; } .auth-card form { margin-top: var(--space-6); }
 .remember { display: flex; align-items: center; gap: var(--space-2); }
-.auth-note,#auth-status { font-size: var(--font-secondary); margin-top: var(--space-4); } #auth-status { color: var(--danger); }
+.auth-note,#auth-status { font-size: var(--font-secondary); margin-top: var(--space-4); }
+#auth-status { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); color:var(--muted); }
+#auth-status:empty { display:none; }
+#auth-status[data-state=loading]::before { content:""; width:6px; height:6px; flex:0 0 6px; border-radius:50%; background:var(--secondary); animation:subtle-pulse var(--duration-loading) ease-in-out infinite alternate; }
 .theme-control { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-6); }
 .theme-control select { max-width: var(--size-150); }
 #mobile-menu { display: none; }
@@ -111,4 +114,5 @@ html[data-ui-mode=advance] .workspace-content > .card > .section-heading { flex-
 .round-warning { color:var(--warning); padding:var(--space-2) 0; margin:0; }
 @media(max-width:760px){.round-background { grid-template-columns:1fr auto; }.round-background progress { grid-column:1; grid-row:2; }.round-background #batch-cancel { grid-column:2; grid-row:1/3; }}
 </style>
+
 
