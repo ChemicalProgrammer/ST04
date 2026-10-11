@@ -90,6 +90,8 @@
 .scenario-change input[type=checkbox] { width:auto; min-height:0; }
 .scenario-change input[type=number] { width:140px; }
 .scenario-preview-status { font-weight:600; padding:var(--space-3); background:var(--accent-soft); border-radius:var(--radius-sm); }
+.analysis-recommendation[aria-busy=true] .scenario-preview-status { box-sizing:content-box; height:4.5em; line-height:1.5; overflow:auto; }
+.analysis-recommendation[aria-busy=true] .scenario-search-progress { height:6em; line-height:1.5; overflow:auto; }
 .scenario-explorer .scenario-changes { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:var(--space-3); }
 .scenario-preview-context { font-size:var(--font-secondary); color:var(--muted); }
 .scenario-explorer { margin-bottom:var(--space-4); }

@@ -188,6 +188,7 @@ window.STScenarioExplorer=(function(){
       resultsBody.append(el('p','Purpose describes what each input controls; it does not establish the isolated benefit of an individual change.','chart-note'));resultsDialog.showModal();
     }
     function selected(){return rows.filter(r=>r.check.checked).map(function(r){var c=Object.assign({},r.change);if(r.limit.value!==''){var bound=Number(r.limit.value)/r.scale;if(!Number.isFinite(bound)||bound<0)throw Error('Enter a valid physical limit.');c.after=c.after>=c.before?Math.min(c.after,bound):Math.max(c.after,bound);if(c.before!==null&&((r.change.after>=c.before&&c.after<c.before)||(r.change.after<c.before&&c.after>c.before)))throw Error('The limit contradicts the existing baseline.');}return c;}).filter(c=>c.before!==c.after);}
+    var pendingMetricsReveal=false;
     function renderMetrics(entry){
       var previousText=metrics.textContent;
       metrics.replaceChildren();
@@ -203,7 +204,9 @@ window.STScenarioExplorer=(function(){
         });metrics.append(simple);
       }
 
-      if(metrics.isConnected&&metrics.textContent!==previousText)window.STMotion?.reveal(metrics);
+      if(metrics.textContent!==previousText)pendingMetricsReveal=true;
+      if(host.getAttribute('aria-busy')==='true')window.STMotion?.cancel(metrics);
+      else if(metrics.isConnected&&pendingMetricsReveal){window.STMotion?.reveal(metrics);pendingMetricsReveal=false;}
     }
     function show(){return 'OEE / Throughput calculated.';}
     function renderWarnings(warnings,validated,bestChanges,evidence){

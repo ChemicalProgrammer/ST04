@@ -50,19 +50,22 @@ window.STMotion=(function(){
         frame=0;var next=new Map();
         cards().forEach(function(element){
           var key=element.dataset.motionKey,animation=active.get(element);
+          if(element.getAttribute('aria-busy')==='true'){
+            cancel(element);next.set(key,measure(element));return;
+          }
           // Preserve the visible height when a second update interrupts a transition.
           var before=animation?measure(element):sizes.get(key);
           cancel(element);
           var after=measure(element);next.set(key,after);
           if(before>0&&after>0&&Math.abs(before-after)>1){
-            play(element,[{height:before+'px',boxSizing:'border-box',overflow:'hidden',opacity:.92},{height:after+'px',boxSizing:'border-box',overflow:'hidden',opacity:1}],
+            play(element,[{height:before+'px',boxSizing:'border-box',overflow:'hidden'},{height:after+'px',boxSizing:'border-box',overflow:'hidden'}],
               {duration:duration('card-update',220),easing:token('ease-enter','ease-out')});
           }
         });
         sizes=next;
       });
     });
-    observer.observe(container,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style']});
+    observer.observe(container,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','class','style','aria-busy']});
     cardObservers.set(container,observer);
   }
   return {reduced:reduced,duration:duration,cancel:cancel,play:play,reveal:reveal,enter:enter,exit:exit,panel:panel,watchCards:watchCards};
