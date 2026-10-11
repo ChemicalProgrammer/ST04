@@ -1,6 +1,7 @@
     window.ST_CASE_SAVE_LIMITS={maxBytes:3*1024*1024};
     var localCalculations=0;
-    function activity(){document.getElementById('request-progress').classList.toggle('hidden',!(state.pendingRequests||localCalculations));}
+    function activity(){document.getElementById('request-progress').classList.toggle('hidden',!(Math.max(0,state.pendingRequests-STDialog.localizedRequests())||localCalculations));}
+    window.addEventListener('st-dialog-activity',activity);
     window.addEventListener('st-calculation-activity',function(event){localCalculations=Math.max(0,localCalculations+(event.detail.active?1:-1));activity();});
     var whatIfOnlySave=false;
     var autosave = STAutosave({capture:captureForSave,send:function(payload,done){callServer('saveCase',[payload],done);},accept:function(saved){

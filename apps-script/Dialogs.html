@@ -1,6 +1,22 @@
 <script>
 window.STDialog = (function() {
   var queue = [], active = false;
+  var activities=new Map();
+  function notifyActivity(){window.dispatchEvent(new Event('st-dialog-activity'));}
+  function beginActivity(dialog,counted){
+    if(!dialog?.open)return null;
+    var entry=activities.get(dialog);
+    if(!entry){
+      var heading=dialog.querySelector('.dialog-heading');if(!heading)return null;
+      var bar=document.createElement('div');bar.className='request-progress dialog-request-progress';bar.setAttribute('role','status');bar.setAttribute('aria-label',__ST_TEXT__('view.loading'));bar.appendChild(document.createElement('span'));heading.appendChild(bar);
+      entry={count:0,counted:0,bar:bar};activities.set(dialog,entry);
+      entry.observer=new MutationObserver(function(){bar.classList.toggle('hidden',!dialog.open);notifyActivity();});entry.observer.observe(dialog,{attributes:true,attributeFilter:['open']});
+    }
+    entry.count++;if(counted)entry.counted++;entry.bar.classList.toggle('hidden',!dialog.open);notifyActivity();
+    var finished=false;
+    return function(){if(finished)return;finished=true;entry.count--;if(counted)entry.counted--;if(!entry.count){entry.observer.disconnect();entry.bar.remove();activities.delete(dialog);}notifyActivity();};
+  }
+  function localizedRequests(){var total=0;activities.forEach(function(entry,dialog){if(dialog.open&&dialog.isConnected)total+=entry.counted;});return total;}
   function open(options) {
     return new Promise(function(resolve) { queue.push({options:options,resolve:resolve}); next(); });
   }
@@ -58,7 +74,7 @@ window.STDialog = (function() {
     if(input){input.focus();input.select();}else{(options.destructive ? footer.querySelector('.ghost') : footer.lastElementChild)?.focus();}
   }
   function confirm(title,message,destructive){return open({title:title,message:message,destructive:destructive,buttons:[{id:'cancel',label:__ST_TEXT__('view.cancel')},{id:'ok',label:destructive?__ST_TEXT__('dialog.delete'):__ST_TEXT__('dialog.ok'),destructive:destructive}]}).then(function(r){return r.action==='ok';});}
-  return {open:open,confirm:confirm,alert:function(title,message){return open({title:title,message:message});}};
+  return {open:open,confirm:confirm,beginActivity:beginActivity,localizedRequests:localizedRequests,alert:function(title,message){return open({title:title,message:message});}};
 })();
 // Shared compact error notices. Existing message nodes remain the source of truth.
 window.STErrors=(function(){

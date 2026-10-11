@@ -25,9 +25,13 @@
     function callServer(name, args, onSuccess, onSettled) {
       var epoch = state.requestEpoch;
       state.pendingRequests += 1;
+      var dialog=['saveUserSettings','listGeminiModels','deleteGeminiApiKey','resetAppSettings'].includes(name)?document.getElementById('settings-dialog'):
+        ['saveCase','refreshCaseCatalog','getBootstrap','getCase','askGemini'].includes(name)?null:document.activeElement?.closest('dialog[open]');
+      var finishDialog=STDialog.beginActivity(dialog,true);
       activity();
       function done() {
         state.pendingRequests = Math.max(0,state.pendingRequests-1);
+        if(finishDialog)finishDialog();
         activity();
         if(onSettled)onSettled();
       }

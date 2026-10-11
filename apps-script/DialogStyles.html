@@ -1,6 +1,8 @@
 <style>
 dialog { width: min(var(--dialog-width),calc(100vw - var(--space-6))); max-height: calc(100dvh - var(--space-6)); padding: 0; border: var(--border-width) solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-dialog); overflow: hidden; }
 dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; flex-direction:column; }
+.dialog-heading { position:relative; }
+.dialog-heading > .dialog-request-progress { position:absolute; left:0; right:0; bottom:0; pointer-events:none; }
 .dialog-heading { flex-shrink:0; display: flex; align-items: center; justify-content: space-between; padding: var(--space-5); border-bottom: var(--border-width) solid var(--line); } .dialog-heading h2 { margin: 0; }
 .dialog-body { padding: var(--space-5); overflow-y:auto; min-height:0; } .settings-section { padding-bottom: var(--space-5); margin-bottom: var(--space-5); border-bottom: var(--border-width) solid var(--line); }
 .settings-section:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; } .settings-section p { font-size: var(--font-secondary); }
