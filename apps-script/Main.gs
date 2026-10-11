@@ -111,8 +111,9 @@ function cloneCase(caseId) {
 function createDemoCase() {
   return executeServerAction_(function(user) {
     var request=createDemoCaseRequest_();
-    if(!request.simulations.every(function(sim){return !!sim.results?.summary;}))throw createSimulatorError_('DEMO_RESULTS_UNAVAILABLE','Add DemoResults.gs and deploy a new version before creating the prepared demo.');
-    return createCase_(request, user);
+    var summary=createCase_(request, user);
+    summary.demoResultsPrepared=request.simulations.every(function(sim){return !!sim.results?.summary;});
+    return summary;
   });
 }
 

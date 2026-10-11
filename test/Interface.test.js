@@ -1795,6 +1795,27 @@ test('UI: completed simulation reload restores exact metrics, chart history and 
 });
 
 
+test('UI: Create demo opens the created case, retains its gallery entry and reports creation failures',async()=>{
+ for(const prepared of [true,false]){
+  const h=await setup({uiMode:'BASIC'});try{
+   const f=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});
+   for(const name of ['DemoCaseFactory.gs','ScenarioEngine.gs',...(prepared?['DemoResults.gs']:[])])vm.runInContext(read(name),f);
+   const record=JSON.parse(JSON.stringify(f.createDemoCaseRequest_()));Object.assign(record,{revision:1,ownerEmail:'preview@example.test',updatedAt:new Date().toISOString()});
+   const getCase=h.api.getCase;h.api.getCase=id=>id===record.id?JSON.parse(JSON.stringify(record)):getCase(id);
+   h.api.createDemoCase=()=>({id:record.id,name:record.name,equipmentCount:13,isSimulationReady:true,demoResultsPrepared:prepared});
+   await h.click('#sign-in-button');const bootstraps=h.calls.filter(name=>name==='getBootstrap').length;
+   await h.click('#create-demo-case');await waitFor(()=>h.d.getElementById('breadcrumb-case').textContent===record.name);
+   assert.equal(h.calls.filter(name=>name==='getBootstrap').length,bootstraps);assert.equal(h.d.querySelectorAll('.equipment-card').length,13);
+   assert.equal(h.d.getElementById('create-demo-case').disabled,false);
+   if(!prepared){assert.match(h.d.querySelector('.message-dialog').textContent,/Demo created/);await h.click('.message-dialog button');}
+   await h.click('#home-cases');assert(Array.from(h.d.querySelectorAll('.case-name')).some(el=>el.textContent===record.name));
+   h.api.createDemoCase=()=>{throw Error('Storage unavailable');};await h.click('#create-demo-case');
+   assert.match(h.d.querySelector('.message-dialog').textContent,/Demo creation failed/);assert.equal(h.d.getElementById('create-demo-case').disabled,false);
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
 test('UI: prepared demo opens with matching scenario card results and OEE comparison without running the engine',async()=>{
  const h=await setup({uiMode:'BASIC'});try{
   const f=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['DemoCaseFactory.gs','DemoResults.gs','ScenarioEngine.gs'])vm.runInContext(read(name),f);
@@ -2467,4 +2488,5 @@ for(const uiMode of ['BASIC','ADVANCE'])test('UI: fresh scenario search clears r
   assert.equal(reopened.querySelector('.scenario-metrics').textContent,'');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
 

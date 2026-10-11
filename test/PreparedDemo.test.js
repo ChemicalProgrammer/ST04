@@ -26,10 +26,22 @@ test('saved normalized demos with empty result objects recover measured cards de
  record.simulations.forEach(s=>assert(s.results.summary&&s.results.batch.statistics.lineOeePercent));
  record.simulations[1].results={};record.simulations[1].equipment[0].nominalRatePerSecond+=.1;f.applyPreparedDemoResults_(record);assert.equal(Object.keys(record.simulations[1].results).length,0);
 });
-test('demo RPC reports a missing prepared-results module instead of creating empty scenario cards',()=>{
+test('demo RPC creates a runnable configuration when prepared results are unavailable',()=>{
  const f=vm.createContext({});for(const name of ['TextResources.gs','ApiResponse.gs','DemoCaseFactory.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),f);
- f.requireCurrentUser_=()=>({email:'owner@test'});let created=false;f.createCase_=()=>{created=true;};
- const response=f.createDemoCase();assert.equal(response.error.code,'DEMO_RESULTS_UNAVAILABLE');assert(!created);
+ f.requireCurrentUser_=()=>({email:'owner@test'});let created;f.createCase_=request=>{created=request;return {id:request.id};};
+ const response=f.createDemoCase();assert(response.ok);assert.equal(response.data.id,created.id);assert.equal(response.data.demoResultsPrepared,false);
+ assert.equal(created.simulations.length,4);created.simulations.forEach(sim=>{assert.equal(sim.equipment.length,13);assert.equal(sim.results,null);});
+});
+
+test('demo RPC persists all four prepared simulations through case normalization',()=>{
+ const f=factory();for(const name of ['TextResources.gs','ApiResponse.gs','CaseService.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),f);
+ f.requireCurrentUser_=()=>({email:'owner@test'});
+ f.LockService={getUserLock:()=>({tryLock:()=>true,releaseLock:()=>{}})};
+ f.getWorkspaceFolders_=()=>({cases:{getFilesByName:()=>({hasNext:()=>false}),getFoldersByName:()=>({hasNext:()=>false})}});
+ let saved;f.persistCaseRecord_=record=>{saved=record;return {getId:()=> 'saved-demo'};};
+ const response=f.createDemoCase();assert(response.ok,JSON.stringify(response));assert.equal(response.data.demoResultsPrepared,true);
+ assert.equal(saved.ownerEmail,'owner@test');assert.equal(saved.simulations.length,4);
+ saved.simulations.forEach(sim=>assert(sim.results.summary&&sim.results.batch.rounds===3));
 });
 
 test('prepared scenario summaries are stored, repaired and retained as history when inputs change',()=>{
@@ -58,3 +70,4 @@ test('saved demo labels and scenario origins migrate without changing results or
  assert(record.simulations[0].whatIf.evaluations.every(e=>e.origin==='DEMO_PREPARED'));
  assert.equal(record.id,id);record.simulations.forEach((s,i)=>assert.equal(s.results,results[i]));
 });
+
