@@ -21,12 +21,6 @@ var ST_TEXT_RESOURCES = {
   "info.version":"1.0.0",
   "info.description":"Flow Pilot simulates packaging lines to analyze throughput, accumulation and equipment behavior, compare simulations, and explore improvement scenarios with Gemini.",
   "info.developers_label":"Developers",
-  "info.developer_1_name":"Developer 1",
-  "info.developer_1_email":"developer1@example.com",
-  "info.developer_2_name":"Developer 2",
-  "info.developer_2_email":"developer2@example.com",
-  "info.developer_3_name":"Developer 3",
-  "info.developer_3_email":"developer3@example.com",
 
   "errors.copy":"Copy error",
   "errors.copied":"Error copied",
