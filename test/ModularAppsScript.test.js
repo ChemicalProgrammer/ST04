@@ -3,12 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { renderAppsScript } from '../scripts/render-apps-script.mjs';
+import { readClientSource, renderAppsScript } from '../scripts/render-apps-script.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('Client wrapper parses directly without server template syntax inside JavaScript',()=>{
-  const source=fs.readFileSync(path.join(repositoryRoot,'apps-script','Client.html'),'utf8');
+test('Main assembles valid client JavaScript without a Client wrapper file',()=>{
+  assert(!fs.existsSync(path.join(repositoryRoot,'apps-script','Client.html')));
+  const source=readClientSource(repositoryRoot);
   assert(!source.includes('<?'));
   new Function(source.replace(/<\/?script>/g,''));
   const rendered=renderAppsScript(repositoryRoot).html;

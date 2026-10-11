@@ -5,11 +5,12 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export function readClientSource(repositoryRoot = root) {
-  const read = name => fs.readFileSync(path.join(repositoryRoot,'apps-script',name+'.html'),'utf8');
-  function expand(source) {
-    return source.replace(/^[ \t]*\/\/ include (Client[A-Za-z]+)[ \t]*$/gm,(_,name)=>expand(read(name)));
-  }
-  return expand(read('Client'));
+  const read = name => fs.readFileSync(path.join(repositoryRoot,'apps-script',name),'utf8');
+  const context = vm.createContext({
+    HtmlService:{createTemplateFromFile:name=>({getRawContent:()=>read(name+'.html')})}
+  });
+  vm.runInContext(read('Main.gs'),context);
+  return context.getClientSource_();
 }
 export function renderAppsScript(repositoryRoot = root) {
   const directory = path.join(repositoryRoot, 'apps-script');
