@@ -85,16 +85,16 @@ test('modular application updates live equipment rows in place to preserve scrol
 });
 
 
-test('modular application makes FlowPilot conveyor geometry mandatory and exposes Case deletion', () => {
+test('modular application makes SimuLine conveyor geometry mandatory and exposes Case deletion', () => {
   const output = renderAppsScript(repositoryRoot);
   const code = output.server;
   const index = output.html;
 
-  assert.match(index, /FlowPilot conveyor design/);
+  assert.match(index, /SimuLine conveyor design/);
   assert.match(index, /Installed length L_act/);
   assert.match(index, /Required overflow L_bu/);
   assert.match(index, /Conveyor design audit/);
-  assert.match(index, /FlowPilot geometry is active by default/);
+  assert.match(index, /SimuLine geometry is active by default/);
   assert.doesNotMatch(index, /Use format fields/);
   assert.doesNotMatch(index, /Explicit accumulation-zone override JSON/);
   assert.match(index, /Delete case/);

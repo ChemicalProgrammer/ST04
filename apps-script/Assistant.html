@@ -107,7 +107,7 @@ window.STAssistant = function(state,actions) {
     el('toggle-gemini').querySelector('.icon')?.remove();el('toggle-gemini').insertAdjacentHTML('afterbegin',STIcons.svg('gemini'));
     el('gemini-context').textContent=editing?STEquipmentInspector.name():active?active.name+' · '+((active.simulations||[]).find(function(s){return s.id===simulationId;})?.name||''):'';
     var configured=Boolean(state.bootstrap?.gemini?.configured);
-    el('gemini-scope').disabled=pending||!active;el('gemini-question').placeholder=general()?'Ask about using Flow Pilot or general concepts':'Ask about the current simulation';
+    el('gemini-scope').disabled=pending||!active;el('gemini-question').placeholder=general()?'Ask about using SimuLine or general concepts':'Ask about the current simulation';
     el('gemini-notice').textContent=!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):general()?'General questions do not send case data and do not require saving.':pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?'Save changes before asking about this simulation, or uncheck Case context.':__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
     el('send-gemini').disabled=pending||state.saving||!configured||!active&&!general();el('send-gemini').setAttribute('aria-busy',String(pending));
     el('clear-gemini').disabled=pending||state.saving;

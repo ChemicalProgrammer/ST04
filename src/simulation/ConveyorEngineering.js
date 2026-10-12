@@ -1,5 +1,5 @@
 /**
- * Deterministic conveyor-design calculations based on the FlowPilot / CAT
+ * Deterministic conveyor-design calculations based on the SimuLine / CAT
  * engineering worksheet.  All linear rates below use millimetres per second
  * so the result can be consumed directly by the event simulation.
  */
@@ -217,7 +217,7 @@ function createAudit(values, calculated) {
       'INPUT_INTEGRITY',
       inputsReady ? 'PASS' : 'NOT_EVALUATED',
       inputsReady
-        ? 'Required FlowPilot inputs are physically usable.'
+        ? 'Required SimuLine inputs are physically usable.'
         : 'Installed length, Prime reserve, package length, upstream discharge pitch, upstream BPM, and conveyor speed factor are required.'
     ),
     goal(
@@ -326,3 +326,4 @@ function subtractIfFinite(first, ...rest) {
     ? rest.reduce((total, value) => total - value, first)
     : undefined;
 }
+

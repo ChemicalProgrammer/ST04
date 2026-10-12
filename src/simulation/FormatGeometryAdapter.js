@@ -182,7 +182,7 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
     origin: 'FLOWPILOT_ENGINEERING',
     sources,
     assumptions: [
-      'FlowPilot geometry is active by default: L_act, L_p, package pitch, speed factor, and sensor delays are converted to the physical zone.',
+      'SimuLine geometry is active by default: L_act, L_p, package pitch, speed factor, and sensor delays are converted to the physical zone.',
       'Positions are measured from upstream discharge toward downstream infeed.',
       'Prime is L_act - L_p. If no installed Back-up position is supplied, L_bu is used as the calculated recommendation.'
     ]
@@ -266,7 +266,7 @@ function resolveDirectPhysicalConveyor(owner, format, upstreamControl, downstrea
     sources,
     assumptions: [
       'This conveyor uses direct named physical geometry.',
-      'Prime and Back-up positions are explicit; FlowPilot L_act and L_p are not available on this Case.',
+      'Prime and Back-up positions are explicit; SimuLine L_act and L_p are not available on this Case.',
       'The upstream and downstream controlled equipment are inferred from the line sequence.'
     ]
   };
@@ -321,3 +321,4 @@ function isDefined(value) {
 function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
 }
+

@@ -24,7 +24,7 @@ function exportEquipmentSheet_(request, user) {
     var values=Array.from({length:data.rows.length+9},function(){return Array(23).fill('');});
     var labels=['Site','Packaging line','Format','Container size (oz)','Bottles per case','Date of analysis','By'];
     labels.forEach(function(label,index){values[index][0]=label;values[index][2]=sheetExportLiteral_(data.metadata[index]);});
-    values[0][4]='Flow Pilot · '+String(request.simulationName||'Simulation').slice(0,80);
+    values[0][4]='SimuLine · '+String(request.simulationName||'Simulation').slice(0,80);
     values[7][2]='Import layout: C1:C7 and A10:W. F = installed maximum BPM (configured BPM if undefined); import initializes running speed from F. Percentages use percentage points (100 = 100%). JSON retains simulator-only settings.';
     values[8]=sheetImportColumns_().map(function(column){return column[2];});
     data.rows.forEach(function(row,index){values[index+9]=row.map(sheetExportLiteral_);});

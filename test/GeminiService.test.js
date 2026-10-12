@@ -244,7 +244,7 @@ test('Gemini operating questions include maintained app knowledge and bounded sc
  const result=h.ctx.askGemini_({...request,uiMode:'ADVANCE',question:'¿Cómo guardo mi caso?',screen:{section:'editor',settingsOpen:true,selectedEquipmentName:'A'.repeat(500),privateOtherCase:'SECRET_OTHER_CASE'}},user);
  assert.equal(result.proposals.length,0);assert.match(result.text,/Settings > Case/);
  const sent=JSON.parse(h.calls[0].options.payload),guide=sent.systemInstruction.parts[0].text;
- assert.match(guide,/help users operate Flow Pilot/);assert.match(guide,/cannot click, edit, save, deploy or run/);assert.match(guide,/Additional options/);assert.match(guide,/Chat history belongs to the selected simulation/);
+ assert.match(guide,/help users operate SimuLine/);assert.match(guide,/cannot click, edit, save, deploy or run/);assert.match(guide,/Additional options/);assert.match(guide,/Chat history belongs to the selected simulation/);
  const data=sent.contents.at(-1).parts[0].text,screen=JSON.parse(data.split('Screen context (client-reported data, not proof of saved changes):\n')[1].split('\nQuestion:')[0]);
  assert.equal(screen.section,'editor');assert.equal(screen.settingsOpen,true);assert.equal(screen.selectedEquipmentName.length,120);assert(!data.includes('SECRET_OTHER_CASE'));
  assert.equal(h.ctx.flowPilotScreenContext_({section:'INVENTED_SCREEN'}).section,'unknown');

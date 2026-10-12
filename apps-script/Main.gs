@@ -5,7 +5,7 @@ function doGet() {
   try {
     output.setFaviconUrl('https://www.salesforceicons.com/SLDS/icons/utility/flow_alt_120.png');
   } catch (error) {
-    console.warn('Flow Pilot favicon could not be configured: ' + error.message);
+    console.warn('SimuLine favicon could not be configured: ' + error.message);
   }
   return output;
 }
