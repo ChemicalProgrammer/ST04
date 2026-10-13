@@ -83,3 +83,33 @@ test('one search/stop action replaces calculate and results explain selected and
 test('the search action becomes stop and can cancel without launching another search',async()=>{
  const h=harness(false);try{const original=h.w.SimulatorEngine.simulateBatch;let release;h.w.SimulatorEngine.simulateBatch=async input=>{await new Promise(resolve=>release=resolve);return original(input);};const button=h.host.querySelector('.scenario-search');button.click();assert.match(button.title,/Finish search/);button.click();assert.match(button.title,/Cancel/);button.click();release();for(let i=0;i<20&&h.host.hasAttribute('aria-busy');i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(h.calls.length,1);assert.equal(h.sim.whatIf.evaluations[0].status,'CANCELLED');assert.equal(h.host.querySelector('.scenario-create').disabled,true);assert.equal(button.title,'Find best scenario');}finally{h.dom.window.close();}
 });
+
+async function suggest(h){const b=h.host.querySelector('.scenario-doe-suggest');b.click();for(let i=0;i<250;i++){if(b.textContent==='Suggest factor combination'&&h.calls.length)return;await new Promise(r=>setTimeout(r,5));}throw Error('Screening did not finish');}
+test('DOE suggestion screens paired targets, ranks measured gain and records screening in search evidence',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
+  await suggest(h);assert(h.calls.every(c=>c.run.durationSeconds===300&&c.run.rounds===3&&c.run.seed===1));
+  assert.equal(h.calls.length,3);assert.equal([...h.host.querySelectorAll('.scenario-doe-select')].filter(c=>c.checked).length,2);
+  const result=await search(h);assert.equal(result.sensitivityScreening.observations.length,2);assert(result.sensitivityScreening.observations.every(o=>o.deltaThroughput>0));
+ }finally{h.dom.window.close();}
+});
+test('DOE screening does not suggest isolated changes that only improve jointly',async()=>{
+ const h=harness(true,'HIGH');try{
+  const original=h.w.SimulatorEngine.simulateBatch;
+  h.w.SimulatorEngine.simulateBatch=input=>{const copy=JSON.parse(JSON.stringify(input));if(copy.case.equipment[0].speed===10||copy.case.equipment[0].sensor===10){copy.case.equipment[0].speed=10;copy.case.equipment[0].sensor=10;}return original(copy);};
+  await suggest(h);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No isolated gain/);
+  assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked),'manual selection preserved for coupled changes');
+ }finally{h.dom.window.close();}
+});
+test('cancelled screening retains factors and restores controls',async()=>{
+ const h=harness(true,'HIGH');try{
+  const original=h.w.SimulatorEngine.simulateBatch;let release;
+  h.w.SimulatorEngine.simulateBatch=async input=>{await new Promise(r=>release=r);return original(input);};
+  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');button.click();release();
+  for(let i=0;i<100&&button.textContent!=='Suggest factor combination';i++)await new Promise(r=>setTimeout(r,5));
+  assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);
+ }finally{h.dom.window.close();}
+});
+test('new sensitivity suggestions invalidate a previously confirmed scenario',async()=>{
+ const h=harness(true,'HIGH');try{await search(h);assert.equal(h.host.querySelector('.scenario-create').disabled,false);await suggest(h);assert.equal(h.host.querySelector('.scenario-create').disabled,true);assert.equal(h.sim.whatIf.evaluations[0].status,'NOT_EVALUATED');}finally{h.dom.window.close();}
+});

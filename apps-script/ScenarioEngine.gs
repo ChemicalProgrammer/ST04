@@ -951,9 +951,9 @@ function analyzeLinePerformance(equipment, result) {
   const baselineBpm = Number(reference?.nominalRatePerSecond) * 60;
   const points = machines.map(item => {
     const configuredBpm = Number(item.nominalRatePerSecond) * 60;
-    // Normal design operation follows the pacemaker, limited by the configured
-    // machine rate. This does not change the engine's configured processing rate.
-    const normalBpm = baselineBpm > 0 ? Math.min(configuredBpm, baselineBpm) : configuredBpm;
+    // The V-Graph shows configured machine speeds. Average production flow
+    // is reported separately and must not flatten speeds to the pacemaker.
+    const normalBpm = configuredBpm;
     const recovery = estimateRecoveryTarget(equipment || [], item, referenceId, normalBpm);
     const configuredMaximum = item.processData?.equipment?.maximumSpeedBpm;
     const maximumBpm = configuredMaximum === null || configuredMaximum === undefined || configuredMaximum === ''
@@ -1157,12 +1157,44 @@ function scenarioRecoveryPlan(engineering,requiredSeconds=0){
   while(high-low>1){const mid=Math.floor((low+high)/2),trial=evaluate(mid);if(trial?.passes){high=mid;plan=trial;}else low=mid;}
   return evaluate(high);
 }
+// Losses describe observed states, not proven causal attribution.
+function diagnoseScenarioLosses(simulation){
+  const result=simulation.results,empty={status:'NO_COMPATIBLE_RESULTS',equipment:[],referenceId:null};
+  if(!result?.summary||!(result.durationSeconds>0)||result.replicationStatus?.state!=='COMPLETE')return empty;
+  let provenance;try{provenance=JSON.parse(result.inputSignature);}catch(_){return empty;}
+  const equal=(a,b)=>JSON.stringify(stableScenarioValue(a))===JSON.stringify(stableScenarioValue(b));
+  const run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...simulation.dynamicConfig};
+  if(run.durationMode==='SHIFTS')run.durationSeconds=(run.shiftHours||8)*(run.shiftCount||1)*3600;
+  if(!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
+  const referenceId=analyzeLinePerformance(simulation.equipment,result).referenceId;
+  const rows=(simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR').map(e=>{
+    const stats=result.batch?.equipmentStatistics?.[e.id],metrics=result.equipmentMetrics?.[e.id];
+    const read=key=>{const value=stats?.[key]?.mean??metrics?.[key];return Number.isFinite(value)&&value>=0?value:null;};
+    const failureSeconds=read('failureSeconds'),microStopSeconds=read('microStopSeconds'),starvedSeconds=read('starvedSeconds'),blockedSeconds=read('blockedSeconds');
+    const causes=[['FAILURE',failureSeconds],['MICROSTOP',microStopSeconds],['STARVATION',starvedSeconds],['BLOCKING',blockedSeconds]].filter(x=>x[1]!==null).sort((a,b)=>b[1]-a[1]);
+    return {equipmentId:e.id,name:e.name,isReference:e.id===referenceId,failureSeconds,microStopSeconds,starvedSeconds,blockedSeconds,waitingForPrimeSeconds:read('waitingForPrimeSeconds'),dominantLoss:causes[0]?.[1]>0?causes[0][0]:'NONE',ownStopPercent:failureSeconds===null&&microStopSeconds===null?null:100*((failureSeconds||0)+(microStopSeconds||0))/result.durationSeconds};
+  });
+  return {status:rows.some(r=>r.failureSeconds!==null||r.starvedSeconds!==null||r.blockedSeconds!==null)?'OBSERVED':'MISSING_METRICS',referenceId,durationSeconds:result.durationSeconds,rounds:result.batch?.rounds||1,equipment:rows,interpretation:'Observed losses and possible propagation paths; inactivity alone does not establish a line bottleneck.'};
+}
+function scenarioLossEvidence(simulation,diagnosis,equipment,kind){
+  if(diagnosis.status!=='OBSERVED')return {priorityBonus:0};
+  const index=simulation.equipment.findIndex(e=>e.id===equipment.id),referenceIndex=simulation.equipment.findIndex(e=>e.id===diagnosis.referenceId);
+  const ids=equipment.type==='CONVEYOR'?[simulation.equipment[index-1]?.id,simulation.equipment[index+1]?.id]:[equipment.id];
+  const local=diagnosis.equipment.filter(r=>ids.includes(r.equipmentId)),reference=diagnosis.equipment.find(r=>r.isReference);
+  const seconds=local.reduce((sum,r)=>sum+(r.failureSeconds||0)+(r.microStopSeconds||0)+(r.starvedSeconds||0)+(r.blockedSeconds||0),0);
+  const direction=index<referenceIndex?'UPSTREAM':index>referenceIndex?'DOWNSTREAM':'REFERENCE';
+  const referenceLoss=direction==='UPSTREAM'?reference?.starvedSeconds:direction==='DOWNSTREAM'?reference?.blockedSeconds:0;
+  const bonus=Math.min(30,seconds/diagnosis.durationSeconds*20+(referenceLoss||0)/diagnosis.durationSeconds*20);
+  return {priorityBonus:bonus,observedLosses:local,referenceInteraction:{direction,seconds:referenceLoss||0},interpretation:'Diagnostic priority, not a demonstrated causal gain.'};
+}
 function planScenarios(simulation){
-  const audit=scenarioAudit(simulation),result=simulation.results?.summary?simulation.results:null;
+  const audit=scenarioAudit(simulation),diagnosis=diagnoseScenarioLosses(simulation);
+  const result=diagnosis.status==='OBSERVED'?simulation.results:null;
   const candidates=[],checks=[];
   function add(kind,tier,equipment,changes,evidence,priority,basis){
     changes=changes.filter(c=>c.before!==c.after);if(!changes.length)return;
     let disabledReason=null;try{applyScenarioChanges(simulation,changes);}catch(error){disabledReason=error.message;}
+    const losses=scenarioLossEvidence(simulation,diagnosis,equipment,kind);evidence={...evidence,...losses};priority+=losses.priorityBonus;if(diagnosis.status==='OBSERVED')basis='HYBRID';
     candidates.push({id:kind+':'+equipment.id,kind,tier,titleKey:'scenario.'+kind.toLowerCase(),equipmentId:equipment.id,equipmentName:equipment.name,changes,evidence,priority,basis,canApply:!disabledReason,disabledReason,sourceSimulationId:simulation.id,sourceSignature:scenarioSignature(simulation)});
   }
   audit.forEach(item=>{
@@ -1195,7 +1227,9 @@ function planScenarios(simulation){
     const coverage=microstop&&Number.isFinite(c.antiStarveSeconds)?c.antiStarveSeconds/(mttr*60):null;
     checks.push({equipmentId:e.id,rule:'ACCUMULATION_1_TO_2_MTTR',status:coverage===null?'NOT_EVALUATED':coverage>=1&&coverage<=2?'PASS':'REVIEW',coverage,referenceEquipmentId:upstream?.id});
     const recoveryFailed=['INSTALLED_LENGTH','SMOOTH_RECOVERY','BACKUP_POSITION'].some(id=>['FAIL','WARNING'].includes(scenarioGoal(engineering,id)));
-    if(recoveryFailed||(coverage!==null&&coverage<1)){
+    const observedDownstream=diagnosis.equipment.find(r=>r.equipmentId===item.downstreamId);
+    const observedStarvation=diagnosis.status==='OBSERVED'&&(observedDownstream?.starvedSeconds||0)>diagnosis.durationSeconds*.01;
+    if(recoveryFailed||(coverage!==null&&coverage<1)||observedStarvation){
       const plan=scenarioRecoveryPlan(engineering,microstop?mttr*60:0);
       if(plan){
         const losses=result?.accumulationZoneMetrics&&Object.values(result.accumulationZoneMetrics).find(x=>x.ownerEquipmentId===e.id);
@@ -1219,10 +1253,10 @@ function planScenarios(simulation){
     const choices=candidates.filter(p=>p.tier===tier).sort((a,b)=>Number(b.canApply)-Number(a.canApply)||b.priority-a.priority);
     return choices[0]||{tier,canApply:false,titleKey:'scenario.no_proposal',basis:'STATIC',changes:[],evidence:{},disabledReason:'SCENARIO_INSUFFICIENT_EVIDENCE'};
   });
-  return {projects,checks,candidates,hasDynamicEvidence:!!result};
+  return {projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
 }
 
 
 
-return {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
+return {plan:planScenarios,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })();

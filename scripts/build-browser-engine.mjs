@@ -113,7 +113,7 @@ window.SimulatorEngine = {
 };
 window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
 window.STScenarioSearch = {profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore};
-window.STScenarios = {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
+window.STScenarios = {plan:planScenarios,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};
 })(window);
 </script>
 `;
@@ -124,7 +124,7 @@ const scenarioSources = ['src/simulation/ConveyorEngineering.js','src/simulation
 fs.writeFileSync(path.join(repositoryRoot,'apps-script','ScenarioEngine.gs'),
   'var STScenarioEngine_ = (function(){\n'+
   scenarioSources.map(file=>removeModuleSyntax(fs.readFileSync(path.join(repositoryRoot,file),'utf8'))).join('\n')+
-  '\nreturn {plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};\n})();\n');
+  '\nreturn {plan:planScenarios,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog};\n})();\n');
 
 function removeModuleSyntax(moduleSource) {
   return moduleSource
