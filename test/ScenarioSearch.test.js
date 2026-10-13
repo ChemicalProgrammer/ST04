@@ -125,3 +125,37 @@ test('fixed candidate budget and DOE produce the same winner despite different w
   assert.deepEqual(JSON.parse(JSON.stringify(x.independentCheck)),JSON.parse(JSON.stringify(y.independentCheck)));
  }finally{a.dom.window.close();b.dom.window.close();}
 });
+function categoryHarness(tier){
+ const h=harness(false,'HIGH');h.sim.equipment[0].extra=10;h.w.STScenarios.fields.extra=[1,100,'s'];
+ const c=(path,after)=>({equipmentId:'e',path,before:10,after,unit:'u/s'});
+ h.project={kind:'CUSTOM',tier,searchScope:tier,explore:true,changes:[],categoryChanges:{ZERO:[c('sensor',20)],MEDIUM:[c('extra',30)],HIGH:[c('speed',20)]}};
+ h.host.remove();h.host=h.w.document.createElement('article');h.host.className='analysis-recommendation';h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);return h;
+}
+test('High includes Zero and Medium independently, persists scope and excludes deselected fields from search',async()=>{
+ const h=categoryHarness('HIGH');try{
+  const boxes=h.host.querySelectorAll('.scenario-include-category');assert.equal(boxes.length,2);assert([...boxes].every(b=>!b.checked));
+  boxes.forEach(b=>{b.checked=true;b.onchange();});const result=await search(h);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.categoryInclusions)),{ZERO:true,MEDIUM:true});assert.deepEqual(JSON.parse(JSON.stringify(result.requestedChanges.map(c=>c.path).sort())),['extra','sensor','speed']);
+  h.host.remove();h.host=h.w.document.createElement('article');h.host.className='analysis-recommendation';h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);
+  assert([...h.host.querySelectorAll('.scenario-include-category')].every(b=>b.checked));
+  const zero=h.host.querySelector('.scenario-include-category[data-tier="ZERO"]');zero.checked=false;zero.onchange();assert(h.host.querySelector('.scenario-create').disabled);
+  const again=await search(h);assert(again.requestedChanges.every(c=>c.path!=='sensor'));assert.equal(again.categoryInclusions.MEDIUM,true);
+ }finally{h.dom.window.close();}
+});
+test('Medium offers only the Zero inclusion and current-tier targets win duplicate fields',()=>{
+ const h=categoryHarness('MEDIUM');try{
+  assert.equal(h.host.querySelectorAll('.scenario-include-category').length,1);assert.equal(h.host.querySelector('.scenario-include-category').dataset.tier,'ZERO');
+  const zero=h.host.querySelector('.scenario-include-category');zero.checked=true;zero.onchange();assert.equal([...h.host.querySelectorAll('.scenario-change')].filter(r=>!r.hidden).length,2);
+ }finally{h.dom.window.close();}
+});
+test('duplicate category parameters retain the current target and excluded scope removes DOE factors',()=>{
+ const h=categoryHarness('HIGH');try{
+  h.project.categoryChanges.ZERO=[{equipmentId:'e',path:'speed',before:10,after:12,unit:'u/s'},{equipmentId:'e',path:'sensor',before:10,after:20,unit:'u/s'}];
+  h.host.remove();h.host=h.w.document.createElement('article');h.host.className='analysis-recommendation';h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);
+  const zero=h.host.querySelector('.scenario-include-category[data-tier="ZERO"]');zero.checked=true;zero.onchange();
+  const speedRows=[...h.host.querySelectorAll('.scenario-change')].filter(r=>r.textContent.includes('speed'));assert.equal(speedRows.length,1);assert.match(speedRows[0].textContent,/20/);
+  h.w.STScenarioExplorer.setDOE(true);
+  const sensorRow=[...h.host.querySelectorAll('.scenario-change')].find(r=>r.textContent.includes('sensor')),factor=sensorRow.querySelector('.scenario-doe-select');factor.checked=true;factor.onchange();assert(factor.checked);
+  zero.checked=false;zero.onchange();assert.equal(factor.checked,false);assert(sensorRow.hidden);
+ }finally{h.dom.window.close();}
+});
