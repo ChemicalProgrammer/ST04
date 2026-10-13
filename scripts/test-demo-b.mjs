@@ -3,9 +3,7 @@ import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {planScenarios,applyScenarioChanges,scenarioSignature,SCENARIO_FIELDS} from '../src/analysis/ScenarioPlanner.js';
 import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES} from '../src/analysis/ScenarioSearch.js';
 import {createScenarioDOE,analyzeScenarioDOE,analyzeScenarioANOVA} from '../src/analysis/ScenarioDOE.js';
-const factory=vm.createContext({});for(const name of ['SheetImportService.gs','DemoBCaseFactory.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),factory);
-const original=JSON.parse(JSON.stringify(factory.createDemoBCaseRequest_()));original.id='demo-b';
-fs.writeFileSync('test/fixtures/demo-b-case.json',JSON.stringify(original,null,2)+'\n');
+const original=JSON.parse(fs.readFileSync('test/fixtures/demo-b-case.json','utf8'));
 const code=fs.readFileSync('apps-script/SimulationEngine.html','utf8');const ctx=vm.createContext({CURRENT_ENGINE_ID:'ST_CURRENT'});vm.runInContext(code.slice(code.indexOf('function simulationInputSignature('),code.indexOf('async function simulateBrowserBatch(')),ctx);
 async function search(parallel,clockScale){
  const record=structuredClone(original),sim=record.simulations[0];sim.unitOfFlow='units';sim.whatIf={searchDepth:'HIGH'};

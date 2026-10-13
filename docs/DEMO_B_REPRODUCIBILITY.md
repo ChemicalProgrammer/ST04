@@ -22,7 +22,7 @@ This verifies deterministic execution in separate browser test contexts under al
 ## Repeat in the deployment
 
 1. Update the listed Apps Script modules and publish a new deployment version on both computers.
-2. Create demo > Demo B. Keep its fixed-seed setting, engine, duration and replication inputs.
+2. Create a regular case, name it Demo B and import the photo equipment data. Set fixed seed 20261013, current engine, eight-hour duration and three rounds for this test. Demo B is a test fixture, not a built-in UI option.
 3. Use the same CAPEX category, depth, selected targets, physical limits and DOE factors/levels. Do not stop one search early.
 4. Export What-If JSON on each computer. Compare the reproducibility settings, tested-candidate count, stopping reason, selected changes and independent confirmation seeds/results.
 
