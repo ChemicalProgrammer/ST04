@@ -53,8 +53,8 @@ window.STAssistant = function(state,actions) {
   }
   function attachments(m){
     if(m.role==='model'&&(m.scope||'CASE')==='CASE')(m.proposals||[]).filter(function(p){return p.canApply&&p.changes?.length;}).forEach(function(proposal){
-      var button=document.createElement('button');button.type='button';button.className='secondary gemini-scenario-create';
-      button.textContent='Create simulation · '+(STScenarioText[proposal.tier]||proposal.tier);button.title=proposal.title;button.setAttribute('aria-label','Create simulation: '+proposal.title);
+      var button=document.createElement('button');button.type='button';button.className='gemini-scenario-create';if(['ZERO','MEDIUM','HIGH'].includes(proposal.tier))button.dataset.tier=proposal.tier;
+      button.textContent='Create simulation'+(proposal.tier?' · '+(STScenarioText[proposal.tier]||proposal.tier):'');button.title=proposal.title;button.setAttribute('aria-label','Create simulation: '+proposal.title);
       button.onclick=async function(){
         if(pending||state.saving||creatingScenario)return;
         creatingScenario=true;sync();

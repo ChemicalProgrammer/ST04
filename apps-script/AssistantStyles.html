@@ -73,4 +73,9 @@ html:is([data-ui-mode=advance],[data-ui-mode=basic]) .assistant-resizing .worksp
 .gemini-actions .export-menu { margin:0; }
 .gemini-actions .export-menu > div { bottom:calc(100% + var(--space-2)); left:0; right:auto; }
 .gemini-scenario-create { margin-top:var(--space-2); max-width:100%; white-space:normal; }
+button.gemini-scenario-create[data-tier="ZERO"] { --scenario-action-color:var(--capex-zero); --scenario-action-bg:var(--capex-zero-bg); }
+button.gemini-scenario-create[data-tier="MEDIUM"] { --scenario-action-color:var(--capex-medium); --scenario-action-bg:var(--capex-medium-bg); }
+button.gemini-scenario-create[data-tier="HIGH"] { --scenario-action-color:var(--capex-high); --scenario-action-bg:var(--capex-high-bg); }
+button.gemini-scenario-create[data-tier] { color:var(--scenario-action-color); background:var(--scenario-action-bg); border-color:color-mix(in srgb,var(--scenario-action-color) 35%,transparent); }
+button.gemini-scenario-create[data-tier]:hover:not(:disabled) { background:color-mix(in srgb,var(--scenario-action-color) 12%,var(--scenario-action-bg)); border-color:var(--scenario-action-color); }
 </style>
