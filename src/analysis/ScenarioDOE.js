@@ -13,7 +13,7 @@ export function createScenarioDOE(factors) {
   }
   return {type:'FULL_FACTORIAL_TWO_LEVEL',factors:JSON.parse(JSON.stringify(factors)),designPoints:Array.from({length:2**factors.length},(_,index)=>{
     const levels=factors.map((_,i)=>(index>>i)&1?1:-1);
-    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit,...(f.external?{external:true,justification:f.justification}:{})})).filter(c=>c.before!==c.after)};
+    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit,...(f.external?{external:true,justification:f.justification,interventionType:f.interventionType,originTier:f.originTier}:{})})).filter(c=>c.before!==c.after)};
   })};
 }
 export function analyzeScenarioDOE(design,observations) {

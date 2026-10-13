@@ -107,7 +107,7 @@ test('Gemini honors the requested browser mode independently of the deployment d
 
 test('Gemini external reliability proposals preserve intervention evidence',()=>{
  const fixture=setup(),e=fixture.record.simulations[0].equipment[0],before=e.noiseProfile.reliability.mttrMinutes;
- const proposal={title:'Repair crew intervention',tier:'MEDIUM',basis:'STATIC',kind:'CUSTOM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true,justification:'Dedicated repair team with a target supported by repair trials'}]};
+ const proposal={title:'Repair crew intervention',tier:'ZERO',basis:'STATIC',kind:'CUSTOM',changes:[{equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before,after:before*.8,external:true,interventionType:'MAINTENANCE',justification:'Dedicated repair team with a target supported by repair trials'}]};
  const h=setup({answer:JSON.stringify({text:'External intervention hypothesis.',proposals:[proposal]})});
  const result=h.ctx.askGemini_({...request,uiMode:'ADVANCE'},user);assert.equal(result.proposals.length,1);assert.equal(result.proposals[0].changes[0].external,true);assert.match(result.proposals[0].changes[0].justification,/repair team/);
 });
@@ -273,3 +273,14 @@ test('Product-support role survives restrictive saved prompts and earlier assist
  }
 });
 
+
+test('Gemini context includes compatible replication loss diagnosis and intervention definitions',()=>{
+ const h=setup(),s=h.record.simulations[0],run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...s.dynamicConfig};
+ s.results={summary:{lineOeePercent:40},durationSeconds:60,unitOfFlow:'units',replicationStatus:{state:'COMPLETE'},inputSignature:JSON.stringify({equipment:s.equipment,run,unitOfFlow:'units'}),equipmentMetrics:{},batch:{rounds:3,equipmentStatistics:{[s.equipment[0].id]:{failureSeconds:{mean:10},starvedSeconds:{mean:0},blockedSeconds:{mean:0}}}}};
+ const context=JSON.parse(h.ctx.buildGeminiContext_(h.record,'a').json);assert.equal(context.lossDiagnosis.status,'OBSERVED');assert.equal(context.lossDiagnosis.equipment[0].failureSeconds,10);assert(context.scenarioDefinitions.HIGH.reliability.includes('Replacement'));assert(context.reliabilityOpportunities.length>0);
+ s.dynamicConfig.seed++;assert.equal(JSON.parse(h.ctx.buildGeminiContext_(h.record,'a').json).lossDiagnosis.status,'NO_COMPATIBLE_RESULTS');
+});
+test('Gemini cannot label a replacement reliability target as Medium or submit exploratory levels',()=>{
+ const fixture=setup(),e=fixture.record.simulations[0].equipment[0],change={equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before:e.noiseProfile.reliability.mtbfMinutes,after:e.noiseProfile.reliability.mtbfMinutes*2,external:true,interventionType:'REPLACEMENT',justification:'Complete replacement; documented supplier target.'};
+ for(const changes of [[change],[{...change,analysisOnly:true,interventionType:'SENSITIVITY'}]]){const h=setup({answer:JSON.stringify({text:'Hypothesis',proposals:[{title:'Incorrect category',tier:'MEDIUM',basis:'STATIC',changes}]})});assert.equal(h.ctx.askGemini_(request,user).proposals.length,0);}
+});

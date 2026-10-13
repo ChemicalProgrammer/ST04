@@ -5,6 +5,35 @@ import { validateSimulationInput } from '../simulation/SimulationValidation.js';
 
 // Scenario policy is separate from the unchanged simulation mathematics.
 export const SCENARIO_POLICY = Object.freeze({microstopLimitMinutes:4,maxChanges:64});
+export const SCENARIO_DEFINITIONS = Object.freeze({
+  ZERO:{scope:'Optimize installed assets and work practices without capital investment.',reliability:'Supported operational improvements; additional maintenance is OPEX, not capital.',costBasis:'Intervention scope; no assumed monetary threshold or required efficiency gain.'},
+  MEDIUM:{scope:'Local component rehabilitation, monitoring or equipment retrofit.',reliability:'Documented retrofit MTBF/MTTR targets, with installation scope and target source.',costBasis:'Localized investment; costs must be supplied, not inferred from OEE.'},
+  HIGH:{scope:'Complete equipment replacement or major line/transport redesign.',reliability:'Replacement can improve reliability without changing speed; use supplier or measured targets.',costBasis:'Major investment scope; a small validated gain is a limited-benefit project, not proof of value.'}
+});
+export const SCENARIO_INTERVENTIONS = Object.freeze({
+  OPERATIONAL:{tier:'ZERO',costClass:'NONE',label:'Existing resources / work practices'},
+  MAINTENANCE:{tier:'ZERO',costClass:'OPEX',label:'Additional maintenance / repair resources'},
+  RETROFIT:{tier:'MEDIUM',costClass:'CAPEX',label:'Local retrofit / rehabilitation'},
+  REPLACEMENT:{tier:'HIGH',costClass:'CAPEX',label:'Complete equipment replacement'}
+});
+export function scenarioCategoryAllows(change,tier){
+  if(change.analysisOnly)return false;
+  if(change.path.startsWith('noiseProfile.reliability.')){
+    const intervention=SCENARIO_INTERVENTIONS[change.interventionType];
+    return !!intervention&&intervention.tier===tier;
+  }
+  return tier==='HIGH'||tier==='MEDIUM'&&change.path!=='processData.geometry.lactMm'||tier==='ZERO'&&!change.external&&change.path!=='processData.geometry.lactMm';
+}
+// Explicit exploratory levels are diagnostics, never implementation targets.
+export function reliabilitySensitivityCandidates(simulation,{mtbfMultiplier=2,mttrMultiplier=.5}={}){
+  if(!(mtbfMultiplier>1&&mtbfMultiplier<=10&&mttrMultiplier>0&&mttrMultiplier<1))throw Error('SCENARIO_INVALID_SENSITIVITY_LEVEL');
+  const diagnosis=diagnoseScenarioLosses(simulation);
+  return (simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR'&&e.noiseProfile?.reliability?.mtbfMinutes>0&&e.noiseProfile?.reliability?.mttrMinutes>0).flatMap(e=>{
+    const changes=['mtbfMinutes','mttrMinutes'].map((key,i)=>({...scenarioChange(e,'noiseProfile.reliability.'+key,Math.max(SCENARIO_FIELDS['noiseProfile.reliability.'+key][0],Math.min(SCENARIO_FIELDS['noiseProfile.reliability.'+key][1],e.noiseProfile.reliability[key]*(i?mttrMultiplier:mtbfMultiplier)))),external:true,analysisOnly:true,interventionType:'SENSITIVITY',justification:'Exploratory sensitivity level; not an achievable intervention target.'}));
+    const observed=diagnosis.equipment.find(r=>r.equipmentId===e.id);
+    return ['MTBF','MTTR','JOINT'].map((kind,i)=>({equipmentId:e.id,equipmentName:e.name,kind,changes:i===2?changes:[changes[i]],ownStopPercent:observed?.ownStopPercent??null,availabilityBefore:e.noiseProfile.reliability.mtbfMinutes/(e.noiseProfile.reliability.mtbfMinutes+e.noiseProfile.reliability.mttrMinutes)}));
+  }).sort((a,b)=>(b.ownStopPercent??0)-(a.ownStopPercent??0));
+}
 export const SCENARIO_FIELDS = Object.freeze({
   'nominalRatePerSecond':[0.001,1000000,'units/s'],
   'noiseProfile.reliability.mtbfMinutes':[0.001,1000000,'min'],
@@ -86,7 +115,7 @@ export function applyScenarioChanges(simulation,changes){
       if(unit.type==='CONVEYOR'||unit.id===analyzeLinePerformance(simulation.equipment,simulation.results).referenceId||!(maximum>0)||change.after>maximum)throw new Error('SCENARIO_INSTALLED_SPEED_LIMIT');
     }
     if(change.path.startsWith('noiseProfile.reliability.')){
-      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true)throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
+      if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true||typeof change.justification!=='string'||!change.justification.trim()||(!SCENARIO_INTERVENTIONS[change.interventionType]&&!(change.analysisOnly===true&&change.interventionType==='SENSITIVITY')))throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
     seen.add(key);scenarioSet(unit,change.path,change.after);
@@ -213,11 +242,16 @@ export function planScenarios(simulation){
     add('V_CURVE','ZERO',equipment,[scenarioChange(equipment,'nominalRatePerSecond',target)],{maximumBpm:point.maximumBpm,recommendedBpm:point.recommendedBpm},70,'STATIC');
   });
   checks.push({rule:'PACEMAKER_DESIRED_STATE_AND_V_GRAPH',status:'NOT_EVALUATED'});
+  (simulation.whatIf?.externalOptions||[]).forEach(option=>{
+    if(!['ZERO','MEDIUM','HIGH'].includes(option.tier)||!option.changes?.length||!option.changes.every(c=>scenarioCategoryAllows(c,option.tier)))return;
+    const equipment=simulation.equipment.find(e=>e.id===option.changes[0].equipmentId);if(!equipment)return;
+    add('RELIABILITY_INTERVENTION',option.tier,equipment,option.changes,{targetSource:'USER_DOCUMENTED',interventionType:option.changes[0].interventionType,costClass:SCENARIO_INTERVENTIONS[option.changes[0].interventionType]?.costClass,interpretation:'Supported intervention hypothesis; dynamic benefit and shifted constraints require evaluation.'},90,'STATIC');
+  });
   const projects=['ZERO','MEDIUM','HIGH'].map(tier=>{
     const choices=candidates.filter(p=>p.tier===tier).sort((a,b)=>Number(b.canApply)-Number(a.canApply)||b.priority-a.priority);
     return choices[0]||{tier,canApply:false,titleKey:'scenario.no_proposal',basis:'STATIC',changes:[],evidence:{},disabledReason:'SCENARIO_INSUFFICIENT_EVIDENCE'};
   });
-  return {projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
+  return {definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,reliabilityOpportunities:reliabilitySensitivityCandidates(simulation),projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
 }
 
 

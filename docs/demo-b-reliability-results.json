@@ -1,0 +1,682 @@
+{
+  "name": "Demo B",
+  "analysisOnly": true,
+  "seed": 20261013,
+  "levels": {
+    "mtbfMultiplier": 2,
+    "mttrMultiplier": 0.5
+  },
+  "run": {
+    "durationMode": "FIXED",
+    "durationSeconds": 1800,
+    "tickSeconds": 0.25,
+    "sampleEverySeconds": 15,
+    "seed": 20261013,
+    "rounds": 3,
+    "commands": [],
+    "engineId": "ST_CURRENT"
+  },
+  "baseline": {
+    "oee": 30.181858000000002,
+    "throughput": 58.25098606666666
+  },
+  "observations": [
+    {
+      "equipmentId": "sheet-row-18",
+      "equipmentName": "Sleever",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-18",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 40.02044433333334,
+        "throughput": 77.23945804444445
+      },
+      "deltaOeePoints": 9.838586333333335,
+      "deltaThroughput": 18.988471977777785
+    },
+    {
+      "equipmentId": "sheet-row-18",
+      "equipmentName": "Sleever",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-18",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 5,
+          "after": 10,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-18",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 37.357272,
+        "throughput": 72.09953482222222
+      },
+      "deltaOeePoints": 7.175414,
+      "deltaThroughput": 13.848548755555562
+    },
+    {
+      "equipmentId": "sheet-row-16",
+      "equipmentName": "De-Pucker",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-16",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 5,
+          "after": 10,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-16",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 36.012763,
+        "throughput": 69.50463244444444
+      },
+      "deltaOeePoints": 5.830904999999998,
+      "deltaThroughput": 11.253646377777777
+    },
+    {
+      "equipmentId": "sheet-row-10",
+      "equipmentName": "Blowmolder",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-10",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9453551912568307,
+      "candidate": {
+        "oee": 34.805717,
+        "throughput": 67.17503336666668
+      },
+      "deltaOeePoints": 4.6238589999999995,
+      "deltaThroughput": 8.92404730000002
+    },
+    {
+      "equipmentId": "sheet-row-18",
+      "equipmentName": "Sleever",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-18",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 5,
+          "after": 10,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 34.500916,
+        "throughput": 66.58676815555556
+      },
+      "deltaOeePoints": 4.319057999999995,
+      "deltaThroughput": 8.335782088888898
+    },
+    {
+      "equipmentId": "sheet-row-16",
+      "equipmentName": "De-Pucker",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-16",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 5,
+          "after": 10,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 32.867152,
+        "throughput": 63.43360301111111
+      },
+      "deltaOeePoints": 2.6852939999999954,
+      "deltaThroughput": 5.182616944444447
+    },
+    {
+      "equipmentId": "sheet-row-14",
+      "equipmentName": "Filler/Capper",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8333333333333334,
+      "candidate": {
+        "oee": 32.78960133333333,
+        "throughput": 63.28393085555556
+      },
+      "deltaOeePoints": 2.607743333333328,
+      "deltaThroughput": 5.032944788888898
+    },
+    {
+      "equipmentId": "sheet-row-20",
+      "equipmentName": "Case Packer",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-20",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 11.3,
+          "after": 22.6,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-20",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.849624060150376,
+      "candidate": {
+        "oee": 32.46382033333334,
+        "throughput": 62.65517343333334
+      },
+      "deltaOeePoints": 2.281962333333336,
+      "deltaThroughput": 4.404187366666676
+    },
+    {
+      "equipmentId": "sheet-row-12",
+      "equipmentName": "Pucker",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-12",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 17.5,
+          "after": 35,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8974358974358975,
+      "candidate": {
+        "oee": 31.893712333333337,
+        "throughput": 61.554864822222214
+      },
+      "deltaOeePoints": 1.711854333333335,
+      "deltaThroughput": 3.3038787555555515
+    },
+    {
+      "equipmentId": "sheet-row-12",
+      "equipmentName": "Pucker",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-12",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 17.5,
+          "after": 35,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-12",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8974358974358975,
+      "candidate": {
+        "oee": 31.893712333333337,
+        "throughput": 61.554864822222214
+      },
+      "deltaOeePoints": 1.711854333333335,
+      "deltaThroughput": 3.3038787555555515
+    },
+    {
+      "equipmentId": "sheet-row-20",
+      "equipmentName": "Case Packer",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-20",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 11.3,
+          "after": 22.6,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.849624060150376,
+      "candidate": {
+        "oee": 31.653043333333333,
+        "throughput": 61.090373577777775
+      },
+      "deltaOeePoints": 1.471185333333331,
+      "deltaThroughput": 2.839387511111113
+    },
+    {
+      "equipmentId": "sheet-row-14",
+      "equipmentName": "Filler/Capper",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 10,
+          "after": 20,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8333333333333334,
+      "candidate": {
+        "oee": 31.385323,
+        "throughput": 60.57367325555555
+      },
+      "deltaOeePoints": 1.2034649999999978,
+      "deltaThroughput": 2.322687188888885
+    },
+    {
+      "equipmentId": "sheet-row-22",
+      "equipmentName": "Palletizer",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-22",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 190,
+          "after": 380,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9895833333333334,
+      "candidate": {
+        "oee": 30.689471666666666,
+        "throughput": 59.230680199999995
+      },
+      "deltaOeePoints": 0.5076136666666642,
+      "deltaThroughput": 0.9796941333333322
+    },
+    {
+      "equipmentId": "sheet-row-12",
+      "equipmentName": "Pucker",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-12",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8974358974358975,
+      "candidate": {
+        "oee": 30.630908,
+        "throughput": 59.11765273333333
+      },
+      "deltaOeePoints": 0.4490499999999997,
+      "deltaThroughput": 0.8666666666666671
+    },
+    {
+      "equipmentId": "sheet-row-22",
+      "equipmentName": "Palletizer",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-22",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 190,
+          "after": 380,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-22",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9895833333333334,
+      "candidate": {
+        "oee": 29.978983,
+        "throughput": 57.85943724444445
+      },
+      "deltaOeePoints": -0.20287500000000236,
+      "deltaThroughput": -0.3915488222222123
+    },
+    {
+      "equipmentId": "sheet-row-22",
+      "equipmentName": "Palletizer",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-22",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9895833333333334,
+      "candidate": {
+        "oee": 29.929203333333334,
+        "throughput": 57.76336254444445
+      },
+      "deltaOeePoints": -0.25265466666666825,
+      "deltaThroughput": -0.48762352222221494
+    },
+    {
+      "equipmentId": "sheet-row-16",
+      "equipmentName": "De-Pucker",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-16",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.7142857142857143,
+      "candidate": {
+        "oee": 29.843557333333333,
+        "throughput": 57.598065833333344
+      },
+      "deltaOeePoints": -0.3383006666666688,
+      "deltaThroughput": -0.6529202333333188
+    },
+    {
+      "equipmentId": "sheet-row-10",
+      "equipmentName": "Blowmolder",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-10",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 34.6,
+          "after": 69.2,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9453551912568307,
+      "candidate": {
+        "oee": 29.80467833333333,
+        "throughput": 57.523028788888894
+      },
+      "deltaOeePoints": -0.37717966666667024,
+      "deltaThroughput": -0.7279572777777688
+    },
+    {
+      "equipmentId": "sheet-row-20",
+      "equipmentName": "Case Packer",
+      "kind": "MTTR",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-20",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.849624060150376,
+      "candidate": {
+        "oee": 29.438028666666668,
+        "throughput": 56.81539524444444
+      },
+      "deltaOeePoints": -0.7438293333333341,
+      "deltaThroughput": -1.435590822222224
+    },
+    {
+      "equipmentId": "sheet-row-14",
+      "equipmentName": "Filler/Capper",
+      "kind": "MTBF",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 10,
+          "after": 20,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.8333333333333334,
+      "candidate": {
+        "oee": 29.027029666666664,
+        "throughput": 56.0221675
+      },
+      "deltaOeePoints": -1.154828333333338,
+      "deltaThroughput": -2.2288185666666607
+    },
+    {
+      "equipmentId": "sheet-row-10",
+      "equipmentName": "Blowmolder",
+      "kind": "JOINT",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-10",
+          "path": "noiseProfile.reliability.mtbfMinutes",
+          "before": 34.6,
+          "after": 69.2,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        },
+        {
+          "equipmentId": "sheet-row-10",
+          "path": "noiseProfile.reliability.mttrMinutes",
+          "before": 2,
+          "after": 1,
+          "unit": "min",
+          "external": true,
+          "analysisOnly": true,
+          "interventionType": "SENSITIVITY",
+          "justification": "Exploratory sensitivity level; not an achievable intervention target."
+        }
+      ],
+      "ownStopPercent": null,
+      "availabilityBefore": 0.9453551912568307,
+      "candidate": {
+        "oee": 28.104368333333337,
+        "throughput": 54.241430422222216
+      },
+      "deltaOeePoints": -2.077489666666665,
+      "deltaThroughput": -4.009555644444447
+    }
+  ],
+  "confirmation": {
+    "equipmentId": "sheet-row-18",
+    "kind": "MTTR",
+    "run": {
+      "durationMode": "FIXED",
+      "durationSeconds": 28800,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "seedOffset": 1000003,
+    "baseline": {
+      "oee": 39.70718766666667,
+      "throughput": 76.63487275138888
+    },
+    "candidate": {
+      "oee": 42.411991666666665,
+      "throughput": 81.85514405972224
+    },
+    "deltaOeePoints": 2.7048039999999958,
+    "deltaThroughput": 5.220271308333352
+  },
+  "allEquipmentJointSensitivity": {
+    "candidate": {
+      "oee": 71.696241,
+      "throughput": 138.3737448375
+    },
+    "deltaOeePoints": 31.98905333333333,
+    "deltaThroughput": 61.738872086111115
+  },
+  "interpretation": "Exploratory reliability sensitivity, not a feasible replacement scenario, guaranteed benefit or plant measurement."
+}

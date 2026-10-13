@@ -1,6 +1,6 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
-import {planScenarios,applyScenarioChanges,scenarioSignature,SCENARIO_FIELDS} from '../src/analysis/ScenarioPlanner.js';
+import {planScenarios,applyScenarioChanges,scenarioSignature,SCENARIO_FIELDS,reliabilitySensitivityCandidates,SCENARIO_DEFINITIONS,SCENARIO_INTERVENTIONS,scenarioCategoryAllows} from '../src/analysis/ScenarioPlanner.js';
 import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES} from '../src/analysis/ScenarioSearch.js';
 import {createScenarioDOE,analyzeScenarioDOE,analyzeScenarioANOVA} from '../src/analysis/ScenarioDOE.js';
 const original=JSON.parse(fs.readFileSync('test/fixtures/demo-b-case.json','utf8'));
@@ -12,7 +12,7 @@ async function search(parallel,clockScale,included=[],doe=false){
  w.STErrors={register(){},capture(_,error){console.error(error.message);}};w.STScenarioText={};
  w.STPreferences={read(){return '';},write(){return true;}};w.STIcons={svg(){return '';}};
  w.STWhatIf={changeInfo(c){return {equipment:c.equipmentId,parameter:c.path,before:c.before,after:c.after};}};
- w.STScenarios={plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,fields:SCENARIO_FIELDS};
+ w.STScenarios={plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,fields:SCENARIO_FIELDS,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
  w.STScenarioSearch={profiles:SCENARIO_SEARCH_PROFILES,run:scenarioSearchRun,profile:scenarioSearchProfile,needsMore:scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
  let batches=0;w.SimulatorEngine={inputSignature:ctx.simulationInputSignature,async simulateBatch(input,options){batches++;return simulateBatch(JSON.parse(JSON.stringify(input)),{...options,summaryOnly:true,yieldControl:()=>Promise.resolve()});}};
  const now=Date.now.bind(Date);w.Date.now=()=>now()*clockScale;
@@ -34,7 +34,16 @@ async function search(parallel,clockScale,included=[],doe=false){
  }finally{dom.window.close();}
 }
 const brief=r=>({status:r.status,trials:r.trials,stopReason:r.stopReason,run:r.explorationRun,categoryInclusions:r.categoryInclusions,selectedChanges:r.evaluatedChanges,independentCheck:r.independentCheck,doe:r.doe?{factors:r.doe.factors,complete:r.doe.analysis?.complete,combinations:r.doe.observations.length}:null});
-if(process.argv.includes('--composition')){
+if(process.argv.includes('--reliability')){
+ const sim=structuredClone(original.simulations[0]),run=scenarioSearchRun(sim.dynamicConfig,'MEDIUM');run.durationSeconds=1800;
+ const measured=async(changes,r=run,offset=0)=>{const candidate=changes.length?applyScenarioChanges(sim,changes):sim;const response=await simulateBatch({case:{id:sim.id,unitOfFlow:'units',equipment:candidate.equipment},run:{...r,seed:r.seed+offset}},{summaryOnly:true,yieldControl:()=>Promise.resolve()});assert(response.ok,JSON.stringify(response.error));return {oee:response.result.batch.statistics.lineOeePercent.mean,throughput:response.result.batch.statistics.throughputPerMinute.mean};};
+ const baseline=await measured([]),observations=[];
+ for(const experiment of reliabilitySensitivityCandidates(sim)){const candidate=await measured(experiment.changes);observations.push({...experiment,candidate,deltaOeePoints:candidate.oee-baseline.oee,deltaThroughput:candidate.throughput-baseline.throughput});}
+ observations.sort((a,b)=>b.deltaThroughput-a.deltaThroughput);const top=observations[0],validationRun=scenarioSearchRun(sim.dynamicConfig,'HIGH','validation'),independentBase=await measured([],validationRun,1000003),independentCandidate=await measured(top.changes,validationRun,1000003);
+ const allChanges=reliabilitySensitivityCandidates(sim).filter(c=>c.kind==='JOINT').flatMap(c=>c.changes),allCandidate=await measured(allChanges,validationRun,1000003);
+ const report={name:'Demo B',analysisOnly:true,seed:run.seed,levels:{mtbfMultiplier:2,mttrMultiplier:.5},run,baseline,observations,confirmation:{equipmentId:top.equipmentId,kind:top.kind,run:validationRun,seedOffset:1000003,baseline:independentBase,candidate:independentCandidate,deltaOeePoints:independentCandidate.oee-independentBase.oee,deltaThroughput:independentCandidate.throughput-independentBase.throughput},allEquipmentJointSensitivity:{candidate:allCandidate,deltaOeePoints:allCandidate.oee-independentBase.oee,deltaThroughput:allCandidate.throughput-independentBase.throughput},interpretation:'Exploratory reliability sensitivity, not a feasible replacement scenario, guaranteed benefit or plant measurement.'};
+ fs.writeFileSync('docs/demo-b-reliability-results.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({baseline,leading:report.confirmation,allEquipmentJointSensitivity:report.allEquipmentJointSensitivity}));
+}else if(process.argv.includes('--composition')){
  const isolated=await search(1,1),combined=await search(2,1,['ZERO','MEDIUM'],true);
  fs.writeFileSync('docs/demo-b-composition-results.json',JSON.stringify({name:'Demo B',candidateBudget:12,seed:20261013,isolated:brief(isolated),combined:brief(combined)},null,2)+'\n');
  console.log('Demo B category composition and two-factor DOE evaluated');

@@ -53,8 +53,8 @@ function normalizeScenarioProposal_(proposal,source) {
   if(!title)throw createSimulatorError_('INVALID_SCENARIO','A scenario title is required.');
   // Field allowlist, value bounds, expected before values, topology and audits are shared with the browser.
   try{STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The scenario contains an invalid or stale change.',[String(error.message)]);}
-  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,...(typeof c.justification==='string'?{justification:c.justification.slice(0,600)}:{})}:{})};});
-  if(proposal.tier==='ZERO'&&changes.some(function(c){return c.path==='processData.geometry.lactMm'||c.path.startsWith('noiseProfile.reliability.');}))throw createSimulatorError_('INVALID_SCENARIO','Length extensions and external reliability interventions cannot be labeled zero CAPEX.');
+  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,...(c.originTier?{originTier:c.originTier}:{}),unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,...(typeof c.justification==='string'?{justification:c.justification.slice(0,600),interventionType:c.interventionType,costClass:STScenarioEngine_.interventions[c.interventionType]?.costClass}:{})}:{})};});
+  if(proposal.changes.some(function(c){return !STScenarioEngine_.categoryAllows(c,c.originTier||proposal.tier)||c.originTier&&(['ZERO','MEDIUM','HIGH'].indexOf(c.originTier)>['ZERO','MEDIUM','HIGH'].indexOf(proposal.tier));}))throw createSimulatorError_('INVALID_SCENARIO','Intervention scope does not match CAPEX category, or exploratory sensitivity was submitted as a target.');
   var evidence={};
   if(proposal.evidence&&typeof proposal.evidence==='object'&&!Array.isArray(proposal.evidence))Object.keys(proposal.evidence).slice(0,12).forEach(function(key){
     if(!/^[a-zA-Z][a-zA-Z0-9]{0,60}$/.test(key)||['constructor','prototype'].includes(key))return;
