@@ -108,9 +108,9 @@ function cloneCase(caseId) {
   });
 }
 
-function createDemoCase() {
+function createDemoCase(options) {
   return executeServerAction_(function(user) {
-    var request=createDemoCaseRequest_();
+    var request=options?.variant==='B'?createDemoBCaseRequest_():createDemoCaseRequest_();
     var summary=createCase_(request, user);
     summary.demoResultsPrepared=request.simulations.every(function(sim){return !!sim.results?.summary;});
     return summary;

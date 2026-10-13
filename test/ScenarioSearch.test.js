@@ -113,3 +113,15 @@ test('cancelled screening retains factors and restores controls',async()=>{
 test('new sensitivity suggestions invalidate a previously confirmed scenario',async()=>{
  const h=harness(true,'HIGH');try{await search(h);assert.equal(h.host.querySelector('.scenario-create').disabled,false);await suggest(h);assert.equal(h.host.querySelector('.scenario-create').disabled,true);assert.equal(h.sim.whatIf.evaluations[0].status,'NOT_EVALUATED');}finally{h.dom.window.close();}
 });
+
+test('fixed candidate budget and DOE produce the same winner despite different wall clocks',async()=>{
+ const a=harness(true,'HIGH'),b=harness(true,'HIGH');try{
+  Object.assign(a.w.ST_SCENARIO_SEARCH_LIMITS,{maxSearchMs:0,parallelCandidates:1});Object.assign(b.w.ST_SCENARIO_SEARCH_LIMITS,{maxSearchMs:0,parallelCandidates:2});
+  const now=Date.now.bind(Date);b.w.Date.now=()=>now()*10000;
+  const x=await search(a),y=await search(b);
+  assert.equal(x.reproducibility.policy,'CANDIDATE_BUDGET');assert.equal(y.reproducibility.warmStart,false);
+  assert.equal(x.doe.observations.length,4);assert.equal(y.doe.observations.length,4);
+  assert.deepEqual(JSON.parse(JSON.stringify(x.evaluatedChanges)),JSON.parse(JSON.stringify(y.evaluatedChanges)));
+  assert.deepEqual(JSON.parse(JSON.stringify(x.independentCheck)),JSON.parse(JSON.stringify(y.independentCheck)));
+ }finally{a.dom.window.close();b.dom.window.close();}
+});

@@ -1,0 +1,180 @@
+{
+  "name": "Demo B",
+  "seed": 20261013,
+  "candidateBudget": 12,
+  "first": {
+    "status": "IMPROVEMENT_REPRODUCED",
+    "trials": 12,
+    "stopReason": "Evaluation budget reached",
+    "explorationRun": {
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "commands": [],
+      "rounds": 3,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "evaluatedChanges": [
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 1544,
+        "unit": "mm"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lactMm",
+        "before": 8800,
+        "after": 56431,
+        "unit": "mm"
+      }
+    ],
+    "independentCheck": {
+      "seed": 21261016,
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "baseline": {
+        "roundMetrics": [
+          {
+            "seed": 21261016,
+            "oee": 38.592279,
+            "throughput": 74.48309906666667
+          },
+          {
+            "seed": 21261017,
+            "oee": 39.814005,
+            "throughput": 76.84103006666665
+          },
+          {
+            "seed": 21261018,
+            "oee": 40.715279,
+            "throughput": 78.58048912083333
+          }
+        ],
+        "oee": 39.70718766666667,
+        "throughput": 76.63487275138888,
+        "cacheSource": "CALCULATED",
+        "warnings": []
+      },
+      "candidate": {
+        "roundMetrics": [
+          {
+            "seed": 21261016,
+            "oee": 45.251492,
+            "throughput": 87.335380475
+          },
+          {
+            "seed": 21261017,
+            "oee": 47.784966,
+            "throughput": 92.22498417083334
+          },
+          {
+            "seed": 21261018,
+            "oee": 47.16424,
+            "throughput": 91.02698341874999
+          }
+        ],
+        "oee": 46.733565999999996,
+        "throughput": 90.19578268819443,
+        "cacheSource": "CALCULATED",
+        "warnings": []
+      },
+      "passed": true,
+      "delta": {
+        "oeePercentagePoints": 7.0263783333333265,
+        "throughputPerMinute": 13.560909936805544
+      }
+    }
+  },
+  "second": {
+    "status": "IMPROVEMENT_REPRODUCED",
+    "trials": 12,
+    "stopReason": "Evaluation budget reached",
+    "explorationRun": {
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "commands": [],
+      "rounds": 3,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "evaluatedChanges": [
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 1544,
+        "unit": "mm"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lactMm",
+        "before": 8800,
+        "after": 56431,
+        "unit": "mm"
+      }
+    ],
+    "independentCheck": {
+      "seed": 21261016,
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "baseline": {
+        "roundMetrics": [
+          {
+            "seed": 21261016,
+            "oee": 38.592279,
+            "throughput": 74.48309906666667
+          },
+          {
+            "seed": 21261017,
+            "oee": 39.814005,
+            "throughput": 76.84103006666665
+          },
+          {
+            "seed": 21261018,
+            "oee": 40.715279,
+            "throughput": 78.58048912083333
+          }
+        ],
+        "oee": 39.70718766666667,
+        "throughput": 76.63487275138888,
+        "cacheSource": "CALCULATED",
+        "warnings": []
+      },
+      "candidate": {
+        "roundMetrics": [
+          {
+            "seed": 21261016,
+            "oee": 45.251492,
+            "throughput": 87.335380475
+          },
+          {
+            "seed": 21261017,
+            "oee": 47.784966,
+            "throughput": 92.22498417083334
+          },
+          {
+            "seed": 21261018,
+            "oee": 47.16424,
+            "throughput": 91.02698341874999
+          }
+        ],
+        "oee": 46.733565999999996,
+        "throughput": 90.19578268819443,
+        "cacheSource": "CALCULATED",
+        "warnings": []
+      },
+      "passed": true,
+      "delta": {
+        "oeePercentagePoints": 7.0263783333333265,
+        "throughputPerMinute": 13.560909936805544
+      }
+    }
+  },
+  "conclusion": "Identical selected changes and independent confirmation with different concurrency and clocks."
+}

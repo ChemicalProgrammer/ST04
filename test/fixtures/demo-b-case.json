@@ -1,0 +1,1802 @@
+{
+  "id": "demo-b",
+  "name": "Demo B",
+  "unitOfFlow": "units",
+  "metadata": {
+    "site": null,
+    "packagingLine": null,
+    "formatName": null,
+    "containerSizeOz": 5.5,
+    "bottlesPerCase": 12,
+    "dateOfAnalysis": "2026-08-02",
+    "by": null,
+    "demoRevision": "photo-demo-b-1",
+    "consoleOptions": {
+      "seedPolicy": "FIXED",
+      "autosaveEnabled": true,
+      "autosaveSeconds": 10
+    },
+    "source": "Two equipment photographs supplied by the user",
+    "sourceRows": [
+      [
+        "BLOWMOLDER",
+        "Blowmolder",
+        "Y",
+        34.6,
+        2,
+        193,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor BM-PU",
+        "N",
+        "NA",
+        "NA",
+        193,
+        14326,
+        1955.8,
+        0,
+        0,
+        215,
+        228.6,
+        1.5,
+        2,
+        330.2,
+        0,
+        0,
+        0,
+        1,
+        0.5,
+        0.5,
+        2,
+        5
+      ],
+      [
+        "PUCKER",
+        "Pucker",
+        "N",
+        17.5,
+        2,
+        191,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor PU-FIL",
+        "N",
+        "NA",
+        "NA",
+        191,
+        30669,
+        2540,
+        0,
+        0,
+        110,
+        88.9,
+        2,
+        3,
+        114.3,
+        3,
+        23.74,
+        0,
+        1,
+        0.5,
+        0.5,
+        1,
+        5
+      ],
+      [
+        "FILLER",
+        "Filler/Capper",
+        "N",
+        10,
+        2,
+        180,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor FIL-DEP",
+        "N",
+        "NA",
+        "NA",
+        180,
+        11550,
+        900,
+        0,
+        0,
+        110,
+        180,
+        5,
+        6,
+        145,
+        4,
+        0,
+        0,
+        1,
+        0.5,
+        0.5,
+        1,
+        5
+      ],
+      [
+        "DEPUCKER",
+        "De-Pucker",
+        "N",
+        5,
+        2,
+        185,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor DEP-SLE",
+        "N",
+        "NA",
+        "NA",
+        185,
+        8800,
+        700,
+        0,
+        0,
+        90,
+        145,
+        2,
+        8,
+        180,
+        1,
+        0,
+        0,
+        1,
+        0.5,
+        0.5,
+        1,
+        5
+      ],
+      [
+        "SLEEVER",
+        "Sleever",
+        "N",
+        5,
+        2,
+        185,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor SLE-PAC",
+        "N",
+        "NA",
+        "NA",
+        185,
+        18745,
+        787,
+        1240,
+        1240,
+        90,
+        150.7,
+        6,
+        4,
+        150.8,
+        5,
+        0,
+        0,
+        0,
+        0.5,
+        0.5,
+        1,
+        5
+      ],
+      [
+        "CASE_PACKER",
+        "Case Packer",
+        "N",
+        11.3,
+        2,
+        190,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ],
+      [
+        "CONVEYOR",
+        "Conveyor PAC-PAL",
+        "N",
+        "NA",
+        "NA",
+        190,
+        135870,
+        500,
+        0,
+        0,
+        190.5,
+        536,
+        4,
+        4,
+        380,
+        3,
+        0,
+        0,
+        0,
+        0.5,
+        0.5,
+        1,
+        5
+      ],
+      [
+        "PALLETIZER",
+        "Palletizer",
+        "N",
+        190,
+        2,
+        288,
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA",
+        "NA"
+      ]
+    ],
+    "importWarnings": [
+      {
+        "cell": "D11:E11",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      },
+      {
+        "cell": "D13:E13",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      },
+      {
+        "cell": "L13",
+        "message": "Discharge pitch is smaller than package length (K13). Imported unchanged as draft data. Verify package orientation, dimensions and pitch before simulation; physical model validation still applies."
+      },
+      {
+        "cell": "D15:E15",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      },
+      {
+        "cell": "D17:E17",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      },
+      {
+        "cell": "D19:E19",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      },
+      {
+        "cell": "D21:E21",
+        "message": "No reliability data: random failures are disabled for this equipment."
+      }
+    ],
+    "dataNote": "Photo inputs are preserved, including Blowmolder as critical, 135870 mm on PAC-PAL, percentage-point factors, and the PU-FIL pitch warning. Unprovided reliability on conveyors disables random conveyor failures. The 8-hour horizon, three rounds and fixed seed are test settings, not photo measurements."
+  },
+  "equipment": [
+    {
+      "id": "sheet-row-10",
+      "type": "BLOWMOLDER",
+      "name": "Blowmolder",
+      "nominalRatePerSecond": 3.216666666666667,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": true,
+        "isPacemaker": true,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 10
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 34.6,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "CRITICAL_MACHINE",
+        "machineType": "BLOWMOLDER",
+        "equipment": {
+          "mtbfMinutes": 34.6,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 193
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-11",
+      "type": "CONVEYOR",
+      "name": "Conveyor BM-PU",
+      "nominalRatePerSecond": 3.216666666666667,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 11
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 193
+        },
+        "geometry": {
+          "lactMm": 14326,
+          "lpPrimeMm": 1955.8,
+          "actualDischargeMm": 0,
+          "actualCodingMm": 0
+        },
+        "upstream": {
+          "packageLengthMm": 215,
+          "dischargePitchMm": 228.6,
+          "startupTimeSeconds": 1.5,
+          "bottlesDischargedAtStop": 2
+        },
+        "downstream": {
+          "infeedPitchMm": 330.2,
+          "rampUpTimeSeconds": 0
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 2,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 2,
+          "bottlesDischargedAtStop": 2,
+          "downstreamRampUpSeconds": 0
+        }
+      }
+    },
+    {
+      "id": "sheet-row-12",
+      "type": "PUCKER",
+      "name": "Pucker",
+      "nominalRatePerSecond": 3.183333333333333,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 12
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 17.5,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "PUCKER",
+        "equipment": {
+          "mtbfMinutes": 17.5,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 191
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-13",
+      "type": "CONVEYOR",
+      "name": "Conveyor PU-FIL",
+      "nominalRatePerSecond": 3.183333333333333,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 13
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 191
+        },
+        "geometry": {
+          "lactMm": 30669,
+          "lpPrimeMm": 2540,
+          "actualDischargeMm": 0,
+          "actualCodingMm": 0
+        },
+        "upstream": {
+          "packageLengthMm": 110,
+          "dischargePitchMm": 88.9,
+          "startupTimeSeconds": 2,
+          "bottlesDischargedAtStop": 3
+        },
+        "downstream": {
+          "infeedPitchMm": 114.3,
+          "rampUpTimeSeconds": 3
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 23.74,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "bottlesDischargedAtStop": 3,
+          "downstreamRampUpSeconds": 3
+        }
+      }
+    },
+    {
+      "id": "sheet-row-14",
+      "type": "FILLER",
+      "name": "Filler/Capper",
+      "nominalRatePerSecond": 3,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 14
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 10,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "FILLER",
+        "equipment": {
+          "mtbfMinutes": 10,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 180
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-15",
+      "type": "CONVEYOR",
+      "name": "Conveyor FIL-DEP",
+      "nominalRatePerSecond": 3,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 15
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 180
+        },
+        "geometry": {
+          "lactMm": 11550,
+          "lpPrimeMm": 900,
+          "actualDischargeMm": 0,
+          "actualCodingMm": 0
+        },
+        "upstream": {
+          "packageLengthMm": 110,
+          "dischargePitchMm": 180,
+          "startupTimeSeconds": 5,
+          "bottlesDischargedAtStop": 6
+        },
+        "downstream": {
+          "infeedPitchMm": 145,
+          "rampUpTimeSeconds": 4
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "bottlesDischargedAtStop": 6,
+          "downstreamRampUpSeconds": 4
+        }
+      }
+    },
+    {
+      "id": "sheet-row-16",
+      "type": "DEPUCKER",
+      "name": "De-Pucker",
+      "nominalRatePerSecond": 3.0833333333333335,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 16
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 5,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "DEPUCKER",
+        "equipment": {
+          "mtbfMinutes": 5,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 185
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-17",
+      "type": "CONVEYOR",
+      "name": "Conveyor DEP-SLE",
+      "nominalRatePerSecond": 3.0833333333333335,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 17
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 185
+        },
+        "geometry": {
+          "lactMm": 8800,
+          "lpPrimeMm": 700,
+          "actualDischargeMm": 0,
+          "actualCodingMm": 0
+        },
+        "upstream": {
+          "packageLengthMm": 90,
+          "dischargePitchMm": 145,
+          "startupTimeSeconds": 2,
+          "bottlesDischargedAtStop": 8
+        },
+        "downstream": {
+          "infeedPitchMm": 180,
+          "rampUpTimeSeconds": 1
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "bottlesDischargedAtStop": 8,
+          "downstreamRampUpSeconds": 1
+        }
+      }
+    },
+    {
+      "id": "sheet-row-18",
+      "type": "SLEEVER",
+      "name": "Sleever",
+      "nominalRatePerSecond": 3.0833333333333335,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 18
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 5,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "SLEEVER",
+        "equipment": {
+          "mtbfMinutes": 5,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 185
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-19",
+      "type": "CONVEYOR",
+      "name": "Conveyor SLE-PAC",
+      "nominalRatePerSecond": 3.0833333333333335,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 19
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 185
+        },
+        "geometry": {
+          "lactMm": 18745,
+          "lpPrimeMm": 787,
+          "actualDischargeMm": 1240,
+          "actualCodingMm": 1240
+        },
+        "upstream": {
+          "packageLengthMm": 90,
+          "dischargePitchMm": 150.7,
+          "startupTimeSeconds": 6,
+          "bottlesDischargedAtStop": 4
+        },
+        "downstream": {
+          "infeedPitchMm": 150.8,
+          "rampUpTimeSeconds": 5
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "bottlesDischargedAtStop": 4,
+          "downstreamRampUpSeconds": 5
+        }
+      }
+    },
+    {
+      "id": "sheet-row-20",
+      "type": "CASE_PACKER",
+      "name": "Case Packer",
+      "nominalRatePerSecond": 3.1666666666666665,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 20
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 11.3,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "CASE_PACKER",
+        "equipment": {
+          "mtbfMinutes": 11.3,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 190
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    },
+    {
+      "id": "sheet-row-21",
+      "type": "CONVEYOR",
+      "name": "Conveyor PAC-PAL",
+      "nominalRatePerSecond": 3.1666666666666665,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 21
+      },
+      "noiseProfile": {},
+      "processData": {
+        "role": "CONVEYOR",
+        "machineType": "CONVEYOR",
+        "equipment": {
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "maximumSpeedBpm": 190
+        },
+        "geometry": {
+          "lactMm": 135870,
+          "lpPrimeMm": 500,
+          "actualDischargeMm": 0,
+          "actualCodingMm": 0
+        },
+        "upstream": {
+          "packageLengthMm": 190.5,
+          "dischargePitchMm": 536,
+          "startupTimeSeconds": 4,
+          "bottlesDischargedAtStop": 4
+        },
+        "downstream": {
+          "infeedPitchMm": 380,
+          "rampUpTimeSeconds": 3
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": 0,
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "overspeedVsInfeedScrewPercent": 5
+        },
+        "accumulation": {
+          "blockedTimeDelaySeconds": 0.5,
+          "clearTimeDelaySeconds": 0.5,
+          "insuranceFactorUnits": 1,
+          "bottlesDischargedAtStop": 4,
+          "downstreamRampUpSeconds": 3
+        }
+      }
+    },
+    {
+      "id": "sheet-row-22",
+      "type": "PALLETIZER",
+      "name": "Palletizer",
+      "nominalRatePerSecond": 4.8,
+      "initialMode": "AUTO",
+      "characteristics": {
+        "criticalMachine": false,
+        "isPacemaker": false,
+        "rateBasis": "bottles per minute",
+        "sourceSheetRow": 22
+      },
+      "noiseProfile": {
+        "reliability": {
+          "mtbfMinutes": 190,
+          "mttrMinutes": 2
+        }
+      },
+      "processData": {
+        "role": "MACHINE",
+        "machineType": "PALLETIZER",
+        "equipment": {
+          "mtbfMinutes": 190,
+          "mttrMinutes": 2,
+          "maximumSpeedBpm": 288
+        },
+        "geometry": {
+          "lactMm": null,
+          "lpPrimeMm": null,
+          "actualDischargeMm": null,
+          "actualCodingMm": null
+        },
+        "upstream": {
+          "packageLengthMm": null,
+          "dischargePitchMm": null,
+          "startupTimeSeconds": null,
+          "bottlesDischargedAtStop": null
+        },
+        "downstream": {
+          "infeedPitchMm": null,
+          "rampUpTimeSeconds": null
+        },
+        "speedAndSensors": {
+          "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+          "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+          "blockedTimeDelaySeconds": null,
+          "clearTimeDelaySeconds": null,
+          "insuranceFactorUnits": null,
+          "overspeedVsInfeedScrewPercent": null
+        }
+      }
+    }
+  ],
+  "simulations": [
+    {
+      "id": "simulation-a",
+      "name": "Baseline",
+      "equipment": [
+        {
+          "id": "sheet-row-10",
+          "type": "BLOWMOLDER",
+          "name": "Blowmolder",
+          "nominalRatePerSecond": 3.216666666666667,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": true,
+            "isPacemaker": true,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 10
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 34.6,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "CRITICAL_MACHINE",
+            "machineType": "BLOWMOLDER",
+            "equipment": {
+              "mtbfMinutes": 34.6,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 193
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-11",
+          "type": "CONVEYOR",
+          "name": "Conveyor BM-PU",
+          "nominalRatePerSecond": 3.216666666666667,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 11
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 193
+            },
+            "geometry": {
+              "lactMm": 14326,
+              "lpPrimeMm": 1955.8,
+              "actualDischargeMm": 0,
+              "actualCodingMm": 0
+            },
+            "upstream": {
+              "packageLengthMm": 215,
+              "dischargePitchMm": 228.6,
+              "startupTimeSeconds": 1.5,
+              "bottlesDischargedAtStop": 2
+            },
+            "downstream": {
+              "infeedPitchMm": 330.2,
+              "rampUpTimeSeconds": 0
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 2,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 2,
+              "bottlesDischargedAtStop": 2,
+              "downstreamRampUpSeconds": 0
+            }
+          }
+        },
+        {
+          "id": "sheet-row-12",
+          "type": "PUCKER",
+          "name": "Pucker",
+          "nominalRatePerSecond": 3.183333333333333,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 12
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 17.5,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "PUCKER",
+            "equipment": {
+              "mtbfMinutes": 17.5,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 191
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-13",
+          "type": "CONVEYOR",
+          "name": "Conveyor PU-FIL",
+          "nominalRatePerSecond": 3.183333333333333,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 13
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 191
+            },
+            "geometry": {
+              "lactMm": 30669,
+              "lpPrimeMm": 2540,
+              "actualDischargeMm": 0,
+              "actualCodingMm": 0
+            },
+            "upstream": {
+              "packageLengthMm": 110,
+              "dischargePitchMm": 88.9,
+              "startupTimeSeconds": 2,
+              "bottlesDischargedAtStop": 3
+            },
+            "downstream": {
+              "infeedPitchMm": 114.3,
+              "rampUpTimeSeconds": 3
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 23.74,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "bottlesDischargedAtStop": 3,
+              "downstreamRampUpSeconds": 3
+            }
+          }
+        },
+        {
+          "id": "sheet-row-14",
+          "type": "FILLER",
+          "name": "Filler/Capper",
+          "nominalRatePerSecond": 3,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 14
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 10,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "FILLER",
+            "equipment": {
+              "mtbfMinutes": 10,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 180
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-15",
+          "type": "CONVEYOR",
+          "name": "Conveyor FIL-DEP",
+          "nominalRatePerSecond": 3,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 15
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 180
+            },
+            "geometry": {
+              "lactMm": 11550,
+              "lpPrimeMm": 900,
+              "actualDischargeMm": 0,
+              "actualCodingMm": 0
+            },
+            "upstream": {
+              "packageLengthMm": 110,
+              "dischargePitchMm": 180,
+              "startupTimeSeconds": 5,
+              "bottlesDischargedAtStop": 6
+            },
+            "downstream": {
+              "infeedPitchMm": 145,
+              "rampUpTimeSeconds": 4
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "bottlesDischargedAtStop": 6,
+              "downstreamRampUpSeconds": 4
+            }
+          }
+        },
+        {
+          "id": "sheet-row-16",
+          "type": "DEPUCKER",
+          "name": "De-Pucker",
+          "nominalRatePerSecond": 3.0833333333333335,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 16
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 5,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "DEPUCKER",
+            "equipment": {
+              "mtbfMinutes": 5,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 185
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-17",
+          "type": "CONVEYOR",
+          "name": "Conveyor DEP-SLE",
+          "nominalRatePerSecond": 3.0833333333333335,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 17
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 185
+            },
+            "geometry": {
+              "lactMm": 8800,
+              "lpPrimeMm": 700,
+              "actualDischargeMm": 0,
+              "actualCodingMm": 0
+            },
+            "upstream": {
+              "packageLengthMm": 90,
+              "dischargePitchMm": 145,
+              "startupTimeSeconds": 2,
+              "bottlesDischargedAtStop": 8
+            },
+            "downstream": {
+              "infeedPitchMm": 180,
+              "rampUpTimeSeconds": 1
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 1,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "bottlesDischargedAtStop": 8,
+              "downstreamRampUpSeconds": 1
+            }
+          }
+        },
+        {
+          "id": "sheet-row-18",
+          "type": "SLEEVER",
+          "name": "Sleever",
+          "nominalRatePerSecond": 3.0833333333333335,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 18
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 5,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "SLEEVER",
+            "equipment": {
+              "mtbfMinutes": 5,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 185
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-19",
+          "type": "CONVEYOR",
+          "name": "Conveyor SLE-PAC",
+          "nominalRatePerSecond": 3.0833333333333335,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 19
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 185
+            },
+            "geometry": {
+              "lactMm": 18745,
+              "lpPrimeMm": 787,
+              "actualDischargeMm": 1240,
+              "actualCodingMm": 1240
+            },
+            "upstream": {
+              "packageLengthMm": 90,
+              "dischargePitchMm": 150.7,
+              "startupTimeSeconds": 6,
+              "bottlesDischargedAtStop": 4
+            },
+            "downstream": {
+              "infeedPitchMm": 150.8,
+              "rampUpTimeSeconds": 5
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "bottlesDischargedAtStop": 4,
+              "downstreamRampUpSeconds": 5
+            }
+          }
+        },
+        {
+          "id": "sheet-row-20",
+          "type": "CASE_PACKER",
+          "name": "Case Packer",
+          "nominalRatePerSecond": 3.1666666666666665,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 20
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 11.3,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "CASE_PACKER",
+            "equipment": {
+              "mtbfMinutes": 11.3,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 190
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        },
+        {
+          "id": "sheet-row-21",
+          "type": "CONVEYOR",
+          "name": "Conveyor PAC-PAL",
+          "nominalRatePerSecond": 3.1666666666666665,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 21
+          },
+          "noiseProfile": {},
+          "processData": {
+            "role": "CONVEYOR",
+            "machineType": "CONVEYOR",
+            "equipment": {
+              "mtbfMinutes": null,
+              "mttrMinutes": null,
+              "maximumSpeedBpm": 190
+            },
+            "geometry": {
+              "lactMm": 135870,
+              "lpPrimeMm": 500,
+              "actualDischargeMm": 0,
+              "actualCodingMm": 0
+            },
+            "upstream": {
+              "packageLengthMm": 190.5,
+              "dischargePitchMm": 536,
+              "startupTimeSeconds": 4,
+              "bottlesDischargedAtStop": 4
+            },
+            "downstream": {
+              "infeedPitchMm": 380,
+              "rampUpTimeSeconds": 3
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": 0,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": 0,
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "overspeedVsInfeedScrewPercent": 5
+            },
+            "accumulation": {
+              "blockedTimeDelaySeconds": 0.5,
+              "clearTimeDelaySeconds": 0.5,
+              "insuranceFactorUnits": 1,
+              "bottlesDischargedAtStop": 4,
+              "downstreamRampUpSeconds": 3
+            }
+          }
+        },
+        {
+          "id": "sheet-row-22",
+          "type": "PALLETIZER",
+          "name": "Palletizer",
+          "nominalRatePerSecond": 4.8,
+          "initialMode": "AUTO",
+          "characteristics": {
+            "criticalMachine": false,
+            "isPacemaker": false,
+            "rateBasis": "bottles per minute",
+            "sourceSheetRow": 22
+          },
+          "noiseProfile": {
+            "reliability": {
+              "mtbfMinutes": 190,
+              "mttrMinutes": 2
+            }
+          },
+          "processData": {
+            "role": "MACHINE",
+            "machineType": "PALLETIZER",
+            "equipment": {
+              "mtbfMinutes": 190,
+              "mttrMinutes": 2,
+              "maximumSpeedBpm": 288
+            },
+            "geometry": {
+              "lactMm": null,
+              "lpPrimeMm": null,
+              "actualDischargeMm": null,
+              "actualCodingMm": null
+            },
+            "upstream": {
+              "packageLengthMm": null,
+              "dischargePitchMm": null,
+              "startupTimeSeconds": null,
+              "bottlesDischargedAtStop": null
+            },
+            "downstream": {
+              "infeedPitchMm": null,
+              "rampUpTimeSeconds": null
+            },
+            "speedAndSensors": {
+              "conveyorSpeedFactorVsDischargeVelocityPercent": null,
+              "codingConveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "conveyorSpeedFactorVsPreviousConveyorPercent": null,
+              "blockedTimeDelaySeconds": null,
+              "clearTimeDelaySeconds": null,
+              "insuranceFactorUnits": null,
+              "overspeedVsInfeedScrewPercent": null
+            }
+          }
+        }
+      ],
+      "dynamicConfig": {
+        "durationMode": "FIXED",
+        "durationSeconds": 28800,
+        "tickSeconds": 0.25,
+        "sampleEverySeconds": 15,
+        "seed": 20261013,
+        "rounds": 3,
+        "commands": [],
+        "engineId": "ST_CURRENT"
+      },
+      "results": null
+    }
+  ]
+}
