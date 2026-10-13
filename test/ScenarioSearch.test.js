@@ -186,3 +186,16 @@ test('experiment comparison feedback stays visible in Basic and Advance modes',(
   }
  }finally{h.dom.window.close();}
 });
+
+test('experiment comparison lists every mismatch with values and explanations and clears stale rows',()=>{
+ const h=harness(true,'HIGH');try{
+  const panel=h.host.querySelector('.scenario-experiment-compare'),buttons=panel.querySelectorAll('button'),areas=panel.querySelectorAll('textarea');
+  buttons[0].click();const original=areas[0].value,other=JSON.parse(original);
+  other.input.run.seed=999;other.factors[0].high+=10;other.extra=null;
+  areas[1].value=JSON.stringify(other);buttons[1].click();
+  const rows=panel.querySelectorAll('.scenario-experiment-diff-table tbody tr');assert.equal(rows.length,3);
+  assert.match(panel.textContent,/Random seed/);assert.match(panel.textContent,/DOE factor or level/);assert.match(panel.textContent,/Not present/);assert.match(panel.textContent,/999/);
+  areas[1].value=original;buttons[1].click();assert.equal(panel.querySelectorAll('.scenario-experiment-diff-table').length,0);assert.match(panel.textContent,/Exact matching/);
+  areas[1].value='{}';buttons[1].click();assert.match(panel.textContent,/complete captured experiment/);
+ }finally{h.dom.window.close();}
+});

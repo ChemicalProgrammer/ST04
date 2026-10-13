@@ -283,8 +283,56 @@ window.STScenarioExplorer=(function(){
     snapshot.readOnly=true;snapshot.setAttribute('aria-label','Current experiment configuration');reference.setAttribute('aria-label','Experiment configuration from other computer');reference.placeholder='Paste the configuration captured on the other computer';
     function captureExperiment(){var value=experimentConfiguration();snapshot.value=JSON.stringify(value);return value;}
     var capture=button('Capture current experiment',()=>{try{captureExperiment();compareStatus.textContent='Copy this complete configuration and compare it on the other computer. Seeds, targets, DOE levels, model version and diagnostic priorities are included.';}catch(error){compareStatus.textContent=error.message;}});
-    var compare=button('Compare experiment',()=>{try{var a=captureExperiment(),b=canonicalExperiment(JSON.parse(reference.value));function difference(x,y,path){if(JSON.stringify(x)===JSON.stringify(y))return null;if(!x||!y||typeof x!=='object'||typeof y!=='object')return path;for(var k of Array.from(new Set([...Object.keys(x),...Object.keys(y)])).sort()){var d=difference(x[k],y[k],path+'.'+k);if(d)return d;}return path;}var mismatch=difference(a,b,'experiment');compareStatus.textContent=mismatch?'Different configuration: '+mismatch+'. Match this value and compare again.':'Exact matching experiment configuration. Hardware speed is excluded; calculation settings and priorities match.';}catch(error){compareStatus.textContent='Cannot compare: '+error.message;}});
-    comparePanel.append(el('summary','Compare experiment between computers'),capture,snapshot,reference,compare,compareStatus);body.append(comparePanel);
+    var differences=el('div','','scenario-experiment-differences');
+    function explainDifference(path){
+      if(/processData\.role$|isPacemaker$/.test(path))return 'Equipment role: PACEMAKER can select the line reference; CONVEYOR can enable conveyor treatment. Its effect also depends on equipment type and critical-machine flags.';
+      if(/\.seed$/.test(path))return 'Random seed: changes sampled failures and microstops, which can change gains and the selected scenario. Use the same seed for a reproducibility test.';
+      if(/\.id$|equipmentId$/.test(path))return 'Equipment identity: links changes to equipment and keys its random streams. Different IDs can produce different failure sequences even with the same seed.';
+      if(/\.name$/.test(path))return 'Display name. A different name alone does not establish a physical or performance difference.';
+      if(/mtbf/i.test(path))return 'Mean time between failures: a larger value models less frequent failures.';
+      if(/mttr/i.test(path))return 'Mean repair time: a smaller value models shorter repairs.';
+      if(/nominalRate|speed|ratePerSecond/i.test(path))return 'Operating speed or capacity: can change flow, blocking and starvation. Check units and installed limits.';
+      if(/geometry|accumulation|upstream|downstream/i.test(path))return 'Transport, geometry or restart setting: may change available accumulation, material flow or stop/restart timing. Compare against the same imported line data.';
+      if(/^experiment\.factors/.test(path))return 'DOE factor or level: changes the combinations tested. The same variable names are insufficient if their low/high levels differ.';
+      if(/^experiment\.targets/.test(path))return 'Selected target or intervention: changes the permitted modifications or their bounds. Compare the selected equipment, target and intervention category.';
+      if(/^experiment\.priorities/.test(path))return 'Planner priority: can change candidate ordering within the search budget. Different baseline diagnostics can change this value.';
+      if(/categoryInclusions|\.tier$/.test(path))return 'CAPEX scope: changes which intervention categories may participate in the search.';
+      if(/doeEnabled/.test(path))return 'Enables or disables DOE combinations in the scenario search.';
+      if(/limits|\.depth$/.test(path))return 'Search policy or budget: changes search coverage, screening duration or stopping criteria.';
+      if(/version|policy|engine/i.test(path))return 'Model or algorithm version: different versions may apply different calculations. Load the same deployed version.';
+      if(/^experiment\.input\.run/.test(path))return 'Simulation setting: duration, rounds, time step and commands must match for a reproducibility test.';
+      if(/\.type$/.test(path))return 'Equipment type: can change how the simulator treats this equipment.';
+      if(/unitOfFlow/.test(path))return 'Flow unit: verify that both configurations use the same unit and basis.';
+      return 'Configuration difference. Review both values; this comparison alone does not establish its effect on efficiency.';
+    }
+    function displayValue(value){return value===undefined?'Not present':JSON.stringify(value);}
+    var compare=button('Compare experiment',()=>{
+      differences.replaceChildren();
+      try{
+        var a=captureExperiment(),b=canonicalExperiment(JSON.parse(reference.value)),mismatches=[];
+        if(!b||typeof b!=='object'||Array.isArray(b)||!b.input||!b.tier)throw Error('Paste the complete captured experiment object.');
+        function walk(x,y,path){
+          if(JSON.stringify(x)===JSON.stringify(y))return;
+          if(x&&y&&typeof x==='object'&&typeof y==='object'&&Array.isArray(x)===Array.isArray(y)){
+            Array.from(new Set([...Object.keys(x),...Object.keys(y)])).sort().forEach(k=>walk(x[k],y[k],path+'.'+k));return;
+          }
+          mismatches.push({path:path,current:x,other:y});
+        }
+        walk(a,b,'experiment');
+        compareStatus.textContent=mismatches.length?'Different configuration: '+mismatches.length+' difference(s). All differences are listed below.':'Exact matching experiment configuration. Hardware speed is excluded; calculation settings and priorities match.';
+        if(mismatches.length){
+          differences.append(el('p','Current computer = live settings captured now. Other computer = pasted configuration. Equipment arrays are compared in line order; an inserted or reordered item can cause several differences. These are configuration differences, not measured contributions to OEE.'));
+          var table=parameterTable(differences,['Field / equipment','Current computer','Other computer','Explanation'],'scenario-experiment-diff-table','All experiment differences');
+          mismatches.forEach(item=>{
+            var match=item.path.match(/^experiment\.input\.equipment\.(\d+)/),label=item.path;
+            if(match){var index=Number(match[1]),left=a.input.equipment?.[index],right=b.input.equipment?.[index];label+=' · '+(left?.name||left?.id||'Not present')+' / '+(right?.name||right?.id||'Not present');}
+            var row=el('tr');[label,displayValue(item.current),displayValue(item.other),explainDifference(item.path)].forEach(text=>{var cell=el('td',text);cell.style.whiteSpace='pre-wrap';cell.style.overflowWrap='anywhere';row.append(cell);});table.append(row);
+          });
+        }
+      }catch(error){compareStatus.textContent='Cannot compare: '+error.message;}
+    });
+    capture.addEventListener('click',()=>differences.replaceChildren());
+    comparePanel.append(el('summary','Compare experiment between computers'),capture,snapshot,reference,compare,compareStatus,differences);body.append(comparePanel);
     var pendingMetricsReveal=false;
     function renderMetrics(entry){
       var previousText=metrics.textContent;
