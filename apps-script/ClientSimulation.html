@@ -259,10 +259,15 @@
           throw new Error(__ST_TEXT__('scenario.stale'));
         }
         var engineeringWarnings=proposal.evidence?.engineeringWarnings||[],confirmation=__ST_TEXT__('scenario.confirm');
-        if(origin==='GEMINI')confirmation+='\n\n'+(proposal.changes||[]).map(function(change){var info=STWhatIf.changeInfo(change,source.equipment);return info.equipment+' · '+info.parameter+': '+info.before+' → '+info.after;}).join('\n');
         if(proposal.evidence?.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION')confirmation+='\n\nIndependent confirmation did not reproduce the initial gain. This scenario is an unvalidated hypothesis. Run it again and compare results before treating it as an improvement.';
         if(engineeringWarnings.length)confirmation+='\n\nEngineering review required. The simulated improvement does not resolve these warnings. The new scenario will remain marked for review:\n'+engineeringWarnings.map(function(w){return (source.equipment.find(function(e){return e.id===w.equipmentId;})?.name||w.equipmentId)+' · '+w.rule+': '+w.before+' → '+w.after;}).join('\n');
-        var approved=await STDialog.confirm(__ST_TEXT__('scenario.create'),confirmation);
+        var review=await STDialog.open({
+          title:__ST_TEXT__('scenario.create'),message:__ST_TEXT__('scenario.confirm'),
+          table:{caption:proposal.title||'Proposed changes',columns:['Equipment','Parameter','Current','Proposed'],rows:(proposal.changes||[]).map(function(change){var info=STWhatIf.changeInfo(change,source.equipment);return [info.equipment,info.parameter,info.before,info.after];})},
+          note:confirmation===__ST_TEXT__('scenario.confirm')?'':confirmation.slice(__ST_TEXT__('scenario.confirm').length).trim(),
+          buttons:[{id:'cancel',label:__ST_TEXT__('view.cancel')},{id:'ok',label:__ST_TEXT__('scenario.create')}]
+        });
+        var approved=review.action==='ok';
         if(!approved)return;
         if(engineeringWarnings.length){
           proposal=Object.assign({},proposal,{evidence:Object.assign({},proposal.evidence,{engineeringReview:'ACKNOWLEDGED_REQUIRES_REVIEW'})});

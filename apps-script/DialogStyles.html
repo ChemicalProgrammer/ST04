@@ -126,4 +126,10 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .gemini-connection-grid .gemini-key-label { display:flex; align-items:center; gap:var(--space-2); }
 .gemini-key-verified { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; flex:0 0 14px; border-radius:50%; background:#23764a; color:#fff; }
 .gemini-key-verified svg { width:11px; height:11px; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+.table-message-dialog { width:min(760px,calc(100vw - 32px)); }
+.table-message-dialog table { width:100%; }
+.table-message-dialog caption { text-align:left; font-weight:var(--weight-medium); margin-bottom:var(--space-2); }
+.table-message-dialog th,.table-message-dialog td { overflow-wrap:anywhere; }
+.table-message-dialog td:nth-child(n+3) { font-variant-numeric:tabular-nums; }
+.dialog-table-note { white-space:pre-wrap; }
 </style>

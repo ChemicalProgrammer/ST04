@@ -31,6 +31,16 @@ window.STDialog = (function() {
     var title = document.createElement('h2'); title.id = 'message-dialog-title'; title.textContent = options.title || __ST_TEXT__('dialog.notice'); heading.appendChild(title);
     var body = document.createElement('div'); body.className = 'dialog-body';if(options.error)dialog.classList.add('error-details-dialog');
     var message = document.createElement('p'); message.id = 'message-dialog-message'; message.textContent = options.message || ''; body.appendChild(message);if(options.details){var detail=document.createElement('pre');detail.className='error-detail-text';detail.textContent=options.details;body.appendChild(detail);}
+    if(options.table){
+      dialog.classList.add('table-message-dialog');
+      var scroll=document.createElement('div');scroll.className='table-scroll';
+      var table=document.createElement('table'),head=document.createElement('thead'),headerRow=document.createElement('tr'),rows=document.createElement('tbody');
+      if(options.table.caption){var caption=document.createElement('caption');caption.textContent=options.table.caption;table.appendChild(caption);}
+      (options.table.columns||[]).forEach(function(label){var cell=document.createElement('th');cell.scope='col';cell.textContent=label;headerRow.appendChild(cell);});head.appendChild(headerRow);
+      (options.table.rows||[]).forEach(function(values){var row=document.createElement('tr');values.forEach(function(value){var cell=document.createElement('td');cell.textContent=value==null?'—':String(value);row.appendChild(cell);});rows.appendChild(row);});
+      table.append(head,rows);scroll.appendChild(table);body.appendChild(scroll);
+    }
+    if(options.note){var note=document.createElement('p');note.className='dialog-table-note';note.textContent=options.note;body.appendChild(note);}
     var input;
     if (options.link && /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+(?:\/|$)/.test(options.link.url || '')) {
       var link=document.createElement('a');link.href=options.link.url;link.textContent=options.link.label || 'Spreadsheet';link.target='_blank';link.rel='noopener noreferrer';body.appendChild(link);
