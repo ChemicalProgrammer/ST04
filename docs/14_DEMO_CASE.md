@@ -77,10 +77,10 @@ results are preserved; older revision-3 demos are not silently rewritten.
 
 | Scenario | Mean OEE | Physical changes |
 |---|---:|---|
-| Baseline | 49.11% | Coherent V-shaped speeds, 5-second restarts, 8 m conveyors. |
-| Zero CAPEX | 52.56% | Installed speed headroom, belt factor 100%, Prime window 400 mm. |
-| Medium CAPEX | 63.81% | Increased recovery speeds, 12 m buffers, assumed 3-second restart retrofit. |
-| High CAPEX | 78.68% | Increased recovery speeds, 24 m buffers, assumed 1-second restart retrofit, Back-up at 3 m. |
+| Baseline | 50.19% | Coherent V-shaped speeds, 5-second restarts, 8 m conveyors. |
+| Zero CAPEX | 53.88% | Installed speed headroom, belt factor 100%, Prime window 400 mm. |
+| Medium CAPEX | 65.01% | Increased recovery speeds, 12 m buffers, assumed 3-second restart retrofit. |
+| High CAPEX | 80.49% | Increased recovery speeds, 24 m buffers, assumed 1-second restart retrofit, Back-up at 3 m. |
 
 These are synthetic model measurements, not plant performance guarantees.
 The former 30% baseline depended on machines slower than the declared critical
@@ -90,3 +90,5 @@ the results are recalculated rather than preserving incompatible old numbers.
 Prepared playback retains only initial and final representative-round frames.
 Run again for full playback. Rebuild with
 `node scripts/prepare-demo-results.mjs` after changing inputs or mathematics.
+
+Values above were regenerated with engine 0.13.0, using independent random streams per equipment and event type. Saved older engine results must be rerun for a matched comparison.

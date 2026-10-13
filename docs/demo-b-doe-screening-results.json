@@ -1,0 +1,273 @@
+{
+  "name": "Demo B",
+  "modelVersion": "0.13.0",
+  "scope": "Four installed Prime sensor-window targets; six matched rounds per treatment, all six pairs",
+  "identicalAcrossClocks": true,
+  "screening": {
+    "method": "PAIRED_SIX_ROUND_SINGLE_AND_PAIR_V4",
+    "run": {
+      "durationSeconds": 3600,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "commands": [],
+      "rounds": 6,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "baseline": {
+      "roundMetrics": [
+        {
+          "seed": 20261013,
+          "oee": 36.800947,
+          "throughput": 71.02582833333332
+        },
+        {
+          "seed": 20261014,
+          "oee": 34.957902,
+          "throughput": 67.46875
+        },
+        {
+          "seed": 20261015,
+          "oee": 35.689066,
+          "throughput": 68.87989680000001
+        },
+        {
+          "seed": 20261016,
+          "oee": 36.759382,
+          "throughput": 70.9456068
+        },
+        {
+          "seed": 20261017,
+          "oee": 42.767586,
+          "throughput": 82.54144145
+        },
+        {
+          "seed": 20261018,
+          "oee": 44.133564,
+          "throughput": 85.17777831666666
+        }
+      ],
+      "oee": 38.5180745,
+      "throughput": 74.33988361666665,
+      "cacheSource": "CALCULATED",
+      "warnings": []
+    },
+    "observations": [
+      {
+        "equipmentId": "sheet-row-11",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 1955.8,
+        "after": 977.9,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "warningCount": 0,
+        "reason": "No stable isolated gain"
+      },
+      {
+        "equipmentId": "sheet-row-13",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 2540,
+        "after": 1270,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "warningCount": 0,
+        "reason": "No stable isolated gain"
+      },
+      {
+        "equipmentId": "sheet-row-15",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 900,
+        "after": 450,
+        "deltaThroughput": -0.0020833333333314386,
+        "deltaOee": -0.0010794999999959032,
+        "paired": {
+          "mean": -0.002083333333333807,
+          "lower": -0.007438712159585024,
+          "blockMeans": [
+            0,
+            -0.004166666666667614
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "warningCount": 0,
+        "reason": "No stable isolated gain"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 700,
+        "after": 350,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "warningCount": 0,
+        "reason": "No stable isolated gain"
+      }
+    ],
+    "pairs": [
+      {
+        "keys": [
+          "sheet-row-11:processData.geometry.lpPrimeMm",
+          "sheet-row-13:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lpPrimeMm",
+          "sheet-row-15:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": -0.0020833333333314386,
+        "paired": {
+          "mean": -0.002083333333333807,
+          "lower": -0.007438712159585024,
+          "blockMeans": [
+            0,
+            -0.004166666666667614
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      },
+      {
+        "keys": [
+          "sheet-row-15:processData.geometry.lpPrimeMm",
+          "sheet-row-17:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": -0.0020833333333314386,
+        "paired": {
+          "mean": -0.002083333333333807,
+          "lower": -0.007438712159585024,
+          "blockMeans": [
+            0,
+            -0.004166666666667614
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      },
+      {
+        "keys": [
+          "sheet-row-11:processData.geometry.lpPrimeMm",
+          "sheet-row-15:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": -0.0020833333333314386,
+        "paired": {
+          "mean": -0.002083333333333807,
+          "lower": -0.007438712159585024,
+          "blockMeans": [
+            0,
+            -0.004166666666667614
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      },
+      {
+        "keys": [
+          "sheet-row-11:processData.geometry.lpPrimeMm",
+          "sheet-row-17:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lpPrimeMm",
+          "sheet-row-17:processData.geometry.lpPrimeMm"
+        ],
+        "deltaThroughput": 0,
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "blockMeans": [
+            0,
+            0
+          ],
+          "threshold": 0.07433988361666666,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "reason": "No stable joint gain"
+      }
+    ],
+    "pairsOmitted": 0,
+    "eligibleTargets": 4,
+    "screenedTargets": 4,
+    "interpretation": "Exploratory paired intervals and two seed blocks. Joint performance is not additive. Unscreened higher-order interactions remain possible."
+  }
+}

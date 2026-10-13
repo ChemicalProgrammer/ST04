@@ -25,7 +25,7 @@ test('SimPy bounds replay frames and shift count',()=>{
 test('Generated dispatch defaults to the current engine and refuses unknown engines or synchronous DES',()=>{
  const code=fs.readFileSync(new URL('../apps-script/SimulationEngine.html',import.meta.url),'utf8').replace(/^<script>/,'').replace(/<\/script>\s*$/,'');
  const host={addEventListener(){}};vm.runInNewContext(code,{window:host,setTimeout,clearTimeout});
- const input=fixture(),response=host.SimulatorEngine.simulateLine(input);assert.equal(response.ok,true);assert.equal(response.result.engineVersion,'0.12.0');
+ const input=fixture(),response=host.SimulatorEngine.simulateLine(input);assert.equal(response.ok,true);assert.equal(response.result.engineVersion,'0.13.0');
  input.run.engineId=SIMPY_ENGINE_ID;assert.equal(host.SimulatorEngine.simulateLine(input).error.code,'ASYNC_ENGINE_REQUIRED');
  input.run.engineId='TYPO';assert.throws(()=>host.SimulatorEngine.simulateLine(input),/Unknown simulation engine/);
 });

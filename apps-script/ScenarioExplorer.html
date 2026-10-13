@@ -153,55 +153,77 @@ window.STScenarioExplorer=(function(){
     function applyScope(changedScope){rows.forEach(function(r){var allowed=scopeAllowed(r.change),wasAllowed=r.row.dataset.scopeAllowed!=='false';r.row.dataset.scopeAllowed=String(allowed);r.row.hidden=!allowed;r.check.disabled=!!r.change.disabledReason||!allowed;var target=r.row.querySelector('.scenario-target');if(target)target.disabled=r.check.disabled;if(!allowed){r.check.checked=false;if(r.doe)r.doe.use.checked=false;}else if(changedScope&&!wasAllowed&&!r.change.disabledReason)r.check.checked=true;});edits.querySelector('summary').textContent=rows.filter(r=>scopeAllowed(r.change)).length+' model variables · select and enter targets or DOE levels';}
     applyScope(false);refreshFactors();
     function refreshDOE(){doePanel.hidden=false;doeToggle.checked=doeEnabled();doeToggle.disabled=depth==='LIGHT';dialog.querySelectorAll('[data-doe-column]').forEach(function(cell){cell.hidden=!doeEnabled()||depth==='LIGHT';});refreshFactors();clearFactors.disabled=!doeEnabled();suggestFactors.hidden=!doeEnabled();suggestFactors.disabled=!doeEnabled()||depth==='LIGHT';}
-    var screening=false,screeningCancelled=false,sensitivityEvidence=null;
+    var screening=false,screeningCancelled=false,sensitivityEvidence=restoredCurrent?restored.sensitivityScreening||null:null;
+    var suggestionReport=el('details','','scenario-suggestion-report');suggestionReport.append(el('summary','Why these DOE variables?'));doePanel.append(suggestionReport);
+    function renderSuggestions(evidence){
+      suggestionReport.replaceChildren(el('summary','Why these DOE variables?'));
+      suggestionReport.append(el('p',evidence.run.durationSeconds/60+' min × '+evidence.run.rounds+' matched rounds; '+evidence.screenedTargets+' single targets and '+evidence.pairs.length+' pairs. Pairs are budgeted; untested interactions remain possible.','chart-note'));
+      var table=parameterTable(suggestionReport,['Equipment / parameter','Δ throughput / min','Paired lower bound','Decision'],'scenario-suggestion-evidence','DOE suggestion evidence');
+      evidence.observations.forEach(o=>{var info=STWhatIf.changeInfo(o,source.equipment),row=el('tr');row.append(el('td',info.equipment+' · '+info.parameter),el('td',Number.isFinite(o.deltaThroughput)?o.deltaThroughput.toFixed(3):'—'),el('td',Number.isFinite(o.paired?.lower)?o.paired.lower.toFixed(3):'—'),el('td',o.reason));table.append(row);});
+      evidence.pairs.forEach(p=>suggestionReport.append(el('p',p.keys.join(' + ')+': '+(Number.isFinite(p.deltaThroughput)?p.deltaThroughput.toFixed(3):'—')+' / min · '+p.reason,'chart-note')));
+    }
     async function suggestDOE(){
       if(screening){screeningCancelled=true;return;}
       if(activeHost||!doeEnabled()||depth==='LIGHT')return;
-      var proposals=new Map(),candidates=STScenarios.plan(source).candidates||[];
-      candidates.filter(p=>p.canApply).forEach(p=>p.changes.forEach(c=>{var key=c.equipmentId+':'+c.path,old=proposals.get(key);if(!old||p.priority>old.priority)proposals.set(key,{change:c,priority:p.priority});}));
-      var ranked=rows.filter(r=>r.doe&&eligibleForDOE(r)).map(function(r,index){
-        var planned=proposals.get(r.change.equipmentId+':'+r.change.path),target=r.change.after!==r.change.before?r.change.after:planned?.change.after,rule=STScenarios.fields[r.change.path];
+      var proposals=new Map(),candidates=STScenarios.plan(source).candidates||[],observations=[];
+      var key=c=>c.equipmentId+':'+c.path;
+      candidates.filter(p=>p.canApply).forEach(p=>p.changes.forEach(c=>{var old=proposals.get(key(c));if(!old||p.priority>old.priority)proposals.set(key(c),{change:c,priority:p.priority});}));
+      var ranked=rows.filter(r=>r.doe&&eligibleForDOE(r)).map(function(r){
+        var planned=proposals.get(key(r.change)),target=r.change.after!==r.change.before?r.change.after:planned?.change.after,rule=STScenarios.fields[r.change.path];
         var maximum=rule[1];if(r.change.path==='nominalRatePerSecond')maximum=Math.min(maximum,Number(source.equipment.find(e=>e.id===r.change.equipmentId).processData?.equipment?.maximumSpeedBpm)/60);
-        if(!Number.isFinite(target))return null;target=Math.max(rule[0],Math.min(maximum,target));
-        if(r.limit.value!==''){var bound=Number(r.limit.value)/r.scale;if(!Number.isFinite(bound)||bound<0)return null;target=r.change.after>=r.change.before?Math.min(target,bound):Math.max(target,bound);}
-        if(target===r.change.before||target<rule[0]||target>maximum)return null;
-        var change=Object.assign({},r.change,{after:target});
-        try{STScenarios.apply(source,[change]);}catch(ignore){return null;}
-        return {row:r,change:change,priority:planned?.priority||0,index:index};
-      }).filter(Boolean).sort((a,b)=>b.priority-a.priority||a.index-b.index);
+        var note={equipmentId:r.change.equipmentId,path:r.change.path,before:r.change.before,after:target};observations.push(note);
+        if(!Number.isFinite(target)){note.reason='No numeric target';return null;}target=Math.max(rule[0],Math.min(maximum,target));
+        if(r.limit.value!==''){var bound=Number(r.limit.value)/r.scale;if(!Number.isFinite(bound)||bound<0){note.reason='Invalid limit';return null;}target=r.change.after>=r.change.before?Math.min(target,bound):Math.max(target,bound);}
+        if(target===r.change.before||target<rule[0]||target>maximum){note.reason='No feasible change';return null;}
+        var change=Object.assign({},r.change,{after:target});note.after=target;
+        try{STScenarios.apply(source,[change]);}catch(error){note.reason='Infeasible: '+error.message;return null;}
+        return {row:r,change:change,priority:planned?.priority||0,note:note};
+      }).filter(Boolean).sort((a,b)=>b.priority-a.priority||(key(a.change)<key(b.change)?-1:key(a.change)>key(b.change)?1:0));
       if(!ranked.length){factorCount.textContent='No feasible targets to screen. Enter targets or choose levels manually.';return;}
       screening=true;screeningCancelled=false;activeHost=host;var ticket=generation;
       var locked=Array.from(dialog.querySelectorAll('input,select,button')).filter(e=>e!==suggestFactors&&e!==close&&e!==done).map(e=>({element:e,disabled:e.disabled}));locked.forEach(x=>x.element.disabled=true);
       suggestFactors.textContent='Cancel screening';suggestFactors.disabled=false;
-      var screeningRun=STScenarioSearch.run(config(source),'LIGHT'),observations=[],picked=[],counts=new Map();
+      var screeningRun=STScenarioSearch.run(config(source),depth,false,6),picked=[],groups=[],pairs=[];screeningRun.durationSeconds=depth==='HIGH'?3600:1800;
       function stopped(){return screeningCancelled||ticket!==generation||!host.isConnected||STScenarios.signature(simulation)!==sourceSignature;}
-      function pick(item){if(picked.length>=STScenarioSearch.profile(depth).maxFactors||picked.includes(item))return;try{STScenarios.apply(source,picked.map(p=>p.change).concat(item.change));}catch(ignore){return;}picked.push(item);counts.set(item.change.equipmentId,(counts.get(item.change.equipmentId)||0)+1);}
       try{
-        factorCount.textContent='Screening baseline with paired seeds…';
-        var base=await evaluate(source,[],stopped,0,screeningRun),screened=[];
-        for(var item of ranked.slice(0,12)){
-          if(stopped())break;factorCount.textContent='Sensitivity screening '+(observations.length+1)+' / '+Math.min(12,ranked.length)+' targets…';
+        factorCount.textContent='Evaluating baseline with six paired seeds…';
+        var base=await evaluate(source,[],stopped,0,screeningRun);
+        for(var item of ranked){
+          if(stopped())break;factorCount.textContent='DOE single-target screening '+(ranked.indexOf(item)+1)+' / '+ranked.length;
           try{
-            var measured=await evaluate(source,[item.change],stopped,0,screeningRun),gain=measured.throughput-base.throughput;
-            observations.push({equipmentId:item.change.equipmentId,path:item.change.path,target:item.change.after,deltaThroughput:gain,deltaOee:measured.oee-base.oee,warningCount:measured.warnings.length,cacheSource:measured.cacheSource});
-            if(improves(base,measured)&&!measured.warnings.length)screened.push(Object.assign({},item,{gain:gain}));
-          }catch(error){if(stopped())break;if(!String(error.message).startsWith('SCENARIO_'))throw error;observations.push({equipmentId:item.change.equipmentId,path:item.change.path,infeasible:true});}
+            var measured=await evaluate(source,[item.change],stopped,0,screeningRun),paired=STScenarioSearch.pairedEvidence(base,measured);item.measured=measured;
+            Object.assign(item.note,{deltaThroughput:measured.throughput-base.throughput,deltaOee:measured.oee-base.oee,paired:paired,warningCount:measured.warnings.length,reason:measured.warnings.length?'Engineering review required':paired.stable?'Stable isolated gain':'No stable isolated gain'});
+            if(paired.stable&&!measured.warnings.length)groups.push({items:[item],score:paired.lower});
+          }catch(error){if(stopped())break;if(!String(error.message).startsWith('SCENARIO_'))throw error;item.note.reason='Infeasible: '+error.message;}
+        }
+        // Deterministic, disclosed pair budget; include same-equipment and nearby-machine hypotheses first.
+        var pairPool=[];for(var i=0;i<ranked.length;i++)for(var j=i+1;j<ranked.length;j++){
+          var a=ranked[i],b=ranked[j],distance=Math.abs(source.equipment.findIndex(e=>e.id===a.change.equipmentId)-source.equipment.findIndex(e=>e.id===b.change.equipmentId));
+          pairPool.push({items:[a,b],priority:a.priority+b.priority+(distance===0?30:distance<=2?15:0),key:[key(a.change),key(b.change)].sort().join('|')});
+        }
+        pairPool.sort((a,b)=>b.priority-a.priority||(a.key<b.key?-1:a.key>b.key?1:0));
+        for(var pair of pairPool.slice(0,depth==='HIGH'?24:12)){
+          if(stopped())break;factorCount.textContent='DOE pair screening '+(pairs.length+1)+' / '+Math.min(pairPool.length,depth==='HIGH'?24:12);
+          var note={keys:pair.items.map(x=>key(x.change))};pairs.push(note);
+          try{var joint=await evaluate(source,pair.items.map(x=>x.change),stopped,0,screeningRun),paired=STScenarioSearch.pairedEvidence(base,joint);Object.assign(note,{deltaThroughput:joint.throughput-base.throughput,paired:paired,reason:joint.warnings.length?'Engineering review required':paired.stable?'Stable joint gain':'No stable joint gain'});if(paired.stable&&!joint.warnings.length)groups.push({items:pair.items,score:paired.lower});}
+          catch(error){if(stopped())break;if(!String(error.message).startsWith('SCENARIO_'))throw error;note.reason='Infeasible: '+error.message;}
         }
         if(stopped()){factorCount.textContent='Screening cancelled; factor selection unchanged.';return;}
-        screened.sort((a,b)=>b.gain-a.gain||b.priority-a.priority||a.index-b.index);
-        screened.forEach(item=>{if((counts.get(item.change.equipmentId)||0)<2)pick(item);});screened.forEach(pick);
-        sensitivityEvidence={run:screeningRun,baseline:base,observations:observations,eligibleTargets:ranked.length,screenedTargets:observations.length,interpretation:'Short paired single-factor screening; interactions may require manual factor selection.'};
+        groups.sort((a,b)=>b.score-a.score);
+        for(var group of groups){var union=Array.from(new Set(picked.concat(group.items)));if(union.length>STScenarioSearch.profile(depth).maxFactors)continue;try{STScenarios.apply(source,union.map(x=>x.change));picked=union;}catch(_){}}
+        picked.forEach(item=>item.note.reason=item.note.paired?.stable?'Suggested: stable isolated or joint gain':'Suggested through a stable pair');
+        sensitivityEvidence={method:'PAIRED_SIX_ROUND_SINGLE_AND_PAIR_V4',run:screeningRun,baseline:base,observations:observations,pairs:pairs,pairsOmitted:Math.max(0,pairPool.length-pairs.length),eligibleTargets:ranked.length,screenedTargets:ranked.length,interpretation:'Exploratory paired intervals and two seed blocks. Joint performance is not additive. Unscreened higher-order interactions remain possible.'};
         if(picked.length){
           rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});
-          picked.forEach(function(item){var r=item.row;r.check.checked=true;r.doe.use.checked=true;r.doe.low.value=Number((Math.min(r.change.before,item.change.after)*r.scale).toPrecision(8));r.doe.high.value=Number((Math.max(r.change.before,item.change.after)*r.scale).toPrecision(8));});
-          invalidateDOE(true);
-          record('NOT_EVALUATED',{reason:'Sensitivity screening changed DOE factors.',sensitivityScreening:sensitivityEvidence});
+          picked.forEach(function(item){var r=item.row;r.check.checked=true;r.doe.use.checked=true;r.doe.low.value=Number((Math.min(r.change.before,item.change.after)*r.scale).toPrecision(8));r.doe.high.value=Number((Math.max(r.change.before,item.change.after)*r.scale).toPrecision(8));});invalidateDOE(true);
         }
-        factorCount.textContent=picked.length?picked.length+' / '+STScenarioSearch.profile(depth).maxFactors+' suggested from measured throughput gains · provisional screening, not a confirmed optimum.':'No isolated gain found; factor selection unchanged. Coupled changes may still help; select factors manually.';
+        record('NOT_EVALUATED',{reason:'DOE screening completed; reevaluate before creation.',sensitivityScreening:sensitivityEvidence});last=null;save.disabled=true;renderSuggestions(sensitivityEvidence);
+        factorCount.textContent=picked.length?picked.length+' / '+STScenarioSearch.profile(depth).maxFactors+' suggested from stable isolated or joint gains. See Why these DOE variables?':'No stable gain found; manual selection preserved. See Why these DOE variables?';
       }catch(error){factorCount.textContent=stopped()?'Screening cancelled; factor selection unchanged.':'Sensitivity screening failed: '+error.message+'. Select DOE factors manually.';}
-      finally{screening=false;activeHost=null;locked.forEach(x=>x.element.disabled=x.disabled);suggestFactors.textContent='Suggest factor combination';}
+      finally{var summary=factorCount.textContent;screening=false;activeHost=null;locked.forEach(x=>x.element.disabled=x.disabled);refreshFactors();factorCount.textContent=summary;suggestFactors.textContent='Suggest factor combination';}
     }
 
+    if(sensitivityEvidence?.pairs)renderSuggestions(sensitivityEvidence);
     function invalidateDOE(force){if(activeHost&&!force)return;generation++;clearTimeout(timer);last=null;save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();status.textContent='DOE settings changed. Run Find best scenario to evaluate.';record('NOT_EVALUATED',{reason:'DOE settings changed.'});}
     function settingChanged(){if(!host.isConnected){window.removeEventListener('st-doe-change',settingChanged);return;}if(activeHost)return;refreshDOE();invalidateDOE();}
     window.addEventListener('st-doe-change',settingChanged);refreshDOE();
@@ -225,6 +247,7 @@ window.STScenarioExplorer=(function(){
     function showResults(){
       if(activeHost)return;resultsBody.replaceChildren();
       var entry=latest?.candidate?latest:latest?.lastResult,changes=entry?.evaluatedChanges;
+      if(latest?.sensitivityScreening?.pairs)renderSuggestions(latest.sensitivityScreening);
       if(!entry){var linked=(caseProvider?.()?.simulations||[]).find(sim=>sim.scenario?.origin==='DEMO'&&sim.scenario.sourceSimulationId===source.id&&sim.scenario.tier===project.tier);var matches=function(sim){return !!sim?.results?.summary&&!!sim.results.inputSignature&&!!SimulatorEngine.inputSignature&&sim.results.inputSignature===SimulatorEngine.inputSignature({case:{id:sim.id,unitOfFlow:sim.unitOfFlow,equipment:sim.equipment},run:config(sim)});};if(matches(linked)&&matches(source)){entry={baseline:source.results?.summary?metric(source.results):null,candidate:metric(linked.results),evaluatedChanges:linked.scenario.changes,run:linked.dynamicConfig,status:'PREPARED_DEMO'};changes=entry.evaluatedChanges;}}
       var historical=!!latest?.lastResult&&!latest?.candidate,comparison=entry?.independentCheck||entry;
       resultsBody.append(el('p',historical?'Previous evaluation. Configuration changed; recalculate before creating a scenario.':entry?.independentCheck?'Independently evaluated scenario. These are the target changes to create from the baseline.':entry?'Evaluated targets. Confirm the status below before creating a scenario.':'Selected targets; no evaluated scenario is available yet.','chart-note'));
@@ -248,6 +271,19 @@ window.STScenarioExplorer=(function(){
       resultsBody.append(el('p','Purpose describes what each input controls; it does not establish the isolated benefit of an individual change.','chart-note'));resultsDialog.showModal();
     }
     function selected(){return rows.filter(r=>r.check.checked&&scopeAllowed(r.change)&&!r.change.disabledReason).map(function(r){var c=Object.assign({},r.change);if(r.limit.value!==''){var bound=Number(r.limit.value)/r.scale;if(!Number.isFinite(bound)||bound<0)throw Error('Enter a valid physical limit.');c.after=c.after>=c.before?Math.min(c.after,bound):Math.max(c.after,bound);if(c.before!==null&&((r.change.after>=c.before&&c.after<c.before)||(r.change.after<c.before&&c.after>c.before)))throw Error('The limit contradicts the existing baseline.');}return c;}).filter(c=>c.before!==c.after);}
+    function canonicalExperiment(value){if(Array.isArray(value))return value.map(canonicalExperiment);if(value&&typeof value==='object')return Object.keys(value).sort().reduce((o,k)=>{if(value[k]!==undefined)o[k]=canonicalExperiment(value[k]);return o;},{});return value;}
+    function experimentConfiguration(){
+      var targets=selected().sort((a,b)=>(a.equipmentId+':'+a.path)<(b.equipmentId+':'+b.path)?-1:1),plan=STScenarios.plan(source),limits=Object.assign({},STScenarioSearch.profile(depth),window.ST_SCENARIO_SEARCH_LIMITS);
+      if(window.ST_SCENARIO_SEARCH_LIMITS.maxCandidates===undefined)limits.maxCandidates=Math.max(limits.maxCandidates,4+new Set(targets.map(c=>c.equipmentId)).size+(depth==='HIGH'?5:3)*targets.length);
+      delete limits.parallelCandidates;
+      return canonicalExperiment({policy:'PAIRED_STREAMS_V4',input:JSON.parse(SimulatorEngine.inputSignature({case:{id:source.id,unitOfFlow:source.unitOfFlow,equipment:source.equipment},run:STScenarioSearch.run(config(source),depth)})),tier:primaryTier,depth:depth,categoryInclusions:inclusions,targets:targets,doeEnabled:doeEnabled()&&depth!=='LIGHT',factors:doeEnabled()&&depth!=='LIGHT'?doeFactors().sort((a,b)=>(a.equipmentId+':'+a.path)<(b.equipmentId+':'+b.path)?-1:1):[],limits:limits,priorities:(plan.candidates||[]).filter(p=>p.canApply).map(p=>({kind:p.kind,tier:p.tier,equipmentId:p.equipmentId,priority:p.priority})).sort((a,b)=>JSON.stringify(a)<JSON.stringify(b)?-1:1)});
+    }
+    var comparePanel=el('details','','scenario-experiment-compare'),snapshot=document.createElement('textarea'),reference=document.createElement('textarea'),compareStatus=el('p','','chart-note');
+    snapshot.readOnly=true;snapshot.setAttribute('aria-label','Current experiment configuration');reference.setAttribute('aria-label','Experiment configuration from other computer');reference.placeholder='Paste the configuration captured on the other computer';
+    function captureExperiment(){var value=experimentConfiguration();snapshot.value=JSON.stringify(value);return value;}
+    var capture=button('Capture current experiment',()=>{try{captureExperiment();compareStatus.textContent='Copy this complete configuration and compare it on the other computer. Seeds, targets, DOE levels, model version and diagnostic priorities are included.';}catch(error){compareStatus.textContent=error.message;}});
+    var compare=button('Compare experiment',()=>{try{var a=captureExperiment(),b=canonicalExperiment(JSON.parse(reference.value));function difference(x,y,path){if(JSON.stringify(x)===JSON.stringify(y))return null;if(!x||!y||typeof x!=='object'||typeof y!=='object')return path;for(var k of Array.from(new Set([...Object.keys(x),...Object.keys(y)])).sort()){var d=difference(x[k],y[k],path+'.'+k);if(d)return d;}return path;}var mismatch=difference(a,b,'experiment');compareStatus.textContent=mismatch?'Different configuration: '+mismatch+'. Match this value and compare again.':'Exact matching experiment configuration. Hardware speed is excluded; calculation settings and priorities match.';}catch(error){compareStatus.textContent='Cannot compare: '+error.message;}});
+    comparePanel.append(el('summary','Compare experiment between computers'),capture,snapshot,reference,compare,compareStatus);body.append(comparePanel);
     var pendingMetricsReveal=false;
     function renderMetrics(entry){
       var previousText=metrics.textContent;
@@ -294,12 +330,12 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
       latest=null;
       record('RUNNING',{method:method});
       var limits=Object.assign({},STScenarioSearch.profile(depth),window.ST_SCENARIO_SEARCH_LIMITS),searchPhaseDone=false,coverageComplete=false,inDOE=false,doeStarted=0,stopReason=null,lastGainAt=Date.now(),bestAtTrial=0,stagnant=0;
-      var evidence={phaseAudit:{},searchPolicyVersion:'INTERVENTION_SCOPE_V3',method:method,depth:depth,lossDiagnosis:STScenarios.plan(source).diagnosis,sensitivityScreening:sensitivityEvidence,reuseCounts:{},explorationRun:Object.assign({},previewRun),searchLimits:limits},evaluatedVariables=new Map();
+      var evidence={phaseAudit:{},searchPolicyVersion:'PAIRED_STREAMS_V4',method:method,depth:depth,lossDiagnosis:STScenarios.plan(source).diagnosis,sensitivityScreening:sensitivityEvidence,reuseCounts:{},explorationRun:Object.assign({},previewRun),searchLimits:limits},evaluatedVariables=new Map();
       function keyOf(changes){return JSON.stringify(changes.slice().sort(function(a,b){return (a.equipmentId+':'+a.path)<(b.equipmentId+':'+b.path)?-1:(a.equipmentId+':'+a.path)>(b.equipmentId+':'+b.path)?1:0;}));}
       function finishSearch(reason){searchPhaseDone=true;stopReason=reason;}
       function exhausted(){if(!all||finishRequested||inDOE||searchPhaseDone)return; if(done>=limits.maxCandidates)finishSearch('Evaluation budget reached');else if(limits.wallClockBudget&&Date.now()-started>=limits.maxSearchMs)finishSearch('Search time budget reached');else if(coverageComplete&&stagnant>=limits.maxWithoutImprovement)finishSearch('No meaningful improvement in '+stagnant+' evaluated candidates');}
       try{
-        var priorities=new Map();(STScenarios.plan(source).candidates||[]).filter(p=>p.canApply).forEach(p=>p.changes.forEach(c=>{var key=c.equipmentId+':'+c.path;priorities.set(key,Math.max(priorities.get(key)||0,p.priority||0));}));var changes=selected().sort((a,b)=>(priorities.get(b.equipmentId+':'+b.path)||0)-(priorities.get(a.equipmentId+':'+a.path)||0)),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;if(all&&window.ST_SCENARIO_SEARCH_LIMITS.maxCandidates===undefined)limits.maxCandidates=Math.max(limits.maxCandidates,4+new Set(changes.map(c=>c.equipmentId)).size+(depth==='HIGH'?5:3)*changes.length);maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;if(all)maximum=limits.maxCandidates+(design?design.designPoints.length:0)+(baseline?0:1)+2+limits.finalists+1;evidence.maximumConfigurations=maximum;evidence.requestedChanges=changes;evidence.reproducibility={policy:limits.wallClockBudget?'WALL_CLOCK':'CANDIDATE_BUDGET',warmStart:!!previousEvaluation,sourceSignature:sourceSignature,inputSignature:SimulatorEngine.inputSignature?.({case:{id:source.id,unitOfFlow:source.unitOfFlow,equipment:source.equipment},run:previewRun}),depth:depth,targets:changes,factors:factors,categoryInclusions:Object.assign({},inclusions),limits:limits};if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
+        var priorities=new Map();(STScenarios.plan(source).candidates||[]).filter(p=>p.canApply).forEach(p=>p.changes.forEach(c=>{var key=c.equipmentId+':'+c.path;priorities.set(key,Math.max(priorities.get(key)||0,p.priority||0));}));var changes=selected().sort((a,b)=>(priorities.get(b.equipmentId+':'+b.path)||0)-(priorities.get(a.equipmentId+':'+a.path)||0)),factors=includeDOE?doeFactors():[],design=factors.length?STScenarioDOE.design(factors):null;if(all&&window.ST_SCENARIO_SEARCH_LIMITS.maxCandidates===undefined)limits.maxCandidates=Math.max(limits.maxCandidates,4+new Set(changes.map(c=>c.equipmentId)).size+(depth==='HIGH'?5:3)*changes.length);maximum=(all?1+new Set(changes.map(c=>c.equipmentId)).size+9*changes.length:1)+(design?design.designPoints.length:0)+(baseline?0:1)+2;if(all)maximum=limits.maxCandidates+(design?design.designPoints.length:0)+(baseline?0:1)+2+limits.finalists+1;evidence.maximumConfigurations=maximum;evidence.experimentConfiguration=experimentConfiguration();evidence.requestedChanges=changes;evidence.reproducibility={policy:limits.wallClockBudget?'WALL_CLOCK':'CANDIDATE_BUDGET',warmStart:!!previousEvaluation,sourceSignature:sourceSignature,inputSignature:SimulatorEngine.inputSignature?.({case:{id:source.id,unitOfFlow:source.unitOfFlow,equipment:source.equipment},run:previewRun}),depth:depth,targets:changes,factors:factors,categoryInclusions:Object.assign({},inclusions),limits:limits};if(includeDOE&&!design)evidence.doeSkippedReason='No eligible DOE factors selected; ordinary search only.';status.textContent='Simulating baseline with matching seeds and duration…';
         stage='Baseline';if(!baseline)baseline=await measured([],0);if(cancelled())return;evidence.baseline=baseline;evidence.phaseAudit.baseline={run:Object.assign({},previewRun),metrics:baseline,source:baseline.cacheSource};
         var trialHistory=[];evidence.trialHistory=trialHistory;
         var finalistPool=new Map(),best=baseline,bestChanges=[],done=0,invalid=0,cache=new Map(),reviewBest=null,reviewChanges=[];
@@ -466,7 +502,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     var add=button('Add intervention target',function(){if(activeHost)return;try{var unit=simulation.equipment.find(e=>e.id===equipment.value),before=field.value.split('.').reduce((v,k)=>v?.[k],unit),change={equipmentId:equipment.value,path:field.value,before:before??null,after:Number(targetValue.value),unit:'min',external:true,interventionType:tierSelect.value,justification:justification.value.trim()};STScenarios.apply(simulation,[change]);var option={tier:STScenarios.interventions[tierSelect.value].tier,changes:[change]};simulation.whatIf=simulation.whatIf||{};simulation.whatIf.externalOptions=(simulation.whatIf.externalOptions||[]).map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes})).filter(p=>p.changes.length).concat([option]);pool=pool.map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes}));pool.push(option);changed(simulation);notice.textContent='Target saved as a hypothesis. Run Find best scenario in its CAPEX category.';rebuild();}catch(error){notice.textContent='Cannot add target: '+error.message;}});add.classList.add('scenario-add-intervention');
     interventions.append(equipment,field,tierSelect,targetValue,justification,add,notice);
     var reliabilityPanel=el('details','','scenario-reliability-screening'),screenStatus=el('p','','chart-note'),screenRows=el('div'),screenCancelled=false;
-    reliabilityPanel.append(el('summary','Reliability opportunities: MTBF / MTTR'),el('p','Diagnostic experiments: compare MTBF ×2, MTTR ×0.5 and both, for each machine. These levels explore sensitivity; they do not describe a feasible purchase or maintenance outcome. Up to twelve machines are screened per evaluation, prioritizing observed own stops when compatible results exist. No targets are added automatically.','chart-note'));
+    reliabilityPanel.append(el('summary','Reliability opportunities: MTBF / MTTR'),el('p','MTBF = double the mean time between failures; MTTR = halve the mean repair time; JOINT = both for the same machine. Positive Δ means improvement versus the matching baseline; negative Δ is not evidence that maintenance is harmful. Compare independent checks before choosing an intervention. These results inform investigation and Gemini context, but do not add variables or targets to Find best scenario. Add a documented intervention target to include it in that search.','chart-note'),el('p','Diagnostic experiments: compare MTBF ×2, MTTR ×0.5 and both, for each machine. These levels explore sensitivity; they do not describe a feasible purchase or maintenance outcome. Up to twelve machines are screened per evaluation, prioritizing observed own stops when compatible results exist. No targets are added automatically.','chart-note'));
     var screenButton=button('Evaluate reliability sensitivity',async function(){
       if(activeHost===reliabilityPanel){screenCancelled=true;return;}if(activeHost)return;
       activeHost=reliabilityPanel;screenCancelled=false;screenButton.textContent='Cancel reliability evaluation';screenRows.replaceChildren();

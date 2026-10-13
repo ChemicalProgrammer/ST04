@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
-import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES} from '../src/analysis/ScenarioSearch.js';
+import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES,scenarioPairedEvidence} from '../src/analysis/ScenarioSearch.js';
 import {createScenarioDOE,analyzeScenarioDOE,analyzeScenarioANOVA,scenarioFSurvival} from '../src/analysis/ScenarioDOE.js';
 
 test('What-If horizons are independent of playback and preserve commands and seed',()=>{
@@ -32,7 +32,7 @@ function harness(doe,depth='MEDIUM',uncertain=false){
  const dom=new JSDOM('<article class="analysis-recommendation"></article>',{runScripts:'outside-only'}),w=dom.window,calls=[];
  w.HTMLDialogElement.prototype.close=function(){};w.HTMLDialogElement.prototype.showModal=function(){};
  w.STPreferences={read(){return '';},write(){return true;}};w.STIcons={svg(){return '<svg></svg>';}};w.STErrors={register(){},capture(){}};w.STScenarioText={HIGH:'High'};
- w.STScenarioSearch={profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
+ w.STScenarioSearch={profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
  w.STWhatIf={changeInfo(c){return {equipment:'Unit',parameter:c.path,before:c.before,after:c.after};}};
  w.STScenarios={fields:{speed:[1,100,'u/s'],sensor:[1,100,'m']},signature(){return 'same';},plan(){return {candidates:[]};},apply(source,changes){const copy=JSON.parse(JSON.stringify(source));for(const c of changes)copy.equipment[0][c.path]=c.after;return copy;}};
  w.SimulatorEngine={validateSimulationInput(){return {ok:true};},inputSignature(input){return JSON.stringify(input);},async simulateBatch(input){calls.push(JSON.parse(JSON.stringify(input)));const gain=(input.case.equipment[0].speed-10)+(input.case.equipment[0].sensor-10);const rows=Array.from({length:input.run.rounds},(_,j)=>{const noise=uncertain&&input.run.seed>1000000&&gain>0?[0,-20,20,0,0,0][j]:0;return {seed:input.run.seed+j,summary:{lineOeePercent:50+gain/10,outputCount:(100+gain+noise)*input.run.durationSeconds/60}};});return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary:rows[0].summary,batch:{rows,statistics:{lineOeePercent:{mean:50+gain/10},throughputPerMinute:{mean:rows.reduce((sum,row)=>sum+row.summary.outputCount/input.run.durationSeconds*60,0)/rows.length}}}}};}};
@@ -88,16 +88,16 @@ async function suggest(h){const b=h.host.querySelector('.scenario-doe-suggest');
 test('DOE suggestion screens paired targets, ranks measured gain and records screening in search evidence',async()=>{
  const h=harness(true,'HIGH');try{
   h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
-  await suggest(h);assert(h.calls.every(c=>c.run.durationSeconds===300&&c.run.rounds===3&&c.run.seed===1));
-  assert.equal(h.calls.length,3);assert.equal([...h.host.querySelectorAll('.scenario-doe-select')].filter(c=>c.checked).length,2);
+  await suggest(h);assert(h.calls.every(c=>c.run.durationSeconds===3600&&c.run.rounds===6&&c.run.seed===1));
+  assert.equal(h.calls.length,4);assert.equal([...h.host.querySelectorAll('.scenario-doe-select')].filter(c=>c.checked).length,2);
   const result=await search(h);assert.equal(result.sensitivityScreening.observations.length,2);assert(result.sensitivityScreening.observations.every(o=>o.deltaThroughput>0));
  }finally{h.dom.window.close();}
 });
-test('DOE screening does not suggest isolated changes that only improve jointly',async()=>{
+test('DOE screening discovers variables that only improve jointly',async()=>{
  const h=harness(true,'HIGH');try{
   const original=h.w.SimulatorEngine.simulateBatch;
   h.w.SimulatorEngine.simulateBatch=input=>{const copy=JSON.parse(JSON.stringify(input));if(copy.case.equipment[0].speed===10||copy.case.equipment[0].sensor===10){copy.case.equipment[0].speed=10;copy.case.equipment[0].sensor=10;}return original(copy);};
-  await suggest(h);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No isolated gain/);
+  await suggest(h);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/suggested/);assert.match(h.host.querySelector('.scenario-suggestion-report').textContent,/Suggested through a stable pair/);
   assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked),'manual selection preserved for coupled changes');
  }finally{h.dom.window.close();}
 });
@@ -158,4 +158,14 @@ test('duplicate category parameters retain the current target and excluded scope
   const sensorRow=[...h.host.querySelectorAll('.scenario-change')].find(r=>r.textContent.includes('sensor')),factor=sensorRow.querySelector('.scenario-doe-select');factor.checked=true;factor.onchange();assert(factor.checked);
   zero.checked=false;zero.onchange();assert.equal(factor.checked,false);assert(sensorRow.hidden);
  }finally{h.dom.window.close();}
+});
+
+test('paired screening rejects unstable gains and accepts consistent blocks',()=>{
+ const base={throughput:100,oee:50,roundMetrics:Array.from({length:6},(_,seed)=>({seed,throughput:100}))};
+ const next=d=>({oee:51,roundMetrics:d.map((delta,seed)=>({seed,throughput:100+delta}))});
+ assert.equal(scenarioPairedEvidence(base,next([2,2,2,2,2,2])).stable,true);assert.equal(scenarioPairedEvidence(base,next([20,20,20,-10,-10,-10])).stable,false);
+ const bad=next([2,2,2,2,2,2]);bad.roundMetrics[0].seed=99;assert.equal(scenarioPairedEvidence(base,bad).stable,false);
+});
+test('experiment comparison detects seeds, targets and DOE levels while excluding hardware concurrency',()=>{
+ const h=harness(true,'HIGH');try{const panel=h.host.querySelector('.scenario-experiment-compare'),buttons=panel.querySelectorAll('button'),areas=panel.querySelectorAll('textarea');buttons[0].click();const reference=JSON.parse(areas[0].value);assert.equal(reference.limits.parallelCandidates,undefined);areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Exact matching/);reference.input.run.seed=100;areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Different configuration.*seed/);reference.input.run.seed=1;reference.factors[0].high++;areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Different configuration.*factors/);}finally{h.dom.window.close();}
 });

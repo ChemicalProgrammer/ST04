@@ -1,4 +1,4 @@
-import { createSeededRandom } from './SeededRandom.js';
+import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
 import { resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
@@ -75,8 +75,7 @@ export async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
-  const random = createSeededRandom(input.run.seed);
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, random));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -105,7 +104,6 @@ function createRuntime(input) {
     caseId: input.case.id,
     unitOfFlow: input.case.unitOfFlow,
     run: input.run,
-    random,
     virtualSecond: 0,
     equipment,
     equipmentById: new Map(equipment.map(unit => [unit.id, unit])),
@@ -125,7 +123,10 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, random) {
+function createEquipmentRuntime(model, seed) {
+  const failureRandom=createEquipmentRandom(seed,model.id,"failure");
+  const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
+  const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
   const reliability = model.noiseProfile?.reliability;
   return {
     ...model,
@@ -139,8 +140,9 @@ function createEquipmentRuntime(model, random) {
     failureCount: 0,
     emergencyStopLatched: false,
     emergencyStopSeconds: 0,
+    failureRandom,microStopRandom,microStopDurationRandom,
     timeToFailureRemainingSeconds: reliability
-      ? randomExponentialSeconds(random, reliability.mtbfMinutes * 60)
+      ? randomExponentialSeconds(failureRandom, reliability.mtbfMinutes * 60)
       : null,
     outputCount: 0,
     runningSeconds: 0,
@@ -614,14 +616,14 @@ function updateReliabilityFailures(runtime) {
       equipment.failureRemainingSeconds = Math.max(0, equipment.failureRemainingSeconds - runtime.run.tickSeconds);
       if (equipment.failureRemainingSeconds === 0) {
         runtime.events.push({ type: 'REPAIR_COMPLETED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id });
-        equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(runtime.random, profile.mtbfMinutes * 60);
+        equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
       }
       return;
     }
 
     if (!isOperationalMode(equipment) || equipment.microStopRemainingSeconds > 0) return;
     if (equipment.timeToFailureRemainingSeconds === null) {
-      equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(runtime.random, profile.mtbfMinutes * 60);
+      equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
     }
     equipment.timeToFailureRemainingSeconds -= runtime.run.tickSeconds;
     if (equipment.timeToFailureRemainingSeconds > 0) return;
@@ -699,8 +701,8 @@ function updateMicroStops(runtime) {
     const profile = equipment.noiseProfile?.microStop;
     if (!profile) return;
     const probability = (profile.probabilityPerMinute || 0) * runtime.run.tickSeconds / 60;
-    if (runtime.random.next() < probability) {
-      equipment.microStopRemainingSeconds = randomDuration(runtime.random, profile);
+    if (equipment.microStopRandom.next() < probability) {
+      equipment.microStopRemainingSeconds = randomDuration(equipment.microStopDurationRandom, profile);
       runtime.events.push({ type: 'MICRO_STOP_STARTED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id, durationSeconds: equipment.microStopRemainingSeconds });
     }
   });
@@ -1157,7 +1159,7 @@ function createResult(runtime) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.12.0',
+    engineVersion: '0.13.0',
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
     summary: createSummary(runtime),
@@ -1350,4 +1352,5 @@ function sum(values) {
 function round(value) {
   return Number(value.toFixed(6));
 }
+
 

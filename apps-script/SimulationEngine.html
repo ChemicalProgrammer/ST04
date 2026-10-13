@@ -26,6 +26,14 @@ function normalizeSeed(seed) {
 }
 
 
+// Stable streams isolate equipment and event families from unrelated draw order.
+function createEquipmentRandom(seed,equipmentId,eventType) {
+  const key=JSON.stringify([normalizeSeed(seed),String(equipmentId),String(eventType)]);
+  let hash=2166136261;
+  for(let i=0;i<key.length;i++){hash^=key.charCodeAt(i);hash=Math.imul(hash,16777619);}
+  return createSeededRandom(hash>>>0);
+}
+
 
 /**
  * Deterministic conveyor-design calculations based on the SimuLine / CAT
@@ -1044,8 +1052,7 @@ async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
-  const random = createSeededRandom(input.run.seed);
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, random));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -1074,7 +1081,6 @@ function createRuntime(input) {
     caseId: input.case.id,
     unitOfFlow: input.case.unitOfFlow,
     run: input.run,
-    random,
     virtualSecond: 0,
     equipment,
     equipmentById: new Map(equipment.map(unit => [unit.id, unit])),
@@ -1094,7 +1100,10 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, random) {
+function createEquipmentRuntime(model, seed) {
+  const failureRandom=createEquipmentRandom(seed,model.id,"failure");
+  const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
+  const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
   const reliability = model.noiseProfile?.reliability;
   return {
     ...model,
@@ -1108,8 +1117,9 @@ function createEquipmentRuntime(model, random) {
     failureCount: 0,
     emergencyStopLatched: false,
     emergencyStopSeconds: 0,
+    failureRandom,microStopRandom,microStopDurationRandom,
     timeToFailureRemainingSeconds: reliability
-      ? randomExponentialSeconds(random, reliability.mtbfMinutes * 60)
+      ? randomExponentialSeconds(failureRandom, reliability.mtbfMinutes * 60)
       : null,
     outputCount: 0,
     runningSeconds: 0,
@@ -1583,14 +1593,14 @@ function updateReliabilityFailures(runtime) {
       equipment.failureRemainingSeconds = Math.max(0, equipment.failureRemainingSeconds - runtime.run.tickSeconds);
       if (equipment.failureRemainingSeconds === 0) {
         runtime.events.push({ type: 'REPAIR_COMPLETED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id });
-        equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(runtime.random, profile.mtbfMinutes * 60);
+        equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
       }
       return;
     }
 
     if (!isOperationalMode(equipment) || equipment.microStopRemainingSeconds > 0) return;
     if (equipment.timeToFailureRemainingSeconds === null) {
-      equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(runtime.random, profile.mtbfMinutes * 60);
+      equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
     }
     equipment.timeToFailureRemainingSeconds -= runtime.run.tickSeconds;
     if (equipment.timeToFailureRemainingSeconds > 0) return;
@@ -1668,8 +1678,8 @@ function updateMicroStops(runtime) {
     const profile = equipment.noiseProfile?.microStop;
     if (!profile) return;
     const probability = (profile.probabilityPerMinute || 0) * runtime.run.tickSeconds / 60;
-    if (runtime.random.next() < probability) {
-      equipment.microStopRemainingSeconds = randomDuration(runtime.random, profile);
+    if (equipment.microStopRandom.next() < probability) {
+      equipment.microStopRemainingSeconds = randomDuration(equipment.microStopDurationRandom, profile);
       runtime.events.push({ type: 'MICRO_STOP_STARTED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id, durationSeconds: equipment.microStopRemainingSeconds });
     }
   });
@@ -2126,7 +2136,7 @@ function createResult(runtime) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.12.0',
+    engineVersion: '0.13.0',
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
     summary: createSummary(runtime),
@@ -2857,7 +2867,7 @@ function scenarioSignature(simulation){
     processData:unit.processData&&typeof unit.processData==='object'?unit.processData:{}
   }));
   const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?simulation.dynamicConfig:{};
-  const text=JSON.stringify(stableScenarioValue([simulation.id,equipment,config]));
+  const text=JSON.stringify(stableScenarioValue(["SCENARIO_STREAMS_V4",simulation.id,equipment,config]));
   let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
   return (hash>>>0).toString(16)+':'+text.length;
 }
@@ -2944,7 +2954,7 @@ function diagnoseScenarioLosses(simulation){
   const equal=(a,b)=>JSON.stringify(stableScenarioValue(a))===JSON.stringify(stableScenarioValue(b));
   const run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...simulation.dynamicConfig};
   if(run.durationMode==='SHIFTS')run.durationSeconds=(run.shiftHours||8)*(run.shiftCount||1)*3600;
-  if(!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
+  if(provenance.version!=='ST_CURRENT:0.13.0/DES:0.4.0/cache:2'||!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
   const referenceId=analyzeLinePerformance(simulation.equipment,result).referenceId;
   const rows=(simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR').map(e=>{
     const stats=result.batch?.equipmentStatistics?.[e.id],metrics=result.equipmentMetrics?.[e.id];
@@ -3138,6 +3148,20 @@ function scenarioConfirmationNeedsMore(base,candidate) {
   return mean-4.3026527299*sd/Math.sqrt(3)<=Math.max(.001,Math.abs(base.throughput)*.001);
 }
 
+function scenarioPairedEvidence(base,candidate) {
+  const a=base?.roundMetrics,b=candidate?.roundMetrics;
+  if(!a||!b||a.length!==b.length||a.length<6||a.some((r,i)=>r.seed!==b[i].seed))return {stable:false,reason:'MATCHED_SIX_ROUNDS_REQUIRED'};
+  const deltas=b.map((r,i)=>r.throughput-a[i].throughput);
+  if(deltas.some(x=>!Number.isFinite(x)))return {stable:false,reason:'INVALID_METRICS'};
+  const mean=deltas.reduce((s,x)=>s+x,0)/deltas.length;
+  const sd=Math.sqrt(deltas.reduce((s,x)=>s+(x-mean)**2,0)/(deltas.length-1));
+  // Six paired replications; conservative t critical also for larger sample counts.
+  const lower=mean-2.5705818366*sd/Math.sqrt(deltas.length),split=Math.floor(deltas.length/2);
+  const blockMeans=[deltas.slice(0,split),deltas.slice(split)].map(v=>v.reduce((s,x)=>s+x,0)/v.length);
+  const threshold=Math.max(.001,Math.abs(base.throughput)*.001);
+  return {mean,lower,blockMeans,threshold,rounds:deltas.length,stable:lower>threshold&&blockMeans.every(x=>x>threshold)&&candidate.oee>=base.oee-1e-9,interpretation:'Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee.'};
+}
+
 
 function simulationWorkerMain(){
 self.onmessage=async function(event){
@@ -3188,7 +3212,7 @@ async function calculateBrowserBatch(input,options={}){
 // reuse metrics on a hash collision. Bump the namespace after engine changes.
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.12.0/DES:0.4.0/cache:1',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...input.run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.13.0/DES:0.4.0/cache:2',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...input.run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -3207,7 +3231,7 @@ window.SimulatorEngine = {
   analyzeLinePerformance: analyzeLinePerformance
 };
 window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
-window.STScenarioSearch = {profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore};
+window.STScenarioSearch = {profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};
 window.STScenarios = {plan:planScenarios,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
 })(window);
 </script>

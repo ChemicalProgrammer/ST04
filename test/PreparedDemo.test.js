@@ -3,7 +3,7 @@ import {gunzipSync} from 'node:zlib';
 function factory(){const context=vm.createContext({Utilities:{base64Decode:value=>Buffer.from(value,'base64'),newBlob:bytes=>bytes,ungzip:bytes=>({getDataAsString:()=>gunzipSync(bytes).toString('utf8')})}});for(const name of ['DemoCaseFactory.gs','DemoResults.gs','ScenarioEngine.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),context);return context;}
 test('prepared demo provides measured round means and compact actual playback frames for every scenario',()=>{
  const f=factory(),record=f.createDemoCaseRequest_();
- const expected=[49.11,52.56,63.81,78.68];
+ const expected=[50.19,53.88,65.01,80.49];
  record.simulations.forEach((sim,index)=>{
   const r=sim.results;assert(r.preparedDemo);assert.equal(r.replicationStatus.state,'COMPLETE');assert.equal(r.batch.rows.length,3);assert.equal(r.batch.rounds,3);
   const mean=r.batch.rows.reduce((sum,row)=>sum+row.summary.lineOeePercent,0)/3;assert.equal(r.batch.statistics.lineOeePercent.mean,mean);assert(Math.abs(mean-expected[index])<.01);

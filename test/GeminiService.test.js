@@ -276,7 +276,7 @@ test('Product-support role survives restrictive saved prompts and earlier assist
 
 test('Gemini context includes compatible replication loss diagnosis and intervention definitions',()=>{
  const h=setup(),s=h.record.simulations[0],run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...s.dynamicConfig};
- s.results={summary:{lineOeePercent:40},durationSeconds:60,unitOfFlow:'units',replicationStatus:{state:'COMPLETE'},inputSignature:JSON.stringify({equipment:s.equipment,run,unitOfFlow:'units'}),equipmentMetrics:{},batch:{rounds:3,equipmentStatistics:{[s.equipment[0].id]:{failureSeconds:{mean:10},starvedSeconds:{mean:0},blockedSeconds:{mean:0}}}}};
+ s.results={summary:{lineOeePercent:40},durationSeconds:60,unitOfFlow:'units',replicationStatus:{state:'COMPLETE'},inputSignature:JSON.stringify({version:'ST_CURRENT:0.13.0/DES:0.4.0/cache:2',equipment:s.equipment,run,unitOfFlow:'units'}),equipmentMetrics:{},batch:{rounds:3,equipmentStatistics:{[s.equipment[0].id]:{failureSeconds:{mean:10},starvedSeconds:{mean:0},blockedSeconds:{mean:0}}}}};
  const context=JSON.parse(h.ctx.buildGeminiContext_(h.record,'a').json);assert.equal(context.lossDiagnosis.status,'OBSERVED');assert.equal(context.lossDiagnosis.equipment[0].failureSeconds,10);assert(context.scenarioDefinitions.HIGH.reliability.includes('Replacement'));assert(context.reliabilityOpportunities.length>0);
  s.dynamicConfig.seed++;assert.equal(JSON.parse(h.ctx.buildGeminiContext_(h.record,'a').json).lossDiagnosis.status,'NO_COMPATIBLE_RESULTS');
 });

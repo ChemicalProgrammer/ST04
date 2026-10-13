@@ -71,7 +71,7 @@ export function scenarioSignature(simulation){
     processData:unit.processData&&typeof unit.processData==='object'?unit.processData:{}
   }));
   const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?simulation.dynamicConfig:{};
-  const text=JSON.stringify(stableScenarioValue([simulation.id,equipment,config]));
+  const text=JSON.stringify(stableScenarioValue(["SCENARIO_STREAMS_V4",simulation.id,equipment,config]));
   let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
   return (hash>>>0).toString(16)+':'+text.length;
 }
@@ -158,7 +158,7 @@ export function diagnoseScenarioLosses(simulation){
   const equal=(a,b)=>JSON.stringify(stableScenarioValue(a))===JSON.stringify(stableScenarioValue(b));
   const run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...simulation.dynamicConfig};
   if(run.durationMode==='SHIFTS')run.durationSeconds=(run.shiftHours||8)*(run.shiftCount||1)*3600;
-  if(!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
+  if(provenance.version!=='ST_CURRENT:0.13.0/DES:0.4.0/cache:2'||!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
   const referenceId=analyzeLinePerformance(simulation.equipment,result).referenceId;
   const rows=(simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR').map(e=>{
     const stats=result.batch?.equipmentStatistics?.[e.id],metrics=result.equipmentMetrics?.[e.id];
