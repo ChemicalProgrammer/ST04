@@ -169,3 +169,20 @@ test('paired screening rejects unstable gains and accepts consistent blocks',()=
 test('experiment comparison detects seeds, targets and DOE levels while excluding hardware concurrency',()=>{
  const h=harness(true,'HIGH');try{const panel=h.host.querySelector('.scenario-experiment-compare'),buttons=panel.querySelectorAll('button'),areas=panel.querySelectorAll('textarea');buttons[0].click();const reference=JSON.parse(areas[0].value);assert.equal(reference.limits.parallelCandidates,undefined);areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Exact matching/);reference.input.run.seed=100;areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Different configuration.*seed/);reference.input.run.seed=1;reference.factors[0].high++;areas[1].value=JSON.stringify(reference);buttons[1].click();assert.match(panel.textContent,/Different configuration.*factors/);}finally{h.dom.window.close();}
 });
+
+
+test('experiment comparison feedback stays visible in Basic and Advance modes',()=>{
+ const h=harness(true,'HIGH');try{
+  const style=h.dom.window.document.createElement('style');style.textContent=fs.readFileSync(new URL('../apps-script/BasicModeStyles.html',import.meta.url),'utf8').replace(/<\/?style>/g,'');h.dom.window.document.head.append(style);
+  const panel=h.host.querySelector('.scenario-experiment-compare');panel.open=true;
+  const buttons=panel.querySelectorAll('button'),areas=panel.querySelectorAll('textarea'),status=panel.querySelector('[role="status"]');
+  for(const mode of ['basic','advance']){
+   h.dom.window.document.documentElement.dataset.uiMode=mode;
+   buttons[0].click();assert.match(status.textContent,/Copy this complete/);
+   areas[1].value=areas[0].value;buttons[1].click();assert.match(status.textContent,/Exact matching/);
+   assert.notEqual(h.dom.window.getComputedStyle(status).display,'none');
+   areas[1].value='invalid JSON';buttons[1].click();assert.match(status.textContent,/Cannot compare/);
+   assert.notEqual(h.dom.window.getComputedStyle(status).display,'none');
+  }
+ }finally{h.dom.window.close();}
+});
