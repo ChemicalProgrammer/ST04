@@ -1,6 +1,6 @@
 # Demo Case
 
-The console can create **Public 13-unit demo** from the Cases panel. It contains a baseline and three separate, runnable CAPEX scenarios for testing the editor, playback, physical conveyor geometry, seeded micro-stops, and reliability events without adding confidential plant data.
+The console can create **13-unit demo** from the Cases panel. It contains a baseline and three separate, runnable CAPEX scenarios for testing the editor, playback, physical conveyor geometry, seeded micro-stops, and reliability events without adding confidential plant data.
 
 ## Data boundary
 
@@ -37,57 +37,56 @@ remain empty rather than being guessed.
 - [Krones Modulpal Pro](https://www.krones.com/en/products/machines/modulpal-pro-palletiser.php)
 
 
-## Calibrated CAPEX challenge (2026-10-08)
+## V-Graph CAPEX challenge (revision 4)
 
-The initial theoretical equipment efficiency is approximately **28.74%**, the
-product of each machine's `MTBF / (MTBF + MTTR)`. This is series availability,
-not a simulated OEE prediction: buffers can decouple individual outages.
-Reliability differs by machine but stays identical across the four scenarios.
+The theoretical series availability is approximately **28.74%**, the product
+of machine MTBF / (MTBF + MTTR). It is not simulated OEE: buffers decouple some
+equipment outages. Reliability stays identical across the four scenarios.
 
-The instantaneous V-Graph is available before running. It uses the following
-configured speeds and calculated buffer-recovery estimates, without preset
-simulation results. The Filler remains the 400 BPM reference.
+The Filler is the only critical reference machine, at **400 BPM**. Configured
+machine speeds descend toward it and rise downstream. Conveyors are excluded
+from the machine-speed profile. Rates use equivalent bottles per minute; pack
+and pallet conversion is not simulated.
 
-| Machine | Configured BPM | Recommended recovery BPM | Maximum BPM |
-|---|---:|---:|---:|
-| Blowmolder | 240 | 270.5 | 600 |
-| Pucker | 210 | 248.3 | 580 |
-| Filler | 400 | 400 | 420 |
-| De-pucker | 220 | 251.9 | 570 |
-| Sleever | 170 | 206.4 | 560 |
-| Case packer | 250 | 286.7 | 590 |
-| Palletizer | 230 | 261.5 | 560 |
+| Machine | Baseline BPM | Zero CAPEX BPM | Medium CAPEX BPM | High CAPEX BPM | Installed maximum BPM |
+|---|---:|---:|---:|---:|---:|
+| Blowmolder | 460 | 480 | 500 | 580 | 620 |
+| Pucker | 430 | 440 | 460 | 540 | 580 |
+| Filler | 400 | 400 | 400 | 400 | 420 |
+| De-pucker | 420 | 440 | 450 | 500 | 560 |
+| Sleever | 440 | 480 | 490 | 520 | 580 |
+| Case packer | 460 | 520 | 530 | 550 | 600 |
+| Palletizer | 480 | 540 | 550 | 560 | 620 |
 
-Recovery recommendations follow the existing formulas, using available
-accumulation, MTTR and the MTBF recovery window. They describe local recovery
-headroom and do not guarantee that retuning one machine will achieve 400 BPM
-throughout the line.
+The current-speed curve shows configured processing speeds, without clipping
+them to the reference rate. Average throughput is reported separately.
+Recovery recommendations use installed accumulation, MTTR and a recovery
+window. They are local planning estimates, not guaranteed line throughput or
+automatic setpoints. The graph does not force arbitrary configurations into a V.
 
-New demo cases include Baseline, Zero, Medium and High simulations with measured
-results prepared by the ST engine using the default three seeds. They load
-without rerunning the engine. The baseline's category cards show these same
-saved scenario means; further optimization can produce different results.
-Unchanged saved demos from the same revision can also receive these derived
-results on open. Edited inputs and existing user results are never replaced.
+Each CAPEX scenario is an independent set of changes against the baseline:
+Zero uses installed speed headroom and existing conveyor settings; Medium adds
+12 m buffers and an assumed local restart retrofit; High adds 24 m buffers,
+an integrated restart retrofit and Back-up relocation. Speeds stay below
+installed maxima. MTBF, MTTR and microstops stay unchanged.
 
-The prepared result retains full aggregate and per-round metrics, with only the
-initial and final frames for representative-round playback. Run a simulation
-again for full playback history. Rebuild the fixture after changing demo inputs
-or engine mathematics with `node scripts/prepare-demo-results.mjs`.
+New demos include measured results over three eight-hour rounds with seeds
+20261008–20261010. The default is fixed seeds. Prepared results match the exact
+revision, equipment and run configuration. Edited inputs and existing user
+results are preserved; older revision-3 demos are not silently rewritten.
 
-The default run is one 8-hour shift, three rounds, fixed base seed `20261008`.
-The current ST engine produces these mean OEE values over seeds 20261008–20261010:
-
-| Scenario | Mean OEE | Physical changes against baseline |
+| Scenario | Mean OEE | Physical changes |
 |---|---:|---|
-| Baseline | 30.12% | Uneven non-reference speeds of 170–250 BPM, 5-second restarts, 8 m conveyors. |
-| Zero CAPEX | 51.66% | Retune installed non-reference machines to 450 BPM, belt factor to 100%, Prime window to 400 mm. |
-| Medium CAPEX | 59.35% | Balanced 420 BPM operating targets, 12 m buffers, and an assumed control retrofit targeting 3-second restarts. |
-| High CAPEX | 80.03% | Retune to 550 BPM, 1-second restart-control upgrade, 24 m conveyors and Back-up relocation to 3 m. |
+| Baseline | 49.11% | Coherent V-shaped speeds, 5-second restarts, 8 m conveyors. |
+| Zero CAPEX | 52.56% | Installed speed headroom, belt factor 100%, Prime window 400 mm. |
+| Medium CAPEX | 63.81% | Increased recovery speeds, 12 m buffers, assumed 3-second restart retrofit. |
+| High CAPEX | 78.68% | Increased recovery speeds, 24 m buffers, assumed 1-second restart retrofit, Back-up at 3 m. |
 
-Machine MTBF (1.4–2.8 min), MTTR (0.3–0.4 min), microstops and the 400 BPM reference remain
-identical in all four runs. All speed targets stay within installed maxima. The
-scenario adapter reports no newly regressed engineering checks for these targets.
-These are model measurements of synthetic inputs, not efficiency guarantees;
-changing duration, seed, controls or engine changes the result. DES does not yet
-report validated OEE. Reproduce with `node --test test/DemoCaseFactory.test.js`.
+These are synthetic model measurements, not plant performance guarantees.
+The former 30% baseline depended on machines slower than the declared critical
+reference. Removing that inconsistent speed constraint raises baseline OEE;
+the results are recalculated rather than preserving incompatible old numbers.
+
+Prepared playback retains only initial and final representative-round frames.
+Run again for full playback. Rebuild with
+`node scripts/prepare-demo-results.mjs` after changing inputs or mathematics.

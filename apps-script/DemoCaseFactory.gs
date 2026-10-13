@@ -108,8 +108,8 @@ function applyPreparedDemoResults_(record){
 // buffers and faster restart controls. Reliability stays fixed across categories.
 function configureDemoLosses_(equipment) {
   var machineIndex = 0;
-  var rates = [240, 210, 400, 220, 170, 250, 230];
-  var maximums = [600, 580, 420, 570, 560, 590, 560];
+  var rates = [460, 430, 400, 420, 440, 460, 480];
+  var maximums = [620, 580, 420, 560, 580, 600, 620];
   var mtbf = [2.2, 1.8, 2.8, 1.6, 1.4, 1.8, 2];
   var mttr = [0.4, 0.35, 0.3, 0.4, 0.3, 0.4, 0.4];
   equipment.forEach(function(unit) {
@@ -122,6 +122,8 @@ function configureDemoLosses_(equipment) {
     } else {
       var index = machineIndex++, rate = rates[index];
       unit.nominalRatePerSecond = rate / 60;
+      unit.processData.role = unit.type === 'FILLER' ? 'PACEMAKER' : 'MACHINE';
+      unit.characteristics.isPacemaker = unit.type === 'FILLER';
       unit.characteristics.nominalRateBpm = rate;
       unit.processData.equipment.maximumSpeedBpm = maximums[index];
       unit.processData.upstream.startupTimeSeconds = 5;
@@ -138,6 +140,8 @@ function configureDemoLosses_(equipment) {
 function createDemoTargets_(equipment) {
   return ['ZERO', 'MEDIUM', 'HIGH'].map(function(tier) {
     var changes = [];
+    var speeds = tier === 'ZERO' ? [480, 440, 400, 440, 480, 520, 540] : tier === 'MEDIUM' ? [500, 460, 400, 450, 490, 530, 550] : [580, 540, 400, 500, 520, 550, 560];
+    var machineIndex = 0;
     function change(unit, path, after, unitOfMeasure, intervention) {
       var before = path.split('.').reduce(function(value, key) { return value[key]; }, unit);
       if (before === after) return;
@@ -156,7 +160,7 @@ function createDemoTargets_(equipment) {
           change(unit, 'processData.accumulation.backupSensorPositionMm', 3000, 'mm');
         }
       } else {
-        if (unit.type !== 'FILLER') change(unit, 'nominalRatePerSecond', (tier === 'ZERO' ? 450 : tier === 'MEDIUM' ? 420 : 550) / 60, 'units/s');
+        change(unit, 'nominalRatePerSecond', speeds[machineIndex++] / 60, 'units/s');
         if (tier !== 'ZERO') change(unit, 'processData.upstream.startupTimeSeconds', tier === 'MEDIUM' ? 3 : 1, 's',
           'Synthetic demo assumption: ' + (tier === 'MEDIUM' ? 'local start-sequence retrofit with a 3-second restart target.' : 'integrated controls upgrade with a 1-second restart target.') + ' This target is a hypothesis, not measured plant performance.');
       }
@@ -233,9 +237,9 @@ function setDemoConveyorEngineering_(equipment, equipmentId, design) {
 
 function createDemoMetadata_() {
   return {
-    demoRevision: 'capex-challenge-3',
+    demoRevision: 'capex-challenge-4',
     consoleOptions: { autosaveEnabled: true, autosaveSeconds: 10, seedPolicy: 'FIXED' },
-    learningObjectives: ['Compare the low theoretical series availability with simulated OEE; buffering can decouple equipment downtime.', 'Read the instantaneous V-Graph: uneven configured speeds, distinct recovery recommendations, and the fixed Filler reference.', 'Zero CAPEX: retune under-speed machines and existing sensors.', 'Medium CAPEX: evaluate moderate buffer extensions and an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
+    learningObjectives: ['Compare the low theoretical series availability with simulated OEE; buffering can decouple equipment downtime.', 'Read the instantaneous V-Graph: configured speeds decrease toward the 400 BPM Filler and increase downstream; recovery recommendations remain separate.', 'Zero CAPEX: increase installed recovery headroom and retune existing sensors.', 'Medium CAPEX: evaluate moderate buffer extensions and an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
     dataClassification: 'DEMO_ONLY',
     dataNote: 'This is a non-confidential demonstration Case. Public manufacturer capacity pages provide only broad bounds. MTBF, MTTR, physical conveyor geometry, speeds, sensor positions, and line configuration are transparent synthetic assumptions for software testing; they are not plant measurements, equipment guarantees, or operating recommendations.',
     publicReferences: [
@@ -307,4 +311,5 @@ function createDemoLineUnit_(definition) {
     }
   };
 }
+
 

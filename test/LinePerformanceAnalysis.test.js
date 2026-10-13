@@ -13,11 +13,11 @@ test('design profile identifies the pacemaker and distinguishes maximum from nor
   const profile = analyzeLinePerformance(equipment, null);
   assert.deepEqual(profile.points.map(p => p.id), ['a','f','p']);
   assert.equal(profile.referenceId, 'f');
-  assert.equal(profile.points[0].normalPercent, 100);
+  assert.equal(profile.points[0].normalPercent, 125);
   assert.equal(profile.points[0].configuredBpm,300);
   assert.equal(profile.points[0].maximumPercent, 150);
   assert.equal(profile.points[0].capacityEstimateBpm, null);
-  assert(Math.abs(profile.points[0].speedHeadroomPercent - 50) < 1e-9);
+  assert(Math.abs(profile.points[0].speedHeadroomPercent - 20) < 1e-9);
   assert.equal(profile.points[1].speedHeadroomPercent, 0);
   assert.equal(profile.simulatesOverspeed, false);
   assert.equal(profile.outletBpm, null);
@@ -75,3 +75,4 @@ test('selected machine role takes precedence over an old run reference without c
   const profile=analyzeLinePerformance(models,{summary:{lineOeePacemakerEquipmentId:'f'}});
   assert.equal(profile.referenceId,'a');assert.equal(models[0].type,'MACHINE');
 });
+

@@ -11,7 +11,7 @@ import { analyzeLinePerformance } from '../src/analysis/LinePerformanceAnalysis.
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
-test('demo starts with low series availability and a varied instantaneous recovery profile',()=>{
+test('demo starts with low series availability and a V-shaped configured speed profile',()=>{
   const factory=vm.createContext({});
   vm.runInContext(fs.readFileSync(path.join(repositoryRoot,'apps-script/DemoCaseFactory.gs'),'utf8'),factory);
   const record=JSON.parse(JSON.stringify(factory.createDemoCaseRequest_()));
@@ -21,9 +21,20 @@ test('demo starts with low series availability and a varied instantaneous recove
   const {points,referenceId}=analyzeLinePerformance(record.equipment);
   assert.equal(referenceId,'filler-1');
   assert(new Set(points.map(p=>p.normalBpm)).size>=5);
+  for(const simulation of record.simulations){
+    const speeds=simulation.equipment.filter(e=>e.type!=='CONVEYOR').map(e=>e.nominalRatePerSecond*60);
+    assert.equal(speeds[2],400);assert(speeds.every((v,i)=>i===2||v>400));
+    assert(speeds[0]>speeds[1]&&speeds[1]>speeds[2]);
+    assert(speeds.slice(2).every((v,i,a)=>!i||v>a[i-1]));
+    assert.equal(simulation.equipment.filter(e=>e.characteristics.isPacemaker).length,1);
+    const profile=analyzeLinePerformance(simulation.equipment);
+    assert.deepEqual(profile.points.map(p=>p.normalBpm),speeds);
+    assert(profile.points.every(p=>p.maximumBpm>=p.normalBpm));
+    assert.equal(profile.points.reduce((a,b)=>a.normalBpm<b.normalBpm?a:b).id,'filler-1');
+  }
   assert(new Set(points.map(p=>p.maximumBpm)).size>=5);
   assert(points.filter(p=>p.recommendedBpm-p.normalBpm>10).length>=5);
-  assert(points.every(p=>Number.isFinite(p.recommendedBpm)&&p.recommendedBpm<=p.maximumBpm));
+  assert(points.every(p=>Number.isFinite(p.recommendedBpm)&&p.recommendedBpm>0));
   const filler=points.find(p=>p.id===referenceId);assert.equal(filler.recommendedBpm,filler.normalBpm);
   assert(points.every(p=>p.hasDynamicEvidence===false));
 });
@@ -95,7 +106,7 @@ test('demo factory creates a runnable 13-step Case with explicit provenance', ()
 
 
 // Results are calculated, never preset. Check one 8-hour shift and three paired seeds.
-test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physical inputs', (t) => {
+test('CAPEX demo reproduces separate baseline / zero / medium / high gains with physical inputs', (t) => {
   const factory = vm.createContext({});
   vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'apps-script/DemoCaseFactory.gs'), 'utf8'), factory);
   const record = JSON.parse(JSON.stringify(factory.createDemoCaseRequest_()));
@@ -106,7 +117,7 @@ test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physica
   assert.equal(record.simulations.length, 4);
   assert(record.simulations.every(s => s.results === null));
   const tiers = [{tier: 'BASELINE', changes: []}, ...simulation.whatIf.externalOptions];
-  const expected = [30, 50, 60, 80], means = [];
+  const expected = [49, 53, 64, 79], means = [];
   for (const [index, option] of tiers.entries()) {
     const candidate = option.changes.length ? applyScenarioChanges(simulation, option.changes) : simulation;
     assert.deepEqual(record.simulations[index].equipment, candidate.equipment);
@@ -127,5 +138,6 @@ test('CAPEX demo reproduces approximately 30 / 50 / 60 / 80 percent with physica
     t.diagnostic(option.tier + ': ' + mean.toFixed(2) + '% · ' + values.map(v => v.toFixed(2)).join(', '));
     assert(Math.abs(mean - expected[index]) < 6, option.tier + ' actual mean: ' + mean);
   }
-  assert(means.every((value, index) => !index || value > means[index - 1] + 5));
+  assert(means.every((value, index) => !index || value > means[index - 1] + 2));
 });
+

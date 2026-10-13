@@ -11,9 +11,9 @@ export function analyzeLinePerformance(equipment, result) {
   const baselineBpm = Number(reference?.nominalRatePerSecond) * 60;
   const points = machines.map(item => {
     const configuredBpm = Number(item.nominalRatePerSecond) * 60;
-    // Normal design operation follows the pacemaker, limited by the configured
-    // machine rate. This does not change the engine's configured processing rate.
-    const normalBpm = baselineBpm > 0 ? Math.min(configuredBpm, baselineBpm) : configuredBpm;
+    // The V-Graph shows configured machine speeds. Average production flow
+    // is reported separately and must not flatten speeds to the pacemaker.
+    const normalBpm = configuredBpm;
     const recovery = estimateRecoveryTarget(equipment || [], item, referenceId, normalBpm);
     const configuredMaximum = item.processData?.equipment?.maximumSpeedBpm;
     const maximumBpm = configuredMaximum === null || configuredMaximum === undefined || configuredMaximum === ''
@@ -96,3 +96,4 @@ function estimateRecoveryTarget(equipment, item, referenceId, normalBpm) {
     bufferUnits,bufferCoversMeanStop:bufferUnits >= normalBpm * mttr
   };
 }
+
