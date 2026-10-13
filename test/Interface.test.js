@@ -257,8 +257,8 @@ test('UI: local and Gemini chat buttons clone only validated changes into persis
     const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
     assert(proposal);return {text:'Review these input changes.',proposals:[{...proposal,title:'Chat proposal'}]};
   };
-  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
+  await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');await waitFor(()=>{const button=h.d.querySelector('#gemini-messages .gemini-scenario-create');return button&&!button.disabled;});
+  await h.click('#gemini-messages .gemini-scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===3);
   assert.equal(h.storedCases()[0].simulations[2].name,'Chat proposal');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -271,8 +271,8 @@ test('UI: Gemini cannot rebind an old proposal to a different persisted server r
   h.api.askGemini=request=>{const source=h.storedCases()[0].simulations.find(s=>s.id===request.simulationId),proposal=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);return {text:'Review this proposal.',proposals:[{...proposal,title:'Chat proposal'}]};};
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('#toggle-gemini');
   h.d.getElementById('gemini-question').value='Suggest an improvement';await h.click('#send-gemini');
-  await waitFor(()=>!!h.d.querySelector('#gemini-messages .analysis-recommendation button'));
-  await h.click('#gemini-messages .scenario-evaluate');await waitFor(()=>!h.d.querySelector('#gemini-messages .scenario-create').disabled);await h.click('#gemini-messages .scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');
+  await waitFor(()=>{const button=h.d.querySelector('#gemini-messages .gemini-scenario-create');return button&&!button.disabled;});
+  await h.click('#gemini-messages .gemini-scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));await h.click('.message-dialog .dialog-actions button:last-child');
   await waitFor(()=>h.d.getElementById('status').textContent.includes('changed'));assert.equal(h.storedCases()[0].simulations.length,1);assert(!h.calls.includes('createScenario'));
   assert(h.calls.includes('getScenarioSourceSignature'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -1004,7 +1004,7 @@ test('UI Basic: worksheet controls, calculated buffers, Results availability and
   assert.equal(h.d.querySelector('.vgraph-key-normal').textContent,'Current');assert.equal(h.d.querySelector('.vgraph-key-recommended').textContent,'Recommended');
   h.api.askGemini=request=>({text:'Describe suggested improvements.',proposals:[h.w.STScenarios.plan(h.storedCases()[0].simulations[0]).projects.find(p=>p.canApply)]});
   await h.click('#save-case');await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='Improve the line';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-messages').textContent.includes('Describe suggested'));
-  assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
+  assert.equal(h.d.querySelector('#gemini-messages .gemini-scenario-create'),null);
   await h.click('[data-basic-view="conveyors"]');assert(h.d.querySelector('.basic-conveyor-worksheet'));assert(h.d.getElementById('basic-conveyor-summary').textContent.includes('Tacc Antistarve'));
   await h.click('[data-conveyor-view="results"]');assert(h.d.getElementById('equipment-inspector').classList.contains('hidden'));
   await h.click('[data-conveyor-view="inputs"]');assert(!h.d.getElementById('equipment-inspector').classList.contains('hidden'));
@@ -1454,7 +1454,7 @@ test('UI + Apps Script: High CAPEX creation saves the validated winner from manu
  }finally{h.dom.window.close();}
 });
 
-test('UI: Gemini reveals complete paragraphs progressively and shows cards only after Advance text finishes',async()=>{
+test('UI: Gemini reveals complete paragraphs progressively and shows scenario actions only after the text finishes',async()=>{
  for(const uiMode of ['ADVANCE','BASIC']){
   const h=await setup({remember:true,uiMode});try{
    await h.click('.open-case');await h.click('#toggle-gemini');
@@ -1463,10 +1463,10 @@ test('UI: Gemini reveals complete paragraphs progressively and shows cards only 
    const timers=[],original=h.w.setTimeout;h.w.ST_GEMINI_CHAT_PRESENTATION.paragraphDelayMs=5000;h.w.ST_GEMINI_CHAT_PRESENTATION.maxDurationMs=15000;
    h.w.setTimeout=(fn,ms,...args)=>ms===5000?(timers.push(fn),900001):original(fn,ms,...args);
    h.d.getElementById('gemini-question').value='¿Qué mejoras sugieres?';await h.click('#send-gemini');await waitFor(()=>timers.length===1);
-   const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.textContent,'Primer párrafo.\n\n');assert(h.d.getElementById('send-gemini').disabled);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
-   timers.shift()();assert.equal(body.textContent,'Primer párrafo.\n\nSegundo párrafo.\n\n');assert.equal(timers.length,1);assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);
+   const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.textContent,'Primer párrafo.\n\n');assert(h.d.getElementById('send-gemini').disabled);assert.equal(h.d.querySelector('#gemini-messages .gemini-scenario-create'),null);
+   timers.shift()();assert.equal(body.textContent,'Primer párrafo.\n\nSegundo párrafo.\n\n');assert.equal(timers.length,1);assert.equal(h.d.querySelector('#gemini-messages .gemini-scenario-create'),null);
    timers.shift()();assert.equal(body.textContent,answer);await waitFor(()=>!h.d.getElementById('send-gemini').disabled);assert.equal(h.d.getElementById('send-gemini').disabled,false);assert.equal(h.d.getElementById('gemini-messages').getAttribute('aria-busy'),'false');
-   assert.equal(!!h.d.querySelector('#gemini-messages .analysis-recommendation'),uiMode==='ADVANCE');assert.deepEqual(h.errors,[]);
+   assert(h.d.querySelector('#gemini-messages .gemini-scenario-create'));assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
 });
@@ -1901,10 +1901,10 @@ test('UI: DOE factors remain visible when disabled and can be enabled without un
   h.d.getElementById('settings-scenario-doe').checked=false;await h.click('#settings-cancel');assert.equal(h.w.STScenarioExplorer.doeEnabled(),false);assert.equal(panel.hidden,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
-test('UI: Gemini formats Markdown during paragraph reveal and preserves Advance scenario cards',async()=>{
+test('UI: Gemini formats Markdown during paragraph reveal and preserves simple scenario actions',async()=>{
  const h=await setup({remember:true});try{
   await h.click('.open-case');await h.click('#toggle-gemini');const sim=h.storedCases()[0].simulations[0],proposal=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply);
-  h.api.askGemini=()=>({text:'## Mejoras\n\n**Acumulación**: revisar bloqueo.\n\n- Validar con simulación\n- Comparar OEE',proposals:[proposal]});h.d.getElementById('gemini-question').value='Sugiere mejoras';await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled&&h.d.querySelector('#gemini-messages .analysis-recommendation'));
+  h.api.askGemini=()=>({text:'## Mejoras\n\n**Acumulación**: revisar bloqueo.\n\n- Validar con simulación\n- Comparar OEE',proposals:[proposal]});h.d.getElementById('gemini-question').value='Sugiere mejoras';await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled&&h.d.querySelector('#gemini-messages .gemini-scenario-create'));
   const body=h.d.querySelector('.gemini-message[data-role=model] .gemini-message-body');assert.equal(body.querySelector('h2').textContent,'Mejoras');assert.equal(body.querySelector('strong').textContent,'Acumulación');assert.equal(body.querySelectorAll('li').length,2);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2509,3 +2509,28 @@ for(const uiMode of ['BASIC','ADVANCE'])test('UI: fresh scenario search clears r
 });
 
 
+
+test('UI: chat exports the current transcript as TXT or JSON and clears export availability with history',async()=>{
+ const h=await setup({remember:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');
+  assert.equal(h.d.getElementById('export-gemini').getAttribute('aria-disabled'),'true');
+  h.api.askGemini=()=>({text:'Respuesta **clara**',proposals:[]});h.d.getElementById('gemini-question').value='Pregunta de prueba';await h.click('#send-gemini');await waitFor(()=>!h.d.getElementById('send-gemini').disabled);
+  let copied='',downloadName='',blob;Object.defineProperty(h.w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}},configurable:true});
+  h.w.URL.createObjectURL=value=>{blob=value;return 'blob:test';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){downloadName=this.download;};
+  await h.click('[data-chat-export=copy]');assert.match(copied,/You.*\nPregunta de prueba[\s\S]*Gemini.*\nRespuesta/);
+  await h.click('[data-chat-export=json]');assert.match(downloadName,/gemini-history-.*\.json$/);
+  const read=await new Promise(resolve=>{const reader=new h.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);});const data=JSON.parse(read);assert.equal(data.messages.length,2);assert(!read.includes('equipment'));assert(!read.includes('apiKey'));
+  await h.click('#clear-gemini');assert.equal(h.d.getElementById('export-gemini').getAttribute('aria-disabled'),'true');assert.equal(h.d.querySelectorAll('.gemini-message').length,0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI + Apps Script: Basic chat creates a validated CAPEX clone through a simple button',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');const source=h.storedCases()[0].simulations[0];
+  const proposal={...h.w.STScenarios.plan(source).projects.find(p=>p.canApply),title:'Chat CAPEX copy'};assert(proposal.changes.length);
+  h.api.askGemini=()=>({text:'Review the proposed input changes.',proposals:[proposal]});h.d.getElementById('gemini-question').value='Propose a CAPEX scenario';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-scenario-create')&&!h.d.querySelector('.gemini-scenario-create').disabled);
+  assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);assert(h.d.querySelector('.gemini-message[data-role=model] > .gemini-scenario-create'));
+  await h.click('.gemini-scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));assert.match(h.d.querySelector('.message-dialog').textContent,/→/);await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  const saved=h.storedCases()[0],clone=saved.simulations[1];assert.equal(clone.name,'Chat CAPEX copy');assert.equal(clone.clonedFromSimulationId,source.id);assert.equal(clone.results,null);assert.equal(clone.scenario.origin,'GEMINI');assert.deepEqual(saved.simulations[0].equipment,source.equipment);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

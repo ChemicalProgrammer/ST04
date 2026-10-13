@@ -2,7 +2,7 @@
 // EDITABLE CHAT PRESENTATION: visual reveal after the complete Apps Script response arrives.
 window.ST_GEMINI_CHAT_PRESENTATION = {enabled:true, paragraphDelayMs:80, maxDurationMs:900};
 window.STAssistant = function(state,actions) {
-  var panelAnimation=null,panelVisible=false;
+  var panelAnimation=null,panelVisible=false,creatingScenario=false;
   var opened=false,caseId=null,simulationId=null,messages=[],galleryMessages=[],pending=false,sequence=0,phase='idle',progressTimer=null,startedAt=0,responseTimer=null,revealTimer=null,progressHideTimer=null;
   function el(id){return document.getElementById(id);}
   function general(){return !state.activeCase||!el('gemini-scope').checked;}
@@ -52,7 +52,16 @@ window.STAssistant = function(state,actions) {
     editor.onsubmit=function(event){event.preventDefault();var question=text.value.trim();if(!question)return;editor.remove();el('gemini-scope').checked=(messages[questionIndex].scope||'CASE')==='CASE';submitQuestion(question,questionIndex);};
   }
   function attachments(m){
-    (basic()?[]:(m.proposals||[])).forEach(function(proposal){el('gemini-messages').appendChild(STWhatIf.card(proposal,actions.applyScenario,state.activeCase?.equipment,(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;})));});
+    if(m.role==='model'&&(m.scope||'CASE')==='CASE')(m.proposals||[]).filter(function(p){return p.canApply&&p.changes?.length;}).forEach(function(proposal){
+      var button=document.createElement('button');button.type='button';button.className='secondary gemini-scenario-create';
+      button.textContent='Create simulation · '+(STScenarioText[proposal.tier]||proposal.tier);button.title=proposal.title;button.setAttribute('aria-label','Create simulation: '+proposal.title);
+      button.onclick=async function(){
+        if(pending||state.saving||creatingScenario)return;
+        creatingScenario=true;sync();
+        try{await actions.applyScenario(proposal,button);}finally{creatingScenario=false;sync();}
+      };
+      m.node.append(button);
+    });
     if(m.context){var note=document.createElement('p');note.className='chart-note';note.textContent=__ST_TEXT__('assistant.compact_context')+' '+m.context.includedEquipment+'/'+m.context.totalEquipment+__ST_TEXT__('assistant.equipment_included')+(m.historyOmitted?__ST_TEXT__('assistant.history_omitted')+m.historyOmitted:'');el('gemini-messages').appendChild(note);}
   }
   function scrollMessages(){var host=el('gemini-messages');host.scrollTop=host.scrollHeight;}
@@ -110,7 +119,11 @@ window.STAssistant = function(state,actions) {
     el('gemini-scope').disabled=pending||!active;el('gemini-question').placeholder=general()?'Ask about using SimuLine or general concepts':'Ask about the current simulation';
     el('gemini-notice').textContent=!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):general()?'General questions do not send case data and do not require saving.':pending?__ST_TEXT__('assistant.gemini_is_analyzing_the_case'):!configured?__ST_TEXT__('assistant.add_your_gemini_api_key_in_settings_to_ask_questions'):state.isDirty?'Save changes before asking about this simulation, or uncheck Case context.':__ST_TEXT__('assistant.context_includes_this_saved_case_and_all_saved_simulation_results');
     el('send-gemini').disabled=pending||state.saving||!configured||!active&&!general();el('send-gemini').setAttribute('aria-busy',String(pending));
-    el('clear-gemini').disabled=pending||state.saving;
+    el('clear-gemini').disabled=pending||state.saving||creatingScenario;
+    el('send-gemini').disabled=el('send-gemini').disabled||creatingScenario;
+    el('gemini-messages').querySelectorAll('.gemini-scenario-create').forEach(function(button){button.disabled=pending||state.saving||creatingScenario;});
+    el('gemini-export-menu').querySelectorAll('button').forEach(function(button){button.disabled=pending||!messages.length;});
+    el('export-gemini').setAttribute('aria-disabled',String(pending||!messages.length));
     el('gemini-messages').querySelectorAll('.gemini-message-actions button').forEach(function(button){button.disabled=button.dataset.action==='edit'&&(pending||state.saving);});
   }
   function init(){
@@ -162,6 +175,14 @@ window.STAssistant = function(state,actions) {
     el('gemini-panel').addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();el('close-gemini').click();}});
     window.addEventListener('st:inspector',function(){sync();if(!drag)syncWidthMode();window.dispatchEvent(new Event('resize'));});
     el('clear-gemini').onclick=function(){stopReveal();sequence++;progress('idle');messages=[];render();persist(general());el('gemini-error').textContent='';sync();};
+    el('gemini-export-menu').querySelectorAll('[data-chat-export]').forEach(function(button){button.onclick=async function(){
+      if(pending||!messages.length)return;
+      var snapshot=STReports.chatHistory(messages);el('gemini-export-menu').open=false;
+      try{if(button.dataset.chatExport==='copy')await copyMessage({text:STReports.chatText(snapshot)},el('export-gemini'));else STReports.exportChat(snapshot,button.dataset.chatExport);}
+      catch(error){el('gemini-error').textContent='Could not export chat history: '+error.message;STErrors.capture('gemini-error',error);}
+    };});
+    el('export-gemini').addEventListener('click',function(event){if(pending||!messages.length)event.preventDefault();});
+    el('gemini-export-menu').addEventListener('keydown',function(event){if(event.key==='Escape'&&this.open){event.stopPropagation();this.open=false;el('export-gemini').focus();}});
     el('gemini-scope').onchange=sync;
     el('gemini-form').onsubmit=function(e){e.preventDefault();submitQuestion(el('gemini-question').value.trim());};
   }
@@ -180,7 +201,7 @@ window.STAssistant = function(state,actions) {
         if(ticket!==sequence)return;
         clearTimeout(responseTimer);responseTimer=null;sequence++;
         if(!response||typeof response.ok!=='boolean'||response.ok&&typeof response.data?.text!=='string')response={ok:false,error:{code:'GEMINI_BAD_RESPONSE',message:'The server returned an incomplete answer. Try again.'}};
-        if(response.ok){var answer={role:'model',scope:scope,text:response.data.text,createdAt:new Date().toISOString(),proposals:basic()||scope==='GENERAL'?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);persist(scope==='GENERAL');reveal(answer);return;}
+        if(response.ok){var answer={role:'model',scope:scope,text:response.data.text,createdAt:new Date().toISOString(),proposals:scope==='GENERAL'?[]:response.data.proposals||[],context:response.data.context,historyOmitted:response.data.historyOmitted};messages.push(answer);persist(scope==='GENERAL');reveal(answer);return;}
         pending=false;progress('error');
         messages=previousMessages;el('gemini-question').value=question;el('gemini-error').textContent=(response.error?.message||'Gemini could not complete this request. Try again.')+(response.error?.code?' ['+response.error.code+']':'');STErrors.capture('gemini-error',response.error);
         render();sync();

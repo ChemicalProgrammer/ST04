@@ -68,4 +68,9 @@ html:is([data-ui-mode=advance],[data-ui-mode=basic]) .assistant-resizing .worksp
 @media(min-width:1101px) {
  html:is([data-ui-mode=advance],[data-ui-mode=basic]) .assistant-open .workspace-content { padding-right:calc(var(--page-padding) + var(--assistant-width)); }
 }
+.gemini-actions { align-items:center; justify-content:flex-start; gap:var(--space-2); }
+.gemini-actions #send-gemini { margin-left:auto; }
+.gemini-actions .export-menu { margin:0; }
+.gemini-actions .export-menu > div { bottom:calc(100% + var(--space-2)); left:0; right:auto; }
+.gemini-scenario-create { margin-top:var(--space-2); max-width:100%; white-space:normal; }
 </style>

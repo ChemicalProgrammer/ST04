@@ -69,13 +69,13 @@ test('Gemini server errors recommend retrying without blaming the saved key',()=
  }
 });
 
-test('Basic Gemini requests descriptive improvements and returns no actionable scenarios',()=>{
+test('Basic Gemini returns validated proposals for simple scenario actions',()=>{
  const fixture=setup(),project=fixture.ctx.STScenarioEngine_.plan(fixture.record.simulations[0]).projects.find(p=>p.canApply);
  const h=setup({answer:JSON.stringify({text:'Consider increasing accumulation coverage.',proposals:[{...project,title:'Study'}]})});
  h.ctx.getInterfaceMode_=()=> 'BASIC';
  const result=h.ctx.askGemini_(request,user);
- assert.equal(result.proposals.length,0);assert.match(result.text,/accumulation coverage/);
- assert.match(JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+ assert.equal(result.proposals.length,1);assert.match(result.text,/accumulation coverage/);
+ assert.match(JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text,/simple Create simulation button/);
 });
 test('Gemini rounded before values bind to exact saved inputs and survive the create RPC round trip',()=>{
  const fixture=setup(),source=fixture.record.simulations[0],project=fixture.ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);
@@ -98,11 +98,11 @@ test('Gemini honors the requested browser mode independently of the deployment d
  const fixture=setup(),project=fixture.ctx.STScenarioEngine_.plan(fixture.record.simulations[0]).projects.find(p=>p.canApply);
  const answer=JSON.stringify({text:'Supported improvements.',proposals:[{...project,title:'Test conveyor changes',description:'Supported physical changes'}]});
  const basic=setup({answer});basic.ctx.getInterfaceMode_=()=> 'ADVANCE';
- assert.equal(basic.ctx.askGemini_({...request,uiMode:'BASIC'},user).proposals.length,0);
- assert.match(JSON.parse(basic.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+ assert.equal(basic.ctx.askGemini_({...request,uiMode:'BASIC'},user).proposals.length,1);
+ assert.match(JSON.parse(basic.calls[0].options.payload).systemInstruction.parts[0].text,/simple Create simulation button/);
  const advance=setup({answer});advance.ctx.getInterfaceMode_=()=> 'BASIC';
  assert.equal(advance.ctx.askGemini_({...request,uiMode:'ADVANCE'},user).proposals.length,1);
- assert.doesNotMatch(JSON.parse(advance.calls[0].options.payload).systemInstruction.parts[0].text,/plain text only/);
+ assert.match(JSON.parse(advance.calls[0].options.payload).systemInstruction.parts[0].text,/simple Create simulation button/);
 });
 
 test('Gemini external reliability proposals preserve intervention evidence',()=>{
@@ -144,7 +144,7 @@ test('Gemini prompt sections are independently editable and selected by interfac
   h.ctx.askGemini_({...request,uiMode:mode,question:'¿Cómo puedo mejorar la línea?'},user);
   const policy=JSON.parse(h.calls[0].options.payload).systemInstruction.parts[0].text;
   assert(policy.includes('CUSTOM_PERSONALITY'));assert(policy.includes('CUSTOM_LANGUAGE'));assert(policy.includes('Preserve seed and baseline'));
-  assert.equal(policy.includes('ADVANCE_CARDS'),mode==='ADVANCE');assert.equal(policy.includes('BASIC_TEXT'),mode==='BASIC');assert.equal(policy.includes('JSON_FORMAT'),mode==='ADVANCE');
+  assert.equal(policy.includes('ADVANCE_CARDS'),mode==='ADVANCE');assert.equal(policy.includes('BASIC_TEXT'),mode==='BASIC');assert(policy.includes('JSON_FORMAT'));
  }
 });
 test('Gemini language instructions cover readable scenario fields while preserving schema identifiers',()=>{
@@ -208,7 +208,7 @@ test('Gemini account prompts keep disabled text, use source defaults and respect
   assert(policy.includes('PERSONAL_ACCOUNT_TONE'));
   if(uiMode==='ADVANCE'){for(const text of ['ZERO_ACCOUNT_CRITERIA','HIGH_SOURCE_DEFAULT'])assert(policy.includes(text));}else{assert(policy.includes(h.ctx.ST_GEMINI_BASIC_CAPEX_POLICY));assert(!policy.includes('ZERO_ACCOUNT_CRITERIA'));}
   for(const text of ['RETAINED_MEDIUM_CRITERIA','RETAINED_ENGINEERING','RETAINED_BASIC'])assert(!policy.includes(text));
-  if(uiMode==='BASIC')assert(policy.includes('Basic returns explanation text only'));
+  if(uiMode==='BASIC')assert(policy.includes('In both interfaces, a requested CAPEX scenario'));
  }
  const other=setup();assert(!other.ctx.geminiPolicy_(false).includes('PERSONAL_ACCOUNT_TONE'));
  h.ctx.saveGeminiPrompts_({});assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getGeminiPrompts_())),{});assert(h.ctx.geminiPolicy_(false).includes(h.ctx.ST_GEMINI_PERSONALITY));

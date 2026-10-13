@@ -40,3 +40,20 @@ test('changed inputs exclude runtime outputs and provenance while retaining prec
  }finally{h.dom.window.close();}}
 });
 
+
+test('editable input comparison ignores derived conveyor values and consolidates aliases',()=>{
+ const h=setup(true);try{
+  const belt={id:'belt',name:'Conveyor',type:'CONVEYOR',nominalRatePerSecond:10,processData:{geometry:{lactMm:10000,lpPrimeMm:500},upstream:{packageLengthMm:50},accumulation:{speedMode:'AUTO',conveyorSpeedFactorPercent:20,conveyorSpeedMmPerSecond:500,usableLengthMm:8000,inputValues:{populationPercent:30}},speedAndSensors:{conveyorSpeedFactorVsDischargeVelocityPercent:20}},characteristics:{sourceSheetRow:10}};
+  h.a.equipment=[structuredClone(belt)];h.b.equipment=[structuredClone(belt)];const b=h.b.equipment[0];
+  b.nominalRatePerSecond=20;b.processData.accumulation.conveyorSpeedMmPerSecond=1000;b.processData.accumulation.usableLengthMm=6000;b.processData.accumulation.inputValues.populationPercent=40;b.characteristics.sourceSheetRow=99;
+  assert.equal(h.w.STInputComparison.changes(h.a,h.b).rows.length,0);
+  b.processData.accumulation.conveyorSpeedFactorPercent=25;b.processData.speedAndSensors.conveyorSpeedFactorVsDischargeVelocityPercent=25;
+  let rows=h.w.STInputComparison.changes(h.a,h.b).rows;assert.equal(rows.length,1);assert.equal(rows[0][1],'Discharge factor (%)');assert.equal(rows[0][2],'20');assert.equal(rows[0][3],'25');
+  h.a.equipment[0].processData.accumulation.speedMode=b.processData.accumulation.speedMode='MANUAL';
+  rows=h.w.STInputComparison.changes(h.a,h.b).rows;assert(rows.some(r=>r[1]==='Belt speed (m/min)'&&r[2]==='30'&&r[3]==='60'));
+  h.a.equipment[0].processData.accumulation.targetPopulationPercent=b.processData.accumulation.targetPopulationPercent=50;
+  h.a.equipment[0].processData.accumulation.manualLbaMm=b.processData.accumulation.manualLbaMm=1000;
+  b.processData.accumulation.backupSensorPositionMm=4000;b.processData.accumulation.movingGapMm=20;
+  rows=h.w.STInputComparison.changes(h.a,h.b).rows;assert.equal(rows.length,1);assert.equal(rows[0][1],'Discharge factor (%)');
+ }finally{h.dom.window.close();}
+});

@@ -1,4 +1,55 @@
 <script>
+window.STInputComparison=(function(){
+  function inputs(e){
+    if(!e)return {};
+    var p=e.processData||{},a=p.accumulation||{},g=p.geometry||{},u=p.upstream||{},d=p.downstream||{},s=p.speedAndSensors||{},r=e.noiseProfile?.reliability||{},values={};
+    function add(label,value,scale){if(value!==undefined&&value!==null)values[label]=typeof value==='number'&&scale?value*scale:value;}
+    add('Name',e.name);add('Type',e.type);add('Initial mode',e.initialMode||'AUTO');
+    add('MTBF (min)',r.mtbfMinutes??p.equipment?.mtbfMinutes);add('MTTR (min)',r.mttrMinutes??p.equipment?.mttrMinutes);
+    if(e.type!=='CONVEYOR'){
+      add('Speed (BPM)',e.nominalRatePerSecond,60);add('Maximum speed (BPM)',p.equipment?.maximumSpeedBpm);
+      add('Critical machine',e.characteristics?.isPacemaker??e.characteristics?.criticalMachine??(e.type==='PACEMAKER'||p.role==='CRITICAL_MACHINE'));
+      add('Startup delay (s)',e.startupDelaySeconds??u.startupTimeSeconds);add('Acceleration ramp (s)',e.restartRampUpSeconds??d.rampUpTimeSeconds);add('Infeed pitch (mm)',d.infeedPitchMm);
+    }else{
+      add('Total length (mm)',g.lactMm);add('Prime zone (mm)',g.lpPrimeMm);
+      add('Discharge actual (mm)',g.actualDischargeMm??a.dischargeRunoutLengthMm);add('Coding actual (mm)',g.actualCodingMm??a.rejectRunoutLengthMm);
+      add('Package length (mm)',u.packageLengthMm);add('Discharge pitch (mm)',u.dischargePitchMm);add('Startup time (s)',u.startupTimeSeconds);
+      add('Bottles at stop',a.bottlesDischargedAtStop??u.bottlesDischargedAtStop);add('Infeed pitch (mm)',d.infeedPitchMm);add('Ramp up time (s)',a.downstreamRampUpSeconds??d.rampUpTimeSeconds);
+      add('Target Population (%)',a.targetPopulationPercent??'Automatic');add('Target overspeed (%)',a.targetOverspeedPercent??'Automatic');add('Manual LBA (mm)',a.manualLbaMm??'Automatic');
+      var target=a.targetPopulationPercent!=null||a.targetOverspeedPercent!=null,manual=!target&&a.speedMode==='MANUAL';
+      add('Speed control',target?'Target':a.speedMode||'AUTO');if(manual)add('Belt speed (m/min)',a.conveyorSpeedMmPerSecond,.06);
+      if(!target)add('Moving gap (mm)',a.movingGapMm);
+      add('Accumulated gap (mm)',a.accumulatedGapMm);
+      if(a.manualLbaMm==null)add('Back-up position (mm)',a.backupSensorPositionMm);
+      add('Discharge factor (%)',a.conveyorSpeedFactorPercent??s.conveyorSpeedFactorVsDischargeVelocityPercent);
+      add('Coding factor (%)',s.codingConveyorSpeedFactorVsPreviousConveyorPercent);add('Acc zone factor (%)',s.conveyorSpeedFactorVsPreviousConveyorPercent);
+      add('Back-up block delay (s)',a.blockedTimeDelaySeconds??s.blockedTimeDelaySeconds);add('Back-up clear delay (s)',a.clearTimeDelaySeconds??s.clearTimeDelaySeconds);
+      add('Insurance factor (pkgs)',a.insuranceFactorUnits??s.insuranceFactorUnits);add('Stop response (s)',a.upstreamStopResponseSeconds);
+    }
+    var micro=e.noiseProfile?.microStop||{};
+    add('Microstop frequency (/min)',micro.probabilityPerMinute);add('Minimum microstop (s)',micro.minDurationSeconds);add('Maximum microstop (s)',micro.maxDurationSeconds);
+    return values;
+  }
+  function display(value){return value==null?'—':typeof value==='boolean'?(value?'Yes':'No'):typeof value==='number'?Number(value.toFixed(6)).toLocaleString('en-US',{maximumFractionDigits:6}):String(value);}
+  function changes(left,right){
+    var before=new Map((left.equipment||[]).map(function(e){return [e.id,e];})),after=new Map((right.equipment||[]).map(function(e){return [e.id,e];})),rows=[],affected=new Set();
+    new Set([...before.keys(),...after.keys()]).forEach(function(id){
+      var a=before.get(id),b=after.get(id),name=a?.name||b?.name||id;
+      if(!a||!b){rows.push([name,a?'Removed equipment':'Added equipment',a?.type||'—',b?.type||'—']);affected.add(id);return;}
+      var x=inputs(a),y=inputs(b);new Set([...Object.keys(x),...Object.keys(y)]).forEach(function(key){
+        if((x[key]??null)!==(y[key]??null)){rows.push([name,key,display(x[key]),display(y[key])]);affected.add(id);}
+      });
+    });return {rows:rows,affected:affected.size};
+  }
+  function run(config){
+    config=config||{};var values={};
+    [['engineId','Engine'],['durationMode','Duration mode'],['durationSeconds','Duration / ceiling (s)'],['rounds','Rounds'],['seed','Seed'],['sampleEverySeconds','Display interval (s)'],['shiftHours','Hours per shift'],['shiftCount','Shifts']].forEach(function(spec){if(config[spec[0]]!=null)values[spec[1]]=config[spec[0]];});
+    if(config.commands?.length)values['Scheduled controls']=JSON.stringify(config.commands);
+    return values;
+  }
+  return {inputs:inputs,changes:changes,run:run,display:display};
+})();
+
 window.STComparison=function(state,isFiniteNumber){
     function renderCaseComparison() {
       var a = (state.activeCase.simulations || []).find(function(sim) { return sim.id === document.getElementById('case-compare-a').value; });
@@ -10,54 +61,37 @@ window.STComparison=function(state,isFiniteNumber){
       STResults.compareEquipmentOee(target,a,b);
       appendComparisonContext(target, a, b);
       var basic=Boolean(window.STBasicMode?.isBasic());
-      if(basic){appendChangedInputs(target,a,b,true);return;}
+      appendChangedInputs(target,a,b);
+      appendComparisonSection(target,__ST_TEXT__('comparison.simulation_configuration'),STInputComparison.run(a.dynamicConfig),STInputComparison.run(b.dynamicConfig));
+      if(basic)return;
+      var details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Additional result details';details.className='comparison-result-details';details.appendChild(summary);target.appendChild(details);target=details;
       if(a.results?.batch||b.results?.batch){
         var note=document.createElement('p');note.className='notice';note.textContent=__ST_TEXT__('batch.compare_note');target.appendChild(note);
         appendComparisonSection(target,__ST_TEXT__('batch.title'),a.results?.batch?.statistics||{},b.results?.batch?.statistics||{});
         appendComparisonSection(target,__ST_TEXT__('batch.rounds'),{rounds:a.results?.batch?.rounds||1,seeds:a.results?.batch?.rows.map(function(r){return r.seed;})||[a.results?.seed]},{rounds:b.results?.batch?.rounds||1,seeds:b.results?.batch?.rows.map(function(r){return r.seed;})||[b.results?.seed]});
       }
-      appendChangedInputs(target,a,b);
-      appendComparisonSection(target, __ST_TEXT__('comparison.scenario_provenance'), a.scenario || {}, b.scenario || {});
-      appendComparisonSection(target, __ST_TEXT__('comparison.simulation_configuration'), a.dynamicConfig || {}, b.dynamicConfig || {});
+
       appendComparisonSection(target, __ST_TEXT__('comparison.simulation_results'), a.results?.summary || {}, b.results?.summary || {});
       appendComparisonSection(target, __ST_TEXT__('comparison.saved_result_metadata'), comparisonResultMetadata(a.results), comparisonResultMetadata(b.results));
-      var byIdA = Object.fromEntries((a.equipment || []).map(function(item) { return [item.id, item]; }));
-      var byIdB = Object.fromEntries((b.equipment || []).map(function(item) { return [item.id, item]; }));
       var equipmentIds = (a.equipment || []).map(function(item) { return item.id; });
       (b.equipment || []).forEach(function(item) { if (equipmentIds.indexOf(item.id) === -1) equipmentIds.push(item.id); });
       var metricA = a.results?.equipmentMetrics || {};
       var metricB = b.results?.equipmentMetrics || {};
       equipmentIds.forEach(function(equipmentId) {
-        appendComparisonSection(target, __ST_TEXT__('comparison.equipment') + equipmentId, byIdA[equipmentId] || {}, byIdB[equipmentId] || {});
         appendComparisonSection(target, __ST_TEXT__('comparison.simulation_metrics') + equipmentId, metricA[equipmentId] || {}, metricB[equipmentId] || {});
       });
     }
 
-    function appendChangedInputs(target,a,b,basic) {
-      var changes=[],affected=new Set();
-      var right=Object.fromEntries((b.equipment||[]).map(function(e){return [e.id,e];}));
-      (a.equipment||[]).forEach(function(e){
-        if(!right[e.id]){changes.push([e.name||e.id,'Removed equipment',e.type,'—']);affected.add(e.id);return;}
-        var l=flattenComparisonValues(equipmentInputs(e)),r=flattenComparisonValues(equipmentInputs(right[e.id]));
-        Array.from(new Set(Object.keys(l).concat(Object.keys(r)))).forEach(function(key){
-          if(JSON.stringify(l[key])!==JSON.stringify(r[key])){var info=basic?STWhatIf.changeInfo({equipmentId:e.id,path:key,before:l[key],after:r[key]},a.equipment):null;changes.push(info?[info.equipment,info.parameter,info.before,info.after]:[e.name||e.id,key,formatComparisonValue(l[key]),formatComparisonValue(r[key])]);affected.add(e.id);}
-        });
-      });
-      (b.equipment||[]).filter(function(e){return !(a.equipment||[]).some(function(x){return x.id===e.id;});}).forEach(function(e){changes.push([e.name||e.id,__ST_TEXT__('comparison.added_equipment'),'—',e.type]);affected.add(e.id);});
+    function appendChangedInputs(target,a,b) {
+      var comparison=STInputComparison.changes(a,b),changes=comparison.rows;
       var section=document.createElement('section');section.className='comparison-section';
-      var title=document.createElement('h3');title.textContent=__ST_TEXT__('comparison.changed_inputs')+changes.length+__ST_TEXT__('comparison.changes')+affected.size+__ST_TEXT__('comparison.equipment_affected');section.appendChild(title);
+      var title=document.createElement('h3');title.textContent=__ST_TEXT__('comparison.changed_inputs')+changes.length+__ST_TEXT__('comparison.changes')+comparison.affected+__ST_TEXT__('comparison.equipment_affected');section.appendChild(title);
       if(!changes.length){var message=document.createElement('p');message.className='chart-note';message.textContent=__ST_TEXT__('comparison.no_equipment_input_differences_run_settings_are_listed_below');section.appendChild(message);}
       else {
         var scroll=document.createElement('div');scroll.className='table-scroll';var table=document.createElement('table');table.innerHTML='<thead><tr><th>Equipment</th><th>Parameter</th><th>Baseline</th><th>Proposed</th></tr></thead><tbody></tbody>';
         changes.forEach(function(change){var tr=document.createElement('tr');change.forEach(function(v){var td=document.createElement('td');td.textContent=v;tr.appendChild(td);});table.querySelector('tbody').appendChild(tr);});scroll.appendChild(table);section.appendChild(scroll);
       }
       target.appendChild(section);
-    }
-    function equipmentInputs(e) {
-      // Saved configuration only; runtime state, calculated metrics and provenance are excluded.
-      var inputs={};
-      ['name','type','unitOfFlow','nominalRatePerSecond','initialMode','characteristics','noiseProfile','processData'].forEach(function(key){if(e[key]!==undefined)inputs[key]=e[key];});
-      return inputs;
     }
     function appendComparisonContext(target, left, right) {
       var context = document.createElement('section');
@@ -127,7 +161,7 @@ window.STComparison=function(state,isFiniteNumber){
       return result;
     }
 
-    function formatComparisonValue(value) { return value === undefined || value === null || value === '' ? '—' : Array.isArray(value) ? JSON.stringify(value) : String(value); }
+    function formatComparisonValue(value) { return value === undefined || value === null || value === '' ? '—' : Array.isArray(value) ? JSON.stringify(value) : STInputComparison.display(value); }
 
 
 return {render:renderCaseComparison};

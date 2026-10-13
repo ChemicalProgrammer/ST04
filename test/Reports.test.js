@@ -6,7 +6,7 @@ const read=f=>fs.readFileSync('apps-script/'+f,'utf8');
 function setup(){
  const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+read('ReportComparisonTemplate.html')+['export-results-pdf','export-whatif-json','export-whatif-pdf','export-comparison-json','export-comparison-html','export-comparison-pdf'].map(id=>'<button id="'+id+'"></button>').join(''),{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  w.eval(read('TextResources.gs'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
- for(const file of ['SimulationEngine.html','WhatIf.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
+ for(const file of ['SimulationEngine.html','WhatIf.html','Comparison.html','Markdown.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
  w.eval(read('DemoCaseFactory.gs'));const c=w.createDemoCaseRequest_();c.name='Synthetic line';
  const sim={id:'a',name:'Simulation A',equipment:c.equipment,dynamicConfig:{seed:17,commands:[]}};
  const result={seed:17,durationSeconds:60,unitOfFlow:'bottles',summary:{outputCount:120,lineOeePercent:80},equipmentMetrics:{},samples:[{privateRaw:'raw-not-for-export'}],events:[{privateEvent:'events-not-for-export'}]};
@@ -77,7 +77,7 @@ test('comparison export includes both selected runs and all replication summarie
   assert.equal(data.schema,'st-comparison-v1');assert.equal(data.comparability,'PAIRED_INPUTS');assert.equal(data.baseline.results.batch.rows.length,2);assert.equal(data.proposed.results.batch.statistics.outputCount.mean,142);
   assert.equal(data.proposed.equipment[0].nominalRatePerSecond,99);assert(!json.includes('replay-only'));assert(!json.includes('privateEvent'));assert(!json.includes('Other'));
   const html=h.w.STReports.comparisonHtml(data),doc=new JSDOM(html);
-  assert.equal(doc.window.document.querySelectorAll('script').length,0);assert(doc.window.document.body.textContent.includes(right.name));assert(doc.window.document.body.textContent.includes('nominalRatePerSecond'));
+  assert.equal(doc.window.document.querySelectorAll('script').length,0);assert(doc.window.document.body.textContent.includes(right.name));assert(doc.window.document.body.textContent.includes('Speed (BPM)'));
   assert(doc.window.document.body.textContent.includes('142'));assert(html.includes('@page'));doc.window.close();
   h.w.STReports.bindComparison(h.c,left,left);assert(h.w.document.getElementById('export-comparison-json').disabled);
   h.w.STReports.bindComparison(h.c,left,right);assert(!h.w.document.getElementById('export-comparison-json').disabled);
@@ -144,3 +144,14 @@ test('Basic What-If and comparison documents omit technical checks, raw configur
 });
 
 
+
+test('chat exports contain only conversation messages and safely render the PDF transcript',()=>{
+ const h=setup();try{
+  const messages=[{role:'user',text:'Pregunta ágil <script>unsafe</script>',createdAt:'2026-10-13T06:00:00Z',scope:'GENERAL',apiKey:'PRIVATE_KEY'}, {role:'model',text:'**Respuesta**\n\n- Un cambio\n- Otra opción',scope:'CASE',context:{secret:'CASE_CONTEXT'},proposals:[{sourceSignature:'FULL_INPUTS'}]}];
+  const data=h.w.STReports.chatHistory(messages),json=JSON.stringify(data),text=h.w.STReports.chatText(data);
+  assert.equal(data.messages.length,2);assert(!/PRIVATE_KEY|CASE_CONTEXT|FULL_INPUTS/.test(json));assert(text.indexOf('You')<text.indexOf('Gemini'));assert(text.includes('Pregunta ágil'));assert(text.includes('Otra opción'));
+  const doc=new JSDOM(h.w.STReports.chatHtml(data));assert.equal(doc.window.document.querySelectorAll('article').length,2);assert.equal(doc.window.document.querySelectorAll('script').length,0);assert(doc.window.document.body.textContent.includes('<script>unsafe</script>'));assert.equal(doc.window.document.querySelector('strong').textContent,'Respuesta');doc.window.close();
+  let written='',printed=false;h.w.open=()=>({document:{open(){},write(html){written=html;},close(){}},focus(){},setTimeout(fn){fn();},print(){printed=true;}});
+  h.w.STReports.exportChat(data,'pdf');assert(printed);assert(written.includes('Gemini chat history'));assert(!written.includes('FULL_INPUTS'));
+ }finally{h.dom.window.close();}
+});

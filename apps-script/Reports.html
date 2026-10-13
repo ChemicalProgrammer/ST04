@@ -156,22 +156,19 @@ window.STReports=(function(){
     var equipment=ids.map(function(id){
       var left=a.equipment.find(e=>e.id===id),right=b.equipment.find(e=>e.id===id);
       var zonesA=Object.values(a.results?.accumulationZoneMetrics||{}).filter(z=>z.ownerEquipmentId===id),zonesB=Object.values(b.results?.accumulationZoneMetrics||{}).filter(z=>z.ownerEquipmentId===id);
-      return '<section><h3>'+escape(left?.name||right?.name||id)+' · '+escape(id)+'</h3>'+diff({inputs:left||{},metrics:a.results?.equipmentMetrics?.[id]||{},accumulation:zonesA},{inputs:right||{},metrics:b.results?.equipmentMetrics?.[id]||{},accumulation:zonesB})+'</section>';
+      return '<section><h3>'+escape(left?.name||right?.name||id)+' · '+escape(id)+'</h3>'+diff({metrics:a.results?.equipmentMetrics?.[id]||{},accumulation:zonesA},{metrics:b.results?.equipmentMetrics?.[id]||{},accumulation:zonesB})+'</section>';
     }).join('');
-    var changed=[];
-    ids.forEach(function(id){var left=a.equipment.find(e=>e.id===id),right=b.equipment.find(e=>e.id===id),before=flat(left||{}),after=flat(right||{});
-      Array.from(new Set(Object.keys(before).concat(Object.keys(after)))).sort().forEach(function(key){if(JSON.stringify(before[key])!==JSON.stringify(after[key]))changed.push([left?.name||right?.name||id,key,value(before[key]),value(after[key])]);});
-    });
+    var changed=STInputComparison.changes(a,b).rows;
     var slots={context:escape(data.case.name)+' · '+escape(a.name)+' vs. '+escape(b.name),basis:escape(data.comparability),
       'overview-title':escape(__ST_TEXT__('results.outcome_comparison')),overview:diff(a.results?.summary||{},b.results?.summary||{}),
       'inputs-title':escape(__ST_TEXT__('comparison.changed_inputs')),inputs:changed.length?table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('view.baseline'),__ST_TEXT__('results.proposed')],changed):'<p>'+escape(__ST_TEXT__('comparison.no_equipment_input_differences_run_settings_are_listed_below'))+'</p>',
       'equipment-title':escape(__ST_TEXT__('view.equipment_comparison')),equipment:equipment,
       'batch-title':escape(__ST_TEXT__('batch.title')),batch:diff(a.results?.batch?{rounds:a.results.batch.rounds,statistics:a.results.batch.statistics,seeds:a.results.batch.rows?.map(r=>r.seed)}:{},b.results?.batch?{rounds:b.results.batch.rounds,statistics:b.results.batch.statistics,seeds:b.results.batch.rows?.map(r=>r.seed)}:{}),
-      'configuration-title':escape(__ST_TEXT__('comparison.simulation_configuration')),configuration:diff({dynamicConfig:a.dynamicConfig,engineConfig:a.engineConfig,scenario:a.scenario},{dynamicConfig:b.dynamicConfig,engineConfig:b.engineConfig,scenario:b.scenario}),limitations:escape(data.limitations.join(' '))};
+      'configuration-title':escape(__ST_TEXT__('comparison.simulation_configuration')),configuration:diff(STInputComparison.run(a.dynamicConfig),STInputComparison.run(b.dynamicConfig)),limitations:escape(data.limitations.join(' '))};
     if(basic()){
       function overview(sim){var result=sim.results;if(!result?.summary)return {};var stats=result.batch?.statistics,mean=function(key,fallback){return Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback;};return {'Efficiency (%)':mean('lineOeePercent',result.summary.lineOeePercent),'Throughput (/min)':mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),'Production':mean('outputCount',result.summary.outputCount)};}
       slots.overview=diff(overview(a),overview(b));slots.batch='';slots.equipment='';
-      slots.configuration=diff({durationSeconds:a.dynamicConfig.durationSeconds,rounds:a.dynamicConfig.rounds||1},{durationSeconds:b.dynamicConfig.durationSeconds,rounds:b.dynamicConfig.rounds||1});
+      slots.configuration=diff(STInputComparison.run(a.dynamicConfig),STInputComparison.run(b.dynamicConfig));
     }
     return documentHtml(__ST_TEXT__('exports.comparison_report'),slots,'comparison');
   }
@@ -217,9 +214,27 @@ window.STReports=(function(){
     bind('export-setup-html',true,function(){download(configurationHtml(read()),'line-configuration.html','text/html');});
     bind('export-setup-pdf',true,function(){pdf(configurationHtml(read()));});
   }
+  function chatHistory(messages){
+    return {schema:'simuline-chat-history-v1',exportedAt:new Date().toISOString(),messages:(messages||[]).filter(function(m){return ['user','model'].includes(m.role)&&typeof m.text==='string';}).map(function(m){return {role:m.role,text:m.text,createdAt:typeof m.createdAt==='string'?m.createdAt:null,scope:m.scope==='GENERAL'?'GENERAL':'CASE'};})};
+  }
+  function chatText(data){return data.messages.map(function(m){return (m.role==='user'?'You':'Gemini')+(m.createdAt?' · '+m.createdAt:'')+'\n'+m.text;}).join('\n\n────────────────────\n\n');}
+  function chatHtml(data){
+    var content=data.messages.map(function(m){var body=document.createElement('div');if(m.role==='model')STMarkdown.render(m.text,body);else{body.className='user-message';body.textContent=m.text;}
+      return '<article><h2>'+escape(m.role==='user'?'You':'Gemini')+'</h2>'+(m.createdAt?'<p class="date">'+escape(m.createdAt)+'</p>':'')+body.outerHTML+'</article>';
+    }).join('');
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Gemini chat history</title><style>@page{margin:18mm}body{font:14px/1.55 system-ui,sans-serif;color:#242a35;max-width:850px;margin:24px auto;padding:0 16px}h1{font-size:24px}article{border-top:1px solid #ddd;margin-top:24px;padding-top:16px;overflow-wrap:anywhere}h2{font-size:16px;margin:0}article h1,article h3,article h4{font-size:16px}.date{color:#606b7a;font-size:12px}pre,.user-message{white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px}img{max-width:100%}h2,h3{break-after:avoid}@media print{body{margin:0;padding:0;max-width:none}a{color:inherit}}</style></head><body><h1>Gemini chat history</h1>'+content+'</body></html>';
+  }
+  function exportChat(data,format){
+    if(!data.messages.length)return;
+    var filename='gemini-history-'+data.exportedAt.slice(0,10);
+    if(format==='pdf')pdf(chatHtml(data));
+    else if(format==='json')download(JSON.stringify(data,null,2),filename+'.json','application/json');
+    else if(format==='txt')download(chatText(data),filename+'.txt','text/plain;charset=utf-8');
+    else throw Error('Unsupported chat export format.');
+  }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
 
