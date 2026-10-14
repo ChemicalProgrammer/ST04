@@ -245,7 +245,7 @@
       var caseId=state.activeCase?.id,simulationId=state.activeSimulationId;
       if(button)button.disabled=true;
       try{
-        await flushCase();
+        await prepareCaseDraft();
         var source=activePersistentSimulation();
         if(origin==='LOCAL'&&source?.id===simulationId&&proposal.sourceSignature!==STScenarios.signature(source)){
           var refreshed=STScenarios.plan(source).candidates.find(function(candidate){
@@ -275,31 +275,22 @@
           (source.whatIf?.evaluations||[]).filter(function(entry){return entry.sourceSignature===proposal.sourceSignature&&JSON.stringify(entry.evaluatedChanges)===JSON.stringify(proposal.changes)&&entry.warnings?.length;}).forEach(function(entry){entry.engineeringReviewAcknowledged=true;});
           window.dispatchEvent(new CustomEvent('st-whatif-change',{detail:{simulation:source}}));
         }
-        await flushCase(true);
+        await prepareCaseDraft();
         source=activePersistentSimulation();
         if(state.activeCase?.id!==caseId||source?.id!==simulationId||proposal.sourceSignature!==STScenarios.signature(source)){
           if(origin==='LOCAL')renderSimulationAnalysis();
           throw new Error(__ST_TEXT__('scenario.stale'));
         }
-        // Local candidates are re-planned under the server write lock. Gemini
-        // proposals keep their additional saved-source fingerprint check.
-        var expectedRevision=state.activeCase.revision;
-        var verified={revision:expectedRevision,simulationId:simulationId,signature:STScenarios.signature(source)};
-        if(origin==='GEMINI'||origin==='REVIEWED')verified=await new Promise(function(resolve,reject){
-          callServer('getScenarioSourceSignature',[{caseId:caseId,simulationId:simulationId,expectedRevision:expectedRevision}],function(response){
-            response.ok?resolve(response.data):reject(Object.assign(new Error(response.error.message),{code:response.error.code}));
-          });
-        });
-        if(state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId||state.activeCase.revision!==expectedRevision||
-            verified.revision!==expectedRevision||verified.simulationId!==simulationId||!verified.signature||verified.signature!==proposal.sourceSignature){
-          if(origin==='LOCAL')renderSimulationAnalysis();
-          throw new Error(__ST_TEXT__('scenario.stale'));
-        }
-        var payload={caseId:caseId,simulationId:simulationId,expectedRevision:expectedRevision,sourceSignature:verified.signature,origin:origin,proposal:Object.assign({},proposal,{title:proposal.title||STScenarioText[proposal.titleKey]})};
+        // Validate the current draft on Apps Script without saving or rereading Drive.
+        var sourceSignature=STScenarios.signature(source),payload={caseId:caseId,simulationId:simulationId,expectedRevision:state.activeCase.revision,sourceSignature:sourceSignature,origin:origin,proposal:Object.assign({},proposal,{title:proposal.title||STScenarioText[proposal.titleKey]}),caseSnapshot:STCaseContext.snapshot(Object.assign({},state.activeCase,{activeSimulationId:simulationId}))};
         document.getElementById('application').inert=true;
-        await new Promise(function(resolve,reject){callServer('createScenario',[payload],function(response){
+        await new Promise(function(resolve,reject){callServer('prepareScenarioDraft',[payload],function(response){
           if(!response.ok){reject(new Error(response.error.message+(response.error.details?.length?' '+response.error.details.join('; '):'')));return;}
-          state.activeCase=response.data.case;autosave.reset();activatePersistentSimulation(response.data.simulationId,true);state.uiView='editor';shell.sync();resolve();
+          if(state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId||STScenarios.signature(activePersistentSimulation())!==sourceSignature){reject(new Error(__ST_TEXT__('scenario.stale')));return;}
+          var simulation=response.data.simulation;
+          if(!simulation||state.activeCase.simulations.some(s=>s.id===simulation.id)){reject(new Error('Invalid scenario draft. Retry the proposal.'));return;}
+          simulation.sourceImport=cloneJson(source.sourceImport||{});
+          state.activeCase.simulations.push(simulation);activatePersistentSimulation(simulation.id,true);state.uiView='editor';autosave.change();shell.sync();resolve();
         });});
         setStatus(__ST_TEXT__('scenario.created'));
       }catch(error){showError(error);if(origin==='GEMINI')STErrors.capture('gemini-error',error,error.message);var feedback=button?.closest('.analysis-recommendation')?.querySelector('.scenario-preview-status');if(feedback){feedback.textContent='Cannot create scenario: '+error.message;feedback.dataset.state='rejected';STErrors.capture(feedback,error);}}finally{document.getElementById('application').inert=false;if(button?.isConnected)button.disabled=false;}

@@ -168,7 +168,7 @@ test('Save fingerprints avoid simulation reads and rewrite only the edited JSON'
  assert.deepEqual(JSON.parse(manifest.content).simulationFiles,before);assert(!h.reads.some(name=>name.includes('simulation-')));
  record.expectedRevision=2;record.simulations[1].name='Changed B';h.reads.length=0;h.ctx.saveCase_(record,owner);
  const after=JSON.parse(manifest.content).simulationFiles;
- assert.equal(after[0].fileName,before[0].fileName);assert.notEqual(after[1].fileName,before[1].fileName);assert(!h.reads.some(name=>name.includes('simulation-')));
+ assert.equal(after[0].fileName,before[0].fileName);assert.equal(after[1].fileName,before[1].fileName);assert.equal(h.reads.filter(name=>name===before[1].fileName).length,1);assert(!h.reads.includes(before[0].fileName));
  assert.equal(h.ctx.getCase_('dirty-only',owner).simulations[1].name,'Changed B');
 });
 
@@ -181,7 +181,7 @@ test('Older manifests gain fingerprints without rewriting unchanged simulation J
  assert.equal(h.reads.filter(name=>name===fileName).length,1);
 });
 
-test('saving reuses the verified manifest and looks up changed simulation files only for cleanup',()=>{
+test('saving reuses the verified manifest and updates the existing simulation file',()=>{
  const h=runtime();h.ctx.createCase_({id:'fast-save',name:'Original'},owner);
  const record=h.ctx.getCase_('fast-save',owner),child=h.folder().getFoldersByName('fast-save').next();
  const old=JSON.parse(manifestFile(child).content).simulationFiles[0].fileName;
@@ -239,4 +239,26 @@ test('existing inline data is preserved across failed and successful migration t
  manifest.fail=false;h.ctx.saveCase_(record,owner);const stored=JSON.parse(manifest.content);assert.equal(stored.storageVersion,'case-folder-1');assert(stored.simulationFiles[0].fileName);assert(!stored.simulationFiles[0].inline);
  assert.deepEqual(JSON.parse(JSON.stringify(h.ctx.getCase_('inline-legacy',owner).simulations)),JSON.parse(JSON.stringify(record.simulations)));
  assert.throws(()=>h.ctx.saveCase_(record,owner),e=>e.simulatorError.code==='CASE_CONFLICT');
+});
+
+test('changed simulations retain file identity, unchanged simulations are not read or written, and no replacement files are created',()=>{
+ const h=runtime();h.ctx.createCase_({id:'in-place',name:'Case',simulations:[{id:'a',name:'A'},{id:'b',name:'B'}]},owner);
+ const child=h.folder().getFoldersByName('in-place').next(),manifest=manifestFile(child),refs=JSON.parse(manifest.content).simulationFiles;
+ const a=child.files.get(refs[0].fileName),b=child.files.get(refs[1].fileName),originalId=a.getId(),originalB=b.content;
+ const record=h.ctx.getCase_('in-place',owner);record.expectedRevision=1;record.simulations[0].name='Updated';
+ child.createFile=()=>{throw Error('Do not create replacement files');};a.setTrashed=b.setTrashed=()=>{throw Error('Do not retire existing files');};
+ b.setContent=()=>{throw Error('Unchanged simulation must not be written');};h.reads.length=0;
+ h.ctx.saveCase_(record,owner);assert.equal(a.getId(),originalId);assert.equal(b.content,originalB);
+ assert.deepEqual(JSON.parse(manifest.content).simulationFiles.map(r=>r.fileName),refs.map(r=>r.fileName));
+ assert.equal(h.reads.filter(name=>name===refs[0].fileName).length,1);assert.equal(h.reads.filter(name=>name===refs[1].fileName).length,0);
+ assert.equal(h.ctx.getCase_('in-place',owner).simulations[0].name,'Updated');
+});
+test('a later simulation write failure restores previously updated simulation contents and retains the old manifest revision',()=>{
+ const h=runtime();h.ctx.createCase_({id:'rollback-write',name:'Case',simulations:[{id:'a',name:'A'},{id:'b',name:'B'}]},owner);
+ const child=h.folder().getFoldersByName('rollback-write').next(),manifest=manifestFile(child),refs=JSON.parse(manifest.content).simulationFiles;
+ const a=child.files.get(refs[0].fileName),b=child.files.get(refs[1].fileName),original=a.content,header=manifest.content;
+ const record=h.ctx.getCase_('rollback-write',owner);record.expectedRevision=1;record.simulations.forEach(s=>s.name+=' changed');
+ const write=b.setContent;let failed=false;b.setContent=value=>{if(!failed){failed=true;throw Error('Write failed');}write(value);};
+ assert.throws(()=>h.ctx.saveCase_(record,owner),e=>e.simulatorError.code==='CASE_SAVE_FAILED');assert.equal(a.content,original);assert.equal(manifest.content,header);
+ assert.equal(h.ctx.getCase_('rollback-write',owner).revision,1);assert.equal(h.ctx.getCase_('rollback-write',owner).simulations[0].name,'A');
 });

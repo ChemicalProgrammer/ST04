@@ -19,7 +19,7 @@ function prepareScenarioFromRecord_(request,record,user) {
     if(!source)throw createSimulatorError_('SIMULATION_NOT_FOUND','The source simulation no longer exists.');
     var sourceSignature=STScenarioEngine_.signature(source),submitted=request.proposal;
     if(request.origin==='LOCAL'){
-      // Recompute the recommendation from this locked, persisted source. A local
+      // Recompute the recommendation from the supplied source. A local
       // proposal is valid only if its exact edits still match a current candidate.
       // Browser fingerprints are not needed to establish that equivalence.
       submitted=resolveLocalScenarioProposal_(submitted,source);

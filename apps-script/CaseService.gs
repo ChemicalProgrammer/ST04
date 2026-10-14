@@ -165,7 +165,7 @@ function normalizeSimulations_(simulations, fallbackEquipment, fallbackConfig) {
       equipment: simulationEquipment,
       dynamicConfig: normalizeObject_(simulation.dynamicConfig),
       playbackRate: [0.5,1,2,5,10,20,50,100,200,500,1000].includes(Number(simulation.playbackRate))?Number(simulation.playbackRate):1,
-      results: normalizeObject_(simulation.results),
+      results: simulation.results == null ? null : normalizeObject_(simulation.results),
       scenario: normalizeObject_(simulation.scenario),
       whatIf: normalizeObject_(simulation.whatIf),
       sourceImport: normalizeObject_(simulation.sourceImport),
@@ -239,18 +239,18 @@ function caseStorageComparable_(record,refs){
   return JSON.stringify(canonical(value));
 }
 
-// Each simulation has its own immutable file. Stage changed files first, commit
-// the manifest, then clean up obsolete versions. Unchanged JSON is reused.
+// Reuse each simulation file. Skip matching digests; retain changed contents
+// in request memory for best-effort rollback if a later write fails.
 function persistCaseRecord_(record,owned) {
   var folder=owned&&owned.folder;
   if(!folder){var root=getWorkspaceFolders_().cases,matches=root.getFoldersByName(record.id);folder=matches.hasNext()?matches.next():root.createFolder(record.id);}
-  var previous=owned&&owned.folder?owned.simulationFiles||owned.caseData.simulationFiles||[]:[],staged=[],refs=[];
+  var previous=owned&&owned.folder?owned.simulationFiles||owned.caseData.simulationFiles||[]:[],staged=[],updated=[],refs=[];
   var previousById=new Map(previous.map(function(entry){return [entry.id,entry];})),usedNames=new Set(previous.map(function(entry){return entry.fileName;})),storedFiles;
   var externalCount=previous.filter(function(entry){return !!entry.fileName;}).length;
   function storedFile(name){
     if(!name)return null;
     if(externalCount<2){var matches=folder.getFilesByName(name);return matches.hasNext()?matches.next():null;}
-    if(!storedFiles){storedFiles=new Map();var files=folder.getFiles();while(files.hasNext()){var file=files.next(),name=file.getName();if(!storedFiles.has(name))storedFiles.set(name,file);}}
+    if(!storedFiles){storedFiles=new Map();var files=folder.getFiles();while(files.hasNext()){var file=files.next(),fileName=file.getName();if(!storedFiles.has(fileName))storedFiles.set(fileName,file);}}
     return storedFiles.get(name)||null;
   }
   var manifest=owned&&owned.folder?owned.file:findCaseManifest_(folder,record.id);
@@ -258,8 +258,13 @@ function persistCaseRecord_(record,owned) {
   try {
     record.simulations.forEach(function(simulation,index){
       var json=JSON.stringify(simulation),digest=simulationContentDigest_(json),old=previousById.get(simulation.id);
-      var mayReuse=old&&old.fileName&&(!old.digest||!digest||old.digest===digest),oldFile=mayReuse?storedFile(old.fileName):null;
-      if(oldFile&&(old.digest&&digest?old.digest===digest:oldFile.getBlob().getDataAsString()===json)){refs.push({id:old.id,fileName:old.fileName,digest:digest});return;}
+      var oldFile=old&&old.fileName?storedFile(old.fileName):null;
+      if(oldFile&&old.digest&&digest&&old.digest===digest){refs.push({id:old.id,fileName:old.fileName,digest:digest});return;}
+      if(oldFile){
+        var original=oldFile.getBlob().getDataAsString();
+        if(original!==json){updated.push({file:oldFile,content:original});oldFile.setContent(json);}
+        refs.push({id:simulation.id,fileName:old.fileName,digest:digest});return;
+      }
       var name;
       do{name=Utilities.getUuid().replace(/-/g,'').slice(0,12)+'-simulation-'+String(index+1).padStart(2,'0')+'.json';}while(usedNames.has(name));
       usedNames.add(name);staged.push(folder.createFile(name,json,MimeType.PLAIN_TEXT));refs.push({id:simulation.id,fileName:name,digest:digest});
@@ -271,7 +276,10 @@ function persistCaseRecord_(record,owned) {
       var json=JSON.stringify(general);
       if(manifest)manifest.setContent(json);else manifest=folder.createFile(caseManifestName_(record.id),json,MimeType.PLAIN_TEXT);
     }
-  }catch(error){staged.forEach(function(file){try{file.setTrashed(true);}catch(ignore){}});throw error;}
+  }catch(error){
+    updated.slice().reverse().forEach(function(item){try{item.file.setContent(item.content);}catch(rollbackError){console.error(JSON.stringify({event:'CASE_STORAGE_ROLLBACK_FAILED',type:rollbackError.name||'Error'}));}});
+    staged.forEach(function(file){try{file.setTrashed(true);}catch(ignore){}});throw error;
+  }
   // Rename only after the commit; the loader accepts either manifest name.
   try{if(manifest.getName()!==caseManifestName_(record.id)&&typeof manifest.setName==='function'){manifest.setName(caseManifestName_(record.id));if(owned)owned.unchanged=false;}}
   catch(error){console.error(JSON.stringify({event:'CASE_MANIFEST_RENAME_FAILED',type:error.name||'Error'}));}

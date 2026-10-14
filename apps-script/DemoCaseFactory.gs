@@ -238,7 +238,7 @@ function setDemoConveyorEngineering_(equipment, equipmentId, design) {
 function createDemoMetadata_() {
   return {
     demoRevision: 'capex-challenge-4',
-    consoleOptions: { autosaveEnabled: true, autosaveSeconds: 10, seedPolicy: 'FIXED' },
+    consoleOptions: { autosaveEnabled: false, autosaveSeconds: 10, seedPolicy: 'FIXED' },
     learningObjectives: ['Compare the low theoretical series availability with simulated OEE; buffering can decouple equipment downtime.', 'Read the instantaneous V-Graph: configured speeds decrease toward the 400 BPM Filler and increase downstream; recovery recommendations remain separate.', 'Zero CAPEX: increase installed recovery headroom and retune existing sensors.', 'Medium CAPEX: evaluate moderate buffer extensions and an explicitly assumed local restart-control retrofit.', 'High CAPEX: evaluate additional accumulation length and safe sensor relocation.'],
     dataClassification: 'DEMO_ONLY',
     dataNote: 'This is a non-confidential demonstration Case. Public manufacturer capacity pages provide only broad bounds. MTBF, MTTR, physical conveyor geometry, speeds, sensor positions, and line configuration are transparent synthetic assumptions for software testing; they are not plant measurements, equipment guarantees, or operating recommendations.',

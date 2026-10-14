@@ -71,30 +71,24 @@ test('disabling autosave cancels an already scheduled background write',()=>{
  assert.equal(h.sent.length,0);assert(h.queue.pending());
 });
 
-function geminiFlush(h,prepareCaseDraft){
+function geminiFlush(h,prepareCaseDraft,snapshot=record=>record){
  const source=readClientSource();
  const start=source.indexOf('    function flushForServer()');
  const end=source.indexOf('    async function leaveCase()',start);
- const ctx={prepareCaseDraft,autosave:h.queue,automaticSaving:()=>false,Promise};
+ const ctx={prepareCaseDraft,autosave:h.queue,automaticSaving:()=>false,Promise,state:{activeCase:{id:'case'},activeSimulationId:'simulation-a'},window:{STCaseContext:{snapshot}}};
  vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);
  return ctx.flushForServer;
 }
-test('Gemini saves the current manual draft and waits for all pending edits',async()=>{
+test('Gemini uses the current manual draft without flushing pending edits to Drive',async()=>{
  const c=clock(),h=setup(c);h.queue.configure({enabled:false});
  const flush=geminiFlush(h,()=>{h.edit('current simulation inputs');return Promise.resolve();});
- let ready=false;const prepared=flush().then(()=>{ready=true;});await Promise.resolve();
- assert.equal(h.sent[0].payload.value,'current simulation inputs');assert.equal(ready,false);
- h.edit('newer simulation inputs');h.sent[0].done({ok:true,data:{revision:2}});
- assert.equal(h.sent[1].payload.value,'newer simulation inputs');assert.equal(ready,false);
- h.sent[1].done({ok:true,data:{revision:3}});await prepared;assert.equal(ready,true);
- h.edit('later edit');c.advance(60000);assert.equal(h.sent.length,2);h.queue.reset();
+ const context=await flush();assert.equal(context.id,'case');assert.equal(context.activeSimulationId,'simulation-a');
+ assert.equal(h.sent.length,0);assert(h.queue.pending());c.advance(60000);assert.equal(h.sent.length,0);h.queue.reset();
 });
-test('Gemini preparation blocks invalid drafts and save failures',async()=>{
+test('Gemini preparation blocks invalid drafts but does not require a successful cloud save',async()=>{
  const c=clock(),h=setup(c);h.queue.configure({enabled:false});
  await assert.rejects(geminiFlush(h,()=>Promise.reject(new Error('invalid inputs')))(),/invalid inputs/);
  assert.equal(h.sent.length,0);h.edit('unsaved');
- const prepared=geminiFlush(h,()=>Promise.resolve())();await Promise.resolve();
- h.sent[0].done({ok:false,error:{code:'NETWORK_ERROR',message:'offline'}});
- await assert.rejects(prepared,/offline/);assert.equal(h.queue.pending(),true);h.queue.reset();
+ assert.equal((await geminiFlush(h,()=>Promise.resolve())()).id,'case');assert(h.queue.pending());assert.equal(h.sent.length,0);
+ await assert.rejects(geminiFlush(h,()=>Promise.resolve(),()=>{throw Error('context too large');})(),/context too large/);h.queue.reset();
 });
-

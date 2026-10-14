@@ -113,3 +113,13 @@ test('local scenario preparation applies the same validation without any Drive w
  const prepared=h.ctx.prepareScenarioFromRecord_(h.request,record,{email:'owner@test'});
  assert.equal(prepared.case.simulations.length,2);assert.equal(prepared.case.simulations[1].results,null);assert.equal(prepared.case.simulations[1].scenario.plantValidated,false);assert.equal(h.writes(),0);
 });
+
+test('scenario draft RPC validates the browser snapshot and returns a clone without reading or writing Drive',()=>{
+ const h=setup();for(const file of ['GeminiService.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),h.ctx);
+ h.ctx.executeServerAction_=fn=>({ok:true,data:fn({email:'owner@test'})});
+ h.ctx.getOwnedCaseFile_=()=>{throw Error('Drive must not be read');};h.ctx.persistCaseRecord_=()=>{throw Error('Drive must not be written');};
+ const snapshot={...JSON.parse(JSON.stringify(h.record())),ownerEmail:'owner@test'},before=JSON.stringify(snapshot);
+ const result=h.ctx.prepareScenarioDraft({...h.request,caseSnapshot:snapshot});assert(result.ok);assert.equal(result.data.simulation.results,null);
+ assert.equal(result.data.simulation.scenario.origin,'GEMINI');assert.equal(h.writes(),0);assert.equal(JSON.stringify(snapshot),before);assert.equal(h.record().simulations.length,1);
+ assert.throws(()=>h.ctx.prepareScenarioDraft({...h.request,caseSnapshot:{...snapshot,ownerEmail:'someone@test'}}),e=>e.code==='INVALID_LOCAL_CONTEXT');
+});

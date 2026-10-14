@@ -26,7 +26,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  // Generic UI fixture uses the browser defaults supplied by this test.
  delete initial.metadata.consoleOptions;
  if(flowUnit)initial.unitOfFlow=flowUnit;
- Object.assign(initial,{id:'demo',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
+ Object.assign(initial,{id:'demo',ownerEmail:'preview@example.test',revision:1,updatedAt:'2026-09-15T10:00:00Z'});
  const sourceEquipment=JSON.parse(JSON.stringify(initial.equipment));
  if(empty)initial.equipment=[];
  initial.simulations=[{id:'simulation-a',name:'Simulation A',equipment:JSON.parse(JSON.stringify(initial.equipment)),dynamicConfig:{},results:null,playbackRate:1,createdAt:initial.updatedAt,updatedAt:initial.updatedAt}];
@@ -50,14 +50,14 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  if(realScenarioServer){
   // Execute the real RPC, persistence normalization, planner and clone service.
   // Only Google storage, identity and the transport are replaced by fixtures.
-  for(const file of ['ApiResponse.gs','CaseService.gs','ScenarioEngine.gs','ScenarioService.gs','Main.gs'])vm.runInContext(read(file),context);
+  for(const file of ['ApiResponse.gs','CaseService.gs','ScenarioEngine.gs','ScenarioService.gs','GeminiService.gs','Main.gs'])vm.runInContext(read(file),context);
   context.requireCurrentUser_=()=>({email:'preview@example.test'});
   context.Utilities={getUuid:()=> 'scenario-uuid'};
   context.LockService={getUserLock:()=>({tryLock:()=>true,releaseLock:()=>{}})};
   context.persistCaseRecord_=(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;};
   context.getOwnedCaseFile_=(id,user)=>{assert.equal(user.email,'preview@example.test');const record=cases.find(c=>c.id===id);assert(record);return {caseData:copy(record),file:{setContent:value=>{cases=cases.map(c=>c.id===id?JSON.parse(value):c);}}};};
-  for(const name of ['getCase','saveCase','getScenarioSourceSignature','createScenario'])api[name]=(...args)=>{
-   args=copy(args);if(name==='createScenario'&&fingerprintMismatch)args[0].sourceSignature='different-client-fingerprint';
+  for(const name of ['getCase','saveCase','getScenarioSourceSignature','createScenario','prepareScenarioDraft'])api[name]=(...args)=>{
+   args=copy(args);if(['createScenario','prepareScenarioDraft'].includes(name)&&fingerprintMismatch)args[0].sourceSignature='different-client-fingerprint';
    const response=context[name](...args);if(!response.ok)throw Error(response.error.code+': '+response.error.message);return copy(response.data);
   };
  }
@@ -2390,7 +2390,7 @@ test('UI + Apps Script: Basic unconfirmed gain is visible and creates only a val
   const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);
   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled);assert.match(card.textContent,/did not reproduce/);
   await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');assert.match(h.d.querySelector('.message-dialog').textContent,/unvalidated hypothesis/);await h.click('.message-dialog .dialog-heading button');assert(!h.calls.includes('createScenario'));
-  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await h.click('.scenario-tier-grid .analysis-recommendation:last-child .scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.calls.includes('prepareScenarioDraft')&&h.d.getElementById('save-case').classList.contains('has-changes'));assert.equal(h.storedCases()[0].simulations.length,1);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const saved=h.storedCases()[0],draft=saved.simulations[1];assert.match(draft.name,/Validation required/);assert.equal(draft.results,null);assert.equal(draft.scenario.validation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.independentValidation,'NOT_REPRODUCED_REQUIRES_VALIDATION');assert.equal(draft.scenario.evidence.screeningOeeGain,2);assert.equal(draft.scenario.evidence.confirmationOeeGain,-2);assert.equal(JSON.stringify(saved.simulations[0].equipment),equipment);assert.equal(saved.simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH').independentCheck.passed,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2530,7 +2530,7 @@ test('UI + Apps Script: Basic chat creates a validated CAPEX clone through a sim
   const proposal={...h.w.STScenarios.plan(source).projects.find(p=>p.canApply),title:'Chat CAPEX copy'};assert(proposal.changes.length);
   h.api.askGemini=()=>({text:'Review the proposed input changes.',proposals:[proposal]});h.d.getElementById('gemini-question').value='Propose a CAPEX scenario';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-scenario-create')&&!h.d.querySelector('.gemini-scenario-create').disabled);
   assert.equal(h.d.querySelector('#gemini-messages .analysis-recommendation'),null);assert(h.d.querySelector('.gemini-message[data-role=model] > .gemini-scenario-create'));
-  await h.click('.gemini-scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));assert.deepEqual(Array.from(h.d.querySelectorAll('.message-dialog th'),cell=>cell.textContent),['Equipment','Parameter','Current','Proposed']);assert.equal(h.d.querySelectorAll('.message-dialog tbody tr').length,proposal.changes.length);await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  await h.click('.gemini-scenario-create');await waitFor(()=>h.d.querySelector('.message-dialog[open]'));assert.deepEqual(Array.from(h.d.querySelectorAll('.message-dialog th'),cell=>cell.textContent),['Equipment','Parameter','Current','Proposed']);assert.equal(h.d.querySelectorAll('.message-dialog tbody tr').length,proposal.changes.length);await h.click('.message-dialog .dialog-actions button:last-child');await waitFor(()=>h.calls.includes('prepareScenarioDraft')&&h.d.getElementById('save-case').classList.contains('has-changes'));assert.equal(h.storedCases()[0].simulations.length,1);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);
   const saved=h.storedCases()[0],clone=saved.simulations[1];assert.equal(clone.name,'Chat CAPEX copy');assert.equal(clone.clonedFromSimulationId,source.id);assert.equal(clone.results,null);assert.equal(clone.scenario.origin,'GEMINI');assert.deepEqual(saved.simulations[0].equipment,source.equipment);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2561,13 +2561,15 @@ test('UI Basic: numeric run controls keep focus across successive digits and sav
  }finally{h.dom.window.close();}
 });
 
-test('UI: local case saves use the local transport and never call cloud saveCase',async()=>{
- const h=await setup({remember:true,uiMode:'BASIC'});try{
-  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
-  const email=h.d.getElementById('user-email').textContent;h.w.STPreferences.write('localDriveMode.'+JSON.stringify([email,'preview']),'LOCAL');assert.equal(h.w.STLocalDrive.mode(),'LOCAL');
-  const writes=[];h.w.STLocalDrive.dispatch=async(name,args)=>{assert.equal(name,'saveCase');writes.push(JSON.parse(JSON.stringify(args[0])));return {id:args[0].id,name:args[0].name,revision:args[0].expectedRevision+1,updatedAt:new Date().toISOString(),equipmentCount:args[0].equipment.length};};
-  h.api.saveCase=()=>{throw Error('Cloud save must not be called');};
-  const rounds=h.d.getElementById('run-rounds');rounds.value='25';rounds.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');await waitFor(()=>writes.length===1&&!h.d.getElementById('save-case').classList.contains('has-changes'));
-  assert.equal(writes[0].simulations[0].dynamicConfig.rounds,25);assert.equal(h.calls.filter(name=>name==='saveCase').length,0);assert.deepEqual(h.errors,[]);
- }finally{h.dom.window.close();}
+test('UI: cloud saves keep edits in memory until Save and ignore obsolete local-mode preferences',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode});try{
+  await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=simulation]');
+  const email=h.d.getElementById('user-email').textContent;h.w.STPreferences.write('localDriveMode.'+JSON.stringify([email,'preview']),'LOCAL');
+  assert.equal(h.d.getElementById('storage-mode'),null);assert.equal(h.w.STLocalDrive,undefined);
+  const before=h.calls.filter(name=>name==='saveCase').length,rounds=h.d.getElementById('run-rounds');
+  for(const value of ['2','25']){rounds.value=value;rounds.dispatchEvent(new h.w.Event('input',{bubbles:true}));await settle();}
+  assert.equal(h.calls.filter(name=>name==='saveCase').length,before);assert(h.d.getElementById('save-case').classList.contains('has-changes'));
+  await h.click('#save-case');await waitFor(()=>!h.d.getElementById('save-case').classList.contains('has-changes'));
+  assert.equal(h.calls.filter(name=>name==='saveCase').length,before+1);assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.rounds,25);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
 });

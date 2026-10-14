@@ -58,7 +58,7 @@ window.STPreferences = (function() {
   function caseOptions() {
     var saved=caseProvider?.()?.metadata?.consoleOptions||{};
     var seconds=Number(saved.autosaveSeconds??read('autosaveSeconds')??10);
-    return {autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')!=='no',
+    return {autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')==='yes',
       autosaveSeconds:Number.isInteger(seconds)&&seconds>=1&&seconds<=3600?seconds:10,
       seedPolicy:(saved.seedPolicy??read('seedPolicy'))==='FIXED'?'FIXED':'RANDOM'};
   }
