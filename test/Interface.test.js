@@ -2611,3 +2611,13 @@ test('UI: Settings General exports the complete current case and every simulatio
   }finally{h.dom.window.close();}
  }
 });
+
+test('UI: DOE is controlled from scenario cards and Settings does not duplicate or overwrite it',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode});try{
+  await h.click('.open-case');if(uiMode==='BASIC')await h.click('[data-basic-view=whatif]');
+  if(uiMode==='ADVANCE'){const simulation=h.storedCases()[0].simulations[0],host=h.d.createElement('article');host.className='analysis-recommendation';h.d.body.append(host);const project=h.w.STScenarios.plan(simulation).projects.find(p=>p.canApply);h.w.STScenarioExplorer.attach(host,project,()=>{},simulation);}
+  const toggle=h.d.querySelector('.scenario-doe-enabled');assert(toggle);toggle.checked=true;toggle.onchange();assert(h.w.STScenarioExplorer.doeEnabled());
+  h.w.STSettings.open();await h.click('#settings-tab-case');assert.equal(h.d.getElementById('settings-scenario-doe'),null);assert.equal(h.d.getElementById('settings-doe-section'),null);assert.equal(h.d.querySelector('#settings-page-case .scenario-doe-enabled'),null);
+  await h.click('#settings-cancel');assert(h.w.STScenarioExplorer.doeEnabled());assert(toggle.checked);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});
