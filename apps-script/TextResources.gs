@@ -603,7 +603,7 @@ var ST_TEXT_RESOURCES = {
   "view.flow_pilot": "SimuLine",
   "view.a_clearer_view_of_your_line": "A CLEARER VIEW OF YOUR LINE",
   "view.welcome_to_your_workspace": "Understand and improve your packaging line.",
-  "view.explore_your_cases_test_possibilities_and_build_confidence_in_your_next_dec": "Explore your cases, test possibilities and build confidence in your next decision.",
+  "view.explore_your_cases_test_possibilities_and_build_confidence_in_your_next_dec": "Simulate packaging lines, compare performance and explore improvement scenarios.",
   "view.keep_me_signed_in_on_this_browser": "Keep me signed in on this browser",
   "view.continue_with_google": "Continue with your account",
   "view.uses_the_google_account_authorized_for_this_app": "Uses the account authorized for this app.",
