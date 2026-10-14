@@ -236,7 +236,7 @@ test('manual four-factor DOE remains complete and bypasses automatic shortlist r
 
 test('scenario configuration has three sections and results only expose changed inputs',async()=>{
  const h=harness(false,'HIGH');try{
-  assert.deepEqual([...h.host.querySelectorAll('.scenario-config-section > h3')].map(n=>n.textContent),['Search','Equipment','Conveyors']);await search(h);h.host.querySelector('.scenario-results').click();const body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Changed inputs/);assert.doesNotMatch(body.textContent,/Replace this equipment|maintenance|Purpose|Evaluation reuse|seed|Conditional equipment reliability ranking/);
+  assert.deepEqual([...h.host.querySelectorAll('.scenario-config-tabs button')].map(n=>n.textContent),['Search','Equipment','Conveyors']);assert.equal(h.host.querySelectorAll('.scenario-config-section > h3').length,0);await search(h);h.host.querySelector('.scenario-results').click();const body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Changed inputs/);assert.doesNotMatch(body.textContent,/Replace this equipment|maintenance|Purpose|Evaluation reuse|seed|Conditional equipment reliability ranking/);
  }finally{h.dom.window.close();}
 });
 
@@ -272,5 +272,14 @@ test('configuration separates conveyor inputs while preserving controls and DOE 
   assert.equal(panels[1].querySelectorAll('.scenario-changes tbody tr').length,1);assert.equal(panels[2].querySelectorAll('.scenario-changes tbody tr').length,1);
   assert.match(panels[1].querySelector('.scenario-changes tbody').textContent,/speed/);assert.match(panels[2].querySelector('.scenario-changes tbody').textContent,/sensor/);
   const all=panels[0].querySelector('.scenario-use-all');all.checked=false;all.onchange();assert([...h.host.querySelectorAll('.scenario-changes tbody input[type=checkbox]')].every(c=>!c.checked));
+ }finally{h.dom.window.close();}
+});
+
+test('completed searches keep cards concise and disclose actual DOE execution in results',async()=>{
+ const h=harness(true,'HIGH');try{
+  await search(h);assert.equal(h.host.querySelector('.scenario-preview-status').textContent,'');assert.equal(h.host.querySelector('.scenario-search-progress').textContent,'');assert.equal(h.host.querySelector('.scenario-progress-label').hidden,true);assert.equal(h.host.querySelector('.scenario-audit-warnings'),null);
+  h.host.querySelector('.scenario-results').click();assert.match(h.host.querySelector('.scenario-flow-summary').textContent,/DOE: 4 \/ 4 combinations completed. ANOVA completed./);
+  assert.equal(h.host.querySelector('.scenario-doe').tagName,'SECTION');assert.equal(h.host.querySelector('.scenario-suggestion-report').hidden,true);
+  assert.doesNotMatch(h.host.querySelectorAll('[role=tabpanel]')[2].textContent,/Conveyor variables|select and enter/);
  }finally{h.dom.window.close();}
 });

@@ -1219,7 +1219,7 @@ test('UI: reproduced gains with audit warnings remain creatable review scenarios
   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();
   await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const save=card.querySelector('.scenario-create');assert.equal(card.querySelector('.scenario-audit-warnings input'),null);
-  assert(!save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings').open,false);assert.match(card.textContent,/backup position/);
+  assert(!save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings'),null);card.querySelector('.scenario-results').click();assert.match(card.querySelector('.scenario-results-checks').textContent,/backup position/);card.querySelector('.scenario-results-dialog').close();
   save.click();
   assert(created.reviewed);assert.equal(created.evidence.engineeringReview,'REQUIRES_REVIEW');
   const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(!evidence.engineeringReviewAcknowledged);assert(evidence.independentCheck.passed);
@@ -2368,7 +2368,7 @@ test('UI: Basic validated search remains creatable after manual save and reopeni
   await h.click('[data-basic-view=whatif]');
   let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
   await waitFor(()=>card.querySelector('.scenario-search').dataset.icon==='refresh');
-  assert(card.querySelector('.scenario-audit-warnings'));assert(!card.querySelector('.scenario-create').disabled,card.querySelector('.scenario-preview-status').textContent);
+  assert.equal(card.querySelector('.scenario-audit-warnings'),null);assert(!card.querySelector('.scenario-create').disabled,card.querySelector('.scenario-preview-status').textContent);
   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
   const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(evidence.independentCheck.passed);assert(!evidence.engineeringReviewAcknowledged);
   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');
