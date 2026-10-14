@@ -2499,8 +2499,8 @@ for(const uiMode of ['BASIC','ADVANCE'])test('UI: fresh scenario search clears r
   assert(card.querySelector('.scenario-create').disabled);
   assert.equal(sim.whatIf.evaluations[0].candidate,undefined);
   assert.equal(sim.whatIf.evaluations[0].lastResult,undefined);
-  card.querySelector('.scenario-evaluate').click();card.querySelector('.scenario-evaluate').click();assert(options.cancelled());release();
-  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  card.querySelector('.scenario-search').click();card.querySelector('.scenario-search').click();assert(options.cancelled());release();
+  await waitFor(()=>card.querySelector('.scenario-search').dataset.icon==='refresh');
   assert.equal(card.querySelector('.scenario-metrics').textContent,'');
   const saved=JSON.parse(JSON.stringify(sim));card.remove();
   const reopened=h.w.STWhatIf.card(project,()=>{},saved.equipment,saved);h.d.body.append(reopened);

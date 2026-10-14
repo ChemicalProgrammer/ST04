@@ -77,8 +77,8 @@ test('stagnation does not stop before the first coordinate sweep reaches a usefu
 
 test('one search/stop action replaces calculate and results explain selected and evaluated targets',async()=>{
  const h=harness(false);try{assert.equal(h.host.querySelectorAll('.scenario-search').length,1);assert.equal(h.host.querySelector('.scenario-evaluate'),null);assert.equal(h.host.querySelector('.scenario-doe-help'),null);
- h.host.querySelector('.scenario-results').click();let body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/no evaluated scenario/);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,2);
- const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');h.host.querySelector('.scenario-results').click();body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Independently evaluated/);assert.equal(body.querySelectorAll('.scenario-results-metrics tbody tr').length,2);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,result.evaluatedChanges.length);assert.equal(h.host.querySelector('.scenario-search').title,'Find best scenario');
+ h.host.querySelector('.scenario-results').click();let body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Inputs to change/);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,2);
+ const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');h.host.querySelector('.scenario-results').click();body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.equal(body.querySelectorAll('.scenario-results-metrics').length,0);assert.equal(body.querySelectorAll('.scenario-results-changes th').length,4);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,result.evaluatedChanges.length);assert.equal(h.host.querySelector('.scenario-search').title,'Find best scenario');
  }finally{h.dom.window.close();}
 });
 test('the search action becomes stop and can cancel without launching another search',async()=>{
@@ -231,5 +231,11 @@ test('manual four-factor DOE remains complete and bypasses automatic shortlist r
   h.host.remove();h.sim.equipment[0].third=10;h.sim.equipment[0].fourth=10;h.w.STScenarios.fields.third=h.w.STScenarios.fields.fourth=[1,100,'u/s'];
   const project={...h.project,changes:['speed','sensor','third','fourth'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))};h.host=h.w.document.createElement('article');h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,project,()=>{},h.sim);
   h.host.querySelectorAll('.scenario-doe-select').forEach(c=>{c.checked=true;c.onchange();});const result=await search(h);assert.equal(result.doe.factors.length,4);assert.equal(result.doe.observations.length,16);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert.equal(result.conditionalFlowDOE,undefined);
+ }finally{h.dom.window.close();}
+});
+
+test('scenario configuration has three sections and results only expose changed inputs',async()=>{
+ const h=harness(false,'HIGH');try{
+  assert.deepEqual([...h.host.querySelectorAll('.scenario-config-section > h3')].map(n=>n.textContent),['1. Search scope','2. Equipment and inputs','3. DOE and ANOVA']);await search(h);h.host.querySelector('.scenario-results').click();const body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Inputs to change/);assert.doesNotMatch(body.textContent,/Replace this equipment|maintenance|Purpose|Evaluation reuse|seed|Conditional equipment reliability ranking/);
  }finally{h.dom.window.close();}
 });

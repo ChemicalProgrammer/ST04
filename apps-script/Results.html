@@ -12,20 +12,20 @@ window.STResults=(function(){
     target.replaceChildren();
     var d=SimulatorEngine.diagnoseLineEfficiency(equipment,result);
     function add(tag,text,parent){var node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
-    add('h3','Efficiency diagnosis');
-    if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','OEE loss accounting is unavailable for the experimental DES engine.');return;}
-    add('p','Reference: '+(d.referenceName||'unavailable')+' · '+number(d.referenceBpm,2)+' '+unitLabel(result?.unitOfFlow)+'/min. Nominal speed ceiling: '+number(d.capacityCeilingPercent,2)+'%. Limiting machine(s): '+d.limitingEquipment.map(e=>e.name+' ('+number(e.bpm,2)+'/min)').join(', ')+'.');
-    var table=document.createElement('table'),head=document.createElement('tr');['Component','Efficiency / loss (pp)','Basis'].forEach(t=>add('th',t,head));table.append(head);
-    var entries=[['Achieved efficiency',d.achievedPercent,result?.batch?'Mean of '+d.rounds+' rounds':'Completed simulation'],['Nominal machine-speed gap',d.capacityGapPp,'100 − nominal speed ceiling'],['Remaining loss below the ceiling',d.residualLossPp,'Ceiling − achieved; includes flow, startup, stops and other modeled losses']];
-    entries.forEach(values=>{var row=document.createElement('tr');add('th',values[0],row);add('td',number(values[1],2),row);add('td',values[2],row);table.append(row);});target.append(table);
-    add('p',d.accountingAvailable?'These three values total 100 percentage points. The speed gap is a theoretical capacity limit, not time lost by one machine.':'Complete a matching current-engine simulation to calculate the residual. The speed ceiling is a design bound, not a prediction.');
+    if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','Loss breakdown unavailable for the experimental engine.');return;}
     var counter=(simulation?.whatIf?.evaluations||[]).filter(e=>e.sourceSignature===window.STScenarios?.signature(simulation)&&e.reliabilityCounterfactual).slice(-1)[0]?.reliabilityCounterfactual;
-    if(counter&&Number.isFinite(d.capacityGapPp)){add('h4','Matched reliability counterfactual balance');add('p',(counter.run.durationSeconds/3600).toFixed(2)+' hours × '+counter.run.rounds+' rounds · seed '+counter.run.seed+'. All rows use this validation block. The reliability difference includes propagated flow effects.');var balance=document.createElement('table');[['Component','Efficiency / loss (pp)'],['Matched baseline efficiency',counter.baseline.oee],['Conditional MTBF / MTTR loss',counter.deltaOeePp],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',100-d.capacityGapPp-counter.failureFree.oee]].forEach((values,index)=>{var row=document.createElement('tr');add(index?'th':'th',values[0],row);add(index?'td':'th',index?number(values[1],2):values[1],row);balance.append(row);});target.append(balance);add('p','This ordered counterfactual balance totals 100 pp. Individual-equipment gains cannot be added to it.');}
+    var failuresDisabled=simulation?.dynamicConfig?.reliabilityEnabled===false;
+    var conditional=counter?.deltaOeePp,remaining=counter&&Number.isFinite(d.capacityGapPp)?100-d.capacityGapPp-counter.failureFree.oee:null;
+    if(!counter&&failuresDisabled&&d.accountingAvailable){conditional=0;remaining=d.residualLossPp;}
+    var cards=add('div','');cards.className='result-kpis result-loss-kpis';
+    [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+' pp':'—',card);});
     if(!result)return;
-    var detail=document.createElement('details');add('summary','Observed time by equipment — not additive OEE losses',detail);add('p','Percent of simulated duration. Blocking and starvation can occur in several machines at once and can propagate from another machine. Prime and Back-up may overlap other states. These percentages do not identify root causes or sum to the global loss.',detail);
-    var times=document.createElement('table'),h=document.createElement('tr');['Equipment','Observed state','Time (%)'].forEach(t=>add('th',t,h));times.append(h);
+    add('p','Observed times can overlap; they are not additive OEE losses.').className='chart-note';
+    var times=document.createElement('table');times.className='observed-equipment-times';var h=document.createElement('tr');['Equipment','Observed state','Time (%)'].forEach(t=>add('th',t,h));times.append(h);
     var labels={failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
-    d.equipmentTime.forEach(e=>Object.entries(e.percent).forEach(([key,value])=>{if(value===0)return;var row=document.createElement('tr');add('td',e.name,row);add('td',labels[key],row);add('td',number(value,2),row);times.append(row);}));detail.append(times);target.append(detail);
+    var observed=d.equipmentTime.flatMap(e=>Object.entries(e.percent).filter(([key,value])=>Number.isFinite(value)&&value>0).map(([key,value])=>({name:e.name,label:labels[key],value:value})));
+    observed.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name)||a.label.localeCompare(b.label));
+    observed.forEach(e=>{var row=document.createElement('tr');add('td',e.name,row);add('td',e.label,row);add('td',number(e.value,2),row);times.append(row);});target.append(times);
   }
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary&&!result.provisional);
