@@ -9,7 +9,7 @@ window.STSettings = (function() {
     if(!modelList.some(function(model){return model.id===selected;})){
       var saved=document.createElement('option');saved.value=selected;saved.textContent=selected+(modelsLoaded?' (saved · not in list)':'');picker.append(saved);
     }
-    modelList.forEach(function(model){var option=document.createElement('option');option.value=model.id;option.textContent=model.label===model.id?model.id:model.label+' · '+model.id;picker.append(option);});
+    modelList.forEach(function(model){var option=document.createElement('option');option.value=model.id;option.textContent=model.label||model.id;picker.append(option);});
     picker.value=selected;
   }
   function modelControls(){el('gemini-refresh-models').disabled=!hasKey||modelsLoading||sending||removing||!!el('gemini-api-key').value.trim();}
