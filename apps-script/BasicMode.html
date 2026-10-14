@@ -57,7 +57,7 @@ window.STBasicMode=(function(){
     STPreferences.applyFontScale();
     STPreferences.applyJsonFields(root.dataset.uiMode);
     STPreferences.applyPalette(root.dataset.uiMode);
-    if(enabled)mount();else{unmount();sectionRow.appendChild(headerActions);}
+    if(enabled)mount();else{unmount();if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);}
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='whatif'?'whatif':'simulation';
     if(view==='comparison')section='comparison';
@@ -90,9 +90,10 @@ window.STBasicMode=(function(){
       document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');
       STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);
     }
-    if(active){var runButton=document.getElementById('run-simulation');if(section==='simulation')document.getElementById('basic-run-options-title').parentElement.appendChild(runButton);else document.querySelector('#run-panel > .section-heading > .button-row').appendChild(runButton);var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
+    if(active){var runButton=document.getElementById('run-simulation'),buttonHost=section==='simulation'?document.getElementById('basic-run-options-title').parentElement:document.querySelector('#run-panel > .section-heading > .button-row');if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
       var before=section==='simulation'?document.getElementById('run-config'):host.querySelector('.editor-subheading');
-      host.insertBefore(runOptions,before);
+      // Moving an already positioned subtree blurs its focused number input.
+      if(runOptions.parentNode!==host||runOptions.nextSibling!==before)host.insertBefore(runOptions,before);
     }
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);

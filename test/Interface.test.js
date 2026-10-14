@@ -2547,3 +2547,16 @@ test('UI: reliability setting persists per simulation, clears stale results and 
   await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.reliabilityEnabled===undefined);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
+
+test('UI Basic: numeric run controls keep focus across successive digits and save the complete value',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  const rounds=h.d.getElementById('run-rounds');rounds.focus();
+  for(const value of ['','2','25']){rounds.value=value;rounds.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.activeElement,rounds,'focus must remain on Rounds after '+value);assert.equal(rounds.value,value);}
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.rounds===25);
+  await h.click('#basic-case-actions button[aria-label=Settings]');await h.click('#settings-tab-simulation');
+  const sample=h.d.getElementById('run-sample-interval');sample.focus();
+  for(const value of ['1','12']){sample.value=value;sample.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.activeElement,sample);}
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
