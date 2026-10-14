@@ -23,3 +23,18 @@ test('server-created exploratory simulations remain unclassified and retain targ
  const e=s.equipment[6],change={equipmentId:e.id,path:'noiseProfile.reliability.mttrMinutes',before:2,after:.5,unit:'min',external:true,analysisOnly:true,interventionType:'SENSITIVITY',justification:'Model target'};
  const response=ctx.createScenario_({caseId:'case',expectedRevision:1,simulationId:s.id,sourceSignature:ctx.STScenarioEngine_.signature(s),origin:'REVIEWED',proposal:{analysisOnly:true,title:'Exploratory reliability targets',tier:'HIGH',basis:'STATIC',changes:[change]}},{});const created=response.case.simulations.at(-1);assert.equal(created.scenario.capex,null);assert.equal(created.scenario.classification,'UNASSIGNED');assert.equal(created.scenario.plantValidated,false);assert(created.scenario.analysisOnly);assert.equal(created.equipment[6].noiseProfile.reliability.mttrMinutes,.5);assert.equal(created.scenario.validation,'EXPLORATORY_TARGETS_REQUIRE_FEASIBILITY_REVIEW');
 });
+
+test('manual scope evaluates exactly the requested machines and every target obeys engineering bounds',async()=>{
+ const s=fixture(),ids=s.equipment.filter(e=>e.type!=='CONVEYOR').slice(-2).map(e=>e.id),limits=Object.fromEntries(ids.map(id=>{const r=s.equipment.find(e=>e.id===id).noiseProfile.reliability;return [id,{mtbfMaximum:r.mtbfMinutes*1.4,mttrMinimum:r.mttrMinutes*.7,source:'Planned replacement estimate'}];}));
+ const report=await searchReliabilityTargets(s,{scope:'MANUAL',equipmentIds:ids,equipmentLimits:limits,maximumTargets:1,run:{seed:7},measure:async(model,changes)=>{for(const c of changes){assert(ids.includes(c.equipmentId));if(c.path.endsWith('mtbfMinutes'))assert(c.after<=limits[c.equipmentId].mtbfMaximum);else assert(c.after>=limits[c.equipmentId].mttrMinimum);}return synthetic(model,changes);}});
+ assert.equal(report.coverage.screened,2);assert.equal(report.ranking.length,2);assert.equal(report.scope,'MANUAL');assert(report.targetTests.every(t=>ids.includes(t.equipmentId)));assert.equal(new Set(report.targetTests.map(t=>t.equipmentId)).size,2);assert(report.candidateSets.some(c=>c.kind==='JOINT_MECHANISM_TARGETS'));
+});
+test('all scope includes more than the automatic screen cap and retains coupled target packages',async()=>{
+ const s=fixture(),report=await searchReliabilityTargets(s,{scope:'ALL',maximumMachines:1,maximumTargets:1,run:{seed:7},measure:async(model,changes)=>synthetic(model,changes)});
+ assert.equal(report.coverage.screened,7);assert.equal(new Set(report.targetTests.map(t=>t.equipmentId)).size,7);assert(report.candidateSets.some(c=>new Set(c.changes.map(x=>x.equipmentId)).size===7));
+});
+test('invalid scope, empty manual selections and physically inconsistent limits fail before simulation',async()=>{
+ const s=fixture(),e=s.equipment.find(e=>e.type!=='CONVEYOR');let calls=0;const measure=()=>{calls++;return synthetic(s,[]);};
+ for(const options of [{scope:'MANUAL',equipmentIds:[]},{scope:'MANUAL',equipmentIds:['missing']},{equipmentLimits:{[e.id]:{mttrMinimum:0}}},{equipmentLimits:{[e.id]:{mtbfMaximum:e.noiseProfile.reliability.mtbfMinutes/2}}}])await assert.rejects(()=>searchReliabilityTargets(s,{...options,measure}),/SCENARIO_RELIABILITY/);
+ assert.equal(calls,0);
+});

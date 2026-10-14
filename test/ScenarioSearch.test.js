@@ -194,3 +194,13 @@ test('unselected flow DOE factors are screened after reliability targets and ANO
   const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.conditionalFlowDOE);assert.equal(result.conditionalFlowDOE.run.rounds,6);assert.equal(result.conditionalFlowDOE.selectedFactors.length,2);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert(result.doe.fixedChanges.some(c=>c.analysisOnly));assert(result.reliabilityCounterfactual);
  }finally{h.dom.window.close();}
 });
+
+test('reliability equipment scope and limits persist across card reopening and invalidate cached results',()=>{
+ const h=harness(false,'HIGH');try{
+  h.host.remove();h.sim.equipment=[{id:'e',name:'Filler',type:'MACHINE',speed:10,sensor:10,noiseProfile:{reliability:{mtbfMinutes:10,mttrMinutes:2}}},{id:'e2',name:'Sleever',type:'MACHINE',noiseProfile:{reliability:{mtbfMinutes:5,mttrMinutes:2}}}];
+  function attach(){const host=h.w.document.createElement('article');h.w.document.body.append(host);h.w.STScenarioExplorer.attach(host,h.project,()=>{},h.sim);return host;}
+  let host=attach(),scope=host.querySelector('.scenario-reliability-scope');scope.value='MANUAL';scope.onchange();const check=host.querySelector('.scenario-reliability-equipment');check.checked=true;check.onchange();const max=host.querySelector('.scenario-reliability-mtbfMaximum'),min=host.querySelector('.scenario-reliability-mttrMinimum');max.value='15';max.onchange();min.value='1.2';min.onchange();
+  assert.equal(h.sim.whatIf.reliabilitySettings.scope,'MANUAL');assert.deepEqual(Array.from(h.sim.whatIf.reliabilitySettings.equipmentIds),['e']);assert.equal(h.sim.whatIf.reliabilitySettings.equipmentLimits.e.mttrMinimum,1.2);assert.equal(host.querySelector('.scenario-create').disabled,true);
+  host.remove();host=attach();assert.equal(host.querySelector('.scenario-reliability-scope').value,'MANUAL');assert.equal(host.querySelector('.scenario-reliability-equipment').checked,true);assert.equal(host.querySelector('.scenario-reliability-mtbfMaximum').value,'15');assert.equal(host.querySelector('.scenario-reliability-mttrMinimum').value,'1.2');
+ }finally{h.dom.window.close();}
+});
