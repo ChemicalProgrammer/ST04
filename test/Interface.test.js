@@ -1219,7 +1219,7 @@ test('UI: reproduced gains with audit warnings remain creatable review scenarios
   const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();
   await waitFor(()=>!card.querySelector('.scenario-create').disabled);
   const save=card.querySelector('.scenario-create');assert.equal(card.querySelector('.scenario-audit-warnings input'),null);
-  assert(!save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings'),null);card.querySelector('.scenario-results').click();assert.match(card.querySelector('.scenario-results-checks').textContent,/backup position/);card.querySelector('.scenario-results-dialog').close();
+  assert(!save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings'),null);card.querySelector('.scenario-results').click();assert.equal(card.querySelector('.scenario-results-checks'),null);card.querySelector('.scenario-results-dialog').close();
   save.click();
   assert(created.reviewed);assert.equal(created.evidence.engineeringReview,'REQUIRES_REVIEW');
   const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(!evidence.engineeringReviewAcknowledged);assert(evidence.independentCheck.passed);

@@ -77,7 +77,7 @@ test('stagnation does not stop before the first coordinate sweep reaches a usefu
 
 test('one search/stop action replaces calculate and results explain selected and evaluated targets',async()=>{
  const h=harness(false);try{assert.equal(h.host.querySelectorAll('.scenario-search').length,1);assert.equal(h.host.querySelector('.scenario-evaluate'),null);assert.equal(h.host.querySelector('.scenario-doe-help'),null);
- h.host.querySelector('.scenario-results').click();let body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Changed inputs/);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,2);
+ h.host.querySelector('.scenario-results').click();let body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Proposed inputs/);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,2);
  const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');h.host.querySelector('.scenario-results').click();body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.equal(body.querySelectorAll('.scenario-results-metrics').length,0);assert.equal(body.querySelectorAll('.scenario-results-changes th').length,4);assert.equal(body.querySelectorAll('.scenario-results-changes tbody tr').length,result.evaluatedChanges.length);assert.equal(h.host.querySelector('.scenario-search').title,'Find best scenario');
  }finally{h.dom.window.close();}
 });
@@ -313,5 +313,13 @@ test('manual DOE retains nonfactor changes from a review candidate when no unfla
   h.w.STScenarioExplorer.attach(h.host,{...h.project,changes:[...h.project.changes,{equipmentId:'e',path:'mttr',before:10,after:20,unit:'min'}]},()=>{},h.sim);
   [...h.host.querySelectorAll('.scenario-doe-select')].slice(0,2).forEach(c=>{c.checked=true;c.onchange();});
   const result=await search(h);assert(result.doe.fixedChanges.some(c=>c.path==='mttr'&&c.after===20));assert.equal(result.doe.observations.length,4);assert(result.warnings.length);
+ }finally{h.dom.window.close();}
+});
+
+test('screening with no measured flow gain retains manual selection and explains the outcomes',async()=>{
+ const h=harness(true,'HIGH');try{
+  const original=h.w.SimulatorEngine.simulateBatch;
+  h.w.SimulatorEngine.simulateBatch=input=>{const copy=JSON.parse(JSON.stringify(input));copy.case.equipment[0].speed=10;copy.case.equipment[0].sensor=10;return original(copy);};
+  await suggest(h);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No stable suggestions; selected factors kept.*3 without gain/);assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.doesNotMatch(h.host.textContent,/Why these DOE variables/);
  }finally{h.dom.window.close();}
 });

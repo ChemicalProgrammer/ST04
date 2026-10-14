@@ -322,7 +322,10 @@ html[data-ui-mode] .scenario-config-dialog .scenario-preview-context { display:b
 .scenario-config-dialog .scenario-selection-header .scenario-column-select span { position:absolute; left:calc(50% + 10px + var(--space-2)); }
 .scenario-config-dialog .scenario-factor-actions { display:grid; grid-template-columns:auto minmax(0,1fr) 4.5rem; align-items:center; width:100%; }
 .scenario-config-dialog .scenario-suggestion-percent { width:4.5rem; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.scenario-config-dialog .scenario-screening-activity span { animation:none; left:0; transition:width 120ms linear; }
+.scenario-config-dialog .scenario-screening-activity span { width:30%; animation:loading-progress var(--duration-loading) linear infinite; }
+.scenario-config-dialog .scenario-factor-actions .scenario-factor-count { align-self:center; line-height:var(--leading-body); padding:0; margin:0; }
+.scenario-config-dialog .scenario-factor-actions > button { margin:0; align-self:center; }
+.scenario-config-dialog .scenario-suggestion-percent { align-self:center; }
 </style>
 
 
