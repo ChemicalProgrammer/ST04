@@ -29,6 +29,7 @@ window.STShell = function(state,actions) {
     simulationToolbar.classList.toggle('hidden',!active||view==='comparison');
     document.getElementById('header-case-actions').classList.toggle('hidden',!active);
     document.getElementById('workspace-folder-id').disabled=false;
+    ['storage-mode','connect-local-drive'].forEach(id=>{var input=document.getElementById(id);if(input)input.disabled=active;});
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');

@@ -329,7 +329,7 @@
           <section class="settings-section"><h3>Agent prompts</h3><p>Saved for your account. Each checkbox includes or excludes one prompt; excluded text is retained. Basic and Advance blocks apply only in their respective mode. The app still validates scenarios and controls the response transport.</p><p id="gemini-prompt-budget" class="chart-note" role="status"></p><div id="gemini-prompt-editor" class="gemini-prompt-editor"></div></section>
         </div>
         <div id="settings-page-storage" class="hidden" role="tabpanel" aria-labelledby="settings-tab-storage">
-          <section id="workspace-panel" class="settings-section"><h3>Drive workspace</h3><p><?= __ST_TEXT__('view.choose_a_drive_folder_you_can_access_cases_and_results_are_saved_in_this_wo') ?></p><form id="workspace-form"><label for="workspace-folder-id"><?= __ST_TEXT__('view.drive_folder_id') ?></label><input id="workspace-folder-id" autocomplete="off" required><p id="workspace-folder-note" class="chart-note hidden"><?= __ST_TEXT__('settings.close_case_storage') ?></p></form></section>
+          <section id="workspace-panel" class="settings-section"><h3>Drive workspace</h3><p><?= __ST_TEXT__('view.choose_a_drive_folder_you_can_access_cases_and_results_are_saved_in_this_wo') ?></p><form id="workspace-form"><label for="workspace-folder-id"><?= __ST_TEXT__('view.drive_folder_id') ?></label><input id="workspace-folder-id" autocomplete="off" required><p id="workspace-folder-note" class="chart-note hidden"><?= __ST_TEXT__('settings.close_case_storage') ?></p></form><div class="local-drive-settings"><label for="storage-mode">Case storage</label><select id="storage-mode"><option value="LOCAL">Local Drive folder</option><option value="CLOUD" selected>Drive cloud</option></select><button id="connect-local-drive" type="button" class="secondary">Connect local Drive folder</button><div id="local-drive-status" role="status"></div><div class="local-drive-help">Start <code>npm run local-drive</code> on this computer, then select the same workspace folder inside Drive for desktop.</div></div></section>
           <section id="settings-factory-section" class="settings-section hidden"><h3><?= __ST_TEXT__('settings.factory_title') ?></h3><p id="settings-factory-note"><?= __ST_TEXT__('settings.factory_note') ?></p><button id="settings-factory-reset" type="button" class="danger" data-icon="refresh"><?= __ST_TEXT__('settings.factory_button') ?></button></section>
         </div>
         <p id="settings-error" data-error-notice="message" data-error-title="Settings error" role="alert"></p>
@@ -379,6 +379,7 @@
     <?!= include_('ReportConfigurationTemplate'); ?>
     <?!= include_('ReportComparisonTemplate'); ?>
     <?!= include_('Reports'); ?>
+    <?!= include_('LocalDrive'); ?>
     <?!= include_('Results'); ?>
     <?!= include_('LinePerformance'); ?>
     <?!= include_('Shell'); ?>

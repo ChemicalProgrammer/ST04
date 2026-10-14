@@ -2289,17 +2289,17 @@ test('UI: guided equipment options validate and save in Advance while Basic pres
 });
 
 
-test('UI: general Gemini questions work with unsaved edits and without a case; Basic hides interventions and VGraph fits its container',async()=>{
+test('UI: general and case Gemini questions use current drafts; VGraph fits its container',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
-  const requests=[];h.api.askGemini=request=>{requests.push(JSON.parse(JSON.stringify(request)));return {text:'General **answer**: '+request.question};};h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
+  const requests=[],savedAtAsk=[];h.api.askGemini=request=>{savedAtAsk.push(h.calls.filter(x=>x==='saveCase').length);requests.push(JSON.parse(JSON.stringify(request)));return {text:'General **answer**: '+request.question};};h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
   await h.click('#toggle-gemini');h.d.getElementById('gemini-question').value='How do I use Flow Pilot?';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-message[data-role=model]'));assert.equal(requests[0].scope,'GENERAL');assert.equal(requests[0].caseId,undefined);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);
   await h.click('.open-case');await h.click('[data-basic-view=equipment]');const card=h.d.querySelector('.equipment-card'),rate=card._fields.querySelector('.equipment-rate');rate.value='250';rate.dispatchEvent(new h.w.Event('input',{bubbles:true}));
   await h.click('#toggle-gemini');const select=h.d.getElementById('gemini-scope');select.checked=false;select.dispatchEvent(new h.w.Event('change'));h.d.getElementById('gemini-question').value='What does MTBF mean?';await h.click('#send-gemini');await waitFor(()=>requests.length===2&&h.d.querySelector('.gemini-message[data-role=model]'));
   assert.equal(requests[1].scope,'GENERAL');assert.equal(requests[1].simulationId,undefined);assert.equal(requests[1].screen.selectedEquipmentName,null);assert.equal(requests[1].history.length,0);assert.equal(h.calls.filter(x=>x==='saveCase').length,0);assert(!h.storedCases()[0].simulations[0].geminiHistory?.length);
-  select.checked=true;select.dispatchEvent(new h.w.Event('change'));h.d.getElementById('gemini-question').value='Analyze my current simulation';await h.click('#send-gemini');await waitFor(()=>h.d.getElementById('gemini-error').textContent);assert.equal(requests.length,2);assert.match(h.d.getElementById('gemini-error').textContent,/Save/);
+  select.checked=true;select.dispatchEvent(new h.w.Event('change'));h.d.getElementById('gemini-question').value='Analyze my current simulation';await h.click('#send-gemini');await waitFor(()=>requests.length===3&&!h.d.getElementById('send-gemini').disabled);assert.equal(requests[2].scope,'CASE');assert(requests[2].caseSnapshot);assert(Math.abs(requests[2].caseSnapshot.simulations[0].equipment[0].nominalRatePerSecond-250/60)<1e-9);assert.equal(savedAtAsk[2],0);
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].geminiHistory?.some(m=>m.scope==='GENERAL'));
-  await h.click('[data-basic-view=whatif]');const interventions=h.d.querySelector('.scenario-interventions');assert(interventions);assert.equal(h.w.getComputedStyle(interventions).display,'none');
-  await h.click('[data-basic-view=equipment]');const plot=h.d.getElementById('vgraph-plot');Object.defineProperty(plot,'clientWidth',{value:320,configurable:true});h.w.dispatchEvent(new h.w.Event('resize'));const chart=plot.querySelector('svg');assert(chart);assert.equal(parseFloat(chart.style.minWidth),0);assert.equal(chart.getAttribute('viewBox').split(' ')[2],'320');assert.equal(h.w.getComputedStyle(plot).overflow,'hidden');assert.equal(h.w.getComputedStyle(h.d.querySelector('.auth-card .brand-mark')).width,'64px');assert.deepEqual(h.errors,[]);
+  await h.click('[data-basic-view=whatif]');const interventions=h.d.querySelector('.scenario-interventions');assert(interventions);
+  await h.click('[data-basic-view=equipment]');const plot=h.d.getElementById('vgraph-plot');Object.defineProperty(plot,'clientWidth',{value:320,configurable:true});h.w.dispatchEvent(new h.w.Event('resize'));const chart=plot.querySelector('svg');assert(chart);assert.equal(parseFloat(chart.style.minWidth),0);assert.equal(chart.getAttribute('viewBox').split(' ')[2],'320');assert.equal(h.w.getComputedStyle(plot).overflow,'hidden');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -2558,5 +2558,16 @@ test('UI Basic: numeric run controls keep focus across successive digits and sav
   const sample=h.d.getElementById('run-sample-interval');sample.focus();
   for(const value of ['1','12']){sample.value=value;sample.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert.equal(h.d.activeElement,sample);}
   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: local case saves use the local transport and never call cloud saveCase',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  const email=h.d.getElementById('user-email').textContent;h.w.STPreferences.write('localDriveMode.'+JSON.stringify([email,'preview']),'LOCAL');assert.equal(h.w.STLocalDrive.mode(),'LOCAL');
+  const writes=[];h.w.STLocalDrive.dispatch=async(name,args)=>{assert.equal(name,'saveCase');writes.push(JSON.parse(JSON.stringify(args[0])));return {id:args[0].id,name:args[0].name,revision:args[0].expectedRevision+1,updatedAt:new Date().toISOString(),equipmentCount:args[0].equipment.length};};
+  h.api.saveCase=()=>{throw Error('Cloud save must not be called');};
+  const rounds=h.d.getElementById('run-rounds');rounds.value='25';rounds.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');await waitFor(()=>writes.length===1&&!h.d.getElementById('save-case').classList.contains('has-changes'));
+  assert.equal(writes[0].simulations[0].dynamicConfig.rounds,25);assert.equal(h.calls.filter(name=>name==='saveCase').length,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

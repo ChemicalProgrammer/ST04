@@ -36,7 +36,7 @@ function sheetImportColumns_() {
 
 function previewSheetImport_(request, user) {
   if (!request || typeof request !== 'object') throw createSimulatorError_('INVALID_SHEET_REQUEST','Enter a spreadsheet URL or spreadsheet ID.');
-  getCase_(request.caseId, user); // Check target ownership before reading any spreadsheet.
+  if(request.caseSnapshot)browserCaseSnapshot_(request,user);else getCase_(request.caseId, user);
   var reference = parseSheetReference_(request.spreadsheet);
   var book = openImportSpreadsheet_(reference.id);
   var name = typeof request.sheetName === 'string' ? request.sheetName.trim() : '';

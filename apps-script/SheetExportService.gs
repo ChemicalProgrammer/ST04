@@ -1,7 +1,7 @@
 // Writes a new native Sheet; never changes the source used for import.
 function exportEquipmentSheet_(request, user) {
   if (!request || typeof request !== 'object') throw createSimulatorError_('INVALID_SHEET_REQUEST','Equipment export inputs are required.');
-  getOwnedCaseFile_(request.caseId, user, true); // Authorize before creating any Drive file.
+  if(request.caseSnapshot)browserCaseSnapshot_(request,user);else getOwnedCaseFile_(request.caseId, user, true);
   if (!Array.isArray(request.equipment) || !request.equipment.length || request.equipment.length > 1000) {
     throw createSimulatorError_('INVALID_SHEET_REQUEST','Export between 1 and 1,000 equipment rows.');
   }

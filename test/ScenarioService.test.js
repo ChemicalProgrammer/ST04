@@ -107,3 +107,9 @@ test('reviewed reliability targets can be created without intervention text',()=
  assert.equal(change.after,before*.8);assert.equal(change.justification,undefined);
  assert.equal(result.case.simulations[0].equipment[0].noiseProfile.reliability.mttrMinutes,before);
 });
+
+test('local scenario preparation applies the same validation without any Drive write',()=>{
+ const h=setup(),record=JSON.parse(JSON.stringify(h.record()));h.ctx.getOwnedCaseFile_=()=>{throw Error('Drive must not be read');};h.ctx.persistCaseRecord_=()=>{throw Error('Drive must not be written');};
+ const prepared=h.ctx.prepareScenarioFromRecord_(h.request,record,{email:'owner@test'});
+ assert.equal(prepared.case.simulations.length,2);assert.equal(prepared.case.simulations[1].results,null);assert.equal(prepared.case.simulations[1].scenario.plantValidated,false);assert.equal(h.writes(),0);
+});

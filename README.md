@@ -2,6 +2,8 @@
 
 Aplicación web con Apps Script, almacenamiento en Drive e integración con Gemini.
 
+El guardado puede usar la carpeta local sincronizada por Drive para escritorio: [configuración y funcionamiento](docs/LOCAL_DRIVE_STORAGE.md). El auxiliar se inicia con `npm run local-drive`.
+
 - Textos de interfaz: `apps-script/TextResources.gs`.
 - Colores, tipografía, tamaños y espaciado: `apps-script/DesignTokens.html`.
 - Vistas y controladores: módulos en `apps-script/`.

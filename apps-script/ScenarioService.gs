@@ -9,6 +9,11 @@ function getScenarioSourceSignature_(request,user) {
 function createScenario_(request,user) {
   return withCaseWriteLock_(function() {
     var owned=getOwnedCaseFile_(request.caseId,user),record=ensureCaseSimulations_(owned.caseData);
+    var prepared=prepareScenarioFromRecord_(request,record,user);
+    owned.file=persistCaseRecord_(record,owned);if(typeof updateCaseIndex_==='function')updateCaseIndex_(record,owned.file,user);return prepared;
+  });
+}
+function prepareScenarioFromRecord_(request,record,user) {
     if(Number(request.expectedRevision)!==Number(record.revision))throw createSimulatorError_('CASE_CONFLICT','The case changed. Review the latest version before creating a scenario.');
     var source=record.simulations.find(function(s){return s.id===request.simulationId;});
     if(!source)throw createSimulatorError_('SIMULATION_NOT_FOUND','The source simulation no longer exists.');
@@ -28,8 +33,7 @@ function createScenario_(request,user) {
     copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
     copy.scenario={analysisOnly:proposal.analysisOnly,classification:proposal.analysisOnly?'UNASSIGNED':'INTERVENTION_SCOPE',kind:proposal.kind,title:proposal.title,capex:proposal.analysisOnly?null:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,plantValidated:false,validation:proposal.analysisOnly?'EXPLORATORY_TARGETS_REQUIRE_FEASIBILITY_REVIEW':proposal.evidence.engineeringReview?'ENGINEERING_REVIEW_REQUIRED':proposal.evidence.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION'?'NOT_REPRODUCED_REQUIRES_VALIDATION':copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
     record.simulations.push(copy);record.revision++;record.updatedAt=copy.createdAt;
-    owned.file=persistCaseRecord_(record,owned);if(typeof updateCaseIndex_==='function')updateCaseIndex_(record,owned.file,user);return {case:record,simulationId:copy.id};
-  });
+    return {case:record,simulationId:copy.id};
 }
 function resolveLocalScenarioProposal_(proposal,source) {
   if(!proposal||proposal.sourceSimulationId!==source.id||!Array.isArray(proposal.changes)||!proposal.changes.length)throw createSimulatorError_('INVALID_SCENARIO','The local scenario source or changes are invalid.');

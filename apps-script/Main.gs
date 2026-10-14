@@ -29,15 +29,15 @@ function includeClient_() {
   return resolveTextResources_(getClientSource_());
 }
 
-function getBootstrap() {
+function getBootstrap(request) {
   var stage='IDENTITY';
   try {
     var user=requireCurrentUser_();
     stage='USER_SETTINGS';var settings=getUserSettings_();
-    stage='CASE_CATALOG';var catalog=getCaseCatalog_(user);
+    stage='CASE_CATALOG';var catalog=request?.localStorage===true?{cases:[],refreshRequired:false,complete:true}:getCaseCatalog_(user);
     stage='GEMINI_CONFIG';var gemini=getGeminiClientConfig_();
     stage='INTERFACE_MODE';var uiMode=getInterfaceMode_();
-    return startupResponse_({ok:true,data:{user:user,settings:settings,gemini:gemini,uiMode:uiMode,cases:catalog.cases,caseCatalog:{refreshRequired:catalog.refreshRequired,complete:catalog.complete}}},'READY');
+    return startupResponse_({ok:true,data:{user:user,settings:settings,gemini:gemini,uiMode:uiMode,storageMode:request?.localStorage===true?'LOCAL':'CLOUD',cases:catalog.cases,caseCatalog:{refreshRequired:catalog.refreshRequired,complete:catalog.complete}}},'READY');
   } catch (error) {
     if(error?.simulatorError)return startupResponse_({ok:false,error:error.simulatorError},stage);
     var reference='LOGIN-'+new Date().getTime().toString(36);
@@ -171,3 +171,14 @@ function resetAppSettings() {
   });
 }
 
+
+function prepareLocalCase(request) { return executeServerAction_(function(user){return createNewCaseRecord_(request?.demo?createDemoCaseRequest_():request?.case,user);}); }
+function prepareLocalScenario(request) { return scenarioResponse_(function(user){return prepareScenarioFromRecord_(request,browserCaseSnapshot_(request,user),user);}); }
+
+function prepareLocalWorkspace(){return executeServerAction_(function(){
+ var root=getWorkspaceFolders_().root,id=root.getId(),files=root.getFilesByName('simuline-workspace.json'),file=files.hasNext()?files.next():null,marker;
+ if(file){try{marker=JSON.parse(file.getBlob().getDataAsString());}catch(ignore){throw createSimulatorError_('LOCAL_WORKSPACE_MARKER','The Drive workspace marker is invalid. Select another workspace or restore its marker.');}}
+ if(marker?.workspaceId&&marker.workspaceId!==id)throw createSimulatorError_('LOCAL_WORKSPACE_MARKER','This Drive folder contains a marker for another workspace.');
+ if(!marker?.markerId){marker={schema:'simuline-local-workspace-v1',workspaceId:id,markerId:Utilities.getUuid()};if(file)file.setContent(JSON.stringify(marker));else root.createFile('simuline-workspace.json',JSON.stringify(marker),MimeType.PLAIN_TEXT);}
+ return {workspaceId:id,markerId:marker.markerId};
+});}

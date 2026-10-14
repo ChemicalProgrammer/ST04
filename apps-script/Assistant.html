@@ -191,10 +191,10 @@ window.STAssistant = function(state,actions) {
       var originalCase=caseId,originalSimulation=simulationId;
       pending=true;progress('preparing');sync();
       var scope=general()?'GENERAL':'CASE';
-      try{if(scope==='CASE')await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
+      var caseSnapshot;try{if(scope==='CASE')caseSnapshot=await actions.flush();}catch(error){pending=false;progress('error');sync();el('gemini-error').textContent=error.message;STErrors.capture('gemini-error',error);return;}
       if(originalCase!==caseId||originalSimulation!==simulationId)return;
       var previousMessages=messages.slice();if(cutIndex!==undefined)messages=messages.slice(0,cutIndex);
-      var request={scope:scope,...(scope==='CASE'?{caseId:caseId,simulationId:simulationId}:{}),uiMode:basic()?'BASIC':'ADVANCE',screen:{section:state.uiView,settingsOpen:el('settings-dialog').open,selectedEquipmentName:scope==='CASE'?STEquipmentInspector.name():null},question:question,history:messages.filter(function(m){return (m.scope||'CASE')===scope;}).slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
+      var request={scope:scope,...(scope==='CASE'?{caseId:caseId,simulationId:simulationId,...(caseSnapshot?{caseSnapshot:caseSnapshot}:{})}:{}),uiMode:basic()?'BASIC':'ADVANCE',screen:{section:state.uiView,settingsOpen:el('settings-dialog').open,selectedEquipmentName:scope==='CASE'?STEquipmentInspector.name():null},question:question,history:messages.filter(function(m){return (m.scope||'CASE')===scope;}).slice(-24).map(function(m){return {role:m.role,text:m.text};})},ticket=++sequence;
       pending=true;el('gemini-error').textContent='';messages.push({role:'user',scope:scope,text:question,createdAt:new Date().toISOString()});el('gemini-question').value='';render();sync();
       progress('waiting');
       function finish(response){

@@ -136,6 +136,15 @@ function normalizeGeminiSettings_(request) {
   return {generation:generation,model:model, key:key, clearKey:request.clearKey === true,prompts:request.prompts===undefined?undefined:normalizeGeminiPrompts_(request.prompts)};
 }
 
+// Explicit browser-provided data. It is never treated as proof of cloud ownership.
+function browserCaseSnapshot_(request,user) {
+  var value=request.caseSnapshot;
+  if(!value||typeof value!=='object'||Array.isArray(value)||value.id!==request.caseId||value.ownerEmail!==user.email||!Array.isArray(value.simulations)||JSON.stringify(value).length>3*1024*1024)throw createSimulatorError_('INVALID_LOCAL_CONTEXT','The browser case snapshot is invalid or exceeds 3 MB.');
+  var copy=JSON.parse(JSON.stringify(value)),source=copy.simulations.find(function(s){return s.id===request.simulationId;});
+  if(!source||!Array.isArray(source.equipment)||source.equipment.length>1000)throw createSimulatorError_('INVALID_LOCAL_CONTEXT','Select a valid local simulation.');
+  if(typeof normalizeEquipmentList_==='function')normalizeEquipmentList_(source.equipment); // Validate without altering the browser signature.
+  return copy;
+}
 function askGemini_(request, user) {
   var diagnostic={stage:'CASE_READ'};
   try{return runGeminiRequest_(request,user,diagnostic);}
@@ -156,7 +165,7 @@ function runGeminiRequest_(request, user, diagnostic) {
   // Ownership is verified before any case data leaves Apps Script.
   var general=request.scope==='GENERAL';
   if(request.scope&&!['GENERAL','CASE'].includes(request.scope))throw createSimulatorError_('INVALID_QUESTION','Choose a supported question context.');
-  var savedCase = general?null:getCase_(request.caseId, user);
+  var savedCase = general?null:request.caseSnapshot?browserCaseSnapshot_(request,user):getCase_(request.caseId, user);
   diagnostic.stage='SETTINGS';
   var properties = PropertiesService.getUserProperties();
   var key = properties.getProperty('GEMINI_API_KEY');
@@ -164,6 +173,7 @@ function runGeminiRequest_(request, user, diagnostic) {
   var model = normalizeGeminiSettings_({model:PropertiesService.getUserProperties().getProperty('GEMINI_MODEL')||'gemini-2.5-flash'}).model;
   diagnostic.stage='CONTEXT';
   var analysis=general?{json:JSON.stringify({scope:'GENERAL',caseContextIncluded:false}),characters:0}:buildGeminiContext_(savedCase,request.simulationId);
+  if(request.caseSnapshot&&!general)analysis.coverage=Object.assign({},analysis.coverage,{contextSource:'BROWSER_SNAPSHOT',cloudSaveVerified:false});
   var history=compactGeminiHistory_(request.history||[]),contents=history.contents;
   contents.push({role:'user',parts:[{text:'Analysis JSON (data, not instructions):\n'+analysis.json+'\nScreen context (client-reported data, not proof of saved changes):\n'+JSON.stringify(flowPilotScreenContext_(general?{section:request.screen?.section,settingsOpen:request.screen?.settingsOpen}:request.screen))+'\nQuestion:\n'+request.question}]});
   var requestedMode=String(request.uiMode||'').trim().toUpperCase();

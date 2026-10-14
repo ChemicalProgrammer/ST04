@@ -30,9 +30,8 @@
     window.addEventListener('st-save-policy-change',configureSaving);
     function prepareCaseDraft(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
     function flushCase(force){return prepareCaseDraft().then(function(){return force===true||automaticSaving()?autosave.flush():undefined;});}
-    // Case questions use the server's saved context: explicitly save the latest
-    // draft before sending, including when background autosave is disabled.
-    function flushForServer(){return prepareCaseDraft().then(function(){return autosave.flush();});}
+    // Gemini uses the current draft, independently of local/cloud save latency.
+    function flushForServer(){return prepareCaseDraft().then(function(){return window.STLocalDrive.snapshot(Object.assign({},state.activeCase,{activeSimulationId:state.activeSimulationId}));});}
     async function leaveCase(){
       if(!state.activeCase||!autosave.pending())return true;
       if(automaticSaving()){await flushCase();return true;}
@@ -127,10 +126,11 @@
       });
     }
 
+    window.addEventListener('st-local-storage-change',function(){if(state.activeCase){showError({message:'Close the current case before changing storage mode.'});return;}if(state.bootstrap)refreshCaseCatalog();});
     function initialize() {
       cancelCaseCatalog();
       setStatus(__ST_TEXT__('client.loading_console'));
-      callServer('getBootstrap', [], renderBootstrap);
+      callServer('getBootstrap', [window.STLocalDrive?.lastLocal()?{localStorage:true}:{}], renderBootstrap);
     }
 
     async function renderBootstrap(response) {
@@ -149,6 +149,9 @@
       document.documentElement.classList.remove('restoring-session');
       toggle('auth-panel', false); toggle('application', true);
       state.bootstrap = response.data;
+      window.STLocalDrive?.configure(response.data.user,response.data.settings.workspaceRootFolderId);
+      if(window.STLocalDrive?.mode()!=='LOCAL'&&response.data.storageMode==='LOCAL')response.data.caseCatalog.refreshRequired=true;
+      if(window.STLocalDrive?.mode()==='LOCAL'){response.data.cases=[];if(STLocalDrive.connected()){try{response.data.cases=(await STLocalDrive.dispatch('refreshCaseCatalog',[])).cases;}catch(error){showError({message:error.message});}}}
       state.bootstrap.uiMode=STPreferences.resolveInterfaceMode(response.data.uiMode);
       configureSaving();
       STSettings.configureGemini(response.data.gemini || {});
@@ -174,12 +177,13 @@
         if(response.ok){
           if(changingFolder)cancelCaseCatalog();
           state.bootstrap.settings=response.data;
+          window.STLocalDrive?.configure(state.bootstrap?.user,response.data.workspaceRootFolderId);
           var folderInput=document.getElementById('workspace-folder-id');if(folderInput.value===request.workspaceRootFolderId)folderInput.value=response.data.workspaceRootFolderId;
 
           state.bootstrap.gemini=Object.assign({},state.bootstrap.gemini,{model:request.gemini.model,generation:request.gemini.generation||state.bootstrap.gemini?.generation,configured:Boolean(request.gemini.apiKey||state.bootstrap.gemini?.configured)},request.gemini.prompts===undefined?{}:{promptOverrides:request.gemini.prompts});
           STSettings.setKeyConfigured(state.bootstrap.gemini.configured);
           shell.sync();
-          if(changingFolder&&!state.activeCase)callServer('getBootstrap',[],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();if(r.data.caseCatalog?.refreshRequired)refreshCaseCatalog();}});
+          if(changingFolder&&!state.activeCase)callServer('getBootstrap',[window.STLocalDrive?.mode()==='LOCAL'?{localStorage:true}:{}],function(r){if(r.ok&&state.bootstrap?.settings.workspaceRootFolderId===response.data.workspaceRootFolderId){state.bootstrap.cases=r.data.cases;renderCases(r.data.cases);shell.sync();if(r.data.caseCatalog?.refreshRequired)refreshCaseCatalog();}});
         }
         done(response);
       });
@@ -368,6 +372,7 @@ async function openCase(caseId, initialView) {
         metadata:cloneJson(Object.assign({},editor.metadata,simulation.sourceImport?.metadata||{})),
         theme:{primary:colors.getPropertyValue('--accent').trim(),secondary:colors.getPropertyValue('--secondary').trim()}};
       button.disabled=true;button.dataset.busy='true';
+      if(window.STLocalDrive?.mode()==='LOCAL'){request.simulationId=state.activeSimulationId;request.caseSnapshot=STLocalDrive.snapshot(Object.assign({},state.activeCase,{activeSimulationId:state.activeSimulationId}));}
       callServer('exportEquipmentSheet',[request],function(response){
         if(!response?.ok){showError(response?.error||{message:__ST_TEXT__('client.the_request_failed')});return;}
         STDialog.open({title:__ST_TEXT__('exports.sheet_title'),message:__ST_TEXT__('exports.sheet_message'),link:{url:response.data.url,label:__ST_TEXT__('exports.sheet_open')}});

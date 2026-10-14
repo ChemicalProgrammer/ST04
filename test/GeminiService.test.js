@@ -290,3 +290,19 @@ test('default scenario prompt requests method choice and describes current condi
   assert.match(policy,/first ask one concise question/);assert.match(policy,/proposals:\[\]/);assert.match(policy,/do not repeatedly ask/);assert.match(policy,/up to 16 numeric inputs and 12 diversified pairs/);assert.match(policy,/ANOVA/);assert.match(policy,/GEMINI FREE METHOD/);assert.match(policy,/independent seeds/);
  }
 });
+
+test('Gemini accepts current browser case data without reading Drive or requiring a save',()=>{
+ const h=setup(),snapshot=JSON.parse(JSON.stringify(h.record));snapshot.ownerEmail=user.email;snapshot.simulations[0].results.summary.throughput=123.456789;snapshot.simulations.push({id:'another',name:'Another',equipmentCount:13,results:{summary:{outputCount:100}}});
+ h.ctx.getCase_=()=>{throw Error('Drive must not be read');};
+ const answer=h.ctx.askGemini_({...request,caseSnapshot:snapshot},user);
+ assert.equal(answer.context.contextSource,'BROWSER_SNAPSHOT');assert.equal(answer.context.cloudSaveVerified,false);assert(h.calls[0].options.payload.includes('123.456789'));assert(!h.calls[0].options.payload.includes('privateReplay'));
+ assert.throws(()=>h.ctx.askGemini_({...request,caseSnapshot:{...snapshot,id:'other'}},user),e=>e.code==='INVALID_LOCAL_CONTEXT');
+ assert.throws(()=>h.ctx.askGemini_({...request,caseSnapshot:{...snapshot,ownerEmail:'other@test'}},user),e=>e.code==='INVALID_LOCAL_CONTEXT');
+});
+
+test('browser snapshot validation preserves the exact source signature for Gemini scenarios',()=>{
+ const initial=setup(),proposal=initial.ctx.STScenarioEngine_.plan(initial.record.simulations[0]).candidates.find(p=>p.canApply);proposal.title='Memory hypothesis';
+ const h=setup({answer:JSON.stringify({text:'Untested hypothesis',proposals:[proposal]})});vm.runInContext(fs.readFileSync('apps-script/CaseService.gs','utf8'),h.ctx);h.ctx.getCase_=()=>{throw Error('Drive must not be read');};
+ const snapshot=JSON.parse(JSON.stringify(h.record));snapshot.ownerEmail=user.email;
+ const signature=h.ctx.STScenarioEngine_.signature(snapshot.simulations[0]);const answer=h.ctx.askGemini_({...request,caseSnapshot:snapshot},user);assert.equal(answer.proposals[0].sourceSignature,signature);
+});

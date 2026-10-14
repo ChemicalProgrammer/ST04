@@ -35,6 +35,7 @@
         activity();
         if(onSettled)onSettled();
       }
+      if(window.STLocalDrive?.handles(name)){STLocalDrive.dispatch(name,args).then(data=>{done();if(epoch===state.requestEpoch)onSuccess({ok:true,data:data});},error=>{done();if(epoch===state.requestEpoch)onSuccess({ok:false,error:{code:error.code||'LOCAL_STORAGE_ERROR',message:error.message}});});return;}
       var runner = google.script.run
         .withFailureHandler(function(error) {
           done();
