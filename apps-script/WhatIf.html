@@ -6,7 +6,7 @@ window.STWhatIf = (function() {
     var item=node('article','','analysis-recommendation');
     item.append(node('span',project.searchScope==='ALL'?'All CAPEX':label(project.tier),'analysis-capex'),node('span',label(project.basis),'badge'),node('h4',project.title||label(project.titleKey)));
     item.querySelector('.analysis-capex').dataset.tier=project.tier;
-    if(project.description)item.append(node('p',project.description,'chart-note'));
+    if(project.description&&!project.explore)item.append(node('p',project.description,'chart-note'));
     if(project.evidence){var detail=node('details','','analysis-checks');detail.append(node('summary',__ST_TEXT__('scenario.evidence')));Object.entries(project.evidence).forEach(function(pair){if(pair[1]!=null)detail.append(node('p',label(pair[0])+': '+pair[1]));});item.append(detail);}
     STScenarioExplorer.attach(item,project,create,simulation||{id:project.sourceSimulationId,equipment:equipment||[],dynamicConfig:{}});
     return item;

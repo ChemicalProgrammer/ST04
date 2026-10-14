@@ -1215,14 +1215,14 @@ test('UI: reproduced gains with audit warnings remain creatable review scenarios
  const h=await setup({remember:true});try{
   const sim=h.storedCases()[0].simulations[0],project=h.w.STScenarios.plan(sim).projects.find(p=>p.canApply),apply=h.w.STScenarios.apply;
   h.w.STScenarios.apply=(source,changes)=>{const result=apply(source,changes);result.scenarioWarnings=[{equipmentId:changes[0].equipmentId,rule:'BACKUP_POSITION',before:'PASS',after:'FAIL'}];return result;};
-  let calls=0,created;h.w.SimulatorEngine.simulateBatch=async()=>{const gain=calls++%2;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-evaluate').click();
-  await waitFor(()=>card.querySelector('.scenario-audit-warnings input'));
-  const save=card.querySelector('.scenario-create'),ack=card.querySelector('.scenario-audit-warnings input');
-  assert(!save.disabled);assert(card.querySelector('.scenario-audit-warnings').open);assert.match(card.textContent,/BACKUP_POSITION: PASS → FAIL/);
-  ack.checked=true;ack.dispatchEvent(new h.w.Event('change'));assert.equal(save.disabled,false);save.click();
-  assert(created.reviewed);assert.equal(created.evidence.engineeringReview,'ACKNOWLEDGED_REQUIRES_REVIEW');
-  const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(evidence.engineeringReviewAcknowledged);assert(evidence.independentCheck.passed);
+  let created;const originalEquipment=JSON.stringify(sim.equipment);h.w.SimulatorEngine.simulateBatch=async input=>{const gain=JSON.stringify(input.case.equipment)===originalEquipment?0:1,summary={lineOeePercent:50+gain,outputCount:(100+gain)*input.run.durationSeconds/60,totalOverflowUnits:0};return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary,batch:{rounds:input.run.rounds,rows:Array.from({length:input.run.rounds},(_,i)=>({seed:input.run.seed+i,summary})),statistics:{lineOeePercent:{mean:50+gain},throughputPerMinute:{mean:100+gain},totalOverflowUnits:{mean:0}}}}};};
+  const card=h.w.STWhatIf.card(project,p=>created=p,sim.equipment,sim);h.d.body.append(card);card.querySelector('.scenario-search').click();
+  await waitFor(()=>!card.querySelector('.scenario-create').disabled);
+  const save=card.querySelector('.scenario-create');assert.equal(card.querySelector('.scenario-audit-warnings input'),null);
+  assert(!save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings').open,false);assert.match(card.textContent,/backup position/);
+  save.click();
+  assert(created.reviewed);assert.equal(created.evidence.engineeringReview,'REQUIRES_REVIEW');
+  const evidence=h.w.STScenarioExplorer.evaluations(sim)[0];assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(!evidence.engineeringReviewAcknowledged);assert(evidence.independentCheck.passed);
   card.querySelector('.scenario-configure').click();const limit=card.querySelector('.scenario-change input[type=number]');limit.value='';limit.dispatchEvent(new h.w.Event('input'));assert(save.disabled);assert.equal(card.querySelector('.scenario-audit-warnings'),null);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
@@ -2364,15 +2364,15 @@ test('UI: Basic validated search remains creatable after manual save and reopeni
   await h.click('.open-case');h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
   const before=h.storedCases()[0].simulations[0],equipment=JSON.stringify(before.equipment),apply=h.w.STScenarios.apply;
   h.w.STScenarios.apply=(source,changes)=>{const result=apply(source,changes);result.scenarioWarnings=[{equipmentId:changes[0].equipmentId,rule:'BACKUP_POSITION',before:'PASS',after:'FAIL'}];return result;};
-  h.w.SimulatorEngine.simulateBatch=async input=>({ok:true,result:{durationSeconds:60,summary:{lineOeePercent:JSON.stringify(input.case.equipment)===equipment?50:51,outputCount:JSON.stringify(input.case.equipment)===equipment?100:101}}});
+  h.w.SimulatorEngine.simulateBatch=async input=>{const gain=JSON.stringify(input.case.equipment)===equipment?0:1,summary={lineOeePercent:50+gain,outputCount:(100+gain)*input.run.durationSeconds/60,totalOverflowUnits:0};return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary,batch:{rounds:input.run.rounds,rows:Array.from({length:input.run.rounds},(_,i)=>({seed:input.run.seed+i,summary})),statistics:{lineOeePercent:{mean:50+gain},throughputPerMinute:{mean:100+gain},totalOverflowUnits:{mean:0}}}}};};
   await h.click('[data-basic-view=whatif]');
   let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
-  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  await waitFor(()=>card.querySelector('.scenario-search').dataset.icon==='refresh');
   assert(card.querySelector('.scenario-audit-warnings'));assert(!card.querySelector('.scenario-create').disabled,card.querySelector('.scenario-preview-status').textContent);
   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
   const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'ENGINEERING_REVIEW_REQUIRED');assert(evidence.independentCheck.passed);assert(!evidence.engineeringReviewAcknowledged);
   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=whatif]');
-  card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled,'Saved CAPEX card lost its validated winner');assert(!card.querySelector('.scenario-audit-warnings input').checked);
+  card=h.d.querySelector('.scenario-tier-grid').lastElementChild;assert(!card.querySelector('.scenario-create').disabled,'Saved CAPEX card lost its validated winner');assert.equal(card.querySelector('.scenario-audit-warnings input'),null);
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
@@ -2384,7 +2384,7 @@ test('UI + Apps Script: Basic unconfirmed gain is visible and creates only a val
   const equipment=JSON.stringify(h.storedCases()[0].simulations[0].equipment);
   h.w.SimulatorEngine.simulateBatch=async input=>{const changed=JSON.stringify(input.case.equipment)!==equipment,gain=changed?(input.run.seed>=1000000?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
   await h.click('[data-basic-view=whatif]');let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
-  await waitFor(()=>card.querySelector('.scenario-evaluate').dataset.icon==='search');
+  await waitFor(()=>card.querySelector('.scenario-search').dataset.icon==='refresh');
   assert(!card.querySelector('.scenario-create').disabled,card.textContent);assert.match(card.querySelector('.scenario-create').title,/for validation/);assert.match(card.textContent,/did not reproduce/);assert.notEqual(h.w.getComputedStyle(card.querySelector('.scenario-preview-status')).display,'none');
   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');
   const evidence=h.storedCases()[0].simulations[0].whatIf.evaluations.find(e=>e.searchScope==='HIGH');assert.equal(evidence.status,'NOT_REPRODUCED');assert.equal(evidence.independentCheck.passed,false);

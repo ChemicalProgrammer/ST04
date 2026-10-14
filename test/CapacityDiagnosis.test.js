@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {JSDOM} from 'jsdom';
+import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {diagnoseLineEfficiency} from '../src/analysis/LinePerformanceAnalysis.js';
 import {applyScenarioChanges,planScenarios,scenarioCategoryAllows} from '../src/analysis/ScenarioPlanner.js';
 import {createScenarioDOE} from '../src/analysis/ScenarioDOE.js';
@@ -47,5 +48,31 @@ test('Results uses the matched validation block to separate conditional reliabil
 
 test('observed equipment states are globally sorted from largest percentage to smallest',()=>{
  const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window,s=fixture(),result={durationSeconds:100,summary:{lineOeePercent:30},equipmentMetrics:{[s.equipment[0].id]:{blockedSeconds:10,failureSeconds:30},[s.equipment[2].id]:{starvedSeconds:20}}};w.SimulatorEngine={diagnoseLineEfficiency};w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
- try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,result);const values=[...w.document.querySelectorAll('.observed-equipment-times tr')].slice(1).map(row=>Number(row.lastChild.textContent));assert.deepEqual(values,[30,20,10]);}finally{w.close();}
+ try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,result);const values=[...w.document.querySelectorAll('.observed-equipment-times tr')].slice(1).map(row=>parseFloat(row.lastChild.textContent));assert.deepEqual(values,[30,20,10]);}finally{w.close();}
+});
+
+test('Results computes failure-free loss with matching seeds and horizon, persists it and reuses it',async()=>{
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window,s=fixture(),run={seed:31,durationSeconds:600,rounds:3,engineId:'ST_CURRENT',reliabilityEnabled:true,commands:[]};let calls=0,measured;
+ const signature=input=>JSON.stringify({equipment:input.case.equipment,unitOfFlow:input.case.unitOfFlow,run:input.run});
+ const result={inputSignature:signature({case:{equipment:s.equipment,unitOfFlow:'units'},run}),durationSeconds:600,replicationStatus:{state:'COMPLETE'},batch:{rounds:3,statistics:{lineOeePercent:{mean:39.2}}},summary:{lineOeePercent:38}};
+ w.SimulatorEngine={diagnoseLineEfficiency,inputSignature:signature,async simulateBatch(input){calls++;measured=input;return {ok:true,result:{summary:{lineOeePercent:90},batch:{statistics:{lineOeePercent:{mean:92.4}}}}};}};
+ w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
+ try{const target=w.document.querySelector('main');w.STResults.renderEfficiency(target,s.equipment,result,s);assert.match(target.textContent,/Calculating/);await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert.equal(measured.run.seed,31);assert.equal(measured.run.durationSeconds,600);assert.equal(measured.run.rounds,3);assert.equal(measured.run.reliabilityEnabled,false);assert.match(target.textContent,/53.2%/);assert.match(target.textContent,/0.86%/);assert.equal(s.whatIf.lossDiagnostic.baselineOee,39.2);
+ const losses=[...target.querySelectorAll('.result-kpi strong')].map(n=>parseFloat(n.textContent));assert(Math.abs(losses.reduce((sum,n)=>sum+n,39.2)-100)<.02);w.STResults.renderEfficiency(target,s.equipment,result,s);await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert(target.querySelector('.table-scroll thead'));assert(target.querySelector('.table-scroll tbody'));
+ }finally{w.close();}
+});
+
+test('real-engine loss accounting closes at 100% including achieved OEE',async()=>{
+ const s=fixture(),run={seed:31,durationSeconds:600,tickSeconds:.25,sampleEverySeconds:5,rounds:3,engineId:'ST_CURRENT',reliabilityEnabled:true};const input={case:{id:s.id,unitOfFlow:'units',equipment:s.equipment},run};
+ const base=await simulateBatch(input,{summaryOnly:true,yieldControl:()=>Promise.resolve()});assert(base.ok);const signature=input=>JSON.stringify({equipment:input.case.equipment,unitOfFlow:input.case.unitOfFlow,run:input.run});base.result.inputSignature=signature(input);base.result.replicationStatus={state:'COMPLETE'};
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;w.SimulatorEngine={diagnoseLineEfficiency,inputSignature:signature,simulateBatch:(input,options)=>simulateBatch(input,{...options,summaryOnly:true,yieldControl:()=>Promise.resolve()})};w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
+ try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,base.result,s);for(let i=0;i<100&&!s.whatIf?.lossDiagnostic;i++)await new Promise(resolve=>setTimeout(resolve,5));assert(s.whatIf?.lossDiagnostic);const achieved=base.result.batch.statistics.lineOeePercent.mean,losses=[...w.document.querySelectorAll('.result-kpi strong')].map(n=>parseFloat(n.textContent));assert(losses.every(Number.isFinite));assert(Math.abs(achieved+losses.reduce((sum,n)=>sum+n,0)-100)<.02);
+ }finally{w.close();}
+});
+
+test('a failed loss diagnostic can be retried without leaving permanent empty values',async()=>{
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window,s=fixture(),run={seed:31,durationSeconds:600,rounds:1,engineId:'ST_CURRENT',reliabilityEnabled:true};let calls=0;const signature=input=>JSON.stringify({equipment:input.case.equipment,unitOfFlow:input.case.unitOfFlow,run:input.run});
+ const result={inputSignature:signature({case:{equipment:s.equipment,unitOfFlow:'units'},run}),durationSeconds:600,summary:{lineOeePercent:50}};w.SimulatorEngine={diagnoseLineEfficiency,inputSignature:signature,async simulateBatch(){if(++calls===1)throw Error('Temporary calculation failure');return {ok:true,result:{summary:{lineOeePercent:90}}};}};w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
+ try{const target=w.document.querySelector('main');w.STResults.renderEfficiency(target,s.equipment,result,s);await new Promise(resolve=>setTimeout(resolve,5));const retry=target.querySelector('button');assert(retry);retry.click();await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,2);assert.equal(target.querySelector('button'),null);assert.match(target.textContent,/40%/);
+ }finally{w.close();}
 });

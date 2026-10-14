@@ -50,6 +50,7 @@ window.STMotion=(function(){
         frame=0;var next=new Map();
         cards().forEach(function(element){
           var key=element.dataset.motionKey,animation=active.get(element);
+          if(element.closest('.scenario-tier-grid')){cancel(element);next.set(key,measure(element));return;}
           if(element.getAttribute('aria-busy')==='true'){
             cancel(element);next.set(key,measure(element));return;
           }
