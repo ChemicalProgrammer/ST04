@@ -97,3 +97,23 @@ function estimateRecoveryTarget(equipment, item, referenceId, normalBpm) {
   };
 }
 
+
+// Capacity accounting and observed equipment time are distinct: time losses
+// overlap across machines and must never be summed as causal global OEE loss.
+export function diagnoseLineEfficiency(equipment,result){
+  let models=equipment||[];
+  if(result?.inputSignature){try{const p=JSON.parse(result.inputSignature);if(Array.isArray(p.equipment))models=p.equipment;}catch(_){}}
+  const line=analyzeLinePerformance(models,result),reference=line.points.find(p=>p.isPacemaker),machines=line.points.filter(p=>p.configuredBpm>0);
+  const referenceBpm=reference?.configuredBpm,minimumBpm=machines.length?Math.min(...machines.map(p=>p.configuredBpm)):null;
+  const ceiling=referenceBpm>0&&minimumBpm>0?Math.min(100,100*minimumBpm/referenceBpm):null;
+  const mean=result?.batch?.statistics?.lineOeePercent?.mean,achieved=Number.isFinite(mean)?mean:result?.summary?.lineOeePercent;
+  const valid=result?.engineId!=='DES_SIMPY_EXPERIMENTAL'&&Number.isFinite(ceiling)&&Number.isFinite(achieved)&&achieved>=0&&achieved<=ceiling+.01;
+  const duration=result?.durationSeconds,read=(id,key)=>result?.batch?.equipmentStatistics?.[id]?.[key]?.mean??result?.equipmentMetrics?.[id]?.[key];
+  const keys=['failureSeconds','microStopSeconds','pausedSeconds','emergencyStopSeconds','starvedSeconds','blockedSeconds','waitingForPrimeSeconds','backupStopSeconds'];
+  return {referenceId:line.referenceId,referenceName:reference?.name,referenceBpm,minimumBpm,capacityCeilingPercent:ceiling,
+    limitingEquipment:machines.filter(p=>Math.abs(p.configuredBpm-minimumBpm)<1e-7).map(p=>({id:p.id,name:p.name,bpm:p.configuredBpm,maximumBpm:p.maximumBpm})),
+    achievedPercent:Number.isFinite(achieved)?achieved:null,capacityGapPp:Number.isFinite(ceiling)?100-ceiling:null,residualLossPp:valid?Math.max(0,ceiling-achieved):null,
+    accountingAvailable:valid,rounds:result?.batch?.rounds||1,
+    equipmentTime:machines.map(p=>({id:p.id,name:p.name,percent:Object.fromEntries(keys.map(key=>{const value=read(p.id,key);return [key,duration>0&&Number.isFinite(value)?100*value/duration:null];}))})),
+    interpretation:'Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions.'};
+}

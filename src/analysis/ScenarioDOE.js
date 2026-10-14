@@ -8,12 +8,12 @@ export function createScenarioDOE(factors) {
     if(f.path.startsWith('noiseProfile.reliability.')){
       if(f.external!==true||!(f.before>0))throw Error('DOE_EXTERNAL_EVIDENCE_REQUIRED');
       if(f.path.endsWith('mtbfMinutes')?f.low<f.before:f.high>f.before)throw Error('DOE_RELIABILITY_DIRECTION');
-    }else if(f.external)throw Error('DOE_INVALID_FACTOR');
+    }else if(f.external){if(f.path!=='nominalRatePerSecond'||f.interventionType!=='REPLACEMENT'||!f.justification?.trim()||!Number.isFinite(f.replacementMaximumBpm)||f.high>f.replacementMaximumBpm/60||f.low<f.before)throw Error('DOE_INVALID_FACTOR');}
     seen.add(key);
   }
   return {type:'FULL_FACTORIAL_TWO_LEVEL',factors:JSON.parse(JSON.stringify(factors)),designPoints:Array.from({length:2**factors.length},(_,index)=>{
     const levels=factors.map((_,i)=>(index>>i)&1?1:-1);
-    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit,...(f.external?{external:true,justification:f.justification,interventionType:f.interventionType,originTier:f.originTier}:{})})).filter(c=>c.before!==c.after)};
+    return {index,levels,changes:factors.map((f,i)=>({equipmentId:f.equipmentId,path:f.path,before:f.before,after:levels[i]===1?f.high:f.low,unit:f.unit,...(f.external?{external:true,justification:f.justification,interventionType:f.interventionType,originTier:f.originTier,...(f.replacementMaximumBpm!==undefined?{replacementMaximumBpm:f.replacementMaximumBpm}:{})}:{})})).filter(c=>c.before!==c.after)};
   })};
 }
 export function analyzeScenarioDOE(design,observations) {

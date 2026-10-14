@@ -80,3 +80,21 @@ La opción se aplica al motor actual, al adaptador DES, a todas las rondas y a l
 Una línea sin fallas puede seguir por debajo del 100% por velocidades relativas a la referencia, falta de producto, bloqueo, arranque, rampas, microparos o comandos de paro. El resultado permite decidir qué mecanismos investigar; no constituye por sí solo una descomposición causal de pérdidas.
 
 La sección de comparación de experimentos entre computadoras se retiró de la interfaz. Se conserva la configuración del experimento en la evidencia interna de búsqueda para trazabilidad.
+
+## Diagnóstico de capacidad y reemplazos High CAPEX
+
+Results y What-If muestran **Efficiency diagnosis**. El techo nominal es `min(100, 100 × velocidad mínima de las máquinas / velocidad de referencia)`. El balance muestra eficiencia lograda, brecha nominal respecto a 100% y pérdida restante debajo del techo. Con varias rondas, usa el OEE medio. El techo no incluye límites de transporte ni pérdidas dinámicas; el residual no se distribuye por causas sin experimentos adicionales. La tabla de tiempos observados por equipo usa porcentajes de duración y medias de réplicas disponibles: estos porcentajes pueden superponerse y no son contribuciones aditivas al OEE global. DES experimental no presenta este balance como OEE validado.
+
+En **Add maintenance, retrofit or replacement target**, seleccionar **Replacement operating speed (units/min)** y un equipo no crítico. Introducir velocidad de operación, nueva capacidad máxima instalada y justificación/fuente del objetivo. El máximo debe aumentar, la operación no debe excederlo y la referencia queda fija. El cambio nominal lleva `replacementMaximumBpm`, `external:true`, `interventionType:REPLACEMENT` y `justification`: la aplicación cambia operación y máximo de manera conjunta. La categoría permitida es High; también funciona con fallas desactivadas. DOE y el servicio de creación conservan los metadatos. Se conservan geometría y topología actuales; no se asume que el proveedor garantiza compatibilidad con ellas.
+
+El planificador prioriza los reemplazos documentados de las máquinas que limitan el techo nominal. La búsqueda evalúa cambios individuales y combinaciones con sus controles existentes, conserva el diagnóstico inicial y registra el techo y limitante finales. No inventa una compra, capacidad ni costo. Los desbordamientos observados durante la búsqueda o confirmación generan revisión de ingeniería aunque aumente el throughput; las mediciones antiguas sin este dato se recalculan.
+
+Prueba reproducible: `node scripts/test-demo-b-capacity.mjs`. Demo B, ocho horas, fallas desactivadas, referencia Blowmolder 193/min, geometría de fotos conservada, una ronda diagnóstica por caso. Valores hipotéticos de reemplazo: operación 200/min y máximo nuevo 220/min; no son especificaciones de proveedor.
+
+| Prueba | OEE (%) | Techo nominal (%) | Limitante nominal | Observación |
+|---|---:|---:|---|---|
+| Base sin fallas | 92.394316 | 93.264249 | Filler/Capper 180/min | Brecha de capacidad 6.735751 pp; residual 0.869933 pp. |
+| Solo Filler | 94.965983 | 95.854922 | De-Pucker y Sleever 185/min | Desbordamiento de 120 unidades: revisión requerida. |
+| Pucker, Filler, De-Pucker, Sleever y Case Packer | 99.117886 | 100 | Blowmolder 193/min | Sin desbordamiento; residual 0.882114 pp. |
+
+Resultados completos en `docs/demo-b-capacity-results.json`. Estas pruebas validan la representación de capacidad y el desplazamiento de la restricción; no constituyen una búsqueda exhaustiva, validación independiente con fallas, propuesta económica ni recomendación de reemplazar cinco equipos.

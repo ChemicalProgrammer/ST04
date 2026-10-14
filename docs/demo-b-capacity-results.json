@@ -1,0 +1,541 @@
+{
+  "modelVersion": "0.13.0",
+  "run": {
+    "durationMode": "FIXED",
+    "durationSeconds": 28800,
+    "tickSeconds": 0.25,
+    "sampleEverySeconds": 15,
+    "seed": 20261013,
+    "rounds": 1,
+    "commands": [],
+    "engineId": "ST_CURRENT",
+    "reliabilityEnabled": false
+  },
+  "interpretation": "Illustrative non-reference capacity hypotheses, not documented supplier targets. Original photo geometry and reference retained. One full eight-hour diagnostic run per case; no independent validation or economic recommendation.",
+  "results": [
+    {
+      "name": "Baseline without failures",
+      "changes": [],
+      "summary": {
+        "outputCount": 85594.094485,
+        "materialBalance": {
+          "inputUnits": 86426.8375,
+          "outputUnits": 85594.094485,
+          "inventoryUnits": 832.743015,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "averageOutputRatePerSecond": 2.972017,
+        "totalBlockedSeconds": 0,
+        "totalStarvedSeconds": 2918,
+        "totalPartialStarvationLossSeconds": 16995.501616,
+        "totalPartialBlockingLossSeconds": 2736.514906,
+        "totalFailureSeconds": 0,
+        "totalEmergencyStopSeconds": 0,
+        "totalBackupStopSeconds": 1213.5,
+        "totalWaitingForPrimeSeconds": 840.75,
+        "totalOverflowUnits": 0,
+        "lineOeePercent": 92.394316,
+        "lineOeePacemakerEquipmentId": "sheet-row-10",
+        "lineOeePacemakerName": "Blowmolder",
+        "lineOeePacemakerRatePerSecond": 3.216666666666667,
+        "lineOeeReference": "EXPLICIT_PACEMAKER",
+        "qualityAssumption": "NO_REJECT_MODEL_ASSUMES_100_PERCENT"
+      },
+      "diagnosis": {
+        "referenceId": "sheet-row-10",
+        "referenceName": "Blowmolder",
+        "referenceBpm": 193,
+        "minimumBpm": 180,
+        "capacityCeilingPercent": 93.26424870466322,
+        "limitingEquipment": [
+          {
+            "id": "sheet-row-14",
+            "name": "Filler/Capper",
+            "bpm": 180,
+            "maximumBpm": 180
+          }
+        ],
+        "achievedPercent": 92.394316,
+        "capacityGapPp": 6.735751295336783,
+        "residualLossPp": 0.8699327046632135,
+        "accountingAvailable": true,
+        "rounds": 1,
+        "equipmentTime": [
+          {
+            "id": "sheet-row-10",
+            "name": "Blowmolder",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0,
+              "backupStopSeconds": 4.213541666666667
+            }
+          },
+          {
+            "id": "sheet-row-12",
+            "name": "Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 1.9236111111111112,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.058159722222222224,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-14",
+            "name": "Filler/Capper",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.0234375,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.3446180555555556,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-16",
+            "name": "De-Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.4375,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-18",
+            "name": "Sleever",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.5052083333333334,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-20",
+            "name": "Case Packer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.005208333333333333,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.6449652777777778,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-22",
+            "name": "Palletizer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.9288194444444444,
+              "backupStopSeconds": 0
+            }
+          }
+        ],
+        "interpretation": "Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions."
+      },
+      "warnings": []
+    },
+    {
+      "name": "Filler replacement",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "nominalRatePerSecond",
+          "before": 3,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        }
+      ],
+      "summary": {
+        "outputCount": 87976.486396,
+        "materialBalance": {
+          "inputUnits": 88960.222894,
+          "outputUnits": 87976.486396,
+          "inventoryUnits": 863.736497,
+          "overflowUnits": 120,
+          "residualUnits": 0
+        },
+        "averageOutputRatePerSecond": 3.054739,
+        "totalBlockedSeconds": 1143.75,
+        "totalStarvedSeconds": 2621.75,
+        "totalPartialStarvationLossSeconds": 14245.624615,
+        "totalPartialBlockingLossSeconds": 437.474579,
+        "totalFailureSeconds": 0,
+        "totalEmergencyStopSeconds": 0,
+        "totalBackupStopSeconds": 1740,
+        "totalWaitingForPrimeSeconds": 832.75,
+        "totalOverflowUnits": 120,
+        "lineOeePercent": 94.965983,
+        "lineOeePacemakerEquipmentId": "sheet-row-10",
+        "lineOeePacemakerName": "Blowmolder",
+        "lineOeePacemakerRatePerSecond": 3.216666666666667,
+        "lineOeeReference": "EXPLICIT_PACEMAKER",
+        "qualityAssumption": "NO_REJECT_MODEL_ASSUMES_100_PERCENT"
+      },
+      "diagnosis": {
+        "referenceId": "sheet-row-10",
+        "referenceName": "Blowmolder",
+        "referenceBpm": 193,
+        "minimumBpm": 185,
+        "capacityCeilingPercent": 95.85492227979275,
+        "limitingEquipment": [
+          {
+            "id": "sheet-row-16",
+            "name": "De-Pucker",
+            "bpm": 185,
+            "maximumBpm": 185
+          },
+          {
+            "id": "sheet-row-18",
+            "name": "Sleever",
+            "bpm": 185,
+            "maximumBpm": 185
+          }
+        ],
+        "achievedPercent": 94.965983,
+        "capacityGapPp": 4.145077720207254,
+        "residualLossPp": 0.8889392797927513,
+        "accountingAvailable": true,
+        "rounds": 1,
+        "equipmentTime": [
+          {
+            "id": "sheet-row-10",
+            "name": "Blowmolder",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0.0078125,
+              "waitingForPrimeSeconds": 0,
+              "backupStopSeconds": 3.125
+            }
+          },
+          {
+            "id": "sheet-row-12",
+            "name": "Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.4782986111111111,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.058159722222222224,
+              "backupStopSeconds": 2.1875
+            }
+          },
+          {
+            "id": "sheet-row-14",
+            "name": "Filler/Capper",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 1.3255208333333333,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.3446180555555556,
+              "backupStopSeconds": 0.7291666666666666
+            }
+          },
+          {
+            "id": "sheet-row-16",
+            "name": "De-Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.4305555555555556,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-18",
+            "name": "Sleever",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.4982638888888889,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-20",
+            "name": "Case Packer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.005208333333333333,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.6380208333333334,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-22",
+            "name": "Palletizer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.921875,
+              "backupStopSeconds": 0
+            }
+          }
+        ],
+        "interpretation": "Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions."
+      },
+      "warnings": []
+    },
+    {
+      "name": "Combined machine replacements",
+      "changes": [
+        {
+          "equipmentId": "sheet-row-12",
+          "path": "nominalRatePerSecond",
+          "before": 3.183333333333333,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        },
+        {
+          "equipmentId": "sheet-row-14",
+          "path": "nominalRatePerSecond",
+          "before": 3,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        },
+        {
+          "equipmentId": "sheet-row-16",
+          "path": "nominalRatePerSecond",
+          "before": 3.0833333333333335,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        },
+        {
+          "equipmentId": "sheet-row-18",
+          "path": "nominalRatePerSecond",
+          "before": 3.0833333333333335,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        },
+        {
+          "equipmentId": "sheet-row-20",
+          "path": "nominalRatePerSecond",
+          "before": 3.1666666666666665,
+          "after": 3.3333333333333335,
+          "replacementMaximumBpm": 220,
+          "external": true,
+          "interventionType": "REPLACEMENT",
+          "justification": "Illustrative capacity test only; not supplier data or an implementation recommendation."
+        }
+      ],
+      "summary": {
+        "outputCount": 91822.809133,
+        "materialBalance": {
+          "inputUnits": 92640,
+          "outputUnits": 91822.809133,
+          "inventoryUnits": 817.190867,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "averageOutputRatePerSecond": 3.188292,
+        "totalBlockedSeconds": 0,
+        "totalStarvedSeconds": 576.25,
+        "totalPartialStarvationLossSeconds": 19455.343658,
+        "totalPartialBlockingLossSeconds": 0,
+        "totalFailureSeconds": 0,
+        "totalEmergencyStopSeconds": 0,
+        "totalBackupStopSeconds": 0,
+        "totalWaitingForPrimeSeconds": 800.25,
+        "totalOverflowUnits": 0,
+        "lineOeePercent": 99.117886,
+        "lineOeePacemakerEquipmentId": "sheet-row-10",
+        "lineOeePacemakerName": "Blowmolder",
+        "lineOeePacemakerRatePerSecond": 3.216666666666667,
+        "lineOeeReference": "EXPLICIT_PACEMAKER",
+        "qualityAssumption": "NO_REJECT_MODEL_ASSUMES_100_PERCENT"
+      },
+      "diagnosis": {
+        "referenceId": "sheet-row-10",
+        "referenceName": "Blowmolder",
+        "referenceBpm": 193,
+        "minimumBpm": 193,
+        "capacityCeilingPercent": 100,
+        "limitingEquipment": [
+          {
+            "id": "sheet-row-10",
+            "name": "Blowmolder",
+            "bpm": 193,
+            "maximumBpm": 193
+          }
+        ],
+        "achievedPercent": 99.117886,
+        "capacityGapPp": 0,
+        "residualLossPp": 0.8821140000000014,
+        "accountingAvailable": true,
+        "rounds": 1,
+        "equipmentTime": [
+          {
+            "id": "sheet-row-10",
+            "name": "Blowmolder",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-12",
+            "name": "Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.009548611111111112,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.058159722222222224,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-14",
+            "name": "Filler/Capper",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.0234375,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.3315972222222222,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-16",
+            "name": "De-Pucker",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.4175347222222222,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-18",
+            "name": "Sleever",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.004340277777777778,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.4809027777777778,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-20",
+            "name": "Case Packer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0.005208333333333333,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.6102430555555556,
+              "backupStopSeconds": 0
+            }
+          },
+          {
+            "id": "sheet-row-22",
+            "name": "Palletizer",
+            "percent": {
+              "failureSeconds": 0,
+              "microStopSeconds": 0,
+              "pausedSeconds": 0,
+              "emergencyStopSeconds": 0,
+              "starvedSeconds": 0,
+              "blockedSeconds": 0,
+              "waitingForPrimeSeconds": 0.8802083333333334,
+              "backupStopSeconds": 0
+            }
+          }
+        ],
+        "interpretation": "Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions."
+      },
+      "warnings": []
+    }
+  ]
+}

@@ -167,3 +167,10 @@ test('paired screening rejects unstable gains and accepts consistent blocks',()=
  const bad=next([2,2,2,2,2,2]);bad.roundMetrics[0].seed=99;assert.equal(scenarioPairedEvidence(base,bad).stable,false);
 });
 test('computer comparison controls are removed from scenario configuration',()=>{const h=harness(true,'HIGH');try{assert.equal(h.host.querySelector('.scenario-experiment-compare'),null);assert(!h.host.textContent.includes('Compare experiment between computers'));}finally{h.dom.window.close();}});
+
+test('overflow appearing only in independent confirmation requires review instead of an approved improvement',async()=>{
+ const h=harness(false,'HIGH');try{
+  const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const response=await original(input),changed=input.case.equipment[0].speed>10||input.case.equipment[0].sensor>10;response.result.batch.statistics.totalOverflowUnits={mean:changed&&input.run.seed>1000000?120:0};return response;};
+  const result=await search(h);assert.equal(result.status,'ENGINEERING_REVIEW_REQUIRED');assert(result.warnings.some(w=>w.rule==='SIMULATED_OVERFLOW'&&w.after===120));assert.match(h.host.querySelector('.scenario-create').title,/review/);
+ }finally{h.dom.window.close();}
+});

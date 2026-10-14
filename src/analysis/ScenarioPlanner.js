@@ -1,4 +1,4 @@
-import { analyzeLinePerformance } from './LinePerformanceAnalysis.js';
+import { analyzeLinePerformance, diagnoseLineEfficiency } from './LinePerformanceAnalysis.js';
 import { calculateConveyorEngineering } from '../simulation/ConveyorEngineering.js';
 import { resolveAccumulationZoneDefinition } from '../simulation/FormatGeometryAdapter.js';
 import { validateSimulationInput } from '../simulation/SimulationValidation.js';
@@ -18,6 +18,7 @@ export const SCENARIO_INTERVENTIONS = Object.freeze({
 });
 export function scenarioCategoryAllows(change,tier){
   if(change.analysisOnly)return false;
+  if(change.replacementMaximumBpm!==undefined)return tier==='HIGH'&&change.path==='nominalRatePerSecond'&&change.interventionType==='REPLACEMENT'&&change.external===true;
   if(change.path.startsWith('noiseProfile.reliability.')){
     const intervention=SCENARIO_INTERVENTIONS[change.interventionType];
     return !!intervention&&intervention.tier===tier;
@@ -112,13 +113,18 @@ export function applyScenarioChanges(simulation,changes){
     if(!Object.hasOwn(change,'before')||(scenarioGet(unit,change.path)??null)!==change.before)throw new Error('SCENARIO_STALE');
     if((change.path.includes('accumulation')||change.path.includes('geometry'))&&unit.type!=='CONVEYOR')throw new Error('SCENARIO_INVALID_FIELD');
     if(change.path==='nominalRatePerSecond'){
-      const maximum=Number(unit.processData?.equipment?.maximumSpeedBpm)/60;
+      let maximum=Number(unit.processData?.equipment?.maximumSpeedBpm)/60;
+      if(change.replacementMaximumBpm!==undefined){
+        if(!(maximum>0)||change.external!==true||change.interventionType!=='REPLACEMENT'||typeof change.justification!=='string'||!change.justification.trim()||!Number.isFinite(change.replacementMaximumBpm)||change.replacementMaximumBpm<=maximum*60||change.replacementMaximumBpm>SCENARIO_FIELDS.nominalRatePerSecond[1]*60||change.after<change.before)throw Error('SCENARIO_REPLACEMENT_EVIDENCE_REQUIRED');
+        maximum=change.replacementMaximumBpm/60;
+      }
       if(unit.type==='CONVEYOR'||unit.id===analyzeLinePerformance(simulation.equipment,simulation.results).referenceId||!(maximum>0)||change.after>maximum)throw new Error('SCENARIO_INSTALLED_SPEED_LIMIT');
     }
     if(change.path.startsWith('noiseProfile.reliability.')){
       if(unit.type==='CONVEYOR'||!(change.before>0)||change.external!==true||typeof change.justification!=='string'||!change.justification.trim()||(!SCENARIO_INTERVENTIONS[change.interventionType]&&!(change.analysisOnly===true&&change.interventionType==='SENSITIVITY')))throw new Error('SCENARIO_EXTERNAL_EVIDENCE_REQUIRED');
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
+    if(change.replacementMaximumBpm!==undefined){if(change.path!=='nominalRatePerSecond')throw Error('SCENARIO_INVALID_FIELD');scenarioSet(unit,'processData.equipment.maximumSpeedBpm',change.replacementMaximumBpm);}
     seen.add(key);scenarioSet(unit,change.path,change.after);
   });
   if(changes.every(c=>c.before===c.after))throw new Error('SCENARIO_NO_CHANGE');
@@ -184,6 +190,7 @@ function scenarioLossEvidence(simulation,diagnosis,equipment,kind){
 }
 export function planScenarios(simulation){
   const audit=scenarioAudit(simulation),diagnosis=diagnoseScenarioLosses(simulation);
+  const capacityDiagnosis=diagnoseLineEfficiency(simulation.equipment,diagnosis.status==='OBSERVED'?simulation.results:null);
   const result=diagnosis.status==='OBSERVED'?simulation.results:null;
   const candidates=[],checks=[];
   function add(kind,tier,equipment,changes,evidence,priority,basis){
@@ -245,16 +252,16 @@ export function planScenarios(simulation){
   });
   checks.push({rule:'PACEMAKER_DESIRED_STATE_AND_V_GRAPH',status:'NOT_EVALUATED'});
   (simulation.whatIf?.externalOptions||[]).forEach(option=>{
-    if(simulation.dynamicConfig?.reliabilityEnabled===false)return;
+    if(simulation.dynamicConfig?.reliabilityEnabled===false&&option.changes?.some(c=>c.path.startsWith('noiseProfile.reliability.')))return;
     if(!['ZERO','MEDIUM','HIGH'].includes(option.tier)||!option.changes?.length||!option.changes.every(c=>scenarioCategoryAllows(c,option.tier)))return;
     const equipment=simulation.equipment.find(e=>e.id===option.changes[0].equipmentId);if(!equipment)return;
-    add('RELIABILITY_INTERVENTION',option.tier,equipment,option.changes,{targetSource:'USER_DOCUMENTED',interventionType:option.changes[0].interventionType,costClass:SCENARIO_INTERVENTIONS[option.changes[0].interventionType]?.costClass,interpretation:'Supported intervention hypothesis; dynamic benefit and shifted constraints require evaluation.'},90,'STATIC');
+    add(option.changes.some(c=>c.replacementMaximumBpm!==undefined)?'CAPACITY_REPLACEMENT':'RELIABILITY_INTERVENTION',option.tier,equipment,option.changes,{targetSource:'USER_DOCUMENTED',interventionType:option.changes[0].interventionType,costClass:SCENARIO_INTERVENTIONS[option.changes[0].interventionType]?.costClass,interpretation:'Supported intervention hypothesis; dynamic benefit and shifted constraints require evaluation.'},option.changes.some(c=>c.replacementMaximumBpm!==undefined)&&capacityDiagnosis.limitingEquipment.some(e=>e.id===equipment.id)?120:90,'STATIC');
   });
   const projects=['ZERO','MEDIUM','HIGH'].map(tier=>{
     const choices=candidates.filter(p=>p.tier===tier).sort((a,b)=>Number(b.canApply)-Number(a.canApply)||b.priority-a.priority);
     return choices[0]||{tier,canApply:false,titleKey:'scenario.no_proposal',basis:'STATIC',changes:[],evidence:{},disabledReason:'SCENARIO_INSUFFICIENT_EVIDENCE'};
   });
-  return {definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,reliabilityOpportunities:reliabilitySensitivityCandidates(simulation),projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
+  return {capacityDiagnosis,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,reliabilityOpportunities:reliabilitySensitivityCandidates(simulation),projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
 }
 
 
