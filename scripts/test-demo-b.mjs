@@ -1,4 +1,6 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';
+import {screenFlowFactors} from '../src/analysis/FlowFactorScreening.js';
+import {searchReliabilityTargets} from '../src/analysis/ReliabilityTargetSearch.js';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {planScenarios,applyScenarioChanges,scenarioSignature,SCENARIO_FIELDS,reliabilitySensitivityCandidates,SCENARIO_DEFINITIONS,SCENARIO_INTERVENTIONS,scenarioCategoryAllows} from '../src/analysis/ScenarioPlanner.js';
 import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES,scenarioPairedEvidence} from '../src/analysis/ScenarioSearch.js';
@@ -13,7 +15,7 @@ async function search(parallel,clockScale,included=[],doe=false,suggestion=false
  w.STPreferences={read(){return '';},write(){return true;}};w.STIcons={svg(){return '';}};
  w.STWhatIf={changeInfo(c){return {equipment:c.equipmentId,parameter:c.path,before:c.before,after:c.after};}};
  w.STScenarios={plan:planScenarios,apply:applyScenarioChanges,signature:scenarioSignature,fields:SCENARIO_FIELDS,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
- w.STScenarioSearch={profiles:SCENARIO_SEARCH_PROFILES,run:scenarioSearchRun,profile:scenarioSearchProfile,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence,SCENARIO_SEARCH_PROFILES};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
+ w.STScenarioSearch={screenFlow:screenFlowFactors,reliabilityTargets:searchReliabilityTargets,profiles:SCENARIO_SEARCH_PROFILES,run:scenarioSearchRun,profile:scenarioSearchProfile,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence,SCENARIO_SEARCH_PROFILES};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
  let batches=0;w.SimulatorEngine={inputSignature:ctx.simulationInputSignature,async simulateBatch(input,options){batches++;return simulateBatch(JSON.parse(JSON.stringify(input)),{...options,summaryOnly:true,yieldControl:()=>Promise.resolve()});}};
  const now=Date.now.bind(Date);w.Date.now=()=>now()*clockScale;
  w.eval(fs.readFileSync('apps-script/ScenarioExplorer.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);w.STScenarioExplorer.connectCase(()=>record,()=>{});
@@ -36,7 +38,7 @@ async function search(parallel,clockScale,included=[],doe=false,suggestion=false
 }
 const brief=r=>({status:r.status,trials:r.trials,stopReason:r.stopReason,run:r.explorationRun,categoryInclusions:r.categoryInclusions,selectedChanges:r.evaluatedChanges,independentCheck:r.independentCheck,doe:r.doe?{factors:r.doe.factors,complete:r.doe.analysis?.complete,combinations:r.doe.observations.length}:null});
 if(process.argv.includes('--suggestion')){
- const first=await search(1,1,[],true,true),second=await search(2,1000,[],true,true);assert.deepEqual(first,second);fs.writeFileSync('docs/demo-b-doe-screening-results.json',JSON.stringify({name:'Demo B',modelVersion:'0.13.0',scope:'Four installed Prime sensor-window targets; six matched rounds per treatment, all six pairs',identicalAcrossClocks:true,screening:first},null,2)+'\n');console.log('Demo B DOE suggestion identical across clocks and candidate concurrency settings.');
+ const first=await search(1,1,[],true,true),second=await search(2,1000,[],true,true);assert.deepEqual(first,second);fs.writeFileSync('docs/demo-b-doe-screening-results.json',JSON.stringify({name:'Demo B',modelVersion:'0.13.0',scope:'Four installed Prime sensor-window targets; adaptive matched seeds and bounded pairs',identicalAcrossClocks:true,screening:first},null,2)+'\n');console.log('Demo B DOE suggestion identical across clocks and candidate concurrency settings.');
 }else if(process.argv.includes('--reliability')){
  const sim=structuredClone(original.simulations[0]),run=scenarioSearchRun(sim.dynamicConfig,'MEDIUM');run.durationSeconds=1800;
  const measured=async(changes,r=run,offset=0)=>{const candidate=changes.length?applyScenarioChanges(sim,changes):sim;const response=await simulateBatch({case:{id:sim.id,unitOfFlow:'units',equipment:candidate.equipment},run:{...r,seed:r.seed+offset}},{summaryOnly:true,yieldControl:()=>Promise.resolve()});assert(response.ok,JSON.stringify(response.error));return {oee:response.result.batch.statistics.lineOeePercent.mean,throughput:response.result.batch.statistics.throughputPerMinute.mean};};

@@ -1,0 +1,1334 @@
+{
+  "scope": "Controlled twelve-candidate flow search; previously measured reliability targets; all categories included; independent eight-hour confirmation. Not an exhaustive search or plant validation.",
+  "elapsedSeconds": 106.277,
+  "status": "ENGINEERING_REVIEW_REQUIRED",
+  "phaseAudit": {
+    "reliabilityTargets": {
+      "calculations": 49,
+      "screenedMachines": 7,
+      "selectedTargets": 6
+    },
+    "flowScreen": {
+      "calculations": 22,
+      "screened": 8,
+      "pairs": 6,
+      "omitted": 2
+    },
+    "baseline": {
+      "run": {
+        "durationSeconds": 900,
+        "tickSeconds": 0.25,
+        "sampleEverySeconds": 15,
+        "seed": 20261013,
+        "commands": [],
+        "rounds": 3,
+        "durationMode": "FIXED",
+        "engineId": "ST_CURRENT"
+      },
+      "metrics": {
+        "overflowEvidenceVersion": 1,
+        "overflowUnits": 3.776362666666666,
+        "roundMetrics": [
+          {
+            "seed": 20261013,
+            "oee": 25.071925,
+            "throughput": 48.38881533333333
+          },
+          {
+            "seed": 20261014,
+            "oee": 28.459625,
+            "throughput": 54.92707646666667
+          },
+          {
+            "seed": 20261015,
+            "oee": 28.441908,
+            "throughput": 54.8928832
+          }
+        ],
+        "oee": 27.324485999999997,
+        "throughput": 52.73625833333333,
+        "cacheSource": "CALCULATED",
+        "warnings": [
+          {
+            "equipmentId": "LINE",
+            "rule": "SIMULATED_OVERFLOW",
+            "before": "No spill accepted as an approved recommendation",
+            "after": 3.776362666666666
+          }
+        ]
+      },
+      "source": "CALCULATED"
+    },
+    "exploration": {
+      "testedCandidates": 12,
+      "infeasibleCandidates": 1,
+      "selectedVariables": 27,
+      "coverageComplete": false,
+      "stopReason": "Evaluation budget reached"
+    },
+    "ranking": {
+      "finalists": 7,
+      "run": {
+        "durationSeconds": 1800,
+        "tickSeconds": 0.25,
+        "sampleEverySeconds": 15,
+        "seed": 20261013,
+        "commands": [],
+        "rounds": 3,
+        "durationMode": "FIXED",
+        "engineId": "ST_CURRENT"
+      }
+    },
+    "confirmation": {
+      "seed": 21261016,
+      "rounds": 3,
+      "durationSeconds": 28800,
+      "passed": true
+    }
+  },
+  "conditionalFlowDOE": {
+    "method": "ADAPTIVE_CONDITIONAL_FLOW_V1",
+    "run": {
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "commands": [],
+      "rounds": 3,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "maximumRounds": 6,
+    "initialRun": {
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "commands": [],
+      "rounds": 3,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "additionalRun": {
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261016,
+      "commands": [],
+      "rounds": 3,
+      "durationMode": "FIXED",
+      "engineId": "ST_CURRENT"
+    },
+    "additionalBaseline": {
+      "overflowEvidenceVersion": 1,
+      "overflowUnits": 3,
+      "roundMetrics": [
+        {
+          "seed": 20261016,
+          "oee": 54.828816,
+          "throughput": 105.81961573333334
+        },
+        {
+          "seed": 20261017,
+          "oee": 53.047709,
+          "throughput": 102.38207926666668
+        },
+        {
+          "seed": 20261018,
+          "oee": 54.709121,
+          "throughput": 105.58860426666666
+        }
+      ],
+      "oee": 54.19521533333333,
+      "throughput": 104.59676642222223,
+      "cacheSource": "CALCULATED",
+      "warnings": [
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "before": "No spill accepted as an approved recommendation",
+          "after": 3
+        }
+      ]
+    },
+    "baseline": {
+      "overflowEvidenceVersion": 1,
+      "overflowUnits": 3.2093586666666667,
+      "roundMetrics": [
+        {
+          "seed": 20261013,
+          "oee": 41.058266,
+          "throughput": 79.24245413333333
+        },
+        {
+          "seed": 20261014,
+          "oee": 44.757124,
+          "throughput": 86.38124866666666
+        },
+        {
+          "seed": 20261015,
+          "oee": 49.742481,
+          "throughput": 96.00298806666666
+        }
+      ],
+      "oee": 45.185957,
+      "throughput": 87.20889695555555,
+      "cacheSource": "CALCULATED",
+      "warnings": [
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "before": "No spill accepted as an approved recommendation",
+          "after": 3.2093586666666667
+        }
+      ]
+    },
+    "fixedReliabilityChanges": [
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 10,
+        "after": 40,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      }
+    ],
+    "observations": [
+      {
+        "equipmentId": "sheet-row-13",
+        "path": "processData.geometry.lactMm",
+        "before": 30669,
+        "after": 43160,
+        "unit": "mm",
+        "originTier": "HIGH",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 0.3794518333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.65237,
+              "throughput": 72.6690742
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.650762,
+              "throughput": 88.10597086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 46.082771,
+              "throughput": 88.93974833333333
+            },
+            {
+              "seed": 20261016,
+              "oee": 51.169107,
+              "throughput": 98.75637606666666
+            },
+            {
+              "seed": 20261017,
+              "oee": 49.388,
+              "throughput": 95.31883953333333
+            },
+            {
+              "seed": 20261018,
+              "oee": 51.049427,
+              "throughput": 98.52539413333335
+            }
+          ],
+          "oee": 46.83207283333334,
+          "throughput": 90.38590052222223,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.09166666666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -5.516931166666666,
+          "lower": -9.245657855422872,
+          "blockMeans": [
+            -3.9706324888888864,
+            -7.063229844444446
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -5.516931166666652,
+        "deltaOee": -2.8585133333333204,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lactMm",
+        "before": 8800,
+        "after": 15791,
+        "unit": "mm",
+        "originTier": "HIGH",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.8357473333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.453905,
+              "throughput": 76.14603713333332
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.45128,
+              "throughput": 89.65097086666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.30014,
+              "throughput": 95.14927093333334
+            }
+          ],
+          "oee": 45.068441666666665,
+          "throughput": 86.98209297777777,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.8357473333333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.22680397777777728,
+          "lower": -8.248183182144556,
+          "upper": 7.794575226589002,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.22680397777777728,
+        "deltaOee": -0.11751533333333697,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "equipmentId": "sheet-row-21",
+        "path": "processData.geometry.lactMm",
+        "before": 135870,
+        "after": 312765,
+        "unit": "mm",
+        "originTier": "HIGH",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.1046793333333333,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 40.952726,
+              "throughput": 79.03876206666668
+            },
+            {
+              "seed": 20261014,
+              "oee": 43.190596,
+              "throughput": 83.35785086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 39.549137,
+              "throughput": 76.32983386666668
+            },
+            {
+              "seed": 20261016,
+              "oee": 43.830473,
+              "throughput": 84.59281333333334
+            },
+            {
+              "seed": 20261017,
+              "oee": 42.247775,
+              "throughput": 81.53820653333334
+            },
+            {
+              "seed": 20261018,
+              "oee": 43.443292,
+              "throughput": 83.84555446666667
+            }
+          ],
+          "oee": 42.20233316666667,
+          "throughput": 81.45050352222222,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3
+            }
+          ]
+        },
+        "paired": {
+          "mean": -14.45232816666666,
+          "lower": -24.955087914198153,
+          "blockMeans": [
+            -7.633414688888877,
+            -21.271241644444444
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -14.45232816666666,
+        "deltaOee": -7.488252999999993,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-11",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 1955.8,
+        "after": 977.9,
+        "unit": "mm",
+        "originTier": "ZERO",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.2093586666666667,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ],
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-13",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 2540,
+        "after": 1270,
+        "unit": "mm",
+        "originTier": "ZERO",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.2093586666666667,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ],
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-15",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 900,
+        "after": 450,
+        "unit": "mm",
+        "originTier": "ZERO",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.2093586666666667,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.729634,
+              "throughput": 86.32819306666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.716574,
+              "throughput": 95.95298806666666
+            }
+          ],
+          "oee": 45.168158000000005,
+          "throughput": 87.17454508888888,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.03435186666666349,
+          "lower": -0.1083513325016503,
+          "upper": 0.03964759916832331,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": -0.03435186666666823,
+        "deltaOee": -0.017798999999996568,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 700,
+        "after": 350,
+        "unit": "mm",
+        "originTier": "ZERO",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.2093586666666667,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ],
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-19",
+        "path": "processData.geometry.lpPrimeMm",
+        "before": 787,
+        "after": 393.5,
+        "unit": "mm",
+        "originTier": "ZERO",
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.2093586666666667,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ],
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.2093586666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      }
+    ],
+    "pairs": [
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lactMm",
+          "sheet-row-13:processData.geometry.lpPrimeMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 0.3794518333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.65237,
+              "throughput": 72.6690742
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.650762,
+              "throughput": 88.10597086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 46.082771,
+              "throughput": 88.93974833333333
+            },
+            {
+              "seed": 20261016,
+              "oee": 51.169107,
+              "throughput": 98.75637606666666
+            },
+            {
+              "seed": 20261017,
+              "oee": 49.388,
+              "throughput": 95.31883953333333
+            },
+            {
+              "seed": 20261018,
+              "oee": 51.049427,
+              "throughput": 98.52539413333335
+            }
+          ],
+          "oee": 46.83207283333334,
+          "throughput": 90.38590052222223,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.09166666666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -5.516931166666666,
+          "lower": -9.245657855422872,
+          "blockMeans": [
+            -3.9706324888888864,
+            -7.063229844444446
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -5.516931166666652,
+        "deltaOee": -2.8585133333333204,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-17:processData.geometry.lactMm",
+          "sheet-row-17:processData.geometry.lpPrimeMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.8357473333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.453905,
+              "throughput": 76.14603713333332
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.45128,
+              "throughput": 89.65097086666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.30014,
+              "throughput": 95.14927093333334
+            }
+          ],
+          "oee": 45.068441666666665,
+          "throughput": 86.98209297777777,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.8357473333333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.22680397777777728,
+          "lower": -8.248183182144556,
+          "upper": 7.794575226589002,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.22680397777777728,
+        "deltaOee": -0.11751533333333697,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lactMm",
+          "sheet-row-17:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 0.276045,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 36.048009,
+              "throughput": 69.57265720000001
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.762161,
+              "throughput": 90.25097086666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 45.640446,
+              "throughput": 88.08606073333334
+            },
+            {
+              "seed": 20261016,
+              "oee": 49.658077,
+              "throughput": 95.84008820000001
+            },
+            {
+              "seed": 20261017,
+              "oee": 47.783639,
+              "throughput": 92.22242253333334
+            },
+            {
+              "seed": 20261018,
+              "oee": 49.445066,
+              "throughput": 95.42897713333333
+            }
+          ],
+          "oee": 45.88956633333333,
+          "throughput": 88.56686277777777,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.5062566666666667
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.04583333333333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -7.335968911111105,
+          "lower": -13.16551427771685,
+          "blockMeans": [
+            -4.572334022222212,
+            -10.099603799999997
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -7.3359689111111095,
+        "deltaOee": -3.801019833333335,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lactMm",
+          "sheet-row-21:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 0.3794518333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.54683,
+              "throughput": 72.46538213333334
+            },
+            {
+              "seed": 20261014,
+              "oee": 40.14346,
+              "throughput": 77.47687873333334
+            },
+            {
+              "seed": 20261015,
+              "oee": 35.889442,
+              "throughput": 69.26662366666666
+            },
+            {
+              "seed": 20261016,
+              "oee": 40.170779,
+              "throughput": 77.52960320000001
+            },
+            {
+              "seed": 20261017,
+              "oee": 38.588066,
+              "throughput": 74.47496679999999
+            },
+            {
+              "seed": 20261018,
+              "oee": 39.783598,
+              "throughput": 76.78234433333334
+            }
+          ],
+          "oee": 38.68702916666667,
+          "throughput": 74.66596647777777,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.09166666666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -21.23686521111111,
+          "lower": -32.17272352252877,
+          "blockMeans": [
+            -14.139268777777772,
+            -28.334461644444445
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -21.23686521111111,
+        "deltaOee": -11.003556999999994,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-17:processData.geometry.lactMm",
+          "sheet-row-21:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 3.8357473333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.348365,
+              "throughput": 75.94234506666668
+            },
+            {
+              "seed": 20261014,
+              "oee": 42.198794,
+              "throughput": 81.44367193333332
+            },
+            {
+              "seed": 20261015,
+              "oee": 37.90021,
+              "throughput": 73.14740526666667
+            }
+          ],
+          "oee": 39.81578966666667,
+          "throughput": 76.84447408888889,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 3.8357473333333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -10.364422866666663,
+          "lower": -37.31384044830831,
+          "upper": 16.584994714974982,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -10.364422866666658,
+        "deltaOee": -5.370167333333335,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.geometry.lactMm",
+          "sheet-row-11:processData.geometry.lpPrimeMm"
+        ],
+        "candidate": {
+          "overflowEvidenceVersion": 1,
+          "overflowUnits": 0.3794518333333334,
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.65237,
+              "throughput": 72.6690742
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.650762,
+              "throughput": 88.10597086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 46.082771,
+              "throughput": 88.93974833333333
+            },
+            {
+              "seed": 20261016,
+              "oee": 51.169107,
+              "throughput": 98.75637606666666
+            },
+            {
+              "seed": 20261017,
+              "oee": 49.388,
+              "throughput": 95.31883953333333
+            },
+            {
+              "seed": 20261018,
+              "oee": 51.049427,
+              "throughput": 98.52539413333335
+            }
+          ],
+          "oee": 46.83207283333334,
+          "throughput": 90.38590052222223,
+          "cacheSource": "CALCULATED",
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "before": "No spill accepted as an approved recommendation",
+              "after": 0.09166666666666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -5.516931166666666,
+          "lower": -9.245657855422872,
+          "blockMeans": [
+            -3.9706324888888864,
+            -7.063229844444446
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -5.516931166666652,
+        "deltaOee": -2.8585133333333204,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      }
+    ],
+    "selectedFactors": [],
+    "eligible": 10,
+    "screened": 8,
+    "screenedTargets": 8,
+    "omitted": 2,
+    "pairsOmitted": 22,
+    "calculations": 22,
+    "outcome": "NO_STABLE_FACTORS",
+    "interpretation": "Bounded conditional screening: three matched seeds; uncertain candidates receive three new seeds without repeating the first block. Context reliability remains fixed. Untested higher-order interactions and long-horizon gains can be missed; final independent confirmation is required."
+  },
+  "changes": [
+    {
+      "equipmentId": "sheet-row-16",
+      "path": "noiseProfile.reliability.mtbfMinutes",
+      "before": 5,
+      "after": 20,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-16",
+      "path": "noiseProfile.reliability.mttrMinutes",
+      "before": 2,
+      "after": 0.5,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-18",
+      "path": "noiseProfile.reliability.mtbfMinutes",
+      "before": 5,
+      "after": 20,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-18",
+      "path": "noiseProfile.reliability.mttrMinutes",
+      "before": 2,
+      "after": 0.5,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-14",
+      "path": "noiseProfile.reliability.mtbfMinutes",
+      "before": 10,
+      "after": 40,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-14",
+      "path": "noiseProfile.reliability.mttrMinutes",
+      "before": 2,
+      "after": 0.5,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-11",
+      "path": "processData.accumulation.backupSensorPositionMm",
+      "before": null,
+      "after": 1294.89,
+      "unit": "mm",
+      "originTier": "ZERO"
+    },
+    {
+      "equipmentId": "sheet-row-11",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 1955.8,
+      "after": 977.9,
+      "unit": "mm",
+      "originTier": "ZERO"
+    },
+    {
+      "equipmentId": "sheet-row-11",
+      "path": "processData.accumulation.conveyorSpeedFactorPercent",
+      "before": null,
+      "after": 50.09,
+      "unit": "%",
+      "originTier": "ZERO"
+    }
+  ],
+  "confirmation": {
+    "seed": 21261016,
+    "rounds": 3,
+    "durationSeconds": 28800,
+    "baseline": {
+      "overflowEvidenceVersion": 1,
+      "overflowUnits": 71.074641,
+      "roundMetrics": [
+        {
+          "seed": 21261016,
+          "oee": 41.61066,
+          "throughput": 80.30857339791667
+        },
+        {
+          "seed": 21261017,
+          "oee": 37.16757,
+          "throughput": 71.73340972291666
+        },
+        {
+          "seed": 21261018,
+          "oee": 39.622289,
+          "throughput": 76.47101818125
+        }
+      ],
+      "oee": 39.466839666666665,
+      "throughput": 76.17100043402777,
+      "cacheSource": "CALCULATED",
+      "warnings": [
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "before": "No spill accepted as an approved recommendation",
+          "after": 71.074641
+        }
+      ]
+    },
+    "candidate": {
+      "overflowEvidenceVersion": 1,
+      "overflowUnits": 134.68677266666666,
+      "roundMetrics": [
+        {
+          "seed": 21261016,
+          "oee": 68.020584,
+          "throughput": 131.27972646041667
+        },
+        {
+          "seed": 21261017,
+          "oee": 65.615036,
+          "throughput": 126.63701883541665
+        },
+        {
+          "seed": 21261018,
+          "oee": 68.781278,
+          "throughput": 132.74786615208333
+        }
+      ],
+      "oee": 67.47229933333334,
+      "throughput": 130.22153714930553,
+      "cacheSource": "CALCULATED",
+      "warnings": [
+        {
+          "equipmentId": "sheet-row-11",
+          "rule": "BACKUP_POSITION",
+          "before": "PASS",
+          "after": "WARNING"
+        },
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "before": "No spill accepted as an approved recommendation",
+          "after": 134.68677266666666
+        }
+      ]
+    },
+    "passed": true,
+    "delta": {
+      "oeePercentagePoints": 28.005459666666674,
+      "throughputPerMinute": 54.05053671527776
+    }
+  },
+  "warnings": [
+    {
+      "equipmentId": "sheet-row-11",
+      "rule": "BACKUP_POSITION",
+      "before": "PASS",
+      "after": "WARNING"
+    },
+    {
+      "equipmentId": "LINE",
+      "rule": "SIMULATED_OVERFLOW",
+      "before": "No spill accepted as an approved recommendation",
+      "after": 134.68677266666666
+    }
+  ]
+}

@@ -17,7 +17,8 @@ const sourceFiles = [
   'src/analysis/ScenarioPlanner.js',
   'src/analysis/ScenarioDOE.js',
   'src/analysis/ScenarioSearch.js',
-  'src/analysis/ReliabilityTargetSearch.js'
+  'src/analysis/ReliabilityTargetSearch.js',
+  'src/analysis/FlowFactorScreening.js'
 ];
 const targetFile = path.join(repositoryRoot, 'apps-script', 'SimulationEngine.html');
 const pythonRoot=path.join(repositoryRoot,'src/simulation/python');
@@ -114,7 +115,7 @@ window.SimulatorEngine = {
   analyzeLinePerformance: analyzeLinePerformance,diagnoseLineEfficiency:diagnoseLineEfficiency
 };
 window.STScenarioDOE = {design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
-window.STScenarioSearch = {reliabilityTargets:searchReliabilityTargets,profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};
+window.STScenarioSearch = {screenFlow:screenFlowFactors,reliabilityTargets:searchReliabilityTargets,profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};
 window.STScenarios = {plan:planScenarios,efficiency:diagnoseLineEfficiency,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
 })(window);
 </script>

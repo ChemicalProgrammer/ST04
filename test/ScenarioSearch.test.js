@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {scenarioSearchRun,scenarioSearchProfile,scenarioConfirmationNeedsMore,SCENARIO_SEARCH_PROFILES,scenarioPairedEvidence} from '../src/analysis/ScenarioSearch.js';
+import {screenFlowFactors} from '../src/analysis/FlowFactorScreening.js';
 import {createScenarioDOE,analyzeScenarioDOE,analyzeScenarioANOVA,scenarioFSurvival} from '../src/analysis/ScenarioDOE.js';
 
 test('What-If horizons are independent of playback and preserve commands and seed',()=>{
@@ -32,7 +33,7 @@ function harness(doe,depth='MEDIUM',uncertain=false){
  const dom=new JSDOM('<article class="analysis-recommendation"></article>',{runScripts:'outside-only'}),w=dom.window,calls=[];
  w.HTMLDialogElement.prototype.close=function(){};w.HTMLDialogElement.prototype.showModal=function(){};
  w.STPreferences={read(){return '';},write(){return true;}};w.STIcons={svg(){return '<svg></svg>';}};w.STErrors={register(){},capture(){}};w.STScenarioText={HIGH:'High'};
- w.STScenarioSearch={profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
+ w.STScenarioSearch={screenFlow:screenFlowFactors,profiles:SCENARIO_SEARCH_PROFILES,profile:scenarioSearchProfile,run:scenarioSearchRun,needsMore:scenarioConfirmationNeedsMore,pairedEvidence:scenarioPairedEvidence};w.STScenarioDOE={design:createScenarioDOE,analyze:analyzeScenarioDOE,anova:analyzeScenarioANOVA};
  w.STWhatIf={changeInfo(c){return {equipment:'Unit',parameter:c.path,before:c.before,after:c.after};}};
  w.STScenarios={fields:{speed:[1,100,'u/s'],sensor:[1,100,'m']},signature(){return 'same';},plan(){return {candidates:[]};},apply(source,changes){const copy=JSON.parse(JSON.stringify(source));for(const c of changes)copy.equipment[0][c.path]=c.after;return copy;}};
  w.SimulatorEngine={validateSimulationInput(){return {ok:true};},inputSignature(input){return JSON.stringify(input);},async simulateBatch(input){calls.push(JSON.parse(JSON.stringify(input)));const gain=(input.case.equipment[0].speed-10)+(input.case.equipment[0].sensor-10);const rows=Array.from({length:input.run.rounds},(_,j)=>{const noise=uncertain&&input.run.seed>1000000&&gain>0?[0,-20,20,0,0,0][j]:0;return {seed:input.run.seed+j,summary:{lineOeePercent:50+gain/10,outputCount:(100+gain+noise)*input.run.durationSeconds/60}};});return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary:rows[0].summary,batch:{rows,statistics:{lineOeePercent:{mean:50+gain/10},throughputPerMinute:{mean:rows.reduce((sum,row)=>sum+row.summary.outputCount/input.run.durationSeconds*60,0)/rows.length}}}}};}};
@@ -88,7 +89,7 @@ async function suggest(h){const b=h.host.querySelector('.scenario-doe-suggest');
 test('DOE suggestion screens paired targets, ranks measured gain and records screening in search evidence',async()=>{
  const h=harness(true,'HIGH');try{
   h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
-  await suggest(h);assert(h.calls.every(c=>c.run.durationSeconds===3600&&c.run.rounds===6&&c.run.seed===1));
+  await suggest(h);assert(h.calls.every(c=>c.run.durationSeconds===900&&c.run.rounds===3&&c.run.seed===1));
   assert.equal(h.calls.length,4);assert.equal([...h.host.querySelectorAll('.scenario-doe-select')].filter(c=>c.checked).length,2);
   const result=await search(h);assert.equal(result.sensitivityScreening.observations.length,2);assert(result.sensitivityScreening.observations.every(o=>o.deltaThroughput>0));
  }finally{h.dom.window.close();}
@@ -105,7 +106,7 @@ test('cancelled screening retains factors and restores controls',async()=>{
  const h=harness(true,'HIGH');try{
   const original=h.w.SimulatorEngine.simulateBatch;let release;
   h.w.SimulatorEngine.simulateBatch=async input=>{await new Promise(r=>release=r);return original(input);};
-  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');button.click();release();
+  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));button.click();release?.();
   for(let i=0;i<100&&button.textContent!=='Suggest factor combination';i++)await new Promise(r=>setTimeout(r,5));
   assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);
  }finally{h.dom.window.close();}
@@ -191,7 +192,7 @@ test('unselected flow DOE factors are screened after reliability targets and ANO
   h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
   const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const response=await original(input),gain=(10-(input.case.equipment[0]['noiseProfile.reliability.mttrMinutes']??10))*3;for(const row of response.result.batch.rows){row.summary.lineOeePercent+=gain/10;row.summary.outputCount+=gain*input.run.durationSeconds/60;}response.result.batch.statistics.lineOeePercent.mean+=gain/10;response.result.batch.statistics.throughputPerMinute.mean+=gain;return response;};
   h.w.STScenarioSearch.reliabilityTargets=async(source,options)=>{const baseline=await options.measure(source,[],options.run),c={equipmentId:'e',path:'noiseProfile.reliability.mttrMinutes',before:10,after:5,unit:'min',external:true,analysisOnly:true,interventionType:'SENSITIVITY',justification:'Model target'};return {calculations:1,coverage:{screened:1},selectedChanges:[c],candidateSets:[{changes:[c]}],baseline,status:'EXPLORATORY_TARGETS_FOUND'};};
-  const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.conditionalFlowDOE);assert.equal(result.conditionalFlowDOE.run.rounds,6);assert.equal(result.conditionalFlowDOE.selectedFactors.length,2);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert(result.doe.fixedChanges.some(c=>c.analysisOnly));assert(result.reliabilityCounterfactual);
+  const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.conditionalFlowDOE);assert.equal(result.conditionalFlowDOE.run.rounds,3);assert.equal(result.conditionalFlowDOE.selectedFactors.length,2);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert(result.doe.fixedChanges.some(c=>c.analysisOnly));assert(result.reliabilityCounterfactual);
  }finally{h.dom.window.close();}
 });
 
@@ -202,5 +203,33 @@ test('reliability equipment scope and limits persist across card reopening and i
   let host=attach(),scope=host.querySelector('.scenario-reliability-scope');scope.value='MANUAL';scope.onchange();const check=host.querySelector('.scenario-reliability-equipment');check.checked=true;check.onchange();const max=host.querySelector('.scenario-reliability-mtbfMaximum'),min=host.querySelector('.scenario-reliability-mttrMinimum');max.value='15';max.onchange();min.value='1.2';min.onchange();
   assert.equal(h.sim.whatIf.reliabilitySettings.scope,'MANUAL');assert.deepEqual(Array.from(h.sim.whatIf.reliabilitySettings.equipmentIds),['e']);assert.equal(h.sim.whatIf.reliabilitySettings.equipmentLimits.e.mttrMinimum,1.2);assert.equal(host.querySelector('.scenario-create').disabled,true);
   host.remove();host=attach();assert.equal(host.querySelector('.scenario-reliability-scope').value,'MANUAL');assert.equal(host.querySelector('.scenario-reliability-equipment').checked,true);assert.equal(host.querySelector('.scenario-reliability-mtbfMaximum').value,'15');assert.equal(host.querySelector('.scenario-reliability-mttrMinimum').value,'1.2');
+ }finally{h.dom.window.close();}
+});
+
+test('button suggestions and automatic search reuse the same conditional screen and retain its reliability targets',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
+  await suggest(h);const first=h.calls.length;assert.equal(first,4);
+  const result=await search(h);assert.equal(result.conditionalFlowDOE.method,'ADAPTIVE_CONDITIONAL_FLOW_V1');assert.equal(result.conditionalFlowDOE.calculations,4);assert.equal(h.sim.whatIf.flowScreenings.length,1);assert(result.doe.analysis.complete);
+  // Only one pair/single screening block at the exploration horizon is used.
+  assert.equal(h.calls.filter(c=>c.run.durationSeconds===900&&c.run.rounds===3&&c.run.seed===1&&c.case.equipment[0].speed===10&&c.case.equipment[0].sensor===20).length,1);
+ }finally{h.dom.window.close();}
+});
+
+test('engineering speed targets are refreshed in the retained reliability context and stay within supplied category scope',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.remove();h.sim.equipment[0].nominalRatePerSecond=10;h.sim.equipment[0].processData={equipment:{maximumSpeedBpm:1200}};h.w.STScenarios.fields.nominalRatePerSecond=[.001,1000000,'units/s'];
+  h.w.STScenarios.plan=source=>({candidates:[{canApply:true,tier:'HIGH',priority:70,changes:[{equipmentId:'e',path:'nominalRatePerSecond',before:10,after:source.equipment[0]['noiseProfile.reliability.mttrMinutes']===5?15:20,unit:'units/s'}]}]});
+  h.w.STScenarioSearch.reliabilityTargets=async()=>({selectedChanges:[{equipmentId:'e',path:'noiseProfile.reliability.mttrMinutes',before:10,after:5,unit:'min',analysisOnly:true}],candidateSets:[],calculations:0});
+  const project={kind:'CUSTOM',tier:'HIGH',explore:true,changes:[{equipmentId:'e',path:'nominalRatePerSecond',before:10,after:20,unit:'units/s'}]};h.host=h.w.document.createElement('article');h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,project,()=>{},h.sim);h.w.STScenarioExplorer.connectCase(()=>({metadata:{includeDOE:true},simulations:[h.sim]}),()=>{});
+  await suggest(h);const report=h.sim.whatIf.evaluations[0].sensitivityScreening;assert.equal(report.observations[0].after,15);assert(report.fixedReliabilityChanges.some(c=>c.after===5));assert.match(h.host.querySelector('.scenario-speed-screen').textContent,/Operating speed adjustment/);
+ }finally{h.dom.window.close();}
+});
+
+test('manual four-factor DOE remains complete and bypasses automatic shortlist reduction',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.remove();h.sim.equipment[0].third=10;h.sim.equipment[0].fourth=10;h.w.STScenarios.fields.third=h.w.STScenarios.fields.fourth=[1,100,'u/s'];
+  const project={...h.project,changes:['speed','sensor','third','fourth'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))};h.host=h.w.document.createElement('article');h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,project,()=>{},h.sim);
+  h.host.querySelectorAll('.scenario-doe-select').forEach(c=>{c.checked=true;c.onchange();});const result=await search(h);assert.equal(result.doe.factors.length,4);assert.equal(result.doe.observations.length,16);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert.equal(result.conditionalFlowDOE,undefined);
  }finally{h.dom.window.close();}
 });

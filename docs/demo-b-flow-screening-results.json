@@ -1,0 +1,953 @@
+{
+  "scope": "Controlled screening only, all available category targets; not a complete High search or independent validation",
+  "elapsedSeconds": 14.321,
+  "report": {
+    "method": "ADAPTIVE_CONDITIONAL_FLOW_V1",
+    "run": {
+      "durationMode": "FIXED",
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "maximumRounds": 6,
+    "initialRun": {
+      "durationMode": "FIXED",
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "additionalRun": {
+      "durationMode": "FIXED",
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261016,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "additionalBaseline": {
+      "oee": 54.19521533333333,
+      "throughput": 104.59676642222223,
+      "overflowUnits": 3,
+      "warnings": [
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "after": 3
+        }
+      ],
+      "roundMetrics": [
+        {
+          "seed": 20261016,
+          "oee": 54.828816,
+          "throughput": 105.81961573333334
+        },
+        {
+          "seed": 20261017,
+          "oee": 53.047709,
+          "throughput": 102.38207926666668
+        },
+        {
+          "seed": 20261018,
+          "oee": 54.709121,
+          "throughput": 105.58860426666666
+        }
+      ]
+    },
+    "baseline": {
+      "oee": 45.185957,
+      "throughput": 87.20889695555555,
+      "overflowUnits": 3.2093586666666667,
+      "warnings": [
+        {
+          "equipmentId": "LINE",
+          "rule": "SIMULATED_OVERFLOW",
+          "after": 3.2093586666666667
+        }
+      ],
+      "roundMetrics": [
+        {
+          "seed": 20261013,
+          "oee": 41.058266,
+          "throughput": 79.24245413333333
+        },
+        {
+          "seed": 20261014,
+          "oee": 44.757124,
+          "throughput": 86.38124866666666
+        },
+        {
+          "seed": 20261015,
+          "oee": 49.742481,
+          "throughput": 96.00298806666666
+        }
+      ]
+    },
+    "fixedReliabilityChanges": [
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 10,
+        "after": 40,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      }
+    ],
+    "observations": [
+      {
+        "equipmentId": "sheet-row-13",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 622,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-13",
+        "path": "processData.geometry.lactMm",
+        "before": 30669,
+        "after": 43160,
+        "unit": "mm",
+        "candidate": {
+          "oee": 46.83207283333334,
+          "throughput": 90.38590052222223,
+          "overflowUnits": 0.3794518333333334,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 0.09166666666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.65237,
+              "throughput": 72.6690742
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.650762,
+              "throughput": 88.10597086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 46.082771,
+              "throughput": 88.93974833333333
+            },
+            {
+              "seed": 20261016,
+              "oee": 51.169107,
+              "throughput": 98.75637606666666
+            },
+            {
+              "seed": 20261017,
+              "oee": 49.388,
+              "throughput": 95.31883953333333
+            },
+            {
+              "seed": 20261018,
+              "oee": 51.049427,
+              "throughput": 98.52539413333335
+            }
+          ]
+        },
+        "paired": {
+          "mean": -5.516931166666666,
+          "lower": -9.245657855422872,
+          "blockMeans": [
+            -3.9706324888888864,
+            -7.063229844444446
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -5.516931166666652,
+        "deltaOee": -2.8585133333333204,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-15",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 1546,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-15",
+        "path": "processData.geometry.lactMm",
+        "before": 11550,
+        "after": 19262,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.148236,
+          "throughput": 87.13609577777778,
+          "overflowUnits": 3.789914,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.789914
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.592973,
+              "throughput": 76.414438
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.367947,
+              "throughput": 89.49013753333334
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.483788,
+              "throughput": 95.5037118
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.07280117777776714,
+          "lower": -7.503704172132876,
+          "upper": 7.358101816577342,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.0728011777777624,
+        "deltaOee": -0.03772100000000478,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 1544,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-17",
+        "path": "processData.geometry.lactMm",
+        "before": 8800,
+        "after": 15791,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.068441666666665,
+          "throughput": 86.98209297777777,
+          "overflowUnits": 3.8357473333333334,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.8357473333333334
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.453905,
+              "throughput": 76.14603713333332
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.45128,
+              "throughput": 89.65097086666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.30014,
+              "throughput": 95.14927093333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.22680397777777728,
+          "lower": -8.248183182144556,
+          "upper": 7.794575226589002,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.22680397777777728,
+        "deltaOee": -0.11751533333333697,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "equipmentId": "sheet-row-21",
+        "path": "processData.accumulation.backupSensorPositionMm",
+        "before": null,
+        "after": 3529,
+        "unit": "mm",
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "equipmentId": "sheet-row-21",
+        "path": "processData.geometry.lactMm",
+        "before": 135870,
+        "after": 312765,
+        "unit": "mm",
+        "candidate": {
+          "oee": 42.20233316666667,
+          "throughput": 81.45050352222222,
+          "overflowUnits": 3.1046793333333333,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 40.952726,
+              "throughput": 79.03876206666668
+            },
+            {
+              "seed": 20261014,
+              "oee": 43.190596,
+              "throughput": 83.35785086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 39.549137,
+              "throughput": 76.32983386666668
+            },
+            {
+              "seed": 20261016,
+              "oee": 43.830473,
+              "throughput": 84.59281333333334
+            },
+            {
+              "seed": 20261017,
+              "oee": 42.247775,
+              "throughput": 81.53820653333334
+            },
+            {
+              "seed": 20261018,
+              "oee": 43.443292,
+              "throughput": 83.84555446666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -14.45232816666666,
+          "lower": -24.955087914198153,
+          "blockMeans": [
+            -7.633414688888877,
+            -21.271241644444444
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -14.45232816666666,
+        "deltaOee": -7.488252999999993,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      }
+    ],
+    "pairs": [
+      {
+        "keys": [
+          "sheet-row-13:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-13:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "oee": 46.83207283333334,
+          "throughput": 90.38590052222223,
+          "overflowUnits": 0.3794518333333334,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 0.6672370000000001
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 0.09166666666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 37.65237,
+              "throughput": 72.6690742
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.650762,
+              "throughput": 88.10597086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 46.082771,
+              "throughput": 88.93974833333333
+            },
+            {
+              "seed": 20261016,
+              "oee": 51.169107,
+              "throughput": 98.75637606666666
+            },
+            {
+              "seed": 20261017,
+              "oee": 49.388,
+              "throughput": 95.31883953333333
+            },
+            {
+              "seed": 20261018,
+              "oee": 51.049427,
+              "throughput": 98.52539413333335
+            }
+          ]
+        },
+        "paired": {
+          "mean": -5.516931166666666,
+          "lower": -9.245657855422872,
+          "blockMeans": [
+            -3.9706324888888864,
+            -7.063229844444446
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -5.516931166666652,
+        "deltaOee": -2.8585133333333204,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-15:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-15:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "oee": 45.148236,
+          "throughput": 87.13609577777778,
+          "overflowUnits": 3.789914,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.789914
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.592973,
+              "throughput": 76.414438
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.367947,
+              "throughput": 89.49013753333334
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.483788,
+              "throughput": 95.5037118
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.07280117777776714,
+          "lower": -7.503704172132876,
+          "upper": 7.358101816577342,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.0728011777777624,
+        "deltaOee": -0.03772100000000478,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "keys": [
+          "sheet-row-17:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-17:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "oee": 45.068441666666665,
+          "throughput": 86.98209297777777,
+          "overflowUnits": 3.8357473333333334,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.8357473333333334
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.453905,
+              "throughput": 76.14603713333332
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.45128,
+              "throughput": 89.65097086666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.30014,
+              "throughput": 95.14927093333334
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.22680397777777728,
+          "lower": -8.248183182144556,
+          "upper": 7.794575226589002,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.22680397777777728,
+        "deltaOee": -0.11751533333333697,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      },
+      {
+        "keys": [
+          "sheet-row-21:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-21:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "oee": 42.20233316666667,
+          "throughput": 81.45050352222222,
+          "overflowUnits": 3.1046793333333333,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            },
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 40.952726,
+              "throughput": 79.03876206666668
+            },
+            {
+              "seed": 20261014,
+              "oee": 43.190596,
+              "throughput": 83.35785086666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 39.549137,
+              "throughput": 76.32983386666668
+            },
+            {
+              "seed": 20261016,
+              "oee": 43.830473,
+              "throughput": 84.59281333333334
+            },
+            {
+              "seed": 20261017,
+              "oee": 42.247775,
+              "throughput": 81.53820653333334
+            },
+            {
+              "seed": 20261018,
+              "oee": 43.443292,
+              "throughput": 83.84555446666667
+            }
+          ]
+        },
+        "paired": {
+          "mean": -14.45232816666666,
+          "lower": -24.955087914198153,
+          "blockMeans": [
+            -7.633414688888877,
+            -21.271241644444444
+          ],
+          "threshold": 0.09590283168888888,
+          "rounds": 6,
+          "stable": false,
+          "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+        },
+        "extended": true,
+        "deltaThroughput": -14.45232816666666,
+        "deltaOee": -7.488252999999993,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-15:processData.accumulation.backupSensorPositionMm"
+        ],
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        },
+        "paired": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": false
+        },
+        "extended": false,
+        "deltaThroughput": 0,
+        "deltaOee": 0,
+        "spillNotWorse": true,
+        "reason": "NO_GAIN_IN_SCREEN"
+      },
+      {
+        "keys": [
+          "sheet-row-13:processData.accumulation.backupSensorPositionMm",
+          "sheet-row-15:processData.geometry.lactMm"
+        ],
+        "candidate": {
+          "oee": 45.148236,
+          "throughput": 87.13609577777778,
+          "overflowUnits": 3.789914,
+          "warnings": [
+            {
+              "equipmentId": "LINE",
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.789914
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 39.592973,
+              "throughput": 76.414438
+            },
+            {
+              "seed": 20261014,
+              "oee": 46.367947,
+              "throughput": 89.49013753333334
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.483788,
+              "throughput": 95.5037118
+            }
+          ]
+        },
+        "paired": {
+          "mean": -0.07280117777776714,
+          "lower": -7.503704172132876,
+          "upper": 7.358101816577342,
+          "rounds": 3,
+          "stable": false,
+          "uncertain": true
+        },
+        "extended": false,
+        "deltaThroughput": -0.0728011777777624,
+        "deltaOee": -0.03772100000000478,
+        "spillNotWorse": false,
+        "reason": "ENGINEERING_REVIEW_REQUIRED"
+      }
+    ],
+    "selectedFactors": [],
+    "eligible": 21,
+    "screened": 8,
+    "screenedTargets": 8,
+    "omitted": 13,
+    "pairsOmitted": 22,
+    "calculations": 20,
+    "outcome": "NO_STABLE_FACTORS",
+    "interpretation": "Bounded conditional screening: three matched seeds; uncertain candidates receive three new seeds without repeating the first block. Context reliability remains fixed. Untested higher-order interactions and long-horizon gains can be missed; final independent confirmation is required."
+  }
+}
