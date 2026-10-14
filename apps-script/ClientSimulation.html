@@ -285,7 +285,7 @@
         var sourceSignature=STScenarios.signature(source),payload={caseId:caseId,simulationId:simulationId,expectedRevision:state.activeCase.revision,sourceSignature:sourceSignature,origin:origin,proposal:Object.assign({},proposal,{title:proposal.title||STScenarioText[proposal.titleKey]}),caseSnapshot:STCaseContext.snapshot(Object.assign({},state.activeCase,{activeSimulationId:simulationId}))};
         document.getElementById('application').inert=true;
         await new Promise(function(resolve,reject){callServer('prepareScenarioDraft',[payload],function(response){
-          if(!response.ok){reject(new Error(response.error.message+(response.error.details?.length?' '+response.error.details.join('; '):'')));return;}
+          if(!response.ok){reject(Object.assign(new Error(response.error.message+(response.error.details?.length?' '+response.error.details.join('; '):'')),{code:response.error.code}));return;}
           if(state.activeCase?.id!==caseId||state.activeSimulationId!==simulationId||STScenarios.signature(activePersistentSimulation())!==sourceSignature){reject(new Error(__ST_TEXT__('scenario.stale')));return;}
           var simulation=response.data.simulation;
           if(!simulation||state.activeCase.simulations.some(s=>s.id===simulation.id)){reject(new Error('Invalid scenario draft. Retry the proposal.'));return;}

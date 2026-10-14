@@ -160,7 +160,7 @@ function getScenarioSourceSignature(request) {
 
 function scenarioResponse_(action) {
   var response=executeServerAction_(action);
-  response.scenarioVersion='whatif-20260925-3';
+  response.scenarioVersion='whatif-20261014-2';
   if(!response.ok)response.error.message='['+response.scenarioVersion+' / '+response.error.code+'] '+response.error.message;
   return response;
 }

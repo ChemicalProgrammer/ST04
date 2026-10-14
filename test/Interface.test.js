@@ -2573,3 +2573,16 @@ test('UI: cloud saves keep edits in memory until Save and ignore obsolete local-
   assert.equal(h.calls.filter(name=>name==='saveCase').length,before+1);assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.rounds,25);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
+
+test('UI + Apps Script: Gemini scenario uses exact unchanged source values when proposal before values drift',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
+  await h.click('.open-case');await h.click('#toggle-gemini');const source=h.storedCases()[0].simulations[0],original=h.w.STScenarios.plan(source).projects.find(p=>p.canApply);
+  const proposal={...original,title:'Exact source study',changes:original.changes.map(c=>({...c,before:Number(c.before)+.0000001}))};
+  h.api.askGemini=()=>({text:'Review this scenario.',proposals:[proposal]});h.w.ST_GEMINI_CHAT_PRESENTATION.enabled=false;
+  h.d.getElementById('gemini-question').value='Propose a scenario';await h.click('#send-gemini');await waitFor(()=>h.d.querySelector('.gemini-scenario-create')&&!h.d.querySelector('.gemini-scenario-create').disabled);
+  await h.click('.gemini-scenario-create');await h.click('.message-dialog .dialog-actions button:last-child');
+  await waitFor(()=>h.d.getElementById('simulation-selector').value!=='simulation-a');assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations.length===2);
+  const changes=h.storedCases()[0].simulations[1].scenario.changes;assert.deepEqual(changes.map(c=>c.before),Array.from(original.changes,c=>c.before));assert.deepEqual(changes.map(c=>c.after),Array.from(original.changes,c=>c.after));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

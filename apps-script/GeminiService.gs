@@ -223,12 +223,7 @@ function runGeminiRequest_(request, user, diagnostic) {
         // Bind model suggestions to exact stored values at generation time. Models
         // often quote rounded worksheet values or derived defaults as "before".
         // Creation still requires the unchanged source signature and exact values.
-        var bound=Object.assign({},p,{changes:(p.changes||[]).map(function(change){
-          var e=analysis.simulation.equipment.find(function(e){return e.id===change.equipmentId;});
-          if(!e||!Object.prototype.hasOwnProperty.call(STScenarioEngine_.fields,change.path))throw Error('Invalid scenario field');
-          var before=change.path.split('.').reduce(function(value,key){return value?.[key];},e)??null;
-          return Object.assign({},change,{before:before});
-        })});
+        var bound=bindGeminiScenarioProposal_(p,analysis.simulation);
         var normalized=normalizeScenarioProposal_(bound,analysis.simulation);
         normalized.description=typeof p.description==='string'?p.description.slice(0,1200):'';
         normalized.canApply=true;normalized.sourceSimulationId=analysis.simulation.id;normalized.sourceSignature=STScenarioEngine_.signature(analysis.simulation);

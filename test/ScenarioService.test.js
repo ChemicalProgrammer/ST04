@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 function setup(){
  let record,writes=0,held=false,releases=0;
- const ctx={Utilities:{getUuid:()=> 'unique-scenario'},createSimulatorError_:(code,message)=>Object.assign(new Error(message),{code}),withCaseWriteLock_:fn=>{assert(!held);held=true;try{return fn();}finally{held=false;releases++;}},persistCaseRecord_:(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;},getOwnedCaseFile_:(id,user)=>{assert.equal(user.email,'owner@test');assert(held,'ownership and revision must be checked inside the lock');return {caseData:JSON.parse(JSON.stringify(record)),file:{setContent:value=>{assert(held);writes++;record=JSON.parse(value);}}};},ensureCaseSimulations_:c=>c,generateSimulationId_:()=> 'scenario'};
+ const ctx={Utilities:{getUuid:()=> 'unique-scenario'},createSimulatorError_:(code,message,details)=>Object.assign(new Error(message),{code,details}),withCaseWriteLock_:fn=>{assert(!held);held=true;try{return fn();}finally{held=false;releases++;}},persistCaseRecord_:(record,owned)=>{owned.file.setContent(JSON.stringify(record));return owned.file;},getOwnedCaseFile_:(id,user)=>{assert.equal(user.email,'owner@test');assert(held,'ownership and revision must be checked inside the lock');return {caseData:JSON.parse(JSON.stringify(record)),file:{setContent:value=>{assert(held);writes++;record=JSON.parse(value);}}};},ensureCaseSimulations_:c=>c,generateSimulationId_:()=> 'scenario'};
  vm.createContext(ctx);for(const file of ['DemoCaseFactory.gs','ScenarioEngine.gs','ScenarioService.gs'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8'),ctx);
  const source={id:'a',name:'Baseline',equipment:JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_().equipment)),dynamicConfig:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:23,commands:[]},results:{summary:{throughput:41},replay:{samples:[1,2]}}};record={id:'case-a',revision:1,simulations:[source]};
  const proposal=ctx.STScenarioEngine_.plan(source).projects.find(p=>p.canApply);proposal.title='Infeed study';
@@ -122,4 +122,24 @@ test('scenario draft RPC validates the browser snapshot and returns a clone with
  const result=h.ctx.prepareScenarioDraft({...h.request,caseSnapshot:snapshot});assert(result.ok);assert.equal(result.data.simulation.results,null);
  assert.equal(result.data.simulation.scenario.origin,'GEMINI');assert.equal(h.writes(),0);assert.equal(JSON.stringify(snapshot),before);assert.equal(h.record().simulations.length,1);
  assert.throws(()=>h.ctx.prepareScenarioDraft({...h.request,caseSnapshot:{...snapshot,ownerEmail:'someone@test'}}),e=>e.code==='INVALID_LOCAL_CONTEXT');
+});
+
+test('Gemini proposals with unchanged provenance bind drifted starting values without changing targets',()=>{
+ const h=setup(),source=h.record().simulations[0],baseline=JSON.stringify(source),proposal={...h.request.proposal,changes:h.request.proposal.changes.map(c=>({...c,before:Number(c.before)+.0000001}))};
+ assert.throws(()=>h.ctx.normalizeScenarioProposal_(proposal,source),e=>e.code==='SCENARIO_STALE'&&e.details.some(d=>d.includes(proposal.changes[0].path)));
+ const response=h.ctx.createScenario_({...h.request,proposal},{email:'owner@test'}),copy=response.case.simulations[1];
+ assert.equal(h.writes(),1);assert.equal(JSON.stringify(response.case.simulations[0]),baseline);
+ assert.deepEqual(Array.from(copy.scenario.changes,c=>c.after),Array.from(proposal.changes,c=>c.after));
+ assert.deepEqual(Array.from(copy.scenario.changes,c=>c.before),Array.from(h.request.proposal.changes,c=>c.before));
+});
+test('Gemini rebinding rejects stale proposal provenance even when the request supplies a fresh signature',()=>{
+ for(const invalid of [{sourceSignature:'old'},{sourceSimulationId:'another-simulation'}]){
+  const h=setup();assert.throws(()=>h.ctx.createScenario_({...h.request,proposal:{...h.request.proposal,...invalid}},{email:'owner@test'}),e=>e.code==='SCENARIO_STALE');assert.equal(h.writes(),0);
+ }
+});
+test('Gemini rebinding preserves target bounds and requires provenance before changing before values',()=>{
+ const h=setup(),proposal={...h.request.proposal,changes:h.request.proposal.changes.map(c=>({...c,before:Number(c.before)+.0000001,after:1e20}))};
+ assert.throws(()=>h.ctx.createScenario_({...h.request,proposal},{email:'owner@test'}),e=>e.code==='INVALID_SCENARIO');assert.equal(h.writes(),0);
+ const unsigned={...proposal,changes:h.request.proposal.changes.map(c=>({...c,before:Number(c.before)+.0000001}))};delete unsigned.sourceSignature;
+ assert.throws(()=>h.ctx.createScenario_({...h.request,proposal:unsigned},{email:'owner@test'}),e=>e.code==='SCENARIO_STALE');assert.equal(h.writes(),0);
 });

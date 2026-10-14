@@ -25,6 +25,12 @@ function prepareScenarioFromRecord_(request,record,user) {
       submitted=resolveLocalScenarioProposal_(submitted,source);
     }else if(['GEMINI','REVIEWED'].includes(request.origin)){
       if(request.sourceSignature!==sourceSignature)throw createSimulatorError_('SCENARIO_STALE','The simulation inputs changed. Request a new proposal.');
+      if(request.origin==='GEMINI'){
+        if(submitted?.sourceSignature&&submitted.sourceSignature!==sourceSignature||submitted?.sourceSimulationId&&submitted.sourceSimulationId!==source.id)throw createSimulatorError_('SCENARIO_STALE','This Gemini proposal belongs to different simulation inputs. Request a new proposal.');
+        // Rebind descriptive AI "before" values only when the proposal itself
+        // carries the exact unchanged-source fingerprint. Preserve all targets.
+        if(submitted?.sourceSignature===sourceSignature&&submitted.sourceSimulationId===source.id)submitted=bindGeminiScenarioProposal_(submitted,source);
+      }
     }else throw createSimulatorError_('INVALID_SCENARIO','The scenario origin is invalid.');
     var proposal=normalizeScenarioProposal_(submitted,source),copy;
     try{copy=STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The proposed inputs did not pass the physical model checks.',[String(error.message)]);}
@@ -56,7 +62,13 @@ function normalizeScenarioProposal_(proposal,source) {
   var title=typeof proposal.title==='string'?proposal.title.trim().slice(0,120):'';
   if(!title)throw createSimulatorError_('INVALID_SCENARIO','A scenario title is required.');
   // Field allowlist, value bounds, expected before values, topology and audits are shared with the browser.
-  try{STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The scenario contains an invalid or stale change.',[String(error.message)]);}
+  try{STScenarioEngine_.apply(source,proposal.changes);}catch(error){
+    if(error.message==='SCENARIO_STALE'){
+      var mismatches=proposal.changes.map(function(change){var equipment=source.equipment.find(function(e){return e.id===change.equipmentId;});if(!equipment)return null;var current=change.path.split('.').reduce(function(value,key){return value?.[key];},equipment)??null;return current!==change.before?(equipment.name||equipment.id)+' · '+change.path+': proposal before '+JSON.stringify(change.before)+'; current '+JSON.stringify(current):null;}).filter(Boolean).slice(0,6);
+      throw createSimulatorError_('SCENARIO_STALE','The proposed starting values do not match the selected simulation. Request a new proposal.',mismatches);
+    }
+    throw createSimulatorError_('INVALID_SCENARIO','The scenario contains an invalid change.',[String(error.message)]);
+  }
   var exploratory=proposal.analysisOnly===true;if(exploratory&&!proposal.changes.some(c=>c.analysisOnly===true))throw createSimulatorError_('INVALID_SCENARIO','An exploratory scenario requires explicit exploratory changes.');
   var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,...(c.analysisOnly===true?{analysisOnly:true}:{}),...(c.replacementMaximumBpm!==undefined?{replacementMaximumBpm:c.replacementMaximumBpm}:{}),...(c.originTier?{originTier:c.originTier}:{}),unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,...(typeof c.justification==='string'?{justification:c.justification.slice(0,600),interventionType:c.interventionType,costClass:STScenarioEngine_.interventions[c.interventionType]?.costClass}:{})}:{})};});
   if(proposal.changes.some(function(c){return !(exploratory&&c.analysisOnly===true&&c.interventionType==='SENSITIVITY'&&c.path.startsWith('noiseProfile.reliability.')||STScenarioEngine_.categoryAllows(c,c.originTier||proposal.tier))||c.originTier&&(['ZERO','MEDIUM','HIGH'].indexOf(c.originTier)>['ZERO','MEDIUM','HIGH'].indexOf(proposal.tier));}))throw createSimulatorError_('INVALID_SCENARIO','Intervention scope does not match CAPEX category, or exploratory sensitivity was submitted as a target.');
@@ -70,3 +82,14 @@ function normalizeScenarioProposal_(proposal,source) {
   return {analysisOnly:exploratory,title:title,kind:typeof proposal.kind==='string'?proposal.kind.slice(0,60):'CUSTOM',tier:proposal.tier,basis:proposal.basis,changes:changes,evidence:evidence};
 }
 
+
+// AI provides targets; authoritative starting values come from the source inputs.
+function bindGeminiScenarioProposal_(proposal,source){
+  if(!Array.isArray(proposal?.changes))throw createSimulatorError_('INVALID_SCENARIO','The scenario changes must be a list.');
+  return Object.assign({},proposal,{changes:proposal.changes.map(function(change){
+    var equipment=source.equipment.find(function(e){return e.id===change?.equipmentId;});
+    if(!equipment||!Object.prototype.hasOwnProperty.call(STScenarioEngine_.fields,change.path))throw createSimulatorError_('INVALID_SCENARIO','The scenario references an unknown equipment or input.');
+    var before=change.path.split('.').reduce(function(value,key){return value?.[key];},equipment)??null;
+    return Object.assign({},change,{before:before});
+  })});
+}
