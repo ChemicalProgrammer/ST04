@@ -130,6 +130,7 @@ function categoryHarness(tier){
  const h=harness(false,'HIGH');h.sim.equipment[0].extra=10;h.w.STScenarios.fields.extra=[1,100,'s'];
  const c=(path,after)=>({equipmentId:'e',path,before:10,after,unit:'u/s'});
  h.project={kind:'CUSTOM',tier,searchScope:tier,explore:true,changes:[],categoryChanges:{ZERO:[c('sensor',20)],MEDIUM:[c('extra',30)],HIGH:[c('speed',20)]}};
+ if(tier==='ZERO')h.project.changes=h.project.categoryChanges.ZERO;
  h.host.remove();h.host=h.w.document.createElement('article');h.host.className='analysis-recommendation';h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);return h;
 }
 test('High includes Zero and Medium independently, persists scope and excludes deselected fields from search',async()=>{
@@ -380,5 +381,32 @@ test('older CAPEX results require recalculation before creation with the full-ho
   const result=await search(h);result.searchPolicyVersion='CONDITIONAL_DOE_V8';h.sim.whatIf.evaluations=[result];h.host.remove();
   const reopened=h.w.document.createElement('article');reopened.className='analysis-recommendation';h.w.document.body.append(reopened);h.w.STScenarioExplorer.attach(reopened,h.project,()=>{},h.sim);
   assert.match(reopened.textContent,/full-horizon comparison policy/);assert(reopened.querySelector('.scenario-create').disabled);assert(reopened.querySelector('.scenario-basic-metric strong'));
+ }finally{h.dom.window.close();}
+});
+
+test('Medium defaults to including Low inputs and discovers the same stable factor on the same baseline and run',async()=>{
+ const low=categoryHarness('ZERO'),medium=categoryHarness('MEDIUM');try{
+  for(const h of [low,medium]){h.w.STScenarioExplorer.setDOE(true);await suggest(h);}
+  assert(medium.host.querySelector('.scenario-include-category[data-tier="ZERO"]').checked);
+  const a=low.sim.whatIf.evaluations[0].sensitivityScreening,b=medium.sim.whatIf.evaluations[0].sensitivityScreening;
+  assert.equal(a.selectedFactors.length,1);assert(b.selectedFactors.some(f=>f.path==='sensor'));assert.equal(a.selectedFactors[0].path,'sensor');assert.equal(a.observations[0].paired.lower,b.observations.find(o=>o.path==='sensor').paired.lower);
+  assert.equal(a.baseline.oee,b.baseline.oee);assert.equal(a.run.durationSeconds,b.run.durationSeconds);assert.equal(a.run.seed,b.run.seed);
+  assert.equal(b.scope.includedCategories.ZERO,true);
+ }finally{low.dom.window.close();medium.dom.window.close();}
+});
+test('explicit Low exclusion in Medium is preserved on reopening and screening explains the narrower scope',async()=>{
+ const h=categoryHarness('MEDIUM');try{
+  h.w.STScenarioExplorer.setDOE(true);const include=h.host.querySelector('.scenario-include-category[data-tier="ZERO"]');include.checked=false;include.onchange();
+  h.host.remove();h.host=h.w.document.createElement('article');h.host.className='analysis-recommendation';h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);
+  assert.equal(h.host.querySelector('.scenario-include-category').checked,false);await suggest(h);
+  const report=h.sim.whatIf.evaluations[0].sensitivityScreening;assert.equal(report.selectedFactors.length,0);assert.equal(report.scope.excludedLowTargets,1);
+  assert.match(h.host.querySelector('.scenario-factor-count').textContent,/Low CAPEX inputs excluded.*Include Low CAPEX optimizations/);
+ }finally{h.dom.window.close();}
+});
+test('screening with no eligible target skips simulation and explains that nothing was screened',async()=>{
+ const h=harness(true,'MEDIUM',false,'MEDIUM');try{
+  h.host.querySelectorAll('.scenario-change > td:first-child input').forEach(input=>{input.checked=false;input.onchange();});
+  h.host.querySelector('.scenario-doe-suggest').click();for(let i=0;i<100&&h.host.querySelector('.scenario-doe-suggest').textContent==='Cancel screening';i++)await new Promise(resolve=>setTimeout(resolve,2));
+  assert.equal(h.calls.length,0);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No eligible input targets/);assert.equal(h.sim.whatIf.evaluations[0].sensitivityScreening.outcome,'NO_ELIGIBLE_TARGETS');
  }finally{h.dom.window.close();}
 });
