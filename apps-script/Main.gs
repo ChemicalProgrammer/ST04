@@ -88,6 +88,10 @@ function getCase(caseId) {
   });
 }
 
+function getCompleteCaseForExport(caseId) {
+  return executeServerAction_(function(user){return getCase_(caseId,user,false);});
+}
+
 function deleteCase(caseId) {
   return executeServerAction_(function(user) {
     return deleteCase_(caseId, user);

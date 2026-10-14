@@ -428,7 +428,19 @@ async function openCase(caseId, initialView) {
       });
     }
 
-    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone,{loading:state.catalogLoading,deleteCase:requestCaseDeletion}); }
+    var exportingCases=new Set();
+    function requestCaseExport(caseId,button){
+      if(exportingCases.has(caseId))return;exportingCases.add(caseId);button.disabled=true;button.dataset.busy='true';
+      callServer('getCompleteCaseForExport',[caseId],function(response){
+        if(!response.ok)return showError(response.error);
+        try{STReports.exportCompleteCase(response.data);}catch(error){showError(error);}
+      },function(){
+        exportingCases.delete(caseId);button.disabled=false;delete button.dataset.busy;
+        document.querySelectorAll('.export-gallery-case').forEach(function(current){if(current.dataset.caseId===caseId){current.disabled=false;delete current.dataset.busy;}});
+      });
+    }
+
+    function renderCases(cases) { STCaseGallery.render(cases, openCase, requestCaseClone,{loading:state.catalogLoading,deleteCase:requestCaseDeletion,exportCase:requestCaseExport,exportCasePending:id=>exportingCases.has(id)}); }
     var catalogGeneration=0,catalogTimer;
     function cancelCaseCatalog(){
       catalogGeneration++;clearTimeout(catalogTimer);state.catalogLoading=false;

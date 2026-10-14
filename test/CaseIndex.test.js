@@ -262,3 +262,10 @@ test('a later simulation write failure restores previously updated simulation co
  assert.throws(()=>h.ctx.saveCase_(record,owner),e=>e.simulatorError.code==='CASE_SAVE_FAILED');assert.equal(a.content,original);assert.equal(manifest.content,header);
  assert.equal(h.ctx.getCase_('rollback-write',owner).revision,1);assert.equal(h.ctx.getCase_('rollback-write',owner).simulations[0].name,'A');
 });
+
+test('complete gallery export reads an owned case without migrating legacy files or writing to Drive',()=>{
+ const h=runtime(),legacy=h.seed('export-legacy'),before=h.folder().files.size;
+ const response=h.ctx.getCompleteCaseForExport('export-legacy');assert(response.ok);assert.equal(response.data.simulations.length,1);assert(response.data.simulations[0].results.largeReplay);
+ assert.equal(legacy.trashed,false);assert.equal(h.folder().files.size,before);assert.equal(h.folder().getFolders().hasNext(),false);
+ h.seed('foreign-export','someone@example.test');assert.equal(h.ctx.getCompleteCaseForExport('foreign-export').ok,false);
+});

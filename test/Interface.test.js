@@ -2621,3 +2621,14 @@ test('UI: DOE is controlled from scenario cards and Settings does not duplicate 
   await h.click('#settings-cancel');assert(h.w.STScenarioExplorer.doeEnabled());assert(toggle.checked);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
+
+test('UI: gallery exports the complete saved case without opening it and permits retry after a failed read',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  const data=h.api.getCase('demo'),other=JSON.parse(JSON.stringify(data.simulations[0]));other.id='other';other.results={summary:{lineOeePercent:42},replay:{samples:[{preserved:'full data'}]}};other.geminiHistory=[{role:'user',text:'saved chat'}];data.simulations.push(other);
+  h.api.getCompleteCaseForExport=id=>{assert.equal(id,'demo');return data;};let blob,name;const downloads=[];h.w.URL.createObjectURL=value=>{blob=value;downloads.push(value);return 'blob:gallery-case';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){name=this.download;};
+  const button=h.d.querySelector('.export-gallery-case');assert(button);await h.click('.export-gallery-case');await waitFor(()=>blob);assert.match(name,/-complete\.json$/);
+  const raw=await new Promise(resolve=>{const reader=new h.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);}),record=JSON.parse(raw);assert.equal(record.simulations.length,2);assert.equal(record.simulations[1].results.replay.samples[0].preserved,'full data');assert.equal(record.simulations[1].geminiHistory[0].text,'saved chat');assert(h.visible('cases-panel'));assert(!h.visible('editor-panel'));assert(!h.calls.includes('getCase'));assert(!h.calls.includes('saveCase'));assert.equal(button.disabled,false);
+  h.api.getCompleteCaseForExport=()=>{throw Error('Read failed');};await h.click('.export-gallery-case');await waitFor(()=>!button.disabled);assert.equal(downloads.length,1);
+  h.api.getCompleteCaseForExport=()=>data;await h.click('.export-gallery-case');await waitFor(()=>downloads.length===2);assert.equal(button.disabled,false);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

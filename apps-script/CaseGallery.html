@@ -32,6 +32,10 @@ window.STCaseGallery = (function() {
       row.onclick=function(event){if(event.defaultPrevented||event.target.closest('button,a,input,select,textarea,.case-tools'))return;open.click();};
       var clone=document.createElement('button');clone.type='button';clone.className='clone-case ghost icon-button';clone.innerHTML=STIcons.svg('copy');clone.title=__ST_TEXT__('casegallery.clone');clone.setAttribute('aria-label',__ST_TEXT__('casegallery.clone')+' '+item.name);
       clone.onclick=function(){requestCaseClone(item.id,clone);};row.querySelector('.case-tools').appendChild(clone);
+      if(options?.exportCase){
+        var download=document.createElement('button');download.type='button';download.className='export-gallery-case ghost icon-button';download.dataset.caseId=item.id;download.innerHTML=STIcons.svg('upload');download.title='Export complete case (JSON)';download.setAttribute('aria-label',download.title+' · '+item.name);download.disabled=!!options.exportCasePending?.(item.id);
+        download.onclick=function(){options.exportCase(item.id,download);};row.querySelector('.case-tools').appendChild(download);
+      }
       if(options?.deleteCase){
         var remove=document.createElement('button');remove.type='button';remove.className='delete-gallery-case ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title=__ST_TEXT__('dialog.delete_case');remove.setAttribute('aria-label',remove.title+' '+item.name);
         remove.onclick=function(){options.deleteCase(item.id,item.name,remove);};row.querySelector('.case-tools').appendChild(remove);
