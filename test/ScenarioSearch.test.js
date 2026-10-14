@@ -272,6 +272,12 @@ test('configuration separates conveyor inputs while preserving controls and DOE 
   assert.equal(panels[1].querySelectorAll('.scenario-changes tbody tr').length,0);assert.equal(h.host.querySelector('.scenario-advanced-store').hidden,true);assert.equal(panels[2].querySelectorAll('.scenario-changes tbody tr').length,1);
   assert.match(h.host.querySelector('.scenario-advanced-store .scenario-changes tbody').textContent,/speed/);assert.match(panels[2].querySelector('.scenario-changes tbody').textContent,/sensor/);
   const all=panels[0].querySelector('.scenario-use-all');all.checked=false;all.onchange();assert([...h.host.querySelectorAll('.scenario-changes tbody input[type=checkbox]')].every(c=>!c.checked));
+  const beltUse=panels[2].querySelector('.scenario-conveyor-use-all');beltUse.checked=true;beltUse.onchange();assert.equal(h.host.querySelector('.scenario-advanced-store tbody input[type=checkbox]').checked,false);assert.equal(panels[2].querySelector('tbody input[type=checkbox]').checked,true);
+  const beltDOE=panels[2].querySelector('.scenario-conveyor-doe-all');beltDOE.checked=true;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,true);beltDOE.checked=false;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,false);
+  const toggle=panels[0].querySelector('.scenario-doe-enabled');toggle.checked=false;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,true);toggle.checked=true;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,false);
+  assert.equal(panels[2].querySelector('.scenario-factor-actions').nextElementSibling.className,'scenario-factor-count');
+  assert.equal(h.host.querySelector('.scenario-reliability-source'),null);assert.doesNotMatch(panels[1].textContent,/Source \/ basis/);
+
  }finally{h.dom.window.close();}
 });
 

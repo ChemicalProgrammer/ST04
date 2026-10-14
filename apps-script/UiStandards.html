@@ -300,6 +300,18 @@ html[data-ui-mode] .scenario-config-dialog .scenario-preview-context { display:b
 .scenario-equipment-settings .scenario-reliability-intro p { margin:var(--space-3) 0 0; color:var(--muted); }
 .scenario-advanced-store[hidden] { display:none!important; }
 @media(max-width:760px) { .scenario-search-settings,.scenario-equipment-settings { grid-template-columns:minmax(0,1fr); } .scenario-equipment-settings .scenario-reliability-intro,.scenario-equipment-settings .scenario-reliability-heading,.scenario-equipment-settings .scenario-reliability-scope { grid-column:1; grid-row:auto; } }
+.scenario-search-settings .scenario-search-primary { display:contents; }
+.scenario-search-settings .scenario-depth-panel { grid-column:1; grid-row:1; }
+.scenario-search-settings .scenario-category-options { grid-column:1; grid-row:2; margin-top:0; }
+.scenario-search-settings .scenario-search-choices { grid-column:2; grid-row:2; }
+.scenario-search-settings .scenario-category-options,.scenario-search-settings .scenario-bulk-choices { gap:var(--space-3); }
+.scenario-search-settings .scenario-bulk-choices { margin-top:var(--space-3); }
+.scenario-search-settings .scenario-scope,.scenario-search-settings .scenario-column-select { margin:0; }
+.scenario-reliability-heading { flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:var(--space-3); }
+.scenario-config-dialog .scenario-parameter-table th .scenario-column-select { display:inline-flex; align-items:center; gap:var(--space-2); font:inherit; color:inherit; letter-spacing:inherit; text-transform:inherit; }
+.scenario-config-dialog .scenario-parameter-table th .scenario-column-select input { margin:0; flex:none; }
+.scenario-factor-count[hidden] { display:none!important; }
+@media(max-width:760px) { .scenario-search-settings .scenario-depth-panel,.scenario-search-settings .scenario-category-options,.scenario-search-settings .scenario-search-choices { grid-column:1; grid-row:auto; } }
 </style>
 
 
