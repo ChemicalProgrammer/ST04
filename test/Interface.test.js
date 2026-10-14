@@ -1823,12 +1823,12 @@ test('UI: Create demo opens the created case, retains its gallery entry and repo
    const getCase=h.api.getCase;h.api.getCase=id=>id===record.id?JSON.parse(JSON.stringify(record)):getCase(id);
    h.api.createDemoCase=()=>({id:record.id,name:record.name,equipmentCount:13,isSimulationReady:true,demoResultsPrepared:prepared});
    await h.click('#sign-in-button');const bootstraps=h.calls.filter(name=>name==='getBootstrap').length;
-   await h.click('#create-demo-case');await waitFor(()=>h.d.getElementById('breadcrumb-case').textContent===record.name);
+   await h.click('#create-demo-case');await h.click('.message-dialog button[data-action="A"]');await waitFor(()=>h.d.getElementById('breadcrumb-case').textContent===record.name);
    assert.equal(h.calls.filter(name=>name==='getBootstrap').length,bootstraps);assert.equal(h.d.querySelectorAll('.equipment-card').length,13);
    assert.equal(h.d.getElementById('create-demo-case').disabled,false);
    if(!prepared){assert.match(h.d.querySelector('.message-dialog').textContent,/Demo created/);await h.click('.message-dialog button');}
    await h.click('#home-cases');assert(Array.from(h.d.querySelectorAll('.case-name')).some(el=>el.textContent===record.name));
-   h.api.createDemoCase=()=>{throw Error('Storage unavailable');};await h.click('#create-demo-case');
+   h.api.createDemoCase=()=>{throw Error('Storage unavailable');};await h.click('#create-demo-case');await h.click('.message-dialog button[data-action="A"]');
    assert.match(h.d.querySelector('.message-dialog').textContent,/Demo creation failed/);assert.equal(h.d.getElementById('create-demo-case').disabled,false);
    assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
