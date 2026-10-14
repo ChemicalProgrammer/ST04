@@ -48,7 +48,7 @@ test('Results uses the matched validation block to separate conditional reliabil
 
 test('observed equipment states are globally sorted from largest percentage to smallest',()=>{
  const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window,s=fixture(),result={durationSeconds:100,summary:{lineOeePercent:30},equipmentMetrics:{[s.equipment[0].id]:{blockedSeconds:10,failureSeconds:30},[s.equipment[2].id]:{starvedSeconds:20}}};w.SimulatorEngine={diagnoseLineEfficiency};w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
- try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,result);const values=[...w.document.querySelectorAll('.observed-equipment-times tr')].slice(1).map(row=>parseFloat(row.lastChild.textContent));assert.deepEqual(values,[30,20,10]);}finally{w.close();}
+ try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,result);const values=[...w.document.querySelectorAll('.observed-equipment-times tbody tr')].map(row=>parseFloat(row.lastChild.textContent));assert.deepEqual(values,[30,20,10]);}finally{w.close();}
 });
 
 test('Results computes failure-free loss with matching seeds and horizon, persists it and reuses it',async()=>{
@@ -57,7 +57,7 @@ test('Results computes failure-free loss with matching seeds and horizon, persis
  const result={inputSignature:signature({case:{equipment:s.equipment,unitOfFlow:'units'},run}),durationSeconds:600,replicationStatus:{state:'COMPLETE'},batch:{rounds:3,statistics:{lineOeePercent:{mean:39.2}}},summary:{lineOeePercent:38}};
  w.SimulatorEngine={diagnoseLineEfficiency,inputSignature:signature,async simulateBatch(input){calls++;measured=input;return {ok:true,result:{summary:{lineOeePercent:90},batch:{statistics:{lineOeePercent:{mean:92.4}}}}};}};
  w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
- try{const target=w.document.querySelector('main');w.STResults.renderEfficiency(target,s.equipment,result,s);assert.match(target.textContent,/Calculating/);await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert.equal(measured.run.seed,31);assert.equal(measured.run.durationSeconds,600);assert.equal(measured.run.rounds,3);assert.equal(measured.run.reliabilityEnabled,false);assert.match(target.textContent,/53.2%/);assert.match(target.textContent,/0.86%/);assert.equal(s.whatIf.lossDiagnostic.baselineOee,39.2);
+ try{const target=w.document.querySelector('main');w.STResults.renderEfficiency(target,s.equipment,result,s);assert.doesNotMatch(target.textContent,/Calculating/);assert.equal(target.querySelector('.result-loss-kpis strong').textContent,'—');await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert.equal(measured.run.seed,31);assert.equal(measured.run.durationSeconds,600);assert.equal(measured.run.rounds,3);assert.equal(measured.run.reliabilityEnabled,false);assert.match(target.textContent,/53.2%/);assert.match(target.textContent,/0.86%/);assert.equal(s.whatIf.lossDiagnostic.baselineOee,39.2);
  const losses=[...target.querySelectorAll('.result-kpi strong')].map(n=>parseFloat(n.textContent));assert(Math.abs(losses.reduce((sum,n)=>sum+n,39.2)-100)<.02);w.STResults.renderEfficiency(target,s.equipment,result,s);await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert(target.querySelector('.table-scroll thead'));assert(target.querySelector('.table-scroll tbody'));
  }finally{w.close();}
 });

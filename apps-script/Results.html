@@ -57,15 +57,18 @@ window.STResults=(function(){
     var remaining=Number.isFinite(failureFree)&&Number.isFinite(d.capacityGapPp)?100-d.capacityGapPp-failureFree:null;
     if(!diagnostic&&!counter&&failuresDisabled&&d.accountingAvailable){conditional=0;remaining=d.residualLossPp;}
     var cards=add('div','');cards.className='result-kpis result-loss-kpis';
-    [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':diagnostic?.status==='PENDING'&&label!=='Nominal machine-speed gap'?'Calculating…':'—',card);});
+    [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':'—',card);});
     if(diagnostic?.status==='ERROR'){var retry=add('button','Recalculate losses');retry.type='button';retry.className='secondary';retry.onclick=()=>{lossJobs.delete(diagnostic.key);renderEfficiency(target,equipment,result,simulation);};}
     if(!result)return;
     add('p','Observed times can overlap; they are not additive OEE losses.').className='chart-note';
-    var tableWrap=add('div','');tableWrap.className='table-scroll';var times=document.createElement('table');times.className='observed-equipment-times';var head=document.createElement('thead'),body=document.createElement('tbody'),h=document.createElement('tr');['Equipment','Observed state','Time (%)'].forEach(t=>add('th',t,h));head.append(h);times.append(head,body);h.lastChild.className='numeric';
     var labels={failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
     var observed=d.equipmentTime.flatMap(e=>Object.entries(e.percent).filter(([key,value])=>Number.isFinite(value)&&value>0).map(([key,value])=>({name:e.name,label:labels[key],value:value})));
     observed.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name)||a.label.localeCompare(b.label));
-    observed.forEach(e=>{var row=document.createElement('tr');add('td',e.name,row);add('td',e.label,row);add('td',number(e.value,2)+'%',row).className='numeric';body.append(row);});tableWrap.append(times);
+    var columns=add('div','');columns.className='observed-equipment-columns';
+    var midpoint=Math.ceil(observed.length/2),groups=observed.length>1?[observed.slice(0,midpoint),observed.slice(midpoint)]:[observed];
+    groups.forEach(entries=>{var tableWrap=add('div','',columns);tableWrap.className='table-scroll';var times=document.createElement('table');times.className='observed-equipment-times';var head=document.createElement('thead'),body=document.createElement('tbody'),h=document.createElement('tr');['Equipment','Observed state','Time (%)'].forEach(t=>add('th',t,h));head.append(h);times.append(head,body);h.lastChild.className='numeric';
+      entries.forEach(e=>{var row=document.createElement('tr');add('td',e.name,row);add('td',e.label,row);add('td',number(e.value,2)+'%',row).className='numeric';body.append(row);});tableWrap.append(times);
+    });
   }
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary&&!result.provisional);

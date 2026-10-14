@@ -236,7 +236,7 @@ test('manual four-factor DOE remains complete and bypasses automatic shortlist r
 
 test('scenario configuration has three sections and results only expose changed inputs',async()=>{
  const h=harness(false,'HIGH');try{
-  assert.deepEqual([...h.host.querySelectorAll('.scenario-config-section > h3')].map(n=>n.textContent),['Search scope','Equipment and inputs','DOE and ANOVA']);await search(h);h.host.querySelector('.scenario-results').click();const body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Changed inputs/);assert.doesNotMatch(body.textContent,/Replace this equipment|maintenance|Purpose|Evaluation reuse|seed|Conditional equipment reliability ranking/);
+  assert.deepEqual([...h.host.querySelectorAll('.scenario-config-section > h3')].map(n=>n.textContent),['Search','Equipment','Conveyors']);await search(h);h.host.querySelector('.scenario-results').click();const body=h.host.querySelector('.scenario-results-dialog .dialog-body');assert.match(body.textContent,/Changed inputs/);assert.doesNotMatch(body.textContent,/Replace this equipment|maintenance|Purpose|Evaluation reuse|seed|Conditional equipment reliability ranking/);
  }finally{h.dom.window.close();}
 });
 
@@ -259,5 +259,18 @@ test('CAPEX mutations do not trigger height animations on sibling cards',async()
   h.w.requestAnimationFrame=callback=>h.w.setTimeout(callback,0);let animations=0;h.w.HTMLElement.prototype.animate=function(){animations++;return {cancel(){},finished:Promise.resolve()};};
   h.w.eval(fs.readFileSync('apps-script/Motion.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);const container=h.w.document.createElement('div');container.className='scenario-tier-grid';h.w.document.body.append(container);
   const cards=[0,1].map(i=>{const card=h.w.document.createElement('article');card.className='analysis-recommendation';card.dataset.motionKey='card-'+i;card.height=100;card.getBoundingClientRect=()=>({height:card.height});container.append(card);return card;});h.w.STMotion.watchCards(container);cards[0].height=130;cards[0].textContent='New metrics';cards[1].height=140;cards[1].textContent='Idle sibling';await new Promise(resolve=>setTimeout(resolve,10));assert.equal(animations,0);
+ }finally{h.dom.window.close();}
+});
+
+test('configuration separates conveyor inputs while preserving controls and DOE search options',()=>{
+ const h=harness(true,'HIGH');try{
+  h.sim.equipment.push({id:'belt',type:'CONVEYOR',sensor:10});h.host.replaceChildren();
+  const project={...h.project,changes:[h.project.changes[0],{equipmentId:'belt',path:'sensor',before:10,after:20,unit:'m'}]};
+  h.w.STScenarioExplorer.attach(h.host,project,()=>{},h.sim);
+  const panels=h.host.querySelectorAll('[role=tabpanel]');
+  assert(panels[0].querySelector('.scenario-search-depth'));assert(panels[0].querySelector('.scenario-doe-enabled'));
+  assert.equal(panels[1].querySelectorAll('.scenario-changes tbody tr').length,1);assert.equal(panels[2].querySelectorAll('.scenario-changes tbody tr').length,1);
+  assert.match(panels[1].querySelector('.scenario-changes tbody').textContent,/speed/);assert.match(panels[2].querySelector('.scenario-changes tbody').textContent,/sensor/);
+  const all=panels[0].querySelector('.scenario-use-all');all.checked=false;all.onchange();assert([...h.host.querySelectorAll('.scenario-changes tbody input[type=checkbox]')].every(c=>!c.checked));
  }finally{h.dom.window.close();}
 });

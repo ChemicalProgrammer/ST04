@@ -234,23 +234,27 @@ tbody tr:is(:hover,:focus-within) > :is(th,td) { background:var(--table-row-hove
 .scenario-config-section .scenario-reliability-settings > h4 { margin:0 0 var(--space-2); }
 .scenario-config-section .scenario-reliability-count { width:5rem; margin-left:var(--space-2); }
 .scenario-config-section .scenario-reliability-settings > select { margin-bottom:var(--space-2); }
-.scenario-tier-grid { align-items:start; }
+.scenario-tier-grid { align-items:stretch; grid-auto-rows:1fr; }
 .scenario-tier-grid .analysis-recommendation { min-width:0; }
 .scenario-tier-grid .analysis-capex { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 html[data-ui-mode] .scenario-result-box .scenario-basic-metrics { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3); }
 html[data-ui-mode] .scenario-result-box .scenario-basic-metric strong { font-size:var(--font-section); line-height:1.2; overflow-wrap:anywhere; }
-.scenario-tier-grid .scenario-metrics { height:11rem; overflow:auto; }
-.scenario-tier-grid .scenario-preview-context { height:3em; line-height:1.5; overflow:auto; }
-.scenario-tier-grid .analysis-recommendation .scenario-preview-status { box-sizing:border-box; height:4.5em; line-height:1.5; overflow:auto; padding:0; margin:var(--space-2) 0; }
-.scenario-tier-grid .analysis-recommendation .scenario-search-progress { box-sizing:border-box; height:4.5em; line-height:1.5; overflow:auto; margin:var(--space-2) 0; font-variant-numeric:tabular-nums; }
+.scenario-tier-grid .scenario-metric-table :is(th,td) { white-space:normal; overflow-wrap:anywhere; }
+.scenario-tier-grid .scenario-metrics { min-height:11rem; height:auto; overflow:visible; }
+.scenario-tier-grid .scenario-preview-context { min-height:3em; height:auto; line-height:1.5; overflow:visible; }
+.scenario-tier-grid .analysis-recommendation .scenario-preview-status { box-sizing:border-box; min-height:4.5em; height:auto; line-height:1.5; overflow:visible; padding:0; margin:var(--space-2) 0; }
+.scenario-tier-grid .analysis-recommendation .scenario-search-progress { box-sizing:border-box; min-height:4.5em; height:auto; line-height:1.5; overflow:visible; margin:var(--space-2) 0; font-variant-numeric:tabular-nums; }
 .scenario-tier-grid .scenario-warning-slot { min-height:3.5rem; }
 .scenario-tier-grid .scenario-warning-slot details { margin:0; }
-.scenario-tier-grid .scenario-warning-slot details[open] { max-height:12rem; overflow:auto; }
+.scenario-tier-grid .scenario-warning-slot details[open] { max-height:none; overflow:visible; }
 .scenario-tier-grid .scenario-progress-label { height:1.5em; line-height:1.5; overflow:hidden; }
 .scenario-tier-grid .scenario-progress-label > span:first-child { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .scenario-tier-grid .scenario-progress-label[hidden] { display:flex!important; visibility:hidden; }
 .scenario-tier-grid .scenario-activity[hidden] { display:block!important; visibility:hidden; }
 .result-loss-kpis { margin-top:var(--space-3); }
+.observed-equipment-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-4); align-items:start; }
+@media(max-width:760px) { .observed-equipment-columns { grid-template-columns:minmax(0,1fr); } }
+.scenario-bulk-choices { display:flex; flex-wrap:wrap; gap:var(--space-4); margin-top:var(--space-3); }
 .observed-equipment-times { width:100%; }
 .observed-equipment-times td:last-child { text-align:right; font-variant-numeric:tabular-nums; }
 
@@ -261,7 +265,7 @@ html[data-ui-mode] .scenario-result-box .scenario-basic-metric strong { font-siz
 .scenario-results-times .scenario-parameter-table { min-width:500px; }
 .scenario-results-dialog .scenario-parameter-table td:nth-last-child(-n+2) { font-variant-numeric:tabular-nums; }
 
-html[data-ui-mode=basic] .scenario-tier-grid { align-items:start; }
+html[data-ui-mode=basic] .scenario-tier-grid { align-items:stretch; grid-auto-rows:1fr; }
 html[data-ui-mode] .scenario-result-box .scenario-basic-metric:first-child strong { font-size:2.4rem; line-height:1.1; }
 .scenario-config-section[hidden] { display:none!important; }
 .scenario-config-section { padding:0; border:0; }
