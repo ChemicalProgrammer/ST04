@@ -39,7 +39,8 @@ window.STSheetImportMerge=(function(){
   criticalField.write=function(e,value){put(e,'characteristics.criticalMachine',value);put(e,'characteristics.isPacemaker',value===true&&e.type!=='CONVEYOR');if(value===false&&e.type==='PACEMAKER')e.type=e.processData?.machineType&&e.processData.machineType!=='PACEMAKER'?e.processData.machineType:'CUSTOM';};
   ['mtbf','mttr'].forEach(function(id){var f=fields.find(function(f){return f.id===id;});f.read=function(e){return get(e,'noiseProfile.reliability.'+(id==='mtbf'?'mtbfMinutes':'mttrMinutes'))??get(e,f.paths[0]);};});
   ['residual','ramp','speedFactor','blocked','clear','insurance'].forEach(function(id){var f=fields.find(function(f){return f.id===id;});f.read=function(e){return e.type==='CONVEYOR'?(get(e,f.paths[1])??get(e,f.paths[0])):get(e,f.paths[0]);};});
-  var metadataFields=[['site','Site'],['packagingLine',__ST_TEXT__('sheetimportmerge.packaging_line')],['formatName',__ST_TEXT__('sheetimportmerge.format_name')],['containerSizeOz',__ST_TEXT__('sheetimportmerge.container_size_oz')],['bottlesPerCase',__ST_TEXT__('sheetimportmerge.bottles_per_case')],['dateOfAnalysis',__ST_TEXT__('sheetimportmerge.date_of_analysis')],['by','By']];
+  var metadataFields=[['site','Site'],['packagingLine',__ST_TEXT__('sheetimportmerge.packaging_line')],['formatName',__ST_TEXT__('sheetimportmerge.format_name')],['containerSize','Container size (value and unit)'],['bottlesPerCase',__ST_TEXT__('sheetimportmerge.bottles_per_case')],['dateOfAnalysis',__ST_TEXT__('sheetimportmerge.date_of_analysis')],['by','By']];
+  function metadataValue(metadata,key){if(key==='containerSize'&&metadata&&!Object.prototype.hasOwnProperty.call(metadata,key)&&metadata.containerSizeOz!=null)return metadata.containerSizeOz+' oz';return metadata?.[key];}
   function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){var m=String(e.cell).match(/^([A-Y])(\d+)(?::([A-Y])(\d*)?)?$/);if(!m)return false;return row>=Number(m[2])&&row<=Number(m[4]||m[2])&&col>=m[1]&&col<=(m[3]||m[1]);});}
   function incomingValue(preview,record,f){if(record.adjustments?.[f.id])return record.adjustments[f.id].value;var raw=(preview.sourceRows||[]).find(function(r){return r.row===record.row;});if(f.id==='critical'&&raw?.values?.critical===null)return null;return f.read(preview.equipment[record.index]);}
   function defaults(preview,record,equipment){var current=equipment.find(function(e){return e.id===record.target;}),incoming=preview.equipment[record.index];record.selected={};fieldsFor(preview).forEach(function(f){var v=incomingValue(preview,record,f);record.selected[f.id]=!errorsFor(preview,f.col,record.row).length&&(!current||v!=null&&(!equal(f.read(current),v)||f.id==='critical'&&v===true&&!isReference(current)));});return record;}
@@ -60,7 +61,7 @@ window.STSheetImportMerge=(function(){
       if(rowErrors.length)target='skip';
       return defaults(preview,{index:index,row:row,target:target,reason:rowErrors.length?__ST_TEXT__('sheetimport.source_row_errors')+' '+rowErrors.map(function(e){return e.cell+': '+e.message;}).join(' '):ambiguous?__ST_TEXT__('sheetimportmerge.ambiguous_name_choose_the_equipment_to_update'):renamed&&!candidates.size?__ST_TEXT__('sheetimportmerge.name_changed_at_this_source_row_choose_an_existing_equipment_or_add_new'):target==='new'?__ST_TEXT__('sheetimportmerge.new_equipment_appended_to_the_line'):__ST_TEXT__('sheetimportmerge.matched_by_a_unique_name_or_previous_import'),selected:{}},current);
     });
-    var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,'C',i+1).length&&preview.metadata[f[0]]!=null&&!equal(sourceImport?.metadata?.[f[0]],preview.metadata[f[0]]);});
+    var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,'C',i+1).length&&metadataValue(preview.metadata,f[0])!=null&&!equal(metadataValue(sourceImport?.metadata,f[0]),metadataValue(preview.metadata,f[0]));});
     return {records:records,metadata:metadata,bindings:bindings};
   }
   function build(preview,plan,current,previous){
@@ -88,7 +89,7 @@ window.STSheetImportMerge=(function(){
       changes.push({equipmentId:unit.id,sourceName:incoming.name,row:record.row,sourceKey:key(preview.source),added:isNew,fields:applied});
     });
     if(equipment.filter(isReference).length>1)issues.push('Select only one machine as the critical machine. Import N for the previous selection or deselect conflicting rows.');
-    metadataFields.forEach(function(f,i){if(!plan.metadata[f[0]])return;if(errorsFor(preview,'C',i+1).length){issues.push('C'+(i+1)+__ST_TEXT__('sheetimportmerge.fix_or_deselect_the_metadata_field'));return;}var value=preview.metadata[f[0]];if(!equal(metadata[f[0]],value))metadataChanges.push({field:f[0],before:metadata[f[0]]??null,after:value??null});metadata[f[0]]=value??null;});
+    metadataFields.forEach(function(f,i){if(!plan.metadata[f[0]])return;if(errorsFor(preview,'C',i+1).length){issues.push('C'+(i+1)+__ST_TEXT__('sheetimportmerge.fix_or_deselect_the_metadata_field'));return;}var value=metadataValue(preview.metadata,f[0]);if(!equal(metadata[f[0]],value))metadataChanges.push({field:f[0],before:metadata[f[0]]??null,after:value??null});metadata[f[0]]=value??null;if(f[0]==='containerSize')metadata.containerSizeOz=preview.metadata.containerSizeOz??null;});
     var effective=added+updated+metadataChanges.length>0;
     sourceImport.source=copy(preview.source);sourceImport.metadata=metadata;sourceImport.rows=copy(preview.sourceRows||[]);sourceImport.warnings=copy(preview.warnings||[]);sourceImport.notes=copy(preview.notes||[]);
     var bindings=copy(plan.bindings);changes.forEach(function(c){bindings=bindings.filter(function(b){return !(b.equipmentId===c.equipmentId&&b.sourceKey===c.sourceKey);});bindings.push({equipmentId:c.equipmentId,sourceKey:c.sourceKey,sourceName:c.sourceName,row:c.row});});sourceImport.bindings=bindings;
@@ -104,6 +105,6 @@ window.STSheetImportMerge=(function(){
     var updated=unit?.characteristics?.sourceSheetLayout==='plant-sheet-v2',hint=path.endsWith('.gapMm')&&row?' '+__ST_TEXT__('sheetimport.check_pitch_geometry').replace('{K}',(updated?'M':'K')+row).replace('{L}',(updated?'N':'L')+row).replace('{Q}',(updated?'S':'Q')+row):'';
     return context+path+': '+String(detail?.reason||'')+hint;
   }
-  return {fields:fields,fieldsFor:fieldsFor,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
+  return {fields:fields,fieldsFor:fieldsFor,metadataFields:metadataFields,metadataValue:metadataValue,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
 })();
 </script>

@@ -19,6 +19,12 @@ Los encabezados G/H identifican el formato nuevo. Las hojas anteriores mantienen
 
 En Preview se pueden seleccionar G y H por separado. Se conservan las referencias a las celdas desplazadas y los archivos del caso. La exportación crea una nueva Google Sheet y no modifica la hoja fuente.
 
+## Tamaño del envase en C4
+
+C4 admite una cantidad positiva con su unidad, por ejemplo `500 mL`, `1 L`, `12 oz` o `250 g`. Se conserva la cantidad y la unidad al exportar, sin convertir entre unidades. Una celda numérica puede tomar la unidad de su formato visible o del rótulo A4:B4, por ejemplo `Container size (mL)`. La unidad explícita de C4 tiene prioridad. Un número sin unidad se conserva sin asumir onzas. La etiqueta exportada es `Container size`.
+
+Los datos se guardan en `metadata.containerSize`; `containerSizeOz` se conserva por compatibilidad solo cuando se han declarado onzas. Los casos anteriores que solo tienen `containerSizeOz` se exportan con `oz` explícito. El tamaño del envase es metadata y no cambia el tamaño geométrico del producto ni el motor.
+
 ## Actualización de Apps Script
 
 Actualizar juntos: `SheetImportService.gs`, `SheetExportService.gs`, `SheetImport.html`, `SheetImportMerge.html` y `SheetImportCorrections.html`. Actualizar el despliegue y volver a abrir el diálogo de importación. No se requieren cambios del motor ni reconstruir `SimulationEngine.html`.

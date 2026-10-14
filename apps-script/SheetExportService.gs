@@ -22,7 +22,7 @@ function exportEquipmentSheet_(request, user) {
     stage='WRITE_VALUES';
     var sheet=book.getSheets()[0];sheet.setName('Equipment');
     var values=Array.from({length:data.rows.length+9},function(){return Array(25).fill('');});
-    var labels=['Site','Packaging line','Format','Container size (oz)','Bottles per case','Date of analysis','By'];
+    var labels=['Site','Packaging line','Format','Container size','Bottles per case','Date of analysis','By'];
     labels.forEach(function(label,index){values[index][0]=label;values[index][2]=sheetExportLiteral_(data.metadata[index]);});
     values[0][4]='SimuLine · '+String(request.simulationName||'Simulation').slice(0,80);
     values[7][2]='Import layout: C1:C7 and A10:Y. G = Conveyor Speed (m/min); H = reference Accumulation (s). G initializes manual belt speed. F = installed maximum BPM (configured BPM if undefined); import initializes running speed from F. Percentages use percentage points (100 = 100%). JSON retains simulator-only settings.';
@@ -63,10 +63,10 @@ function exportEquipmentSheet_(request, user) {
 function equipmentSheetData_(equipment, metadata) {
   function value(object,key){var v=object?.[key];return v===undefined||v===null||v===''?'NA':v;}
   function current(object,key,fallback,fallbackKey){return Object.prototype.hasOwnProperty.call(object,key)?value(object,key):value(fallback,fallbackKey||key);}
-  var fields=['site','packagingLine','formatName','containerSizeOz','bottlesPerCase','dateOfAnalysis','by'];
+  var fields=['site','packagingLine','formatName','containerSize','bottlesPerCase','dateOfAnalysis','by'];
   var speeds=new Map();
   if(typeof STScenarioEngine_!=='undefined')try{STScenarioEngine_.audit({equipment:equipment}).forEach(function(row){var speed=row.engineering?.runtimeGeometry?.conveyorSpeedMmPerSecond;if(speed>0)speeds.set(row.equipmentId,speed);});}catch(ignore){}
-  return {layout:'plant-sheet-v2',metadata:fields.map(function(key){return value(metadata,key);}),rows:equipment.map(function(unit){
+  return {layout:'plant-sheet-v2',metadata:fields.map(function(key){return key==='containerSize'&&!Object.prototype.hasOwnProperty.call(metadata,key)&&metadata.containerSizeOz!=null?metadata.containerSizeOz+' oz':value(metadata,key);}),rows:equipment.map(function(unit){
     var d=unit.processData||{},e=d.equipment||{},g=d.geometry||{},u=d.upstream||{},down=d.downstream||{},s=d.speedAndSensors||{},a=d.accumulation||{};
     var reliability=unit.noiseProfile?.reliability||{},conveyor=unit.type==='CONVEYOR',c=unit.characteristics||{};
     var critical=!conveyor&&(typeof c.isPacemaker==='boolean'?c.isPacemaker:typeof c.criticalMachine==='boolean'?c.criticalMachine:['PACEMAKER','CRITICAL_MACHINE'].indexOf(d.role)>=0||unit.type==='PACEMAKER');

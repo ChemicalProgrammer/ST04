@@ -42,7 +42,7 @@ test('Sheets export uses every import column and current overrides, preserves ze
   for(const key of ['blockedTimeDelaySeconds','clearTimeDelaySeconds','insuranceFactorUnits','bottlesDischargedAtStop'])assert.equal(values[key],0,key);
   assert.equal(values.rampUpTimeSeconds,2);
   assert.equal(values.actualCodingMm,100);assert.equal(values.codingConveyorSpeedFactorVsPreviousConveyorPercent,102);assert.equal(values.conveyorSpeedFactorVsPreviousConveyorPercent,103);assert.equal(values.overspeedVsInfeedScrewPercent,7);
-  assert.equal(roundtrip.metadata.containerSizeOz,5.5);assert.equal(roundtrip.equipment[0].characteristics.isPacemaker,true);
+  assert.equal(roundtrip.metadata.containerSize,5.5);assert.equal(roundtrip.metadata.containerSizeOz,null);assert.equal(roundtrip.equipment[0].characteristics.isPacemaker,true);
   assert.deepEqual(JSON.parse(JSON.stringify(roundtrip.equipment[2].noiseProfile)),{});
   // All 23 mapped cells survive re-import, with NA normalized to null.
   roundtrip.sourceRows.forEach((row,i)=>c.sheetImportColumns_(data.layout).forEach((column,j)=>assert.equal(row.values[column[1]],data.rows[i][j]==='NA'?null:data.rows[i][j])));
@@ -99,4 +99,15 @@ test('AUTO conveyor export resolves its actual belt speed instead of exporting a
  const {c}=runtime(),request=fixture(c),unit=request.equipment[1];unit.processData.accumulation.speedMode='AUTO';unit.processData.accumulation.conveyorSpeedMmPerSecond=999999;
  const data=c.equipmentSheetData_(request.equipment,request.metadata),audit=c.STScenarioEngine_.audit({equipment:request.equipment}).find(a=>a.equipmentId===unit.id);
  assert(data.rows[1][6]>0);assert(Math.abs(data.rows[1][6]-audit.engineering.runtimeGeometry.conveyorSpeedMmPerSecond*.06)<1e-8);assert.notEqual(data.rows[1][6],999999*.06);
+});
+
+test('container size exports and reimports its declared unit and preserves legacy ounces',()=>{
+ const {c}=runtime(),request=fixture(c);
+ for(const size of ['500 mL','1 L','250 g',500]){
+  request.metadata.containerSize=size;request.metadata.containerSizeOz=12;
+  const data=c.equipmentSheetData_(request.equipment,request.metadata);assert.equal(data.metadata[3],size);
+  const out=c.parseEquipmentSheet_(data.metadata,data.rows,[],data.layout);assert(out.canImport);assert.equal(out.metadata.containerSize,size);assert.equal(out.metadata.containerSizeOz,null);
+ }
+ delete request.metadata.containerSize;request.metadata.containerSizeOz=12;const legacy=c.equipmentSheetData_(request.equipment,request.metadata);assert.equal(legacy.metadata[3],'12 oz');
+ const out=c.parseEquipmentSheet_(legacy.metadata,legacy.rows,[],legacy.layout);assert.equal(out.metadata.containerSizeOz,12);assert.equal(out.metadata.containerSize,'12 oz');
 });
