@@ -2382,8 +2382,8 @@ test('UI + Apps Script: Basic unconfirmed gain is visible and creates only a val
  const h=await setup({remember:true,uiMode:'BASIC',realScenarioServer:true});try{
   await h.click('.open-case');h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
   const equipment=JSON.stringify(h.storedCases()[0].simulations[0].equipment);
-  h.w.SimulatorEngine.simulateBatch=async input=>{const changed=JSON.stringify(input.case.equipment)!==equipment,gain=changed?(input.run.seed>=1000000?-2:2):0;return {ok:true,result:{durationSeconds:60,summary:{lineOeePercent:50+gain,outputCount:100+gain}}};};
-  await h.click('[data-basic-view=whatif]');let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;card.querySelector('.scenario-search').click();
+  h.w.SimulatorEngine.simulateBatch=async input=>{const changed=JSON.stringify(input.case.equipment)!==equipment,gain=changed?(input.run.seed>=1000000?-2:2):0,summary={lineOeePercent:50+gain,outputCount:(100+gain)*input.run.durationSeconds/60},rows=Array.from({length:input.run.rounds},(_,j)=>({seed:input.run.seed+j,summary}));return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary,batch:{rows,statistics:{lineOeePercent:{mean:50+gain},throughputPerMinute:{mean:100+gain}}}}};};
+  await h.click('[data-basic-view=whatif]');let card=h.d.querySelector('.scenario-tier-grid').lastElementChild;const explore=card.querySelector('.scenario-explore-reliability');explore.checked=false;explore.onchange();card.querySelector('.scenario-search').click();
   await waitFor(()=>card.querySelector('.scenario-search').dataset.icon==='refresh');
   assert(!card.querySelector('.scenario-create').disabled,card.textContent);assert.match(card.querySelector('.scenario-create').title,/for validation/);assert.match(card.textContent,/did not reproduce/);assert.notEqual(h.w.getComputedStyle(card.querySelector('.scenario-preview-status')).display,'none');
   await h.click('#save-case');await waitFor(()=>h.d.getElementById('autosave-status').dataset.state==='saved');

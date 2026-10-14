@@ -29,7 +29,7 @@ test('F upper-tail probabilities match tabulated values',()=>{
  assert.equal(scenarioFSurvival(0,1,10),1);
 });
 
-function harness(doe,depth='MEDIUM',uncertain=false){
+function harness(doe,depth='MEDIUM',uncertain=false,tier='HIGH',durationSeconds=99){
  const dom=new JSDOM('<article class="analysis-recommendation"></article>',{runScripts:'outside-only'}),w=dom.window,calls=[];
  w.HTMLDialogElement.prototype.close=function(){};w.HTMLDialogElement.prototype.showModal=function(){};
  w.STPreferences={read(){return '';},write(){return true;}};w.STIcons={svg(){return '<svg></svg>';}};w.STErrors={register(){},capture(){}};w.STScenarioText={HIGH:'High'};
@@ -37,11 +37,11 @@ function harness(doe,depth='MEDIUM',uncertain=false){
  w.STWhatIf={changeInfo(c){return {equipment:'Unit',parameter:c.path,before:c.before,after:c.after};}};
  w.STScenarios={fields:{speed:[1,100,'u/s'],sensor:[1,100,'m']},signature(){return 'same';},plan(){return {candidates:[]};},apply(source,changes){const copy=JSON.parse(JSON.stringify(source));for(const c of changes)copy.equipment[0][c.path]=c.after;return copy;}};
  w.SimulatorEngine={validateSimulationInput(){return {ok:true};},inputSignature(input){return JSON.stringify(input);},async simulateBatch(input){calls.push(JSON.parse(JSON.stringify(input)));const gain=(input.case.equipment[0].speed-10)+(input.case.equipment[0].sensor-10);const rows=Array.from({length:input.run.rounds},(_,j)=>{const noise=uncertain&&input.run.seed>1000000&&gain>0?[0,-20,20,0,0,0][j]:0;return {seed:input.run.seed+j,summary:{lineOeePercent:50+gain/10,outputCount:(100+gain+noise)*input.run.durationSeconds/60}};});return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary:rows[0].summary,batch:{rows,statistics:{lineOeePercent:{mean:50+gain/10},throughputPerMinute:{mean:rows.reduce((sum,row)=>sum+row.summary.outputCount/input.run.durationSeconds*60,0)/rows.length}}}}};}};
- const sim={id:'sim',equipment:[{id:'e',speed:10,sensor:10}],dynamicConfig:{durationSeconds:99,rounds:40,seed:1},whatIf:{searchDepth:depth}},record={metadata:{includeDOE:doe},simulations:[sim]};
+ const sim={id:'sim',equipment:[{id:'e',speed:10,sensor:10}],dynamicConfig:{durationSeconds:durationSeconds,rounds:40,seed:1},whatIf:{searchDepth:depth}},record={metadata:{includeDOE:doe},simulations:[sim]};
  w.eval(fs.readFileSync('apps-script/ScenarioExplorer.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);w.STScenarioExplorer.connectCase(()=>record,()=>{});w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates=1;
- const host=w.document.querySelector('article');w.STScenarioExplorer.attach(host,{kind:'CUSTOM',tier:'HIGH',explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))},()=>{},sim);
+ const host=w.document.querySelector('article');w.STScenarioExplorer.attach(host,{kind:'CUSTOM',tier:tier,explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))},()=>{},sim);
  if(doe){for(const checkbox of host.querySelectorAll('.scenario-doe-select')){checkbox.checked=true;checkbox.onchange();}}
- return {dom,w,sim,host,calls,project:{kind:'CUSTOM',tier:'HIGH',explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))}};
+ return {dom,w,sim,host,calls,project:{kind:'CUSTOM',tier:tier,explore:true,changes:['speed','sensor'].map(path=>({equipmentId:'e',path,before:10,after:20,unit:'u/s'}))}};
 }
 async function search(h){h.host.querySelector('.scenario-search').click();for(let i=0;i<200;i++){if(h.sim.whatIf.evaluations?.[0]&&!['RUNNING','VALIDATING'].includes(h.sim.whatIf.evaluations[0].status))return h.sim.whatIf.evaluations[0];await new Promise(resolve=>setTimeout(resolve,5));}throw Error('Search did not finish');}
 test('reserved DOE completes after exploration exhausts its budget; confirmation uses common horizons',async()=>{
@@ -249,7 +249,7 @@ test('configuration tabs show one panel at a time and support keyboard navigatio
 test('saved scenario results include optimized machine speed, sensor position and conveyor geometry',()=>{
  const h=harness(false,'HIGH');try{
   const changes=[{equipmentId:'e',path:'nominalRatePerSecond',before:10,after:12,unit:'units/s'},{equipmentId:'e',path:'processData.accumulation.backupSensorPositionMm',before:100,after:150,unit:'mm'},{equipmentId:'e',path:'processData.geometry.lactMm',before:1000,after:1200,unit:'mm'}];
-  h.host.remove();h.sim.whatIf.evaluations=[{cardId:JSON.stringify(['sim','CAPEX','HIGH']),sourceSignature:'same',sourceSimulationId:'sim',status:'IMPROVEMENT_REPRODUCED',searchPolicyVersion:'CONDITIONAL_DOE_V8',baseline:{oee:50,throughput:100},candidate:{oee:60,throughput:120},independentCheck:{passed:true,baseline:{oee:50,throughput:100},candidate:{oee:60,throughput:120}},evaluatedChanges:changes}];
+  h.host.remove();h.sim.whatIf.evaluations=[{cardId:JSON.stringify(['sim','CAPEX','HIGH']),sourceSignature:'same',sourceSimulationId:'sim',status:'IMPROVEMENT_REPRODUCED',searchPolicyVersion:'MATCHED_CAPEX_V9',baseline:{oee:50,throughput:100},candidate:{oee:60,throughput:120},independentCheck:{passed:true,baseline:{oee:50,throughput:100},candidate:{oee:60,throughput:120}},evaluatedChanges:changes}];
   h.host=h.w.document.createElement('article');h.w.document.body.append(h.host);h.w.STScenarioExplorer.attach(h.host,h.project,()=>{},h.sim);h.host.querySelector('.scenario-results').click();const rows=[...h.host.querySelectorAll('.scenario-results-changes tbody tr')];assert.equal(rows.length,3);assert.match(rows[0].textContent,/600 units\/min720 units\/min/);assert.match(rows[1].textContent,/100 mm150 mm/);assert.match(rows[2].textContent,/1000 mm1200 mm/);assert.equal(h.host.querySelectorAll('.scenario-audit-warnings input').length,0);
  }finally{h.dom.window.close();}
 });
@@ -321,5 +321,64 @@ test('screening with no measured flow gain retains manual selection and explains
   const original=h.w.SimulatorEngine.simulateBatch;
   h.w.SimulatorEngine.simulateBatch=input=>{const copy=JSON.parse(JSON.stringify(input));copy.case.equipment[0].speed=10;copy.case.equipment[0].sensor=10;return original(copy);};
   await suggest(h);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No stable suggestions; selected factors kept.*3 without gain/);assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.doesNotMatch(h.host.textContent,/Why these DOE variables/);
+ }finally{h.dom.window.close();}
+});
+
+// Distinguish selection errors from normal differences between independent seed blocks.
+function responseAt(input,oee,throughput=oee*2){
+ const rows=Array.from({length:input.run.rounds},(_,j)=>({seed:input.run.seed+j,summary:{lineOeePercent:oee,outputCount:throughput*input.run.durationSeconds/60}}));
+ return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary:rows[0].summary,batch:{rows,statistics:{lineOeePercent:{mean:oee},throughputPerMinute:{mean:throughput}}}}};
+}
+for(const [tier,depth] of [['ZERO','LIGHT'],['MEDIUM','MEDIUM']]){
+ test(tier+' ranks finalists over the configured full horizon instead of retaining a short-run winner',async()=>{
+  const h=harness(false,depth,false,tier,7200);try{
+   delete h.w.ST_SCENARIO_SEARCH_LIMITS.maxCandidates;
+   h.w.SimulatorEngine.simulateBatch=async input=>{
+    h.calls.push(JSON.parse(JSON.stringify(input)));const e=input.case.equipment[0],speed=e.speed>10,sensor=e.sensor>10;
+    const oee=!speed&&!sensor?39:input.run.durationSeconds<7200?(speed&&sensor?40:39.5):speed?(sensor?37:38):41;
+    return responseAt(input,oee);
+   };
+   const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');
+   assert.equal(result.screening.candidate.oee,40);assert.equal(result.rankingRun.durationSeconds,7200);
+   assert.equal(result.candidate.oee,41);assert.equal(result.independentCheck.candidate.oee,41);
+   assert(result.evaluatedChanges.every(c=>c.path==='sensor'));assert.match(h.host.querySelector('.scenario-baseline-note').textContent,/120 min/);
+  }finally{h.dom.window.close();}
+ });
+ test(tier+' retries uncertain confirmation and never presents a rejected candidate or recalculated base as the final scenario',async()=>{
+  const h=harness(false,depth,false,tier);try{
+   let provisionalSeen=false;
+   h.w.SimulatorEngine.simulateBatch=async input=>{
+    const changed=input.case.equipment[0].speed>10||input.case.equipment[0].sensor>10;
+    if(input.run.seed>1000000){provisionalSeen ||= /Provisional estimate/.test(h.host.textContent);return responseAt(input,changed?36:37);}
+    return responseAt(input,changed?40:39);
+   };
+   const result=await search(h);assert(provisionalSeen);assert.equal(result.status,'NOT_REPRODUCED');
+   assert.equal(result.independentCheck.rounds,6);assert.equal(result.independentCheck.baseline.oee,37);
+   assert.deepEqual([...h.host.querySelectorAll('.scenario-basic-metric strong')].map(e=>e.textContent),['—','—']);
+   assert.match(h.host.querySelector('.scenario-baseline-note').textContent,/No confirmed improvement.*37.00/);
+   assert.match(h.host.querySelector('.scenario-create').title,/for validation/);
+   h.host.remove();const reopened=h.w.document.createElement('article');reopened.className='analysis-recommendation';h.w.document.body.append(reopened);h.w.STScenarioExplorer.attach(reopened,h.project,()=>{},h.sim);
+   assert.equal(reopened.querySelector('.scenario-basic-metric strong').textContent,'—');assert.match(reopened.textContent,/did not reproduce/);
+  }finally{h.dom.window.close();}
+ });
+ test(tier+' uses matching validation seeds to compare a confirmed scenario with its base',async()=>{
+  const h=harness(false,depth,false,tier);try{
+   h.w.SimulatorEngine.simulateBatch=async input=>{const changed=input.case.equipment[0].speed>10||input.case.equipment[0].sensor>10;return responseAt(input,input.run.seed>1000000?(changed?37:35):(changed?40:39));};
+   const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');
+   assert.equal(h.host.querySelector('.scenario-basic-metric strong').textContent,'37.0%');
+   assert.match(h.host.querySelector('.scenario-basic-change').textContent,/\+2.00 pp/);
+   assert.match(h.host.querySelector('.scenario-baseline-note').textContent,/Confirmed.*35.00.*matching seeds/);
+  }finally{h.dom.window.close();}
+ });
+ test(tier+' expands noisy positive confirmation to six paired rounds',async()=>{
+  const h=harness(false,depth,true,tier);try{const result=await search(h);assert.equal(result.independentCheck.rounds,6);assert.equal(result.status,'IMPROVEMENT_REPRODUCED');}finally{h.dom.window.close();}
+ });
+}
+
+test('older CAPEX results require recalculation before creation with the full-horizon policy',async()=>{
+ const h=harness(false);try{
+  const result=await search(h);result.searchPolicyVersion='CONDITIONAL_DOE_V8';h.sim.whatIf.evaluations=[result];h.host.remove();
+  const reopened=h.w.document.createElement('article');reopened.className='analysis-recommendation';h.w.document.body.append(reopened);h.w.STScenarioExplorer.attach(reopened,h.project,()=>{},h.sim);
+  assert.match(reopened.textContent,/full-horizon comparison policy/);assert(reopened.querySelector('.scenario-create').disabled);assert(reopened.querySelector('.scenario-basic-metric strong'));
  }finally{h.dom.window.close();}
 });
