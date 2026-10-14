@@ -31,3 +31,10 @@ test('capacity editor accepts a documented replacement while failures are disabl
  w.eval(fs.readFileSync('apps-script/ScenarioExplorer.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);
  try{w.STScenarioExplorer.tools(w.document.querySelector('main'),s,planScenarios(s),()=>{});const panel=w.document.querySelector('.scenario-interventions'),selects=panel.querySelectorAll('select');selects[0].value=s.equipment[4].id;selects[1].value='nominalRatePerSecond';selects[1].onchange();assert(selects[2].disabled);panel.querySelector('[aria-label="Replacement operating speed (units/min)"]').value=200;panel.querySelector('[aria-label="Replacement maximum speed (units/min)"]').value=220;panel.querySelector('[aria-label="Intervention and target justification"]').value='Supplier trial target';panel.querySelector('.scenario-add-intervention').onclick();assert.equal(s.whatIf.externalOptions[0].tier,'HIGH');assert.equal(s.whatIf.externalOptions[0].changes[0].after,200/60);assert(cards.at(-2).categoryChanges.HIGH.some(c=>c.replacementMaximumBpm===220));}finally{w.close();}
 });
+
+test('proposal generator identifies missing capacity/reliability targets instead of inventing interventions',()=>{
+ const s=fixture();s.dynamicConfig.reliabilityEnabled=false;const off=planScenarios(s);assert.equal(off.proposalNeeds.filter(n=>n.kind==='CAPACITY_TARGET_REQUIRED').length,5);assert(!off.proposalNeeds.some(n=>n.kind==='RELIABILITY_TARGET_REQUIRED'));assert(!off.candidates.some(c=>c.kind==='CAPACITY_REPLACEMENT'));
+ s.dynamicConfig.reliabilityEnabled=true;const on=planScenarios(s);const first=on.proposalNeeds[0];assert.equal(first.name,'De-Pucker');assert(Math.abs(first.availabilityPercent-100*5/7)<1e-9);
+ s.whatIf={externalOptions:[{tier:'HIGH',changes:[replacement(s)]}]};assert(!planScenarios(s).proposalNeeds.some(n=>n.equipmentId===s.equipment[4].id&&n.kind==='CAPACITY_TARGET_REQUIRED'));
+ s.whatIf.externalOptions[0].changes[0].justification='';assert(planScenarios(s).proposalNeeds.some(n=>n.equipmentId===s.equipment[4].id&&n.kind==='CAPACITY_TARGET_REQUIRED'));
+});

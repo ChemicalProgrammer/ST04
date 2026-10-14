@@ -188,6 +188,21 @@ function scenarioLossEvidence(simulation,diagnosis,equipment,kind){
   const bonus=Math.min(30,seconds/diagnosis.durationSeconds*20+(referenceLoss||0)/diagnosis.durationSeconds*20);
   return {priorityBonus:bonus,observedLosses:local,referenceInteraction:{direction,seconds:referenceLoss||0},interpretation:'Diagnostic priority, not a demonstrated causal gain.'};
 }
+// Opportunity screening does not create undocumented implementation targets.
+export function scenarioProposalNeeds(simulation){
+  const line=analyzeLinePerformance(simulation.equipment,null),reference=line.points.find(p=>p.isPacemaker),options=(simulation.whatIf?.externalOptions||[]).filter(o=>{try{if(!o.changes?.length||!o.changes.every(c=>scenarioCategoryAllows(c,o.tier)))return false;applyScenarioChanges(simulation,o.changes);return true;}catch(_){return false;}}).flatMap(o=>o.changes),needs=[];
+  for(const point of line.points){
+    const equipment=simulation.equipment.find(e=>e.id===point.id),r=equipment.noiseProfile?.reliability;
+    const hasCapacity=options.some(c=>c.equipmentId===point.id&&c.replacementMaximumBpm!==undefined);
+    if(!point.isPacemaker&&point.configuredBpm<reference.configuredBpm-1e-6&&(!point.maximumBpm||point.maximumBpm<reference.configuredBpm)&&!hasCapacity)needs.push({kind:'CAPACITY_TARGET_REQUIRED',equipmentId:point.id,name:point.name,configuredBpm:point.configuredBpm,installedMaximumBpm:point.maximumBpm,referenceBpm:reference.configuredBpm,requiredInput:'Documented replacement operating speed, new maximum capacity and source. No target is inferred from the reference.'});
+    if(simulation.dynamicConfig?.reliabilityEnabled!==false&&r?.mtbfMinutes>0&&r?.mttrMinutes>0){
+      const availability=r.mtbfMinutes/(r.mtbfMinutes+r.mttrMinutes),effective=point.configuredBpm*availability;
+      const hasReliability=options.some(c=>c.equipmentId===point.id&&c.path.startsWith('noiseProfile.reliability.'));
+      if(effective<reference.configuredBpm-1e-6&&!hasReliability)needs.push({kind:'RELIABILITY_TARGET_REQUIRED',equipmentId:point.id,name:point.name,availabilityPercent:100*availability,availabilityOnlyBpm:effective,referenceBpm:reference.configuredBpm,requiredInput:'Evaluate sensitivity, then supply an achievable MTBF/MTTR target, intervention type and source. Availability-only capacity is screening, not simulated throughput.'});
+    }
+  }
+  return needs.sort((a,b)=>(a.availabilityOnlyBpm??a.configuredBpm)-(b.availabilityOnlyBpm??b.configuredBpm));
+}
 export function planScenarios(simulation){
   const audit=scenarioAudit(simulation),diagnosis=diagnoseScenarioLosses(simulation);
   const capacityDiagnosis=diagnoseLineEfficiency(simulation.equipment,diagnosis.status==='OBSERVED'?simulation.results:null);
@@ -224,7 +239,7 @@ export function planScenarios(simulation){
     if(zone?.usableLengthMm>0&&e.processData?.geometry?.lpPrimeMm>0){
       add('SENSOR_WINDOW','ZERO',e,[scenarioChange(e,'processData.geometry.lpPrimeMm',e.processData.geometry.lpPrimeMm*.5)],{installedLengthMm:zone.usableLengthMm},72,'STATIC');
     }
-    const upstream=simulation.equipment.find(x=>x.id===item.upstreamId),mttr=upstream?.noiseProfile?.reliability?.mttrMinutes;
+    const upstream=simulation.equipment.find(x=>x.id===item.upstreamId),mttr=simulation.dynamicConfig?.reliabilityEnabled===false?null:upstream?.noiseProfile?.reliability?.mttrMinutes;
     const microstop=mttr>0&&mttr<=SCENARIO_POLICY.microstopLimitMinutes;
     const coverage=microstop&&Number.isFinite(c.antiStarveSeconds)?c.antiStarveSeconds/(mttr*60):null;
     checks.push({equipmentId:e.id,rule:'ACCUMULATION_1_TO_2_MTTR',status:coverage===null?'NOT_EVALUATED':coverage>=1&&coverage<=2?'PASS':'REVIEW',coverage,referenceEquipmentId:upstream?.id});
@@ -261,7 +276,7 @@ export function planScenarios(simulation){
     const choices=candidates.filter(p=>p.tier===tier).sort((a,b)=>Number(b.canApply)-Number(a.canApply)||b.priority-a.priority);
     return choices[0]||{tier,canApply:false,titleKey:'scenario.no_proposal',basis:'STATIC',changes:[],evidence:{},disabledReason:'SCENARIO_INSUFFICIENT_EVIDENCE'};
   });
-  return {capacityDiagnosis,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,reliabilityOpportunities:reliabilitySensitivityCandidates(simulation),projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
+  return {proposalNeeds:scenarioProposalNeeds(simulation),capacityDiagnosis,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,reliabilityOpportunities:reliabilitySensitivityCandidates(simulation),projects,checks,candidates,diagnosis,hasDynamicEvidence:diagnosis.status==='OBSERVED'};
 }
 
 

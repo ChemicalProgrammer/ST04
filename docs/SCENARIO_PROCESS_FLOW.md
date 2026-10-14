@@ -98,3 +98,13 @@ Prueba reproducible: `node scripts/test-demo-b-capacity.mjs`. Demo B, ocho horas
 | Pucker, Filler, De-Pucker, Sleever y Case Packer | 99.117886 | 100 | Blowmolder 193/min | Sin desbordamiento; residual 0.882114 pp. |
 
 Resultados completos en `docs/demo-b-capacity-results.json`. Estas pruebas validan la representación de capacidad y el desplazamiento de la restricción; no constituyen una búsqueda exhaustiva, validación independiente con fallas, propuesta económica ni recomendación de reemplazar cinco equipos.
+
+## Cobertura de propuestas y lectura del resultado DOE
+
+El planificador devuelve `proposalNeeds` y What-If muestra **Missing intervention targets** antes de las tarjetas. Separa restricciones de capacidad nominal sin reemplazo documentado y oportunidades de confiabilidad sin objetivo de intervención válido. La disponibilidad `MTBF / (MTBF + MTTR)` y la capacidad nominal multiplicada por disponibilidad son filtros de investigación, no una predicción del throughput ni prueba de causalidad. Los objetivos inválidos o sin fuente no cubren una necesidad. Gemini recibe este inventario acotado.
+
+Demo B importado, sin objetivos adicionales, contiene cinco máquinas no críticas con máximo instalado inferior a la referencia 193/min. Con fallas activas, De-Pucker y Sleever aparecen primero por su disponibilidad intrínseca de 71.4286% y capacidad orientativa 132.1429/min. Esto explica por qué una búsqueda de sensores y buffers puede ofrecer una mejora mínima sin abarcar las inversiones de confiabilidad o capacidad de mayor alcance. El 99.117886% del experimento anterior necesitó cinco objetivos hipotéticos explícitos; no era el resultado automático del planificador.
+
+Suggest factor combination distingue `NO_GAIN_IN_TESTED_TARGETS`, `POSITIVE_BUT_UNSTABLE`, `GAINS_REQUIRE_ENGINEERING_REVIEW` y `STABLE_FACTORS_FOUND`. La ausencia de sugerencias conserva la selección manual y no impide calcular un DOE con factores y niveles válidos. No demuestra que no existan interacciones de orden mayor o intervenciones fuera del espacio evaluado.
+
+El flujo de revisión queda: diagnóstico de mecanismo → identificación de intervención/objetivo faltante → pruebas aisladas y conjuntos por mecanismo → selección DOE dentro de objetivos factibles → comparación de finalistas con horizonte representativo → confirmación independiente. Los tiempos por equipo no se suman como pérdidas globales; los niveles de sensibilidad no se convierten automáticamente en objetivos de compra. Al desactivar fallas, la cobertura MTTR para absorción de paros queda no evaluada, sin imponer una duración de reparación a la hipótesis de buffer.
