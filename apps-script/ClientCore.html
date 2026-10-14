@@ -90,9 +90,9 @@
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
       STSettings.connectReset(resetApplication);
-      STSettings.connectSimulation(activePersistentSimulation,function(engineId){
+      STSettings.connectSimulation(activePersistentSimulation,function(engineId,reliabilityEnabled){
         var simulation=activePersistentSimulation();if(!simulation||runControlsLocked())return;
-        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});simulation.results=null;
+        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});if(reliabilityEnabled!==undefined){if(reliabilityEnabled)delete simulation.dynamicConfig.reliabilityEnabled;else simulation.dynamicConfig.reliabilityEnabled=false;}simulation.results=null;
         cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;
         toggle('simulation-results',false);markCaseDirty();renderSimulationAnalysis();shell.sync();
       },runControlsLocked);

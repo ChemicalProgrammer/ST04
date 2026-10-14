@@ -26,6 +26,7 @@ export function scenarioCategoryAllows(change,tier){
 }
 // Explicit exploratory levels are diagnostics, never implementation targets.
 export function reliabilitySensitivityCandidates(simulation,{mtbfMultiplier=2,mttrMultiplier=.5}={}){
+  if(simulation.dynamicConfig?.reliabilityEnabled===false)return [];
   if(!(mtbfMultiplier>1&&mtbfMultiplier<=10&&mttrMultiplier>0&&mttrMultiplier<1))throw Error('SCENARIO_INVALID_SENSITIVITY_LEVEL');
   const diagnosis=diagnoseScenarioLosses(simulation);
   return (simulation.equipment||[]).filter(e=>e.type!=='CONVEYOR'&&e.noiseProfile?.reliability?.mtbfMinutes>0&&e.noiseProfile?.reliability?.mttrMinutes>0).flatMap(e=>{
@@ -157,6 +158,7 @@ export function diagnoseScenarioLosses(simulation){
   let provenance;try{provenance=JSON.parse(result.inputSignature);}catch(_){return empty;}
   const equal=(a,b)=>JSON.stringify(stableScenarioValue(a))===JSON.stringify(stableScenarioValue(b));
   const run={durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:'ST_CURRENT',...simulation.dynamicConfig};
+  if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
   if(run.durationMode==='SHIFTS')run.durationSeconds=(run.shiftHours||8)*(run.shiftCount||1)*3600;
   if(provenance.version!=='ST_CURRENT:0.13.0/DES:0.4.0/cache:2'||!equal(provenance.equipment,simulation.equipment)||!equal(provenance.run,run)||provenance.unitOfFlow!==(simulation.unitOfFlow||result.unitOfFlow||'units'))return empty;
   const referenceId=analyzeLinePerformance(simulation.equipment,result).referenceId;
@@ -243,6 +245,7 @@ export function planScenarios(simulation){
   });
   checks.push({rule:'PACEMAKER_DESIRED_STATE_AND_V_GRAPH',status:'NOT_EVALUATED'});
   (simulation.whatIf?.externalOptions||[]).forEach(option=>{
+    if(simulation.dynamicConfig?.reliabilityEnabled===false)return;
     if(!['ZERO','MEDIUM','HIGH'].includes(option.tier)||!option.changes?.length||!option.changes.every(c=>scenarioCategoryAllows(c,option.tier)))return;
     const equipment=simulation.equipment.find(e=>e.id===option.changes[0].equipmentId);if(!equipment)return;
     add('RELIABILITY_INTERVENTION',option.tier,equipment,option.changes,{targetSource:'USER_DOCUMENTED',interventionType:option.changes[0].interventionType,costClass:SCENARIO_INTERVENTIONS[option.changes[0].interventionType]?.costClass,interpretation:'Supported intervention hypothesis; dynamic benefit and shifted constraints require evaluation.'},90,'STATIC');

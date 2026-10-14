@@ -93,7 +93,8 @@ async function calculateBrowserBatch(input,options={}){
 // reuse metrics on a hash collision. Bump the namespace after engine changes.
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.13.0/DES:0.4.0/cache:2',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...input.run}}));
+  const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.13.0/DES:0.4.0/cache:2',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);

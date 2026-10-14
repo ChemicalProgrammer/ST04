@@ -2535,3 +2535,15 @@ test('UI + Apps Script: Basic chat creates a validated CAPEX clone through a sim
  }finally{h.dom.window.close();}
 });
 
+
+test('UI: reliability setting persists per simulation, clears stale results and restores its default in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({uiMode});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('#open-settings');
+  const checkbox=h.d.getElementById('settings-reliability-enabled');assert(checkbox.checked);assert(!checkbox.disabled);
+  checkbox.checked=false;checkbox.dispatchEvent(new h.w.Event('change'));await h.click('#settings-close');if(uiMode==='BASIC')await h.click('#save-case');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.reliabilityEnabled===false);assert.equal(h.storedCases()[0].simulations[0].results,null);
+  await h.click('#open-settings');assert.equal(checkbox.checked,false);
+  checkbox.checked=true;checkbox.dispatchEvent(new h.w.Event('change'));await h.click('#settings-close');if(uiMode==='BASIC')await h.click('#save-case');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.reliabilityEnabled===undefined);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});

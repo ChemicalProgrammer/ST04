@@ -63,3 +63,20 @@ Failure, microstop occurrence and microstop duration each use an independent det
 The configuration dialog includes Compare experiment between computers. Capture on each computer, paste the other configuration, and compare. Exact JSON comparison reports the first mismatched field and includes model version, normalized run/seeds, equipment, selected targets, factor levels, category flags, search limits and diagnostic priorities. Concurrency is deliberately excluded. Identical settings do not guarantee plant validity; differences identify experiments that cannot be compared as exact reproductions.
 
 Evaluate reliability sensitivity remains a diagnostic: MTBF doubles mean time between failures; MTTR halves mean repair time; JOINT does both for a machine. Its table reports differences against the matching screening baseline, in units/min and OEE percentage points. Independent checks use the configured horizon and new seeds. Values are not additive across rows. Negative or inconsistent effects need investigation; do not infer that maintenance is harmful. Results inform the user and Gemini, but search inputs change only after a documented intervention target is added.
+
+## Diagnóstico del flujo sin fallas MTBF/MTTR
+
+Settings → Simulation permite activar o desactivar **Enable failures and repairs (MTBF / MTTR)** para la simulación seleccionada. El valor predeterminado sigue activo; `dynamicConfig.reliabilityEnabled: false` desactiva las fallas aleatorias y sus reparaciones, conservando los parámetros del equipo. No es un objetivo de mantenimiento ni una predicción de disponibilidad real.
+
+La opción se aplica al motor actual, al adaptador DES, a todas las rondas y a la búsqueda CAPEX. Al cambiarla se borran los resultados base visibles y la firma de entrada invalida la reutilización de mediciones incompatibles. Las propuestas guardadas siguen sujetas a su firma de origen. No se incluyen intervenciones MTBF/MTTR ni su evaluación de sensibilidad mientras las fallas están desactivadas.
+
+| Paso | Acción | Propósito |
+|---|---|---|
+| 1 | Simular con fallas desactivadas y conservar la configuración física. | Identificar el rendimiento alcanzable con las pérdidas de flujo, arranque y microparos actuales. No se fuerza OEE a 100%. |
+| 2 | Buscar ajustes CAPEX bajo esa misma opción. | Evaluar velocidades, sensores, reinicios y acumulación sin atribuir sus ganancias a cambios de confiabilidad. |
+| 3 | Volver a activar fallas y repetir con semillas y horizontes comparables. | Verificar si las mejoras de flujo mantienen su beneficio con fallas reales modeladas. |
+| 4 | Evaluar sensibilidad de confiabilidad y añadir objetivos documentados. | Separar el potencial diagnóstico de una intervención operativa, retrofit o reemplazo factible. |
+
+Una línea sin fallas puede seguir por debajo del 100% por velocidades relativas a la referencia, falta de producto, bloqueo, arranque, rampas, microparos o comandos de paro. El resultado permite decidir qué mecanismos investigar; no constituye por sí solo una descomposición causal de pérdidas.
+
+La sección de comparación de experimentos entre computadoras se retiró de la interfaz. Se conserva la configuración del experimento en la evidencia interna de búsqueda para trazabilidad.

@@ -278,61 +278,6 @@ window.STScenarioExplorer=(function(){
       delete limits.parallelCandidates;
       return canonicalExperiment({policy:'PAIRED_STREAMS_V4',input:JSON.parse(SimulatorEngine.inputSignature({case:{id:source.id,unitOfFlow:source.unitOfFlow,equipment:source.equipment},run:STScenarioSearch.run(config(source),depth)})),tier:primaryTier,depth:depth,categoryInclusions:inclusions,targets:targets,doeEnabled:doeEnabled()&&depth!=='LIGHT',factors:doeEnabled()&&depth!=='LIGHT'?doeFactors().sort((a,b)=>(a.equipmentId+':'+a.path)<(b.equipmentId+':'+b.path)?-1:1):[],limits:limits,priorities:(plan.candidates||[]).filter(p=>p.canApply).map(p=>({kind:p.kind,tier:p.tier,equipmentId:p.equipmentId,priority:p.priority})).sort((a,b)=>JSON.stringify(a)<JSON.stringify(b)?-1:1)});
     }
-    var comparePanel=el('details','','scenario-experiment-compare'),snapshot=document.createElement('textarea'),reference=document.createElement('textarea'),compareStatus=el('p','','scenario-experiment-status');
-    compareStatus.setAttribute('role','status');compareStatus.setAttribute('aria-live','polite');
-    snapshot.readOnly=true;snapshot.setAttribute('aria-label','Current experiment configuration');reference.setAttribute('aria-label','Experiment configuration from other computer');reference.placeholder='Paste the configuration captured on the other computer';
-    function captureExperiment(){var value=experimentConfiguration();snapshot.value=JSON.stringify(value);return value;}
-    var capture=button('Capture current experiment',()=>{try{captureExperiment();compareStatus.textContent='Copy this complete configuration and compare it on the other computer. Seeds, targets, DOE levels, model version and diagnostic priorities are included.';}catch(error){compareStatus.textContent=error.message;}});
-    var differences=el('div','','scenario-experiment-differences');
-    function explainDifference(path){
-      if(/processData\.role$|isPacemaker$/.test(path))return 'Equipment role: PACEMAKER can select the line reference; CONVEYOR can enable conveyor treatment. Its effect also depends on equipment type and critical-machine flags.';
-      if(/\.seed$/.test(path))return 'Random seed: changes sampled failures and microstops, which can change gains and the selected scenario. Use the same seed for a reproducibility test.';
-      if(/\.id$|equipmentId$/.test(path))return 'Equipment identity: links changes to equipment and keys its random streams. Different IDs can produce different failure sequences even with the same seed.';
-      if(/\.name$/.test(path))return 'Display name. A different name alone does not establish a physical or performance difference.';
-      if(/mtbf/i.test(path))return 'Mean time between failures: a larger value models less frequent failures.';
-      if(/mttr/i.test(path))return 'Mean repair time: a smaller value models shorter repairs.';
-      if(/nominalRate|speed|ratePerSecond/i.test(path))return 'Operating speed or capacity: can change flow, blocking and starvation. Check units and installed limits.';
-      if(/geometry|accumulation|upstream|downstream/i.test(path))return 'Transport, geometry or restart setting: may change available accumulation, material flow or stop/restart timing. Compare against the same imported line data.';
-      if(/^experiment\.factors/.test(path))return 'DOE factor or level: changes the combinations tested. The same variable names are insufficient if their low/high levels differ.';
-      if(/^experiment\.targets/.test(path))return 'Selected target or intervention: changes the permitted modifications or their bounds. Compare the selected equipment, target and intervention category.';
-      if(/^experiment\.priorities/.test(path))return 'Planner priority: can change candidate ordering within the search budget. Different baseline diagnostics can change this value.';
-      if(/categoryInclusions|\.tier$/.test(path))return 'CAPEX scope: changes which intervention categories may participate in the search.';
-      if(/doeEnabled/.test(path))return 'Enables or disables DOE combinations in the scenario search.';
-      if(/limits|\.depth$/.test(path))return 'Search policy or budget: changes search coverage, screening duration or stopping criteria.';
-      if(/version|policy|engine/i.test(path))return 'Model or algorithm version: different versions may apply different calculations. Load the same deployed version.';
-      if(/^experiment\.input\.run/.test(path))return 'Simulation setting: duration, rounds, time step and commands must match for a reproducibility test.';
-      if(/\.type$/.test(path))return 'Equipment type: can change how the simulator treats this equipment.';
-      if(/unitOfFlow/.test(path))return 'Flow unit: verify that both configurations use the same unit and basis.';
-      return 'Configuration difference. Review both values; this comparison alone does not establish its effect on efficiency.';
-    }
-    function displayValue(value){return value===undefined?'Not present':JSON.stringify(value);}
-    var compare=button('Compare experiment',()=>{
-      differences.replaceChildren();
-      try{
-        var a=captureExperiment(),b=canonicalExperiment(JSON.parse(reference.value)),mismatches=[];
-        if(!b||typeof b!=='object'||Array.isArray(b)||!b.input||!b.tier)throw Error('Paste the complete captured experiment object.');
-        function walk(x,y,path){
-          if(JSON.stringify(x)===JSON.stringify(y))return;
-          if(x&&y&&typeof x==='object'&&typeof y==='object'&&Array.isArray(x)===Array.isArray(y)){
-            Array.from(new Set([...Object.keys(x),...Object.keys(y)])).sort().forEach(k=>walk(x[k],y[k],path+'.'+k));return;
-          }
-          mismatches.push({path:path,current:x,other:y});
-        }
-        walk(a,b,'experiment');
-        compareStatus.textContent=mismatches.length?'Different configuration: '+mismatches.length+' difference(s). All differences are listed below.':'Exact matching experiment configuration. Hardware speed is excluded; calculation settings and priorities match.';
-        if(mismatches.length){
-          differences.append(el('p','Current computer = live settings captured now. Other computer = pasted configuration. Equipment arrays are compared in line order; an inserted or reordered item can cause several differences. These are configuration differences, not measured contributions to OEE.'));
-          var table=parameterTable(differences,['Field / equipment','Current computer','Other computer','Explanation'],'scenario-experiment-diff-table','All experiment differences');
-          mismatches.forEach(item=>{
-            var match=item.path.match(/^experiment\.input\.equipment\.(\d+)/),label=item.path;
-            if(match){var index=Number(match[1]),left=a.input.equipment?.[index],right=b.input.equipment?.[index];label+=' · '+(left?.name||left?.id||'Not present')+' / '+(right?.name||right?.id||'Not present');}
-            var row=el('tr');[label,displayValue(item.current),displayValue(item.other),explainDifference(item.path)].forEach(text=>{var cell=el('td',text);cell.style.whiteSpace='pre-wrap';cell.style.overflowWrap='anywhere';row.append(cell);});table.append(row);
-          });
-        }
-      }catch(error){compareStatus.textContent='Cannot compare: '+error.message;}
-    });
-    capture.addEventListener('click',()=>differences.replaceChildren());
-    comparePanel.append(el('summary','Compare experiment between computers'),capture,snapshot,reference,compare,compareStatus,differences);body.append(comparePanel);
     var pendingMetricsReveal=false;
     function renderMetrics(entry){
       var previousText=metrics.textContent;
@@ -538,7 +483,7 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
   function tools(target,simulation,plan,create){
     function categoryAllows(change,tier){return STScenarios.categoryAllows(change,tier);}
     var pool=(plan.candidates||[]).filter(p=>p.canApply&&p.changes.every(c=>categoryAllows(c,p.tier))).map(p=>({tier:p.tier,changes:p.changes})),container=el('section','','scenario-explorer'),combined=el('div');target.prepend(container);
-    (simulation.whatIf?.externalOptions||[]).forEach(option=>{if(!option.changes?.length||!option.changes.every(c=>categoryAllows(c,option.tier)))return;try{STScenarios.apply(simulation,option.changes);}catch(_){return;}pool=pool.map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>!option.changes.some(x=>x.equipmentId===c.equipmentId&&x.path===c.path)):p.changes}));pool.push(option);});
+    (simulation.whatIf?.externalOptions||[]).forEach(option=>{if(simulation.dynamicConfig?.reliabilityEnabled===false)return;if(!option.changes?.length||!option.changes.every(c=>categoryAllows(c,option.tier)))return;try{STScenarios.apply(simulation,option.changes);}catch(_){return;}pool=pool.map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>!option.changes.some(x=>x.equipmentId===c.equipmentId&&x.path===c.path)):p.changes}));pool.push(option);});
     // Retain previously saved intervention targets in the category cards.
     var interventions=el('details','','scenario-interventions');interventions.append(el('summary','Add maintenance, retrofit or replacement target'),el('p','Increase MTBF or reduce MTTR. Classify by intervention: existing resources = Zero; additional maintenance = OPEX; retrofit = Medium; complete replacement = High. A documented target is required; sensitivity levels are not targets.','chart-note'));
     var equipment=document.createElement('select'),field=document.createElement('select'),tierSelect=document.createElement('select'),justification=document.createElement('input'),targetValue=document.createElement('input'),notice=el('p','','chart-note');
@@ -548,12 +493,14 @@ if(warnings.length){var detail=el('details','','scenario-audit-warnings');detail
     targetValue.type='number';targetValue.step='any';targetValue.min='.001';targetValue.setAttribute('aria-label','Intervention target (minutes)');
     function interventionBaseline(){var unit=simulation.equipment.find(e=>e.id===equipment.value),before=field.value.split('.').reduce((v,k)=>v?.[k],unit);notice.textContent='Current: '+(before??'missing')+' min. '+(before>0?'Enter a supported target.':'Set a positive baseline in Equipment first.');targetValue.value=before>0?before:'';}
     equipment.onchange=field.onchange=interventionBaseline;interventionBaseline();
-    var add=button('Add intervention target',function(){if(activeHost)return;try{var unit=simulation.equipment.find(e=>e.id===equipment.value),before=field.value.split('.').reduce((v,k)=>v?.[k],unit),change={equipmentId:equipment.value,path:field.value,before:before??null,after:Number(targetValue.value),unit:'min',external:true,interventionType:tierSelect.value,justification:justification.value.trim()};STScenarios.apply(simulation,[change]);var option={tier:STScenarios.interventions[tierSelect.value].tier,changes:[change]};simulation.whatIf=simulation.whatIf||{};simulation.whatIf.externalOptions=(simulation.whatIf.externalOptions||[]).map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes})).filter(p=>p.changes.length).concat([option]);pool=pool.map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes}));pool.push(option);changed(simulation);notice.textContent='Target saved as a hypothesis. Run Find best scenario in its CAPEX category.';rebuild();}catch(error){notice.textContent='Cannot add target: '+error.message;}});add.classList.add('scenario-add-intervention');
+    var add=button('Add intervention target',function(){if(activeHost)return;if(simulation.dynamicConfig?.reliabilityEnabled===false){notice.textContent='Enable MTBF / MTTR failures in Settings → Simulation before adding reliability targets.';return;}try{var unit=simulation.equipment.find(e=>e.id===equipment.value),before=field.value.split('.').reduce((v,k)=>v?.[k],unit),change={equipmentId:equipment.value,path:field.value,before:before??null,after:Number(targetValue.value),unit:'min',external:true,interventionType:tierSelect.value,justification:justification.value.trim()};STScenarios.apply(simulation,[change]);var option={tier:STScenarios.interventions[tierSelect.value].tier,changes:[change]};simulation.whatIf=simulation.whatIf||{};simulation.whatIf.externalOptions=(simulation.whatIf.externalOptions||[]).map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes})).filter(p=>p.changes.length).concat([option]);pool=pool.map(p=>({tier:p.tier,changes:p.tier===option.tier?p.changes.filter(c=>c.equipmentId!==change.equipmentId||c.path!==change.path):p.changes}));pool.push(option);changed(simulation);notice.textContent='Target saved as a hypothesis. Run Find best scenario in its CAPEX category.';rebuild();}catch(error){notice.textContent='Cannot add target: '+error.message;}});add.classList.add('scenario-add-intervention');
     interventions.append(equipment,field,tierSelect,targetValue,justification,add,notice);
+    if(simulation.dynamicConfig?.reliabilityEnabled===false)container.append(el('p','Diagnostic mode: MTBF / MTTR failures are disabled. CAPEX search evaluates flow and configuration changes; reliability interventions are excluded.')) ;
     var reliabilityPanel=el('details','','scenario-reliability-screening'),screenStatus=el('p','','chart-note'),screenRows=el('div'),screenCancelled=false;
     reliabilityPanel.append(el('summary','Reliability opportunities: MTBF / MTTR'),el('p','MTBF = double the mean time between failures; MTTR = halve the mean repair time; JOINT = both for the same machine. Positive Δ means improvement versus the matching baseline; negative Δ is not evidence that maintenance is harmful. Compare independent checks before choosing an intervention. These results inform investigation and Gemini context, but do not add variables or targets to Find best scenario. Add a documented intervention target to include it in that search.','chart-note'),el('p','Diagnostic experiments: compare MTBF ×2, MTTR ×0.5 and both, for each machine. These levels explore sensitivity; they do not describe a feasible purchase or maintenance outcome. Up to twelve machines are screened per evaluation, prioritizing observed own stops when compatible results exist. No targets are added automatically.','chart-note'));
     var screenButton=button('Evaluate reliability sensitivity',async function(){
       if(activeHost===reliabilityPanel){screenCancelled=true;return;}if(activeHost)return;
+      if(simulation.dynamicConfig?.reliabilityEnabled===false){screenStatus.textContent='Enable MTBF / MTTR failures in Settings → Simulation before evaluating reliability sensitivity.';return;}
       activeHost=reliabilityPanel;screenCancelled=false;screenButton.textContent='Cancel reliability evaluation';screenRows.replaceChildren();
       var signature=STScenarios.signature(simulation),cancelled=()=>screenCancelled||STScenarios.signature(simulation)!==signature;
       try{

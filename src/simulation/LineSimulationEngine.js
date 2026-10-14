@@ -75,7 +75,7 @@ export async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -123,11 +123,11 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, seed) {
+function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
   const failureRandom=createEquipmentRandom(seed,model.id,"failure");
   const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
   const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
-  const reliability = model.noiseProfile?.reliability;
+  const reliability = reliabilityEnabled ? model.noiseProfile?.reliability : null;
   return {
     ...model,
     mode: model.initialMode,
@@ -607,6 +607,7 @@ function advanceEquipmentControlTimers(runtime) {
 }
 
 function updateReliabilityFailures(runtime) {
+  if (runtime.run.reliabilityEnabled === false) return;
   runtime.equipment.forEach((equipment) => {
     if (equipment.emergencyStopLatched) return;
     const profile = equipment.noiseProfile?.reliability;

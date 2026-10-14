@@ -200,6 +200,7 @@ function validateRun(run, details) {
     details.push(required('run'));
     return;
   }
+  if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));
   if (!Number.isInteger(run.seed)) details.push(invalid('run.seed', 'must be an integer'));

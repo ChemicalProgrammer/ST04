@@ -529,6 +529,7 @@
       }
       return {
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
+        reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
@@ -546,7 +547,7 @@
 
     function copyRunConfiguration(run) {
       return {
-        engineId:run.engineId,
+        engineId:run.engineId,reliabilityEnabled:run.reliabilityEnabled,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
         tickSeconds: run.tickSeconds,
@@ -559,7 +560,7 @@
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
-        engineId:configuration.engineId,
+        engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,
         tickSeconds: configuration.tickSeconds,

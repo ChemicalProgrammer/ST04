@@ -27,7 +27,7 @@ export function adaptSimPyInput(input) {
         ...(d.primeSensorPositionMm!=null?{primeSensorPositionMm:d.primeSensorPositionMm}:{}),...(d.backupSensorPositionMm!=null?{backupSensorPositionMm:d.backupSensorPositionMm}:{}),
         ...(d.backupRestartPositionMm!=null?{backupRestartPositionMm:d.backupRestartPositionMm}:{}),...(d.upstreamRestartDelaySeconds!=null?{upstreamRestartDelaySeconds:d.upstreamRestartDelaySeconds}:{}),...(d.downstreamRampUpSeconds!=null?{downstreamRampUpSeconds:d.downstreamRampUpSeconds}:{}),
         blockedTimeDelaySeconds:d.blockedTimeDelaySeconds??0,clearTimeDelaySeconds:d.clearTimeDelaySeconds??0,upstreamStopResponseSeconds:d.upstreamStopResponseSeconds??0,
-        bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
+        bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(input.run.reliabilityEnabled !== false && model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
     } else {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       machines.push({id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
@@ -35,7 +35,7 @@ export function adaptSimPyInput(input) {
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
         rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,
         ...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{}),
-        ...(model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{})});
+        ...(input.run.reliabilityEnabled !== false && model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{})});
     }
   }
   const ids=new Set(equipment.map(m=>m.id));
