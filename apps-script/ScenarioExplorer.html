@@ -136,9 +136,6 @@ window.STScenarioExplorer=(function(){
       }
       list.append(row);rows.push({change:change,check:check,limit:limit,scale:scale,row:row});check.onchange=limit.oninput=function(){if(activeHost)return;searchVariables=[];rows.forEach(r=>{if(r.doe)r.doe.use.checked=false;});last=null;generation++;clearTimeout(timer);status.textContent='Changes updated. Run Find best scenario to evaluate.';save.disabled=true;host.querySelector('.scenario-audit-warnings')?.remove();record('NOT_EVALUATED',{reason:'Selections or limits changed; previous estimate invalidated.'});refreshFactors();};
     });
-    var useAll=document.createElement('input');useAll.type='checkbox';useAll.className='scenario-use-all';useAll.setAttribute('aria-label','Select or deselect all available variables');useAll.title='Select or deselect all available variables';
-    var useHeading=list.closest('table').querySelector('thead th'),useLabel=el('label','','scenario-column-select');useLabel.append(useAll,document.createTextNode('Use'));useHeading.replaceChildren(useLabel);
-    useAll.onchange=function(){if(activeHost)return;rows.forEach(r=>{if(!r.check.disabled)r.check.checked=useAll.checked;});rows[0]?.check.onchange();};
     var doePanel=el('section','','scenario-doe');
     var doeToggle=document.createElement('input');doeToggle.type='checkbox';doeToggle.className='scenario-doe-enabled';var doeChoice=el('label','','scenario-scope');doeChoice.append(doeToggle,document.createTextNode(' Include DOE in this search'));
     doeToggle.onchange=function(){if(activeHost){refreshDOE();return;}if(!setDOE(doeToggle.checked)){refreshDOE();return;}};
@@ -180,7 +177,7 @@ window.STScenarioExplorer=(function(){
     conveyorDoeAll.onchange=function(){if(activeHost||!doeEnabled()||depth==='LIGHT')return;var available=rows.filter(r=>r.isConveyor&&r.doe&&eligibleForDOE(r));if(!conveyorDoeAll.checked)available.forEach(r=>r.doe.use.checked=false);else{var count=rows.filter(r=>r.doe?.use.checked).length;available.forEach(r=>{if(!r.doe.use.checked&&count<STScenarioSearch.profile(depth).maxFactors){r.doe.use.checked=true;count++;}if(r.doe.use.checked)r.check.checked=true;});}refreshFactors();invalidateDOE();};
 
     var suggestionPercent=el('span','—','scenario-suggestion-percent');suggestionPercent.setAttribute('aria-label','Current simulation progress');factorActions.append(factorCount,suggestionPercent);conveyorSection.append(factorActions,conveyorEdits);if(!rows.some(r=>r.isConveyor))conveyorSection.append(el('p','No conveyor inputs are available in this category.','chart-note'));
-    useLabel.parentElement.append(document.createTextNode('Use'));doeLabel.parentElement.append(document.createTextNode('DOE'));var bulkChoices=el('div','','scenario-bulk-choices');useLabel.lastChild.textContent='Select all available inputs';doeLabel.lastChild.textContent='Select up to four DOE factors';bulkChoices.append(useLabel,doeLabel);searchChoices.append(bulkChoices);
+    doeLabel.parentElement.append(document.createTextNode('DOE'));var bulkChoices=el('div','','scenario-bulk-choices');doeLabel.lastChild.textContent='Select up to four DOE factors';bulkChoices.append(doeLabel);searchChoices.append(bulkChoices);
     body.replaceChildren(searchSection,inputSection,conveyorSection);
     var configTabs=el('nav','','settings-tabs scenario-config-tabs');configTabs.setAttribute('role','tablist');configTabs.setAttribute('aria-label','Scenario configuration sections');var configId='scenario-config-'+(++configurationSerial),pages=[searchSection,inputSection,conveyorSection],tabButtons=[];
     function selectConfigTab(index,focus){pages.forEach((page,i)=>{page.hidden=i!==index;tabButtons[i].setAttribute('aria-selected',String(i===index));tabButtons[i].tabIndex=i===index?0:-1;});if(focus)tabButtons[index].focus();}
@@ -188,7 +185,6 @@ window.STScenarioExplorer=(function(){
 
     function refreshFactors(){
       if(activeHost)return;var available=rows.filter(r=>r.doe&&eligibleForDOE(r)),count=available.filter(r=>r.check.checked&&r.doe.use.checked).length;
-      var selectable=rows.filter(r=>!r.check.disabled),checked=selectable.filter(r=>r.check.checked).length;useAll.checked=selectable.length>0&&checked===selectable.length;useAll.indeterminate=checked>0&&checked<selectable.length;useAll.disabled=!selectable.length;
       var conveyorAvailable=rows.filter(r=>r.isConveyor&&!r.check.disabled),conveyorChecked=conveyorAvailable.filter(r=>r.check.checked).length;conveyorUseAll.checked=conveyorAvailable.length>0&&conveyorChecked===conveyorAvailable.length;conveyorUseAll.indeterminate=conveyorChecked>0&&conveyorChecked<conveyorAvailable.length;conveyorUseAll.disabled=!conveyorAvailable.length;
       var conveyorFactors=available.filter(r=>r.isConveyor),selectedConveyorFactors=conveyorFactors.filter(r=>r.doe.use.checked).length;conveyorDoeAll.checked=conveyorFactors.length>0&&selectedConveyorFactors===conveyorFactors.length;conveyorDoeAll.indeterminate=selectedConveyorFactors>0&&selectedConveyorFactors<conveyorFactors.length;conveyorDoeAll.disabled=!doeEnabled()||depth==='LIGHT'||!conveyorFactors.length;
       factorCount.hidden=suggestionPercent.hidden=!doeEnabled()||depth==='LIGHT';
