@@ -312,6 +312,14 @@ html[data-ui-mode] .scenario-config-dialog .scenario-preview-context { display:b
 .scenario-config-dialog .scenario-parameter-table th .scenario-column-select input { margin:0; flex:none; }
 .scenario-factor-count[hidden] { display:none!important; }
 @media(max-width:760px) { .scenario-search-settings .scenario-depth-panel,.scenario-search-settings .scenario-category-options,.scenario-search-settings .scenario-search-choices { grid-column:1; grid-row:auto; } }
+.scenario-config-dialog .scenario-factor-actions { display:flex; align-items:center; gap:var(--space-3); }
+.scenario-config-dialog .scenario-factor-actions .scenario-factor-count { margin:0; flex:1; min-width:0; }
+.scenario-config-dialog .scenario-screening-activity { flex:none; margin:0; }
+.scenario-config-dialog .scenario-screening-activity[hidden] { display:none!important; }
+.scenario-config-dialog .scenario-reliability-heading .scenario-reliability-scope { width:100%; margin:0; }
+.scenario-config-dialog .scenario-changes th.scenario-selection-header,.scenario-config-dialog .scenario-changes td:first-child,.scenario-config-dialog .scenario-changes td[data-doe-column]:has(input[type=checkbox]) { text-align:center; width:90px; min-width:90px; }
+.scenario-config-dialog .scenario-selection-header .scenario-column-select { position:relative; display:flex; width:100%; justify-content:center; }
+.scenario-config-dialog .scenario-selection-header .scenario-column-select span { position:absolute; left:calc(50% + 10px + var(--space-2)); }
 </style>
 
 

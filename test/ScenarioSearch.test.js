@@ -105,10 +105,10 @@ test('DOE screening discovers variables that only improve jointly',async()=>{
 test('cancelled screening retains factors and restores controls',async()=>{
  const h=harness(true,'HIGH');try{
   const original=h.w.SimulatorEngine.simulateBatch;let release;
-  h.w.SimulatorEngine.simulateBatch=async input=>{await new Promise(r=>release=r);return original(input);};
-  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));button.click();release?.();
+  h.w.SimulatorEngine.simulateBatch=async (input,options)=>{options.progress(.42);await new Promise(r=>release=r);return original(input);};
+  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,false);assert.equal(h.host.querySelector('.scenario-screening-activity').getAttribute('aria-valuenow'),'42');assert.match(h.host.querySelector('.scenario-factor-count').textContent,/42% of current simulation/);button.click();release?.();
   for(let i=0;i<100&&button.textContent!=='Suggest factor combination';i++)await new Promise(r=>setTimeout(r,5));
-  assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);
+  assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,true);
  }finally{h.dom.window.close();}
 });
 test('new sensitivity suggestions invalidate a previously confirmed scenario',async()=>{
@@ -275,7 +275,7 @@ test('configuration separates conveyor inputs while preserving controls and DOE 
   const beltUse=panels[2].querySelector('.scenario-conveyor-use-all');beltUse.checked=true;beltUse.onchange();assert.equal(h.host.querySelector('.scenario-advanced-store tbody input[type=checkbox]').checked,false);assert.equal(panels[2].querySelector('tbody input[type=checkbox]').checked,true);
   const beltDOE=panels[2].querySelector('.scenario-conveyor-doe-all');beltDOE.checked=true;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,true);beltDOE.checked=false;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,false);
   const toggle=panels[0].querySelector('.scenario-doe-enabled');toggle.checked=false;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,true);toggle.checked=true;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,false);
-  assert.equal(panels[2].querySelector('.scenario-factor-actions').nextElementSibling.className,'scenario-factor-count');
+  assert.equal(panels[2].querySelector('.scenario-doe-suggest').previousElementSibling.className,'scenario-factor-count');
   assert.equal(h.host.querySelector('.scenario-reliability-source'),null);assert.doesNotMatch(panels[1].textContent,/Source \/ basis/);
 
  }finally{h.dom.window.close();}
