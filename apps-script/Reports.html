@@ -105,6 +105,7 @@ window.STReports=(function(){
       slots.context+=' · '+escape(result.durationSeconds)+' s'+(result.batch?' · Mean of '+escape(result.batch.rounds)+' rounds':'');
       slots.equipment='';slots.zones='';slots.batch='';slots.representative='';
     }
+    if(window.STPlantCalendar){var comparison=document.createElement('section');STPlantCalendar.renderResults(comparison,result,simulation);slots.overview+=comparison.innerHTML;}
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
   function whatIfHtml(simulation,plan){

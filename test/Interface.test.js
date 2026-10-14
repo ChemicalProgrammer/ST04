@@ -2632,3 +2632,16 @@ test('UI: gallery exports the complete saved case without opening it and permits
   h.api.getCompleteCaseForExport=()=>data;await h.click('.export-gallery-case');await waitFor(()=>downloads.length===2);assert.equal(button.disabled,false);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: plant calendar draft survives complete-case export in Basic and Advance without changing run duration',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode});try{
+  let blob;h.w.URL.createObjectURL=value=>{blob=value;return 'blob:calendar';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){};
+  await h.click('.open-case');const duration=h.d.getElementById('run-duration').value;
+  h.w.STSettings.open();await h.click('#settings-tab-simulation');const calendar=h.d.getElementById('settings-plant-calendar');calendar.querySelector('input[type=checkbox]').click();
+  const total=calendar.querySelector('input[type=number]');total.value='43200';total.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert.equal(h.d.getElementById('run-duration').value,duration);assert(h.d.getElementById('save-case').classList.contains('has-changes'));
+  await h.click('#settings-tab-case');await h.click('#export-complete-case');await waitFor(()=>blob);
+  const raw=await new Promise(resolve=>{const reader=new h.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);});const data=JSON.parse(raw);
+  assert.equal(data.simulations[0].dynamicConfig.plantCalendar.totalMinutes,43200);assert.equal(data.simulations[0].dynamicConfig.plantCalendar.enabled,true);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});

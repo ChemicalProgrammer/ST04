@@ -6,7 +6,7 @@ const read=f=>fs.readFileSync('apps-script/'+f,'utf8');
 function setup(){
  const dom=new JSDOM(read('ReportStyles.html')+read('ReportTemplates.html')+read('ReportResultsTemplate.html')+read('ReportWhatifTemplate.html')+read('ReportConfigurationTemplate.html')+read('ReportComparisonTemplate.html')+['export-results-pdf','export-whatif-json','export-whatif-pdf','export-comparison-json','export-comparison-html','export-comparison-pdf'].map(id=>'<button id="'+id+'"></button>').join(''),{runScripts:'outside-only',url:'https://st.test'}),w=dom.window;
  w.eval(read('TextResources.gs'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
- for(const file of ['SimulationEngine.html','WhatIf.html','Comparison.html','Markdown.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
+ for(const file of ['SimulationEngine.html','WhatIf.html','Comparison.html','Markdown.html','PlantCalendar.html','Reports.html'])w.eval(read(file).replace(/^<script>|<\/script>\s*$/g,''));
  w.eval(read('DemoCaseFactory.gs'));const c=w.createDemoCaseRequest_();c.name='Synthetic line';
  const sim={id:'a',name:'Simulation A',equipment:c.equipment,dynamicConfig:{seed:17,commands:[]}};
  const result={seed:17,durationSeconds:60,unitOfFlow:'bottles',summary:{outputCount:120,lineOeePercent:80},equipmentMetrics:{},samples:[{privateRaw:'raw-not-for-export'}],events:[{privateEvent:'events-not-for-export'}]};
@@ -177,3 +177,5 @@ test('scenario PDF and JSON include retained sensor targets, reliability scope a
   for(const mode of ['basic','advance']){h.w.document.documentElement.dataset.uiMode=mode;const doc=new JSDOM(h.w.STReports.whatIfHtml(h.sim,plan));const text=doc.window.document.body.textContent;assert(text.includes('ANOVA'));assert(text.includes('<0.0001'));assert(text.includes('Sleever'));assert(text.includes('123.46 mm'));assert.equal(doc.window.document.querySelectorAll('script').length,0);doc.window.close();}
  }finally{h.dom.window.close();}
 });
+
+test('Results report retains plant calendar comparison and identifies period projections',()=>{const h=setup();try{h.sim.dynamicConfig.plantCalendar={enabled:true,totalMinutes:43200,externalMinutes:1441,changeoverMinutes:5393,effectiveMinutes:21307};h.result.summary.qualityAssumption='NO_REJECT_MODEL_ASSUMES_100_PERCENT';const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert.match(html,/Plant comparison/);assert.match(html,/Simulated period projection/);assert.match(html,/51.02/);}finally{h.dom.window.close();}});

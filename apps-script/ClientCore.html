@@ -100,6 +100,7 @@
       STPreferences.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STSettings.connectCalendar(function(){markCaseDirty();renderSimulationAnalysis();});
       STSettings.connectCaseFlush(function(){return prepareCaseDraft();});
       STSettings.connectInterfaceMode(function(mode){
         STEquipmentInspector.release();

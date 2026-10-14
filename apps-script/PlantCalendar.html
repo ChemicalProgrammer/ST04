@@ -1,0 +1,46 @@
+<script>
+window.STPlantCalendar=(function(){
+  var fields=[['totalMinutes','Total time'],['externalMinutes','Business external time'],['changeoverMinutes','Changeover'],['coReportingErrorMinutes','CO reporting error'],['cleaningMinutes','Cleaning and sanitization'],['autonomousMaintenanceMinutes','Autonomous maintenance'],['plannedMaintenanceMinutes','Planned maintenance'],['breakMinutes','Lunch and break'],['trainingMinutes','Meeting and training'],['experimentationMinutes','Plant experimentation']];
+  var references=[['downtimeMinutes','Downtime'],['rateLossMinutes','Rate loss'],['effectiveMinutes','AU / Effective runtime'],['unplannedMinutes','Unplanned downtime (UPDT)']];
+  function calculate(data){
+    data=data||{};var errors=[];
+    fields.concat(references).forEach(function(f){var v=data[f[0]];if(v!==undefined&&v!==null&&v!==''&&(!Number.isFinite(v)||v<0))errors.push(f[1]+' must be a nonnegative number.');});
+    var total=data.totalMinutes,external=data.externalMinutes||0,decision=fields.slice(2).reduce(function(sum,f){return sum+(data[f[0]]||0);},0),available=total-external,production=available-decision;
+    if(!(total>0))errors.push('Enter a positive total time.');
+    if(!(production>0))errors.push('Calendar exclusions must leave positive production time.');
+    var down=data.downtimeMinutes,rate=data.rateLossMinutes,run=Number.isFinite(down)?production-down:null,effective=Number.isFinite(data.effectiveMinutes)?data.effectiveMinutes:Number.isFinite(run)&&Number.isFinite(rate)?run-rate:null;
+    if(Number.isFinite(down)&&down>production)errors.push('Downtime exceeds production available time.');
+    if(Number.isFinite(rate)&&Number.isFinite(run)&&rate>run)errors.push('Rate loss exceeds run time.');
+    if(Number.isFinite(effective)&&effective>production)errors.push('Effective runtime exceeds production available time.');
+    var warnings=[];if(Number.isFinite(data.effectiveMinutes)&&Number.isFinite(run)&&Number.isFinite(rate)&&Math.abs(data.effectiveMinutes-(run-rate))>0.01)warnings.push('Effective runtime differs from Run time − Rate loss.');
+    if(Number.isFinite(data.unplannedMinutes)&&Number.isFinite(down)&&data.unplannedMinutes>down)warnings.push('UPDT exceeds Downtime. Confirm the plant reporting formula; UPDT is not added as another loss.');
+    return {errors:errors,warnings:warnings,total:total,available:available,decision:decision,production:production,run:run,effective:effective,operatingPercent:Number.isFinite(effective)?100*effective/production:null,auPercent:Number.isFinite(effective)?100*effective/available:null};
+  }
+  function format(v){return Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
+  function mount(target,provider,changed,locked){
+    function render(){var sim=provider(),data=sim?.dynamicConfig?.plantCalendar||{};target.classList.toggle('hidden',!sim);target.replaceChildren();if(!sim)return;
+      var heading=document.createElement('h3');heading.textContent='Plant calendar and actual data';target.append(heading);
+      var enable=document.createElement('label');enable.className='checkbox-label';var checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=data.enabled===true;enable.append(checkbox,document.createTextNode('Compare with plant data'));target.append(enable);
+      var content=document.createElement('div');content.classList.toggle('hidden',!checkbox.checked);target.append(content);
+      var note=document.createElement('p');note.className='chart-note';note.textContent='Minutes. Calendar totals are reference data; shifts do not stop or restart the line. The simulation keeps its configured duration. Period projections assume representative operating conditions. Include only mutually exclusive calendar exclusions; CO reporting error is treated as a positive exclusion.';content.append(note);
+      function group(title,list){var h=document.createElement('h4');h.textContent=title;content.append(h);var grid=document.createElement('div');grid.className='settings-simulation-grid';content.append(grid);list.forEach(function(f){var label=document.createElement('label');label.textContent=f[1]+' (min)';var input=document.createElement('input');input.type='number';input.min='0';input.step='any';input.value=data[f[0]]??'';input.disabled=!!locked();label.append(input);grid.append(label);input.onchange=function(){if(!input.reportValidity())return;save(f[0],input.value===''?null:Number(input.value));};});}
+      group('Calendar exclusions',fields);group('Actual plant reference · optional',references);
+      var summary=document.createElement('p');summary.className='chart-note';content.append(summary);
+      function update(){var c=calculate(data);summary.textContent='Plant available: '+format(c.available)+' min · Plant decision: '+format(c.decision)+' min · Production available: '+format(c.production)+' min'+(c.errors.length?' · '+c.errors.join(' '):'')+(c.warnings.length?' · '+c.warnings.join(' '):'');summary.setAttribute('role',c.errors.length?'alert':'status');}
+      function save(key,value){if(locked())return;data=Object.assign({},data,{[key]:value});sim.dynamicConfig=Object.assign({},sim.dynamicConfig,{plantCalendar:data});changed();update();}
+      checkbox.disabled=!!locked();checkbox.onchange=function(){save('enabled',checkbox.checked);content.classList.toggle('hidden',!checkbox.checked);};update();
+    }return render;
+  }
+  function renderResults(target,result,simulation){target.replaceChildren();var data=simulation?.dynamicConfig?.plantCalendar;if(!data?.enabled)return;
+    var c=calculate(data),heading=document.createElement('h3');heading.textContent='Plant comparison';target.append(heading);
+    var note=document.createElement('p');note.className='chart-note';target.append(note);if(c.errors.length){note.textContent=c.errors.join(' ');return;}
+    var efficiency=result?.batch?.statistics?.lineOeePercent?.mean??result?.summary?.lineOeePercent;
+    var supported=result?.summary?.qualityAssumption==='NO_REJECT_MODEL_ASSUMES_100_PERCENT'&&Number.isFinite(efficiency);
+    var effective=supported?c.production*efficiency/100:null;
+    var rows=[['Total time (min)',c.total,null],['Plant available time (min)',c.available,null],['Plant decision time (min)',c.decision,null],['Production available time (min)',c.production,null],['Downtime (min)',data.downtimeMinutes,null],['Run time (min)',c.run,null],['Rate loss (min)',data.rateLossMinutes,null],['Unplanned downtime / UPDT (min)',data.unplannedMinutes,null],['Effective runtime (min)',c.effective,effective],['Operating effectiveness (%)',c.operatingPercent,supported?efficiency:null],['Asset utilization / plant available (%)',c.auPercent,supported?efficiency*c.production/c.available:null]];
+    var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Metric','Actual / calendar','Simulated period projection','Difference'].forEach(function(t){var th=document.createElement('th');th.textContent=t;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody');rows.forEach(function(r){var tr=document.createElement('tr');[r[0],format(r[1]),format(r[2]),Number.isFinite(r[1])&&Number.isFinite(r[2])?format(r[2]-r[1]):'—'].forEach(function(v,i){var td=document.createElement('td');td.textContent=v;if(i)td.className='numeric';tr.append(td);});body.append(tr);});table.append(body);target.append(table);
+    note.textContent='Projection from '+format(result?.durationSeconds/60)+' simulated minutes using the nominal line reference. Calendar exclusions are applied once, outside the engine. Quality assumes 100%; startup effects and product mix may make a short run unrepresentative. '+c.warnings.join(' ');
+  }
+  return {calculate:calculate,mount:mount,renderResults:renderResults};
+})();
+</script>

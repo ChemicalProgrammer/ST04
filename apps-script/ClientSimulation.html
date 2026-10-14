@@ -520,6 +520,7 @@
         return null;
       }
       return {
+        plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
@@ -539,6 +540,7 @@
 
     function copyRunConfiguration(run) {
       return {
+        plantCalendar:cloneJson(run.plantCalendar||{}),
         engineId:run.engineId,reliabilityEnabled:run.reliabilityEnabled,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
         durationSeconds: run.durationSeconds,
@@ -552,6 +554,7 @@
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
+        plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,

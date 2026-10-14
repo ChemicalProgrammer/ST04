@@ -72,6 +72,7 @@ window.STResults=(function(){
   }
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary&&!result.provisional);
+    STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     var designReady=Boolean(activeCase?.equipment?.length);
     var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
 
