@@ -35,9 +35,10 @@ html[data-visual-style=elegant] .search-field:focus-within { outline:none; borde
 html[data-visual-style=elegant] .search-field :is(input,input:focus-visible) { border:0; outline:none; box-shadow:none; background:transparent; }
 html[data-visual-style=elegant] :is(input[type=number],output,.basic-buffer) { font-variant-numeric:tabular-nums; }
 html[data-visual-style=elegant] .topbar {
-  background:var(--surface);
+  background:var(--secondary-soft);
+  background:color-mix(in srgb,var(--secondary) 12%,var(--surface));
   border-bottom-color:var(--elegant-border);
-  box-shadow:0 2px 8px #172b4d04;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--ink) 9%,transparent);
 }
 html[data-visual-style=elegant] #basic-section-row {
   padding-top:var(--space-2);

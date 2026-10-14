@@ -17,16 +17,34 @@ window.STReports=(function(){
     if(!value||Array.isArray(value)||depth<0)return undefined;
     var out={};Object.keys(value).slice(0,48).forEach(function(k){if(['replay','events','samples','sourceImport','rows','commands','__proto__','constructor','prototype'].includes(k))return;var next=compact(value[k],depth-1);if(next!==undefined)out[k]=next;});return out;
   }
+  function lossBreakdown(result,simulation){
+    var equipment=simulation?.equipment||[],d=window.SimulatorEngine?.diagnoseLineEfficiency?.(equipment,result),base=result?.batch?.statistics?.lineOeePercent?.mean??result?.summary?.lineOeePercent;
+    var saved=simulation?.whatIf?.lossDiagnostic,matched=false,provenance;
+    try{provenance=JSON.parse(result?.inputSignature||result?.replay?.inputSignature||'null');}catch(ignore){}
+    if(provenance?.equipment&&provenance?.run&&result?.durationSeconds>0&&!result.provisional&&!['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state)){
+      var run=Object.assign({},provenance.run,{durationSeconds:result.durationSeconds,rounds:result.batch?.rounds||result.rounds||1});
+      var key='RESULTS_LOSS_V1:'+SimulatorEngine.inputSignature({case:{unitOfFlow:provenance.unitOfFlow||result.unitOfFlow||'units',equipment:provenance.equipment},run:run});
+      matched=saved?.key===key&&saved.status==='COMPLETE'&&Number.isFinite(saved.failureFreeOee)&&Number.isFinite(saved.baselineOee);
+    }
+    var disabled=provenance?.run?.reliabilityEnabled===false||!provenance&&simulation?.dynamicConfig?.reliabilityEnabled===false;
+    var supported=result?.engineId!=='DES_SIMPY_EXPERIMENTAL',ready=result&&!result.provisional&&!['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state),free=ready&&supported?(matched?saved.failureFreeOee:disabled?base:null):null;
+    var labels={failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
+    var observed=(d?.equipmentTime||[]).flatMap(e=>Object.entries(e.percent||{}).filter(([k,v])=>Number.isFinite(v)&&v>0).map(([k,v])=>({equipmentId:e.id,name:e.name,state:labels[k]||human(k),percent:v}))).sort((a,b)=>b.percent-a.percent||a.name.localeCompare(b.name));
+    return {status:!supported?'UNAVAILABLE':Number.isFinite(free)?'COMPLETE':'NOT_CALCULATED',unit:'%',baselineOee:base??null,conditionalReliabilityLoss:supported&&Number.isFinite(free)?free-(matched?saved.baselineOee:base):null,nominalMachineSpeedGap:supported?d?.capacityGapPp??null:null,remainingLossWithoutFailures:supported&&Number.isFinite(free)&&Number.isFinite(d?.capacityGapPp)?100-d.capacityGapPp-free:null,observedEquipmentTimes:observed,interpretation:'Baseline OEE plus the three losses forms the 100% accounting decomposition. Observed equipment times overlap and are not additive causal OEE losses.'};
+  }
+  function kpis(items){return '<div class="report-kpis">'+items.map(([label,v,unit])=>'<div class="report-kpi"><span>'+escape(label)+'</span><strong>'+escape(value(v))+(v==null?'':escape(unit||''))+'</strong></div>').join('')+'</div>';}
+  function lossHtml(loss){return '<h2>Loss diagnosis</h2>'+kpis([['Conditional MTBF / MTTR loss',loss.conditionalReliabilityLoss,'%'],['Nominal machine-speed gap',loss.nominalMachineSpeedGap,'%'],['Remaining loss without failures',loss.remainingLossWithoutFailures,'%']])+'<p>'+escape(loss.status==='COMPLETE'?loss.interpretation:'Matched failure-free diagnosis is not available for this export; missing values are shown as a dash.')+'</p>';}
   function analysis(result,activeCase,simulation){
     simulation=simulation||{equipment:activeCase.equipment,dynamicConfig:{}};
     var equipment=simulation.equipment||activeCase.equipment||[],audit=STScenarios.audit?STScenarios.audit(simulation):[],plan=STScenarios.plan(Object.assign({},simulation,{equipment:equipment,results:result}));
-    var data={schema:'st-analysis-v1',engineVersion:result.engineVersion,engineId:result.engineId||'ST_CURRENT',engine:compact(result.engine,1),case:compact({id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow},1),simulation:compact({id:simulation.id,name:simulation.name,seed:result.seed,durationSeconds:result.durationSeconds,tickSeconds:simulation.dynamicConfig?.tickSeconds,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow},1),summary:compact(result.summary,1),throughputPerMinute:result.durationSeconds>0?result.summary.outputCount/result.durationSeconds*60:null,equipment:[],proposals:[],coverage:{characterBudget:characterBudget,totalEquipment:equipment.length,includedEquipment:0,omittedEquipment:0,omittedProposals:0,replayIncluded:false,eventsIncluded:false,commandsIncluded:false,commandCount:simulation.dynamicConfig?.commands?.length||0},limitations:[__ST_TEXT__('exports.ai_limitations')]};
+    var data={schema:'st-analysis-v1',engineVersion:result.engineVersion,engineId:result.engineId||'ST_CURRENT',engine:compact(result.engine,1),case:compact({id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow},1),simulation:compact({id:simulation.id,name:simulation.name,seed:result.seed,durationSeconds:result.durationSeconds,tickSeconds:simulation.dynamicConfig?.tickSeconds,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow},1),summary:compact(result.summary,1),throughputPerMinute:result.durationSeconds>0?result.summary.outputCount/result.durationSeconds*60:null,equipment:[],proposals:[],coverage:{characterBudget:characterBudget,totalEquipment:equipment.length,includedEquipment:0,omittedEquipment:0,omittedProposals:0,omittedObservedTimes:0,replayIncluded:false,eventsIncluded:false,commandsIncluded:false,commandCount:simulation.dynamicConfig?.commands?.length||0},limitations:[__ST_TEXT__('exports.ai_limitations')]};
+    data.lossBreakdown=lossBreakdown(result,simulation);data.replicationStatus=result.replicationStatus||null;data.simulation.dynamicConfig=compact(simulation.dynamicConfig,2);
     if(result.batch)data.batch={rounds:result.batch.rounds,baseSeed:result.batch.baseSeed,durationSeconds:result.batch.durationSeconds,statistics:result.batch.statistics,representativeRound:1};
     data.equipment=equipment.slice(0,500).map(function(e){var a=audit.find(function(x){return x.equipmentId===e.id;});return {id:String(e.id).slice(0,120),name:String(e.name).slice(0,120),type:e.type,unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,initialMode:e.initialMode,criticalMachine:e.characteristics?.criticalMachine,processData:compact(e.processData,2),noiseProfile:compact(e.noiseProfile,2),metrics:compact(result.equipmentMetrics?.[e.id],1),accumulation:compact(Object.values(result.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),2),engineering:a?compact(a.engineering,2):undefined,checks:(a?.engineering?.audit?.goals||[]).map(function(g){return {id:g.id,status:g.status};})};});
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')data.limitations=data.limitations.concat(result.limitations||[]);
     var proposals=result.engineId==='DES_SIMPY_EXPERIMENTAL'?[]:STWhatIf.visibleProjects(plan);data.proposals=proposals.map(function(p){return {title:p.title||STScenarioText[p.titleKey]||p.kind,tier:p.tier,basis:p.basis,equipmentId:p.equipmentId,changes:p.changes.map(function(c){return compact(c,0);}),evidence:compact(p.evidence,1)};});
     function json(){data.coverage.includedEquipment=data.equipment.length;data.coverage.omittedEquipment=equipment.length-data.equipment.length;data.coverage.omittedProposals=proposals.length-data.proposals.length;return JSON.stringify(data);}
-    var text=json();while(text.length>characterBudget&&data.proposals.length){data.proposals.pop();text=json();}while(text.length>characterBudget&&data.equipment.length){data.equipment.pop();text=json();}
+    var text=json();while(text.length>characterBudget&&data.lossBreakdown.observedEquipmentTimes.length){data.lossBreakdown.observedEquipmentTimes.pop();data.coverage.omittedObservedTimes++;text=json();}while(text.length>characterBudget&&data.proposals.length){data.proposals.pop();text=json();}while(text.length>characterBudget&&data.equipment.length){data.equipment.pop();text=json();}
     if(text.length>characterBudget)throw Error(__ST_TEXT__('exports.too_large'));
     return text;
   }
@@ -58,7 +76,7 @@ window.STReports=(function(){
   }
   function batchHtml(batch){
     if(!batch)return '';
-    return '<h2>'+escape(__ST_TEXT__('batch.title'))+'</h2><p>'+escape(__ST_TEXT__('batch.note'))+'</p>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('batch.mean'),__ST_TEXT__('batch.sd'),__ST_TEXT__('batch.range')],Object.entries(batch.statistics).map(function(pair){var m=pair[1];return [human(pair[0]),value(m.mean),value(m.standardDeviation),value(m.min)+' – '+value(m.max)];}))+'<h3>'+escape(__ST_TEXT__('batch.by_shift'))+'</h3>'+table([__ST_TEXT__('batch.round'),__ST_TEXT__('exports.seed'),__ST_TEXT__('batch.shift'),__ST_TEXT__('results.production'),__ST_TEXT__('results.throughput')+' / min',__ST_TEXT__('client.oee')+' %',__ST_TEXT__('results.starving')+' (s)',__ST_TEXT__('results.blocking')+' (s)',__ST_TEXT__('results.failure_time')+' (s)'],batch.rows.flatMap(function(r){return r.shifts.map(function(s){return [r.round,r.seed,s.shift,value(s.outputCount),value(s.throughputPerMinute),value(s.lineOeePercent),value(s.starvedSeconds),value(s.blockedSeconds),value(s.failureSeconds)];});}));
+    return '<h2>'+escape(__ST_TEXT__('batch.title'))+'</h2><p>'+escape(__ST_TEXT__('batch.note'))+'</p>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('batch.mean'),__ST_TEXT__('batch.sd'),__ST_TEXT__('batch.range')],Object.entries(batch.statistics).map(function(pair){var m=pair[1];return [human(pair[0]),value(m.mean),value(m.standardDeviation),value(m.min)+' – '+value(m.max)];}))+'<h3>'+escape(__ST_TEXT__('batch.by_shift'))+'</h3>'+table([__ST_TEXT__('batch.round'),__ST_TEXT__('exports.seed'),__ST_TEXT__('batch.shift'),__ST_TEXT__('results.production'),__ST_TEXT__('results.throughput')+' / min',__ST_TEXT__('client.oee')+' %',__ST_TEXT__('results.starving')+' (s)',__ST_TEXT__('results.blocking')+' (s)',__ST_TEXT__('results.failure_time')+' (s)'],(batch.rows||[]).flatMap(function(r){return (r.shifts||[]).map(function(s){return [r.round,r.seed,s.shift,value(s.outputCount),value(s.throughputPerMinute),value(s.lineOeePercent),value(s.starvedSeconds),value(s.blockedSeconds),value(s.failureSeconds)];});}));
   }
   function chartsHtml(){
     var surface=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(),html='';
@@ -71,6 +89,10 @@ window.STReports=(function(){
     var units=result.unitOfFlow||activeCase.unitOfFlow||'units';
     var slots={context:escape(activeCase.name)+' · '+escape(simulation?.name||''),limitations:escape(__ST_TEXT__('exports.report_limitations')),batch:batchHtml(result.batch),representative:result.batch?escape(__ST_TEXT__('batch.representative')):'',charts:chartsHtml(),equipment:'',zones:''};
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')slots.limitations+=' '+escape('DES · SimPy 4.1.2 (experimental). '+(result.limitations||[]).join(' '));
+    var stats=result.batch?.statistics,mean=(key,fallback)=>Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback,loss=lossBreakdown(result,simulation);
+    slots.headline=kpis([['OEE',mean('lineOeePercent',result.summary.lineOeePercent),'%'],['Throughput',mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),' '+units+'/min'],['Production',mean('outputCount',result.summary.outputCount),' '+units]]);
+    slots.losses=lossHtml(loss);slots.observed='<h2>Observed equipment times</h2>'+table(['Equipment','Observed state','Time (%)'],loss.observedEquipmentTimes.map(o=>[o.name,o.state,value(o.percent)+'%']));
+    slots.context+=' · '+escape(result.batch?'Mean of '+result.batch.rounds+' rounds':'Single round')+' · '+escape(result.engineId||'ST_CURRENT');
     slots.overview=table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],[[__ST_TEXT__('exports.duration'),result.durationSeconds],[__ST_TEXT__('exports.seed'),result.seed],[__ST_TEXT__('exports.units'),units],[__ST_TEXT__('results.throughput')+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
     (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){slots.equipment+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],scalars(result.equipmentMetrics?.[e.id]||{}))+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars({unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</section>';});
     Object.entries(result.accumulationZoneMetrics||{}).forEach(function(pair){slots.zones+='<section><h2>'+escape(__ST_TEXT__('exports.accumulation'))+' · '+escape(pair[0])+'</h2>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars(pair[1]))+'</section>';});
@@ -103,8 +125,16 @@ window.STReports=(function(){
       if(comparison.baseline&&comparison.candidate)html+=table(['Metric','Baseline','Scenario','Difference'],[['OEE (%)','oee'],['Throughput ('+(e.unitOfFlow||simulation.unitOfFlow||'units')+'/min)','throughput']].map(function(spec){var base=comparison.baseline[spec[1]],next=comparison.candidate[spec[1]];return [spec[0],value(base),value(next),value(next-base)];}));
       if(e.independentCheck)html+='<p>Independent check · Rounds: '+escape(e.independentCheck.rounds)+' · Passed: '+escape(e.independentCheck.passed)+'</p>';
       html+=table(['Equipment','Parameter','Baseline','Evaluated target','Purpose'],(e.evaluatedChanges||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after,i.explanation];}));
-      return html+'</section>';
+      html+=searchContextHtml(e,simulation);return html+'</section>';
     }).join('');
+  }
+  function searchContextHtml(e,simulation){
+    var discovery=e.reliabilityTargetSearch||e.sensitivityScreening?.reliabilityTargetSearch,html='';
+    if(discovery){html+='<h3>Equipment considered for MTBF / MTTR</h3>'+table(['Equipment','Conditional throughput gain (/min)'],(discovery.ranking||[]).map(r=>[r.name||r.equipmentId,value(r.deltaThroughput)]));html+=table(['Equipment','Parameter','Baseline','Explored target'],(discovery.selectedChanges||[]).map(c=>{var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after];}));}
+    var flow=e.sensitivityScreening||e.conditionalFlowDOE;
+    if(flow)html+='<p>Conditional flow screening: '+escape(flow.outcome||'Not completed')+' · '+escape(flow.screened??flow.screenedTargets??0)+' / '+escape(flow.eligible??0)+' inputs tested · '+escape(flow.selectedFactors?.length||0)+' factors selected.</p>';
+    if(e.doe?.anova){var a=e.doe.anova;html+='<h3>ANOVA</h3><p>'+escape(a.interpretation||a.reason||'Incomplete analysis')+'</p>';if(a.complete)Object.entries(a.metrics||{}).forEach(([metric,m])=>{html+='<h4>'+escape(human(metric))+'</h4>'+table(['Factors','Effect','F','p-value','Significant (unadjusted)'],(m.effects||[]).map(t=>[(t.factors||[]).map(i=>i+1).join(' × '),value(t.effect),value(t.f),t.pValue==null?'—':t.pValue<.0001?'<0.0001':value(t.pValue),t.significant==null?'—':t.significant?'Yes':'No']));});}
+    return html;
   }
   function evaluationsHtml(simulation){
     var evaluations=window.STScenarioExplorer?.evaluations(simulation)||[];
@@ -121,20 +151,21 @@ window.STReports=(function(){
       if(e.independentCheck)html+='<p>Independent seed: '+escape(e.independentCheck.seed)+' · Rounds: '+escape(e.independentCheck.rounds)+' · Passed: '+escape(e.independentCheck.passed)+'</p>';
       html+=table(['Equipment','Parameter','Before','Evaluated target'],(e.evaluatedChanges||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.before,i.after];}));
       html+=table(['Equipment','Parameter','Selected','Limit','Direction'],(e.selections||[]).map(function(c){var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,c.selected,c.limit==null?'No limit':value(c.limit)+' '+(c.unit||''),c.limitDirection];}));
-      if(e.doe){html+='<h4>DOE · '+escape(e.doe.type)+'</h4>'+table(['Factor','Low','High'],e.doe.factors.map(function(f){var i=STWhatIf.changeInfo(f,simulation.equipment);return [i.equipment+' · '+i.parameter,value(f.low)+' '+f.unit,value(f.high)+' '+f.unit];}));html+=table(['Combination','Levels','Feasible','OEE (%)','Throughput'],e.doe.observations.map(o=>[o.index+1,JSON.stringify(o.levels),o.feasible,value(o.oee),value(o.throughput)]));html+='<p>'+escape(e.doe.analysis?.interpretation||e.doe.analysis?.reason||'Incomplete design')+'</p>';html+=table(['Effect (factor numbers)','Type','OEE contrast (pp)','Throughput contrast'],(e.doe.analysis?.effects||[]).map(x=>[x.factors.map(i=>i+1).join(' × '),x.type,value(x.oee),value(x.throughput)]));html+='<p>Rounds per combination: '+escape(e.doe.roundsPerCombination)+'</p>';html+=table(['Fixed equipment','Parameter','Target'],e.doe.fixedChanges.map(c=>{var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.after];}));}
+      if(e.doe){html+='<h4>DOE · '+escape(e.doe.type)+'</h4>'+table(['Factor','Low','High'],(e.doe.factors||[]).map(function(f){var i=STWhatIf.changeInfo(f,simulation.equipment);return [i.equipment+' · '+i.parameter,value(f.low)+' '+f.unit,value(f.high)+' '+f.unit];}));html+=table(['Combination','Levels','Feasible','OEE (%)','Throughput'],(e.doe.observations||[]).map(o=>[o.index+1,JSON.stringify(o.levels),o.feasible,value(o.oee),value(o.throughput)]));html+='<p>'+escape(e.doe.analysis?.interpretation||e.doe.analysis?.reason||'Incomplete design')+'</p>';html+=table(['Effect (factor numbers)','Type','OEE contrast (pp)','Throughput contrast'],(e.doe.analysis?.effects||[]).map(x=>[x.factors.map(i=>i+1).join(' × '),x.type,value(x.oee),value(x.throughput)]));html+='<p>Rounds per combination: '+escape(e.doe.roundsPerCombination)+'</p>';html+=table(['Fixed equipment','Parameter','Target'],(e.doe.fixedChanges||[]).map(c=>{var i=STWhatIf.changeInfo(c,simulation.equipment);return [i.equipment,i.parameter,i.after];}));}
+      html+=searchContextHtml(e,simulation);
       if(e.warnings?.length)html+=table(['Equipment','Engineering check','Before','After'],e.warnings.map(w=>[w.equipmentId,w.rule,w.before,w.after]));
       html+='</section>';
     });return html+'</section>';
   }
   function whatIfData(simulation,plan){
     var results=simulation.results;
-    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},baseline:results?.summary?{seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,evaluations:window.STScenarioExplorer?.evaluations(simulation)||[],evaluationScope:'Saved case evaluations; matching source inputs only. Reproduced in simulation does not mean validated in plant.',projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
+    return {schema:'st-what-if-v1',generatedAt:new Date().toISOString(),simulation:{id:simulation.id,name:simulation.name,dynamicConfig:simulation.dynamicConfig||{},equipment:simulation.equipment||[]},lossBreakdown:results?.summary?lossBreakdown(results,simulation):null,scenarioConfiguration:{searchDepth:simulation.whatIf?.searchDepth||null,reliabilitySettings:simulation.whatIf?.reliabilitySettings||null},baseline:results?.summary?{engineId:results.engineId||'ST_CURRENT',engineVersion:results.engineVersion,replicationStatus:results.replicationStatus||null,accumulationZoneMetrics:results.accumulationZoneMetrics||{},seed:results.seed,durationSeconds:results.durationSeconds,summary:results.summary,equipmentMetrics:results.equipmentMetrics||{},batch:batchWithoutReplay(results.batch)}:null,evaluations:window.STScenarioExplorer?.evaluations(simulation)||[],evaluationScope:'Saved case evaluations; matching source inputs only. Reproduced in simulation does not mean validated in plant.',projects:STWhatIf.visibleProjects(plan),checks:plan.checks,hasDynamicEvidence:plan.hasDynamicEvidence,limitations:[__ST_TEXT__('exports.whatif_scope'),...(results?.batch?[__ST_TEXT__('batch.evidence')]:[])]};
   }
   function batchWithoutReplay(batch){if(!batch)return null;var summary=Object.assign({},batch);delete summary.replays;return summary;}
   function comparisonData(activeCase,left,right){
     function snapshot(simulation){
       var result=simulation.results;
-      return {id:simulation.id,name:simulation.name,equipment:simulation.equipment||[],dynamicConfig:simulation.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},scenario:simulation.scenario||null,results:result?.summary?{seed:result.seed,durationSeconds:result.durationSeconds,completedAt:result.completedAt,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow,summary:result.summary,equipmentMetrics:result.equipmentMetrics||{},accumulationZoneMetrics:result.accumulationZoneMetrics||{},batch:batchWithoutReplay(result.batch)}:null};
+      return {id:simulation.id,name:simulation.name,equipment:simulation.equipment||[],dynamicConfig:simulation.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},scenario:simulation.scenario||null,results:result?.summary?{engineId:result.engineId||'ST_CURRENT',engineVersion:result.engineVersion,replicationStatus:result.replicationStatus||null,lossBreakdown:lossBreakdown(result,simulation),seed:result.seed,durationSeconds:result.durationSeconds,completedAt:result.completedAt,unitOfFlow:result.unitOfFlow||activeCase.unitOfFlow,summary:result.summary,equipmentMetrics:result.equipmentMetrics||{},accumulationZoneMetrics:result.accumulationZoneMetrics||{},batch:batchWithoutReplay(result.batch)}:null};
     }
     var a=snapshot(left),b=snapshot(right),pair=a.results&&b.results;
     var paired=Boolean(pair&&a.results.seed===b.results.seed&&a.results.durationSeconds===b.results.durationSeconds&&(!a.results.batch&&!b.results.batch||a.results.batch&&b.results.batch&&a.results.batch.rounds===b.results.batch.rounds&&JSON.stringify(a.results.batch.rows?.map(r=>r.seed))===JSON.stringify(b.results.batch.rows?.map(r=>r.seed))));
@@ -151,6 +182,7 @@ window.STReports=(function(){
       var a=flat(left),b=flat(right),keys=Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).sort();
       return table([__ST_TEXT__('results.metric'),__ST_TEXT__('view.baseline'),__ST_TEXT__('results.proposed'),__ST_TEXT__('results.absolute')],keys.map(function(key){var x=a[key],y=b[key];return [key,value(x),value(y),typeof x==='number'&&typeof y==='number'?value(y-x):(JSON.stringify(x)===JSON.stringify(y)?'=':'Δ')];}));
     }
+    function meanSummary(snapshot){var result=snapshot.results;if(!result?.summary)return {};var summary=Object.assign({},result.summary);Object.entries(result.batch?.statistics||{}).forEach(([key,stats])=>{if(Number.isFinite(stats.mean))summary[key]=stats.mean;});return summary;}
     var a=data.baseline,b=data.proposed;
     var ids=Array.from(new Set(a.equipment.map(e=>e.id).concat(b.equipment.map(e=>e.id))));
     var equipment=ids.map(function(id){
@@ -160,7 +192,7 @@ window.STReports=(function(){
     }).join('');
     var changed=STInputComparison.changes(a,b).rows;
     var slots={context:escape(data.case.name)+' · '+escape(a.name)+' vs. '+escape(b.name),basis:escape(data.comparability),
-      'overview-title':escape(__ST_TEXT__('results.outcome_comparison')),overview:diff(a.results?.summary||{},b.results?.summary||{}),
+      'overview-title':escape(__ST_TEXT__('results.outcome_comparison')),overview:diff(meanSummary(a),meanSummary(b)),
       'inputs-title':escape(__ST_TEXT__('comparison.changed_inputs')),inputs:changed.length?table([__ST_TEXT__('client.equipment'),__ST_TEXT__('exports.parameter'),__ST_TEXT__('view.baseline'),__ST_TEXT__('results.proposed')],changed):'<p>'+escape(__ST_TEXT__('comparison.no_equipment_input_differences_run_settings_are_listed_below'))+'</p>',
       'equipment-title':escape(__ST_TEXT__('view.equipment_comparison')),equipment:equipment,
       'batch-title':escape(__ST_TEXT__('batch.title')),batch:diff(a.results?.batch?{rounds:a.results.batch.rounds,statistics:a.results.batch.statistics,seeds:a.results.batch.rows?.map(r=>r.seed)}:{},b.results?.batch?{rounds:b.results.batch.rounds,statistics:b.results.batch.statistics,seeds:b.results.batch.rows?.map(r=>r.seed)}:{}),
@@ -200,13 +232,14 @@ window.STReports=(function(){
         }else{
           var p=e.processData||{};
           ['geometry','upstream','downstream','speedAndSensors'].forEach(function(group){rows=rows.concat(scalars(p[group],human(group)));});
-          var acc=p.accumulation||{};['usefulAccumulationLengthMm','populationPercent','blockedTimeDelaySeconds','clearTimeDelaySeconds','insuranceFactorUnits','conveyorOverspeedPercent'].forEach(function(key){if(acc[key]!==undefined)rows.push([human(key),value(acc[key])]);});
+          var acc=p.accumulation||{};rows=rows.concat(scalars(acc,'Accumulation'));
           var zone=audit.find(function(x){return x.equipmentId===e.id;}),calculated=zone?.engineering?.calculated,geometry=zone?.engineering?.runtimeGeometry;
           rows.push(['Belt speed (m/min)',value(geometry?.conveyorSpeedMmPerSecond*.06)],['Population (%)',value(acc.targetPopulationPercent??(calculated?.machineOutputRateMmPerSecond/geometry?.conveyorSpeedMmPerSecond*100))],['LBA (mm)',value(acc.manualLbaMm??calculated?.usefulAccumulationLengthMm)],['Overflow (mm)',value(calculated?.overflowProductLengthMm)],['Required overflow Lbu (mm)',value(calculated?.overflowLengthMm)]);
         }
         slots.equipment+='<section><h2>'+escape(e.name)+'</h2>'+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],rows)+'</section>';
       });
     }
+    var commands=data.simulation.dynamicConfig.commands||[];if(commands.length)slots.settings+='<h3>Scheduled controls</h3>'+table(['Equipment','Action','Virtual second'],commands.map(c=>[c.equipmentId,c.action,c.atVirtualSecond??c.atSeconds]));
     return documentHtml(__ST_TEXT__('exports.setup_title'),slots,'configuration');
   }
   function bindConfiguration(read){
@@ -222,7 +255,7 @@ window.STReports=(function(){
     var content=data.messages.map(function(m){var body=document.createElement('div');if(m.role==='model')STMarkdown.render(m.text,body);else{body.className='user-message';body.textContent=m.text;}
       return '<article><h2>'+escape(m.role==='user'?'You':'Gemini')+'</h2>'+(m.createdAt?'<p class="date">'+escape(m.createdAt)+'</p>':'')+body.outerHTML+'</article>';
     }).join('');
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Gemini chat history</title><style>@page{margin:18mm}body{font:14px/1.55 system-ui,sans-serif;color:#242a35;max-width:850px;margin:24px auto;padding:0 16px}h1{font-size:24px}article{border-top:1px solid #ddd;margin-top:24px;padding-top:16px;overflow-wrap:anywhere}h2{font-size:16px;margin:0}article h1,article h3,article h4{font-size:16px}.date{color:#606b7a;font-size:12px}pre,.user-message{white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px}img{max-width:100%}h2,h3{break-after:avoid}@media print{body{margin:0;padding:0;max-width:none}a{color:inherit}}</style></head><body><h1>Gemini chat history</h1>'+content+'</body></html>';
+    return documentHtml('Gemini chat history',{context:escape(data.exportedAt),transcript:content},'chat');
   }
   function exportChat(data,format){
     if(!data.messages.length)return;
@@ -234,7 +267,7 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
 

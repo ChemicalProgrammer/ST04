@@ -284,3 +284,9 @@ test('Gemini cannot label a replacement reliability target as Medium or submit e
  const fixture=setup(),e=fixture.record.simulations[0].equipment[0],change={equipmentId:e.id,path:'noiseProfile.reliability.mtbfMinutes',before:e.noiseProfile.reliability.mtbfMinutes,after:e.noiseProfile.reliability.mtbfMinutes*2,external:true,interventionType:'REPLACEMENT',justification:'Complete replacement; documented supplier target.'};
  for(const changes of [[change],[{...change,analysisOnly:true,interventionType:'SENSITIVITY'}]]){const h=setup({answer:JSON.stringify({text:'Hypothesis',proposals:[{title:'Incorrect category',tier:'MEDIUM',basis:'STATIC',changes}]})});assert.equal(h.ctx.askGemini_(request,user).proposals.length,0);}
 });
+
+test('default scenario prompt requests method choice and describes current conditional workflow in both modes',()=>{
+ const h=setup();for(const mode of [true,false]){const policy=h.ctx.geminiPolicy_(mode,false);
+  assert.match(policy,/first ask one concise question/);assert.match(policy,/proposals:\[\]/);assert.match(policy,/do not repeatedly ask/);assert.match(policy,/up to 16 numeric inputs and 12 diversified pairs/);assert.match(policy,/ANOVA/);assert.match(policy,/GEMINI FREE METHOD/);assert.match(policy,/independent seeds/);
+ }
+});

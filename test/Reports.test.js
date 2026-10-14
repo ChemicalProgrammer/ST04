@@ -155,3 +155,25 @@ test('chat exports contain only conversation messages and safely render the PDF 
   h.w.STReports.exportChat(data,'pdf');assert(printed);assert(written.includes('Gemini chat history'));assert(!written.includes('FULL_INPUTS'));
  }finally{h.dom.window.close();}
 });
+
+test('loss exports retain matched percentages and reject stale diagnostic inputs',()=>{
+ const h=setup();try{
+  h.result.inputSignature=h.w.SimulatorEngine.inputSignature({case:{equipment:h.sim.equipment,unitOfFlow:'bottles'},run:{durationSeconds:60,seed:17,rounds:1}});
+  const input=JSON.parse(h.result.inputSignature),key='RESULTS_LOSS_V1:'+h.w.SimulatorEngine.inputSignature({case:{equipment:input.equipment,unitOfFlow:input.unitOfFlow},run:{...input.run,durationSeconds:60,rounds:1}});
+  h.sim.whatIf={lossDiagnostic:{key,status:'COMPLETE',baselineOee:80,failureFreeOee:85.123456789}};
+  const loss=h.w.STReports.lossBreakdown(h.result,h.sim);assert.equal(loss.status,'COMPLETE');assert(Math.abs(loss.conditionalReliabilityLoss-5.123456789)<1e-9);assert(Math.abs(loss.baselineOee+loss.conditionalReliabilityLoss+loss.nominalMachineSpeedGap+loss.remainingLossWithoutFailures-100)<1e-9);
+  const json=JSON.parse(h.w.STReports.analysis(h.result,h.c,h.sim));assert.equal(json.lossBreakdown.conditionalReliabilityLoss,loss.conditionalReliabilityLoss);
+  for(const mode of ['basic','advance']){h.w.document.documentElement.dataset.uiMode=mode;const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert(html.includes('Conditional MTBF / MTTR loss'));assert(html.includes('5.1235%'));assert(html.includes('report-kpi'));}
+  h.sim.whatIf.lossDiagnostic.key='STALE';assert.equal(h.w.STReports.lossBreakdown(h.result,h.sim).conditionalReliabilityLoss,null);
+ }finally{h.dom.window.close();}
+});
+test('scenario PDF and JSON include retained sensor targets, reliability scope and ANOVA',()=>{
+ const h=setup();try{
+  const c={equipmentId:h.sim.equipment[1].id,path:'processData.accumulation.backupSensorPositionMm',before:100,after:123.456789,unit:'mm'};
+  const anova={complete:true,interpretation:'Exploratory unadjusted p-values',metrics:{oee:{effects:[{factors:[0],effect:2,f:12,pValue:.00001234,significant:true}]}}};
+  const e={title:'Conditional experiment',status:'REPRODUCED',evaluatedChanges:[c],doe:{factors:[],observations:[],fixedChanges:[],anova},reliabilityTargetSearch:{ranking:[{name:'Sleever',deltaThroughput:3}],selectedChanges:[]}};
+  h.w.STScenarioExplorer={evaluations:()=>[e]};h.sim.results=h.result;h.sim.whatIf={searchDepth:'HIGH',reliabilitySettings:{scope:'MANUAL',equipmentIds:['sleever']}};
+  const plan=h.w.STScenarios.plan(h.sim),data=h.w.STReports.whatIfData(h.sim,plan);assert.equal(data.evaluations[0].doe.anova.metrics.oee.effects[0].pValue,.00001234);assert.equal(data.scenarioConfiguration.reliabilitySettings.scope,'MANUAL');
+  for(const mode of ['basic','advance']){h.w.document.documentElement.dataset.uiMode=mode;const doc=new JSDOM(h.w.STReports.whatIfHtml(h.sim,plan));const text=doc.window.document.body.textContent;assert(text.includes('ANOVA'));assert(text.includes('<0.0001'));assert(text.includes('Sleever'));assert(text.includes('123.46 mm'));assert.equal(doc.window.document.querySelectorAll('script').length,0);doc.window.close();}
+ }finally{h.dom.window.close();}
+});

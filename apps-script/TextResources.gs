@@ -132,7 +132,7 @@ var ST_TEXT_RESOURCES = {
   "batch.range":"Minimum – maximum",
   "batch.by_shift":"Round and shift details",
   "batch.representative":"Charts and equipment details show the selected round. What-If evidence uses round 1. Replication averages are shown separately above.",
-  "reports.brand":"Engineering workspace",
+  "reports.brand":"SimuLine · Packaging line analysis",
   "reports.subtitle":"Simulation inputs, evidence and analysis",
   "reports.footer":"Generated from the selected simulation",
 
@@ -602,7 +602,7 @@ var ST_TEXT_RESOURCES = {
   "brand.initials": "SL",
   "view.flow_pilot": "SimuLine",
   "view.a_clearer_view_of_your_line": "A CLEARER VIEW OF YOUR LINE",
-  "view.welcome_to_your_workspace": "Welcome to your workspace.",
+  "view.welcome_to_your_workspace": "Understand and improve your packaging line.",
   "view.explore_your_cases_test_possibilities_and_build_confidence_in_your_next_dec": "Explore your cases, test possibilities and build confidence in your next decision.",
   "view.keep_me_signed_in_on_this_browser": "Keep me signed in on this browser",
   "view.continue_with_google": "Continue with your account",
