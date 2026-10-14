@@ -201,36 +201,22 @@
 
 
 
-async function createDemoCase(variant) {
-      var selection = typeof variant === 'string' ? variant : null;
-      if (!selection) {
-        var choice = await STDialog.open({
-          title: 'Create demo',
-          message: 'Choose a demo case.',
-          buttons: [
-            { id: 'cancel', label: 'Cancel' },
-            { id: 'A', label: 'Demo A' },
-            { id: 'B', label: 'Demo B · photo inputs' }
-          ]
-        });
-        if (!['A', 'B'].includes(choice?.action)) return;
-        selection = choice.action;
-      }
+function createDemoCase() {
       setBusy('create-demo-case', true);
-      callServer('createDemoCase', [{ variant: selection }], function(response) {
+      callServer('createDemoCase', [], function(response) {
         setBusy('create-demo-case', false);
         if (!response?.ok || !response.data?.id) {
-          var error = response?.error || { code: 'DEMO_EMPTY_RESPONSE', message: 'The server did not return the created demo. Refresh the case list before retrying.' };
+          var error=response?.error||{code:'DEMO_EMPTY_RESPONSE',message:'The server did not return the created demo. Refresh the case list before retrying.'};
           showError(error);
-          STDialog.open({ title: 'Demo creation failed', message: error.message, details: [error.code].concat(error.details || []).join('\n'), error: true });
+          STDialog.open({title:'Demo creation failed',message:error.message,details:[error.code].concat(error.details||[]).join('\n'),error:true});
           return;
         }
-        var summary = response.data;
+        var summary=response.data;
         cancelCaseCatalog();
-        state.bootstrap.cases = (state.bootstrap.cases || []).filter(function(item) { return item.id !== summary.id; }).concat([summary]);
+        state.bootstrap.cases=(state.bootstrap.cases||[]).filter(function(item){return item.id!==summary.id;}).concat([summary]);
         renderCases(state.bootstrap.cases);
-        openCase(response.data.id, 'editor');
-        if (summary.demoResultsPrepared === false && selection === 'A') STDialog.open({ title: 'Demo created', message: 'The demo equipment and CAPEX scenarios are ready. Run each simulation to calculate its results; precomputed results are unavailable in this deployment.' });
+        openCase(response.data.id,'editor');
+        if(summary.demoResultsPrepared===false)STDialog.open({title:'Demo created',message:'The demo equipment and CAPEX scenarios are ready. Run each simulation to calculate its results; precomputed results are unavailable in this deployment.'});
       });
     }
 

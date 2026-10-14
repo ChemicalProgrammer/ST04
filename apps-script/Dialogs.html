@@ -69,7 +69,6 @@ window.STDialog = (function() {
     buttons.forEach(function(spec) {
       var button = document.createElement('button'); button.type='button'; button.textContent=spec.label;
       button.className = spec.destructive ? 'danger' : spec.id === 'cancel' ? 'ghost' : '';
-      button.dataset.action = spec.id;
       button.onclick=function(){finish(spec.id);}; footer.appendChild(button);
     });
     dialog.append(heading,body,footer); document.body.appendChild(dialog);
