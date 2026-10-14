@@ -287,6 +287,19 @@ html[data-ui-mode] .scenario-config-dialog .scenario-preview-context { display:b
 .scenario-reliability-heading label[hidden] { display:none; }
 .scenario-tier-grid .scenario-warning-slot[hidden],.scenario-tier-grid .scenario-preview-status:empty,.scenario-tier-grid .scenario-search-progress:empty { display:none; }
 .scenario-tier-grid .scenario-progress-label[hidden],.scenario-tier-grid .scenario-activity[hidden] { display:none!important; }
+.scenario-search-settings,.scenario-equipment-settings { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-5); align-items:start; }
+.scenario-search-primary,.scenario-search-choices,.scenario-reliability-intro,.scenario-equipment-settings .scenario-reliability-settings { min-width:0; }
+.scenario-search-settings .scenario-category-options,.scenario-search-settings .scenario-bulk-choices { display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-3); }
+.scenario-search-settings .scenario-category-options { margin-top:var(--space-4); }
+.scenario-search-settings .scenario-doe { margin:0; }
+.scenario-equipment-settings .scenario-reliability-settings { display:contents; }
+.scenario-equipment-settings .scenario-reliability-intro { grid-column:1; grid-row:1 / 3; }
+.scenario-equipment-settings .scenario-reliability-heading { grid-column:2; grid-row:1; }
+.scenario-equipment-settings .scenario-reliability-scope { grid-column:2; grid-row:2; }
+.scenario-equipment-settings .scenario-reliability-limits,.scenario-equipment-settings .scenario-reliability-settings > p { grid-column:1 / -1; }
+.scenario-equipment-settings .scenario-reliability-intro p { margin:var(--space-3) 0 0; color:var(--muted); }
+.scenario-advanced-store[hidden] { display:none!important; }
+@media(max-width:760px) { .scenario-search-settings,.scenario-equipment-settings { grid-template-columns:minmax(0,1fr); } .scenario-equipment-settings .scenario-reliability-intro,.scenario-equipment-settings .scenario-reliability-heading,.scenario-equipment-settings .scenario-reliability-scope { grid-column:1; grid-row:auto; } }
 </style>
 
 

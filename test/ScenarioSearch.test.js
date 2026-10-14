@@ -269,8 +269,8 @@ test('configuration separates conveyor inputs while preserving controls and DOE 
   h.w.STScenarioExplorer.attach(h.host,project,()=>{},h.sim);
   const panels=h.host.querySelectorAll('[role=tabpanel]');
   assert(panels[0].querySelector('.scenario-search-depth'));assert(panels[0].querySelector('.scenario-doe-enabled'));
-  assert.equal(panels[1].querySelectorAll('.scenario-changes tbody tr').length,1);assert.equal(panels[2].querySelectorAll('.scenario-changes tbody tr').length,1);
-  assert.match(panels[1].querySelector('.scenario-changes tbody').textContent,/speed/);assert.match(panels[2].querySelector('.scenario-changes tbody').textContent,/sensor/);
+  assert.equal(panels[1].querySelectorAll('.scenario-changes tbody tr').length,0);assert.equal(h.host.querySelector('.scenario-advanced-store').hidden,true);assert.equal(panels[2].querySelectorAll('.scenario-changes tbody tr').length,1);
+  assert.match(h.host.querySelector('.scenario-advanced-store .scenario-changes tbody').textContent,/speed/);assert.match(panels[2].querySelector('.scenario-changes tbody').textContent,/sensor/);
   const all=panels[0].querySelector('.scenario-use-all');all.checked=false;all.onchange();assert([...h.host.querySelectorAll('.scenario-changes tbody input[type=checkbox]')].every(c=>!c.checked));
  }finally{h.dom.window.close();}
 });
@@ -281,5 +281,20 @@ test('completed searches keep cards concise and disclose actual DOE execution in
   h.host.querySelector('.scenario-results').click();assert.match(h.host.querySelector('.scenario-flow-summary').textContent,/DOE: 4 \/ 4 combinations completed. ANOVA completed./);
   assert.equal(h.host.querySelector('.scenario-doe').tagName,'SECTION');assert.equal(h.host.querySelector('.scenario-suggestion-report').hidden,true);
   assert.doesNotMatch(h.host.querySelectorAll('[role=tabpanel]')[2].textContent,/Conveyor variables|select and enter/);
+ }finally{h.dom.window.close();}
+});
+
+test('compact configuration places DOE actions in conveyors and keeps search choices in two groups',()=>{
+ const h=harness(true,'HIGH');try{
+  const panels=h.host.querySelectorAll('[role=tabpanel]');
+  assert(panels[0].querySelector('.scenario-search-primary .scenario-search-depth'));
+  assert(panels[0].querySelector('.scenario-search-choices .scenario-doe-enabled'));
+  assert(panels[0].querySelector('.scenario-search-choices .scenario-use-all'));
+  assert.equal(panels[0].querySelector('.scenario-doe-suggest'),null);assert(panels[2].querySelector('.scenario-doe-suggest'));
+  assert(![...h.host.querySelectorAll('button')].some(b=>b.textContent==='Clear factor selection'));
+  assert.equal(h.host.querySelector('.scenario-preview-context'),null);
+  assert(panels[1].querySelector('.scenario-reliability-intro .scenario-explore-reliability'));assert(panels[1].querySelector('.scenario-reliability-heading .scenario-reliability-count'));
+  assert.equal(panels[1].querySelector('.scenario-edit-details'),null);
+  h.host.querySelector('.scenario-configure').click();assert.equal(panels[1].querySelector('.scenario-edit-details'),null);
  }finally{h.dom.window.close();}
 });
