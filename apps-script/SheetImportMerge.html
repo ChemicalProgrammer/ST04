@@ -25,6 +25,14 @@ window.STSheetImportMerge=(function(){
     field('clear','U',__ST_TEXT__('client.back_up_clear_delay_s'),['processData.speedAndSensors.clearTimeDelaySeconds','processData.accumulation.clearTimeDelaySeconds']),
     field('insurance','V',__ST_TEXT__('sheetimportmerge.insurance_factor_packages'),['processData.speedAndSensors.insuranceFactorUnits','processData.accumulation.insuranceFactorUnits']),
     field('overspeed','W',__ST_TEXT__('sheetimportmerge.overspeed_vs_infeed_screw'),['processData.speedAndSensors.overspeedVsInfeedScrewPercent'])];
+  var beltField=field('beltSpeed','G','Conveyor speed (m/min)',['processData.accumulation.conveyorSpeedMmPerSecond']);
+  beltField.read=function(e){return get(e,'processData.accumulation.speedMode')==='MANUAL'?get(e,beltField.paths[0]):null;};
+  var writeBelt=beltField.write;beltField.write=function(e,value){writeBelt(e,value);put(e,'processData.accumulation.speedMode',value>0?'MANUAL':'AUTO');if(value>0){delete e.processData.accumulation.targetPopulationPercent;delete e.processData.accumulation.targetOverspeedPercent;}};
+  var accumulationField=field('declaredAccumulation','H','Declared accumulation (s) · reference',['processData.accumulation.declaredAccumulationSeconds']);
+  function fieldsFor(preview){
+    if((preview.layout||preview.source?.schemaVersion)!=='plant-sheet-v2')return fields;
+    return fields.map(function(f){return Object.assign({},f,{col:f.col>='G'?String.fromCharCode(f.col.charCodeAt(0)+2):f.col});}).concat([beltField,accumulationField]).sort(function(a,b){return a.col.localeCompare(b.col);});
+  }
   var criticalField=fields.find(function(f){return f.id==='critical';});
   function isReference(e){return e.type==='PACEMAKER'||e.processData?.role==='PACEMAKER'||e.characteristics?.isPacemaker===true;}
   criticalField.read=function(e){return e.characteristics?.isPacemaker===undefined?isReference(e)||e.characteristics?.criticalMachine===true||e.characteristics?.criticalMachine===undefined&&e.processData?.role==='CRITICAL_MACHINE':isReference(e);};
@@ -32,9 +40,9 @@ window.STSheetImportMerge=(function(){
   ['mtbf','mttr'].forEach(function(id){var f=fields.find(function(f){return f.id===id;});f.read=function(e){return get(e,'noiseProfile.reliability.'+(id==='mtbf'?'mtbfMinutes':'mttrMinutes'))??get(e,f.paths[0]);};});
   ['residual','ramp','speedFactor','blocked','clear','insurance'].forEach(function(id){var f=fields.find(function(f){return f.id===id;});f.read=function(e){return e.type==='CONVEYOR'?(get(e,f.paths[1])??get(e,f.paths[0])):get(e,f.paths[0]);};});
   var metadataFields=[['site','Site'],['packagingLine',__ST_TEXT__('sheetimportmerge.packaging_line')],['formatName',__ST_TEXT__('sheetimportmerge.format_name')],['containerSizeOz',__ST_TEXT__('sheetimportmerge.container_size_oz')],['bottlesPerCase',__ST_TEXT__('sheetimportmerge.bottles_per_case')],['dateOfAnalysis',__ST_TEXT__('sheetimportmerge.date_of_analysis')],['by','By']];
-  function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){var m=String(e.cell).match(/^([A-W])(\d+)(?::([A-W])(\d*)?)?$/);if(!m)return false;return row>=Number(m[2])&&row<=Number(m[4]||m[2])&&col>=m[1]&&col<=(m[3]||m[1]);});}
+  function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){var m=String(e.cell).match(/^([A-Y])(\d+)(?::([A-Y])(\d*)?)?$/);if(!m)return false;return row>=Number(m[2])&&row<=Number(m[4]||m[2])&&col>=m[1]&&col<=(m[3]||m[1]);});}
   function incomingValue(preview,record,f){if(record.adjustments?.[f.id])return record.adjustments[f.id].value;var raw=(preview.sourceRows||[]).find(function(r){return r.row===record.row;});if(f.id==='critical'&&raw?.values?.critical===null)return null;return f.read(preview.equipment[record.index]);}
-  function defaults(preview,record,equipment){var current=equipment.find(function(e){return e.id===record.target;}),incoming=preview.equipment[record.index];record.selected={};fields.forEach(function(f){var v=incomingValue(preview,record,f);record.selected[f.id]=!errorsFor(preview,f.col,record.row).length&&(!current||v!=null&&(!equal(f.read(current),v)||f.id==='critical'&&v===true&&!isReference(current)));});return record;}
+  function defaults(preview,record,equipment){var current=equipment.find(function(e){return e.id===record.target;}),incoming=preview.equipment[record.index];record.selected={};fieldsFor(preview).forEach(function(f){var v=incomingValue(preview,record,f);record.selected[f.id]=!errorsFor(preview,f.col,record.row).length&&(!current||v!=null&&(!equal(f.read(current),v)||f.id==='critical'&&v===true&&!isReference(current)));});return record;}
   function create(preview,current,sourceImport){
     var bindings=(sourceImport?.bindings||[]).slice(),sourceKey=key(preview.source);
     // Migration for full imports made before selective reload existed.
@@ -48,7 +56,7 @@ window.STSheetImportMerge=(function(){
       var renamed=bindings.some(function(b){return b.sourceKey===sourceKey&&b.row===row&&name(b.sourceName)!==incomingName;});
       var target=ambiguous?'skip':candidates.size===1?Array.from(candidates)[0]:renamed?'skip':'new';
       // Invalid source rows require explicit selection of a target and valid fields.
-      var rowErrors=(preview.errors||[]).filter(function(e){return fields.some(function(f){return errorsFor(preview,f.col,row).includes(e);});});
+      var rowErrors=(preview.errors||[]).filter(function(e){return fieldsFor(preview).some(function(f){return errorsFor(preview,f.col,row).includes(e);});});
       if(rowErrors.length)target='skip';
       return defaults(preview,{index:index,row:row,target:target,reason:rowErrors.length?__ST_TEXT__('sheetimport.source_row_errors')+' '+rowErrors.map(function(e){return e.cell+': '+e.message;}).join(' '):ambiguous?__ST_TEXT__('sheetimportmerge.ambiguous_name_choose_the_equipment_to_update'):renamed&&!candidates.size?__ST_TEXT__('sheetimportmerge.name_changed_at_this_source_row_choose_an_existing_equipment_or_add_new'):target==='new'?__ST_TEXT__('sheetimportmerge.new_equipment_appended_to_the_line'):__ST_TEXT__('sheetimportmerge.matched_by_a_unique_name_or_previous_import'),selected:{}},current);
     });
@@ -61,7 +69,7 @@ window.STSheetImportMerge=(function(){
     plan.records.forEach(function(record){
       if(record.target==='skip')return;
       var incoming=preview.equipment[record.index],isNew=record.target==='new';
-      var selected=fields.filter(function(f){return record.selected[f.id];});if(!selected.length)return;
+      var selected=fieldsFor(preview).filter(function(f){return record.selected[f.id];});if(!selected.length)return;
       if(!isNew&&used.has(record.target)){issues.push(__ST_TEXT__('sheetimportmerge.two_sheet_rows_target_the_same_equipment_skip_one_or_choose_another_target'));return;}if(!isNew)used.add(record.target);
       var currentUnit=equipment.find(function(e){return e.id===record.target;});
       if(!isNew&&!currentUnit){issues.push(__ST_TEXT__('sheetimportmerge.target_equipment_no_longer_exists_preview_again'));return;}
@@ -72,6 +80,7 @@ window.STSheetImportMerge=(function(){
       var reliability=selected.some(function(f){return ['mtbf','mttr'].includes(f.id);});
       if(reliability){var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+__ST_TEXT__('sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection'));}
       if(isNew||record.selected.type||record.selected.critical){unit.processData.role=unit.type==='CONVEYOR'?'CONVEYOR':unit.characteristics.isPacemaker||!record.selected.critical&&(unit.processData.role==='PACEMAKER'||incoming.processData?.role==='PACEMAKER')?'PACEMAKER':unit.characteristics.criticalMachine?'CRITICAL_MACHINE':'MACHINE';unit.processData.machineType=unit.type;}
+      if(preview.layout==='plant-sheet-v2'){unit.characteristics=unit.characteristics||{};unit.characteristics.sourceSheetLayout=preview.layout;}
       if(unit.type!=='CONVEYOR')delete unit.processData.accumulation;
       if(!unit.name||!(unit.nominalRatePerSecond>0))issues.push(__ST_TEXT__('sheetimport.row')+record.row+__ST_TEXT__('sheetimportmerge.new_updated_equipment_needs_a_name_and_positive_nominal_speed_select_those_'));
       var changed=isNew||!equal(currentUnit,unit);
@@ -86,15 +95,15 @@ window.STSheetImportMerge=(function(){
     sourceImport.lastApplied={at:new Date().toISOString(),equipment:changes,metadata:metadataChanges};
     return {equipment:equipment,sourceImport:sourceImport,errors:issues,added:added,updated:updated,metadataChanges:metadataChanges.length,equipmentChanged:added+updated>0,hasChanges:effective};
   }
-  function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
+  function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(f?.id==='beltSpeed')v=Number(v)*.06;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
   function physicalIssue(detail,equipment){
     var path=String(detail?.path||''),match=path.match(/equipment\[(\d+)\]/);
     var unit=match&&equipment?.[Number(match[1])];
     var row=unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
     var context=unit?unit.name+(row?' · '+__ST_TEXT__('sheetimport.row')+row:'')+' · ':'';
-    var hint=path.endsWith('.gapMm')&&row?' '+__ST_TEXT__('sheetimport.check_pitch_geometry').replace('{K}','K'+row).replace('{L}','L'+row).replace('{Q}','Q'+row):'';
+    var updated=unit?.characteristics?.sourceSheetLayout==='plant-sheet-v2',hint=path.endsWith('.gapMm')&&row?' '+__ST_TEXT__('sheetimport.check_pitch_geometry').replace('{K}',(updated?'M':'K')+row).replace('{L}',(updated?'N':'L')+row).replace('{Q}',(updated?'S':'Q')+row):'';
     return context+path+': '+String(detail?.reason||'')+hint;
   }
-  return {fields:fields,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
+  return {fields:fields,fieldsFor:fieldsFor,metadataFields:metadataFields,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
 })();
 </script>

@@ -2586,3 +2586,12 @@ test('UI + Apps Script: Gemini scenario uses exact unchanged source values when 
   const changes=h.storedCases()[0].simulations[1].scenario.changes;assert.deepEqual(changes.map(c=>c.before),Array.from(original.changes,c=>c.before));assert.deepEqual(changes.map(c=>c.after),Array.from(original.changes,c=>c.after));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: updated Sheet preview presents conveyor speed in G, accumulation in H and shifted geometry cells',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  const original=h.api.previewSheetImport;h.api.previewSheetImport=()=>{const data=original();data.layout='plant-sheet-v2';data.source.schemaVersion='plant-sheet-v2';const unit=data.equipment.find(e=>e.type==='CONVEYOR');unit.processData.accumulation={...unit.processData.accumulation,speedMode:'MANUAL',conveyorSpeedMmPerSecond:29.93*1000/60,declaredAccumulationSeconds:28};return data;};
+  await h.click('.open-case');await h.click('[data-basic-view=equipment]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='synthetic-sheet-id';await h.click('#sheet-import-read');
+  const section=h.d.querySelector('[data-source-index="1"]');assert(section);const belt=section.querySelector('[data-field="beltSpeed"]'),accumulation=section.querySelector('[data-field="declaredAccumulation"]');
+  assert(belt);assert(accumulation);assert.match(belt.closest('tr').textContent,/G11.*m\/min.*29.93/);assert.match(accumulation.closest('tr').textContent,/H11.*reference.*28/);assert.match(section.querySelector('[data-field="length"]').closest('tr').textContent,/I11/);assert.match(section.querySelector('[data-field="overspeed"]').closest('tr').textContent,/Y11/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

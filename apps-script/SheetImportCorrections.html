@@ -1,7 +1,7 @@
 <script>
 window.STSheetCorrections=(function(){
   function suggest(unit){
-    if(unit?.type!=='CONVEYOR')return null;
+    if(unit?.type!=='CONVEYOR'||unit.processData?.accumulation?.speedMode==='MANUAL')return null;
     var length=unit.processData?.upstream?.packageLengthMm,pitch=unit.processData?.upstream?.dischargePitchMm;
     var factor=unit.processData?.accumulation?.conveyorSpeedFactorPercent??unit.processData?.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
     if(![length,pitch,factor].every(function(v){return typeof v==='number'&&Number.isFinite(v);})||length<=0||pitch<=0||factor<0)return null;
@@ -22,16 +22,16 @@ window.STSheetCorrections=(function(){
       if(record.target==='skip')return;
       var imported=result.sourceImport.lastApplied.equipment.find(function(item){return item.row===record.row;});
       var unit=imported&&result.equipment.find(function(item){return item.id===imported.equipmentId;});
-      var suggestion=suggest(unit),accepted=record.adjustments?.speedFactor;
+      var updated=(preview.layout||preview.source?.schemaVersion)==='plant-sheet-v2',packageCol=updated?'M':'K',pitchCol=updated?'N':'L',factorCol=updated?'S':'Q',suggestion=suggest(unit),accepted=record.adjustments?.speedFactor;
       if(!suggestion&&!accepted)return;
       var panel=document.createElement('section');panel.className='sheet-correction';panel.dataset.correctionRow=record.row;
       panel.appendChild(node('h4',(unit?.name||preview.equipment[record.index].name)+' · '+__ST_TEXT__('sheetimport.correction_title')));
       if(accepted){
-        panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_accepted'),{cell:'Q'+record.row,before:accepted.sourceValue,after:accepted.value})));
+        panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_accepted'),{cell:factorCol+record.row,before:accepted.sourceValue,after:accepted.value})));
         var undo=node('button',__ST_TEXT__('sheetimport.correction_undo'));undo.type='button';undo.className='ghost correction-undo';
         undo.onclick=function(){record.selected.speedFactor=accepted.selectedBefore;delete record.adjustments.speedFactor;changed(record.row);};panel.appendChild(undo);
       }else{
-        var values={K:'K'+record.row,L:'L'+record.row,Q:'Q'+record.row,length:number(suggestion.length),pitch:number(suggestion.pitch),factor:number(suggestion.factor),gap:number(suggestion.gap),proposed:number(suggestion.proposed)};
+        var values={K:packageCol+record.row,L:pitchCol+record.row,Q:factorCol+record.row,length:number(suggestion.length),pitch:number(suggestion.pitch),factor:number(suggestion.factor),gap:number(suggestion.gap),proposed:number(suggestion.proposed)};
         panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_calculation'),values)));
         panel.appendChild(node('p',__ST_TEXT__('sheetimport.correction_explanation')));
         panel.appendChild(node('p',text(__ST_TEXT__('sheetimport.correction_proposal'),values)));

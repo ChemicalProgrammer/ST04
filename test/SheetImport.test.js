@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {simulateLine} from '../src/simulation/LineSimulationEngine.js';
+import {resolveAccumulationZoneDefinition} from '../src/simulation/FormatGeometryAdapter.js';
 import {analyzeLinePerformance} from '../src/analysis/LinePerformanceAnalysis.js';
 function runtime(extra={}){
  const c={Date,Utilities:{formatDate:()=> '2026-09-16'},...extra};vm.createContext(c);
@@ -70,7 +71,7 @@ test('Sheet reader authenticates, checks case ownership, respects URL gid and se
  const tabs=[tab(0),tab(22)];const r=runtime({DriveApp:{getFileById:()=>({getMimeType:()=> 'application/vnd.google-apps.spreadsheet'})},SpreadsheetApp:{openById:id=>{reads.push(id);return {getSheets:()=>tabs,getSheetByName:()=>null,getSpreadsheetTimeZone:()=> 'Etc/UTC'};}}});
  let checked=false;r.requireCurrentUser_=()=>({email:'owner@test'});r.getCase_=(id,user)=>{assert.equal(id,'mine');assert.equal(user.email,'owner@test');checked=true;};
  const response=r.previewSheetImport({caseId:'mine',spreadsheet:'https://docs.google.com/spreadsheets/d/synthetic-sheet-id/edit#gid=22'});
- assert(checked);assert.equal(response.ok,true);assert.equal(response.data.source.sheetId,22);assert.equal(response.data.metadata.dateOfAnalysis,'2026-09-16');assert.deepEqual(ranges,[[1,3,7,1],[10,1,3,23]]);
+ assert(checked);assert.equal(response.ok,true);assert.equal(response.data.source.sheetId,22);assert.equal(response.data.metadata.dateOfAnalysis,'2026-09-16');assert.deepEqual(ranges,[[8,7,2,2],[1,3,7,1],[10,1,3,23]]);
  r.getCase_=()=>{throw Error('Denied');};assert.equal(r.previewSheetImport({caseId:'mine',spreadsheet:'synthetic-sheet-id'}).ok,false);assert.equal(reads.length,1);
  assert.throws(()=>r.parseSheetReference_('https://evil.test/synthetic-sheet-id'));
 });
@@ -139,4 +140,37 @@ test('Machine category recognizes worksheet names while preserving custom names 
  }
  f.rows[0][0]='Sleever';f.rows[0][1]='Filler/Capper';
  assert.equal(r.parseEquipmentSheet_(f.metadata,f.rows,f.formats).equipment[0].type,'SLEEVER');
+});
+
+function updatedFixture(){const f=fixture();f.rows=f.rows.map(row=>{row=row.slice();row.splice(6,0,'NA','NA');return row;});f.formats=f.formats.map(row=>{row=row.slice();row.splice(6,0,'0.00','0.00');return row;});f.rows[1][6]=29.93;f.rows[1][7]=28;return f;}
+test('updated G/H import converts conveyor m/min and preserves declared accumulation without shifting geometry or percentages',()=>{
+ const r=runtime(),f=updatedFixture();f.rows[1][18]=.1;f.formats[1][18]='0%';
+ const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');assert(out.canImport,JSON.stringify(out.errors));
+ const unit=out.equipment[1];assert.equal(unit.processData.accumulation.speedMode,'MANUAL');assert(Math.abs(unit.processData.accumulation.conveyorSpeedMmPerSecond-498.8333333333333)<1e-10);assert.equal(unit.processData.accumulation.declaredAccumulationSeconds,28);
+ assert.equal(unit.processData.geometry.lactMm,6000);assert.equal(unit.processData.geometry.lpPrimeMm,500);assert.equal(unit.processData.upstream.packageLengthMm,50);assert.equal(unit.processData.speedAndSensors.conveyorSpeedFactorVsDischargeVelocityPercent,10);
+ assert.equal(out.sourceRows[1].values.conveyorSpeedMPerMinute,29.93);assert.equal(out.columns[8][0],'I');assert.equal(out.columns[24][0],'Y');assert(out.notes.some(n=>n.includes('retained as a reference')));
+});
+test('updated format rejects invalid G/H values and reports shifted source cells',()=>{
+ const r=runtime(),f=updatedFixture();f.rows[1][6]=0;f.rows[1][7]=-1;f.rows[1][9]=7000;
+ const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');assert(!out.canImport);for(const cell of ['G11','H11','J11'])assert(out.errors.some(e=>e.cell===cell),cell);
+ assert.equal(r.detectSheetImportLayout_([['Conveyor\nSpeed (m/min)','Accumulation\n(s)'],['','']]),'plant-sheet-v2');assert.equal(r.detectSheetImportLayout_([['Total length','Prime'],['','']]),'plant-sheet-v1');assert.throws(()=>r.detectSheetImportLayout_([['Conveyor Speed (mm/s)','Accumulation (s)']]));
+});
+test('updated Sheet reader detects G/H headers and reads through Y',()=>{
+ const f=updatedFixture(),reads=[],sheet={getLastRow:()=>12,getMaxRows:()=>100,getMaxColumns:()=>26,getSheetId:()=>0,getName:()=> 'Equipment',getRange:(row,col,count,width)=>{reads.push([row,col,count,width]);return {getValues:()=>row===8?[['',''],['Conveyor Speed (m/min)','Accumulation (s)']]:row===1?f.metadata.map(v=>[v]):f.rows,getNumberFormats:()=>f.formats};}};
+ const r=runtime({SpreadsheetApp:{openById:()=>({getSheets:()=>[sheet]})}});r.getCase_=()=>({});
+ const out=r.previewSheetImport_({caseId:'mine',spreadsheet:'synthetic-sheet-id'},{email:'owner@test'});assert.equal(out.source.schemaVersion,'plant-sheet-v2');assert.equal(out.source.equipmentRange,'A10:Y12');assert(reads.some(v=>v[0]===10&&v[3]===25));assert.equal(out.equipment[1].processData.accumulation.declaredAccumulationSeconds,28);
+});
+test('selective updated import exposes G/H, switches an AUTO conveyor to its explicit belt speed and preserves the accumulation reference',()=>{
+ const r=runtime(),f=updatedFixture();r.window={};for(const file of ['TextResources.gs','SheetImportMerge.html'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8').replace(/<\/?script>/g,''),r);
+ const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');out.source={schemaVersion:'plant-sheet-v2',spreadsheetId:'same'};
+ const current=plain(out.equipment);current[1].processData.accumulation.speedMode='AUTO';current[1].processData.accumulation.targetPopulationPercent=50;current[1].processData.accumulation.declaredAccumulationSeconds=10;
+ const merge=r.window.STSheetImportMerge,plan=merge.create(out,current,{}),fields=merge.fieldsFor(out);assert.equal(fields.find(f=>f.id==='length').col,'I');assert.equal(fields.find(f=>f.id==='overspeed').col,'Y');assert(plan.records[1].selected.beltSpeed);assert(plan.records[1].selected.declaredAccumulation);
+ const result=merge.build(out,plan,current,{});assert.deepEqual(plain(result.errors),[]);assert.equal(result.equipment[1].processData.accumulation.speedMode,'MANUAL');assert.equal(result.equipment[1].processData.accumulation.declaredAccumulationSeconds,28);
+ assert.equal(merge.display(result.equipment[1].processData.accumulation.conveyorSpeedMmPerSecond,fields.find(f=>f.id==='beltSpeed')),'29.93');assert.equal(result.equipment[1].processData.accumulation.targetPopulationPercent,undefined);assert(Math.abs(resolveAccumulationZoneDefinition(plain(result.equipment),1).definition.conveyorSpeedMmPerSecond-498.8333333333333)<1e-10);
+});
+
+test('updated plant template reads equipment above a Total Time footer without treating shift summaries as equipment',()=>{
+ const f=updatedFixture(),footer=Array(25).fill('');footer[5]='Total Time';footer[7]=43200;const rows=f.rows.concat([Array(25).fill(''),footer]);
+ const sheet={getLastRow:()=>14,getMaxRows:()=>100,getMaxColumns:()=>26,getSheetId:()=>0,getName:()=> 'Equipment',getRange:(row)=>({getValues:()=>row===8?[['Conveyor Speed (m/min)','Accumulation (s)']]:row===1?f.metadata.map(v=>[v]):rows,getNumberFormats:()=>f.formats})};
+ const r=runtime({SpreadsheetApp:{openById:()=>({getSheets:()=>[sheet]})}});r.getCase_=()=>({});const out=r.previewSheetImport_({caseId:'mine',spreadsheet:'synthetic-sheet-id'},{});assert(out.canImport,JSON.stringify(out.errors));assert.equal(out.equipment.length,3);assert.equal(out.source.equipmentRange,'A10:Y13');
 });
