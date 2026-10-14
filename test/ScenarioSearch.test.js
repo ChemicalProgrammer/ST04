@@ -106,7 +106,7 @@ test('cancelled screening retains factors and restores controls',async()=>{
  const h=harness(true,'HIGH');try{
   const original=h.w.SimulatorEngine.simulateBatch;let release;
   h.w.SimulatorEngine.simulateBatch=async (input,options)=>{options.progress(.42);await new Promise(r=>release=r);return original(input);};
-  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,false);assert.equal(h.host.querySelector('.scenario-screening-activity').getAttribute('aria-valuenow'),'42');assert.match(h.host.querySelector('.scenario-factor-count').textContent,/42% of current simulation/);button.click();release?.();
+  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,false);assert.equal(h.host.querySelector('.scenario-screening-activity').getAttribute('aria-valuenow'),'42');assert.equal(h.host.querySelector('.scenario-suggestion-percent').textContent,'42%');assert(h.host.querySelector('.dialog-heading > .request-progress')); button.click();release?.();
   for(let i=0;i<100&&button.textContent!=='Suggest factor combination';i++)await new Promise(r=>setTimeout(r,5));
   assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,true);
  }finally{h.dom.window.close();}
@@ -275,7 +275,7 @@ test('configuration separates conveyor inputs while preserving controls and DOE 
   const beltUse=panels[2].querySelector('.scenario-conveyor-use-all');beltUse.checked=true;beltUse.onchange();assert.equal(h.host.querySelector('.scenario-advanced-store tbody input[type=checkbox]').checked,false);assert.equal(panels[2].querySelector('tbody input[type=checkbox]').checked,true);
   const beltDOE=panels[2].querySelector('.scenario-conveyor-doe-all');beltDOE.checked=true;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,true);beltDOE.checked=false;beltDOE.onchange();assert.equal(panels[2].querySelector('.scenario-doe-select').checked,false);
   const toggle=panels[0].querySelector('.scenario-doe-enabled');toggle.checked=false;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,true);toggle.checked=true;toggle.onchange();assert.equal(panels[2].querySelector('.scenario-factor-count').hidden,false);
-  assert.equal(panels[2].querySelector('.scenario-doe-suggest').previousElementSibling.className,'scenario-factor-count');
+  assert.equal(panels[2].querySelector('.scenario-doe-suggest').nextElementSibling.className,'scenario-factor-count');assert.equal(panels[2].querySelector('.scenario-factor-count').nextElementSibling.className,'scenario-suggestion-percent');
   assert.equal(h.host.querySelector('.scenario-reliability-source'),null);assert.doesNotMatch(panels[1].textContent,/Source \/ basis/);
 
  }finally{h.dom.window.close();}
@@ -302,5 +302,16 @@ test('compact configuration places DOE actions in conveyors and keeps search cho
   assert(panels[1].querySelector('.scenario-reliability-intro .scenario-explore-reliability'));assert(panels[1].querySelector('.scenario-reliability-heading .scenario-reliability-count'));
   assert.equal(panels[1].querySelector('.scenario-edit-details'),null);
   h.host.querySelector('.scenario-configure').click();assert.equal(panels[1].querySelector('.scenario-edit-details'),null);
+ }finally{h.dom.window.close();}
+});
+
+test('manual DOE retains nonfactor changes from a review candidate when no unflagged winner exists',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.replaceChildren();h.sim.equipment[0].mttr=10;h.w.STScenarios.fields.mttr=[1,100,'min'];
+  const apply=h.w.STScenarios.apply;h.w.STScenarios.apply=(s,c)=>{const value=apply(s,c);value.scenarioWarnings=[{equipmentId:'e',rule:'REVIEW',before:0,after:1}];return value;};
+  const simulate=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const response=await simulate(input),gain=input.case.equipment[0].mttr-10;response.result.batch.statistics.lineOeePercent.mean+=gain;response.result.batch.statistics.throughputPerMinute.mean+=gain;response.result.batch.rows.forEach(row=>{row.summary.lineOeePercent+=gain;row.summary.outputCount+=gain*input.run.durationSeconds/60;});return response;};
+  h.w.STScenarioExplorer.attach(h.host,{...h.project,changes:[...h.project.changes,{equipmentId:'e',path:'mttr',before:10,after:20,unit:'min'}]},()=>{},h.sim);
+  [...h.host.querySelectorAll('.scenario-doe-select')].slice(0,2).forEach(c=>{c.checked=true;c.onchange();});
+  const result=await search(h);assert(result.doe.fixedChanges.some(c=>c.path==='mttr'&&c.after===20));assert.equal(result.doe.observations.length,4);assert(result.warnings.length);
  }finally{h.dom.window.close();}
 });
