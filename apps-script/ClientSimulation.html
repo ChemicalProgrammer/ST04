@@ -259,6 +259,7 @@
           throw new Error(__ST_TEXT__('scenario.stale'));
         }
         var engineeringWarnings=proposal.evidence?.engineeringWarnings||[],confirmation=__ST_TEXT__('scenario.confirm');
+        if(proposal.analysisOnly)confirmation+='\n\nThese MTBF / MTTR values are exploratory model targets. Attainable intervention, costs and CAPEX classification are not established. The saved simulation will remain unclassified and require feasibility review.';
         if(proposal.evidence?.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION')confirmation+='\n\nIndependent confirmation did not reproduce the initial gain. This scenario is an unvalidated hypothesis. Run it again and compare results before treating it as an improvement.';
         if(engineeringWarnings.length)confirmation+='\n\nEngineering review required. The simulated improvement does not resolve these warnings. The new scenario will remain marked for review:\n'+engineeringWarnings.map(function(w){return (source.equipment.find(function(e){return e.id===w.equipmentId;})?.name||w.equipmentId)+' · '+w.rule+': '+w.before+' → '+w.after;}).join('\n');
         var review=await STDialog.open({

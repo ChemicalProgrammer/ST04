@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import {searchReliabilityTargets} from '../src/analysis/ReliabilityTargetSearch.js';
+import {applyScenarioChanges} from '../src/analysis/ScenarioPlanner.js';
+import {simulateBatch} from '../src/simulation/SimulationBatch.js';
+const simulation=JSON.parse(fs.readFileSync('test/fixtures/demo-b-case.json','utf8')).simulations[0];
+const run={...simulation.dynamicConfig,durationSeconds:900,rounds:3};
+async function measure(model,changes,r){const candidate=changes.length?applyScenarioChanges(model,changes):model;const response=await simulateBatch({case:{id:model.id,unitOfFlow:'units',equipment:candidate.equipment},run:r},{summaryOnly:true,yieldControl:()=>Promise.resolve()});if(!response.ok)throw Error(JSON.stringify(response.error));const stats=response.result.batch.statistics;const overflow=stats.totalOverflowUnits?.mean||0;return {oee:stats.lineOeePercent.mean,throughput:stats.throughputPerMinute.mean,overflowUnits:overflow,warnings:[...(candidate.scenarioWarnings||[]),...(overflow>1e-6?[{rule:'SIMULATED_OVERFLOW',after:overflow}]:[])],roundMetrics:response.result.batch.rows.map(row=>({seed:row.seed,oee:row.summary.lineOeePercent,throughput:row.summary.outputCount/r.durationSeconds*60}))};}
+let lastProgress=-1;const discovery=await searchReliabilityTargets(simulation,{run,measure,progress(info){if(info.calculations%5===0&&info.calculations!==lastProgress){lastProgress=info.calculations;console.log(JSON.stringify(info));}}});
+console.log(JSON.stringify({status:discovery.status,baseline:discovery.baseline.oee,failureFree:discovery.failureFree.oee,ranking:discovery.ranking.map(r=>({name:r.name,gain:r.deltaOeePp})),targets:discovery.selectedChanges}));
+const validationRun={...run,durationSeconds:28800,seed:run.seed+1000003,rounds:3},baseline=await measure(simulation,[],validationRun),candidate=await measure(simulation,discovery.selectedChanges,validationRun),failureFree=await measure(simulation,[],{...validationRun,reliabilityEnabled:false});
+const passed=candidate.throughput>baseline.throughput+Math.max(.001,baseline.throughput*.001)&&candidate.oee>=baseline.oee-1e-9;
+const report={modelVersion:'0.13.0',analysisOnly:true,classification:'UNASSIGNED',discovery,confirmation:{run:validationRun,baseline,candidate,failureFree,conditionalReliabilityLossPp:failureFree.oee-baseline.oee,passed},interpretation:'Bounded exploratory targets, three-round screening and independent three-round eight-hour confirmation. No supplier, maintenance or economic feasibility claim. Not a global optimum.'};
+fs.writeFileSync('docs/demo-b-reliability-target-results.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report.confirmation));

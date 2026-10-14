@@ -26,7 +26,7 @@ function createScenario_(request,user) {
     copy.id=generateSimulationId_(record.simulations.length)+'-'+Utilities.getUuid().slice(0,8);
     copy.name=proposal.title.slice(0,120);copy.clonedFromSimulationId=source.id;copy.results=null;copy.geminiHistory=[];delete copy.whatIf;
     copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
-    copy.scenario={kind:proposal.kind,title:proposal.title,capex:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,validation:proposal.evidence.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION'?'NOT_REPRODUCED_REQUIRES_VALIDATION':copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
+    copy.scenario={analysisOnly:proposal.analysisOnly,classification:proposal.analysisOnly?'UNASSIGNED':'INTERVENTION_SCOPE',kind:proposal.kind,title:proposal.title,capex:proposal.analysisOnly?null:proposal.tier,evidenceBasis:proposal.basis,sourceSimulationId:source.id,sourceSimulationName:source.name,sourceSignature:sourceSignature,changes:proposal.changes,evidence:proposal.evidence,origin:request.origin,plantValidated:false,validation:proposal.analysisOnly?'EXPLORATORY_TARGETS_REQUIRE_FEASIBILITY_REVIEW':proposal.evidence.engineeringReview?'ENGINEERING_REVIEW_REQUIRED':proposal.evidence.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION'?'NOT_REPRODUCED_REQUIRES_VALIDATION':copy.scenarioWarnings?.length?'ENGINEERING_REVIEW_REQUIRED':'INPUTS_VALIDATED_NOT_SIMULATED',engineeringWarnings:copy.scenarioWarnings||[],createdAt:copy.createdAt};
     record.simulations.push(copy);record.revision++;record.updatedAt=copy.createdAt;
     owned.file=persistCaseRecord_(record,owned);if(typeof updateCaseIndex_==='function')updateCaseIndex_(record,owned.file,user);return {case:record,simulationId:copy.id};
   });
@@ -53,8 +53,9 @@ function normalizeScenarioProposal_(proposal,source) {
   if(!title)throw createSimulatorError_('INVALID_SCENARIO','A scenario title is required.');
   // Field allowlist, value bounds, expected before values, topology and audits are shared with the browser.
   try{STScenarioEngine_.apply(source,proposal.changes);}catch(error){throw createSimulatorError_('INVALID_SCENARIO','The scenario contains an invalid or stale change.',[String(error.message)]);}
-  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,...(c.replacementMaximumBpm!==undefined?{replacementMaximumBpm:c.replacementMaximumBpm}:{}),...(c.originTier?{originTier:c.originTier}:{}),unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,...(typeof c.justification==='string'?{justification:c.justification.slice(0,600),interventionType:c.interventionType,costClass:STScenarioEngine_.interventions[c.interventionType]?.costClass}:{})}:{})};});
-  if(proposal.changes.some(function(c){return !STScenarioEngine_.categoryAllows(c,c.originTier||proposal.tier)||c.originTier&&(['ZERO','MEDIUM','HIGH'].indexOf(c.originTier)>['ZERO','MEDIUM','HIGH'].indexOf(proposal.tier));}))throw createSimulatorError_('INVALID_SCENARIO','Intervention scope does not match CAPEX category, or exploratory sensitivity was submitted as a target.');
+  var exploratory=proposal.analysisOnly===true;if(exploratory&&!proposal.changes.some(c=>c.analysisOnly===true))throw createSimulatorError_('INVALID_SCENARIO','An exploratory scenario requires explicit exploratory changes.');
+  var changes=proposal.changes.map(function(c){return {equipmentId:c.equipmentId,path:c.path,before:c.before,after:c.after,...(c.analysisOnly===true?{analysisOnly:true}:{}),...(c.replacementMaximumBpm!==undefined?{replacementMaximumBpm:c.replacementMaximumBpm}:{}),...(c.originTier?{originTier:c.originTier}:{}),unit:STScenarioEngine_.fields[c.path][2],...(c.external===true?{external:true,...(typeof c.justification==='string'?{justification:c.justification.slice(0,600),interventionType:c.interventionType,costClass:STScenarioEngine_.interventions[c.interventionType]?.costClass}:{})}:{})};});
+  if(proposal.changes.some(function(c){return !(exploratory&&c.analysisOnly===true&&c.interventionType==='SENSITIVITY'&&c.path.startsWith('noiseProfile.reliability.')||STScenarioEngine_.categoryAllows(c,c.originTier||proposal.tier))||c.originTier&&(['ZERO','MEDIUM','HIGH'].indexOf(c.originTier)>['ZERO','MEDIUM','HIGH'].indexOf(proposal.tier));}))throw createSimulatorError_('INVALID_SCENARIO','Intervention scope does not match CAPEX category, or exploratory sensitivity was submitted as a target.');
   var evidence={};
   if(proposal.evidence&&typeof proposal.evidence==='object'&&!Array.isArray(proposal.evidence))Object.keys(proposal.evidence).slice(0,12).forEach(function(key){
     if(!/^[a-zA-Z][a-zA-Z0-9]{0,60}$/.test(key)||['constructor','prototype'].includes(key))return;
@@ -62,6 +63,6 @@ function normalizeScenarioProposal_(proposal,source) {
   });
   // Keep the conservative draft classification even if generic evidence hit its key budget.
   if(proposal.evidence?.independentValidation==='NOT_REPRODUCED_REQUIRES_VALIDATION')evidence.independentValidation='NOT_REPRODUCED_REQUIRES_VALIDATION';
-  return {title:title,kind:typeof proposal.kind==='string'?proposal.kind.slice(0,60):'CUSTOM',tier:proposal.tier,basis:proposal.basis,changes:changes,evidence:evidence};
+  return {analysisOnly:exploratory,title:title,kind:typeof proposal.kind==='string'?proposal.kind.slice(0,60):'CUSTOM',tier:proposal.tier,basis:proposal.basis,changes:changes,evidence:evidence};
 }
 

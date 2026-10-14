@@ -174,3 +174,23 @@ test('overflow appearing only in independent confirmation requires review instea
   const result=await search(h);assert.equal(result.status,'ENGINEERING_REVIEW_REQUIRED');assert(result.warnings.some(w=>w.rule==='SIMULATED_OVERFLOW'&&w.after===120));assert.match(h.host.querySelector('.scenario-create').title,/review/);
  }finally{h.dom.window.close();}
 });
+
+test('High runs automatic reliability discovery before flow search and retains exploratory labeling and matched comparison',async()=>{
+ const h=harness(false,'HIGH');try{
+  const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const response=await original(input),gain=(10-(input.case.equipment[0]['noiseProfile.reliability.mttrMinutes']??10))*3;for(const row of response.result.batch.rows){row.summary.lineOeePercent+=gain/10;row.summary.outputCount+=gain*input.run.durationSeconds/60;}response.result.batch.statistics.lineOeePercent.mean+=gain/10;response.result.batch.statistics.throughputPerMinute.mean+=gain;return response;};
+  let discoveryCalls=0;h.w.STScenarioSearch.reliabilityTargets=async(source,options)=>{discoveryCalls++;const baseline=await options.measure(source,[],options.run),c={equipmentId:'e',path:'noiseProfile.reliability.mttrMinutes',before:10,after:5,unit:'min',external:true,analysisOnly:true,interventionType:'SENSITIVITY',justification:'Model target'};return {calculations:1,coverage:{screened:1},selectedChanges:[c],candidateSets:[{changes:[c]}],baseline,status:'EXPLORATORY_TARGETS_FOUND'};};
+  const result=await search(h);assert.equal(discoveryCalls,1);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.analysisOnly);assert(result.evaluatedChanges.some(c=>c.analysisOnly));assert(result.reliabilityTargetSearch);assert.match(h.host.textContent,/Matched baseline/);assert.match(h.host.querySelector('.scenario-create').title,/exploratory/);
+ }finally{h.dom.window.close();}
+});
+test('no improvement retains the baseline and does not display an inferior best CAPEX candidate',async()=>{
+ const h=harness(false,'HIGH');try{const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=input=>original({...input,case:{...input.case,equipment:[{id:'e',speed:10,sensor:10}]}});const result=await search(h);assert.equal(result.status,'NO_DEMONSTRATED_IMPROVEMENT');assert.equal(result.candidate,null);assert.match(h.host.textContent,/Baseline retained/);assert.equal(h.host.querySelector('.scenario-basic-metric'),null);}finally{h.dom.window.close();}
+});
+
+test('unselected flow DOE factors are screened after reliability targets and ANOVA holds those targets fixed',async()=>{
+ const h=harness(true,'HIGH');try{
+  h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
+  const original=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async input=>{const response=await original(input),gain=(10-(input.case.equipment[0]['noiseProfile.reliability.mttrMinutes']??10))*3;for(const row of response.result.batch.rows){row.summary.lineOeePercent+=gain/10;row.summary.outputCount+=gain*input.run.durationSeconds/60;}response.result.batch.statistics.lineOeePercent.mean+=gain/10;response.result.batch.statistics.throughputPerMinute.mean+=gain;return response;};
+  h.w.STScenarioSearch.reliabilityTargets=async(source,options)=>{const baseline=await options.measure(source,[],options.run),c={equipmentId:'e',path:'noiseProfile.reliability.mttrMinutes',before:10,after:5,unit:'min',external:true,analysisOnly:true,interventionType:'SENSITIVITY',justification:'Model target'};return {calculations:1,coverage:{screened:1},selectedChanges:[c],candidateSets:[{changes:[c]}],baseline,status:'EXPLORATORY_TARGETS_FOUND'};};
+  const result=await search(h);assert.equal(result.status,'IMPROVEMENT_REPRODUCED',result.message);assert(result.conditionalFlowDOE);assert.equal(result.conditionalFlowDOE.run.rounds,6);assert.equal(result.conditionalFlowDOE.selectedFactors.length,2);assert(result.doe.analysis.complete);assert(result.doe.anova.complete);assert(result.doe.fixedChanges.some(c=>c.analysisOnly));assert(result.reliabilityCounterfactual);
+ }finally{h.dom.window.close();}
+});

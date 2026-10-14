@@ -38,3 +38,9 @@ test('proposal generator identifies missing capacity/reliability targets instead
  s.whatIf={externalOptions:[{tier:'HIGH',changes:[replacement(s)]}]};assert(!planScenarios(s).proposalNeeds.some(n=>n.equipmentId===s.equipment[4].id&&n.kind==='CAPACITY_TARGET_REQUIRED'));
  s.whatIf.externalOptions[0].changes[0].justification='';assert(planScenarios(s).proposalNeeds.some(n=>n.equipmentId===s.equipment[4].id&&n.kind==='CAPACITY_TARGET_REQUIRED'));
 });
+
+test('Results uses the matched validation block to separate conditional reliability loss from capacity and residual',()=>{
+ const s=fixture(),dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+ w.SimulatorEngine={diagnoseLineEfficiency};w.STScenarios={signature:()=> 'current'};s.whatIf={evaluations:[{sourceSignature:'current',reliabilityCounterfactual:{run:{durationSeconds:28800,rounds:3,seed:31},baseline:{oee:39.2},failureFree:{oee:92.4},deltaOeePp:53.2}}]};
+ w.eval(fs.readFileSync('apps-script/Results.html','utf8').match(/<script>([\s\S]*)<\/script>/)[1]);try{w.STResults.renderEfficiency(w.document.querySelector('main'),s.equipment,{durationSeconds:28800,summary:{lineOeePercent:39.2}},s);assert.match(w.document.body.textContent,/Matched reliability counterfactual balance/);assert.match(w.document.body.textContent,/53.2/);assert.match(w.document.body.textContent,/seed 31/);assert.match(w.document.body.textContent,/totals 100 pp/);}finally{w.close();}
+});

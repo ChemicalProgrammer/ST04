@@ -8,7 +8,7 @@ window.STResults=(function(){
     [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow)+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow),false],
     [__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
-  function renderEfficiency(target,equipment,result){
+  function renderEfficiency(target,equipment,result,simulation){
     target.replaceChildren();
     var d=SimulatorEngine.diagnoseLineEfficiency(equipment,result);
     function add(tag,text,parent){var node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
@@ -19,6 +19,8 @@ window.STResults=(function(){
     var entries=[['Achieved efficiency',d.achievedPercent,result?.batch?'Mean of '+d.rounds+' rounds':'Completed simulation'],['Nominal machine-speed gap',d.capacityGapPp,'100 − nominal speed ceiling'],['Remaining loss below the ceiling',d.residualLossPp,'Ceiling − achieved; includes flow, startup, stops and other modeled losses']];
     entries.forEach(values=>{var row=document.createElement('tr');add('th',values[0],row);add('td',number(values[1],2),row);add('td',values[2],row);table.append(row);});target.append(table);
     add('p',d.accountingAvailable?'These three values total 100 percentage points. The speed gap is a theoretical capacity limit, not time lost by one machine.':'Complete a matching current-engine simulation to calculate the residual. The speed ceiling is a design bound, not a prediction.');
+    var counter=(simulation?.whatIf?.evaluations||[]).filter(e=>e.sourceSignature===window.STScenarios?.signature(simulation)&&e.reliabilityCounterfactual).slice(-1)[0]?.reliabilityCounterfactual;
+    if(counter&&Number.isFinite(d.capacityGapPp)){add('h4','Matched reliability counterfactual balance');add('p',(counter.run.durationSeconds/3600).toFixed(2)+' hours × '+counter.run.rounds+' rounds · seed '+counter.run.seed+'. All rows use this validation block. The reliability difference includes propagated flow effects.');var balance=document.createElement('table');[['Component','Efficiency / loss (pp)'],['Matched baseline efficiency',counter.baseline.oee],['Conditional MTBF / MTTR loss',counter.deltaOeePp],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',100-d.capacityGapPp-counter.failureFree.oee]].forEach((values,index)=>{var row=document.createElement('tr');add(index?'th':'th',values[0],row);add(index?'td':'th',index?number(values[1],2):values[1],row);balance.append(row);});target.append(balance);add('p','This ordered counterfactual balance totals 100 pp. Individual-equipment gains cannot be added to it.');}
     if(!result)return;
     var detail=document.createElement('details');add('summary','Observed time by equipment — not additive OEE losses',detail);add('p','Percent of simulated duration. Blocking and starvation can occur in several machines at once and can propagate from another machine. Prime and Back-up may overlap other states. These percentages do not identify root causes or sum to the global loss.',detail);
     var times=document.createElement('table'),h=document.createElement('tr');['Equipment','Observed state','Time (%)'].forEach(t=>add('th',t,h));times.append(h);
@@ -32,7 +34,7 @@ window.STResults=(function(){
 
     document.getElementById('results-empty').classList.toggle('hidden',ready||designReady);document.getElementById('results-body').classList.toggle('hidden',!ready&&!designReady);document.getElementById('results-body').classList.toggle('results-design-only',!ready);
     STReports.bindResults(ready?result:null,activeCase,simulation);
-    renderEfficiency(document.getElementById('results-loss-breakdown'),simulation?.equipment||activeCase?.equipment||[],ready?result:null);
+    renderEfficiency(document.getElementById('results-loss-breakdown'),simulation?.equipment||activeCase?.equipment||[],ready?result:null,simulation);
     if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
     if(result.batch)document.getElementById('results-meta').textContent+=' · '+__ST_TEXT__('batch.representative');

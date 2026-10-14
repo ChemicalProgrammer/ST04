@@ -1,0 +1,3065 @@
+{
+  "modelVersion": "0.13.0",
+  "analysisOnly": true,
+  "classification": "UNASSIGNED",
+  "discovery": {
+    "status": "TARGETS_REQUIRE_ENGINEERING_REVIEW",
+    "analysisOnly": true,
+    "classification": "UNASSIGNED",
+    "run": {
+      "durationMode": "FIXED",
+      "durationSeconds": 900,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 20261013,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "baseline": {
+      "oee": 27.324485999999997,
+      "throughput": 52.73625833333333,
+      "overflowUnits": 3.776362666666666,
+      "warnings": [
+        {
+          "rule": "SIMULATED_OVERFLOW",
+          "after": 3.776362666666666
+        }
+      ],
+      "roundMetrics": [
+        {
+          "seed": 20261013,
+          "oee": 25.071925,
+          "throughput": 48.38881533333333
+        },
+        {
+          "seed": 20261014,
+          "oee": 28.459625,
+          "throughput": 54.92707646666667
+        },
+        {
+          "seed": 20261015,
+          "oee": 28.441908,
+          "throughput": 54.8928832
+        }
+      ]
+    },
+    "failureFree": {
+      "oee": 65.426407,
+      "throughput": 126.27296566666666,
+      "overflowUnits": 0,
+      "warnings": [],
+      "roundMetrics": [
+        {
+          "seed": 20261013,
+          "oee": 65.426407,
+          "throughput": 126.27296566666666
+        },
+        {
+          "seed": 20261014,
+          "oee": 65.426407,
+          "throughput": 126.27296566666666
+        },
+        {
+          "seed": 20261015,
+          "oee": 65.426407,
+          "throughput": 126.27296566666666
+        }
+      ]
+    },
+    "conditionalReliabilityGain": {
+      "throughput": 73.53670733333334,
+      "oeePp": 38.101921000000004
+    },
+    "coverage": {
+      "screened": 7,
+      "total": 7
+    },
+    "ranking": [
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "candidate": {
+          "oee": 33.51098966666667,
+          "throughput": 64.67621042222221,
+          "overflowUnits": 2.224636333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.224636333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 34.461527,
+              "throughput": 66.51074806666666
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 32.768333,
+              "throughput": 63.2428832
+            }
+          ]
+        },
+        "deltaThroughput": 11.93995208888888,
+        "deltaOeePp": 6.18650366666667
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "candidate": {
+          "oee": 31.180004,
+          "throughput": 60.17740797777777,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 7.441149644444437,
+        "deltaOeePp": 3.8555180000000036
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "candidate": {
+          "oee": 30.905134,
+          "throughput": 59.64690862222221,
+          "overflowUnits": 5.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 5.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 36.018488,
+              "throughput": 69.51568179999998
+            }
+          ]
+        },
+        "deltaThroughput": 6.910650288888881,
+        "deltaOeePp": 3.5806480000000036
+      },
+      {
+        "equipmentId": "sheet-row-20",
+        "name": "Case Packer",
+        "candidate": {
+          "oee": 29.752582666666665,
+          "throughput": 57.422484644444445,
+          "overflowUnits": 4.7763626666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.7763626666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 28.559979,
+              "throughput": 55.1207598
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.459625,
+              "throughput": 54.92707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 32.238144,
+              "throughput": 62.21961766666667
+            }
+          ]
+        },
+        "deltaThroughput": 4.686226311111113,
+        "deltaOeePp": 2.4280966666666686
+      },
+      {
+        "equipmentId": "sheet-row-10",
+        "name": "Blowmolder",
+        "candidate": {
+          "oee": 27.324485999999997,
+          "throughput": 52.73625833333333,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.459625,
+              "throughput": 54.92707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0,
+        "deltaOeePp": 0
+      },
+      {
+        "equipmentId": "sheet-row-12",
+        "name": "Pucker",
+        "candidate": {
+          "oee": 27.324485999999997,
+          "throughput": 52.73625833333333,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.459625,
+              "throughput": 54.92707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0,
+        "deltaOeePp": 0
+      },
+      {
+        "equipmentId": "sheet-row-22",
+        "name": "Palletizer",
+        "candidate": {
+          "oee": 27.324485999999997,
+          "throughput": 52.73625833333333,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.459625,
+              "throughput": 54.92707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0,
+        "deltaOeePp": 0
+      }
+    ],
+    "targetTests": [
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 6.25,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 26.74917166666667,
+          "throughput": 51.625901311111114,
+          "overflowUnits": 4.680529333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.680529333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 28.858927,
+              "throughput": 55.697729200000005
+            },
+            {
+              "seed": 20261014,
+              "oee": 27.318653,
+              "throughput": 52.725
+            },
+            {
+              "seed": 20261015,
+              "oee": 24.069935,
+              "throughput": 46.45497473333334
+            }
+          ]
+        },
+        "deltaThroughput": -1.1103570222222174,
+        "deltaOeePp": -0.5753143333333277,
+        "effort": 0.22314355131420976
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 7.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 26.947271666666666,
+          "throughput": 52.008234244444445,
+          "overflowUnits": 3.703803,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.703803
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 27.302968,
+              "throughput": 52.694728000000005
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.873057,
+              "throughput": 55.724999999999994
+            },
+            {
+              "seed": 20261015,
+              "oee": 24.66579,
+              "throughput": 47.604974733333336
+            }
+          ]
+        },
+        "deltaThroughput": -0.7280240888888869,
+        "deltaOeePp": -0.3772143333333311,
+        "effort": 0.4054651081081644
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.613469666666663,
+          "throughput": 55.22399622222222,
+          "overflowUnits": 4.040615333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.040615333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 23.494143,
+              "throughput": 45.34369566666667
+            },
+            {
+              "seed": 20261014,
+              "oee": 29.577933,
+              "throughput": 57.0854098
+            },
+            {
+              "seed": 20261015,
+              "oee": 32.768333,
+              "throughput": 63.2428832
+            }
+          ]
+        },
+        "deltaThroughput": 2.487737888888887,
+        "deltaOeePp": 1.2889836666666667,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.981243333333335,
+          "throughput": 55.9337998,
+          "overflowUnits": 2.626025333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.626025333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 22.324283,
+              "throughput": 43.0858664
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 31.316338,
+              "throughput": 60.440532999999995
+            }
+          ]
+        },
+        "deltaThroughput": 3.197541466666671,
+        "deltaOeePp": 1.6567573333333385,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.595330333333333,
+          "throughput": 53.25898744444444,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 21.040974,
+              "throughput": 40.60907913333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0.5227291111111114,
+        "deltaOeePp": 0.27084433333333635,
+        "effort": 0.2231435513142097
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.555393666666664,
+          "throughput": 53.18191008888889,
+          "overflowUnits": 2.776362666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.776362666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 20.921164,
+              "throughput": 40.37784706666667
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0.44565175555555925,
+        "deltaOeePp": 0.23090766666666696,
+        "effort": 0.40546510810816444
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 26.96632166666667,
+          "throughput": 52.045000955555565,
+          "overflowUnits": 2.8569183333333332,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.8569183333333332
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 18.041176,
+              "throughput": 34.81946986666667
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 29.55468,
+              "throughput": 57.040532999999996
+            }
+          ]
+        },
+        "deltaThroughput": -0.6912573777777666,
+        "deltaOeePp": -0.35816433333332753,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 30.68755733333333,
+          "throughput": 59.22698508888889,
+          "overflowUnits": 3.735747333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.735747333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 29.092088,
+              "throughput": 56.147729
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 29.667475,
+              "throughput": 57.25822626666667
+            }
+          ]
+        },
+        "deltaThroughput": 6.490726755555556,
+        "deltaOeePp": 3.363071333333334,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 6.25,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.382009999999998,
+          "throughput": 54.77727895555555,
+          "overflowUnits": 4.764200333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.764200333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 28.46488,
+              "throughput": 54.937219199999994
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.329016,
+              "throughput": 54.675
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.352134,
+              "throughput": 54.71961766666667
+            }
+          ]
+        },
+        "deltaThroughput": 2.04102062222222,
+        "deltaOeePp": 1.0575240000000008,
+        "effort": 0.4462871026284195
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 7.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 30.67885366666667,
+          "throughput": 59.2101869111111,
+          "overflowUnits": 4.4069183333333335,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.4069183333333335
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 30.979052,
+              "throughput": 59.7895694
+            },
+            {
+              "seed": 20261014,
+              "oee": 30.945596,
+              "throughput": 59.724999999999994
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.111913,
+              "throughput": 58.11599133333333
+            }
+          ]
+        },
+        "deltaThroughput": 6.4739285777777695,
+        "deltaOeePp": 3.354367666666672,
+        "effort": 0.8109302162163288
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 31.984236666666664,
+          "throughput": 61.72957666666667,
+          "overflowUnits": 4.040615333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.040615333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 30.821272,
+              "throughput": 59.485054399999996
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 31.828329,
+              "throughput": 61.4286756
+            }
+          ]
+        },
+        "deltaThroughput": 8.993318333333335,
+        "deltaOeePp": 4.6597506666666675,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "name": "De-Pucker",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 32.670684333333334,
+          "throughput": 63.054420666666665,
+          "overflowUnits": 3,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 33.392606,
+              "throughput": 64.44772900000001
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 31.316338,
+              "throughput": 60.440532999999995
+            }
+          ]
+        },
+        "deltaThroughput": 10.318162333333333,
+        "deltaOeePp": 5.346198333333337,
+        "effort": 2.772588722239781
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 6.25,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.345534,
+          "throughput": 54.706880955555555,
+          "overflowUnits": 4.328439,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.328439
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 20.04682,
+              "throughput": 38.69036306666666
+            },
+            {
+              "seed": 20261014,
+              "oee": 37.739964,
+              "throughput": 72.83813033333332
+            },
+            {
+              "seed": 20261015,
+              "oee": 27.249818,
+              "throughput": 52.59214946666667
+            }
+          ]
+        },
+        "deltaThroughput": 1.9706226222222227,
+        "deltaOeePp": 1.021048000000004,
+        "effort": 0.22314355131420976
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 7.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 24.120167,
+          "throughput": 46.55192233333333,
+          "overflowUnits": 2.776362666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.776362666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 14.295121,
+              "throughput": 27.589583333333334
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 19.662555,
+              "throughput": 37.9487316
+            }
+          ]
+        },
+        "deltaThroughput": -6.184336000000002,
+        "deltaOeePp": -3.204318999999998,
+        "effort": 0.4054651081081644
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.060815333333334,
+          "throughput": 54.15737364444444,
+          "overflowUnits": 2.776362666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.776362666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 15.714359,
+              "throughput": 30.32871233333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 1.4211153111111088,
+        "deltaOeePp": 0.7363293333333374,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.047005666666667,
+          "throughput": 56.06072155555555,
+          "overflowUnits": 3.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 32.00383,
+              "throughput": 61.7673928
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 3.324463222222221,
+        "deltaOeePp": 1.7225196666666704,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.457618,
+          "throughput": 52.99320277777778,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.859021,
+              "throughput": 55.697909800000005
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.441908,
+              "throughput": 54.8928832
+            }
+          ]
+        },
+        "deltaThroughput": 0.25694444444444997,
+        "deltaOeePp": 0.13313200000000336,
+        "effort": 0.2231435513142097
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.155531666666665,
+          "throughput": 54.340176155555554,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 30.563108,
+              "throughput": 58.986798666666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 28.831562,
+              "throughput": 55.64491446666667
+            }
+          ]
+        },
+        "deltaThroughput": 1.603917822222222,
+        "deltaOeePp": 0.8310456666666681,
+        "effort": 0.40546510810816444
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.276801666666668,
+          "throughput": 56.50422722222223,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 32.693218,
+              "throughput": 63.097909800000004
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 3.7679688888888947,
+        "deltaOeePp": 1.9523156666666708,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 30.469008000000002,
+          "throughput": 58.805185755555556,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 24.545155,
+              "throughput": 47.37214866666666
+            },
+            {
+              "seed": 20261014,
+              "oee": 36.796607,
+              "throughput": 71.01745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 6.068927422222224,
+        "deltaOeePp": 3.1445220000000056,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 6.25,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.728668666666668,
+          "throughput": 57.376330222222215,
+          "overflowUnits": 4.7763626666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.7763626666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 22.533867,
+              "throughput": 43.490363066666674
+            },
+            {
+              "seed": 20261014,
+              "oee": 36.865692,
+              "throughput": 71.15078539999999
+            },
+            {
+              "seed": 20261015,
+              "oee": 29.786447,
+              "throughput": 57.4878422
+            }
+          ]
+        },
+        "deltaThroughput": 4.640071888888883,
+        "deltaOeePp": 2.404182666666671,
+        "effort": 0.4462871026284195
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 7.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 26.94884066666667,
+          "throughput": 52.01126244444444,
+          "overflowUnits": 2.776362666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.776362666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 18.520923,
+              "throughput": 35.745381466666664
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 23.922774,
+              "throughput": 46.1709538
+            }
+          ]
+        },
+        "deltaThroughput": -0.7249958888888912,
+        "deltaOeePp": -0.3756453333333276,
+        "effort": 0.8109302162163288
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.294503666666667,
+          "throughput": 56.538392155555556,
+          "overflowUnits": 2.776362666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.776362666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 19.415424,
+              "throughput": 37.47176786666667
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 3.802133822222224,
+        "deltaOeePp": 1.9700176666666707,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "name": "Sleever",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 31.180004,
+          "throughput": 60.17740797777777,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 7.441149644444437,
+        "deltaOeePp": 3.8555180000000036,
+        "effort": 2.772588722239781
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 12.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 25.64054833333333,
+          "throughput": 49.48625833333333,
+          "overflowUnits": 3.5319183333333335,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.5319183333333335
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 28.045117,
+              "throughput": 54.127076466666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 23.804603,
+              "throughput": 45.9428832
+            }
+          ]
+        },
+        "deltaThroughput": -3.25,
+        "deltaOeePp": -1.6839376666666652,
+        "effort": 0.22314355131420976
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 15,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 25.113591,
+          "throughput": 48.46923108888888,
+          "overflowUnits": 3.302751666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.302751666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 27.656516,
+              "throughput": 53.377076466666665
+            },
+            {
+              "seed": 20261015,
+              "oee": 22.612332,
+              "throughput": 43.64180146666667
+            }
+          ]
+        },
+        "deltaThroughput": -4.267027244444449,
+        "deltaOeePp": -2.210894999999997,
+        "effort": 0.4054651081081644
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.118977333333333,
+          "throughput": 52.33962662222223,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 26.853407,
+              "throughput": 51.82707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 29.4316,
+              "throughput": 56.802988066666664
+            }
+          ]
+        },
+        "deltaThroughput": -0.3966317111111053,
+        "deltaOeePp": -0.20550866666666323,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTBF",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 40,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.818459666666666,
+          "throughput": 53.68962662222223,
+          "overflowUnits": 5.161786333333333,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 5.161786333333333
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 23.615066,
+              "throughput": 45.57707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 34.768388,
+              "throughput": 67.10298806666667
+            }
+          ]
+        },
+        "deltaThroughput": 0.9533682888888961,
+        "deltaOeePp": 0.493973666666669,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.694619666666668,
+          "throughput": 55.38061611111112,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 30.946672,
+              "throughput": 59.72707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 2.6443577777777847,
+        "deltaOeePp": 1.3701336666666712,
+        "effort": 0.2231435513142097
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.920725333333333,
+          "throughput": 55.817000199999995,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        },
+        "deltaThroughput": 3.0807418666666635,
+        "deltaOeePp": 1.5962393333333367,
+        "effort": 0.40546510810816444
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.087743,
+          "throughput": 54.209344044444435,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 27.566315,
+              "throughput": 53.20298806666666
+            }
+          ]
+        },
+        "deltaThroughput": 1.4730857111111035,
+        "deltaOeePp": 0.763257000000003,
+        "effort": 0.6931471805599453
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "MTTR",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.882198,
+          "throughput": 57.67264242222222,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 32.94968,
+              "throughput": 63.59288319999999
+            }
+          ]
+        },
+        "deltaThroughput": 4.936384088888886,
+        "deltaOeePp": 2.557712000000002,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.25,
+          "mttr": 0.8
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 12.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.6,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 27.298579333333333,
+          "throughput": 52.686258333333335,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 30.532164,
+              "throughput": 58.92707646666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 26.291649,
+              "throughput": 50.742883199999994
+            }
+          ]
+        },
+        "deltaThroughput": -0.04999999999999716,
+        "deltaOeePp": -0.02590666666666408,
+        "effort": 0.4462871026284195
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 1.5,
+          "mttr": 0.6666666666666666
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 15,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1.3333333333333333,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 28.155082333333336,
+          "throughput": 54.33930908888889,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 27.768333,
+              "throughput": 53.5928832
+            }
+          ]
+        },
+        "deltaThroughput": 1.6030507555555573,
+        "deltaOeePp": 0.8305963333333395,
+        "effort": 0.8109302162163288
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 2,
+          "mttr": 0.5
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 29.484774666666667,
+          "throughput": 56.905615177777776,
+          "overflowUnits": 4.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 4.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 31.75741,
+              "throughput": 61.29180146666667
+            }
+          ]
+        },
+        "deltaThroughput": 4.169356844444444,
+        "deltaOeePp": 2.16028866666667,
+        "effort": 1.3862943611198906
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "name": "Filler/Capper",
+        "mechanism": "JOINT",
+        "grade": {
+          "mtbf": 4,
+          "mttr": 0.25
+        },
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 40,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 30.488434,
+          "throughput": 58.84267737777778,
+          "overflowUnits": 5.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 5.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 34.768388,
+              "throughput": 67.10298806666667
+            }
+          ]
+        },
+        "deltaThroughput": 6.106419044444451,
+        "deltaOeePp": 3.163948000000005,
+        "effort": 2.772588722239781
+      }
+    ],
+    "candidateSets": [
+      {
+        "kind": "ISOLATED_TARGET",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 32.670684333333334,
+          "throughput": 63.054420666666665,
+          "overflowUnits": 3,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 33.392606,
+              "throughput": 64.44772900000001
+            },
+            {
+              "seed": 20261014,
+              "oee": 33.303109,
+              "throughput": 64.275
+            },
+            {
+              "seed": 20261015,
+              "oee": 31.316338,
+              "throughput": 60.440532999999995
+            }
+          ]
+        }
+      },
+      {
+        "kind": "ISOLATED_TARGET",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 31.180004,
+          "throughput": 60.17740797777777,
+          "overflowUnits": 3.776362666666666,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.776362666666666
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 38.402825,
+              "throughput": 74.11745206666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 30.065262,
+              "throughput": 58.025956533333336
+            }
+          ]
+        }
+      },
+      {
+        "kind": "ISOLATED_TARGET",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 40,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 30.488434,
+          "throughput": 58.84267737777778,
+          "overflowUnits": 5.0812306666666665,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 5.0812306666666665
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 25.071925,
+              "throughput": 48.38881533333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 31.624989,
+              "throughput": 61.03622873333333
+            },
+            {
+              "seed": 20261015,
+              "oee": 34.768388,
+              "throughput": 67.10298806666667
+            }
+          ]
+        }
+      },
+      {
+        "kind": "JOINT_TARGETS",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 38.884872,
+          "throughput": 75.04780355555556,
+          "overflowUnits": 2.2909393333333337,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 2.2909393333333337
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 41.204663,
+              "throughput": 79.525
+            },
+            {
+              "seed": 20261015,
+              "oee": 34.391687,
+              "throughput": 66.37595653333334
+            }
+          ]
+        }
+      },
+      {
+        "kind": "JOINT_TARGETS",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 40,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+          }
+        ],
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        }
+      },
+      {
+        "kind": "JOINT_MECHANISM_TARGETS",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 10,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 1,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          }
+        ],
+        "candidate": {
+          "oee": 39.955334666666666,
+          "throughput": 77.11379577777778,
+          "overflowUnits": 6.040615333333332,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 6.040615333333332
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 33.653896,
+              "throughput": 64.95201866666666
+            },
+            {
+              "seed": 20261014,
+              "oee": 45.368235,
+              "throughput": 87.56069306666667
+            },
+            {
+              "seed": 20261015,
+              "oee": 40.843873,
+              "throughput": 78.8286756
+            }
+          ]
+        }
+      },
+      {
+        "kind": "JOINT_MECHANISM_TARGETS",
+        "changes": [
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-16",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 5,
+            "after": 20,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-18",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mtbfMinutes",
+            "before": 10,
+            "after": 40,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          },
+          {
+            "equipmentId": "sheet-row-14",
+            "path": "noiseProfile.reliability.mttrMinutes",
+            "before": 2,
+            "after": 0.5,
+            "unit": "min",
+            "external": true,
+            "analysisOnly": true,
+            "interventionType": "SENSITIVITY",
+            "justification": "Joint exploratory model target; attainable intervention and investment classification remain unknown."
+          }
+        ],
+        "candidate": {
+          "oee": 45.185957,
+          "throughput": 87.20889695555555,
+          "overflowUnits": 3.2093586666666667,
+          "warnings": [
+            {
+              "rule": "SIMULATED_OVERFLOW",
+              "after": 3.2093586666666667
+            }
+          ],
+          "roundMetrics": [
+            {
+              "seed": 20261013,
+              "oee": 41.058266,
+              "throughput": 79.24245413333333
+            },
+            {
+              "seed": 20261014,
+              "oee": 44.757124,
+              "throughput": 86.38124866666666
+            },
+            {
+              "seed": 20261015,
+              "oee": 49.742481,
+              "throughput": 96.00298806666666
+            }
+          ]
+        }
+      }
+    ],
+    "selectedChanges": [
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-16",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 5,
+        "after": 20,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-18",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mtbfMinutes",
+        "before": 10,
+        "after": 40,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      },
+      {
+        "equipmentId": "sheet-row-14",
+        "path": "noiseProfile.reliability.mttrMinutes",
+        "before": 2,
+        "after": 0.5,
+        "unit": "min",
+        "external": true,
+        "analysisOnly": true,
+        "interventionType": "SENSITIVITY",
+        "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+      }
+    ],
+    "recoveryFraction": 0.9,
+    "calculations": 49,
+    "interpretation": "Conditional failure-removal gains overlap and are not additive causal OEE shares. Bounded model targets use the least parameter change recovering 90% of the best isolated tested gain, then test joint packages. Screening is preliminary; full-horizon independent confirmation is required. Intervention feasibility, cost and CAPEX classification remain unassigned."
+  },
+  "confirmation": {
+    "run": {
+      "durationMode": "FIXED",
+      "durationSeconds": 28800,
+      "tickSeconds": 0.25,
+      "sampleEverySeconds": 15,
+      "seed": 21261016,
+      "rounds": 3,
+      "commands": [],
+      "engineId": "ST_CURRENT"
+    },
+    "baseline": {
+      "oee": 39.466839666666665,
+      "throughput": 76.17100043402777,
+      "overflowUnits": 71.074641,
+      "warnings": [
+        {
+          "rule": "SIMULATED_OVERFLOW",
+          "after": 71.074641
+        }
+      ],
+      "roundMetrics": [
+        {
+          "seed": 21261016,
+          "oee": 41.61066,
+          "throughput": 80.30857339791667
+        },
+        {
+          "seed": 21261017,
+          "oee": 37.16757,
+          "throughput": 71.73340972291666
+        },
+        {
+          "seed": 21261018,
+          "oee": 39.622289,
+          "throughput": 76.47101818125
+        }
+      ]
+    },
+    "candidate": {
+      "oee": 67.200998,
+      "throughput": 129.69792552708333,
+      "overflowUnits": 108.93843166666666,
+      "warnings": [
+        {
+          "rule": "SIMULATED_OVERFLOW",
+          "after": 108.93843166666666
+        }
+      ],
+      "roundMetrics": [
+        {
+          "seed": 21261016,
+          "oee": 67.871193,
+          "throughput": 130.99140193958334
+        },
+        {
+          "seed": 21261017,
+          "oee": 65.268375,
+          "throughput": 125.96796329374999
+        },
+        {
+          "seed": 21261018,
+          "oee": 68.463426,
+          "throughput": 132.13441134791668
+        }
+      ]
+    },
+    "passed": true,
+    "failureFree": {
+      "oee": 92.394316,
+      "throughput": 178.32103017708332,
+      "roundMetrics": [
+        {
+          "seed": 21261016,
+          "oee": 92.394316,
+          "throughput": 178.32103017708332
+        },
+        {
+          "seed": 21261017,
+          "oee": 92.394316,
+          "throughput": 178.32103017708332
+        },
+        {
+          "seed": 21261018,
+          "oee": 92.394316,
+          "throughput": 178.32103017708332
+        }
+      ]
+    },
+    "conditionalReliabilityLossPp": 52.92747633333334
+  },
+  "interpretation": "Bounded exploratory targets, three-round screening and independent three-round eight-hour confirmation. No supplier, maintenance or economic feasibility claim. Not a global optimum."
+}
