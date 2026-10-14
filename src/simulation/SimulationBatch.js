@@ -32,13 +32,12 @@ export async function simulateBatch(input, options={}) {
     return response;
   }
   let validationFailure;
-  const firstJob=calculate(0).then(response=>{if(!response.ok)validationFailure=response;}).catch(error=>{failed=true;throw error;});
-  let next=1;
-  const concurrency=options.runRound?Math.max(1,Math.min(4,options.concurrency||2,count-1)):1;
+  let next=0;
+  const concurrency=options.runRound?Math.max(1,Math.min(8,options.concurrency||2,count)):1;
   const jobs=Array.from({length:concurrency},async()=>{
     while(next<count&&!failed){const index=next++;try{const response=await calculate(index);if(!response.ok){validationFailure=response;break;}}catch(error){failed=true;throw error;}}
   });
-  const settled=await Promise.allSettled([firstJob,...jobs]);
+  const settled=await Promise.allSettled(jobs);
   if(validationFailure)return validationFailure;
   const rejected=settled.find(item=>item.status==='rejected'&&item.reason.message==='SIMULATION_WORKER_UNAVAILABLE')||settled.find(item=>item.status==='rejected');if(rejected)throw rejected.reason;
   if(options.cancelled?.())throw new Error('BATCH_CANCELLED');

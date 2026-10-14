@@ -106,7 +106,7 @@ test('cancelled screening retains factors and restores controls',async()=>{
  const h=harness(true,'HIGH');try{
   const original=h.w.SimulatorEngine.simulateBatch;let release;
   h.w.SimulatorEngine.simulateBatch=async (input,options)=>{options.progress(.42);await new Promise(r=>release=r);return original(input);};
-  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,false);assert.equal(h.host.querySelector('.scenario-screening-activity').getAttribute('aria-valuenow'),'1');assert.equal(h.host.querySelector('.scenario-suggestion-percent').textContent,'1%');assert(h.host.querySelector('.dialog-heading > .request-progress')); button.click();release?.();
+  const button=h.host.querySelector('.scenario-doe-suggest');button.click();assert.equal(button.textContent,'Cancel screening');for(let i=0;i<20&&!release;i++)await new Promise(r=>setTimeout(r,1));assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,false);assert.equal(h.host.querySelector('.scenario-screening-activity').getAttribute('aria-valuenow'),'0');assert.equal(h.host.querySelector('.scenario-suggestion-percent').textContent,'0%');assert(h.host.querySelector('.dialog-heading > .request-progress')); button.click();release?.();
   for(let i=0;i<100&&button.textContent!=='Suggest factor combination';i++)await new Promise(r=>setTimeout(r,5));
   assert([...h.host.querySelectorAll('.scenario-doe-select')].every(c=>c.checked));assert.equal(h.host.querySelector('.scenario-search').disabled,false);assert.equal(h.host.querySelector('.scenario-screening-activity').hidden,true);
  }finally{h.dom.window.close();}
@@ -210,7 +210,7 @@ test('button suggestions and automatic search reuse the same conditional screen 
  const h=harness(true,'HIGH');try{
   h.host.querySelectorAll('.scenario-doe-select').forEach(c=>c.checked=false);
   await suggest(h);const first=h.calls.length;assert.equal(first,4);
-  const result=await search(h);assert.equal(result.conditionalFlowDOE.method,'ADAPTIVE_CONDITIONAL_FLOW_V2');assert.equal(result.conditionalFlowDOE.calculations,4);assert.equal(h.sim.whatIf.flowScreenings.length,1);assert(result.doe.analysis.complete);
+  const result=await search(h);assert.equal(result.conditionalFlowDOE.method,'ADAPTIVE_CONDITIONAL_FLOW_V3');assert.equal(result.conditionalFlowDOE.calculations,4);assert.equal(h.sim.whatIf.flowScreenings.length,1);assert(result.doe.analysis.complete);
   // Only one pair/single screening block at the exploration horizon is used.
   assert.equal(h.calls.filter(c=>c.run.durationSeconds===900&&c.run.rounds===3&&c.run.seed===1&&c.case.equipment[0].speed===10&&c.case.equipment[0].sensor===20).length,1);
  }finally{h.dom.window.close();}

@@ -1,3 +1,11 @@
+// Leave one logical CPU for the UI. Limit concurrent model copies on small devices.
+export function simulationWorkerCapacity(navigator={}) {
+  const cores=Number(navigator.hardwareConcurrency),memory=Number(navigator.deviceMemory);
+  const cpu=Number.isFinite(cores)&&cores>0?Math.max(1,Math.floor(cores)-1):2;
+  const memoryLimit=memory>0&&memory<4?1:memory>=4&&memory<8?3:8;
+  return Math.min(cpu,memoryLimit,8);
+}
+
 // Shared bounded pool: multiple scenario cards cannot each exhaust the CPU.
 export function createSimulationWorkerPool(factory, size) {
   const slots=[],queue=[];let nextId=0,closed=false,idleTimer;

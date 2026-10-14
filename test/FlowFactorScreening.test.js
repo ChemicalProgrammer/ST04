@@ -18,7 +18,7 @@ test('baseline spill is tolerated but increasing spill cannot qualify a speed fa
 });
 test('automatic suggestions default to three factors, cap screening and disclose omitted targets',async()=>{
  const many=Array.from({length:12},(_,i)=>({change:c(i%2?'a':'b','p'+i),priority:12-i}));
- const report=await screenFlowFactors(model,{targets:many,run:{seed:1},measure:async(s,changes,run)=>value(run,Array(3).fill(changes.length*10))});
+ const report=await screenFlowFactors(model,{targets:many,maximumTargets:8,maximumPairs:6,run:{seed:1},measure:async(s,changes,run)=>value(run,Array(3).fill(changes.length*10))});
  assert.equal(report.selectedFactors.length,3);assert.equal(report.screened,8);assert.equal(report.omitted,4);assert.equal(report.pairs.length,6);assert.equal(report.pairsOmitted,22);
 });
 test('cancellation cannot return partial suggestions',async()=>{
@@ -27,6 +27,20 @@ test('cancellation cannot return partial suggestions',async()=>{
 
 test('bounded shortlist covers conveyor speeds and sensors before repeated high-priority Prime reserves',async()=>{
  const diverse=[...Array.from({length:8},(_,i)=>({change:c('a'+i,'processData.geometry.lpPrimeMm'),priority:100-i})),{change:c('b','processData.accumulation.conveyorSpeedMmPerSecond'),priority:5},{change:c('b','processData.accumulation.backupSensorPositionMm'),priority:4},{change:c('b','processData.geometry.lactMm'),priority:3}];
- const report=await screenFlowFactors(model,{targets:diverse,maximumPairs:0,run:{seed:1},measure:async(s,changes,run)=>value(run,[0,0,0])});
+ const report=await screenFlowFactors(model,{targets:diverse,maximumTargets:8,maximumPairs:0,run:{seed:1},measure:async(s,changes,run)=>value(run,[0,0,0])});
  assert.equal(report.screened,8);assert(report.observations.some(o=>o.path.endsWith('conveyorSpeedMmPerSecond')));assert(report.observations.some(o=>o.path.endsWith('backupSensorPositionMm')));assert(report.observations.some(o=>o.path.endsWith('lactMm')));
+});
+
+test('parallel screening preserves serial evidence and shares one extra baseline',async()=>{
+ const many=Array.from({length:16},(_,i)=>({change:c(i%2?'a':'b','p'+i),priority:16-i}));
+ async function screen(concurrency){let active=0,peak=0,extraBaselines=0;
+ const report=await screenFlowFactors(model,{targets:many,concurrency,run:{seed:10},measure:async(s,changes,run)=>{
+   active++;peak=Math.max(peak,active);if(!changes.length&&run.seed===13)extraBaselines++;
+   await new Promise(resolve=>setTimeout(resolve,changes[0]?.path==='p0'?8:1));active--;
+   return value(run,changes.length?(run.seed===10?[0,10,20]:[10,10,10]):[0,0,0]);
+ }});return {report,peak,extraBaselines};}
+ const serial=await screen(1),parallel=await screen(3);
+ assert.deepEqual(parallel.report,serial.report);assert(parallel.peak>1);assert(parallel.peak<=3);assert.equal(parallel.extraBaselines,1);
+ assert.equal(parallel.report.screened,16);assert.equal(parallel.report.omitted,0);
+ assert.equal(new Set(parallel.report.pairs.flatMap(pair=>pair.keys)).size,16,'pair coverage includes each screened factor');
 });

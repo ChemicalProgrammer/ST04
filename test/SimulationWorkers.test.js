@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {Worker} from 'node:worker_threads';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {simulateLineAsync} from '../src/simulation/LineSimulationEngine.js';
-import {createSimulationWorkerPool} from '../src/simulation/SimulationWorkers.js';
+import {createSimulationWorkerPool,simulationWorkerCapacity} from '../src/simulation/SimulationWorkers.js';
 function data(){const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/DemoCaseFactory.gs','utf8'),ctx);return {case:JSON.parse(JSON.stringify(ctx.createDemoCaseRequest_())),run:{durationSeconds:30,tickSeconds:.25,sampleEverySeconds:1,seed:4294967294,rounds:5,commands:[]}};}
 function browser({blocked=false}={}){
  const all=[],urls=new Map(),handlers={};let active=0,maxActive=0;
@@ -25,8 +25,8 @@ test('real worker threads preserve ordered seeds, events, statistics and metrics
   const expected=await simulateBatch(input,{laterSummaryOnly:true}),progress=[];
   const actual=await h.engine.simulateBatch(input,{progress:value=>progress.push(value)});
   for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts','samples','events','batch'])assert.deepEqual(plain(actual.result[key]),plain(expected.result[key]));
-  assert.equal(actual.result.batch.replays.length,0);assert.deepEqual(plain(actual.result.batch.rows.map(r=>r.seed)),[4294967294,4294967295,0,1,2]);assert(h.maxActive()>1);assert(h.maxActive()<=4);assert(progress.every((value,i)=>i===0||value>=progress[i-1]));assert.equal(progress.at(-1),1);
-  const [a,b]=await Promise.all([h.engine.simulateBatch(input,{summaryOnly:true}),h.engine.simulateBatch(input,{summaryOnly:true})]);assert.deepEqual(plain(a.result.batch.statistics),plain(b.result.batch.statistics));assert(h.maxActive()<=4,'cards share the global worker limit');
+  assert.equal(actual.result.batch.replays.length,0);assert.deepEqual(plain(actual.result.batch.rows.map(r=>r.seed)),[4294967294,4294967295,0,1,2]);assert(h.maxActive()>1);assert(h.maxActive()<=7);assert(progress.every((value,i)=>i===0||value>=progress[i-1]));assert.equal(progress.at(-1),1);
+  const [a,b]=await Promise.all([h.engine.simulateBatch(input,{summaryOnly:true}),h.engine.simulateBatch(input,{summaryOnly:true})]);assert.deepEqual(plain(a.result.batch.statistics),plain(b.result.batch.statistics));assert(h.maxActive()<=7,'cards share the global worker limit');
  }finally{h.close();}
 });
 test('blocked workers fall back to sequential calculation with identical results',async()=>{
@@ -63,3 +63,13 @@ test('cancelling one pool task cannot corrupt another task or accept a stale wor
  }finally{pool.close();}
 });
 
+
+test('worker capacity follows CPU and memory limits with conservative defaults',()=>{
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:1}),1);
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:4}),3);
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:8}),7);
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:32}),8);
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:16,deviceMemory:2}),1);
+ assert.equal(simulationWorkerCapacity({hardwareConcurrency:16,deviceMemory:4}),3);
+ assert.equal(simulationWorkerCapacity({}),2);
+});

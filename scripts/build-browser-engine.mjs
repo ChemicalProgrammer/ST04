@@ -76,7 +76,7 @@ async function calculateBrowserBatch(input,options={}){
   const count=input.run.rounds||1;
   if((count<2&&!options.summaryOnly)||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
   if(!workerPool){
-    const size=Math.min(4,Math.max(1,(window.navigator?.hardwareConcurrency||3)-1));
+    const size=simulationWorkerCapacity(window.navigator);
     workerSource=workerSource||["'use strict';\\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'].join('');
     workerPool=createSimulationWorkerPool(()=>{
       const url=window.URL.createObjectURL(new window.Blob([workerSource],{type:'text/javascript'}));
@@ -109,6 +109,7 @@ window.SimulatorEngine = {
   simulateLine: function(input){if(selectedEngine(input)===SIMPY_ENGINE_ID)return {ok:false,error:{code:'ASYNC_ENGINE_REQUIRED',message:'SimPy requires simulateLineAsync.'}};return simulateLine(input);},
   simulateBatch: simulateBrowserBatch,
   inputSignature: simulationInputSignature,
+  concurrency: function(engineId){return engineId===SIMPY_ENGINE_ID?simPyRuntime.size:workersUnavailable||typeof window.Worker!=='function'?1:simulationWorkerCapacity(window.navigator);},
   simulateLineAsync: simulateSelectedLine,
   validateSimulationInput: validateSimulationInput,
   calculateConveyorEngineering: calculateConveyorEngineering,

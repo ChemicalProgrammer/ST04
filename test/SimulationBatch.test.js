@@ -54,3 +54,14 @@ test('round one is published while later rounds are running, without attaching p
  let calledFirst=false;const progress=[];const revised=await simulateBatch(data,{firstResult:first,laterSummaryOnly:true,progress:value=>progress.push(value),runRound:async(input,options)=>{if(input.run.seed===17)calledFirst=true;return simulateLineAsync(input,options);}});assert(!calledFirst);assert.deepEqual(revised.result.batch.statistics,full.result.batch.statistics);assert.equal(progress.at(-1),1);
  await assert.rejects(simulateBatch(data,{firstResult:{...first,seed:18}}),/BATCH_FIRST_RESULT_MISMATCH/);
 });
+
+test('batch concurrency includes the first worker round and serial mode starts one at a time',async()=>{
+ const data=input();data.run={...data.run,durationSeconds:5,rounds:6};
+ for(const concurrency of [1,3]){let active=0,peak=0;
+ const actual=await simulateBatch(data,{summaryOnly:true,concurrency,runRound:async(input,options)=>{
+  active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,2));
+  try{return await simulateLineAsync(input,options);}finally{active--;}
+ }});
+ assert(actual.ok);assert.equal(peak,concurrency);
+ }
+});

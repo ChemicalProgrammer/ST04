@@ -1,0 +1,378 @@
+{
+  "method": "ADAPTIVE_CONDITIONAL_FLOW_V3",
+  "run": {
+    "shiftHours": 8,
+    "seed": 371953162,
+    "shiftCount": 1,
+    "durationSeconds": 900,
+    "durationMode": "SHIFTS",
+    "tickSeconds": 0.25,
+    "shiftSeconds": 28800,
+    "sampleEverySeconds": 1,
+    "rounds": 3,
+    "commands": []
+  },
+  "fixedReliabilityChanges": [
+    {
+      "equipmentId": "sheet-row-18",
+      "path": "noiseProfile.reliability.mtbfMinutes",
+      "before": 5,
+      "after": 20,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-18",
+      "path": "noiseProfile.reliability.mttrMinutes",
+      "before": 2,
+      "after": 0.5,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-20",
+      "path": "noiseProfile.reliability.mtbfMinutes",
+      "before": 11.3,
+      "after": 16.950000000000003,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    },
+    {
+      "equipmentId": "sheet-row-16",
+      "path": "noiseProfile.reliability.mttrMinutes",
+      "before": 2,
+      "after": 1,
+      "unit": "min",
+      "external": true,
+      "analysisOnly": true,
+      "interventionType": "SENSITIVITY",
+      "justification": "Automatically explored model target; achievable intervention and CAPEX classification have not been established."
+    }
+  ],
+  "eligible": 15,
+  "screened": 15,
+  "omitted": 0,
+  "pairsOmitted": 93,
+  "calculations": 33,
+  "outcome": "STABLE_FACTORS_FOUND",
+  "selectedFactors": [
+    {
+      "equipmentId": "sheet-row-21",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 1697.33333333333,
+      "after": 1915.2,
+      "unit": "mm/s",
+      "low": 1697.33333333333,
+      "high": 1915.2
+    },
+    {
+      "equipmentId": "sheet-row-17",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 451.554166666667,
+      "after": 582.75,
+      "unit": "mm/s",
+      "low": 451.554166666667,
+      "high": 582.75
+    },
+    {
+      "equipmentId": "sheet-row-19",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 464.658333333333,
+      "after": 501.4100000000001,
+      "unit": "mm/s",
+      "low": 464.658333333333,
+      "high": 501.4100000000001
+    }
+  ],
+  "scope": "Controlled numeric planner targets in supplied what-if case, retained reliability context. Explicit UI targets/limits not reconstructed. Screening only, not independent full-horizon confirmation.",
+  "elapsedSeconds": 43.102,
+  "observations": [
+    {
+      "equipmentId": "sheet-row-11",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 742.6833,
+      "after": 1103.6935,
+      "reason": "ENGINEERING_REVIEW_REQUIRED",
+      "deltaThroughput": 0.38974886666666464,
+      "deltaOee": 0.201942333333335,
+      "paired": {
+        "mean": 0.38974886666666464,
+        "lower": -1.364695566010767,
+        "upper": 2.144193299344096,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": true
+      },
+      "spillNotWorse": false
+    },
+    {
+      "equipmentId": "sheet-row-13",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 353.683959043333,
+      "after": 360.045,
+      "reason": "INCONCLUSIVE",
+      "deltaThroughput": 0.19816972222221807,
+      "deltaOee": 0.10267866666666237,
+      "paired": {
+        "mean": 0.19816972222222282,
+        "lower": 0.021119811854281356,
+        "blockMeans": [
+          0.08955066666666293,
+          0.3067887777777827
+        ],
+        "threshold": 0.0968093742111111,
+        "rounds": 6,
+        "stable": false,
+        "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-15",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 545.4,
+      "after": 469.43750000000006,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": -14.56615846666665,
+      "deltaOee": -7.547232333333326,
+      "paired": {
+        "mean": -14.566158466666659,
+        "lower": -24.700829969498884,
+        "upper": -4.431486963834432,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-13",
+      "path": "processData.geometry.lactMm",
+      "before": 30669,
+      "after": 43160,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": -4.710192211111092,
+      "deltaOee": -2.4405141666666665,
+      "paired": {
+        "mean": -4.710192211111109,
+        "lower": -8.535715648756,
+        "blockMeans": [
+          -2.3571447333333375,
+          -7.06323968888888
+        ],
+        "threshold": 0.0968093742111111,
+        "rounds": 6,
+        "stable": false,
+        "interpretation": "Exploratory paired interval and two seed blocks; no multiple-comparison adjustment or plant guarantee."
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-11",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 1955.8,
+      "after": 977.9,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": 0,
+      "deltaOee": 0,
+      "paired": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-17",
+      "path": "processData.geometry.lactMm",
+      "before": 8800,
+      "after": 29338,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": -9.096583111111116,
+      "deltaOee": -4.713255333333322,
+      "paired": {
+        "mean": -9.09658311111111,
+        "lower": -9.096583206725644,
+        "upper": -9.096583015496577,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-21",
+      "path": "processData.geometry.lactMm",
+      "before": 135870,
+      "after": 312765,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": -21.036871555555535,
+      "deltaOee": -10.899933333333323,
+      "paired": {
+        "mean": -21.03687155555555,
+        "lower": -21.867278464857478,
+        "upper": -20.20646464625362,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-13",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 2540,
+      "after": 1270,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": 0,
+      "deltaOee": 0,
+      "paired": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-15",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 900,
+      "after": 450,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": -0.007067533333341203,
+      "deltaOee": -0.003661666666666008,
+      "paired": {
+        "mean": -0.0070675333333317285,
+        "lower": -0.03102103971135401,
+        "upper": 0.016885973044690555,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-17",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 700,
+      "after": 350,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": 0,
+      "deltaOee": 0,
+      "paired": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-19",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 787,
+      "after": 393.5,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": 0,
+      "deltaOee": 0,
+      "paired": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-21",
+      "path": "processData.geometry.lpPrimeMm",
+      "before": 500,
+      "after": 250,
+      "reason": "NO_GAIN_IN_SCREEN",
+      "deltaThroughput": 0,
+      "deltaOee": 0,
+      "paired": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "rounds": 3,
+        "stable": false,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-17",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 451.554166666667,
+      "after": 582.75,
+      "reason": "STABLE_GAIN",
+      "deltaThroughput": 0.8774867555555517,
+      "deltaOee": 0.45465633333333244,
+      "paired": {
+        "mean": 0.8774867555555517,
+        "lower": 0.8774866599410387,
+        "upper": 0.8774868511700646,
+        "rounds": 3,
+        "stable": true,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-19",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 464.658333333333,
+      "after": 501.4100000000001,
+      "reason": "STABLE_GAIN",
+      "deltaThroughput": 0.5968545333333424,
+      "deltaOee": 0.3092510000000033,
+      "paired": {
+        "mean": 0.5968545333333376,
+        "lower": 0.5732943543584833,
+        "upper": 0.6204147123081919,
+        "rounds": 3,
+        "stable": true,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    },
+    {
+      "equipmentId": "sheet-row-21",
+      "path": "processData.accumulation.conveyorSpeedMmPerSecond",
+      "before": 1697.33333333333,
+      "after": 1915.2,
+      "reason": "STABLE_GAIN",
+      "deltaThroughput": 1.8356755999999876,
+      "deltaOee": 0.9511273333333392,
+      "paired": {
+        "mean": 1.8356755999999972,
+        "lower": 1.757416589986364,
+        "upper": 1.9139346100136303,
+        "rounds": 3,
+        "stable": true,
+        "uncertain": false
+      },
+      "spillNotWorse": true
+    }
+  ]
+}
