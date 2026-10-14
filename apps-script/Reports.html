@@ -212,6 +212,10 @@ window.STReports=(function(){
   }
   function pdf(html){var win=window.open('','_blank');if(!win){STDialog.open({message:__ST_TEXT__('exports.popup_blocked')});return;}win.document.open();win.document.write(html);win.document.close();win.focus();win.setTimeout(function(){win.print();},250);}
   function bind(id,enabled,action){var button=document.getElementById(id);if(!button)return;button.disabled=!enabled;button.onclick=function(){button.closest('details')?.removeAttribute('open');try{action();}catch(error){STDialog.open({message:error.message});}};}
+  function exportCompleteCase(record){
+    var name=String(record.name||record.id||'case').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').trim().slice(0,100)||'case';
+    download(JSON.stringify(record,null,2),name+'-complete.json','application/json');
+  }
   function configuration(activeCase,simulation){
     return {schema:'st-line-configuration-v1',case:{id:activeCase.id,name:activeCase.name,unitOfFlow:activeCase.unitOfFlow,metadata:activeCase.metadata||{}},simulation:{id:simulation?.id,name:simulation?.name,dynamicConfig:simulation?.dynamicConfig||{},engineConfig:activeCase.engineConfig||{},equipment:simulation?.equipment||activeCase.equipment||[]}};
   }
@@ -267,7 +271,7 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
 

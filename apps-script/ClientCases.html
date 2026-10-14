@@ -321,6 +321,15 @@ async function openCase(caseId, initialView) {
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
       refreshDesignGraph();
     }
+    async function exportCompleteCase(){
+      if(!state.activeCase)return;var button=document.getElementById('export-complete-case');button.disabled=true;
+      try{
+        if(!document.getElementById('case-editor-form').reportValidity())return;
+        await prepareCaseDraft();captureSimulationView();
+        var draft=cloneJson(state.activeCase);draft.activeSimulationId=state.activeSimulationId;delete draft.expectedRevision;
+        STReports.exportCompleteCase(draft);
+      }catch(error){showError(error);}finally{button.disabled=false;}
+    }
     function captureForSave() {
       if(whatIfOnlySave&&state.activeCase){var evidenceDraft=Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});return fitCaseSave(evidenceDraft);}
       var next=collectCaseEditor();if(!next)return null;

@@ -2595,3 +2595,19 @@ test('UI: updated Sheet preview presents conveyor speed in G, accumulation in H 
   assert(belt);assert(accumulation);assert.match(belt.closest('tr').textContent,/G11.*m\/min.*29.93/);assert.match(accumulation.closest('tr').textContent,/H11.*reference.*28/);assert.match(section.querySelector('[data-field="length"]').closest('tr').textContent,/I11/);assert.match(section.querySelector('[data-field="overspeed"]').closest('tr').textContent,/Y11/);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: Settings General exports the complete current case and every simulation without saving to Drive',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});try{
+   const get=h.api.getCase;h.api.getCase=id=>{const record=get(id),other=JSON.parse(JSON.stringify(record.simulations[0]));other.id='second-simulation';other.name='Second run';other.results={summary:{lineOeePercent:45},replay:{samples:[{virtualSecond:1,preserved:'full replay'}]},events:[{kind:'preserved event'}]};other.whatIf={evaluations:[{status:'NOT_REPRODUCED',detail:'preserved evidence'}]};other.geminiHistory=[{role:'user',text:'preserved case chat'}];record.simulations.push(other);return record;};
+   let blob,filename;h.w.URL.createObjectURL=value=>{blob=value;return 'blob:full-case';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){filename=this.download;};
+   await h.click('.open-case');const rounds=h.d.getElementById('run-rounds');rounds.value='25';rounds.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+   h.w.STSettings.open();await h.click('#settings-tab-case');const name=h.d.getElementById('case-name');name.value='Complete case / current draft';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+   const grid=name.closest('.settings-case-general-grid'),button=h.d.getElementById('export-complete-case');assert.equal(grid.children[0].querySelector('input'),name);assert.equal(grid.children[1].querySelector('button'),button);
+   const before=h.calls.filter(c=>c==='saveCase').length;await h.click('#export-complete-case');await waitFor(()=>blob);assert.equal(blob.type,'application/json');assert.match(filename,/Complete case - current draft-complete\.json/);
+   const raw=await new Promise(resolve=>{const reader=new h.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);}),data=JSON.parse(raw);
+   assert.equal(data.name,name.value);assert.equal(data.simulations.length,2);assert.equal(data.simulations[0].dynamicConfig.rounds,25);assert.equal(data.simulations[1].results.replay.samples[0].preserved,'full replay');assert.equal(data.simulations[1].whatIf.evaluations[0].detail,'preserved evidence');assert.equal(data.simulations[1].geminiHistory[0].text,'preserved case chat');assert.equal(data.activeSimulationId,'simulation-a');assert.equal(data.expectedRevision,undefined);
+   assert.equal(h.calls.filter(c=>c==='saveCase').length,before);assert(h.d.getElementById('save-case').classList.contains('has-changes'));assert.equal(button.disabled,false);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
