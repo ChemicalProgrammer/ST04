@@ -77,3 +77,17 @@ test('saving a replacement key refreshes the catalog and ignores its previous pe
  assert(Array.from(h.el('gemini-model').options).some(o=>o.value==='gemini-new'));assert(!h.el('gemini-key-verified').classList.contains('hidden'));
  assert(!Array.from(h.el('gemini-model').options).some(o=>o.value==='gemini-old'));
 });
+
+test('corporate AI notice remains visible below both connection fields in Basic and Advance',()=>{
+ const markup=fs.readFileSync('apps-script/WebApp.html','utf8').match(/<section class="settings-section gemini-settings">[\s\S]*?<\/section>/)[0].replace(/<\?[\s\S]*?\?>/g,'');
+ const css=['DialogStyles.html','BasicModeStyles.html'].map(name=>fs.readFileSync('apps-script/'+name,'utf8').replace(/<\/?style>/g,'')).join('\n');
+ for(const mode of ['basic','advance']){
+  const dom=new JSDOM('<html data-ui-mode="'+mode+'"><head><style>'+css+'</style></head><body><div id="settings-dialog">'+markup+'</div></body></html>');
+  try{const note=dom.window.document.getElementById('gemini-ai-policy-note');
+   assert.equal(dom.window.getComputedStyle(note).display,'flex');
+   assert(note.previousElementSibling.contains(dom.window.document.getElementById('gemini-api-key')));
+   assert(note.previousElementSibling.contains(dom.window.document.getElementById('gemini-model')));
+   assert.match(note.textContent,/prior company authorization/);
+  }finally{dom.window.close();}
+ }
+});
