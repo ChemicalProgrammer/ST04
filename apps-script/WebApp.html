@@ -164,7 +164,7 @@
 <label data-duration-method="DATES" class="hidden">Start<input id="run-start-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">End<input id="run-end-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">Time zone<input id="run-time-zone" value="America/Mexico_City"></label>
 <label data-duration-method="SHIFTS">Number of shifts<input id="settings-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
 <label>Hours per shift<input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
-<label class="checkbox-label"><input id="run-track-shifts" type="checkbox">Show shift accounting</label></div><p id="run-duration-summary" class="chart-note"></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events.</p></section>
+<label class="checkbox-label"><input id="run-track-shifts" type="checkbox">Show shift accounting</label><label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label></div><p id="run-duration-summary" class="chart-note"></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events.</p></section>
         <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
             
@@ -173,7 +173,6 @@
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
             
             <label class="hidden" aria-hidden="true"><?= __ST_TEXT__('batch.shift_count') ?><input id="run-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
-            <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label>
 
           </div>
 

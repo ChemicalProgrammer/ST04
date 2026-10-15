@@ -85,6 +85,7 @@ window.STBasicMode=(function(){
       if(runOptions.parentNode!==host||runOptions.nextSibling!==before)host.insertBefore(runOptions,before);
     }
     if(enabled){var duration=document.getElementById('simulation-duration-controls'),durationAnchor=section==='simulation'?setupControls:document.getElementById('run-config');if(duration.parentNode!==durationAnchor.parentNode||duration.nextSibling!==durationAnchor)durationAnchor.before(duration);}
+    if(enabled){var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label,roundsHost=section==='simulation'?document.querySelector('.simulation-duration-grid'):roundsGroup;if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);setupControls.classList.toggle('hidden',section==='simulation');}
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
   }
