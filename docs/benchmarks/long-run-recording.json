@@ -1,0 +1,79 @@
+{
+  "case": "Synthetic demo, seed 17, 13 equipment objects, tick 0.25 s",
+  "runtime": "Node v24.19.0 in development environment; not corporate browser measurements",
+  "notes": [
+    "Before measurements use metrics only; after uses bounded recorded history. These are not equivalent modes for speedup comparison.",
+    "Peak heap is sampled at chunk boundaries, not a guaranteed process maximum. JSON bytes are full engine result before case-save compaction.",
+    "Physics outputs are identical for each horizon."
+  ],
+  "metricsOnlyBefore": [
+    {
+      "durationSeconds": 28800,
+      "ticks": 115200,
+      "elapsedSeconds": 1.492799843,
+      "peakHeapMB": 17.532432556152344,
+      "samples": 0,
+      "resultBytes": 47594,
+      "output": 97117.113605,
+      "oee": 50.58183,
+      "node": "v24.19.0"
+    },
+    {
+      "durationSeconds": 86400,
+      "ticks": 345600,
+      "elapsedSeconds": 4.383852398,
+      "peakHeapMB": 25.42230224609375,
+      "samples": 0,
+      "resultBytes": 47717,
+      "output": 291516.891437,
+      "oee": 50.610571,
+      "node": "v24.19.0"
+    },
+    {
+      "durationSeconds": 2592000,
+      "ticks": 10368000,
+      "elapsedSeconds": 127.613071355,
+      "peakHeapMB": 74.2353286743164,
+      "samples": 0,
+      "resultBytes": 48269,
+      "output": 8692429.654194,
+      "oee": 50.303412,
+      "node": "v24.19.0"
+    }
+  ],
+  "boundedRecordedAfter": [
+    {
+      "durationSeconds": 28800,
+      "ticks": 115200,
+      "elapsedSeconds": 1.6790946100000002,
+      "peakHeapMB": 33.77360534667969,
+      "samples": 995,
+      "resultBytes": 11276705,
+      "output": 97117.113605,
+      "oee": 50.58183,
+      "node": "v24.19.0"
+    },
+    {
+      "durationSeconds": 86400,
+      "ticks": 345600,
+      "elapsedSeconds": 4.430910064,
+      "peakHeapMB": 64.76338958740234,
+      "samples": 1000,
+      "resultBytes": 11390815,
+      "output": 291516.891437,
+      "oee": 50.610571,
+      "node": "v24.19.0"
+    },
+    {
+      "durationSeconds": 2592000,
+      "ticks": 10368000,
+      "elapsedSeconds": 132.15725797599998,
+      "peakHeapMB": 110.99785614013672,
+      "samples": 1000,
+      "resultBytes": 11569606,
+      "output": 8692429.654194,
+      "oee": 50.303412,
+      "node": "v24.19.0"
+    }
+  ]
+}

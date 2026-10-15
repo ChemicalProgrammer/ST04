@@ -1,4 +1,4 @@
-import { plantCalendarSchedule } from './PlantCalendarSchedule.js';
+import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
 import { resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
@@ -31,19 +31,15 @@ export async function simulateLineAsync(input, options = {}) {
   if(input.run.shiftSeconds!==undefined&&(!Number.isFinite(input.run.shiftSeconds)||input.run.shiftSeconds<=0||input.run.shiftSeconds%input.run.tickSeconds!==0))throw new Error('INVALID_SHIFT_DURATION');
   const runtime = createRuntime(input);
   runtime.summaryOnly=options.summaryOnly===true;
-  let omittedEvents = runtime.summaryOnly?runtime.events.length:0;
-  if(runtime.summaryOnly)runtime.events.length=0;
-  const push = runtime.events.push.bind(runtime.events);
-  runtime.events.push = (...items) => {
-    if (!runtime.summaryOnly && options.detail && runtime.events.length < 2000) return push(...items);
-    omittedEvents += items.length; return runtime.events.length;
-  };
+  runtime.captureEvents=options.detail===true;
+  if(runtime.summaryOnly){runtime.omittedEvents+=runtime.events.length;runtime.events.length=0;}
   applyDueCommands(runtime); updatePlantCalendar(runtime, false); initializeInitialMaterialStates(runtime); addSample(runtime);
   // Stream only new frames. Provisional snapshots never become final statistics.
-  let publishedSamples=0;
+  let publishedSamples=0,lastPartialAt=0;
   function publishPartial(){
-    if(!options.onPartial||runtime.summaryOnly)return;
-    const partial=createResult(runtime);
+    if(!options.onPartial||runtime.summaryOnly||runtime.samples.length===publishedSamples)return;
+    const now=Date.now();if(publishedSamples&&now-lastPartialAt<100&&runtime.virtualSecond<runtime.run.durationSeconds)return;lastPartialAt=now;
+    const partial=createResult(runtime,true);
     partial.samples=runtime.samples.slice(publishedSamples);publishedSamples=runtime.samples.length;
     partial.events=[]; // The bounded event log is sent once with the completed result.
     partial.provisional=true;partial.calculatedThroughSeconds=runtime.virtualSecond;
@@ -55,7 +51,7 @@ export async function simulateLineAsync(input, options = {}) {
   let nextShift = shiftSeconds;
   while (runtime.virtualSecond < input.run.durationSeconds) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
-    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:1000;
+    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:input.run.calculationMode==='FAST'||input.run.calculationMode==='SUMMARY'?5000:1000;
     const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
     if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
@@ -72,7 +68,7 @@ export async function simulateLineAsync(input, options = {}) {
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
-  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage={omittedEvents};
+  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage=recordingCoverage(runtime);
   return {ok:true,result};
 }
 
@@ -111,14 +107,19 @@ function createRuntime(input) {
     equipmentById: new Map(equipment.map(unit => [unit.id, unit])),
     zones,
     events: [],
-    samples: [],
+    samples: [],zoneDefinitions:{},
     outputCount: 0,
     commandIndex: 0,
-    calendar: plantCalendarSchedule(input.run.plantCalendar,input.run.tickSeconds),
+    calendar: resolvePlannedStops(input.run),
     calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
-    commands: sortCommands(input.run.commands || [])
+    commands: sortCommands(input.run.eventsEnabled===false?[]:input.run.commands || []),
+    omittedEvents:0,captureEvents:true,
+    sampleInterval: Math.ceil(Math.max(input.run.sampleEverySeconds||input.run.tickSeconds,input.run.durationSeconds/(input.run.calculationMode==='SUMMARY'?1:999))/input.run.tickSeconds)*input.run.tickSeconds,
+    nextSampleAt:0,historyTicks:0
   };
 
+  const push=runtime.events.push.bind(runtime.events);
+  runtime.events.push=(...items)=>{if(runtime.captureEvents&&!runtime.summaryOnly&&runtime.events.length+items.length<=2000)return push(...items);runtime.omittedEvents+=items.length;return runtime.events.length;};
   const source = runtime.equipment[0];
   if (source && isOperationalMode(source) && hasStartProfile(source)) {
     requestEquipmentStart(runtime, source, 'INITIAL_START');
@@ -325,7 +326,9 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     recordZoneStatistics(runtime);
     runtime.equipment.forEach((item) => {
       item.stateSeconds[item.availabilityState] = (item.stateSeconds[item.availabilityState] || 0) + runtime.run.tickSeconds;
+      if(!runtime.summaryOnly){const rate=item.actualRatePerSecond||0;item.historySum=(item.historySum||0)+rate;item.historyMin=Math.min(item.historyMin??rate,rate);item.historyMax=Math.max(item.historyMax??rate,rate);}
     });
+    if(!runtime.summaryOnly)runtime.historyTicks++;
     advanceEquipmentControlTimers(runtime);
     runtime.virtualSecond += runtime.run.tickSeconds;
     addSampleIfDue(runtime);
@@ -666,12 +669,12 @@ function updatePlantCalendar(runtime, countTick=true) {
   if(runtime.calendarActive && now>=runtime.calendarActive.endSeconds){
     runtime.events.push({type:'PLANT_STOP_ENDED',atVirtualSecond:now,category:runtime.calendarActive.category});
     runtime.calendarActive=null;
-    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendar.restartPolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
+    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendarActivePolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
   }
   const next=runtime.calendar.events[runtime.calendarIndex];
   if(!runtime.calendarActive&&next&&now>=next.startSeconds){
-    runtime.calendarIndex++;runtime.calendarActive=next;
-    runtime.equipment.forEach(e=>{e.calendarStopped=true;if(runtime.calendar.restartPolicy==='RESTART')cancelEquipmentStart(e);});
+    runtime.calendarIndex++;runtime.calendarActive=next;runtime.calendarActivePolicy=next.restartPolicy||runtime.calendar.restartPolicy;
+    runtime.equipment.forEach(e=>{e.calendarStopped=true;if(runtime.calendarActivePolicy==='RESTART')cancelEquipmentStart(e);});
     runtime.events.push({type:'PLANT_STOP_STARTED',atVirtualSecond:now,category:next.category,untilVirtualSecond:next.endSeconds});
   }
   if(runtime.calendarActive&&countTick)runtime.calendarStopSeconds+=runtime.run.tickSeconds;
@@ -1076,19 +1079,19 @@ function getTransitUnits(zone) {
 
 function addSampleIfDue(runtime) {
   if(runtime.summaryOnly)return;
-  const interval = runtime.run.sampleEverySeconds || runtime.run.tickSeconds;
-  if (runtime.virtualSecond !== runtime.run.durationSeconds && runtime.virtualSecond % interval !== 0) return;
+  if(runtime.virtualSecond+1e-8<runtime.nextSampleAt&&runtime.virtualSecond<runtime.run.durationSeconds)return;
   addSample(runtime);
 }
 
 function addSample(runtime) {
   if(runtime.summaryOnly)return;
   const visibleZones = runtime.zones.filter((zone) => zone.visible);
+  runtime.nextSampleAt=runtime.virtualSecond+runtime.sampleInterval;
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
-    accumulationZones: visibleZones.map(createZoneSample),
+    accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),
     equipment: runtime.equipment.map((item) => {
       const effectiveness = createEquipmentEffectiveness(item, runtime.virtualSecond);
       return {
@@ -1097,6 +1100,8 @@ function addSample(runtime) {
         availabilityState: item.availabilityState,
         outputCount: round(item.outputCount),
         processedUnits: round(item.outputCount),
+        meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
+        minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
         starvedSeconds: round(item.starvedSeconds),
         blockedSeconds: round(item.blockedSeconds),
@@ -1110,8 +1115,19 @@ function addSample(runtime) {
       };
     })
   });
+  runtime.historyTicks=0;runtime.equipment.forEach(item=>{item.historySum=0;item.historyMin=undefined;item.historyMax=undefined;});
 }
 
+function recordingCoverage(runtime){return {omittedEvents:runtime.omittedEvents,requestedSampleSeconds:runtime.run.sampleEverySeconds||runtime.run.tickSeconds,effectiveSampleSeconds:runtime.sampleInterval,maximumSamples:1001,aggregated:runtime.sampleInterval>(runtime.run.sampleEverySeconds||runtime.run.tickSeconds),recordingMode:runtime.run.calculationMode==='SUMMARY'?'SUMMARY':'BOUNDED',exactReplay:false};}
+
+function createRecordedZoneSample(runtime,zone){
+  const frame=createZoneSample(zone);
+  if(runtime.run.historyFormat==='COMPACT'){
+    const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
+    for(const key of ['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry']){if(!definition[key])definition[key]=frame[key];delete frame[key];}
+  }
+  return frame;
+}
 function createZoneSample(zone) {
   const inventoryUnits = getZoneInventory(zone);
   return {
@@ -1183,11 +1199,13 @@ function createZoneSample(zone) {
   };
 }
 
-function createResult(runtime) {
+function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.14.0',
+    engineVersion: '0.15.0',
+    detailCoverage:recordingCoverage(runtime),
+    zoneDefinitions:runtime.zoneDefinitions,
     plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
@@ -1197,7 +1215,7 @@ function createResult(runtime) {
       zone.id,
       createZoneMetrics(zone, runtime.run.durationSeconds)
     ])),
-    events: runtime.events.slice(),
+    events: partial?[]:runtime.events.slice(),
     samples: runtime.samples
   };
 }

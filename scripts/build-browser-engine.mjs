@@ -76,7 +76,7 @@ async function calculateBrowserBatch(input,options={}){
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
   const settings={...options,onFirstRound,laterSummaryOnly:options.laterSummaryOnly!==false};
   const count=input.run.rounds||1;
-  if((count<2&&!options.summaryOnly)||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
+  if((count<2&&!options.summaryOnly&&(!input.run.calculationMode||input.run.calculationMode==='LIVE'))||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
   if(!workerPool){
     const size=simulationWorkerCapacity(window.navigator);
     workerSource=workerSource||["'use strict';\\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'].join('');
@@ -98,7 +98,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.14.0/DES:0.4.0/cache:3',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.15.0/DES:0.4.0/cache:4',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -115,6 +115,7 @@ window.SimulatorEngine = {
   simulateLineAsync: simulateSelectedLine,
   validateSimulationInput: validateSimulationInput,
   plantCalendarSchedule: plantCalendarSchedule,
+  resolvePlannedStops:resolvePlannedStops,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance,diagnoseLineEfficiency:diagnoseLineEfficiency
 };

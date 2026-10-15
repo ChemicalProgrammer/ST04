@@ -242,12 +242,13 @@
       card.querySelector('.live-emergency').textContent = formatMinutes(unit.emergencyStopSeconds);
       card.querySelector('.live-nominal-rate').textContent = __ST_TEXT__('client.nominal') + formatRatePerMinute(model.nominalRatePerSecond) + (model.processData?.equipment?.maximumSpeedBpm ? __ST_TEXT__('client.max') + formatNumber(model.processData.equipment.maximumSpeedBpm) + __ST_TEXT__('client.min_2') : '');
       card.querySelector('.live-sparkline-nominal-rate').textContent = formatRatePerMinute(model.nominalRatePerSecond);
-      card.querySelector('.equipment-speed-sparkline-heading span').textContent=state.run.roundIndex>0&&state.run.result.samples.length>1&&state.run.result.samples[1].virtualSecond-state.run.result.samples[0].virtualSecond>60?__ST_TEXT__('batch.sampled_speed'):__ST_TEXT__('client.actual_last_60_s');
+      card.querySelector('.equipment-speed-sparkline-heading span').textContent=state.run.result?.detailCoverage?.recordingMode==='SUMMARY'?'Summary · endpoint snapshots':STRunOptions.windowLabel()+(state.run.result?.detailCoverage?.aggregated?' · aggregated':'');
       Array.prototype.forEach.call(card.querySelectorAll('.live-equipment-controls button:not(.loss-toggle)'), updateLiveEquipmentControl);
 
       var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
-        return candidate.ownerEquipmentId === unit.id;
+        return (candidate.ownerEquipmentId||state.run.result?.zoneDefinitions?.[candidate.id]?.ownerEquipmentId) === unit.id;
       }) : null;
+      if(zone)zone=Object.assign({},state.run.result?.zoneDefinitions?.[zone.id],zone);
       updateAccumulationZoneDetails(card.querySelector('.live-equipment-zone'), zone);
     }
 
@@ -448,14 +449,14 @@ function summarizeGeometrySources(sources, assumptions) {
       var sample = state.run.result && state.run.result.samples[state.run.sampleIndex];
       var isAtRunEnd = !sample || sample.virtualSecond >= state.run.result.durationSeconds;
       if(state.run.result?.batch&&state.run.roundIndex!==0){button.disabled=true;button.title=__ST_TEXT__('batch.later_controls');return;}
-      button.disabled = isAtRunEnd||Boolean(roundSession?.firstUpdating);
+      button.disabled = !document.getElementById('run-events-enabled').checked||state.run.result?.detailCoverage?.recordingMode==='SUMMARY'||isAtRunEnd||Boolean(roundSession?.firstUpdating);
       button.title = (button.dataset.actionLabel || '') + ' — ' + (isAtRunEnd
         ? __ST_TEXT__('client.reset_playback_to_an_earlier_virtual_time_before_applying_a_scenario_contro')
         : __ST_TEXT__('client.apply_at_the_displayed_virtual_second_and_recalculate_this_simulation_scena'));
     }
 
     async function applyLiveScenarioControl(equipmentId, action) {
-      if (!state.run.result||roundSession?.firstUpdating) return;
+      if (!document.getElementById('run-events-enabled').checked||!state.run.result||roundSession?.firstUpdating) return;
       if(state.run.result.batch&&state.run.roundIndex!==0)return setStatus(__ST_TEXT__('batch.later_controls'));
       var sample = state.run.result.samples[state.run.sampleIndex];
       if (!sample || sample.virtualSecond >= state.run.result.durationSeconds) {

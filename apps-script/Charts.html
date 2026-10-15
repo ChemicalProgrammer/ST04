@@ -137,7 +137,7 @@ window.STCharts=function(state,formatNumber){
       var maxRate = Math.max(1, Number(model.nominalRatePerSecond || 0) * 60);
       samples.forEach(function(sample) {
         var unit = sample.equipment[equipmentIndex];
-        maxRate = Math.max(maxRate, Number(unit && unit.actualRatePerSecond || 0) * 60);
+        maxRate = Math.max(maxRate, Number(unit && (unit.maxRatePerSecond??unit.actualRatePerSecond) || 0) * 60);
       });
       maxRate *= 1.05;
 
@@ -156,6 +156,9 @@ window.STCharts=function(state,formatNumber){
         speedColor(equipmentIndex),
         1.8
       );
+      var markers=(state.run.result?.events||[]).filter(function(event){return event.equipmentId===model.id&&/FAILURE_STARTED|EQUIPMENT_START_SEQUENCE_REQUESTED/.test(event.type);}).map(function(event){return event.atVirtualSecond;}).concat((state.run.result?.plantCalendar?.events||[]).flatMap(function(event){return [event.startSeconds,event.endSeconds];}));
+      context.strokeStyle=token('--danger');context.globalAlpha=.35;context.setLineDash?.([2,3]);context.beginPath();markers.filter(function(time){return time>=startTime&&time<=endTime;}).forEach(function(time){var x=padding.left+(time-startTime)/timeRange*plotWidth;context.moveTo(x,padding.top);context.lineTo(x,padding.top+plotHeight);});context.stroke();context.setLineDash?.([]);context.globalAlpha=1;
+
     }
 
     function drawSpeedSeries(context, samples, equipmentIndex, xForSample, yForRate, color, lineWidth) {
@@ -168,22 +171,21 @@ window.STCharts=function(state,formatNumber){
       samples.forEach(function(sample, sampleIndex) {
         var unit = sample.equipment[equipmentIndex];
         var x = xForSample(sample);
-        var y = yForRate(unit ? unit.actualRatePerSecond : 0);
+        var y = yForRate(unit ? (unit.meanRatePerSecond??unit.actualRatePerSecond) : 0);
         if (sampleIndex === 0) context.moveTo(x, y);
         else context.lineTo(x, y);
       });
       context.stroke();
+      context.globalAlpha=.2;context.lineWidth=1;context.beginPath();samples.forEach(function(sample){var unit=sample.equipment[equipmentIndex];if(!unit||!Number.isFinite(unit.minRatePerSecond)||!Number.isFinite(unit.maxRatePerSecond))return;var x=xForSample(sample);context.moveTo(x,yForRate(unit.minRatePerSecond));context.lineTo(x,yForRate(unit.maxRatePerSecond));});context.stroke();context.globalAlpha=1;
     }
 
     function getRollingSpeedSamples() {
       if (!state.run.result || !state.run.result.samples) return [];
       var allSamples = state.uiView === "results" ? state.run.result.samples : state.run.result.samples.slice(0,state.run.sampleIndex+1);
-      if(state.uiView === "results") return allSamples;
       if (!allSamples.length) return [];
       var endTime = allSamples[allSamples.length - 1].virtualSecond;
-      var startTime = Math.max(0, endTime - 60);
+      var startTime = Math.max(0, endTime - STRunOptions.windowSeconds(endTime,(state.run.configuration?.shiftHours||8)*3600));
       var recent=allSamples.filter(function(sample) { return sample.virtualSecond >= startTime; });
-      // Optimized batch replays may have fewer than two points in 60 seconds.
       return recent.length<2&&allSamples.length>1?allSamples.slice(-2):recent;
     }
 

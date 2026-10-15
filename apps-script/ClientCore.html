@@ -100,6 +100,7 @@
       STPreferences.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      STPlantCalendar.connectApply(applyPlantCalendar);
       STSettings.connectCalendar(function(detail){if(detail?.physical){var simulation=activePersistentSimulation();if(simulation)simulation.results=null;cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;toggle('simulation-results',false);}markCaseDirty();renderSimulationAnalysis();shell.sync();});
       STSettings.connectCaseFlush(function(){return prepareCaseDraft();});
       STSettings.connectInterfaceMode(function(mode){
@@ -136,6 +137,9 @@
       document.getElementById('pause-simulation').addEventListener('click', pausePlayback);
       document.getElementById('reset-playback').addEventListener('click', resetPlayback);
       document.getElementById('playback-round').addEventListener('change',function(){selectPlaybackRound(Number(this.value),false);});
+      document.getElementById('run-chart-window').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.dynamicConfig.chartWindow=this.value;autosave.change();}if(state.run.result)renderPlaybackFrame();});
+      ['run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','run-calculation-mode','run-events-enabled'].forEach(function(id){document.getElementById(id).addEventListener('change',function(){if(runControlsLocked())return;syncRunControls();markCaseDirty();});});
+      document.getElementById('settings-shift-count').addEventListener('input',function(){document.getElementById('run-shift-count').value=this.value;syncRunControls();markCaseDirty();});
       document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
       ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
       document.getElementById('duration-mode').addEventListener('change', function(event) {

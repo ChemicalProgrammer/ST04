@@ -28,6 +28,7 @@ window.STResults=(function(){
     if(job)return job;
     if(input.run.reliabilityEnabled===false)return {status:'COMPLETE',baselineOee:resultMean(result),failureFreeOee:resultMean(result)};
     if(!SimulatorEngine.simulateBatch)return null;
+    if(input.run.durationSeconds>=86400&&target._longLossKey!==key)return {status:'DEFERRED',key:key};
     job={key:key,status:'PENDING'};lossJobs.set(key,job);
     function current(){return target._lossKey===key&&target.isConnected;}
     async function start(){
@@ -58,6 +59,7 @@ window.STResults=(function(){
     if(!diagnostic&&!counter&&failuresDisabled&&d.accountingAvailable){conditional=0;remaining=d.residualLossPp;}
     var cards=add('div','');cards.className='result-kpis result-loss-kpis';
     [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':'—',card);});
+    if(diagnostic?.status==='DEFERRED'){var calculate=add('button','Calculate matched loss diagnostics');calculate.type='button';calculate.className='secondary';calculate.title='Runs the full period again without random failures; may take several minutes.';calculate.onclick=function(){target._longLossKey=diagnostic.key;renderEfficiency(target,equipment,result,simulation);};}
     if(diagnostic?.status==='ERROR'){var retry=add('button','Recalculate losses');retry.type='button';retry.className='secondary';retry.onclick=()=>{lossJobs.delete(diagnostic.key);renderEfficiency(target,equipment,result,simulation);};}
     if(!result)return;
     add('p','Observed times can overlap; they are not additive OEE losses.').className='chart-note';
@@ -81,6 +83,8 @@ window.STResults=(function(){
     renderEfficiency(document.getElementById('results-loss-breakdown'),simulation?.equipment||activeCase?.equipment||[],ready?result:null,simulation);
     if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
+    if(result.detailCoverage?.aggregated)document.getElementById('results-meta').textContent+=' · bounded history / '+number(result.detailCoverage.effectiveSampleSeconds)+' s buckets';
+    if(result.detailCoverage?.omittedEvents)document.getElementById('results-meta').textContent+=' · '+result.detailCoverage.omittedEvents+' detailed events omitted; totals retained';
     if(result.batch)document.getElementById('results-meta').textContent+=' · '+__ST_TEXT__('batch.representative');
     var target=document.getElementById('results-kpis');target.textContent='';
     metrics(result).filter(function(_,index){return !window.STBasicMode?.isBasic()||index<3;}).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?__ST_TEXT__('results.primary_kpi'):'');var label=document.createElement('span'),value=document.createElement('strong');var mean=result.batch?.statistics?.[['lineOeePercent','throughputPerMinute','outputCount'][index]]?.mean;label.textContent=item[0]+(Number.isFinite(mean)?' (mean of '+result.batch.rounds+' rounds)':'');value.textContent=number(Number.isFinite(mean)?mean:item[1],index===0?2:undefined)+item[2];card.append(label,value);target.appendChild(card);});

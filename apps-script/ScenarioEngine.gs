@@ -44,6 +44,24 @@ function plantCalendarSchedule(calendar, tickSeconds=.25) {
   return {events,horizonSeconds,plannedStopSeconds:events.reduce((n,e)=>n+e.durationSeconds,0),restartPolicy:calendar.restartPolicy||'RESTART'};
 }
 
+function resolvePlannedStops(run) {
+  if(run.eventsEnabled===false)return {events:[],horizonSeconds:null};
+  if(run.plannedStops!==undefined){
+    if(!Array.isArray(run.plannedStops)||run.plannedStops.length>5000)throw new Error('Planned stops must be an array of at most 5,000 events.');
+    if(run.plantCalendar?.application==='EVENTS'&&(!Number.isFinite(run.plantCalendar.appliedHorizonSeconds)||run.plantCalendar.appliedHorizonSeconds<=0))throw new Error('Applied calendar horizon is invalid.');
+    const tick=run.tickSeconds,events=run.plannedStops.map((e,index)=>{
+      if(!e||!Number.isFinite(e.startSeconds)||e.startSeconds<0||!Number.isFinite(e.endSeconds)||e.endSeconds<=e.startSeconds)throw new Error('Invalid planned stop '+(index+1));
+      if(!['RESTART','RESUME'].includes(e.restartPolicy||'RESTART'))throw new Error('Invalid planned stop restart policy.');
+      const startSeconds=Math.ceil((e.startSeconds-1e-8)/tick)*tick,endSeconds=Math.ceil((e.endSeconds-1e-8)/tick)*tick;
+      if(endSeconds-startSeconds<tick-1e-8)throw new Error('Planned stop is shorter than one tick.');
+      return {...e,startSeconds,endSeconds,durationSeconds:endSeconds-startSeconds,restartPolicy:e.restartPolicy||'RESTART'};
+    }).sort((a,b)=>a.startSeconds-b.startSeconds);
+    events.forEach((e,i)=>{if(i&&e.startSeconds<events[i-1].endSeconds-1e-8)throw new Error('Planned stops overlap.');if(run.plantCalendar?.application==='EVENTS'&&e.endSeconds>run.plantCalendar.appliedHorizonSeconds+1e-8)throw new Error('A line stop extends beyond the applied calendar horizon.');});
+    return {events,horizonSeconds:run.plantCalendar?.application==='EVENTS'?run.plantCalendar.appliedHorizonSeconds:run.durationSeconds,plannedStopSeconds:events.reduce((s,e)=>s+e.durationSeconds,0),restartPolicy:'PER_EVENT'};
+  }
+  return plantCalendarSchedule(run.plantCalendar,run.tickSeconds);
+}
+
 /**
  * Deterministic conveyor-design calculations based on the SimuLine / CAT
  * engineering worksheet.  All linear rates below use millimetres per second
@@ -703,8 +721,8 @@ function validateSimulationInput(input) {
   const details = [];
   validateCase(input?.case, details);
   validateRun(input?.run, details);
-  try { plantCalendarSchedule(input?.run?.plantCalendar,input?.run?.tickSeconds);if(input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED'&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
-  validateCommands(input?.run?.commands, input?.case?.equipment, details);
+  try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
+  if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);
 
   return details.length === 0
     ? { ok: true }
@@ -900,6 +918,8 @@ function validateRun(run, details) {
     details.push(required('run'));
     return;
   }
+  if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
+  if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));
@@ -1174,7 +1194,8 @@ function scenarioSignature(simulation){
     noiseProfile:unit.noiseProfile&&typeof unit.noiseProfile==='object'?unit.noiseProfile:{},
     processData:unit.processData&&typeof unit.processData==='object'?unit.processData:{}
   }));
-  const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?simulation.dynamicConfig:{};
+  const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?{...simulation.dynamicConfig}:{};
+  delete config.chartWindow;
   const text=JSON.stringify(stableScenarioValue(["SCENARIO_STREAMS_V4",simulation.id,equipment,config]));
   let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
   return (hash>>>0).toString(16)+':'+text.length;

@@ -157,6 +157,7 @@
         </div>
 
         <div id="run-not-ready" class="notice hidden"><?= __ST_TEXT__('view.save_a_valid_physical_line_before_running_machine_conveyor_machine_with_geo') ?></div>
+        <div class="simulation-options"><label class="checkbox-label"><input id="run-events-enabled" type="checkbox">Enable events</label><label>Card chart window<select id="run-chart-window"><option value="AUTO">Auto</option><option value="60">Last 1 min</option><option value="300">Last 5 min</option><option value="900">Last 15 min</option><option value="3600">Last 1 hour</option><option value="SHIFT">Last shift</option><option value="86400">Last 24 hours</option><option value="FULL">Full simulation</option></select></label></div>
         <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
             
@@ -164,22 +165,22 @@
             
             <label><?= __ST_TEXT__('view.random_seed') ?><input id="run-seed" type="number" min="0" step="1" value="20260909"></label>
             
-            <label><?= __ST_TEXT__('batch.shift_count') ?><select id="run-shift-count"><option>1</option><option>2</option><option>3</option></select></label>
+            <label><?= __ST_TEXT__('batch.shift_count') ?><input id="run-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
             <label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label>
-            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option></select></label>
+            <label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option><option value="10000">10,000×</option><option value="1000000">1,000,000×</option></select></label>
           </div>
 
           <details class="notice model-boundary"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>
             <?= __ST_TEXT__('view.at_1_one_virtual_second_takes_one_real_second_the_engine_integrates_at_0_25') ?></p></details>
 
-          <div class="editor-subheading compact-heading">
+<section id="simulation-event-section" class="hidden">          <div class="editor-subheading compact-heading">
             <div>
               <h3><?= __ST_TEXT__('view.equipment_control_events') ?></h3>
               <p><?= __ST_TEXT__('view.schedule_a_pause_planned_stop_emergency_stop_reset_run_manual_or_automatic_') ?></p>
             </div>
             <button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button>
           </div>
-          <div id="control-events" class="control-events"></div>
+          <div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></section>
         </details>
 
     <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
@@ -318,8 +319,17 @@
         <div id="settings-page-simulation" class="hidden" role="tabpanel" aria-labelledby="settings-tab-simulation">
           <section class="settings-section"><h3>General</h3><div class="settings-simulation-grid"><div id="settings-seed-section" class="settings-option-group"><label for="settings-seed-policy">Seed policy</label><select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM" selected>Random — new base seed for each run</option></select><p>Rounds use base seed + round index. The actual seed is saved with results. This policy is saved in this case and also applies in Basic. What-If comparisons keep matched seeds.</p></div>
           <div id="settings-engine-section" class="settings-option-group hidden"><label for="settings-simulation-engine">Engine for the selected simulation</label><select id="settings-simulation-engine"><option value="ST_CURRENT">Current engine (default)</option><option value="DES_SIMPY_EXPERIMENTAL">DES · Python / SimPy (experimental)</option></select><label class="settings-reliability-toggle" for="settings-reliability-enabled"><input id="settings-reliability-enabled" type="checkbox" checked><span>Enable failures and repairs (MTBF / MTTR)</span></label><p>Applies to the selected simulation, background rounds and CAPEX searches. Disable to study flow losses without random failures. MTBF/MTTR inputs are preserved. Microstops, startup, blocking and starvation remain, so OEE may stay below 100%. Changing this option clears the previous baseline results.</p><p id="settings-engine-note" class="chart-note">SimPy runs in this browser. Its first run downloads Pyodide over HTTPS from cdn.jsdelivr.net, with unpkg.com as a fallback. Supports alternating machine–conveyor lines; supports spatial products, packed queues, Prime/Back-up sensors, downtime, ramps and residual discharge. OEE and What-If are not validated for this engine. Changing the engine clears this simulation’s previous results.</p></div></div></section>
-          <section id="settings-run-options" class="settings-section"><h3>Selected simulation</h3><div class="settings-simulation-grid"><label><?= __ST_TEXT__('view.duration_mode') ?><select id="duration-mode"><option value="FIXED"><?= __ST_TEXT__('view.fixed_virtual_duration') ?></option><option value="SHIFTS"><?= __ST_TEXT__('batch.shifts') ?></option><option value="INDEFINITE"><?= __ST_TEXT__('view.indefinite_safety_ceiling') ?></option></select></label><label><?= __ST_TEXT__('view.virtual_duration_safety_ceiling_s') ?><input id="run-duration" type="number" min="1" step="1" value="300"></label><label><?= __ST_TEXT__('view.display_sample_interval_s') ?><input id="run-sample-interval" type="number" min="1" step="1" value="5"></label><label><?= __ST_TEXT__('batch.hours') ?><input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label></div></section><section id="settings-plant-calendar" class="settings-section"></section>
-          <p id="settings-basic-simulation-note" class="chart-note hidden">Basic uses manual saving with the Save icon. Set duration, sample interval and hours per shift here. Rounds, shift count and playback speed are set in Simulation.</p>
+          <section id="settings-run-options" class="settings-section"><h3>Selected simulation</h3><div class="settings-simulation-grid">
+<label>Duration method<select id="duration-mode"><option value="FIXED">Elapsed time</option><option value="SHIFTS">Number of shifts</option><option value="DATES">Date and time range</option><option value="INDEFINITE">Time limit (legacy)</option></select></label>
+<label data-duration-method="FIXED INDEFINITE">Duration<input id="run-duration" type="number" min="0.001" step="any" value="300"></label>
+<label data-duration-method="FIXED INDEFINITE">Unit<select id="run-duration-unit"><option value="SECONDS">Seconds</option><option value="MINUTES">Minutes</option><option value="HOURS">Hours</option><option value="DAYS">Days</option><option value="WEEKS">Weeks</option></select></label>
+<label data-duration-method="DATES" class="hidden">Start<input id="run-start-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">End<input id="run-end-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">Time zone<input id="run-time-zone" value="America/Mexico_City"></label>
+<label data-duration-method="SHIFTS">Number of shifts<input id="settings-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
+<label>Hours per shift<input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
+<label>Display sample interval (s)<input id="run-sample-interval" type="number" min="1" step="1" value="5"></label>
+<label>Calculation mode<select id="run-calculation-mode"><option value="AUTO">Automatic</option><option value="LIVE">Live</option><option value="FAST">Fast calculation</option><option value="SUMMARY">Summary only</option></select></label>
+<label class="checkbox-label"><input id="run-track-shifts" type="checkbox">Show shift accounting</label></div><p id="run-duration-summary" class="chart-note"></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events. Automatic uses fast calculation for periods of one day or longer. History is bounded; summary mode retains only endpoint snapshots. Physical resolution remains 0.25 s.</p></section><section id="settings-plant-calendar" class="settings-section"></section>
+          <p id="settings-basic-simulation-note" class="chart-note hidden">Set duration, recording and optional shift accounting here. Playback speed changes the animation, not the physics calculation.</p>
 
 
         </div>
@@ -370,6 +380,7 @@
     <?!= include_('Autosave'); ?>
     <?!= include_('WhatIf'); ?>
     <?!= include_('ScenarioExplorer'); ?>
+    <?!= include_('RunOptions'); ?>
     <?!= include_('PlantCalendar'); ?>
     <?!= include_('Settings'); ?>
     <?!= include_('CaseGallery'); ?>

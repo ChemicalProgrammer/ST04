@@ -1,5 +1,6 @@
 <script>
 window.STPlantCalendar=(function(){
+  var applyEvents;
   var fields=[['totalMinutes','Total time'],['externalMinutes','Business external time'],['changeoverMinutes','Changeover'],['coReportingErrorMinutes','CO reporting error'],['cleaningMinutes','Cleaning and sanitization'],['autonomousMaintenanceMinutes','Autonomous maintenance'],['plannedMaintenanceMinutes','Planned maintenance'],['breakMinutes','Lunch and break'],['trainingMinutes','Meeting and training'],['experimentationMinutes','Plant experimentation']];
   function calculate(data){
     data=data||{};var errors=[];
@@ -34,8 +35,8 @@ window.STPlantCalendar=(function(){
         [['count','Number of events',1],['firstStartMinutes','First start (min)',0],['intervalMinutes','Start interval (min)',null]].forEach(function(def){var input=numericCell(row,{label:f[1]+' · '+def[1],value:data.plans?.[f[0]]?.[def[0]]??def[2],min:def[0]==='count'?'1':'0',step:def[0]==='count'?'1':'any'});if(def[0]==='count')input.max='1000';else input.closest('td').classList.add('plant-calendar-timed');input.dataset.planField=def[0];input.onchange=function(){if(!input.reportValidity())return;var plans=Object.assign({},data.plans);plans[f[0]]=Object.assign({},plans[f[0]],{[def[0]]:input.value===''?null:Number(input.value)});save('plans',plans);};});
       });
       var planTables=Array.from(planGrid.querySelectorAll('table')),planRows=planTables.flatMap(function(table){return Array.from(table.tBodies[0].rows);}),planSplit=Math.ceil(planRows.length/2);
-      var useDuration=document.createElement('button');useDuration.type='button';useDuration.className='ghost';useDuration.textContent='Use full calendar duration';planning.append(useDuration);
-      useDuration.onclick=function(){try{var schedule=window.SimulatorEngine.plantCalendarSchedule(data,.25);var picker=document.getElementById('duration-mode'),duration=document.getElementById('run-duration');picker.value='FIXED';picker.dispatchEvent(new Event('change',{bubbles:true}));duration.step='any';duration.value=Math.ceil(schedule.horizonSeconds/.25)*.25;var sample=document.getElementById('run-sample-interval');sample.value=Math.max(Number(sample.value)||1,Math.ceil(schedule.horizonSeconds/10000));sample.dispatchEvent(new Event('input',{bubbles:true}));duration.dispatchEvent(new Event('input',{bubbles:true}));duration.dispatchEvent(new Event('change',{bubbles:true}));}catch(error){summary.textContent=error.message;summary.setAttribute('role','alert');}};
+      var useDuration=document.createElement('button');useDuration.type='button';useDuration.className='ghost';useDuration.textContent='Apply plant calendar';planning.append(useDuration);
+      useDuration.onclick=async function(){try{var schedule=window.SimulatorEngine.plantCalendarSchedule(data,.25);if(!applyEvents)throw Error('Event editor is unavailable.');useDuration.disabled=true;await applyEvents(schedule);data=sim.dynamicConfig.plantCalendar;update();}catch(error){summary.textContent=error.message;summary.setAttribute('role','alert');}finally{useDuration.disabled=!checkbox.checked||!!locked();}};
       function refreshPlan(){var scheduled=mode.value==='SCHEDULED';planning.classList.toggle('hidden',!scheduled);distribution.disabled=restart.disabled=!checkbox.checked||!!locked()||!scheduled;content.querySelectorAll('input,button').forEach(function(input){input.disabled=!checkbox.checked||!!locked();});mode.disabled=!checkbox.checked||!!locked();var timed=distribution.value==='TIMED';planGrid.classList.toggle('plant-calendar-events-timed',timed);planTables[1].classList.toggle('hidden',timed);planRows.forEach(function(row,index){var body=planTables[timed||index<planSplit?0:1].tBodies[0];if(row.parentNode!==body)body.append(row);});planGrid.querySelectorAll('.plant-calendar-timed').forEach(function(cell){cell.classList.toggle('hidden',!timed);});}
 
       var summary=document.createElement('p');summary.className='chart-note';content.append(summary);
@@ -45,21 +46,22 @@ window.STPlantCalendar=(function(){
     }return render;
   }
   function renderResults(target,result,simulation){target.replaceChildren();var data=simulation?.dynamicConfig?.plantCalendar;if(!data?.enabled)return;
-    var c=calculate(data),heading=document.createElement('h3');heading.textContent='Plant calendar';target.append(heading);
+    var c=calculate(data.application==='EVENTS'&&data.appliedCalendar?data.appliedCalendar:data),heading=document.createElement('h3');heading.textContent='Plant calendar';target.append(heading);
     var note=document.createElement('p');note.className='chart-note';target.append(note);if(c.errors.length){note.textContent=c.errors.join(' ');return;}
     var efficiency=result?.batch?.statistics?.lineOeePercent?.mean??result?.summary?.lineOeePercent;
     var supported=result?.summary?.qualityAssumption==='NO_REJECT_MODEL_ASSUMES_100_PERCENT'&&Number.isFinite(efficiency);
     var audit=result?.plantCalendar,scheduled=data.mode==='SCHEDULED';
-    if(scheduled&&!audit){note.textContent='Run this simulation to calculate scheduled plant stops.';return;}
+    if(scheduled&&!audit){note.textContent=simulation?.dynamicConfig?.eventsEnabled===false?'Events are disabled; plant stops were not executed.':'Apply the plant calendar and run the simulation to calculate scheduled line stops.';return;}
     var complete=scheduled&&audit.completePeriod;
+    if(scheduled&&audit){c.decision=(audit.plannedStopSeconds||0)/60+((data.appliedCalendar||data).coReportingErrorMinutes||0);c.production=c.available-c.decision;}
     var effective=supported?(scheduled?result.durationSeconds/60:c.production)*efficiency/100:null;
     if(scheduled&&!complete)effective=null;
     var au=supported?(scheduled?(complete?efficiency*(audit.horizonSeconds/60)/c.available:null):efficiency*c.production/c.available):null;
     var rows=[['Total time (min)',c.total],['Plant available time (min)',c.available],['Plant decision time (min)',c.decision],['Production available time (min)',c.production],['Projected effective runtime (min)',effective],['Projected asset utilization / plant available (%)',au]];
     var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Metric','Value'].forEach(function(t){var th=document.createElement('th');th.textContent=t;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody');rows.forEach(function(r){var tr=document.createElement('tr');[r[0],format(r[1])].forEach(function(v,i){var td=document.createElement('td');td.textContent=v;if(i)td.className='numeric';tr.append(td);});body.append(tr);});table.append(body);target.append(table);
-    if(scheduled){rows.push(['Observed planned line stops (min)',audit.observedStopSeconds/60]);var row=document.createElement('tr');rows[rows.length-1].forEach(function(value,i){var cell=document.createElement('td');cell.textContent=i?format(value):value;row.append(cell);});body.append(row);note.textContent=(complete?'Scheduled stops are already included in simulated production; no additional downtime discount is applied.':'Run duration differs from the full calendar: only scheduled stops within the configured run occurred. Use full calendar duration for period metrics.')+' Conveyor inventory is retained. Restart policy: '+audit.restartPolicy+'.';return;}
+    if(scheduled){rows.push(['Observed planned line stops (min)',audit.observedStopSeconds/60]);var row=document.createElement('tr');rows[rows.length-1].forEach(function(value,i){var cell=document.createElement('td');cell.textContent=i?format(value):value;row.append(cell);});body.append(row);note.textContent=(complete?'Scheduled stops are already included in simulated production; no additional downtime discount is applied.':'Run duration differs from the full calendar: only scheduled stops within the configured run occurred. Apply the plant calendar to use its full duration for period metrics.')+' Conveyor inventory is retained. Restart policy: '+audit.restartPolicy+'.';return;}
     note.textContent='Projection from '+format(result?.durationSeconds/60)+' simulated minutes using the nominal line reference. Calendar exclusions are applied once, outside the engine. Quality assumes 100%; startup effects and product mix may make a short run unrepresentative.';
   }
-  return {calculate:calculate,mount:mount,renderResults:renderResults};
+  return {connectApply:function(fn){applyEvents=fn;},calculate:calculate,mount:mount,renderResults:renderResults};
 })();
 </script>

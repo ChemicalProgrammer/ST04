@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {Worker} from 'node:worker_threads';
+test('one Fast round executes in a worker and matches the direct physical calculation',async()=>{
+ const blobs=new Map(),threads=[],listeners={};let serial=0;
+ class Blob{constructor(parts){this.source=parts.join('');}}
+ class BrowserWorker{constructor(url){const source=blobs.get(url);this.thread=new Worker("const {parentPort}=require('node:worker_threads');globalThis.self={postMessage:value=>parentPort.postMessage(value)};parentPort.on('message',value=>self.onmessage({data:value}));\n"+source,{eval:true});threads.push(this.thread);this.thread.on('message',data=>this.onmessage?.({data}));this.thread.on('error',error=>this.onerror?.(error));}postMessage(value){this.thread.postMessage(value);}terminate(){this.thread.terminate();}}
+ const host={Blob,Worker:BrowserWorker,URL:{createObjectURL:b=>{const key='blob:'+serial++;blobs.set(key,b.source);return key;},revokeObjectURL(){}},navigator:{hardwareConcurrency:4,deviceMemory:8},addEventListener:(name,fn)=>listeners[name]=fn};
+ vm.runInNewContext(fs.readFileSync('apps-script/SimulationEngine.html','utf8').replace(/^<script>|<\/script>\s*$/g,''),{window:host,setTimeout,clearTimeout,setInterval,clearInterval,Date});
+ const input=JSON.parse(fs.readFileSync('test/fixtures/simpy-pipeline.json','utf8'));input.run={...input.run,durationSeconds:120,calculationMode:'FAST',rounds:1};
+ try{const direct=host.SimulatorEngine.simulateLine(input);const threaded=await host.SimulatorEngine.simulateBatch(input,{summaryOnly:false});assert(threaded.ok);assert.equal(threads.length,1);assert.equal(JSON.stringify(threaded.result.summary),JSON.stringify(direct.result.summary));assert.equal(JSON.stringify(threaded.result.equipmentMetrics),JSON.stringify(direct.result.equipmentMetrics));assert(threaded.result.samples.length>1);}finally{listeners.pagehide?.();for(const thread of threads)await thread.terminate();}
+});

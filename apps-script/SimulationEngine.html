@@ -736,14 +736,32 @@ function plantCalendarSchedule(calendar, tickSeconds=.25) {
   return {events,horizonSeconds,plannedStopSeconds:events.reduce((n,e)=>n+e.durationSeconds,0),restartPolicy:calendar.restartPolicy||'RESTART'};
 }
 
+function resolvePlannedStops(run) {
+  if(run.eventsEnabled===false)return {events:[],horizonSeconds:null};
+  if(run.plannedStops!==undefined){
+    if(!Array.isArray(run.plannedStops)||run.plannedStops.length>5000)throw new Error('Planned stops must be an array of at most 5,000 events.');
+    if(run.plantCalendar?.application==='EVENTS'&&(!Number.isFinite(run.plantCalendar.appliedHorizonSeconds)||run.plantCalendar.appliedHorizonSeconds<=0))throw new Error('Applied calendar horizon is invalid.');
+    const tick=run.tickSeconds,events=run.plannedStops.map((e,index)=>{
+      if(!e||!Number.isFinite(e.startSeconds)||e.startSeconds<0||!Number.isFinite(e.endSeconds)||e.endSeconds<=e.startSeconds)throw new Error('Invalid planned stop '+(index+1));
+      if(!['RESTART','RESUME'].includes(e.restartPolicy||'RESTART'))throw new Error('Invalid planned stop restart policy.');
+      const startSeconds=Math.ceil((e.startSeconds-1e-8)/tick)*tick,endSeconds=Math.ceil((e.endSeconds-1e-8)/tick)*tick;
+      if(endSeconds-startSeconds<tick-1e-8)throw new Error('Planned stop is shorter than one tick.');
+      return {...e,startSeconds,endSeconds,durationSeconds:endSeconds-startSeconds,restartPolicy:e.restartPolicy||'RESTART'};
+    }).sort((a,b)=>a.startSeconds-b.startSeconds);
+    events.forEach((e,i)=>{if(i&&e.startSeconds<events[i-1].endSeconds-1e-8)throw new Error('Planned stops overlap.');if(run.plantCalendar?.application==='EVENTS'&&e.endSeconds>run.plantCalendar.appliedHorizonSeconds+1e-8)throw new Error('A line stop extends beyond the applied calendar horizon.');});
+    return {events,horizonSeconds:run.plantCalendar?.application==='EVENTS'?run.plantCalendar.appliedHorizonSeconds:run.durationSeconds,plannedStopSeconds:events.reduce((s,e)=>s+e.durationSeconds,0),restartPolicy:'PER_EVENT'};
+  }
+  return plantCalendarSchedule(run.plantCalendar,run.tickSeconds);
+}
+
 
 
 function validateSimulationInput(input) {
   const details = [];
   validateCase(input?.case, details);
   validateRun(input?.run, details);
-  try { plantCalendarSchedule(input?.run?.plantCalendar,input?.run?.tickSeconds);if(input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED'&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
-  validateCommands(input?.run?.commands, input?.case?.equipment, details);
+  try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
+  if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);
 
   return details.length === 0
     ? { ok: true }
@@ -939,6 +957,8 @@ function validateRun(run, details) {
     details.push(required('run'));
     return;
   }
+  if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
+  if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));
@@ -1054,19 +1074,15 @@ async function simulateLineAsync(input, options = {}) {
   if(input.run.shiftSeconds!==undefined&&(!Number.isFinite(input.run.shiftSeconds)||input.run.shiftSeconds<=0||input.run.shiftSeconds%input.run.tickSeconds!==0))throw new Error('INVALID_SHIFT_DURATION');
   const runtime = createRuntime(input);
   runtime.summaryOnly=options.summaryOnly===true;
-  let omittedEvents = runtime.summaryOnly?runtime.events.length:0;
-  if(runtime.summaryOnly)runtime.events.length=0;
-  const push = runtime.events.push.bind(runtime.events);
-  runtime.events.push = (...items) => {
-    if (!runtime.summaryOnly && options.detail && runtime.events.length < 2000) return push(...items);
-    omittedEvents += items.length; return runtime.events.length;
-  };
+  runtime.captureEvents=options.detail===true;
+  if(runtime.summaryOnly){runtime.omittedEvents+=runtime.events.length;runtime.events.length=0;}
   applyDueCommands(runtime); updatePlantCalendar(runtime, false); initializeInitialMaterialStates(runtime); addSample(runtime);
   // Stream only new frames. Provisional snapshots never become final statistics.
-  let publishedSamples=0;
+  let publishedSamples=0,lastPartialAt=0;
   function publishPartial(){
-    if(!options.onPartial||runtime.summaryOnly)return;
-    const partial=createResult(runtime);
+    if(!options.onPartial||runtime.summaryOnly||runtime.samples.length===publishedSamples)return;
+    const now=Date.now();if(publishedSamples&&now-lastPartialAt<100&&runtime.virtualSecond<runtime.run.durationSeconds)return;lastPartialAt=now;
+    const partial=createResult(runtime,true);
     partial.samples=runtime.samples.slice(publishedSamples);publishedSamples=runtime.samples.length;
     partial.events=[]; // The bounded event log is sent once with the completed result.
     partial.provisional=true;partial.calculatedThroughSeconds=runtime.virtualSecond;
@@ -1078,7 +1094,7 @@ async function simulateLineAsync(input, options = {}) {
   let nextShift = shiftSeconds;
   while (runtime.virtualSecond < input.run.durationSeconds) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
-    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:1000;
+    const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:input.run.calculationMode==='FAST'||input.run.calculationMode==='SUMMARY'?5000:1000;
     const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
     if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
@@ -1095,7 +1111,7 @@ async function simulateLineAsync(input, options = {}) {
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
-  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage={omittedEvents};
+  const result=createResult(runtime); result.shifts=shifts; result.detailCoverage=recordingCoverage(runtime);
   return {ok:true,result};
 }
 
@@ -1134,14 +1150,19 @@ function createRuntime(input) {
     equipmentById: new Map(equipment.map(unit => [unit.id, unit])),
     zones,
     events: [],
-    samples: [],
+    samples: [],zoneDefinitions:{},
     outputCount: 0,
     commandIndex: 0,
-    calendar: plantCalendarSchedule(input.run.plantCalendar,input.run.tickSeconds),
+    calendar: resolvePlannedStops(input.run),
     calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
-    commands: sortCommands(input.run.commands || [])
+    commands: sortCommands(input.run.eventsEnabled===false?[]:input.run.commands || []),
+    omittedEvents:0,captureEvents:true,
+    sampleInterval: Math.ceil(Math.max(input.run.sampleEverySeconds||input.run.tickSeconds,input.run.durationSeconds/(input.run.calculationMode==='SUMMARY'?1:999))/input.run.tickSeconds)*input.run.tickSeconds,
+    nextSampleAt:0,historyTicks:0
   };
 
+  const push=runtime.events.push.bind(runtime.events);
+  runtime.events.push=(...items)=>{if(runtime.captureEvents&&!runtime.summaryOnly&&runtime.events.length+items.length<=2000)return push(...items);runtime.omittedEvents+=items.length;return runtime.events.length;};
   const source = runtime.equipment[0];
   if (source && isOperationalMode(source) && hasStartProfile(source)) {
     requestEquipmentStart(runtime, source, 'INITIAL_START');
@@ -1348,7 +1369,9 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     recordZoneStatistics(runtime);
     runtime.equipment.forEach((item) => {
       item.stateSeconds[item.availabilityState] = (item.stateSeconds[item.availabilityState] || 0) + runtime.run.tickSeconds;
+      if(!runtime.summaryOnly){const rate=item.actualRatePerSecond||0;item.historySum=(item.historySum||0)+rate;item.historyMin=Math.min(item.historyMin??rate,rate);item.historyMax=Math.max(item.historyMax??rate,rate);}
     });
+    if(!runtime.summaryOnly)runtime.historyTicks++;
     advanceEquipmentControlTimers(runtime);
     runtime.virtualSecond += runtime.run.tickSeconds;
     addSampleIfDue(runtime);
@@ -1689,12 +1712,12 @@ function updatePlantCalendar(runtime, countTick=true) {
   if(runtime.calendarActive && now>=runtime.calendarActive.endSeconds){
     runtime.events.push({type:'PLANT_STOP_ENDED',atVirtualSecond:now,category:runtime.calendarActive.category});
     runtime.calendarActive=null;
-    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendar.restartPolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
+    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendarActivePolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
   }
   const next=runtime.calendar.events[runtime.calendarIndex];
   if(!runtime.calendarActive&&next&&now>=next.startSeconds){
-    runtime.calendarIndex++;runtime.calendarActive=next;
-    runtime.equipment.forEach(e=>{e.calendarStopped=true;if(runtime.calendar.restartPolicy==='RESTART')cancelEquipmentStart(e);});
+    runtime.calendarIndex++;runtime.calendarActive=next;runtime.calendarActivePolicy=next.restartPolicy||runtime.calendar.restartPolicy;
+    runtime.equipment.forEach(e=>{e.calendarStopped=true;if(runtime.calendarActivePolicy==='RESTART')cancelEquipmentStart(e);});
     runtime.events.push({type:'PLANT_STOP_STARTED',atVirtualSecond:now,category:next.category,untilVirtualSecond:next.endSeconds});
   }
   if(runtime.calendarActive&&countTick)runtime.calendarStopSeconds+=runtime.run.tickSeconds;
@@ -2099,19 +2122,19 @@ function getTransitUnits(zone) {
 
 function addSampleIfDue(runtime) {
   if(runtime.summaryOnly)return;
-  const interval = runtime.run.sampleEverySeconds || runtime.run.tickSeconds;
-  if (runtime.virtualSecond !== runtime.run.durationSeconds && runtime.virtualSecond % interval !== 0) return;
+  if(runtime.virtualSecond+1e-8<runtime.nextSampleAt&&runtime.virtualSecond<runtime.run.durationSeconds)return;
   addSample(runtime);
 }
 
 function addSample(runtime) {
   if(runtime.summaryOnly)return;
   const visibleZones = runtime.zones.filter((zone) => zone.visible);
+  runtime.nextSampleAt=runtime.virtualSecond+runtime.sampleInterval;
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
-    accumulationZones: visibleZones.map(createZoneSample),
+    accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),
     equipment: runtime.equipment.map((item) => {
       const effectiveness = createEquipmentEffectiveness(item, runtime.virtualSecond);
       return {
@@ -2120,6 +2143,8 @@ function addSample(runtime) {
         availabilityState: item.availabilityState,
         outputCount: round(item.outputCount),
         processedUnits: round(item.outputCount),
+        meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
+        minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
         starvedSeconds: round(item.starvedSeconds),
         blockedSeconds: round(item.blockedSeconds),
@@ -2133,8 +2158,19 @@ function addSample(runtime) {
       };
     })
   });
+  runtime.historyTicks=0;runtime.equipment.forEach(item=>{item.historySum=0;item.historyMin=undefined;item.historyMax=undefined;});
 }
 
+function recordingCoverage(runtime){return {omittedEvents:runtime.omittedEvents,requestedSampleSeconds:runtime.run.sampleEverySeconds||runtime.run.tickSeconds,effectiveSampleSeconds:runtime.sampleInterval,maximumSamples:1001,aggregated:runtime.sampleInterval>(runtime.run.sampleEverySeconds||runtime.run.tickSeconds),recordingMode:runtime.run.calculationMode==='SUMMARY'?'SUMMARY':'BOUNDED',exactReplay:false};}
+
+function createRecordedZoneSample(runtime,zone){
+  const frame=createZoneSample(zone);
+  if(runtime.run.historyFormat==='COMPACT'){
+    const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
+    for(const key of ['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry']){if(!definition[key])definition[key]=frame[key];delete frame[key];}
+  }
+  return frame;
+}
 function createZoneSample(zone) {
   const inventoryUnits = getZoneInventory(zone);
   return {
@@ -2206,11 +2242,13 @@ function createZoneSample(zone) {
   };
 }
 
-function createResult(runtime) {
+function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.14.0',
+    engineVersion: '0.15.0',
+    detailCoverage:recordingCoverage(runtime),
+    zoneDefinitions:runtime.zoneDefinitions,
     plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
@@ -2220,7 +2258,7 @@ function createResult(runtime) {
       zone.id,
       createZoneMetrics(zone, runtime.run.durationSeconds)
     ])),
-    events: runtime.events.slice(),
+    events: partial?[]:runtime.events.slice(),
     samples: runtime.samples
   };
 }
@@ -2575,7 +2613,7 @@ function adaptSimPyInput(input) {
     }
   }
   const ids=new Set(equipment.map(m=>m.id));
-  const commands=(input.run.commands||[]).map(c=>{
+  const commands=(input.run.eventsEnabled===false?[]:input.run.commands||[]).map(c=>{
     if(!ids.has(c.equipmentId))throw new Error('Unknown equipment control: '+c.equipmentId);
     return {atSecond:c.atVirtualSecond,equipmentId:c.equipmentId,action:c.action};
   });
@@ -2970,7 +3008,8 @@ function scenarioSignature(simulation){
     noiseProfile:unit.noiseProfile&&typeof unit.noiseProfile==='object'?unit.noiseProfile:{},
     processData:unit.processData&&typeof unit.processData==='object'?unit.processData:{}
   }));
-  const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?simulation.dynamicConfig:{};
+  const config=simulation.dynamicConfig&&typeof simulation.dynamicConfig==='object'&&!Array.isArray(simulation.dynamicConfig)?{...simulation.dynamicConfig}:{};
+  delete config.chartWindow;
   const text=JSON.stringify(stableScenarioValue(["SCENARIO_STREAMS_V4",simulation.id,equipment,config]));
   let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
   return (hash>>>0).toString(16)+':'+text.length;
@@ -3431,7 +3470,7 @@ async function calculateBrowserBatch(input,options={}){
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
   const settings={...options,onFirstRound,laterSummaryOnly:options.laterSummaryOnly!==false};
   const count=input.run.rounds||1;
-  if((count<2&&!options.summaryOnly)||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
+  if((count<2&&!options.summaryOnly&&(!input.run.calculationMode||input.run.calculationMode==='LIVE'))||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
   if(!workerPool){
     const size=simulationWorkerCapacity(window.navigator);
     workerSource=workerSource||["'use strict';\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'].join('');
@@ -3453,7 +3492,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.14.0/DES:0.4.0/cache:3',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.15.0/DES:0.4.0/cache:4',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -3470,6 +3509,7 @@ window.SimulatorEngine = {
   simulateLineAsync: simulateSelectedLine,
   validateSimulationInput: validateSimulationInput,
   plantCalendarSchedule: plantCalendarSchedule,
+  resolvePlannedStops:resolvePlannedStops,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance,diagnoseLineEfficiency:diagnoseLineEfficiency
 };

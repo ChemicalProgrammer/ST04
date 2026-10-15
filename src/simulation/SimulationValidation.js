@@ -1,12 +1,12 @@
-import { plantCalendarSchedule } from './PlantCalendarSchedule.js';
+import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { isConveyorEquipment, resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
 export function validateSimulationInput(input) {
   const details = [];
   validateCase(input?.case, details);
   validateRun(input?.run, details);
-  try { plantCalendarSchedule(input?.run?.plantCalendar,input?.run?.tickSeconds);if(input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED'&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
-  validateCommands(input?.run?.commands, input?.case?.equipment, details);
+  try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
+  if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);
 
   return details.length === 0
     ? { ok: true }
@@ -202,6 +202,8 @@ function validateRun(run, details) {
     details.push(required('run'));
     return;
   }
+  if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
+  if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));

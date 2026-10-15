@@ -39,7 +39,7 @@ export function adaptSimPyInput(input) {
     }
   }
   const ids=new Set(equipment.map(m=>m.id));
-  const commands=(input.run.commands||[]).map(c=>{
+  const commands=(input.run.eventsEnabled===false?[]:input.run.commands||[]).map(c=>{
     if(!ids.has(c.equipmentId))throw new Error('Unknown equipment control: '+c.equipmentId);
     return {atSecond:c.atVirtualSecond,equipmentId:c.equipmentId,action:c.action};
   });

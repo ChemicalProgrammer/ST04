@@ -318,7 +318,7 @@ async function openCase(caseId, initialView) {
       if(runControlsLocked()&&['duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].includes(event?.target?.id)){applyScenarioRunInputs(state.run.configuration);return;}
       if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
       else invalidateActiveResult();
-      autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);
+      autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);STRunOptions.sync(runControlsLocked());
       refreshDesignGraph();
     }
     async function exportCompleteCase(){

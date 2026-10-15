@@ -21,7 +21,7 @@ Both policies retain conveyor inventory; no drain, purge, product-format switch 
 
 Times are aligned to simulation ticks. Invalid counts, sub-tick durations, overlapping windows, windows beyond the calendar and totals leaving no operating time are rejected. Limits: 1,000 events per category, 5,000 overall. The experimental DES engine reports an explicit unsupported-mode error rather than silently ignoring the calendar.
 
-**Use full calendar duration** selects fixed duration and sets it to the physical horizon rounded up to the next quarter-second. It also raises the display sample interval as needed to keep about 10,000 frames; it does not change the physics tick. A long period still requires a long calculation. A manually shorter or longer run only executes calendar events reached on its own clock; monthly effective-time and AU metrics are suppressed unless it covers exactly the full horizon (one tick tolerance).
+**Apply plant calendar** generates the editable event program, enables events and selects fixed duration at the adjusted physical horizon. Existing events trigger Add/Replace/Cancel; identical windows are deduplicated and overlaps rejected. The engine bounds recorded frames independently; it does not change the physics tick. A long period still requires a long calculation. A manually shorter or longer run only executes calendar events reached on its own clock; monthly effective-time and AU metrics are suppressed unless it covers exactly the full horizon (one tick tolerance).
 
 ## Results and accounting
 
@@ -29,8 +29,10 @@ The engine records `PLANT_STOP_STARTED`/`PLANT_STOP_ENDED`, per-equipment `plann
 
 Scheduled output already includes planned stops and restart losses. Effective minutes use full simulated horizon × mean OEE. AU divides that equivalent time by plant available time. No extra production-available multiplier is applied. Do not compare raw scheduled-run OEE with aggregate-mode operating OEE without checking their denominators.
 
-A calendar change affecting physical events invalidates stored results. Worker runs, replications, failure-free diagnostics and What-If inputs retain the calendar and its absolute timings. Bounded What-If screens may cover only a prefix; final confirmation uses at least the configured horizon. No random schedules or per-equipment calendar scopes are included in this first stage. Actual plant comparisons remain external.
+A calendar change affecting physical events invalidates stored results. After applying, regenerate visible events explicitly to use changed calendar fields. Worker runs, replications, failure-free diagnostics and What-If inputs retain the calendar and its absolute timings. Bounded What-If screens may cover only a prefix; final confirmation uses at least the configured horizon. No random schedules or per-equipment calendar scopes are included in this first stage. Actual plant comparisons remain external.
 
 ## Manual deployment
 
 Update PlantCalendar.html, Settings.html, ClientCore.html, ClientSimulation.html, SimulationStyles.html, Results.html, Reports.html, SimulationEngine.html and ScenarioEngine.gs. Both generated engine files must be updated together.
+
+See LONG_RUNS.md for the unified event editor, duration units, date ranges, optional shift accounting, calculation modes and recording limits.

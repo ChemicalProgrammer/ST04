@@ -1,0 +1,41 @@
+<script>
+window.STRunOptions=(function(){
+  var units={SECONDS:1,MINUTES:60,HOURS:3600,DAYS:86400,WEEKS:604800};
+  function el(id){return document.getElementById(id);}
+  function zonedTimestamp(text,zone){
+    var match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(text||'');if(!match)throw Error('Enter a start and end date and time.');
+    var parts=match.slice(1).map(Number),wall=Date.UTC(parts[0],parts[1]-1,parts[2],parts[3],parts[4],parts[5]||0),guess=wall;
+    var check=new Date(wall);if(check.getUTCFullYear()!==parts[0]||check.getUTCMonth()!==parts[1]-1||check.getUTCDate()!==parts[2]||parts[3]>23||parts[4]>59||(parts[5]||0)>59)throw Error('Invalid date or time.');
+    var formatter=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+    function local(time){var p=Object.fromEntries(formatter.formatToParts(new Date(time)).map(p=>[p.type,p.value]));return Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);}
+    for(var i=0;i<4;i++)guess+=wall-local(guess);
+    if(local(guess)!==wall)throw Error('The selected local date/time does not exist in this time zone.');
+    return guess;
+  }
+  function resolve(config){
+    var duration=config.method==='DATES'?(zonedTimestamp(config.end,config.timeZone)-zonedTimestamp(config.start,config.timeZone))/1000:config.method==='SHIFTS'?config.shiftHours*3600*config.shiftCount:config.amount*units[config.unit||'SECONDS'];
+    if(!Number.isFinite(duration)||duration<=0)throw Error('Duration must be positive; end time must follow start time.');
+    if(duration>366*86400*5)throw Error('The maximum simulation duration is five years.');
+    return Math.ceil((duration-1e-8)/.25)*.25;
+  }
+  function config(){return {method:el('duration-mode').value,amount:Number(el('run-duration').value),unit:el('run-duration-unit').value,start:el('run-start-at').value,end:el('run-end-at').value,timeZone:el('run-time-zone').value||'America/Mexico_City',shiftHours:Number(el('run-shift-hours').value),shiftCount:Number(el('run-shift-count').value)};}
+  function read(){var c=config(),duration=resolve(c);if((c.method==='SHIFTS'||el('run-track-shifts').checked)&&(!(c.shiftHours>=.25&&c.shiftHours<=24)||!Number.isInteger(c.shiftHours*4)))throw Error('Hours per shift must be 0.25–24 in quarter-hour increments.');if(c.method==='SHIFTS'&&(!Number.isInteger(c.shiftCount)||c.shiftCount<1||c.shiftCount>10000))throw Error('Enter 1–10,000 shifts.');var choice=el('run-calculation-mode').value;return {historyFormat:'COMPACT',durationSeconds:duration,durationOptions:c,calculationPreference:choice,calculationMode:choice==='AUTO'?(duration>=86400?'FAST':'LIVE'):choice,trackShifts:el('run-track-shifts').checked,eventsEnabled:el('run-events-enabled').checked,chartWindow:el('run-chart-window').value,shiftSeconds:el('run-track-shifts').checked?c.shiftHours*3600:undefined};}
+  function sync(locked){
+    var method=el('duration-mode').value;
+    document.querySelectorAll('[data-duration-method]').forEach(function(label){label.classList.toggle('hidden',!label.dataset.durationMethod.split(' ').includes(method));});
+    el('run-shift-hours').closest('label').classList.toggle('hidden',method!=='SHIFTS'&&!el('run-track-shifts').checked);
+    el('settings-shift-count').value=el('run-shift-count').value;
+    ['run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','settings-shift-count','run-calculation-mode','run-events-enabled'].forEach(function(id){el(id).disabled=!!locked;});
+    el('run-duration').disabled=!!locked||['SHIFTS','DATES'].includes(method);
+    var enabled=el('run-events-enabled').checked;document.documentElement.dataset.eventsEnabled=String(enabled);el('simulation-event-section').classList.toggle('hidden',!enabled);
+    try{var c=config(),duration=resolve(c),shifts=duration/(c.shiftHours*3600);el('run-duration-summary').textContent=(duration/86400).toLocaleString(undefined,{maximumFractionDigits:3})+' days · '+(duration/3600).toLocaleString(undefined,{maximumFractionDigits:2})+' hours'+(el('run-track-shifts').checked?' · '+Math.floor(shifts)+' complete shifts'+(shifts%1>1e-8?' + '+((shifts%1)*100).toFixed(1)+'% of one shift':''):'')+(c.method==='DATES'?' · '+c.timeZone:'');}catch(error){el('run-duration-summary').textContent=error.message;}
+  }
+  function apply(run){
+    var c=run.durationOptions||{};if(c.method&&c.method!==run.durationMode)c={amount:run.durationSeconds,unit:'SECONDS'};el('run-duration-unit').value=c.unit||'SECONDS';el('run-duration').value=c.amount??run.durationSeconds??300;el('run-start-at').value=c.start||'';el('run-end-at').value=c.end||'';el('run-time-zone').value=c.timeZone||'America/Mexico_City';el('run-track-shifts').checked=run.trackShifts??run.durationMode==='SHIFTS';el('run-calculation-mode').value=run.calculationPreference||run.calculationMode||'AUTO';el('run-chart-window').value=run.chartWindow||'AUTO';el('run-events-enabled').checked=run.eventsEnabled??Boolean(run.commands?.length||run.plannedStops?.length||run.plantCalendar?.enabled&&run.plantCalendar.mode==='SCHEDULED');sync(false);
+  }
+  function setSeconds(seconds){el('duration-mode').value='FIXED';el('run-duration-unit').value='SECONDS';el('run-duration').value=seconds;el('run-duration').step='any';sync(false);}
+  function windowSeconds(end,shift){var value=el('run-chart-window').value;if(value==='FULL')return Infinity;if(value==='SHIFT')return shift||28800;if(value!=='AUTO')return Number(value);return end<=300?60:end<=3600?900:end<=86400?3600:end<=604800?86400:Math.min(end,604800);}
+  function windowLabel(){var s=el('run-chart-window'),text=s.options[s.selectedIndex]?.textContent||'Auto';return 'Actual · '+text;}
+  return {read:read,apply:apply,sync:sync,resolve:resolve,zonedTimestamp:zonedTimestamp,setSeconds:setSeconds,windowSeconds:windowSeconds,windowLabel:windowLabel};
+})();
+</script>

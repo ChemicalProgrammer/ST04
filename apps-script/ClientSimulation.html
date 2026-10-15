@@ -110,9 +110,10 @@
       toggle('comparison-panel', false);
       state.activeCase.equipment = cloneJson(simulation.equipment || []);
       state.run.commands = cloneJson(simulation.dynamicConfig?.commands || []);
+      state.run.plannedStops=simulation.dynamicConfig?.plannedStops===undefined?undefined:cloneJson(simulation.dynamicConfig.plannedStops);state.run.eventPage=0;
       applyScenarioRunInputs(simulation.dynamicConfig);
       state.run.configuration=simulation.results?copyRunConfiguration(simulation.dynamicConfig||{}):null;
-      document.getElementById('run-playback-rate').value=String([1,5,10,50,100,200,500,1000].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
+      document.getElementById('run-playback-rate').value=String([1,5,10,50,100,200,500,1000,10000,1000000].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
       state.run.result = simulation.results?.replay ? expandStoredReplay(simulation.results.replay,simulation.results) : null;
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();
@@ -163,8 +164,8 @@
         return frame;
       });
       replay.zoneDefinitions=definitions;
-      replay.detailCoverage=Object.assign({},replay.detailCoverage,{storageFormat:'chart-history-1',savedReplaySampled:Boolean(replay.detailCoverage?.savedReplaySampled||samples.length<original.length),savedEventsOmitted:(replay.detailCoverage?.savedEventsOmitted||0)+(replay.events?.length||0)});
-      replay.events=[];
+      replay.detailCoverage=Object.assign({},replay.detailCoverage,{storageFormat:'chart-history-1',savedReplaySampled:Boolean(replay.detailCoverage?.savedReplaySampled||samples.length<original.length),savedEventsOmitted:(replay.detailCoverage?.savedEventsOmitted||0)+Math.max(0,(replay.events?.length||0)-2000)});
+      replay.events=(replay.events||[]).slice(0,2000);
       return replay;
     }
     function expandStoredReplay(replay,saved) {
@@ -212,6 +213,7 @@
         durationSeconds: run.durationSeconds,
         completedAt: new Date().toISOString(),
         batch: storedBatch?cloneJson(storedBatch):undefined,shifts:result.shifts,replicationStatus:cloneJson(result.replicationStatus||null),
+        detailCoverage:cloneJson(result.detailCoverage||{}),
         plantCalendar:cloneJson(result.plantCalendar||null),
         summary: cloneJson(result.summary),
         equipmentMetrics: cloneJson(result.equipmentMetrics),
@@ -222,6 +224,7 @@
           seed: result.seed, durationSeconds: result.durationSeconds,
           plantCalendar:cloneJson(result.plantCalendar||null),
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
+          zoneDefinitions:cloneJson(result.zoneDefinitions||{}),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
           shifts:result.shifts,detailCoverage:result.detailCoverage,replicationStatus:cloneJson(result.replicationStatus||null),
           samples: replaySamples, events: result.events || []
@@ -311,6 +314,8 @@
       document.querySelectorAll('#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
       document.querySelectorAll('[data-control]').forEach(function(button){button.disabled=document.getElementById(button.dataset.control).disabled;});
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
+      if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
+      STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;
     }
     function applyScenarioRunInputs(run) {
       if (!run) return;
@@ -322,6 +327,7 @@
       document.getElementById('run-duration').value = run.durationSeconds ?? document.getElementById('run-duration').defaultValue;
       document.getElementById('run-sample-interval').value = run.sampleEverySeconds ?? document.getElementById('run-sample-interval').defaultValue;
       document.getElementById('run-seed').value = run.seed ?? document.getElementById('run-seed').defaultValue;
+      STRunOptions.apply(run);
     }
 
     function cloneJson(value) {
@@ -344,9 +350,31 @@
       state.run.commands.forEach(function(command, index) {
         target.appendChild(createControlEventRow(command, index));
       });
+      renderPlannedStops();
       if (!state.run.commands.length) {
         target.innerHTML = ("<p class=\"empty compact-empty\">" + __ST_HTML_TEXT__('client.no_scheduled_control_events_2') + "</p>");
       }
+    }
+
+    function renderPlannedStops(){
+      var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];if(!events.length)return;
+      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
+      events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1');row.append(name);
+        ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';input.value=field==='start'?event.startSeconds/60:(event.endSeconds-event.startSeconds)/60;input.setAttribute('aria-label',name.textContent+' '+field+' (min)');input.onchange=function(){if(!input.reportValidity())return;var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=Number(input.value)*60;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+Number(input.value)*60;markCaseDirty();};cell.append(input);row.append(cell);});
+        var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
+      });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);
+    }
+    async function applyPlantCalendar(schedule){
+      if(runControlsLocked())throw Error('Stop the current calculation or playback before applying a calendar.');
+      var existing=state.run.commands.length+(state.run.plannedStops||[]).length,choice='replace';
+      if(existing){choice=(await STDialog.open({title:'Apply plant calendar',message:'Events already exist. Replace all existing events or add these line stops?',buttons:[{id:'cancel',label:'Cancel'},{id:'add',label:'Add'},{id:'replace',label:'Replace'}]})).action;if(!['replace','add'].includes(choice))return false;}
+      var generated=schedule.events.map(function(e){return {category:e.category,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};}),merged=choice==='add'?(state.run.plannedStops||[]).concat(generated):generated;
+      var seen=new Set();merged=merged.filter(function(e){var key=JSON.stringify([e.category,e.startSeconds,e.endSeconds,e.restartPolicy]);if(seen.has(key))return false;seen.add(key);return true;});
+      SimulatorEngine.resolvePlannedStops({plannedStops:merged,tickSeconds:.25,eventsEnabled:true,durationSeconds:schedule.horizonSeconds});
+      if(choice==='replace')state.run.commands=[];state.run.plannedStops=merged;state.run.eventPage=0;
+      var simulation=activePersistentSimulation(),calendar=Object.assign({},simulation.dynamicConfig.plantCalendar);delete calendar.appliedCalendar;
+      simulation.dynamicConfig.plantCalendar=Object.assign({},calendar,{application:'EVENTS',appliedHorizonSeconds:schedule.horizonSeconds,appliedCalendar:calendar});
+      document.getElementById('run-events-enabled').checked=true;STRunOptions.setSeconds(Math.ceil(schedule.horizonSeconds/.25)*.25);simulation.results=null;state.run.result=null;state.run.representative=null;state.run.configuration=null;renderControlEvents();markCaseDirty();renderSimulationAnalysis();syncRunControls();shell.sync();return true;
     }
 
     function createControlEventRow(command, index) {
@@ -420,11 +448,11 @@
       var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);state.isDirty=true;saveActiveCase();}
     }
     function computeRoundSession(session,firstResult){
-      var generation=++session.generation,version=session.version;
+      var generation=++session.generation,version=session.version,startedAt=Date.now();
       session.pending=true;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
       window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       var input={case:cloneJson(session.caseModel),run:cloneJson(session.run)};
-      SimulatorEngine.simulateBatch(input,{firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult?undefined:function(partial){
+      SimulatorEngine.simulateBatch(input,{firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult||session.run.calculationMode!=='LIVE'?undefined:function(partial){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         if(session.first&&!session.streaming)return;
         var previous=session.streaming?state.run.result:null;
@@ -444,7 +472,7 @@
         syncPlaybackRounds();toggle('simulation-results',true);renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
         if(session.resolveFirst){session.resolveFirst(true);session.resolveFirst=null;}
         else persistRoundResult(session,result,'PENDING');
-      },progress:function(value,round,total){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=Math.floor(value*total)+' / '+total+' · '+Math.round(value*100)+'%';}}).then(function(response){
+      },progress:function(value,round,total){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=Math.round(value*100)+'% · '+Math.round(value*session.run.durationSeconds/60).toLocaleString()+' simulated min'+(value>.01?' · ~'+Math.max(0,Math.ceil((Date.now()-startedAt)/1000*(1-value)/value))+' s remaining':'');}}).then(function(response){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         session.pending=false;syncRunControls();
         if(!response.ok){state.run.active=false;syncRunControls();showError(response.error);session.resolveFirst?.(false);toggle('batch-dialog',false);return;}
@@ -506,26 +534,28 @@
       setStatus(roundSession?.streaming?__ST_TEXT__('batch.streaming'):roundSession?.pending?__ST_TEXT__('batch.first_ready'):state.run.durationMode === 'INDEFINITE'
         ? __ST_TEXT__('client.simulation_completed_at_its_virtual_safety_ceiling_playback_is_starting')
         : __ST_TEXT__('client.simulation_completed_playback_is_starting'));
-      startPlayback();
+      if(run.calculationMode==='LIVE')startPlayback();else{state.run.active=false;state.run.sampleIndex=Math.max(0,state.run.result.samples.length-1);renderPlaybackFrame();setStatus('Calculation complete. Results are ready; playback is optional.');}
     }
 
     function readRunConfiguration() {
-      var durationSeconds = Number(document.getElementById('run-duration').value);
+      var extras;try{extras=STRunOptions.read();}catch(error){showError(error);return null;}
+      var durationSeconds = extras.durationSeconds;
       var sampleEverySeconds = Number(document.getElementById('run-sample-interval').value);
       var seed = Number(document.getElementById('run-seed').value);
       var durationMode=document.getElementById('duration-mode').value;
       var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=Number(document.getElementById('run-rounds').value);
-      if(!Number.isInteger(rounds)||rounds<1||rounds>100||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||![1,2,3].includes(shiftCount))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
-      if(durationMode==='SHIFTS'){durationSeconds=shiftHours*3600*shiftCount;document.getElementById('run-duration').value=durationSeconds;}
+      if(!Number.isInteger(rounds)||rounds<1||rounds>100||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||(!Number.isInteger(shiftCount)||shiftCount<1||shiftCount>10000))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
+      if(durationMode==='SHIFTS')durationSeconds=shiftHours*3600*shiftCount;
       if (!(durationSeconds > 0) || !(sampleEverySeconds > 0) || !Number.isInteger(seed)) {
         showError({ code: 'INVALID_RUN_CONFIGURATION', message: __ST_TEXT__('client.duration_sample_interval_and_integer_seed_are_required') });
         return null;
       }
       return {
+        ...extras,plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
-        durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:durationMode==='SHIFTS'?shiftHours*3600:undefined,rounds:rounds,
+        durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:extras.shiftSeconds,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
         sampleEverySeconds: sampleEverySeconds,
@@ -542,6 +572,7 @@
 
     function copyRunConfiguration(run) {
       return {
+        ...cloneJson(run),
         plantCalendar:cloneJson(run.plantCalendar||{}),
         engineId:run.engineId,reliabilityEnabled:run.reliabilityEnabled,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
@@ -556,6 +587,7 @@
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
+        ...cloneJson(configuration),...STRunOptions.read(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
