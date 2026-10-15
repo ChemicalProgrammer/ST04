@@ -146,7 +146,7 @@ html[data-visual-style=elegant] .dialog-heading h2 { color:var(--secondary-text)
 html[data-visual-style=elegant] .dialog-actions > button:not(.icon-button):not(.danger):not(:disabled) { background:var(--accent); color:var(--on-accent); border-color:transparent; }
 html[data-visual-style=elegant] .dialog-actions > button:not(.icon-button):not(.danger):not(:disabled):hover { background:var(--accent-hover); }
 html[data-visual-style=elegant] .settings-tabs { background:var(--surface); }
-html[data-visual-style=elegant] .settings-tabs button[aria-selected=true] { border-color:transparent; box-shadow:inset 0 -2px 0 var(--accent); }
+html[data-visual-style=elegant] .settings-tabs button:is([aria-selected=true],[aria-pressed=true]) { border-color:transparent; box-shadow:inset 0 -2px 0 var(--accent); }
 html[data-visual-style=elegant] #settings-dialog .settings-section h3 { color:var(--secondary-text); }
 html[data-visual-style=elegant] .auth-shell { background:var(--page); }
 html[data-visual-style=elegant] .auth-card { box-shadow:var(--shadow-dialog); border-top:3px solid var(--secondary); }

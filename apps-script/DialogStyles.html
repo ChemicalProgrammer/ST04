@@ -59,7 +59,7 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 #settings-dialog > .dialog-body { flex:1; min-height:0; overflow:auto; }
 .settings-tabs { display:flex; flex-wrap:wrap; flex-shrink:0; gap:var(--space-1); padding:var(--space-2) var(--space-4); border-bottom:var(--border-width) solid var(--line); }
 .settings-tabs button { color:var(--muted); background:transparent; border-color:transparent; }
-.settings-tabs button[aria-selected=true] { background:var(--selected); color:var(--selected-text); border-color:var(--accent); }
+.settings-tabs button[aria-selected=true], .settings-tabs button[aria-pressed=true] { background:var(--selected); color:var(--selected-text); border-color:var(--accent); }
 .settings-section-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); margin-bottom:var(--space-2); }
 :is(#settings-dialog,#plant-calendar-dialog) .settings-color-table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:var(--space-3); }
 :is(#settings-dialog,#plant-calendar-dialog) .settings-color-table th,:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table td { padding:var(--space-3); text-align:left; border-bottom:1px solid var(--line); }
@@ -144,9 +144,9 @@ button.error-details-trigger:focus-visible, #header-error-button.error-details-t
 .case-export-dialog { --dialog-width:820px; }
 .case-export-dialog .dialog-body { display:grid; gap:var(--space-4); }
 .case-export-dialog .dialog-body > p { margin:0; }
-.case-export-presets { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); padding:0; }
 .case-export-presets > button { margin:0; }
-.case-export-presets > button[aria-pressed=true] { box-shadow:inset 0 -2px 0 var(--on-accent); }
+.case-export-simulation legend .case-export-check, .case-export-controls > label:not(.case-export-check), .case-export-scenarios h3 { font-size:var(--font-card); font-weight:var(--weight-semibold); line-height:var(--leading-tight); color:var(--secondary-text,var(--ink)); }
+.case-export-controls > label:not(.case-export-check) select { font-size:var(--font-input); font-weight:var(--weight-regular); color:var(--ink); }
 .case-export-help { margin:0; font-size:var(--font-secondary); color:var(--muted); }
 .case-export-list { display:grid; gap:var(--space-3); }
 .case-export-simulation { min-width:0; margin:0; padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
@@ -157,7 +157,8 @@ button.error-details-trigger:focus-visible, #header-error-button.error-details-t
 .case-export-check { display:flex; align-items:center; gap:var(--space-2); margin:0; font-weight:normal; }
 .case-export-check input { flex:0 0 auto; width:auto; margin:0; }
 .case-export-scenarios { display:grid; gap:var(--space-2); border-top:var(--border-width) solid var(--line); padding-top:var(--space-3); }
-.case-export-scenarios h3,.case-export-scenarios p { margin:0; font-size:var(--font-secondary); }
+.case-export-scenarios h3,.case-export-scenarios p { margin:0; }
+.case-export-scenarios p { font-size:var(--font-secondary); }
 .case-export-omitted .case-export-controls { opacity:.55; }
 .case-export-preview { overflow-wrap:anywhere; }
 </style>
