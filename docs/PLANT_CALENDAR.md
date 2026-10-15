@@ -1,6 +1,6 @@
 # Plant calendar
 
-Settings → Simulation stores `dynamicConfig.plantCalendar` per simulation. Save and complete-case JSON retain it. Disabling participation preserves values. The three mode selectors remain in one row. Calendar inputs use two standard tables, one per column, with Concepto/min headers. Event counts use two matching tables with the same numeric input widths as minutes. Defined timing merges event rows into one full-width table with Concepto/Events/Start/Interval columns; switching back preserves all values. Tables stack on narrow screens.
+Settings → Simulation stores `dynamicConfig.plantCalendar` per simulation. Save and complete-case JSON retain it. Disabling participation preserves values. The three mode selectors remain in one row. Calendar inputs use two standard tables, one per column, with Category/min headers. Event counts use two matching tables with the same numeric input widths as minutes. Defined timing merges event rows into one full-width table with Category/Events/Start/Interval columns; switching back preserves all values. Tables stack on narrow screens.
 
 ## Aggregate mode
 
