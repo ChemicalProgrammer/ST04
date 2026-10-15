@@ -22,7 +22,7 @@ table :is(th,td),.markdown-table :is(th,td),#sheet-import-preview :is(th,td),.sc
 .metrics-grid article { min-width:0; }
 .metrics-grid strong { max-width:100%; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 #playback-status { min-width:0; overflow-wrap:anywhere; }
-#settings-dialog .settings-color-table :is(th,td),#settings-dialog .settings-color-columns td { padding:var(--table-cell-block) var(--table-cell-inline); }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table :is(th,td),:is(#settings-dialog,#plant-calendar-dialog) .settings-color-columns td { padding:var(--table-cell-block) var(--table-cell-inline); }
 input[type=number],input[inputmode=numeric],input[inputmode=decimal] { text-align:right; font-variant-numeric:tabular-nums; }
 /* Fixed dimensions override field-grid rules which also match checkboxes. */
 input[type=checkbox] { width:var(--checkbox-size) !important; min-width:var(--checkbox-size) !important; max-width:var(--checkbox-size) !important; height:var(--checkbox-size) !important; min-height:var(--checkbox-size) !important; max-height:var(--checkbox-size) !important; padding:0 !important; margin:0; flex:0 0 var(--checkbox-size) !important; appearance:auto; accent-color:var(--accent); vertical-align:middle; }
@@ -40,10 +40,10 @@ label:has(> input[type=checkbox]) { display:flex; align-items:center; gap:var(--
 #settings-dialog .settings-section h3 { margin:0 0 var(--space-3); }
 #settings-dialog .settings-section:last-child { padding-bottom:0; margin-bottom:0; }
 .accent-heading { line-height:var(--leading-body); }
-#settings-dialog .settings-simulation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); align-items:start; }
-#settings-dialog .settings-simulation-grid > .settings-option-group { margin:0; min-width:0; }
-#settings-dialog .settings-simulation-grid label { display:block; }
-#settings-dialog .settings-simulation-grid select { width:100%; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-simulation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); align-items:start; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-simulation-grid > .settings-option-group { margin:0; min-width:0; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-simulation-grid label { display:block; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-simulation-grid select { width:100%; }
 #message-dialog-message { white-space:pre-line; overflow-wrap:anywhere; }
 .dialog-heading > .icon-button { width:var(--control-height); height:var(--control-height); min-width:var(--control-height); padding:var(--space-2); margin:0; flex-shrink:0; }
 .dialog-actions > button:not(.icon-button) { min-height:var(--control-height); padding:var(--space-2) var(--space-4); border-radius:var(--radius-md); font-size:var(--font-body); font-weight:var(--weight-medium); }
@@ -80,22 +80,22 @@ html[data-ui-mode=basic] .basic-worksheet-group label { grid-template-columns:mi
  html[data-ui-mode=basic] #basic-efficiencies { grid-template-columns:1fr; gap:var(--space-2); }
 }
 
-#settings-dialog .plant-calendar-grid { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:var(--space-4); column-gap:var(--space-3); align-items:end; }
-#settings-dialog .plant-calendar-content { display:grid; gap:var(--space-4); }
-#settings-dialog .plant-calendar-planning { display:grid; gap:var(--space-3); }
-#settings-dialog .plant-calendar-content p { margin:0; }
-#settings-dialog .plant-calendar-grid label { display:flex; flex-direction:column; gap:var(--space-1); margin:0; min-width:0; }
-#settings-dialog .plant-calendar-table { margin:0; }
-#settings-dialog .plant-calendar-table :is(th,td) { overflow-wrap:anywhere; }
-#settings-dialog .settings-color-columns .plant-calendar-table thead th.numeric { width:9em; text-align:right; }
-#settings-dialog .plant-calendar-table tbody th { font-weight:var(--weight-medium); }
-#settings-dialog .plant-calendar-table td.numeric { text-align:right; }
-#settings-dialog .plant-calendar-table input { width:100%; min-width:0; text-align:right; }
-#settings-dialog .plant-calendar-events-timed { grid-template-columns:1fr; }
-@media(max-width:620px) { #settings-dialog .plant-calendar-events-timed .plant-calendar-table thead th.numeric { width:20%; } }
-#settings-dialog .plant-calendar-planning > button { justify-self:start; }
-#settings-dialog #settings-plant-calendar > .checkbox-label { margin:0 0 var(--space-3); }
-@media(max-width:640px) { #settings-dialog .settings-simulation-grid { grid-template-columns:1fr; } }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-grid { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:var(--space-4); column-gap:var(--space-3); align-items:end; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-content { display:grid; gap:var(--space-4); }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-planning { display:grid; gap:var(--space-3); }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-content p { margin:0; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-grid label { display:flex; flex-direction:column; gap:var(--space-1); margin:0; min-width:0; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-table { margin:0; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-table :is(th,td) { overflow-wrap:anywhere; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-columns .plant-calendar-table thead th.numeric { width:9em; text-align:right; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-table tbody th { font-weight:var(--weight-medium); }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-table td.numeric { text-align:right; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-table input { width:100%; min-width:0; text-align:right; }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-events-timed { grid-template-columns:1fr; }
+@media(max-width:620px) { :is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-events-timed .plant-calendar-table thead th.numeric { width:20%; } }
+:is(#settings-dialog,#plant-calendar-dialog) .plant-calendar-planning > button { justify-self:start; }
+:is(#settings-dialog,#plant-calendar-dialog) #settings-plant-calendar > .checkbox-label { margin:0 0 var(--space-3); }
+@media(max-width:640px) { :is(#settings-dialog,#plant-calendar-dialog) .settings-simulation-grid { grid-template-columns:1fr; } }
 
 /* Subsection toolbars share a baseline; the navigation already names the view. */
 #editor-panel > .section-heading,#whatif-panel > .section-heading { display:none; }
@@ -348,7 +348,7 @@ html[data-events-enabled=false] .live-equipment-controls > button:not(.loss-togg
 #planned-line-events td { min-width:0; }
 #planned-line-events table { width:100%; }
 
-.simulation-duration-grid { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:var(--space-3); align-items:stretch; }
+.simulation-duration-grid { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:var(--space-3); align-items:stretch; }
 .simulation-duration-grid > label { display:flex; flex-direction:column; justify-content:space-between; gap:var(--space-2); min-width:0; margin:0; padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
 .simulation-duration-grid > label.checkbox-label { flex-direction:row; align-items:center; justify-content:flex-start; }
 .simulation-duration-grid input:not([type=checkbox]), .simulation-duration-grid select { width:100%; min-width:0; box-sizing:border-box; }
@@ -363,6 +363,16 @@ html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:minmax(190p
 #settings-page-simulation .simulation-settings-groups > .settings-section { padding-block:var(--space-4); }
 #settings-page-simulation .simulation-settings-groups h3 { margin:0 0 var(--space-3); }
 @media(max-width:600px) { .simulation-duration-grid, #settings-page-simulation .settings-simulation-grid { grid-template-columns:1fr; } }
+
+#simulation-event-section { margin:var(--space-4) 0; padding:var(--space-4); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
+#simulation-event-section .compact-heading { flex-wrap:wrap; gap:var(--space-3); }
+#plant-calendar-dialog { width:min(1100px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); }
+#plant-calendar-dialog > .dialog-body { overflow:auto; min-height:0; }
+#plant-calendar-dialog .plant-calendar-grid { display:grid; }
+html[data-ui-mode=basic][data-events-enabled=true] #control-events { display:grid!important; }
+html[data-ui-mode=basic][data-events-enabled=true] .live-equipment-controls { display:grid!important; grid-column:1 / -1; }
+html[data-ui-mode=basic][data-events-enabled=true] .live-controls-help { display:block!important; }
+@media(max-width:600px) { .simulation-duration-grid { grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; } }
 </style>
 
 

@@ -180,15 +180,16 @@
           <details class="notice model-boundary"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>
             <?= __ST_TEXT__('view.at_1_one_virtual_second_takes_one_real_second_the_engine_integrates_at_0_25') ?></p></details>
 
+
+        </details>
 <section id="simulation-event-section" class="hidden">          <div class="editor-subheading compact-heading">
             <div>
               <h3><?= __ST_TEXT__('view.equipment_control_events') ?></h3>
               <p><?= __ST_TEXT__('view.schedule_a_pause_planned_stop_emergency_stop_reset_run_manual_or_automatic_') ?></p>
             </div>
-            <button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button>
+            <div class="button-row"><button id="open-plant-calendar" type="button" class="secondary" aria-haspopup="dialog" aria-controls="plant-calendar-dialog">Plant calendar</button><button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button></div>
           </div>
           <div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></section>
-        </details>
 
     <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
         <div id="simulation-results" class="hidden">
@@ -297,6 +298,7 @@
         </dl>
       </div>
     </dialog>
+    <dialog id="plant-calendar-dialog" aria-labelledby="plant-calendar-title"><header class="dialog-heading"><h2 id="plant-calendar-title">Plant calendar</h2><button id="plant-calendar-close" type="button" class="ghost icon-button" data-icon="x" aria-label="Close plant calendar"></button></header><div class="dialog-body"><section id="settings-plant-calendar" class="settings-section"></section></div><footer class="dialog-actions"><button id="plant-calendar-done" type="button">Done</button></footer></dialog>
     <dialog id="settings-dialog" aria-labelledby="settings-title">
       <header class="dialog-heading"><h2 id="settings-title"><?= __ST_TEXT__('shell.settings') ?></h2><button id="settings-close" class="ghost icon-button" data-icon="x" aria-label="<?= __ST_TEXT__('view.close_settings') ?>" title="<?= __ST_TEXT__('view.close_settings_esc') ?>"></button></header>
       <nav class="settings-tabs" role="tablist" aria-label="Settings categories">
@@ -330,7 +332,7 @@
 <section class="settings-section"><h3>Reliability and events</h3><div class="settings-simulation-grid simulation-toggle-grid"><label class="settings-reliability-toggle" for="settings-reliability-enabled"><input id="settings-reliability-enabled" type="checkbox" checked><span>Enable failures and repairs (MTBF / MTTR)</span></label><label class="checkbox-label"><input id="run-events-enabled" type="checkbox">Enable events</label></div></section>
 <section class="settings-section"><h3>Recording and charts</h3><div class="settings-simulation-grid"><label>Display sample interval (s)<input id="run-sample-interval" type="number" min="1" step="1" value="5"></label><label>Card chart window<select id="run-chart-window"><option value="AUTO">Auto</option><option value="60">Last 1 min</option><option value="300">Last 5 min</option><option value="900">Last 15 min</option><option value="3600">Last 1 hour</option><option value="SHIFT">Last shift</option><option value="86400">Last 24 hours</option><option value="FULL">Full simulation</option></select></label></div></section>
 <section class="settings-section"><h3>Randomness</h3><div class="settings-simulation-grid"><div id="settings-seed-section" class="settings-option-group"><label for="settings-seed-policy">Seed policy</label><select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM" selected>Random — new base seed for each run</option></select></div></div></section>
-</div><section id="settings-plant-calendar" class="settings-section"></section>
+</div>
           <p id="settings-basic-simulation-note" class="chart-note hidden">Set events, chart window and recording here. Duration and playback speed are configured in Simulation.</p>
 
 

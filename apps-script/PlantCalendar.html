@@ -13,7 +13,7 @@ window.STPlantCalendar=(function(){
   function format(v){return Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function mount(target,provider,changed,locked){
     function render(){var sim=provider(),data=sim?.dynamicConfig?.plantCalendar||{};target.classList.toggle('hidden',!sim);target.replaceChildren();if(!sim)return;
-      var heading=document.createElement('h3');heading.textContent='Plant calendar';target.append(heading);
+      if(!target.closest('#plant-calendar-dialog')){var heading=document.createElement('h3');heading.textContent='Plant calendar';target.append(heading);}
       var enable=document.createElement('label');enable.className='checkbox-label';var checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=data.enabled===true;enable.append(checkbox,document.createTextNode('Consider plant calendar in simulation'));target.append(enable);
       var content=document.createElement('div');content.className='plant-calendar-content';target.append(content);
       var note=document.createElement('p');note.className='chart-note';note.textContent='Minutes. Aggregate mode adjusts projections; scheduled mode (ST engine) stops the whole line and retains conveyor inventory. Shift changes do not create stops. Business external time and CO reporting error are accounting exclusions, not physical events.';content.append(note);

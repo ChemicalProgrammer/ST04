@@ -61,9 +61,9 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .settings-tabs button { color:var(--muted); background:transparent; border-color:transparent; }
 .settings-tabs button[aria-selected=true] { background:var(--selected); color:var(--selected-text); border-color:var(--accent); }
 .settings-section-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); margin-bottom:var(--space-2); }
-#settings-dialog .settings-color-table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:var(--space-3); }
-#settings-dialog .settings-color-table th,#settings-dialog .settings-color-table td { padding:var(--space-3); text-align:left; border-bottom:1px solid var(--line); }
-#settings-dialog .settings-color-table th:last-child { width:140px; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:var(--space-3); }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table th,:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table td { padding:var(--space-3); text-align:left; border-bottom:1px solid var(--line); }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-table th:last-child { width:140px; }
 .settings-color-name { white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
 .settings-color-value { display:flex; align-items:center; gap:var(--space-3); }
 .settings-color-hex { font-family:monospace; font-size:var(--font-secondary); }
@@ -109,8 +109,8 @@ button.error-details-trigger:focus-visible, #header-error-button.error-details-t
 #series-color-copy-status { min-height:1.5em; margin:var(--space-2) 0; }
 .settings-color-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-5); }
 .settings-color-columns > table { min-width:0; }
-#settings-dialog .settings-color-columns .settings-color-table th:last-child { width:120px; }
-#settings-dialog .settings-color-columns td { padding:var(--space-2); }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-columns .settings-color-table th:last-child { width:120px; }
+:is(#settings-dialog,#plant-calendar-dialog) .settings-color-columns td { padding:var(--space-2); }
 @media(max-width:620px){.settings-color-columns { grid-template-columns:1fr; gap:var(--space-3); }}
 #app-info-dialog { --dialog-width:480px; }
 .app-info-brand { display:flex; align-items:center; gap:var(--space-4); }
