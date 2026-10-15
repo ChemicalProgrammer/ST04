@@ -209,8 +209,9 @@
             <article><span><?= __ST_TEXT__('view.back_up_control_time') ?></span><strong id="metric-backup-stop">—</strong></article>
             <article><span title="<?= __ST_TEXT__('view.line_oee_is_final_output_divided_by_the_maximum_output_of_the_selected_pace') ?>"><?= __ST_TEXT__('results.global_oee') ?></span><strong id="metric-line-oee">—</strong></article>
           </div>
+          <h3 class="subsection-title" id="simulation-equipment-title">Equipment performance</h3>
           <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p>
-          <div id="live-equipment" class="live-equipment"></div>
+          <div id="live-equipment" class="live-equipment" aria-labelledby="simulation-equipment-title"></div>
 
         </div>
       </section>
@@ -219,12 +220,12 @@
         <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-ai" class="ghost" disabled>JSON</button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
         <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><section id="results-loss-breakdown"></section><section id="results-plant-comparison"></section><div id="results-insight" class="result-insight"></div>
-        <h3><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
+        <h3 class="subsection-title"><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
           <div class="vgraph-legend"><span class="vgraph-key vgraph-key-normal"><?= __ST_TEXT__('performance.normal') ?></span><span class="vgraph-key vgraph-key-recommended"><?= __ST_TEXT__('performance.recommended') ?></span></div>
           <div id="vgraph-plot" class="vgraph-plot"></div><p id="vgraph-caveat" class="chart-note"></p>
-          <h3><?= __ST_TEXT__('performance.throughput_by_machine') ?></h3>
+          <h3 class="subsection-title"><?= __ST_TEXT__('performance.throughput_by_machine') ?></h3>
           <div class="table-scroll"><table><thead><tr><th><?= __ST_TEXT__('performance.machine') ?></th><th class="numeric"><?= __ST_TEXT__('performance.normal_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.maximum_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.recommended_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.headroom') ?></th><th class="numeric"><?= __ST_TEXT__('performance.availability') ?></th><th class="numeric"><?= __ST_TEXT__('performance.efficiency') ?></th><th class="numeric"><?= __ST_TEXT__('performance.effective_bpm') ?></th></tr></thead><tbody id="performance-rows"></tbody></table></div>
           <p id="throughput-method" class="chart-note"></p>
         </section>

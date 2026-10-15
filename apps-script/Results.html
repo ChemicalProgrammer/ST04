@@ -62,6 +62,7 @@ window.STResults=(function(){
     if(diagnostic?.status==='DEFERRED'){var calculate=add('button','Calculate matched loss diagnostics');calculate.type='button';calculate.className='secondary';calculate.title='Runs the full period again without random failures; may take several minutes.';calculate.onclick=function(){target._longLossKey=diagnostic.key;renderEfficiency(target,equipment,result,simulation);};}
     if(diagnostic?.status==='ERROR'){var retry=add('button','Recalculate losses');retry.type='button';retry.className='secondary';retry.onclick=()=>{lossJobs.delete(diagnostic.key);renderEfficiency(target,equipment,result,simulation);};}
     if(!result)return;
+    add('h3','Equipment time breakdown').className='subsection-title';
     add('p','Observed times can overlap; they are not additive OEE losses.').className='chart-note';
     var labels={plannedStopSeconds:'Planned line stop',failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
     var observed=d.equipmentTime.flatMap(e=>Object.entries(e.percent).filter(([key,value])=>Number.isFinite(value)&&value>0).map(([key,value])=>({name:e.name,label:labels[key],value:value})));
