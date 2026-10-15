@@ -87,8 +87,9 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 @media(max-width:640px) { .gemini-connection-grid { grid-template-columns:1fr; } .gemini-prompt-editor { grid-template-columns:1fr; } .settings-tabs { padding-inline:var(--space-2); } }
 .error-source { display:none !important; }
 .error-notice { display:inline-flex; vertical-align:middle; margin:var(--space-1) 0; }
-.error-details-trigger { color:var(--danger); border-color:var(--danger); width:var(--control-height); height:var(--control-height); padding:0; }
-.error-details-trigger:hover { color:var(--danger); background:var(--danger-soft); }
+button.error-details-trigger, #header-error-button.error-details-trigger { color:var(--danger); background:var(--danger-soft); border:var(--border-width) solid var(--danger); border-radius:var(--radius-md); width:var(--control-height); height:var(--control-height); padding:0; }
+button.error-details-trigger:is(:hover,:focus-visible), #header-error-button.error-details-trigger:is(:hover,:focus-visible) { color:var(--danger); background:var(--danger-soft); background:color-mix(in srgb,var(--danger) 16%,var(--surface)); border-color:var(--danger); }
+button.error-details-trigger:focus-visible, #header-error-button.error-details-trigger:focus-visible { outline:var(--focus-width) solid var(--danger); outline-offset:var(--size-2); }
 .error-details-dialog { --dialog-width:760px; }
 .error-details-dialog .dialog-heading { color:var(--danger); }
 .error-details-dialog #message-dialog-message,.error-detail-text { white-space:pre-wrap; overflow-wrap:anywhere; }
