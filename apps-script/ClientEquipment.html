@@ -63,13 +63,16 @@
       unitLabel.append(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
       var inputLabel=document.createElement('label'),inputUnit=document.createElement('select');inputLabel.textContent='Input unit';inputUnit.className='equipment-input-unit';
       [['','Existing unit label'],['BOTTLES','Bottles'],['CASES','Cases']].forEach(function(v){var o=document.createElement('option');o.value=v[0];o.textContent=v[1];inputUnit.append(o);});inputLabel.append(inputUnit);unitLabel.after(inputLabel);
-      unitInput.value=equipment.processData?.flowUnits?.output||'';inputUnit.value=equipment.processData?.flowUnits?.input||'';
+      var selectedSimulation=state.activeCase.simulations?.find(function(sim){return sim.id===state.activeSimulationId;}),selectedProduct=state.activeCase.metadata?.products?.find(function(p){return p.id===selectedSimulation?.dynamicConfig?.initialProductId;}),selectedProfile=selectedProduct?.equipment?.[equipment.id]||{};
+      card.dataset.productProfileId=selectedProduct?.id||'';
+      unitInput.value=selectedProfile.outputUnit||equipment.processData?.flowUnits?.output||'';inputUnit.value=selectedProfile.inputUnit||equipment.processData?.flowUnits?.input||'';
       if(equipment.type==='CONVEYOR'){inputLabel.hidden=true;unitInput.addEventListener('change',function(){inputUnit.value=unitInput.value;});}
-      var flowNote=document.createElement('p');flowNote.className='chart-note equipment-flow-note';flowNote.textContent='Rates are in the selected output unit per minute. A Case Packer can receive bottles and produce cases; bottles per case are configured in Products. Conversion applies when an initial product is selected.';var flowGroup=document.createElement('section');flowGroup.className='equipment-flow-controls';var flowTitle=document.createElement('h3');flowTitle.textContent=equipment.type==='CONVEYOR'?'Transported product':'Input and output';flowGroup.append(flowTitle,unitLabel,inputLabel,flowNote);equipmentField(card,'.equipment-grid').after(flowGroup);
+      var flowNote=document.createElement('p');flowNote.className='chart-note equipment-flow-note';flowNote.textContent='Rates are in the selected output unit per minute. A Case Packer can receive bottles and produce cases; bottles per case are configured in Products. Conversion applies when an initial product is selected.';var flowGroup=document.createElement('section');flowGroup.className='equipment-flow-controls';var flowTitle=document.createElement('h3');flowTitle.textContent=equipment.type==='CONVEYOR'?'Transported product':'Input and output';var productContext=document.createElement('p');productContext.className='chart-note equipment-product-context';productContext.textContent=selectedProduct?'Product: '+selectedProduct.name+(selectedProfile.applies===false?' · Not applicable':''):'Base equipment presentations · Select an initial product in Products';flowGroup.append(flowTitle,productContext,unitLabel,inputLabel,flowNote);equipmentField(card,'.equipment-grid').after(flowGroup);
       var packLabel=document.createElement('label');packLabel.textContent='Bottles per case';var pack=document.createElement('input');pack.type='number';pack.className='equipment-pack-size';pack.readOnly=true;pack.placeholder='Select a product';packLabel.append(pack);flowGroup.append(packLabel);
       var productButton=document.createElement('button');productButton.type='button';productButton.className='ghost';productButton.textContent='Configure in Products';productButton.onclick=function(){STProducts.go();};flowGroup.append(productButton);
-      function refreshFlow(){var output=unitInput.value,input=inputUnit.value,sim=state.activeCase.simulations?.find(function(sim){return sim.id===state.activeSimulationId;}),product=state.activeCase.metadata?.products?.find(function(p){return p.id===sim?.dynamicConfig?.initialProductId;});var cases=output==='CASES'||input==='CASES';packLabel.hidden=!cases;pack.value=product?.bottlesPerCase??'';flowNote.textContent=equipment.type==='CONVEYOR'?'Transports '+(output?output.toLowerCase():'the existing unit')+'. Bottles per case comes from the selected product.':input==='BOTTLES'&&output==='CASES'?(product?product.bottlesPerCase+' bottles → 1 case. ':'Bottles → cases. Select a product to define the pack size. ')+'Enter the machine rate in cases/min.':'Select the units received and produced. Rates use the output unit per minute.';productButton.hidden=!cases&&!state.activeCase.metadata?.products?.length;}
+      function refreshFlow(){var output=unitInput.value,input=inputUnit.value,sim=state.activeCase.simulations?.find(function(sim){return sim.id===state.activeSimulationId;}),product=state.activeCase.metadata?.products?.find(function(p){return p.id===sim?.dynamicConfig?.initialProductId;});var cases=output==='CASES'||input==='CASES';packLabel.hidden=!cases;var count=product?.presentations?.case?.bottlesPerCase??product?.bottlesPerCase;pack.value=count??'';flowNote.textContent=equipment.type==='CONVEYOR'?'Transports '+(output?output.toLowerCase():'the existing unit')+'. Bottles per case comes from the selected product.':input==='BOTTLES'&&output==='CASES'?(product?count+' bottles → 1 case. ':'Bottles → cases. Select a product to define the pack size. ')+'Enter the machine rate in cases/min.':'Select the units received and produced. Rates use the output unit per minute.';productButton.hidden=!cases&&!state.activeCase.metadata?.products?.length;}
       unitInput.addEventListener('change',function(){if(!inputUnit.value)inputUnit.value=equipment.type==='CONVEYOR'?unitInput.value:'BOTTLES';refreshFlow();});inputUnit.addEventListener('change',refreshFlow);refreshFlow();
+      if(selectedProfile.applies===false){unitInput.disabled=true;inputUnit.disabled=true;}
       equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + formatNumber(Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
@@ -80,9 +83,10 @@
       function updateRateUnit(){var rate=equipmentField(card,'.equipment-rate');rate.closest('label').firstChild.nodeValue='Nominal rate ('+(unitInput.value?unitInput.value.toLowerCase():'units')+'/min)';if(unitInput.value&&!inputUnit.value)inputUnit.value=equipment.type==='CONVEYOR'?unitInput.value:(state.activeCase.equipment[index-1]?.processData?.flowUnits?.output||'BOTTLES');}
       unitInput.addEventListener('change',updateRateUnit);updateRateUnit();
       var rateInput=equipmentField(card,'.equipment-rate');
-      rateInput.value=equipment.nominalRatePerSecond==null?'':Number((equipment.nominalRatePerSecond*60).toPrecision(15));
+      var displayedRate=selectedProfile.ratePerMinute===undefined?equipment.nominalRatePerSecond:selectedProfile.ratePerMinute/60;
+      rateInput.value=displayedRate==null?'':Number((displayedRate*60).toPrecision(15));if(selectedProfile.applies===false)rateInput.disabled=true;
       rateInput.dataset.originalBpm=rateInput.value;
-      rateInput.dataset.originalRate=equipment.nominalRatePerSecond==null?'':String(equipment.nominalRatePerSecond);
+      rateInput.dataset.originalRate=displayedRate==null?'':String(displayedRate);
       equipmentField(card, '.equipment-mode').value = window.STBasicMode?.isBasic() ? 'AUTO' : equipment.initialMode || 'AUTO';
       equipmentField(card, '.equipment-characteristics').value = JSON.stringify(equipment.characteristics || {}, null, 2);
       equipmentField(card, '.equipment-noise-profile').value = JSON.stringify(equipment.noiseProfile || {}, null, 2);
@@ -530,6 +534,7 @@ function numericInputValue(input) {
         if(equipmentField(card,'.reliability-enabled').checked||window.STBasicMode?.isBasic()&&type!=='CONVEYOR')noise.reliability=Object.assign({},noise.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
         else delete noise.reliability;
         if(type==='CONVEYOR')data=mergeFormatZoneData(data,readFormatZoneInputs(card));
+        var previewInput=equipmentField(card,'.equipment-input-unit').value,previewOutput=equipmentField(card,'.equipment-unit').value;if(previewInput&&previewOutput)data.flowUnits={input:type==='CONVEYOR'?previewOutput:previewInput,output:previewOutput};
         return {id:equipmentField(card,'.equipment-id').value,type:type,name:equipmentField(card,'.equipment-name').value,
           nominalRatePerSecond:readEquipmentRate(card),characteristics:characteristics,processData:data,noiseProfile:noise};
       });
@@ -564,13 +569,19 @@ function numericInputValue(input) {
           delete processData.accumulation;
         }
         var outputUnit=equipmentField(card,'.equipment-unit').value,inputUnit=equipmentField(card,'.equipment-input-unit').value;
-        if(outputUnit&&inputUnit)processData.flowUnits={input:type==='CONVEYOR'?outputUnit:inputUnit,output:outputUnit};else delete processData.flowUnits;
+        var profileProduct=state.activeCase.metadata?.products?.find(function(p){return p.id===card.dataset.productProfileId;}),baseEquipment=state.activeCase.equipment.find(function(e){return e.id===equipmentField(card,'.equipment-id').value;});
+        if(profileProduct){
+          profileProduct.equipment=profileProduct.equipment||{};var profile=profileProduct.equipment[baseEquipment.id]||(profileProduct.equipment[baseEquipment.id]={});
+          if(outputUnit&&inputUnit){profile.inputUnit=type==='CONVEYOR'?outputUnit:inputUnit;profile.outputUnit=outputUnit;}
+          profile.ratePerMinute=readEquipmentRate(card)*60;
+          if(baseEquipment.processData?.flowUnits)processData.flowUnits=cloneJson(baseEquipment.processData.flowUnits);else delete processData.flowUnits;
+        }else if(outputUnit&&inputUnit)processData.flowUnits={input:type==='CONVEYOR'?outputUnit:inputUnit,output:outputUnit};else delete processData.flowUnits;
         equipment.push({
           id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
           name: equipmentField(card, '.equipment-name').value.trim(),
-          unitOfFlow: outputUnit?outputUnit.toLowerCase():equipmentField(card,'.equipment-unit').dataset.legacyLabel||undefined,
-          nominalRatePerSecond: readEquipmentRate(card),
+          unitOfFlow: profileProduct?baseEquipment.unitOfFlow:outputUnit?outputUnit.toLowerCase():equipmentField(card,'.equipment-unit').dataset.legacyLabel||undefined,
+          nominalRatePerSecond: profileProduct?baseEquipment.nominalRatePerSecond:readEquipmentRate(card),
           initialMode: window.STBasicMode?.isBasic() ? 'AUTO' : equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,
           noiseProfile: noiseProfile,

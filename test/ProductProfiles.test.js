@@ -47,3 +47,26 @@ test('profiles retain shared reliability and installation while overriding machi
  const i=input(),base=i.case.equipment;base[0].noiseProfile={reliability:{mtbfMinutes:10,mttrMinutes:2}};i.run.productCatalog[0].equipment.source={ratePerMinute:120,startupSeconds:2};const resolved=applyProductProfile(base,i.run.productCatalog[0]);assert.equal(resolved[0].nominalRatePerSecond,2);assert.deepEqual(resolved[0].noiseProfile,base[0].noiseProfile);assert.equal(resolved[1].processData.accumulation.usableLengthMm,1000);
  const z=resolveAccumulationZoneDefinition(resolved,3).definition;assert.equal(z.productLengthMm,100);assert.equal(z.productPitchMm,110);
 });
+
+test('nested bottle/case presentations override legacy dimensions and use the correct physical size by stage',()=>{
+ const i=input(),p=i.run.productCatalog[0];p.presentations={bottle:{lengthMm:25,widthMm:20,heightMm:100},case:{lengthMm:200,widthMm:150,heightMm:120,bottlesPerCase:6}};
+ const r=run(i);conserved(r);assert.equal(r.accumulationZoneMetrics['bottles--physical-zone'].capacityUnits,40);assert.equal(r.accumulationZoneMetrics['boxes--physical-zone'].capacityUnits,5);assert.equal(r.products.rows[0].bottlesPerCase,6);assert(Math.abs(r.summary.outputCount-r.equipmentMetrics.sink.outputCount*6)<1e-5);
+});
+test('product-specific presentation selections resolve conversion without modifying installation units',()=>{
+ const i=input();for(const e of i.case.equipment)e.processData.flowUnits={input:'BOTTLES',output:'BOTTLES'};
+ const p=i.run.productCatalog[0];p.equipment.packer={inputUnit:'BOTTLES',outputUnit:'CASES'};p.equipment.boxes={inputUnit:'CASES',outputUnit:'CASES',movingGapMm:10};p.equipment.sink={inputUnit:'CASES',outputUnit:'CASES'};
+ const before=structuredClone(i.case.equipment),r=run(i);conserved(r);assert.equal(r.equipmentMetrics.sink.unitOfFlow,'cases');assert.equal(r.accumulationZoneMetrics['boxes--physical-zone'].capacityUnits,10);assert.deepEqual(i.case.equipment,before);
+});
+test('unused partial product applicability is retained in the catalog; using it cannot silently bypass equipment',()=>{
+ const i=input(),partial=structuredClone(i.run.productCatalog[0]);partial.id='boxed';partial.name='Boxed presentation';partial.presentations={bottle:{},case:{lengthMm:200,bottlesPerCase:12}};delete partial.bottleLengthMm;
+ for(const e of i.case.equipment)partial.equipment[e.id]={applies:['boxes','sink'].includes(e.id),inputUnit:'CASES',outputUnit:'CASES'};
+ i.run.productCatalog.push(partial);const r=run(i);conserved(r);i.run.initialProductId='boxed';let result=simulateLine(i);assert.equal(result.ok,false);assert.match(JSON.stringify(result.error),/no bypass/);
+ i.run.initialProductId='a';i.run.plannedStops=[{category:'changeoverMinutes',startSeconds:30,endSeconds:40,targetProductId:'boxed'}];result=simulateLine(i);assert.equal(result.ok,false);
+});
+test('presentation continuity and supported machine conversions are validated for each active product',()=>{
+ for(const mutate of [p=>{p.equipment.boxes.inputUnit='BOTTLES';p.equipment.boxes.outputUnit='CASES';},p=>{p.equipment.packer={inputUnit:'CASES',outputUnit:'BOTTLES'};},p=>{p.equipment.sink={inputUnit:'BOTTLES',outputUnit:'BOTTLES'};}]){const i=input();mutate(i.run.productCatalog[0]);assert.equal(simulateLine(i).ok,false);}
+});
+
+test('an incomplete unused catalog product does not block a compatible run; choosing it requires complete presentation geometry',()=>{
+ const i=input(),draft=structuredClone(i.run.productCatalog[0]);draft.id='draft';draft.name='Draft format';delete draft.bottleLengthMm;delete draft.caseLengthMm;i.run.productCatalog.push(draft);conserved(run(i));i.run.initialProductId='draft';const result=simulateLine(i);assert.equal(result.ok,false);assert.match(JSON.stringify(result.error),/length along the conveyor/);
+});

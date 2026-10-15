@@ -3,7 +3,10 @@ window.STProducts=(function(){
   var state,hooks,selectedProductId;
   function catalog(){return state?.activeCase?.metadata?.products||[];}
   function copy(value){return JSON.parse(JSON.stringify(value));}
-  function unit(e,side){return e.processData?.flowUnits?.[side||'output']||'BOTTLES';}
+  function unit(e,side,p){side=side||'output';return p?.equipment?.[e.id]?.[side+'Unit']||e.processData?.flowUnits?.[side]||'BOTTLES';}
+  function preparePresentations(p){p.presentations=p.presentations||{};p.presentations.bottle=p.presentations.bottle||{lengthMm:p.bottleLengthMm};p.presentations.case=p.presentations.case||{lengthMm:p.caseLengthMm,bottlesPerCase:p.bottlesPerCase??12};return p;}
+  function packSize(p){return p?.presentations?.case?.bottlesPerCase??p?.bottlesPerCase;}
+  function syncPresentationAliases(p){p.bottleLengthMm=p.presentations.bottle.lengthMm;p.caseLengthMm=p.presentations.case.lengthMm;p.bottlesPerCase=packSize(p);}
   function equipmentKey(){return JSON.stringify((state?.activeCase?.equipment||[]).map(e=>[e.id,e.name,e.type,e.processData?.flowUnits]));}
   function render(force){
     var target=document.getElementById('products-workspace');if(!target||state?.uiView!=='products')return;
@@ -13,10 +16,11 @@ window.STProducts=(function(){
   }
   function defaultProfile(e,index){
     var data=e.processData||{},a=data.accumulation||{},u=data.upstream||{};
-    if(e.type!=='CONVEYOR')return {ratePerMinute:e.nominalRatePerSecond*60};
+    var units={applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e)};
+    if(e.type!=='CONVEYOR')return {...units,ratePerMinute:e.nominalRatePerSecond*60};
     var definition;try{definition=window.SimulatorEngine.resolveProductConveyor?.(state.activeCase.equipment,index);}catch(ignore){}
     var length=u.packageLengthMm??a.productLengthMm;
-    return {movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,
+    return {...units,movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,
       dischargeGapMm:Number.isFinite(u.dischargePitchMm)&&Number.isFinite(length)?Math.max(0,u.dischargePitchMm-length):undefined,
       infeedGapMm:Number.isFinite(data.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,data.downstream.infeedPitchMm-length):undefined,
       speedMmPerSecond:a.speedMode==='MANUAL'?a.conveyorSpeedMmPerSecond:undefined};
@@ -33,9 +37,9 @@ window.STProducts=(function(){
   }
   function captureProduct(name){
     var all=state.activeCase.equipment||[],belts=all.filter(e=>e.type==='CONVEYOR'),bottle=belts.find(e=>unit(e)==='BOTTLES'),box=belts.find(e=>unit(e)==='CASES');
-    return alignProducts([{id:'product-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:name,bottlesPerCase:12,
+    return preparePresentations(alignProducts([{id:'product-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:name,bottlesPerCase:12,
       bottleLengthMm:bottle?.processData?.upstream?.packageLengthMm??bottle?.processData?.accumulation?.productLengthMm,
-      caseLengthMm:box?.processData?.upstream?.packageLengthMm??box?.processData?.accumulation?.productLengthMm,equipment:{}}])[0];
+      caseLengthMm:box?.processData?.upstream?.packageLengthMm??box?.processData?.accumulation?.productLengthMm,equipment:{}}])[0]);
   }
   function references(id){
     var active=hooks.simulation(),simulations=(state.activeCase.simulations||[]).slice();if(active&&!simulations.some(s=>s.id===active.id))simulations.push(active);
@@ -48,7 +52,7 @@ window.STProducts=(function(){
   }
   async function open(inline){
     inline=inline===true;if((!inline&&hooks.locked())||!hooks.capture())return;
-    var draft=alignProducts(copy(catalog())),initial=hooks.simulation()?.dynamicConfig?.initialProductId||'',selected=draft.some(p=>p.id===selectedProductId)?selectedProductId:draft.some(p=>p.id===initial)?initial:draft[0]?.id;
+    var draft=alignProducts(copy(catalog())).map(preparePresentations),initial=hooks.simulation()?.dynamicConfig?.initialProductId||'',selected=draft.some(p=>p.id===selectedProductId)?selectedProductId:draft.some(p=>p.id===initial)?initial:draft[0]?.id;
     var focus=document.activeElement,ownerCase=state.activeCase,ownerSimulation=hooks.simulation();
     var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby',inline?'products-title':'products-dialog-title');
     var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='products-dialog-title';title.textContent='Products';heading.append(title);heading.hidden=inline;
@@ -90,11 +94,17 @@ window.STProducts=(function(){
       if(!p){note(chooser,'Add a product to enter its dimensions and operating settings.');return;}
       var general=section('General information'),grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';general.append(grid);
       field(grid,'Name',p,'name',{text:true,required:true,changed:function(){select.selectedOptions[0].textContent=p.name||'Unnamed product';if(initial===p.id)initialNote.textContent='Initial product: '+p.name;}});
-      field(grid,'Container volume (mL)',p,'volumeMl');field(grid,'Bottles per case',p,'bottlesPerCase',{min:'1',step:'1',required:true});field(grid,'Bottle length along travel (mm)',p,'bottleLengthMm',{min:'0.001',required:true});field(grid,'Case length along travel (mm)',p,'caseLengthMm',{min:'0.001'});
+      field(grid,'Container volume (mL)',p,'volumeMl');
+      [['bottle','Bottle'],['case','Case']].forEach(function(spec){var group=document.createElement('fieldset');group.className='product-presentation';var legend=document.createElement('legend');legend.textContent=spec[1]+' presentation';group.append(legend);var fields=document.createElement('div');fields.className='settings-simulation-grid product-general-grid';group.append(fields);general.append(group);var data=p.presentations[spec[0]];field(fields,spec[1]+' length along travel (mm)',data,'lengthMm',{min:'0.001'});field(fields,spec[1]+' width (mm)',data,'widthMm',{min:'0.001'});field(fields,spec[1]+' height (mm)',data,'heightMm',{min:'0.001'});if(spec[0]==='case')field(fields,'Bottles per case',data,'bottlesPerCase',{min:'1',step:'1',required:true});});
+      note(general,'Bottle and case are two presentations of the same product. Length along travel controls conveyor capacity; width and height are stored for reference.');
       var inputs=section('Equipment inputs');note(inputs,'Rows follow the current equipment list. Spacing is free space; pitch = product length + spacing. Blank values use equipment settings. MTBF / MTTR remain shared.');
       var all=state.activeCase.equipment||[];
-      table(inputs,'Machines',['Equipment','Input → output','Rate (output/min)','Startup (s)','Ramp up (s)'],all.filter(e=>e.type!=='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];textCell(row,unit(e,'input').toLowerCase()+' → '+unit(e).toLowerCase());inputCell(row,e,profile,'ratePerMinute','Rate ('+unit(e).toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,profile,'startupSeconds','Startup (s)');inputCell(row,e,profile,'rampSeconds','Ramp up (s)');});
-      table(inputs,'Conveyors',['Conveyor','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],all.filter(e=>e.type==='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];textCell(row,unit(e).toLowerCase());[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(function(spec){inputCell(row,e,profile,spec[0],spec[1],spec[2]);});});
+      function appliesCell(row,e){var profile=p.equipment[e.id],cell=document.createElement('td'),check=document.createElement('input');check.type='checkbox';check.checked=profile.applies!==false;check.setAttribute('aria-label',e.name+' · Applies');check.onchange=function(){profile.applies=check.checked;renderDraft();};cell.append(check);row.append(cell);if(profile.applies===false)row.classList.add('product-row-inactive');}
+      function presentationSelect(row,e,side,cell){var profile=p.equipment[e.id],select=document.createElement('select');select.setAttribute('aria-label',e.name+' · '+(side==='input'?'Input':'Output')+' presentation');[['BOTTLES','Bottle'],['CASES','Case']].forEach(function(pair){var option=document.createElement('option');option.value=pair[0];option.textContent=pair[1];select.append(option);});select.value=unit(e,side,p);select.disabled=profile.applies===false;select.onchange=function(){profile[side+'Unit']=select.value;if(e.type==='CONVEYOR')profile.inputUnit=profile.outputUnit=select.value;renderDraft();};cell.append(select);}
+      function disableInactive(row,e){if(p.equipment[e.id].applies===false)row.querySelectorAll('input:not([type=checkbox]),select').forEach(c=>c.disabled=true);}
+      table(inputs,'Machines',['Equipment','Applies','Input → output','Rate (output/min)','Startup (s)','Ramp up (s)'],all.filter(e=>e.type!=='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];appliesCell(row,e);var units=document.createElement('td');units.className='product-flow-pair';presentationSelect(row,e,'input',units);var arrow=document.createElement('span');arrow.textContent='→';arrow.setAttribute('aria-hidden','true');units.append(arrow);presentationSelect(row,e,'output',units);row.append(units);inputCell(row,e,profile,'ratePerMinute','Rate ('+unit(e,'output',p).toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,profile,'startupSeconds','Startup (s)');inputCell(row,e,profile,'rampSeconds','Ramp up (s)');disableInactive(row,e);});
+      table(inputs,'Conveyors',['Conveyor','Applies','Presentation','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],all.filter(e=>e.type==='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];appliesCell(row,e);var cell=document.createElement('td');presentationSelect(row,e,'output',cell);row.append(cell);[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(function(spec){inputCell(row,e,profile,spec[0],spec[1],spec[2]);});disableInactive(row,e);});
+      note(inputs,'Applies defines product compatibility. Every installed step is required to run this serial line; an unchecked row does not create a bypass. Select Bottle → Case on a Case Packer, then Case on its downstream conveyor.');
       note(inputs,'Rates use each machine’s output unit: 300 bottles/min equals 25 cases/min at 12 bottles/case. Confirm the suggested pack size before running.');
       if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
     }
@@ -103,11 +113,12 @@ window.STProducts=(function(){
       if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
       var done=inline?null:STDialog.beginActivity(dialog);save.disabled=true;
       try{
-        await new Promise(resolve=>setTimeout(resolve,0));alignProducts(draft);
+        await new Promise(resolve=>setTimeout(resolve,0));alignProducts(draft);draft.forEach(syncPresentationAliases);
         if(initial&&!draft.some(p=>p.id===initial))throw Error('Choose an existing initial product.');
         var removed=catalog().filter(p=>!draft.some(d=>d.id===p.id));for(var p of removed){var used=references(p.id);if(used.length)throw Error('Cannot delete '+p.name+': used by '+used.join(', '));}
         var equipment=state.activeCase.equipment.map(e=>({...e,processData:{...e.processData,flowUnits:e.processData?.flowUnits||{input:'BOTTLES',output:'BOTTLES'}}}));
-        if(draft.length){var result=SimulatorEngine.validateSimulationInput({case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:draft,initialProductId:initial||draft[0].id,eventsEnabled:false}});if(!result.ok)throw Error(result.error.details.map(d=>d.path+': '+(d.reason||d.message||JSON.stringify(d))).join('\n'));}
+        SimulatorEngine.validateProductDefinitions?.(draft,equipment,{requireDimensions:false});
+        if(initial){var result=SimulatorEngine.validateSimulationInput({case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:draft,initialProductId:initial,eventsEnabled:false}});if(!result.ok)throw Error(result.error.details.map(d=>d.path+': '+(d.reason||d.message||JSON.stringify(d))).join('\n'));}
         state.activeCase.metadata={...state.activeCase.metadata,products:draft};state.activeCase.equipment=equipment;
         ownerSimulation.dynamicConfig={...ownerSimulation.dynamicConfig,initialProductId:initial||undefined};hooks.changed(true);closeEditor();
       }catch(e){showError(e.message);}finally{save.disabled=false;done?.();}
@@ -125,6 +136,6 @@ window.STProducts=(function(){
     target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
     var h=document.createElement('h3');h.textContent='Production by product';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Product','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>1)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
   }
-  return {init:function(s,h){state=s;hooks=h;selectedProductId=null;},render:render,open:open,reconcile:reconcile,go:function(){if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
+  return {init:function(s,h){state=s;hooks=h;selectedProductId=null;},render:render,open:open,reconcile:reconcile,packSize:packSize,go:function(){if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
 })();
 </script>

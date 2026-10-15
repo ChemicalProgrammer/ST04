@@ -1,4 +1,4 @@
-import { applyProductProfile, productUnitFactor, productFlowUnit } from './ProductProfiles.js';
+import { applyProductProfile, productUnitFactor, productFlowUnit, productPackSize } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
@@ -1226,7 +1226,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.16.0',
+    engineVersion: '0.17.0',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1432,7 +1432,7 @@ function round(value) {
 
 function currentProductRow(runtime){
   const p=runtime.product;
-  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,name:p.name,bottlesPerCase:p.bottlesPerCase,outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
+  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,name:p.name,bottlesPerCase:productPackSize(p),outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
 }
 function configureProductFactors(runtime){
   for(const e of runtime.equipment){

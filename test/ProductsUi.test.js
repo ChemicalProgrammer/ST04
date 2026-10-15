@@ -61,3 +61,11 @@ test('equipment additions and removals reconcile all products by stable ID while
  s.state.activeCase.equipment=s.state.activeCase.equipment.filter(e=>e.id!=='belt');w.STProducts.reconcile();assert.equal(p.equipment.belt,undefined);assert.equal(q.equipment.belt,undefined);
  s.state.activeCase.equipment.reverse();s.state.activeCase.equipment[0].name='Renamed machine';s.state.uiView='products';w.document.getElementById('simulation-products').id='products-workspace';w.STProducts.render(true);assert.deepEqual(Array.from(w.document.querySelectorAll('.product-settings-table tbody tr[data-equipment-id]'),r=>r.dataset.equipmentId),s.state.activeCase.equipment.map(e=>e.id));assert.match(w.document.querySelector('.product-settings-table').textContent,/Renamed machine/);
 });
+
+test('product presentations expose separate dimensions and per-equipment applicability without a second product selector',async()=>{
+ const s=setup(),w=s.w;await w.STProducts.open();w.document.querySelector('[aria-label="Add product"]').click();assert.equal(w.document.querySelectorAll('.product-presentation').length,2);
+ enter(w,inputFor(w,'Bottle width (mm)'),55);enter(w,inputFor(w,'Case length along travel (mm)'),310);enter(w,inputFor(w,'Bottles per case'),24);
+ const row=w.document.querySelector('tr[data-equipment-id="belt"]'),applies=row.querySelector('input[type=checkbox]');applies.checked=false;applies.dispatchEvent(new w.Event('change'));const changed=w.document.querySelector('tr[data-equipment-id="belt"]');assert(changed.classList.contains('product-row-inactive'));assert(changed.querySelector('select').disabled);
+ Array.from(w.document.querySelectorAll('.dialog-actions button')).find(b=>b.textContent==='Save products').click();await new Promise(r=>setTimeout(r,15));const p=s.state.activeCase.metadata.products[0];assert.equal(p.presentations.bottle.widthMm,55);assert.equal(p.presentations.case.lengthMm,310);assert.equal(p.presentations.case.bottlesPerCase,24);assert.equal(p.equipment.belt.applies,false);assert.equal(p.bottlesPerCase,24);assert.equal(p.caseLengthMm,310);
+ assert.match(fs.readFileSync('apps-script/ProductStyles.html','utf8'),/repeat\(4,minmax\(0,1fr\)\)/);assert.match(fs.readFileSync('apps-script/ProductStyles.html','utf8'),/repeat\(3,minmax\(0,1fr\)\)/);
+});
