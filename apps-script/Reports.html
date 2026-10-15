@@ -252,7 +252,7 @@ window.STReports=(function(){
       function finish(value){if(closed)return;closed=true;serial++;clearTimeout(timer);endActivity?.();dialog.close();dialog.remove();if(focus?.isConnected)focus.focus();resolve(value);}
       var close=button('',function(){finish(false);},'ghost icon-button');close.innerHTML=STIcons.svg('x');close.title='Close export';close.setAttribute('aria-label',close.title);heading.append(title,close);
       body.append(el('p','Choose the information to include. Equipment, calendar and run settings are included for every selected simulation.','chart-note'));
-      var presetRow=el('div',null,'settings-tabs case-export-presets');presetRow.setAttribute('role','group');presetRow.setAttribute('aria-label','Export presets');body.append(presetRow);
+      var presetRow=el('div',null,'case-export-presets');presetRow.setAttribute('role','group');presetRow.setAttribute('aria-label','Export presets');body.append(presetRow);
       var presetHelp=el('p','','chart-note case-export-help');presetHelp.setAttribute('aria-live','polite');body.append(presetHelp);
       var presetDescriptions={COMPLETE:'All simulations, full results, saved scenarios, supporting analysis and conversations.',CURRENT:'Full information for the active simulation only.',CONFIGURATION:'Equipment, calendar, events and settings. Calculated results, scenario evaluations and conversations are omitted.',REVIEW:'Inputs, result summaries and saved scenarios. Supporting analysis and conversations are omitted by default.'};presetHelp.textContent=presetDescriptions.COMPLETE;
       var list=el('div',null,'case-export-list');body.append(list);
