@@ -46,6 +46,7 @@ window.STResults=(function(){
   }
   function renderEfficiency(target,equipment,result,simulation){
     target._lossKey=null;target.replaceChildren();
+    if(result?.products){var note=document.createElement('p');note.className='chart-note';note.textContent='Product-specific conversion is included in production and weighted OEE. The detailed loss decomposition is pending validation for multiple units and formats.';target.append(note);return;}
     var d=SimulatorEngine.diagnoseLineEfficiency(equipment,result);
     function add(tag,text,parent){var node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
     if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','Loss breakdown unavailable for the experimental engine.');return;}
@@ -76,6 +77,7 @@ window.STResults=(function(){
   function render(result,activeCase,simulation){
     var ready=Boolean(result&&result.summary&&!result.provisional);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
+    STProducts.results(document.getElementById('results-products'),ready?result:null);
     var designReady=Boolean(activeCase?.equipment?.length);
     var batchTarget=document.getElementById('batch-results');batchTarget.classList.toggle('hidden',!result?.batch);batchTarget.innerHTML=result?.batch?STReports.batchHtml(result.batch):'';
 
@@ -98,7 +100,7 @@ window.STResults=(function(){
     table.querySelectorAll('thead th')[2].title=__ST_TEXT__('client.equipment_unit_help');
     var head=table.querySelector('thead tr');
     [__ST_TEXT__('results.partial_starvation'),__ST_TEXT__('results.partial_blocking'),__ST_TEXT__('results.productive_capacity')].forEach(function(label){var th=document.createElement('th');th.className='numeric';th.textContent=label;head.appendChild(th);});
-    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,unitLabel(r.model.unitOfFlow),number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0),number((m.partialStarvationLossSeconds||0)/60),number((m.partialBlockingLossSeconds||0)/60),number(m.processingCapacityPercent)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>2)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
+    var body=document.createElement('tbody'); rows.forEach(function(r){var m=r.metric,tr=document.createElement('tr');[r.model.name,r.model.type,unitLabel(m.unitOfFlow||r.model.unitOfFlow),number(m.oeePercent)+'%',number(m.outputCount),number(m.starvedSeconds/60),number(m.blockedSeconds/60),number(m.failureSeconds/60),number(m.failureCount,0),number((m.partialStarvationLossSeconds||0)/60),number((m.partialBlockingLossSeconds||0)/60),number(m.processingCapacityPercent)].forEach(function(v,i){var td=document.createElement('td');td.textContent=v; if(i>2)td.className='numeric';tr.appendChild(td);});body.appendChild(tr);});table.appendChild(body);document.getElementById('results-table').replaceChildren(table);
   }
   function compare(target,a,b){
     if(!a.results?.summary||!b.results?.summary)return;

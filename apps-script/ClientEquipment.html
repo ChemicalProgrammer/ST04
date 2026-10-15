@@ -57,17 +57,24 @@
       card.className = 'equipment-card';
       card.dataset.index = String(index);
       card.innerHTML = ("<div class=\"equipment-header\"><strong></strong><div class=\"button-row\"><button class=\"equipment-drag ghost icon-button\" type=\"button\" aria-label=\"" + __ST_HTML_TEXT__('client.reorder_equipment') + "\" title=\"" + __ST_HTML_TEXT__('client.drag_to_reorder_use_arrow_up_or_down_on_this_handle') + "\"></button><button class=\"remove-equipment danger\" type=\"button\">" + __ST_HTML_TEXT__('client.remove') + "</button></div></div><div class=\"equipment-grid\"><label>" + __ST_HTML_TEXT__('client.equipment_id') + "<input class=\"equipment-id\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.type') + "<select class=\"equipment-type\"><option value=\"BLOWER\">" + __ST_HTML_TEXT__('client.blower') + "</option><option value=\"BLOWMOLDER\">" + __ST_HTML_TEXT__('client.blowmolder') + "</option><option value=\"CONVEYOR\">" + __ST_HTML_TEXT__('client.conveyor') + "</option><option value=\"PUCKER\">" + __ST_HTML_TEXT__('client.pucker') + "</option><option value=\"FILLER\">" + __ST_HTML_TEXT__('client.filler') + "</option><option value=\"DEPUCKER\">" + __ST_HTML_TEXT__('client.de_pucker') + "</option><option value=\"SLEEVER\">" + __ST_HTML_TEXT__('client.sleever') + "</option><option value=\"CASE_PACKER\">" + __ST_HTML_TEXT__('client.case_packer') + "</option><option value=\"PALLETIZER\">" + __ST_HTML_TEXT__('client.palletizer') + "</option><option value=\"CUSTOM\">" + __ST_HTML_TEXT__('client.other_custom') + "</option></select></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.name') + "<input class=\"equipment-name\"></label><label>" + __ST_HTML_TEXT__('client.nominal_rate_bpm') + "<input class=\"equipment-rate\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.initial_mode') + "<select class=\"equipment-mode\"><option value=\"AUTO\">" + __ST_HTML_TEXT__('client.automatic') + "</option><option value=\"MANUAL\">" + __ST_HTML_TEXT__('client.manual') + "</option><option value=\"PAUSE\">" + __ST_HTML_TEXT__('client.paused') + "</option><option value=\"STOP\">" + __ST_HTML_TEXT__('client.stopped') + "</option></select></label></div><section class=\"format-zone-setup\"><div class=\"format-zone-heading\"><div><strong>" + __ST_HTML_TEXT__('client.flowpilot_conveyor_design') + "</strong><p>" + __ST_HTML_TEXT__('client.required_for_every_conveyor_geometry_is_always_active_the_engine_derives_co') + "</p></div></div><div class=\"format-zone-grid\"><label>" + __ST_HTML_TEXT__('client.installed_length_l_act_mm') + "<input class=\"format-zone-lact\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.prime_reserve_l_p_mm') + "<input class=\"format-zone-lp-prime\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.package_length_mm') + "<input class=\"format-zone-package-length\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_discharge_pitch_mm') + "<input class=\"format-zone-discharge-pitch\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.conveyor_speed_factor') + "<input class=\"format-zone-speed-factor\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.installed_back_up_position_mm') + "<input class=\"format-zone-backup\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.discharge_runout_mm') + "<input class=\"format-zone-discharge-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.reject_runout_mm') + "<input class=\"format-zone-reject-runout\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.blocked_time_delay_s') + "<input class=\"format-zone-blocked-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.clear_time_delay_s') + "<input class=\"format-zone-clear-delay\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.insurance_factor_units') + "<input class=\"format-zone-insurance\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.upstream_stop_response_s') + "<input class=\"format-zone-stop-response\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('sheetimportmerge.bottles_discharged_at_stop') + "<input class=\"format-zone-residual\" type=\"number\" min=\"0\" step=\"any\"></label><label>" + __ST_HTML_TEXT__('client.downstream_ramp_up_s') + "<input class=\"format-zone-downstream-ramp\" type=\"number\" min=\"0\" step=\"any\"></label></div><p class=\"format-zone-preview\"></p></section><details class=\"equipment-json-details\"><summary>" + __ST_HTML_TEXT__('client.advanced_json_fields') + "</summary><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.characteristics_json_optional') + "<textarea class=\"equipment-characteristics\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.noise_profile_json_optional') + "<textarea class=\"equipment-noise-profile\" spellcheck=\"false\"></textarea></label><label class=\"characteristics-label\">" + __ST_HTML_TEXT__('client.advanced_process_format_json_optional') + "<textarea class=\"equipment-process-data\" spellcheck=\"false\"></textarea></label></details>");
-      var unitLabel=document.createElement('label'),unitInput=document.createElement('input');
-      unitLabel.textContent=__ST_TEXT__('client.equipment_unit_label');unitLabel.title=__ST_TEXT__('client.equipment_unit_help');
-      unitInput.className='equipment-unit';unitInput.maxLength=40;unitInput.placeholder='units';
-      unitLabel.appendChild(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
+      var unitLabel=document.createElement('label'),unitInput=document.createElement('select');
+      unitLabel.textContent='Output / transported unit';unitInput.className='equipment-unit';
+      [['','Existing unit label'],['BOTTLES','Bottles'],['CASES','Cases']].forEach(function(v){var o=document.createElement('option');o.value=v[0];o.textContent=v[1];unitInput.append(o);});
+      unitLabel.append(unitInput);equipmentField(card,'.equipment-name').closest('label').after(unitLabel);
+      var inputLabel=document.createElement('label'),inputUnit=document.createElement('select');inputLabel.textContent='Input unit';inputUnit.className='equipment-input-unit';
+      [['','Existing unit label'],['BOTTLES','Bottles'],['CASES','Cases']].forEach(function(v){var o=document.createElement('option');o.value=v[0];o.textContent=v[1];inputUnit.append(o);});inputLabel.append(inputUnit);unitLabel.after(inputLabel);
+      unitInput.value=equipment.processData?.flowUnits?.output||'';inputUnit.value=equipment.processData?.flowUnits?.input||'';
+      if(equipment.type==='CONVEYOR'){inputLabel.hidden=true;unitInput.addEventListener('change',function(){inputUnit.value=unitInput.value;});}
+      var flowNote=document.createElement('p');flowNote.className='chart-note equipment-flow-note';flowNote.textContent='Rates are in the selected output unit per minute. A Case Packer can receive bottles and produce cases; bottles per case are configured in Products. Conversion applies when an initial product is selected.';equipmentField(card,'.equipment-grid').append(flowNote);
       equipmentField(card, 'strong').textContent = (equipment.type || 'CUSTOM') + ' · ' + (equipment.name || equipment.id || 'Unnamed') + ' · ' + formatNumber(Number(equipment.nominalRatePerSecond || 0) * 60) + __ST_TEXT__('client.bpm');
       var jsonNote=document.createElement('p');jsonNote.className='chart-note';jsonNote.textContent=__ST_TEXT__('editor.json_note');equipmentField(card, '.equipment-json-details summary').after(jsonNote);
       equipmentField(card, '.equipment-id').value = equipment.id || '';
       equipmentField(card, '.equipment-id').readOnly = true;
       equipmentField(card, '.equipment-type').value = STEquipmentRoles.machineType(equipment);
       equipmentField(card, '.equipment-name').value = equipment.name || '';
-      unitInput.value=equipment.unitOfFlow||'';
+      unitInput.dataset.legacyLabel=equipment.unitOfFlow||'';
+      function updateRateUnit(){var rate=equipmentField(card,'.equipment-rate');rate.closest('label').firstChild.nodeValue='Nominal rate ('+(unitInput.value?unitInput.value.toLowerCase():'units')+'/min)';if(unitInput.value&&!inputUnit.value)inputUnit.value=equipment.type==='CONVEYOR'?unitInput.value:(state.activeCase.equipment[index-1]?.processData?.flowUnits?.output||'BOTTLES');}
+      unitInput.addEventListener('change',updateRateUnit);updateRateUnit();
       var rateInput=equipmentField(card,'.equipment-rate');
       rateInput.value=equipment.nominalRatePerSecond==null?'':Number((equipment.nominalRatePerSecond*60).toPrecision(15));
       rateInput.dataset.originalBpm=rateInput.value;
@@ -111,6 +118,10 @@
         });
         input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(fields._owner); });
       });
+      if(state.activeCase?.metadata?.products?.length){
+        ['moving-gap','accumulated-gap','package-length','discharge-pitch','infeed'].forEach(function(key){var input=equipmentField(card,'.format-zone-'+key);if(input){input.readOnly=true;input.closest('label').hidden=true;input.title='Edit product dimensions and spacing in Simulation → Configure products.';}});
+        var edit=document.createElement('button');edit.type='button';edit.className='ghost';edit.textContent='Product spacing and operating settings';edit.onclick=function(){STProducts.open();};equipmentField(card,'.format-zone-setup').append(edit);
+      }
       return card;
     }
 
@@ -547,11 +558,13 @@ function numericInputValue(input) {
         } else {
           delete processData.accumulation;
         }
+        var outputUnit=equipmentField(card,'.equipment-unit').value,inputUnit=equipmentField(card,'.equipment-input-unit').value;
+        if(outputUnit&&inputUnit)processData.flowUnits={input:type==='CONVEYOR'?outputUnit:inputUnit,output:outputUnit};else delete processData.flowUnits;
         equipment.push({
           id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
           name: equipmentField(card, '.equipment-name').value.trim(),
-          unitOfFlow: equipmentField(card, '.equipment-unit').value.trim()||undefined,
+          unitOfFlow: outputUnit?outputUnit.toLowerCase():equipmentField(card,'.equipment-unit').dataset.legacyLabel||undefined,
           nominalRatePerSecond: readEquipmentRate(card),
           initialMode: window.STBasicMode?.isBasic() ? 'AUTO' : equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,

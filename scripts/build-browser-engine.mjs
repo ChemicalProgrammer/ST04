@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceFiles = [
   'src/simulation/SeededRandom.js',
+  'src/simulation/ProductProfiles.js',
   'src/simulation/ConveyorEngineering.js',
   'src/simulation/FormatGeometryAdapter.js',
   'src/simulation/PlantCalendarSchedule.js',
@@ -98,7 +99,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.15.0/DES:0.4.0/cache:4',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.16.0/DES:0.4.0/cache:5',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -116,6 +117,9 @@ window.SimulatorEngine = {
   validateSimulationInput: validateSimulationInput,
   plantCalendarSchedule: plantCalendarSchedule,
   resolvePlannedStops:resolvePlannedStops,
+  resolveProductConveyor:function(equipment,index){return resolveAccumulationZoneDefinition(equipment,index).definition;},
+  applyProductProfile:applyProductProfile,
+  validateProductSetup:validateProductSetup,
   calculateConveyorEngineering: calculateConveyorEngineering,
   analyzeLinePerformance: analyzeLinePerformance,diagnoseLineEfficiency:diagnoseLineEfficiency
 };
@@ -128,7 +132,7 @@ window.STScenarios = {plan:planScenarios,efficiency:diagnoseLineEfficiency,diagn
 
 fs.writeFileSync(targetFile, output);
 
-const scenarioSources = ['src/simulation/PlantCalendarSchedule.js','src/simulation/ConveyorEngineering.js','src/simulation/FormatGeometryAdapter.js','src/simulation/SimulationValidation.js','src/analysis/LinePerformanceAnalysis.js','src/analysis/ScenarioPlanner.js'];
+const scenarioSources = ['src/simulation/ProductProfiles.js','src/simulation/PlantCalendarSchedule.js','src/simulation/ConveyorEngineering.js','src/simulation/FormatGeometryAdapter.js','src/simulation/SimulationValidation.js','src/analysis/LinePerformanceAnalysis.js','src/analysis/ScenarioPlanner.js'];
 fs.writeFileSync(path.join(repositoryRoot,'apps-script','ScenarioEngine.gs'),
   'var STScenarioEngine_ = (function(){\n'+
   scenarioSources.map(file=>removeModuleSyntax(fs.readFileSync(path.join(repositoryRoot,file),'utf8'))).join('\n')+

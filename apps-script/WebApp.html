@@ -165,6 +165,7 @@
 <label data-duration-method="SHIFTS">Number of shifts<input id="settings-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
 <label>Hours per shift<input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
 <label class="checkbox-label"><input id="run-track-shifts" type="checkbox">Show shift accounting</label><label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label></div><p id="run-duration-summary" class="chart-note"></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events.</p></section>
+        <section id="simulation-products" aria-label="Products"></section>
         <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
             
@@ -186,7 +187,7 @@
               <h3 id="equipment-control-events-title"><button id="toggle-control-events" type="button" aria-expanded="true" aria-controls="simulation-event-content"><?= __ST_TEXT__('view.equipment_control_events') ?></button></h3>
               <p><?= __ST_TEXT__('view.schedule_a_pause_planned_stop_emergency_stop_reset_run_manual_or_automatic_') ?></p>
             </div>
-            <div class="button-row"><button id="open-plant-calendar" type="button" class="secondary" aria-haspopup="dialog" aria-controls="plant-calendar-dialog">Plant calendar</button><button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button></div>
+            <div class="button-row"><button id="open-plant-calendar" type="button" class="secondary" aria-haspopup="dialog" aria-controls="plant-calendar-dialog">Plant calendar</button><button id="add-product-changeover" type="button" class="secondary">+ Changeover</button><button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button></div>
           </div>
           <div id="simulation-event-content"><div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></div></section>
 
@@ -219,7 +220,8 @@
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
         <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-ai" class="ghost" disabled>JSON</button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
-        <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><section id="results-loss-breakdown"></section><section id="results-plant-comparison"></section><div id="results-insight" class="result-insight"></div>
+        <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><section id="results-products" class="comparison-section hidden"></section>
+<div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><section id="results-loss-breakdown"></section><section id="results-plant-comparison"></section><div id="results-insight" class="result-insight"></div>
         <h3 class="subsection-title"><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
@@ -386,6 +388,8 @@
     <?!= include_('ScenarioExplorer'); ?>
     <?!= include_('RunOptions'); ?>
     <?!= include_('PlantCalendar'); ?>
+    <?!= include_('Products'); ?>
+    <?!= include_('ProductStyles'); ?>
     <?!= include_('Settings'); ?>
     <?!= include_('CaseGallery'); ?>
     <?!= include_('ReportStyles'); ?>

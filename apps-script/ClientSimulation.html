@@ -8,6 +8,7 @@
       document.getElementById('run-simulation').disabled = !ready;
       syncRunControls();
       renderControlEvents();
+      STProducts.render();
       renderWorkspaceTabs();
       if (!state.run.result) {
         toggle('simulation-results', false);
@@ -155,11 +156,11 @@
       var samples=original.length<=limit?original:retainedReplaySamples(original,Math.max(2,limit-tail.length-exact.length)).concat(tail,exact);
       samples=samples.filter(function(sample,index,list){return list.findIndex(function(other){return other.virtualSecond===sample.virtualSecond;})===index;}).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
       replay.samples=samples.map(function(sample){
-        var frame={virtualSecond:sample.virtualSecond,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
+        var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
         frame.accumulationZones=(sample.accumulationZones||[]).map(function(zone){
           var dynamic=Object.assign({},zone),staticKeys=['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry'];
           var definition=definitions[zone.id]||{};
-          staticKeys.forEach(function(key){if(zone[key]!==undefined)definition[key]=zone[key];delete dynamic[key];});definitions[zone.id]=definition;return dynamic;
+          staticKeys.filter(function(key){return !replay.products||!['geometry','geometrySources','formatAssumptions'].includes(key);}).forEach(function(key){if(zone[key]!==undefined)definition[key]=zone[key];delete dynamic[key];});definitions[zone.id]=definition;return dynamic;
         });
         return frame;
       });
@@ -170,7 +171,7 @@
     }
     function expandStoredReplay(replay,saved) {
       var expanded=cloneJson(replay);
-      ['summary','equipmentMetrics','accumulationZoneMetrics'].forEach(function(key){if(saved?.[key]!==undefined)expanded[key]=cloneJson(saved[key]);});
+      ['summary','equipmentMetrics','accumulationZoneMetrics','products'].forEach(function(key){if(saved?.[key]!==undefined)expanded[key]=cloneJson(saved[key]);});
       expanded.samples=(expanded.samples||[]).map(function(sample){sample.accumulationZones=(sample.accumulationZones||[]).map(function(zone){return Object.assign({},expanded.zoneDefinitions?.[zone.id],zone);});return sample;});
       return expanded;
     }
@@ -189,7 +190,7 @@
       (simulations||[]).forEach(function(simulation){
         var saved=simulation.results;if(!saved)return;
         compactReplay(saved.replay,600,saved.view?.virtualSecond);
-        ['summary','equipmentMetrics','accumulationZoneMetrics'].forEach(function(key){if(saved.replay&&saved[key]!==undefined&&JSON.stringify(saved[key])===JSON.stringify(saved.replay[key]))delete saved.replay[key];});
+        ['summary','equipmentMetrics','accumulationZoneMetrics','products'].forEach(function(key){if(saved.replay&&saved[key]!==undefined&&JSON.stringify(saved[key])===JSON.stringify(saved.replay[key]))delete saved.replay[key];});
         if(saved.batch?.replays){
           var laterLimit=Math.max(2,Math.min(120,Math.floor(600/Math.max(1,saved.batch.rounds-1))));
           saved.batch.replays.forEach(function(replay){compactReplay(replay,laterLimit);});
@@ -214,7 +215,7 @@
         completedAt: new Date().toISOString(),
         batch: storedBatch?cloneJson(storedBatch):undefined,shifts:result.shifts,replicationStatus:cloneJson(result.replicationStatus||null),
         detailCoverage:cloneJson(result.detailCoverage||{}),
-        plantCalendar:cloneJson(result.plantCalendar||null),
+        plantCalendar:cloneJson(result.plantCalendar||null),products:cloneJson(result.products||null),
         summary: cloneJson(result.summary),
         equipmentMetrics: cloneJson(result.equipmentMetrics),
         accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
@@ -222,7 +223,7 @@
           caseId: result.caseId, unitOfFlow: result.unitOfFlow, engineVersion: result.engineVersion,
           inputSignature:result.inputSignature,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
           seed: result.seed, durationSeconds: result.durationSeconds,
-          plantCalendar:cloneJson(result.plantCalendar||null),
+          plantCalendar:cloneJson(result.plantCalendar||null),products:cloneJson(result.products||null),
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           zoneDefinitions:cloneJson(result.zoneDefinitions||{}),
           accumulationZoneMetrics: cloneJson(result.accumulationZoneMetrics),
@@ -237,6 +238,7 @@
     function renderSimulationAnalysis() {
       var simulation=activePersistentSimulation(),target=document.getElementById('simulation-analysis-content');
       if(!simulation){target.textContent='';toggle('simulation-analysis',false);return;}
+      if(simulation.dynamicConfig?.initialProductId){target.textContent='Product-aware simulation is available in Results. What-If / DOE for product-specific settings is pending validation.';toggle('simulation-analysis',true);return;}
       if(simulation.dynamicConfig?.engineId==='DES_SIMPY_EXPERIMENTAL'){target.textContent='What-If is not yet validated for the experimental SimPy model. Use Results to compare throughput and equipment states, or choose the current engine for What-If.';toggle('simulation-analysis',true);return;}
       STWhatIf.render(simulation,target,createWhatIfScenario);toggle('simulation-analysis',true);
     }
@@ -315,6 +317,7 @@
       document.querySelectorAll('[data-control]').forEach(function(button){button.disabled=document.getElementById(button.dataset.control).disabled;});
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
       if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
+      document.querySelectorAll('#simulation-products input,#simulation-products select,#simulation-products button,#planned-line-events input,#planned-line-events select,#planned-line-events button,#add-product-changeover').forEach(function(control){control.disabled=locked;});
       STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;
     }
     function applyScenarioRunInputs(run) {
@@ -360,9 +363,10 @@
 
     function renderPlannedStops(){
       var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];if(!events.length)return;
-      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
+      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','Destination product','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
       events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';var categoryLabel=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1').trim();name.textContent=categoryLabel.charAt(0).toUpperCase()+categoryLabel.slice(1);row.append(name);
         ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';input.value=field==='start'?event.startSeconds/60:(event.endSeconds-event.startSeconds)/60;input.setAttribute('aria-label',name.textContent+' '+field+' (min)');input.onchange=function(){if(!input.reportValidity())return;var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=Number(input.value)*60;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+Number(input.value)*60;markCaseDirty();};cell.append(input);row.append(cell);});
+        STProducts.destinationCell(row,event,markCaseDirty);
         var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
       });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);
     }
@@ -370,7 +374,7 @@
       if(runControlsLocked())throw Error('Stop the current calculation or playback before applying a calendar.');
       var existing=state.run.commands.length+(state.run.plannedStops||[]).length,choice='replace';
       if(existing){choice=(await STDialog.open({title:'Apply plant calendar',message:'Events already exist. Replace all existing events or add these line stops?',buttons:[{id:'cancel',label:'Cancel'},{id:'add',label:'Add'},{id:'replace',label:'Replace'}]})).action;if(!['replace','add'].includes(choice))return false;}
-      var generated=schedule.events.map(function(e){return {category:e.category,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};}),merged=choice==='add'?(state.run.plannedStops||[]).concat(generated):generated;
+      var generated=schedule.events.map(function(e){return {category:e.category,targetProductId:e.targetProductId,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};}),merged=choice==='add'?(state.run.plannedStops||[]).concat(generated):generated;
       var seen=new Set();merged=merged.filter(function(e){var key=JSON.stringify([e.category,e.startSeconds,e.endSeconds,e.restartPolicy]);if(seen.has(key))return false;seen.add(key);return true;});
       SimulatorEngine.resolvePlannedStops({plannedStops:merged,tickSeconds:.25,eventsEnabled:true,durationSeconds:schedule.horizonSeconds});
       if(choice==='replace')state.run.commands=[];state.run.plannedStops=merged;state.run.eventPage=0;
@@ -553,7 +557,7 @@
         return null;
       }
       return {
-        ...extras,plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
+        ...extras,...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
@@ -589,7 +593,7 @@
       var configuration = state.run.configuration;
       if (!configuration) return readRunConfiguration();
       return {
-        ...cloneJson(configuration),...STRunOptions.read(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
+        ...cloneJson(configuration),...STRunOptions.read(),...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
         engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,

@@ -50,6 +50,7 @@ window.STLinePerformance = (function() {
   }
   function render(result, equipment) {
     if (!document.getElementById('line-performance')) return;
+    if(result?.products){document.getElementById('vgraph-context').textContent='Product-specific speed recommendations are pending validation.';document.getElementById('vgraph-plot').replaceChildren();document.getElementById('performance-rows').replaceChildren();document.getElementById('vgraph-caveat').textContent='Use the per-product operating settings and conveyor geometry in Simulation → Configure products. Rates in bottles/min and cases/min cannot be compared directly.';return;}
     var analysis = window.SimulatorEngine.analyzeLinePerformance(equipment, result);
     document.getElementById('vgraph-context').textContent = __ST_TEXT__('performance.context') + (analysis.points.find(function(p) { return p.isPacemaker; })?.name || '—');
     plot(document.getElementById('vgraph-plot'), analysis.points);

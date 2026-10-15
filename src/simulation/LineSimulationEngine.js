@@ -1,3 +1,4 @@
+import { applyProductProfile, productUnitFactor, productFlowUnit } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
@@ -21,6 +22,7 @@ export function simulateLine(input) {
   initializeInitialMaterialStates(runtime);
   addSample(runtime);
   executeTicks(runtime);
+  updatePlantCalendar(runtime,false);
   return { ok: true, result: createResult(runtime) };
 }
 
@@ -46,7 +48,7 @@ export async function simulateLineAsync(input, options = {}) {
     options.onPartial(partial);
   }
   publishPartial();
-  const shifts = []; let previous = {outputCount:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
+  const shifts = []; let previous = {outputCount:0,idealBottleOutput:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
   const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
   let nextShift = shiftSeconds;
   while (runtime.virtualSecond < input.run.durationSeconds) {
@@ -59,7 +61,7 @@ export async function simulateLineAsync(input, options = {}) {
       const duration = Math.min(shiftSeconds, runtime.virtualSecond - shifts.length * shiftSeconds);
       const output = summary.outputCount - previous.outputCount;
       shifts.push({shift:shifts.length+1,durationSeconds:duration,outputCount:output,throughputPerMinute:output/duration*60,
-        lineOeePercent:summary.lineOeePacemakerRatePerSecond>0?Math.min(100,100*output/(summary.lineOeePacemakerRatePerSecond*duration)):0,
+        lineOeePercent:runtime.product?(summary.idealBottleOutput>previous.idealBottleOutput?Math.min(100,100*output/(summary.idealBottleOutput-previous.idealBottleOutput)):0):summary.lineOeePacemakerRatePerSecond>0?Math.min(100,100*output/(summary.lineOeePacemakerRatePerSecond*duration)):0,
         starvedSeconds:summary.totalStarvedSeconds-previous.totalStarvedSeconds,blockedSeconds:summary.totalBlockedSeconds-previous.totalBlockedSeconds,failureSeconds:summary.totalFailureSeconds-previous.totalFailureSeconds});
       previous=summary; nextShift+=shiftSeconds;
     }
@@ -68,11 +70,15 @@ export async function simulateLineAsync(input, options = {}) {
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
+  updatePlantCalendar(runtime,false);
   const result=createResult(runtime); result.shifts=shifts; result.detailCoverage=recordingCoverage(runtime);
   return {ok:true,result};
 }
 
 function createRuntime(input) {
+  const product=input.run.productCatalog?.find(p=>p.id===input.run.initialProductId);
+  const baseEquipment=input.case.equipment;
+  if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
   const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
@@ -100,7 +106,8 @@ function createRuntime(input) {
 
   const runtime = {
     caseId: input.case.id,
-    unitOfFlow: input.case.unitOfFlow,
+    unitOfFlow: product ? 'bottles' : input.case.unitOfFlow,
+    baseEquipment, product, productRows:{}, productTimeline:[], inputBottleEquivalents:0, overflowBottleEquivalents:0, clearoutBottleEquivalents:0, idealBottleOutput:0,
     run: input.run,
     virtualSecond: 0,
     equipment,
@@ -118,6 +125,7 @@ function createRuntime(input) {
     nextSampleAt:0,historyTicks:0
   };
 
+  if(product) { configureProductFactors(runtime); runtime.productTimeline.push({productId:product.id,name:product.name,startSeconds:0}); }
   const push=runtime.events.push.bind(runtime.events);
   runtime.events.push=(...items)=>{if(runtime.captureEvents&&!runtime.summaryOnly&&runtime.events.length+items.length<=2000)return push(...items);runtime.omittedEvents+=items.length;return runtime.events.length;};
   const source = runtime.equipment[0];
@@ -324,6 +332,12 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     advanceAccumulationZones(runtime);
     processLineFromDownstream(runtime);
     recordZoneStatistics(runtime);
+    if(runtime.product){
+      const ideal=runtime.productReferenceRate*runtime.run.tickSeconds;
+      runtime.idealBottleOutput+=ideal;
+      const row=currentProductRow(runtime);row.durationSeconds+=runtime.run.tickSeconds;row.idealBottleOutput+=ideal;
+      runtime.equipment.forEach(e=>{e.idealNativeOutput=(e.idealNativeOutput||0)+e.nominalRatePerSecond*runtime.run.tickSeconds;});
+    }
     runtime.equipment.forEach((item) => {
       item.stateSeconds[item.availabilityState] = (item.stateSeconds[item.availabilityState] || 0) + runtime.run.tickSeconds;
       if(!runtime.summaryOnly){const rate=item.actualRatePerSecond||0;item.historySum=(item.historySum||0)+rate;item.historyMin=Math.min(item.historyMin??rate,rate);item.historyMax=Math.max(item.historyMax??rate,rate);}
@@ -668,6 +682,8 @@ function updatePlantCalendar(runtime, countTick=true) {
   const now=runtime.virtualSecond;
   if(runtime.calendarActive && now>=runtime.calendarActive.endSeconds){
     runtime.events.push({type:'PLANT_STOP_ENDED',atVirtualSecond:now,category:runtime.calendarActive.category});
+    const target=runtime.calendarActive.targetProductId;
+    if(target&&runtime.product&&target!==runtime.product.id)switchRuntimeProduct(runtime,target);
     runtime.calendarActive=null;
     runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendarActivePolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
   }
@@ -782,14 +798,16 @@ function processEquipment(runtime, index) {
   }
 
   const incomingZone = runtime.zones[index - 1];
+  const ratio=equipment.inputPerOutput||1;
   const inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
     incomingZone.physicalModelEnabled ? (isTransportAvailable(getEquipment(runtime, incomingZone.ownerEquipmentId))
-      ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity);
+      ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity) / ratio;
   const downstreamSpace = getDownstreamSpace(runtime, index);
   const flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge);
   moveFlow(runtime, index, flow, residualDischarge);
   equipment.outputCount += flow;
+  if(runtime.product)equipment.productiveNativeSeconds=(equipment.productiveNativeSeconds||0)+flow/equipment.nominalRatePerSecond;
   equipment.actualRatePerSecond = flow / tickSeconds;
 
   if (residualDischarge) {
@@ -904,11 +922,13 @@ function getDownstreamSpace(runtime, index) {
 }
 
 function moveFlow(runtime, index, flow, allowOverflow) {
+  if(runtime.product&&index===0)runtime.inputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;
   if (index > 0) {
-    runtime.zones[index - 1].waitingUnits = Math.max(0, runtime.zones[index - 1].waitingUnits - flow);
+    runtime.zones[index - 1].waitingUnits = Math.max(0, runtime.zones[index - 1].waitingUnits - flow*(runtime.equipment[index].inputPerOutput||1));
   }
   if (index === runtime.equipment.length - 1) {
-    runtime.outputCount += flow;
+    runtime.outputCount += flow*(runtime.equipment[index].outputBottleFactor||1);
+    if(runtime.product){const row=currentProductRow(runtime);row.outputNative+=flow;row.outputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;}
     return;
   }
   addFlowToZone(runtime, runtime.zones[index], flow, allowOverflow);
@@ -950,6 +970,7 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
 
   if (overflow > 0) {
     zone.overflowUnits += overflow;
+    if(runtime.product)runtime.overflowBottleEquivalents+=overflow*(zone.bottleFactor||1);
     zone.overflowEvents += 1;
     runtime.events.push({
       type: 'OVERFLOW',
@@ -967,6 +988,7 @@ function recordMaterialState(equipment, requestedFlow, inputAvailable, downstrea
 
   if (flow > 0) {
     equipment.runningSeconds += tickSeconds;
+    if(runtimeProductEquipment(equipment))equipment.idealRunningNativeOutput=(equipment.idealRunningNativeOutput||0)+equipment.nominalRatePerSecond*tickSeconds;
     if (control) {
       equipment.availabilityState = control.responseRemainingSeconds > 0 || residualDischarge
         ? 'BACKUP_STOPPING'
@@ -1089,6 +1111,7 @@ function addSample(runtime) {
   runtime.nextSampleAt=runtime.virtualSecond+runtime.sampleInterval;
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
+    productId:runtime.product?.id,
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
     accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),
@@ -1122,7 +1145,7 @@ function recordingCoverage(runtime){return {omittedEvents:runtime.omittedEvents,
 
 function createRecordedZoneSample(runtime,zone){
   const frame=createZoneSample(zone);
-  if(runtime.run.historyFormat==='COMPACT'){
+  if(runtime.run.historyFormat==='COMPACT'&&!runtime.product){
     const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
     for(const key of ['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry']){if(!definition[key])definition[key]=frame[key];delete frame[key];}
   }
@@ -1203,7 +1226,8 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.15.0',
+    engineVersion: '0.16.0',
+    products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
     plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
@@ -1225,11 +1249,12 @@ function createSummary(runtime) {
   return {
     outputCount: round(runtime.outputCount),
     materialBalance: {
-      inputUnits: round(runtime.equipment[0]?.outputCount || 0),
+      inputUnits: round(runtime.product?runtime.inputBottleEquivalents:(runtime.equipment[0]?.outputCount || 0)),
       outputUnits: round(runtime.outputCount),
-      inventoryUnits: round(sum(runtime.zones.map(getZoneInventory))),
-      overflowUnits: round(sum(runtime.zones.map(zone => zone.overflowUnits))),
-      residualUnits: round((runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
+      inventoryUnits: round(sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1)))),
+      overflowUnits: round(runtime.product?runtime.overflowBottleEquivalents:sum(runtime.zones.map(zone => zone.overflowUnits))),
+      clearoutUnits: runtime.product?round(runtime.clearoutBottleEquivalents):undefined,
+      residualUnits: round(runtime.product?runtime.inputBottleEquivalents-runtime.outputCount-runtime.clearoutBottleEquivalents-runtime.overflowBottleEquivalents-sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1))):(runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
         sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
     },
     averageOutputRatePerSecond: round(runtime.outputCount / runtime.run.durationSeconds),
@@ -1241,12 +1266,13 @@ function createSummary(runtime) {
     totalEmergencyStopSeconds: round(sum(runtime.equipment.map((item) => item.emergencyStopSeconds))),
     totalBackupStopSeconds: round(sum(runtime.equipment.map((item) => item.backupStopSeconds))),
     totalWaitingForPrimeSeconds: round(sum(runtime.equipment.map((item) => item.waitingForPrimeSeconds))),
-    totalOverflowUnits: round(sum(runtime.zones.map((zone) => zone.overflowUnits))),
+    totalOverflowUnits: round(runtime.product?runtime.overflowBottleEquivalents:sum(runtime.zones.map((zone) => zone.overflowUnits))),
     lineOeePercent: round(lineEffectiveness.oee * 100),
     lineOeePacemakerEquipmentId: lineEffectiveness.reference?.id || null,
     lineOeePacemakerName: lineEffectiveness.reference?.name || null,
-    lineOeePacemakerRatePerSecond: lineEffectiveness.reference?.nominalRatePerSecond || null,
-    lineOeeReference: lineEffectiveness.referenceMethod,
+    lineOeePacemakerRatePerSecond: runtime.product ? runtime.idealBottleOutput/runtime.run.durationSeconds : lineEffectiveness.reference?.nominalRatePerSecond || null,
+    lineOeeReference: runtime.product?'PRODUCT_WEIGHTED_IDEAL_OUTPUT':lineEffectiveness.referenceMethod,
+    idealBottleOutput:runtime.product?runtime.idealBottleOutput:undefined,
     qualityAssumption: 'NO_REJECT_MODEL_ASSUMES_100_PERCENT'
   };
 }
@@ -1255,10 +1281,11 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
     outputCount: round(equipment.outputCount),
+    unitOfFlow:equipment.nativeOutputUnit||equipment.unitOfFlow,
     stateSeconds: Object.fromEntries(Object.entries(equipment.stateSeconds).map(([state, seconds]) => [state, round(seconds)])),
     runningSeconds: round(equipment.runningSeconds),
-    productiveEquivalentSeconds: round(equipment.outputCount / equipment.nominalRatePerSecond),
-    processingCapacityPercent: round(100 * equipment.outputCount / (equipment.nominalRatePerSecond * durationSeconds)),
+    productiveEquivalentSeconds: round(equipment.productiveNativeSeconds ?? (equipment.outputCount / equipment.nominalRatePerSecond)),
+    processingCapacityPercent: round(100 * equipment.outputCount / (equipment.idealNativeOutput ?? (equipment.nominalRatePerSecond * durationSeconds))),
     pausedSeconds: round(equipment.pausedSeconds),
     stoppedSeconds: round(equipment.stoppedSeconds),
     failureSeconds: round(equipment.failureSeconds),
@@ -1293,7 +1320,7 @@ function createEquipmentEffectiveness(equipment, elapsedSeconds) {
   const availability = durationSeconds > 0
     ? clampUnit(1 - equipment.stoppedSeconds / durationSeconds)
     : 1;
-  const idealOutput = Math.max(0, equipment.nominalRatePerSecond || 0) * Math.max(0, equipment.runningSeconds || 0);
+  const idealOutput = equipment.idealRunningNativeOutput ?? (Math.max(0, equipment.nominalRatePerSecond || 0) * Math.max(0, equipment.runningSeconds || 0));
   const performance = idealOutput > 0
     ? clampUnit(equipment.outputCount / idealOutput)
     : 0;
@@ -1305,7 +1332,7 @@ function createEquipmentEffectiveness(equipment, elapsedSeconds) {
 
 function createLineEffectiveness(runtime) {
   const reference = resolveLineOeeReference(runtime.equipment);
-  const idealOutput = reference
+  const idealOutput = runtime.product ? runtime.idealBottleOutput : reference
     ? reference.nominalRatePerSecond * runtime.run.durationSeconds
     : 0;
   return {
@@ -1402,3 +1429,41 @@ function round(value) {
 }
 
 
+
+function currentProductRow(runtime){
+  const p=runtime.product;
+  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,name:p.name,bottlesPerCase:p.bottlesPerCase,outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
+}
+function configureProductFactors(runtime){
+  for(const e of runtime.equipment){
+    e.outputBottleFactor=productUnitFactor(e,runtime.product);
+    e.inputPerOutput=e.outputBottleFactor/productUnitFactor(e,runtime.product,'input');
+    e.nativeOutputUnit=productFlowUnit(e).toLowerCase();
+  }
+  for(const zone of runtime.zones)zone.bottleFactor=runtime.equipmentById.get(zone.ownerEquipmentId).outputBottleFactor;
+  const reference=resolveLineOeeReference(runtime.equipment);runtime.productReferenceRate=(reference?.nominalRatePerSecond||0)*(reference?.outputBottleFactor||1);
+}
+function switchRuntimeProduct(runtime,id){
+  const product=runtime.run.productCatalog.find(p=>p.id===id);
+  const removed=sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1)));
+  runtime.clearoutBottleEquivalents+=removed;currentProductRow(runtime).clearoutBottleEquivalents+=removed;
+  runtime.productTimeline.at(-1).endSeconds=runtime.virtualSecond;
+  const models=applyProductProfile(runtime.baseEquipment,product);
+  models.forEach((model,i)=>{
+    const e=runtime.equipment[i];e.processData=model.processData;e.nominalRatePerSecond=model.nominalRatePerSecond;
+    e.startupDelaySeconds=model.startupDelaySeconds;e.restartRampUpSeconds=model.restartRampUpSeconds;e.backupControl=null;e.startupDelaySeconds=resolveStartupDelaySeconds(e);e.restartRampUpSeconds=resolveRestartRampUpSeconds(e);
+  });
+  runtime.zones=runtime.equipment.slice(0,-1).map((owner,i)=>{
+    const next=createAccumulationZoneRuntime(owner,models[i+1],models,i,runtime.run.tickSeconds),old=runtime.zones[i];
+    for(const key of ['overflowUnits','overflowEvents','blockingEquivalentSeconds','starvingEquivalentSeconds','constraintLossEquivalentSeconds','inventoryIntegralUnitSeconds','maximumInventoryUnits','emptyInventorySeconds','backupSignalBlockedSeconds','backupSignalPulsingSeconds','backupSignalClearSeconds','primeTriggerCount','backupTriggerCount'])next[key]=old[key];
+    next.lastPartialBlockingSeconds=runtime.equipmentById.get(next.upstreamControlEquipmentId)?.partialBlockingLossSeconds||0;
+    next.lastPartialStarvingSeconds=runtime.equipmentById.get(next.downstreamControlEquipmentId)?.partialStarvationLossSeconds||0;
+    return next;
+  });
+  runtime.product=product;configureProductFactors(runtime);
+  runtime.equipment.forEach((e,i)=>{const outgoing=runtime.zones[i];if((e.type==='CONVEYOR'||e.processData?.role==='CONVEYOR')&&outgoing?.physicalModelEnabled)e.nominalRatePerSecond=outgoing.conveyorSpeedMmPerSecond/outgoing.productPitchMm;e.primeStartAuthorized=i===0||!runtime.zones.find(z=>z.downstreamControlEquipmentId===e.id&&z.hasPrimeSensor);});
+  runtime.events.push({type:'PRODUCT_CHANGED',atVirtualSecond:runtime.virtualSecond,productId:id,clearoutBottleEquivalents:removed});
+  runtime.productTimeline.push({productId:id,name:product.name,startSeconds:runtime.virtualSecond});
+}
+
+function runtimeProductEquipment(equipment){return equipment.outputBottleFactor!==undefined;}

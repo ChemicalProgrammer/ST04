@@ -1,9 +1,10 @@
+import { validateProductSetup } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { isConveyorEquipment, resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
 export function validateSimulationInput(input) {
   const details = [];
-  validateCase(input?.case, details);
+  try { const resolvedProducts=validateProductSetup(input);if(resolvedProducts.length){for(const resolved of resolvedProducts)validateCase({...input.case,equipment:resolved.equipment},details);}else validateCase(input?.case, details); } catch(error) { details.push(invalid('run.productCatalog',error.message)); }
   validateRun(input?.run, details);
   try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
   if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);

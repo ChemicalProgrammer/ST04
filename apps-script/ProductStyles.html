@@ -1,0 +1,15 @@
+<style>
+.product-selector-row { display:flex; align-items:flex-end; gap:var(--space-3); flex-wrap:wrap; }
+.product-selector-row > label { flex:1 1 16rem; }
+#simulation-products { margin-block:var(--space-3); padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
+#simulation-products h3,.products-dialog h3 { color:var(--secondary-text); font-size:var(--font-card); font-weight:600; margin:0 0 var(--space-3); }
+.products-dialog { width:min(76rem,calc(100vw - 2rem)); max-width:76rem; }
+.products-dialog .dialog-body { display:flex; flex-direction:column; gap:var(--space-4); }
+.products-dialog .dialog-body h3,.products-dialog .chart-note { margin:0; }
+.product-settings-table input { min-width:6rem; width:100%; }
+.product-settings-table th:first-child { min-width:12rem; }
+.product-machine-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr)); gap:var(--space-3); }
+.product-machine-grid fieldset { min-width:0; margin:0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
+.product-machine-grid legend { color:var(--secondary-text); font-weight:600; padding-inline:var(--space-2); }
+.equipment-flow-note { grid-column:1 / -1; margin:0; }
+</style>

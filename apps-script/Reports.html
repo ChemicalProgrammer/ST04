@@ -27,7 +27,7 @@ window.STReports=(function(){
       matched=saved?.key===key&&saved.status==='COMPLETE'&&Number.isFinite(saved.failureFreeOee)&&Number.isFinite(saved.baselineOee);
     }
     var disabled=provenance?.run?.reliabilityEnabled===false||!provenance&&simulation?.dynamicConfig?.reliabilityEnabled===false;
-    var supported=result?.engineId!=='DES_SIMPY_EXPERIMENTAL',ready=result&&!result.provisional&&!['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state),free=ready&&supported?(matched?saved.failureFreeOee:disabled?base:null):null;
+    var supported=result?.engineId!=='DES_SIMPY_EXPERIMENTAL'&&!result?.products,ready=result&&!result.provisional&&!['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state),free=ready&&supported?(matched?saved.failureFreeOee:disabled?base:null):null;
     var labels={plannedStopSeconds:'Planned line stop',failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
     var observed=(d?.equipmentTime||[]).flatMap(e=>Object.entries(e.percent||{}).filter(([k,v])=>Number.isFinite(v)&&v>0).map(([k,v])=>({equipmentId:e.id,name:e.name,state:labels[k]||human(k),percent:v}))).sort((a,b)=>b.percent-a.percent||a.name.localeCompare(b.name));
     return {status:!supported?'UNAVAILABLE':Number.isFinite(free)?'COMPLETE':'NOT_CALCULATED',unit:'%',baselineOee:base??null,conditionalReliabilityLoss:supported&&Number.isFinite(free)?free-(matched?saved.baselineOee:base):null,nominalMachineSpeedGap:supported?d?.capacityGapPp??null:null,remainingLossWithoutFailures:supported&&Number.isFinite(free)&&Number.isFinite(d?.capacityGapPp)?100-d.capacityGapPp-free:null,observedEquipmentTimes:observed,interpretation:'Baseline OEE plus the three losses forms the 100% accounting decomposition. Observed equipment times overlap and are not additive causal OEE losses.'};
@@ -105,6 +105,7 @@ window.STReports=(function(){
       slots.context+=' · '+escape(result.durationSeconds)+' s'+(result.batch?' · Mean of '+escape(result.batch.rounds)+' rounds':'');
       slots.equipment='';slots.zones='';slots.batch='';slots.representative='';
     }
+    if(result.products){slots.overview+='<h2>Production by product</h2>'+table(['Product','Output unit','Output equivalent','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'],result.products.rows.map(function(row){return [row.name,row.outputUnit,value(row.outputNative),value(row.completeCases),value(row.partialCaseEquivalent),value(row.outputBottleEquivalents),value(row.clearoutBottleEquivalents)];}))+'<p>Representative round. Continuous equivalent flow; changeover clear-out is removed inventory, not production.</p>';}
     if(window.STPlantCalendar){var comparison=document.createElement('section');STPlantCalendar.renderResults(comparison,result,simulation);slots.overview+=comparison.innerHTML;}
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
@@ -226,7 +227,7 @@ window.STReports=(function(){
         saved.detailCoverage=Object.assign({},saved.detailCoverage,{recordingMode:'SUMMARY',exportDetail:'SUMMARY'});
         // A final snapshot keeps imported summaries visible without chart history or playback.
         if(!endpoint.length)endpoint=[{virtualSecond:saved.durationSeconds||0,outputCount:saved.summary?.outputCount||0,equipment:[],accumulationZones:[]}];
-        saved.replay={caseId:replay.caseId,unitOfFlow:saved.unitOfFlow||sim.unitOfFlow||record.unitOfFlow,engineId:saved.engineId,engine:saved.engine,engineVersion:replay.engineVersion,seed:saved.seed,durationSeconds:saved.durationSeconds,inputSignature:saved.inputSignature,detailCoverage:saved.detailCoverage,zoneDefinitions:replay.zoneDefinitions,plantCalendar:saved.plantCalendar,shifts:saved.shifts,samples:endpoint,events:[]};
+        saved.replay={caseId:replay.caseId,unitOfFlow:saved.unitOfFlow||sim.unitOfFlow||record.unitOfFlow,engineId:saved.engineId,engine:saved.engine,engineVersion:replay.engineVersion,seed:saved.seed,durationSeconds:saved.durationSeconds,inputSignature:saved.inputSignature,detailCoverage:saved.detailCoverage,zoneDefinitions:replay.zoneDefinitions,plantCalendar:saved.plantCalendar,products:saved.products,shifts:saved.shifts,samples:endpoint,events:[]};
         ['view','samples','events'].forEach(function(key){delete saved[key];});
         if(sim.results.batch){delete sim.results.batch.replays;delete sim.results.batch.rows;}
       }

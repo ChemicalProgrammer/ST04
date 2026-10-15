@@ -1,0 +1,73 @@
+<script>
+window.STProducts=(function(){
+  var state,hooks;
+  function catalog(){return state?.activeCase?.metadata?.products||[];}
+  function unit(e,side){return e.processData?.flowUnits?.[side||'output']||'BOTTLES';}
+  function render(){
+    var target=document.getElementById('simulation-products');if(!target)return;target.replaceChildren();if(!state?.activeCase)return;
+    var heading=document.createElement('h3');heading.textContent='Products';target.append(heading);
+    var row=document.createElement('div');row.className='product-selector-row';var label=document.createElement('label');label.textContent='Initial product';var select=document.createElement('select');select.id='run-product';
+    var initial=hooks.simulation()?.dynamicConfig?.initialProductId||'';
+    [['','Existing equipment configuration']].concat(catalog().map(p=>[p.id,p.name])).forEach(function(v){var option=document.createElement('option');option.value=v[0];option.textContent=v[1];select.append(option);});if(initial&&!catalog().some(p=>p.id===initial)){var missing=document.createElement('option');missing.value=initial;missing.textContent='Missing initial product — review configuration';select.append(missing);}select.value=initial;select.disabled=hooks.locked();label.append(select);row.append(label);
+    select.onchange=function(){if(hooks.locked())return;var sim=hooks.simulation();sim.dynamicConfig={...sim.dynamicConfig,initialProductId:select.value||undefined};hooks.changed();};
+    var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent='Configure products';button.disabled=hooks.locked();button.onclick=open;row.append(button);target.append(row);
+    var note=document.createElement('p');note.className='chart-note';note.textContent='Products apply dimensions, spacing and operating settings. MTBF / MTTR remain shared by equipment. Without an initial product, the existing uniform-unit model is used.';target.append(note);
+  }
+  function captureProduct(name){
+    var all=state.activeCase.equipment||[],belts=all.filter(e=>e.type==='CONVEYOR'),bottle=belts.find(e=>unit(e)==='BOTTLES'),box=belts.find(e=>unit(e)==='CASES');
+    var p={id:'product-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:name,bottlesPerCase:12,bottleLengthMm:bottle?.processData?.upstream?.packageLengthMm||undefined,caseLengthMm:box?.processData?.upstream?.packageLengthMm||undefined,equipment:{}};
+    all.forEach(function(e,i){var data=e.processData||{},a=data.accumulation||{},u=data.upstream||{};
+      if(e.type==='CONVEYOR'){
+        var definition=window.SimulatorEngine.resolveProductConveyor?.(all,i),length=u.packageLengthMm;
+        p.equipment[e.id]={movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,dischargeGapMm:Number.isFinite(u.dischargePitchMm)&&Number.isFinite(length)?Math.max(0,u.dischargePitchMm-length):undefined,infeedGapMm:Number.isFinite(data.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,data.downstream.infeedPitchMm-length):undefined,speedMmPerSecond:a.speedMode==='MANUAL'?a.conveyorSpeedMmPerSecond:undefined};
+      }else p.equipment[e.id]={ratePerMinute:e.nominalRatePerSecond*60};
+    });return p;
+  }
+  async function open(){
+    if(hooks.locked()||!hooks.capture())return;
+    var draft=JSON.parse(JSON.stringify(catalog())),selected=draft[0]?.id,focus=document.activeElement;
+    var dialog=document.createElement('dialog');dialog.className='settings-dialog products-dialog';dialog.setAttribute('aria-labelledby','products-dialog-title');
+    var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='products-dialog-title';title.textContent='Products';heading.append(title);
+    var body=document.createElement('div');body.className='dialog-body';var footer=document.createElement('footer');footer.className='dialog-actions';dialog.append(heading,body,footer);document.body.append(dialog);
+    var cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';cancel.onclick=function(){dialog.close();};
+    var save=document.createElement('button');save.type='button';save.textContent='Save products';footer.append(cancel,save);
+    function field(parent,labelText,obj,key,options){options=options||{};var label=document.createElement('label');label.textContent=labelText;var input=document.createElement('input');input.type=options.text?'text':'number';if(!options.text){input.min=options.min??'0';input.step=options.step||'any';}else input.maxLength=120;input.value=obj[key]??'';input.required=!!options.required;input.oninput=function(){if(options.text)obj[key]=input.value;else if(input.value==='')delete obj[key];else obj[key]=Number(input.value);};label.append(input);parent.append(label);return input;}
+    function subsection(text){var h=document.createElement('h3');h.textContent=text;body.append(h);}
+    function renderDraft(){
+      body.replaceChildren();var tools=document.createElement('div');tools.className='product-selector-row';var label=document.createElement('label');label.textContent='Product';var select=document.createElement('select');draft.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.name||'Unnamed product';select.append(o);});select.value=selected||'';select.onchange=function(){selected=select.value;renderDraft();};label.append(select);tools.append(label);
+      var add=document.createElement('button');add.type='button';add.className='ghost';add.textContent='+ Add product';add.onclick=function(){var p=captureProduct('Product '+(draft.length+1));draft.push(p);selected=p.id;renderDraft();};tools.append(add);body.append(tools);
+      var p=draft.find(v=>v.id===selected);if(!p){var empty=document.createElement('p');empty.className='chart-note';empty.textContent='Add a product to configure its format. Existing cases are unchanged until an initial product is selected.';body.append(empty);return;}
+      subsection('Product details');var grid=document.createElement('div');grid.className='settings-simulation-grid';body.append(grid);
+      field(grid,'Name',p,'name',{text:true,required:true});field(grid,'Container volume (mL)',p,'volumeMl');field(grid,'Bottles per case',p,'bottlesPerCase',{min:'1',step:'1',required:true});field(grid,'Bottle length along travel (mm)',p,'bottleLengthMm',{min:'0.001',required:true});field(grid,'Case length along travel (mm)',p,'caseLengthMm',{min:'0.001'});
+      var note=document.createElement('p');note.className='chart-note';note.textContent='Spacing is free space, not pitch. Pitch = product length + spacing. Equipment lengths and sensor positions remain shared. Rates use each machine’s output unit; 300 bottles/min equals 25 cases/min at 12 bottles/case. Blank overrides use equipment settings. Verify the suggested pack size of 12.';body.append(note);
+      subsection('Conveyor settings');var scroll=document.createElement('div');scroll.className='table-scroll';var table=document.createElement('table');table.className='product-settings-table';var head=document.createElement('thead'),tr=document.createElement('tr');['Conveyor / unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'].forEach(function(t){var th=document.createElement('th');th.scope='col';th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var tbody=document.createElement('tbody');
+      state.activeCase.equipment.filter(e=>e.type==='CONVEYOR').forEach(function(e){var row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=e.name+' / '+unit(e).toLowerCase();row.append(name);var profile=p.equipment[e.id]||(p.equipment[e.id]={});['movingGapMm','accumulatedGapMm','dischargeGapMm','infeedGapMm','speedMmPerSecond'].forEach(function(key){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=key==='speedMmPerSecond'?'0.001':'0';input.step='any';input.value=profile[key]===undefined?'':key==='speedMmPerSecond'?profile[key]*.06:profile[key];input.setAttribute('aria-label',e.name+' '+key);input.oninput=function(){if(input.value==='')delete profile[key];else profile[key]=Number(input.value)*(key==='speedMmPerSecond'?1/.06:1);};cell.append(input);row.append(cell);});tbody.append(row);});table.append(tbody);scroll.append(table);body.append(scroll);
+      subsection('Machine settings');var machines=document.createElement('div');machines.className='product-machine-grid';body.append(machines);
+      state.activeCase.equipment.filter(e=>e.type!=='CONVEYOR').forEach(function(e){var section=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=e.name;section.append(legend);var grid=document.createElement('div');grid.className='settings-simulation-grid';section.append(grid);var profile=p.equipment[e.id]||(p.equipment[e.id]={});field(grid,'Rate ('+unit(e).toLowerCase()+'/min)',profile,'ratePerMinute',{min:'0.001'});field(grid,'Startup (s)',profile,'startupSeconds');field(grid,'Ramp up (s)',profile,'rampSeconds');machines.append(section);});
+      var policy=document.createElement('p');policy.className='chart-note';policy.textContent='Changeovers stop the line for their configured duration. At completion, remaining inventory is removed and counted as changeover clear-out, then the destination format starts empty. Progressive draining and mixed products are not modeled. The ST engine uses continuous equivalent flow; fractional cases are reported separately from complete cases.';body.append(policy);
+    }
+    save.onclick=async function(){
+      if(hooks.locked())return;if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
+      var done=STDialog.beginActivity(dialog);save.disabled=true;
+      try{
+        await new Promise(resolve=>setTimeout(resolve,0));
+        var equipment=state.activeCase.equipment.map(e=>({...e,processData:{...e.processData,flowUnits:e.processData?.flowUnits||{input:'BOTTLES',output:'BOTTLES'}}}));
+        if(draft.length){var input={case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:draft,initialProductId:draft[0].id,eventsEnabled:false}};var result=SimulatorEngine.validateSimulationInput(input);if(!result.ok)throw Error(result.error.details.map(d=>d.path+': '+(d.reason||d.message||JSON.stringify(d))).join('\n'));}
+        state.activeCase.metadata={...state.activeCase.metadata,products:draft};state.activeCase.equipment=equipment;hooks.changed(true);dialog.close();
+      }catch(error){var status=body.querySelector('.product-error');if(!status){status=document.createElement('p');status.className='notice product-error';status.setAttribute('role','alert');body.prepend(status);}status.textContent=error.message;}finally{save.disabled=false;done?.();}
+    };
+    dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();renderDraft();
+  }
+  function runFields(){var id=hooks?.simulation()?.dynamicConfig?.initialProductId;return {initialProductId:id||undefined,productCatalog:id?JSON.parse(JSON.stringify(catalog())):undefined};}
+  function destinationCell(row,event,changed){
+    var td=document.createElement('td');if(event.category==='changeoverMinutes'){
+      var select=document.createElement('select');select.setAttribute('aria-label','Destination product');[['','Keep current product']].concat(catalog().map(p=>[p.id,p.name])).forEach(function(v){var o=document.createElement('option');o.value=v[0];o.textContent=v[1];select.append(o);});if(event.targetProductId&&!catalog().some(p=>p.id===event.targetProductId)){var missing=document.createElement('option');missing.value=event.targetProductId;missing.textContent='Missing product — select a destination';select.append(missing);}select.value=event.targetProductId||'';select.disabled=hooks.locked();select.onchange=function(){event.targetProductId=select.value||undefined;changed();};td.append(select);
+    }else td.textContent='—';row.append(td);
+  }
+  function results(target,result){
+    target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
+    var h=document.createElement('h3');h.textContent='Production by product';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Product','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>1)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
+  }
+  return {init:function(s,h){state=s;hooks=h;},render:render,open:open,runFields:runFields,destinationCell:destinationCell,results:results};
+})();
+</script>

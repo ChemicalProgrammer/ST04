@@ -54,7 +54,7 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
     resolved.assumptions.push('Manual belt speed overrides the engineering speed calculation.');
   }
   const definition = resolved.definition;
-  if (format.movingGapMm !== undefined && format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined) {
+  if (format.movingGapMm !== undefined && (format.productSpacingOverride===true || format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined)) {
     definition.productPitchMm = definition.productLengthMm + format.movingGapMm;
     definition.gapMm = format.movingGapMm;
     resolved.sources.productPitchMm = 'product length + processData.accumulation.movingGapMm';
@@ -95,11 +95,13 @@ function resolveFlowPilotConveyor(owner, format, upstreamControl, downstreamCont
   const installedLength = sourceValue(owner.processData?.geometry?.lactMm, 'processData.geometry.lactMm');
   const primeReserve = sourceValue(owner.processData?.geometry?.lpPrimeMm, 'processData.geometry.lpPrimeMm');
   const downstreamHighSpeed = selectValue([
+    sourceValue(downstreamControl?.processData?.productInputRatePerSecond===undefined?undefined:downstreamControl.processData.productInputRatePerSecond*60, 'product downstream input rate'),
     sourceValue(format.useNominalDesignSpeed ? rateBpm(downstreamControl) : undefined, 'downstream nominalRatePerSecond'),
     sourceValue(downstreamControl?.processData?.equipment?.maximumSpeedBpm, 'downstream processData.equipment.maximumSpeedBpm'),
     sourceValue(rateBpm(downstreamControl), 'downstream nominalRatePerSecond')
   ]);
   const downstreamInfeedPitch = selectValue([
+    sourceValue(downstreamControl?.processData?.productInputRatePerSecond===undefined?undefined:owner.processData?.downstream?.infeedPitchMm, 'product conveyor infeed pitch'),
     sourceValue(format.useNominalDesignSpeed ? owner.processData?.downstream?.infeedPitchMm : undefined, 'processData.downstream.infeedPitchMm'),
     sourceValue(downstreamControl?.processData?.downstream?.infeedPitchMm, 'downstream processData.downstream.infeedPitchMm'),
     sourceValue(owner.processData?.downstream?.infeedPitchMm, 'processData.downstream.infeedPitchMm')

@@ -66,6 +66,7 @@
         capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
         apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
       });
+      STProducts.init(state,{simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,changed:function(all){invalidateActiveResult();if(all){renderEditor();}markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();}});
       shell.init();
       if (STPreferences.read('remember') === 'yes') {
         document.getElementById('remember-session').checked = true;
@@ -133,6 +134,7 @@
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
       document.getElementById('toggle-control-events').addEventListener('click',function(){setControlEventsExpanded(this.getAttribute('aria-expanded')!=='true');});
       document.getElementById('add-control-event').addEventListener('click', addControlEvent);
+      document.getElementById('add-product-changeover').addEventListener('click',function(){if(runControlsLocked())return;var events=state.run.plannedStops||(state.run.plannedStops=[]),start=events.reduce(function(t,e){return Math.max(t,e.endSeconds);},0);events.push({category:'changeoverMinutes',startSeconds:start,endSeconds:start+60,restartPolicy:'RESTART'});document.getElementById('run-events-enabled').checked=true;setControlEventsExpanded(true);renderControlEvents();markCaseDirty();syncRunControls();});
       document.getElementById('run-simulation').addEventListener('click', runSimulation);
       document.getElementById('play-simulation').addEventListener('click', startPlayback);
       document.getElementById('pause-simulation').addEventListener('click', pausePlayback);
