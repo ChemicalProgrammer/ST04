@@ -348,7 +348,7 @@ html[data-events-enabled=false] .live-equipment-controls > button:not(.loss-togg
 #planned-line-events td { min-width:0; }
 #planned-line-events table { width:100%; }
 
-.simulation-duration-grid { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:var(--space-3); align-items:stretch; }
+#simulation-duration-controls .simulation-duration-grid { width:100%; max-width:none; box-sizing:border-box; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:var(--space-3); align-items:stretch; }
 .simulation-duration-grid > label { display:flex; flex-direction:column; justify-content:space-between; gap:var(--space-2); min-width:0; margin:0; padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
 .simulation-duration-grid > label.checkbox-label { flex-direction:row; align-items:center; justify-content:flex-start; }
 .simulation-duration-grid input:not([type=checkbox]), .simulation-duration-grid select { width:100%; min-width:0; box-sizing:border-box; }
@@ -372,7 +372,7 @@ html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:minmax(190p
 html[data-ui-mode=basic][data-events-enabled=true] #control-events { display:grid!important; }
 html[data-ui-mode=basic][data-events-enabled=true] .live-equipment-controls { display:grid!important; grid-column:1 / -1; }
 html[data-ui-mode=basic][data-events-enabled=true] .live-controls-help { display:block!important; }
-@media(max-width:600px) { .simulation-duration-grid { grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; } }
+@media(max-width:600px) { #simulation-duration-controls .simulation-duration-grid { grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; } }
 </style>
 
 
