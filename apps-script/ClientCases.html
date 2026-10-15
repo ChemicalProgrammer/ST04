@@ -393,6 +393,7 @@ async function openCase(caseId, initialView) {
         stopPlaybackTimer();
         state.activeCase.equipment=cloneJson(result.equipment);
         simulation.equipment=cloneJson(result.equipment);
+        STProducts.reconcile();
         simulation.results=null;
         state.run.result=null;state.run.configuration=null;state.run.sampleIndex=0;
         document.getElementById('simulation-json-preview').value='';
@@ -409,6 +410,7 @@ async function openCase(caseId, initialView) {
       if (!syncEquipmentFromEditor()) return;
       STEquipmentFilter.set('all');
       state.activeCase.equipment.push(createBlankEquipment());
+      STProducts.reconcile();
       state.isDirty = true;
       renderEquipment();
       STEquipmentInspector.select(document.querySelector('#equipment-list .equipment-card:last-child'));

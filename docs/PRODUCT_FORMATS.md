@@ -8,10 +8,10 @@ Available in Basic and Advance with the ST engine. Existing cases keep their ori
 The input/output controls have their own visible card section in Basic and Advance. Cards handling cases also show the selected product’s bottles per case as a read-only value and a Configure in Products shortcut. A Case Packer displays the bottle-to-case conversion. The pack size has one editable source, in Products.
 
 2. Enter machine rates in their **output unit per minute**. For example, 300 bottles/min is 25 cases/min for a 12-bottle case. Existing numeric rates are not silently converted when their unit changes.
-3. In the Products menu section, add one or more products. Confirm the suggested 12 bottles/case. Enter length **along the direction of travel** for bottles and, if used, cases. Container volume is descriptive.
+3. In the Products menu section, use the Product selection combobox to browse products. The adjacent plus icon adds a product; the trash icon removes the selected product from the draft. Confirm the suggested 12 bottles/case. Enter length **along the direction of travel** for bottles and, if used, cases. Container volume is descriptive.
 4. Enter conveyor-specific moving, accumulated, discharge and infeed **free gaps**. Pitch = length + gap. The same product may have different spacing on different conveyors. Manual belt speeds are entered in m/min and stored in mm/s. A blank override retains the base equipment setting; an explicit speed overrides Population / Overspeed targets for that product. An explicit moving gap determines runtime pitch even when a target is retained for automatic speed; the resulting occupancy can therefore differ from the target.
 5. Enter optional machine rate, startup and ramp settings by product. MTBF / MTTR, installation length and sensor positions remain on equipment.
-6. In Products, select the initial product for the active simulation. The existing equipment configuration option disables profiles and conversion for that simulation.
+6. In Products, select a product and check Use selected product as the initial product for the active simulation. Save products applies the catalog and initial-product choice together; Discard edits restores the previous values. The existing equipment configuration option disables profiles and conversion for that simulation.
 7. Enable events. Use + Changeover, or apply scheduled Plant calendar events, then select a destination product on each changeover. A blank destination is a stop that retains the current product and inventory.
 
 ## Changeover policy
@@ -35,3 +35,11 @@ Product definitions live in case metadata, with a catalog snapshot in each confi
 ## Validation
 
 Automated coverage includes physical conversion, mass balance, speed versus storage capacity, changed dimensions/spacing/pack ratio, explicit clear-out, stop behavior, synchronous/asynchronous/batch consistency, invalid references and units, shared reliability/installation, dialog staging/cancel/save, local activity progress, and product results. Existing conveyor, calendar, export, persistence and bundle tests are run alongside these checks. Plant calibration is still required before treating the extended model as validated against production.
+
+## Products workspace layout and equipment changes
+
+Product selection contains the combobox, add/delete icon actions and the initial-product checkbox. General information contains only product-specific properties. Equipment inputs uses the shared table styles for a machine table (input/output units, rate, startup, ramp) and a conveyor table (transported unit, spacing and speed), in the current equipment order within each group.
+
+Adding equipment, removing equipment, importing equipment or synchronizing editor changes reconciles all catalog products by equipment ID. New equipment receives defaults from its current base settings. Existing product-specific values remain unchanged. Renaming/reordering equipment updates the table labels/order without moving values between IDs. Removed profiles are pruned only when no other simulation still uses that equipment ID. Saved run snapshots and previous results are preserved.
+
+Product deletion is staged until Save products and can be discarded. The active simulation's initial-product selection is cleared when that product is deleted. A product referenced by another simulation's initial selection or any changeover cannot be deleted until those references are changed; the workspace identifies the references. Existing run/result snapshots remain historical records.

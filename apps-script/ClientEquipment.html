@@ -497,6 +497,7 @@ function numericInputValue(input) {
       if (!await STDialog.confirm(__ST_TEXT__('dialog.delete_equipment'),__ST_TEXT__('dialog.delete_equipment_message'),true))return;
       if (!syncEquipmentFromEditor()) return;
       state.activeCase.equipment.splice(index, 1);
+      STProducts.reconcile();
       state.isDirty = true;
       renderEquipment();
       invalidateActiveResult();autosave.change(true);
@@ -578,6 +579,7 @@ function numericInputValue(input) {
       }
       if(equipment.filter(function(e){return e.characteristics.isPacemaker;}).length>1){showError({message:__ST_TEXT__('equipment.one_pacemaker')});return false;}
       state.activeCase.equipment = equipment;
+      STProducts.reconcile();
       renderRawJson();
       return true;
     }
