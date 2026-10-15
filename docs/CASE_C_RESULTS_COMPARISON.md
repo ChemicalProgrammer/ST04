@@ -4,7 +4,7 @@ Fecha: 15 de octubre de 2026.
 
 ## Conclusión
 
-El simulador reproduce de forma consistente su configuración, pero el Caso C todavía requiere validación contra la operación. Las tres rondas ofrecen resultados muy próximos entre sí; sin embargo, el throughput calculado queda 24.2% por debajo de la referencia bajo el supuesto de turnos de ocho horas y 12 unidades por caja.
+El simulador reproduce de forma consistente su configuración, pero el Caso C todavía requiere validación contra la operación. Las tres rondas ofrecen resultados muy próximos entre sí; sin embargo, el throughput calculado queda **24.3% por debajo de la referencia corregida de 54 miles de unidades por turno (54,000 unidades/turno)**, al comparar con turnos de ocho horas. La simulación promedia 40,858 unidades por turno. Las 12 unidades por caja se usan únicamente para una conversión adicional provisional; no son necesarias para comparar el throughput en unidades.
 
 El hallazgo prioritario es la coherencia de unidades alrededor de Case Packer y Conveyor PAC-PAL. El archivo conserva un único flujo de “units”, aunque el último conveyor tiene dimensiones compatibles con cajas. Debe confirmarse qué representa cada elemento y modelar su equivalencia con botellas. Esta inconsistencia está identificada; cuánto explica de la diferencia requiere una corrida corregida. No se ha demostrado que sea la única causa.
 
@@ -12,7 +12,8 @@ Conviene mejorar el simulador y continuar la validación. Por ahora, los resulta
 
 ## Base de la comparación
 
-- Resultados: archivo `Case C-complete.json`, Simulation A, motor `ST_CURRENT`.
+- Resultados: archivo actualizado `Case C-complete(1).json`, Simulation A, motor `ST_CURRENT`. Sus métricas guardadas mantienen los resultados de las tres rondas ya analizadas.
+- Corrección del usuario: **Throughput / shift = 54 miles de unidades por turno**, equivalentes a **54,000 unidades/turno**. Esta referencia reemplaza el valor anterior y su interpretación como cajas.
 - Tres rondas completas, semillas 20260909, 20260910 y 20260911.
 - Referencias: imágenes del Caso C compartidas para la línea G, envase de 700 ml.
 - Conversión provisional indicada por el usuario: **12 unidades por caja**.
@@ -27,9 +28,10 @@ Conviene mejorar el simulador y continuar la validación. Por ahora, los resulta
 | Envase | 700 ml | Equipos importados del Caso C | Confirmar que producción, fallas y calendario correspondan al mismo formato y periodo. |
 | Unidades por caja | 12, provisional | Sin conversión botellas/cajas explícita en el caso | La conversión se usa aquí para comparar, pero no está aplicada al motor. |
 | Duración del turno | Pendiente de confirmar | 8 h configuradas | Todos los valores por turno de esta tabla suponen 480 minutos. |
-| Throughput por turno | 4,489 cajas | **3,405 cajas equivalentes** | 40,858 unidades simuladas ÷ 12. Diferencia: **−24.2%**. Es una normalización del promedio del periodo, no un turno individual observado. |
-| Unidades por turno | **53,868** | **40,858** | Referencia: 4,489 × 12. Simulación: 85.12135 × 480. |
-| Producción promedio por minuto | **112.23 unidades/min** | **85.12 unidades/min** | Ambas tasas incluyen todo el tiempo del turno supuesto. |
+| Throughput / shift | **54 miles de unidades/turno** | **40.858 miles de unidades/turno** | Valor y escala confirmados por el usuario. Diferencia: **−24.3%**, suponiendo turnos de 8 h. La cifra simulada es una normalización del promedio del periodo, no un turno individual observado. |
+| Cajas equivalentes por turno | **4,500**, calculadas | **3,405**, calculadas | Conversión provisional de unidades ÷ 12. Estas cifras no son conteos de cajas medidos. |
+| Unidades por turno | **54,000** | **40,858** | Referencia: 54 × 1,000. Simulación: 85.12135 × 480. Diferencia aproximada: **−13,142 unidades/turno**. |
+| Producción promedio por minuto | **112.50 unidades/min** | **85.12 unidades/min** | Referencia: 54,000 ÷ 480. Ambas tasas incluyen todo el tiempo del turno supuesto. |
 | Velocidad promedio reportada | 220 | Sin comparación directa | Confirmar unidad y denominador: podría ser velocidad mientras la línea corre, mientras que 85.12 incluye paros. |
 | Tiempo total | 43,200 min | 43,200 min en Plant Calendar | El horizonte ejecutado se obtiene después de las exclusiones siguientes. |
 | Business External Time | 1,441 min | 1,441 min excluidos | Coincide la entrada. |
@@ -47,7 +49,7 @@ Conviene mejorar el simulador y continuar la validación. Por ahora, los resulta
 | Rate Loss Minutes | 4,600 min | Sin equivalente conciliado | Falta separar de forma compatible pérdidas de velocidad, bloqueo, falta de producto y calidad. |
 | UPDT | 15,060 min | Sin equivalente conciliado | Referencia: downtime + rate loss = 15,059 min; diferencia de 1 min. Confirmar definición de UPDT. |
 | Calidad | No suministrada | **100% asumida** | El caso no contiene un modelo de rechazos; no equivale a calidad medida. |
-| Producción total | No suministrada | **3,544,453 unidades**, promedio | No extrapolar las cajas por turno al periodo sin conocer cuántos turnos incluye ese promedio. |
+| Producción total | No suministrada | **3,544,453 unidades**, promedio | No extrapolar las 54,000 unidades por turno al periodo sin conocer cuántos turnos y qué cobertura incluye ese promedio. |
 | Rondas | Sin distribución de referencia | **28.3545%, 28.3790%, 28.3879%** | Buena repetibilidad: rango de 0.0335 puntos porcentuales; no demuestra exactitud contra planta. |
 | Resultado sin fallas | No suministrado | **30.26%** | Diagnóstico guardado; no es una medición de planta ni una nueva corrida hecha para este documento. |
 | Pérdida condicional MTBF/MTTR | Sin atribución causal medida | **1.89 puntos porcentuales** | 30.2590 − 28.3738. Una restricción dominante puede reducir el beneficio aparente de eliminar fallas. |
@@ -76,7 +78,7 @@ Los totales coinciden, pero los 160 eventos son una distribución configurada, n
 |---|---|---|
 | Unidades por caja definitivas y punto exacto de conversión | Definir el flujo a la salida de Case Packer y en PAC-PAL/Palletizer. | Alta |
 | Unidad de las velocidades de Case Packer y Palletizer | Confirmar si los 300 son botellas equivalentes/min, cajas/min u otra base. | Alta |
-| Duración del turno y cálculo de las 4,489 cajas/turno | Saber qué turnos, periodos y paros incluye el promedio. | Alta |
+| Duración del turno y cobertura del promedio de 54 miles de unidades/turno | La unidad ya está confirmada; falta saber qué turnos, periodos y paros incluye el promedio. | Alta |
 | Producción total y unidades buenas/rechazadas del mismo periodo | Comparar volumen y calidad directamente. | Alta |
 | Definiciones de AU, UPDT, velocidad promedio y velocidad ideal | Igualar numeradores y denominadores. | Alta |
 | Sentido contable de CO Reporting Error | Evitar excluir tiempo físico sin justificación. | Alta |
@@ -97,6 +99,8 @@ Los totales coinciden, pero los 160 eventos son una distribución configurada, n
 | Separar pérdidas físicas y ajustes contables | Tratar CO Reporting Error conforme a su definición, mostrando las exclusiones del horizonte. | Alta. |
 | Revisar sensores, reinicios y overflow con trazas cortas | Comprobar si las frecuentes señales de backup y el material perdido corresponden al proceso. | Media; antes de calibrar CAPEX. |
 | Reportar incertidumbre y sensibilidad | Ampliar réplicas y variar parámetros una vez resueltas las unidades. Distinguir variación aleatoria de incertidumbre de entradas. | Posterior a la corrección física. |
+
+Con 54,000 unidades por turno y una capacidad de referencia de 300 unidades/min, el cociente sobre ocho horas es 37.50%. Todavía no equivale al AU de 51.02% del reporte: falta conciliar sus definiciones y la cobertura temporal. La corrección del throughput actualiza la comparación, pero no valida el modelo ni cambia sus resultados guardados.
 
 No conviene ajustar MTBF, MTTR o velocidades únicamente para forzar el 51.02%. Primero deben corregirse las definiciones y después contrastar el resultado con producción independiente.
 
@@ -122,4 +126,4 @@ Estas fortalezas apoyan la depuración y futura validación del modelo. Su valor
 
 ## Fuentes y alcance
 
-Imágenes del Caso C y `Case C-complete.json` proporcionados para esta revisión. Código local revisado: `apps-script/SimulationEngine.html`, resolución de conveyors y capacidad de transferencia. No se adjunta el JSON completo porque incluye información de cuenta y no es necesario para documentar los hallazgos. No se cambió código del simulador.
+Imágenes del Caso C, corrección del usuario a 54 miles de unidades por turno y `Case C-complete(1).json` proporcionados para esta revisión. Código local revisado: `apps-script/SimulationEngine.html`, resolución de conveyors y capacidad de transferencia. No se adjunta el JSON completo porque incluye información de cuenta y no es necesario para documentar los hallazgos. No se cambió código del simulador.

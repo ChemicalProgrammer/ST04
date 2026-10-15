@@ -152,10 +152,12 @@
 | SKU count | 7 | SKU |
 | Size type count | 1 | tipo de tamaño |
 | Average line speed | 220 | No indicada en la fuente |
-| Throughput / shift | 4489 | No indicada; falta confirmar unidad y duración del turno |
+| Throughput / shift | 54 | miles de unidades/turno; duración del turno por confirmar |
 | Weight / unit | 3215 | No indicada en la fuente |
 
 ## Notas
+
+- Throughput / shift corregido por el usuario a 54 miles de unidades por turno (54,000 unidades/turno), el 15 de octubre de 2026. Esta corrección sustituye el valor de la imagen original.
 
 - El desglose de Plant decision time suma 5,392 min; el total reportado es 5,393 min. Se conservan ambos registros sin corregirlos.
 - Downtime + Rate loss suma 15,059 min, frente a los 15,060 min de UPDT. Su fórmula queda pendiente de confirmación.
@@ -170,3 +172,5 @@
 2. `image-1792076549962.jpg`: geometría y parámetros upstream/downstream.
 3. `image-1792076563132.jpg`: factores de velocidad y sensores.
 4. `image-1792076582495.jpg`: calendario y variables del periodo.
+
+5. Corrección del usuario del 15 de octubre de 2026: Throughput / shift = 54 miles de unidades por turno.
