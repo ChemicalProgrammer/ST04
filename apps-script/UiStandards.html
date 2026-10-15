@@ -373,6 +373,14 @@ html[data-ui-mode=basic][data-events-enabled=true] #control-events { display:gri
 html[data-ui-mode=basic][data-events-enabled=true] .live-equipment-controls { display:grid!important; grid-column:1 / -1; }
 html[data-ui-mode=basic][data-events-enabled=true] .live-controls-help { display:block!important; }
 @media(max-width:600px) { #simulation-duration-controls .simulation-duration-grid { grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; } }
+
+#results-plant-comparison:not(:empty) { margin-block:var(--section-gap); }
+#results-plant-comparison > .chart-note { margin:var(--space-3); }
+#results-plant-comparison > .table-scroll { margin:0; border:0; border-radius:0; box-shadow:none; }
+#results-plant-comparison table { margin:0; }
+#results-plant-comparison :is(th,td), .observed-equipment-times :is(th,td) { padding:var(--space-3); }
+#results-plant-comparison td:first-child { white-space:normal; }
+#results-loss-breakdown .observed-equipment-columns { margin-block:var(--space-4); }
 </style>
 
 
