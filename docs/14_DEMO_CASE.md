@@ -4,7 +4,7 @@ The console can create **13-unit demo** from the Cases panel. It contains a base
 
 ## Data boundary
 
-The Case is labelled `DEMO_ONLY` and carries its own `metadata.dataNote` and public reference links. Public Krones pages provide broad equipment-capacity context for blow moulding, filling, packing, and palletising. They do not provide the specification of one integrated line.
+The Case is labelled `DEMO_ONLY` and carries its own `metadata.dataNote`. Equipment and line parameters are synthetic assumptions for testing.
 
 Therefore, its MTBF, MTTR, physical geometry, sensor positions, speed factors, pack configuration, and equivalent-flow values are deliberately marked as transparent **synthetic assumptions**. They must not be used as a design limit, a plant benchmark, or a CAPEX recommendation.
 
@@ -28,14 +28,6 @@ speed factor, runout, sensor delays, insurance and Back-up positions so it can
 exercise the FlowPilot formulas. They are transparent example values, not
 measurements from any production line. The unnamed Speed & sensors fields still
 remain empty rather than being guessed.
-
-## Public context references
-
-- [Krones Contiform Speed](https://www.krones.com/en/products/machines/contiform-speed-stretch-blow-moulder.php)
-- [Krones Modulfill Dual](https://www.krones.com/en/products/machines/modulfill-dual.php)
-- [Krones packaging-line reference](https://www.krones.com/en/company/press/magazine/reference/coca-cola-hbc-egypts-fastest-canning-line.php)
-- [Krones Modulpal Pro](https://www.krones.com/en/products/machines/modulpal-pro-palletiser.php)
-
 
 ## V-Graph CAPEX challenge (revision 4)
 

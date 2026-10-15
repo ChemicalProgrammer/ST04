@@ -50,7 +50,7 @@ test('demo factory creates a runnable 13-step Case with explicit provenance', ()
 
   assert.equal(caseModel.metadata.dataClassification, 'DEMO_ONLY');
   assert.match(caseModel.metadata.dataNote, /synthetic assumptions/i);
-  assert.equal(caseModel.metadata.publicReferences.length, 4);
+  assert.equal(caseModel.metadata.publicReferences, undefined);
   assert.deepEqual(Array.from(caseModel.equipment, (item) => item.type), [
     'BLOWMOLDER', 'CONVEYOR', 'PUCKER', 'CONVEYOR', 'FILLER', 'CONVEYOR',
     'DEPUCKER', 'CONVEYOR', 'SLEEVER', 'CONVEYOR', 'CASE_PACKER', 'CONVEYOR', 'PALLETIZER'
