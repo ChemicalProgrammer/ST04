@@ -109,7 +109,7 @@ export function diagnoseLineEfficiency(equipment,result){
   const mean=result?.batch?.statistics?.lineOeePercent?.mean,achieved=Number.isFinite(mean)?mean:result?.summary?.lineOeePercent;
   const valid=result?.engineId!=='DES_SIMPY_EXPERIMENTAL'&&Number.isFinite(ceiling)&&Number.isFinite(achieved)&&achieved>=0&&achieved<=ceiling+.01;
   const duration=result?.durationSeconds,read=(id,key)=>result?.batch?.equipmentStatistics?.[id]?.[key]?.mean??result?.equipmentMetrics?.[id]?.[key];
-  const keys=['failureSeconds','microStopSeconds','pausedSeconds','emergencyStopSeconds','starvedSeconds','blockedSeconds','waitingForPrimeSeconds','backupStopSeconds'];
+  const keys=['plannedStopSeconds','failureSeconds','microStopSeconds','pausedSeconds','emergencyStopSeconds','starvedSeconds','blockedSeconds','waitingForPrimeSeconds','backupStopSeconds'];
   return {referenceId:line.referenceId,referenceName:reference?.name,referenceBpm,minimumBpm,capacityCeilingPercent:ceiling,
     limitingEquipment:machines.filter(p=>Math.abs(p.configuredBpm-minimumBpm)<1e-7).map(p=>({id:p.id,name:p.name,bpm:p.configuredBpm,maximumBpm:p.maximumBpm})),
     achievedPercent:Number.isFinite(achieved)?achieved:null,capacityGapPp:Number.isFinite(ceiling)?100-ceiling:null,residualLossPp:valid?Math.max(0,ceiling-achieved):null,

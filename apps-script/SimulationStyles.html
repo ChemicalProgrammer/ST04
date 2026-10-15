@@ -61,6 +61,8 @@
   .state-blocked .live-state { background: var(--blocked-soft); color: var(--blocked); }
   .state-failure, .state-emergency-stop { border-left-color: var(--failure); }
   .state-failure .live-state, .state-emergency-stop .live-state { background: var(--failure-soft); color: var(--danger); }
+  .state-planned-stop .live-state { background:var(--info-soft); color:var(--info); }
+  .state-planned-stop { border-left-color:var(--info); }
   .state-micro-stop, .state-paused, .state-stopped { border-left-color: var(--muted); }
   .state-starting, .state-waiting-for-prime, .state-ramping-up { border-left-color: var(--info); }
   .state-starting .live-state, .state-waiting-for-prime .live-state, .state-ramping-up .live-state { background: var(--info-soft); color: var(--info); }

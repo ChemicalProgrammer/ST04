@@ -2645,3 +2645,16 @@ test('UI: plant calendar draft survives complete-case export in Basic and Advanc
   assert.equal(data.simulations[0].dynamicConfig.plantCalendar.totalMinutes,43200);assert.equal(data.simulations[0].dynamicConfig.plantCalendar.enabled,true);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
+
+test('UI: scheduled calendar reaches the engine, saves its audit and reopens without double-discounting',async()=>{
+ const h=await setup({remember:true,realScenarioServer:true});try{
+  await h.click('.open-case');h.w.STSettings.open();await h.click('#settings-tab-simulation');const calendar=h.d.getElementById('settings-plant-calendar');calendar.querySelector('input[type=checkbox]').click();
+  const controls=calendar.querySelectorAll('.plant-calendar-inputs input');for(const [index,value] of [[0,'2'],[5,'0.3333333333333333']]){controls[index].value=value;controls[index].dispatchEvent(new h.w.Event('change',{bubbles:true}));}
+  const mode=calendar.querySelector('select');mode.value='SCHEDULED';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  assert.equal(calendar.querySelectorAll('[data-plan-field=count]').length,7);assert.match(calendar.textContent,/1 scheduled stops/);
+  const full=Array.from(calendar.querySelectorAll('button')).find(b=>b.textContent==='Use full calendar duration');full.click();assert.equal(h.d.getElementById('duration-mode').value,'FIXED');assert.equal(h.d.getElementById('run-duration').value,'120');
+  await h.w.STSettings.close();h.d.getElementById('run-rounds').value='1';let completed;const calculate=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await calculate(...args);if(response.result?.plantCalendar)completed=response;return response;};await h.click('#run-simulation');await waitFor(()=>completed);assert.equal(completed.ok,true);await settle();await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.plantCalendar?.completePeriod);
+  await h.click('#pause-simulation');const saved=h.storedCases()[0].simulations[0];assert.equal(saved.results.plantCalendar.observedStopSeconds,20);assert.equal(saved.dynamicConfig.plantCalendar.mode,'SCHEDULED');assert.equal(saved.results.replay.plantCalendar.observedStopSeconds,20);
+  await h.click('.sidebar [data-view="results"]');assert.match(h.d.getElementById('results-plant-comparison').textContent,/no additional downtime discount/);assert.doesNotMatch(h.d.getElementById('results-plant-comparison').textContent,/Actual|Difference/);await h.click('#home-cases');await h.click('.open-case');await h.click('.sidebar [data-view="results"]');assert.match(h.d.getElementById('results-plant-comparison').textContent,/no additional downtime discount/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

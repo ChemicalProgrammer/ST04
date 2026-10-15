@@ -1,9 +1,11 @@
+import { plantCalendarSchedule } from './PlantCalendarSchedule.js';
 import { isConveyorEquipment, resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
 export function validateSimulationInput(input) {
   const details = [];
   validateCase(input?.case, details);
   validateRun(input?.run, details);
+  try { plantCalendarSchedule(input?.run?.plantCalendar,input?.run?.tickSeconds);if(input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED'&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
   validateCommands(input?.run?.commands, input?.case?.equipment, details);
 
   return details.length === 0

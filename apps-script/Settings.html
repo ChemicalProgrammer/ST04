@@ -147,7 +147,7 @@ window.STSettings = (function() {
   }
   function clearDraft(){clearTimeout(timer);version=0;savedVersion=0;failure=null;settle(true);el('gemini-api-key').value='';invalidateModels();el('settings-error').textContent='';}
   function init(){
-    renderCalendar=STPlantCalendar.mount(el('settings-plant-calendar'),function(){return simulationProvider?.();},function(){calendarChanged?.();},function(){return !!engineLocked?.();});
+    renderCalendar=STPlantCalendar.mount(el('settings-plant-calendar'),function(){return simulationProvider?.();},function(detail){calendarChanged?.(detail);},function(){return !!engineLocked?.();});
     el('settings-interface-mode').onchange=changeMode;
     el('settings-reliability-enabled').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(simulation.dynamicConfig?.engineId||'ST_CURRENT',this.checked);renderEngine();};
     el('settings-simulation-engine').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(this.value);renderEngine();};

@@ -1,3 +1,4 @@
+import { plantCalendarSchedule } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
 import { resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
@@ -16,6 +17,7 @@ export function simulateLine(input) {
 
   const runtime = createRuntime(input);
   applyDueCommands(runtime);
+  updatePlantCalendar(runtime, false);
   initializeInitialMaterialStates(runtime);
   addSample(runtime);
   executeTicks(runtime);
@@ -36,7 +38,7 @@ export async function simulateLineAsync(input, options = {}) {
     if (!runtime.summaryOnly && options.detail && runtime.events.length < 2000) return push(...items);
     omittedEvents += items.length; return runtime.events.length;
   };
-  applyDueCommands(runtime); initializeInitialMaterialStates(runtime); addSample(runtime);
+  applyDueCommands(runtime); updatePlantCalendar(runtime, false); initializeInitialMaterialStates(runtime); addSample(runtime);
   // Stream only new frames. Provisional snapshots never become final statistics.
   let publishedSamples=0;
   function publishPartial(){
@@ -112,6 +114,8 @@ function createRuntime(input) {
     samples: [],
     outputCount: 0,
     commandIndex: 0,
+    calendar: plantCalendarSchedule(input.run.plantCalendar,input.run.tickSeconds),
+    calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
     commands: sortCommands(input.run.commands || [])
   };
 
@@ -313,6 +317,7 @@ function normalizePhysicalZone(definition) {
 function executeTicks(runtime, until = runtime.run.durationSeconds) {
   while (runtime.virtualSecond < until) {
     applyDueCommands(runtime);
+    updatePlantCalendar(runtime);
     updateReliabilityFailures(runtime);
     updateMicroStops(runtime);
     advanceAccumulationZones(runtime);
@@ -354,6 +359,8 @@ function initializeInitialMaterialStates(runtime) {
 
     if (equipment.emergencyStopLatched) {
       equipment.availabilityState = 'EMERGENCY_STOP';
+    } else if (equipment.calendarStopped) {
+      equipment.availabilityState = 'PLANNED_STOP';
     } else if (equipment.mode === 'PAUSE') {
       equipment.availabilityState = 'PAUSED';
     } else if (!isOperationalMode(equipment)) {
@@ -652,6 +659,22 @@ function applyDueCommands(runtime) {
     }
     runtime.commandIndex += 1;
   }
+}
+
+function updatePlantCalendar(runtime, countTick=true) {
+  const now=runtime.virtualSecond;
+  if(runtime.calendarActive && now>=runtime.calendarActive.endSeconds){
+    runtime.events.push({type:'PLANT_STOP_ENDED',atVirtualSecond:now,category:runtime.calendarActive.category});
+    runtime.calendarActive=null;
+    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendar.restartPolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
+  }
+  const next=runtime.calendar.events[runtime.calendarIndex];
+  if(!runtime.calendarActive&&next&&now>=next.startSeconds){
+    runtime.calendarIndex++;runtime.calendarActive=next;
+    runtime.equipment.forEach(e=>{e.calendarStopped=true;if(runtime.calendar.restartPolicy==='RESTART')cancelEquipmentStart(e);});
+    runtime.events.push({type:'PLANT_STOP_STARTED',atVirtualSecond:now,category:next.category,untilVirtualSecond:next.endSeconds});
+  }
+  if(runtime.calendarActive&&countTick)runtime.calendarStopSeconds+=runtime.run.tickSeconds;
 }
 
 function applyCommand(runtime, equipment, action) {
@@ -989,6 +1012,10 @@ function recordUnavailable(equipment, tickSeconds) {
     equipment.stoppedSeconds += tickSeconds;
     equipment.emergencyStopSeconds += tickSeconds;
     equipment.availabilityState = 'EMERGENCY_STOP';
+  } else if (equipment.calendarStopped) {
+    equipment.stoppedSeconds += tickSeconds;
+    equipment.plannedStopSeconds = (equipment.plannedStopSeconds || 0) + tickSeconds;
+    equipment.availabilityState = 'PLANNED_STOP';
   } else if (equipment.failureRemainingSeconds > 0) {
     equipment.stoppedSeconds += tickSeconds;
     equipment.failureSeconds += tickSeconds;
@@ -1160,7 +1187,8 @@ function createResult(runtime) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.13.0',
+    engineVersion: '0.14.0',
+    plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
     seed: runtime.run.seed,
     durationSeconds: runtime.run.durationSeconds,
     summary: createSummary(runtime),
@@ -1217,6 +1245,7 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     stoppedSeconds: round(equipment.stoppedSeconds),
     failureSeconds: round(equipment.failureSeconds),
     failureCount: equipment.failureCount,
+    plannedStopSeconds: round(equipment.plannedStopSeconds||0),
     microStopSeconds: round(equipment.microStopSeconds),
     emergencyStopSeconds: round(equipment.emergencyStopSeconds),
     starvedSeconds: round(equipment.starvedSeconds),
@@ -1334,7 +1363,7 @@ function isSupportedAction(action) {
   return ['RUN', 'PAUSE', 'STOP', 'MANUAL', 'AUTO', 'EMERGENCY_STOP', 'RESET'].includes(action);
 }
 function isOperationalMode(equipment) {
-  return equipment.mode === 'AUTO' || equipment.mode === 'MANUAL';
+  return !equipment.calendarStopped && (equipment.mode === 'AUTO' || equipment.mode === 'MANUAL');
 }
 function randomDuration(random, profile) {
   const min = profile.minDurationSeconds || 0;
