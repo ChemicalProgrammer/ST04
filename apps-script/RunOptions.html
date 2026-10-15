@@ -25,7 +25,7 @@ window.STRunOptions=(function(){
     document.querySelectorAll('[data-duration-method]').forEach(function(label){label.classList.toggle('hidden',!label.dataset.durationMethod.split(' ').includes(method));});
     el('run-shift-hours').closest('label').classList.toggle('hidden',method!=='SHIFTS'&&!el('run-track-shifts').checked);
     el('settings-shift-count').value=el('run-shift-count').value;
-    ['run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','settings-shift-count','run-calculation-mode','run-events-enabled'].forEach(function(id){el(id).disabled=!!locked;});
+    ['duration-mode','run-shift-hours','run-shift-count','run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','settings-shift-count','run-calculation-mode','run-events-enabled'].forEach(function(id){el(id).disabled=!!locked;});
     el('run-duration').disabled=!!locked||['SHIFTS','DATES'].includes(method);
     var enabled=el('run-events-enabled').checked;document.documentElement.dataset.eventsEnabled=String(enabled);el('simulation-event-section').classList.toggle('hidden',!enabled);
     try{var c=config(),duration=resolve(c),shifts=duration/(c.shiftHours*3600);el('run-duration-summary').textContent=(duration/86400).toLocaleString(undefined,{maximumFractionDigits:3})+' days · '+(duration/3600).toLocaleString(undefined,{maximumFractionDigits:2})+' hours'+(el('run-track-shifts').checked?' · '+Math.floor(shifts)+' complete shifts'+(shifts%1>1e-8?' + '+((shifts%1)*100).toFixed(1)+'% of one shift':''):'')+(c.method==='DATES'?' · '+c.timeZone:'');}catch(error){el('run-duration-summary').textContent=error.message;}

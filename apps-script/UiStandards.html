@@ -347,6 +347,11 @@ html[data-events-enabled=false] .live-equipment-controls > button:not(.loss-togg
 #planned-line-events input { width:100%; min-width:5em; }
 #planned-line-events td { min-width:0; }
 #planned-line-events table { width:100%; }
+
+.simulation-duration-grid { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:var(--space-3); align-items:end; }
+#simulation-duration-controls { margin:var(--space-3) 0; }
+html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:minmax(110px,180px); }
+@media(max-width:600px) { .simulation-duration-grid { grid-template-columns:1fr; } }
 </style>
 
 

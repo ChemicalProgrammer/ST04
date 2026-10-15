@@ -304,7 +304,7 @@
     function syncDurationControls(){
       var shifts=document.getElementById('duration-mode').value==='SHIFTS';
       document.getElementById('run-duration').disabled=shifts||runControlsLocked();
-      ['run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).closest('label').classList.toggle('hidden',!shifts);});
+      ['run-shift-hours'].forEach(function(id){document.getElementById(id).closest('label').classList.toggle('hidden',!shifts);});
       syncRunControls();
     }
     function runControlsLocked(){return Boolean(state.run.active||state.run.playing||roundSession?.pending||roundSession?.firstUpdating||roundSession?.dirty);}

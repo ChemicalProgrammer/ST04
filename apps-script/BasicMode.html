@@ -30,20 +30,9 @@ window.STBasicMode=(function(){
     runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';var optionsHeading=node('div','','basic-options-heading');optionsHeading.append(optionsTitle);runOptions.append(optionsHeading);document.querySelector('#editor-panel > .editor-subheading').before(runOptions);
     efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';runOptions.append(efficiencies);
     setupControls=document.createElement('div');setupControls.id='basic-run-controls';runOptions.append(setupControls);
-    [['run-playback-rate','Speed'],['run-shift-count','Shifts'],['run-rounds','Rounds']].forEach(function(spec){
+    [['run-rounds','Rounds']].forEach(function(spec){
       var control=document.getElementById(spec[0]),label=control.closest('label');controlHomes.push({node:label,home:label.parentNode,next:label.nextSibling});
-      var group=document.createElement('section'),heading=document.createElement('strong');group.dataset.runControl=spec[0];heading.className='basic-control-heading';heading.textContent=spec[1];if(['run-playback-rate','run-shift-count'].includes(spec[0]))group.appendChild(heading);setupControls.appendChild(group);
-      if(['run-playback-rate','run-shift-count'].includes(spec[0])){
-        var row=document.createElement('div');row.className='button-row';group.appendChild(row);
-        var values=spec[0]==='run-playback-rate'?[1,5,10,50,100,200,500,1000,10000,1000000]:[1,2,3];
-        values.forEach(function(value){var b=button(spec[0]==='run-playback-rate'?value+'×':value+' shift'+(value===1?'':'s'),'',function(){
-          if(control.disabled)return;
-          control.value=String(value);
-          if(spec[0]==='run-shift-count'){var mode=document.getElementById('duration-mode');mode.value='SHIFTS';mode.dispatchEvent(new Event('change',{bubbles:true}));}
-          control.dispatchEvent(new Event(spec[0]==='run-playback-rate'?'change':'input',{bubbles:true}));refreshData();
-        });b.dataset.control=spec[0];b.dataset.value=String(value);row.appendChild(b);});
-      }
-      group._label=label;
+      var group=document.createElement('section');group.dataset.runControl=spec[0];group._label=label;setupControls.appendChild(group);
     });
     inspector=document.getElementById('equipment-inspector');inspectorHome=inspector.parentNode;inspectorNext=inspector.nextSibling;
     window.addEventListener('st:inspector',function(){if(basic()){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});

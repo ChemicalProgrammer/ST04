@@ -2431,11 +2431,13 @@ test('UI: latest CAPEX card survives changed proposal order, mode and configurat
  }finally{h.dom.window.close();}
 });
 
-test('UI Basic: duration and sampling options persist and shift buttons retain hours per shift',async()=>{
+test('UI Basic: duration and sampling options persist and shift inputs retain hours per shift',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC'});try{
   await h.click('.open-case');await h.click('[data-basic-view=simulation]');
   await h.click('#basic-case-actions button[aria-label=Settings]');await h.click('#settings-tab-simulation');
-  for(const id of ['duration-mode','run-duration','run-sample-interval','run-shift-hours'])assert(h.d.getElementById(id).closest('#settings-page-simulation'));
+  for(const id of ['duration-mode','run-duration','run-shift-hours','run-playback-rate'])assert(h.d.getElementById(id).closest('#simulation-duration-controls'));
+  for(const id of ['run-sample-interval','run-events-enabled','run-chart-window'])assert(h.d.getElementById(id).closest('#settings-page-simulation'));
+  assert.equal(h.d.querySelectorAll('[data-control=run-playback-rate]').length,0);
   const mode=h.d.getElementById('duration-mode');mode.value='FIXED';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   assert(!h.d.getElementById('run-duration').disabled);assert(h.d.getElementById('run-shift-hours').closest('label').classList.contains('hidden'));
   h.d.getElementById('run-duration').value=120;h.d.getElementById('run-duration').dispatchEvent(new h.w.Event('input',{bubbles:true}));
@@ -2443,7 +2445,7 @@ test('UI Basic: duration and sampling options persist and shift buttons retain h
   mode.value='SHIFTS';mode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   assert(!h.d.getElementById('run-shift-hours').closest('label').classList.contains('hidden'));assert(h.d.getElementById('run-duration').disabled);
   h.d.getElementById('run-shift-hours').value=6;h.d.getElementById('run-shift-hours').dispatchEvent(new h.w.Event('input',{bubbles:true}));
-  await h.click('#settings-close');await h.click('#basic-run-controls button[data-control=run-shift-count][data-value="2"]');
+  await h.click('#settings-close');h.d.getElementById('settings-shift-count').value='2';h.d.getElementById('settings-shift-count').dispatchEvent(new h.w.Event('input',{bubbles:true}));
   assert.equal(h.d.getElementById('run-shift-hours').value,'6');
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.shiftHours===6);
   const run=h.storedCases()[0].simulations[0].dynamicConfig;assert.equal(run.durationMode,'SHIFTS');assert.equal(run.durationSeconds,43200);assert.equal(run.sampleEverySeconds,3);assert.equal(run.shiftCount,2);assert.deepEqual(h.errors,[]);
@@ -2661,7 +2663,7 @@ test('UI: scheduled calendar reaches the engine, saves its audit and reopens wit
 
 test('UI: duration methods, optional shifts and graph window save consistently in Basic and Advance',async()=>{
  for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode});try{
-  await h.click('.open-case');h.w.STSettings.open();await h.click('#settings-tab-simulation');const set=(id,value,type='change')=>{const e=h.d.getElementById(id);e.value=value;e.dispatchEvent(new h.w.Event(type,{bubbles:true}));};
+  await h.click('.open-case');for(const id of ['duration-mode','run-duration','run-playback-rate'])assert(h.d.getElementById(id).closest('#run-panel'));for(const id of ['run-events-enabled','run-chart-window'])assert(h.d.getElementById(id).closest('#settings-page-simulation'));h.w.STSettings.open();await h.click('#settings-tab-simulation');const set=(id,value,type='change')=>{const e=h.d.getElementById(id);e.value=value;e.dispatchEvent(new h.w.Event(type,{bubbles:true}));};
   set('duration-mode','FIXED');set('run-duration','30','input');set('run-duration-unit','DAYS');assert.equal(h.w.STRunOptions.read().durationSeconds,2592000);assert.equal(h.w.STRunOptions.read().calculationMode,'FAST');
   set('duration-mode','DATES');set('run-start-at','2026-10-01T00:00');set('run-end-at','2026-10-31T00:00');assert.equal(h.w.STRunOptions.read().durationSeconds,2592000);
   set('duration-mode','SHIFTS');set('settings-shift-count','90','input');assert.equal(h.w.STRunOptions.read().durationSeconds,2592000);h.d.getElementById('run-track-shifts').checked=true;h.d.getElementById('run-track-shifts').dispatchEvent(new h.w.Event('change'));assert.equal(h.w.STRunOptions.read().shiftSeconds,28800);assert.match(h.d.getElementById('run-duration-summary').textContent,/90 complete shifts/);
