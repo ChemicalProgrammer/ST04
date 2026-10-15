@@ -39,7 +39,7 @@ window.STBasicMode=(function(){
     sync(current);
   }
   function mount(){if(mounted)return;sectionRow.appendChild(headerActions);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function unmount(){if(!mounted)return;document.getElementById('run-config').before(document.getElementById('simulation-duration-controls'));document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;if(!enabled&&state.basicView==='conveyors')state.basicView='equipment';root.dataset.uiMode=enabled?'basic':'advance';
@@ -84,6 +84,7 @@ window.STBasicMode=(function(){
       // Moving an already positioned subtree blurs its focused number input.
       if(runOptions.parentNode!==host||runOptions.nextSibling!==before)host.insertBefore(runOptions,before);
     }
+    if(enabled){var duration=document.getElementById('simulation-duration-controls'),durationAnchor=section==='simulation'?setupControls:document.getElementById('run-config');if(duration.parentNode!==durationAnchor.parentNode||duration.nextSibling!==durationAnchor)durationAnchor.before(duration);}
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
   }
