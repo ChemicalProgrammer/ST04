@@ -40,7 +40,7 @@
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
     }
     function rememberCaseView(view) {
-      if(!state.activeCase||state.restoringCaseView||!['editor','simulation','results','whatif','comparison'].includes(view))return;
+      if(!state.activeCase||state.restoringCaseView||!['editor','products','simulation','results','whatif','comparison'].includes(view))return;
       var key=caseViewKey(state.activeCase.id);
       var basicView=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':state.basicView==='vgraph'?'vgraph':null):view;
       var saved=JSON.stringify({view:view,basicView:basicView});
@@ -51,6 +51,7 @@
       if (!syncPersistentSimulation()) return false;
       state.uiView = view;
       if(view==='whatif')renderSimulationAnalysis();
+      if(view==='products')STProducts.render(true);
       if (view === 'comparison') showCaseComparison();
       else { state.workspaceView = 'simulation'; renderWorkspaceTabs(); }
       shell.sync(); renderPlaybackFrame();
@@ -66,7 +67,7 @@
         capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
         apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
       });
-      STProducts.init(state,{simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,changed:function(all){invalidateActiveResult();if(all){renderEditor();}markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();}});
+      STProducts.init(state,{navigate:function(){state.basicView='products';navigateView('products');},simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,changed:function(all){invalidateActiveResult();renderEditor();markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();shell.sync();}});
       shell.init();
       if (STPreferences.read('remember') === 'yes') {
         document.getElementById('remember-session').checked = true;

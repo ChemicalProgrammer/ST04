@@ -3,15 +3,18 @@ window.STProducts=(function(){
   var state,hooks;
   function catalog(){return state?.activeCase?.metadata?.products||[];}
   function unit(e,side){return e.processData?.flowUnits?.[side||'output']||'BOTTLES';}
-  function render(){
-    var target=document.getElementById('simulation-products');if(!target)return;target.replaceChildren();if(!state?.activeCase)return;
-    var heading=document.createElement('h3');heading.textContent='Products';target.append(heading);
+  function render(force){
+    var target=document.getElementById('products-workspace')||document.getElementById('simulation-products');if(!target)return;if(state?.uiView&&state.uiView!=='products')return;
+    var identity=JSON.stringify([state?.activeCase?.id,hooks?.simulation()?.id,hooks?.simulation()?.dynamicConfig?.initialProductId,catalog()]);
+    if(force!==true&&target._productIdentity===identity&&target.querySelector('.products-editor'))return;
+    target._productIdentity=identity;target.replaceChildren();if(!state?.activeCase)return;
     var row=document.createElement('div');row.className='product-selector-row';var label=document.createElement('label');label.textContent='Initial product';var select=document.createElement('select');select.id='run-product';
     var initial=hooks.simulation()?.dynamicConfig?.initialProductId||'';
     [['','Existing equipment configuration']].concat(catalog().map(p=>[p.id,p.name])).forEach(function(v){var option=document.createElement('option');option.value=v[0];option.textContent=v[1];select.append(option);});if(initial&&!catalog().some(p=>p.id===initial)){var missing=document.createElement('option');missing.value=initial;missing.textContent='Missing initial product — review configuration';select.append(missing);}select.value=initial;select.disabled=hooks.locked();label.append(select);row.append(label);
     select.onchange=function(){if(hooks.locked())return;var sim=hooks.simulation();sim.dynamicConfig={...sim.dynamicConfig,initialProductId:select.value||undefined};hooks.changed();};
-    var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent='Configure products';button.disabled=hooks.locked();button.onclick=open;row.append(button);target.append(row);
+    target.append(row);
     var note=document.createElement('p');note.className='chart-note';note.textContent='Products apply dimensions, spacing and operating settings. MTBF / MTTR remain shared by equipment. Without an initial product, the existing uniform-unit model is used.';target.append(note);
+    if(state.uiView==='products')open(true);
   }
   function captureProduct(name){
     var all=state.activeCase.equipment||[],belts=all.filter(e=>e.type==='CONVEYOR'),bottle=belts.find(e=>unit(e)==='BOTTLES'),box=belts.find(e=>unit(e)==='CASES');
@@ -23,13 +26,15 @@ window.STProducts=(function(){
       }else p.equipment[e.id]={ratePerMinute:e.nominalRatePerSecond*60};
     });return p;
   }
-  async function open(){
-    if(hooks.locked()||!hooks.capture())return;
+  async function open(inline){
+    inline=inline===true;
+    if((!inline&&hooks.locked())||!hooks.capture())return;
     var draft=JSON.parse(JSON.stringify(catalog())),selected=draft[0]?.id,focus=document.activeElement;
-    var dialog=document.createElement('dialog');dialog.className='settings-dialog products-dialog';dialog.setAttribute('aria-labelledby','products-dialog-title');
+    var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby','products-dialog-title');
     var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='products-dialog-title';title.textContent='Products';heading.append(title);
-    var body=document.createElement('div');body.className='dialog-body';var footer=document.createElement('footer');footer.className='dialog-actions';dialog.append(heading,body,footer);document.body.append(dialog);
-    var cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';cancel.onclick=function(){dialog.close();};
+    var body=document.createElement('div');body.className='dialog-body';var footer=document.createElement('footer');footer.className='dialog-actions';dialog.append(heading,body,footer);if(inline){heading.hidden=true;(document.getElementById('products-workspace')||document.getElementById('simulation-products')).append(dialog);}else document.body.append(dialog);
+    function closeEditor(){if(inline){dialog.remove();render(true);}else dialog.close();}
+    var cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';cancel.textContent=inline?'Discard edits':'Cancel';cancel.onclick=closeEditor;
     var save=document.createElement('button');save.type='button';save.textContent='Save products';footer.append(cancel,save);
     function field(parent,labelText,obj,key,options){options=options||{};var label=document.createElement('label');label.textContent=labelText;var input=document.createElement('input');input.type=options.text?'text':'number';if(!options.text){input.min=options.min??'0';input.step=options.step||'any';}else input.maxLength=120;input.value=obj[key]??'';input.required=!!options.required;input.oninput=function(){if(options.text)obj[key]=input.value;else if(input.value==='')delete obj[key];else obj[key]=Number(input.value);};label.append(input);parent.append(label);return input;}
     function subsection(text){var h=document.createElement('h3');h.textContent=text;body.append(h);}
@@ -48,15 +53,15 @@ window.STProducts=(function(){
     }
     save.onclick=async function(){
       if(hooks.locked())return;if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
-      var done=STDialog.beginActivity(dialog);save.disabled=true;
+      var done=inline?null:STDialog.beginActivity(dialog);save.disabled=true;
       try{
         await new Promise(resolve=>setTimeout(resolve,0));
         var equipment=state.activeCase.equipment.map(e=>({...e,processData:{...e.processData,flowUnits:e.processData?.flowUnits||{input:'BOTTLES',output:'BOTTLES'}}}));
         if(draft.length){var input={case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:draft,initialProductId:draft[0].id,eventsEnabled:false}};var result=SimulatorEngine.validateSimulationInput(input);if(!result.ok)throw Error(result.error.details.map(d=>d.path+': '+(d.reason||d.message||JSON.stringify(d))).join('\n'));}
-        state.activeCase.metadata={...state.activeCase.metadata,products:draft};state.activeCase.equipment=equipment;hooks.changed(true);dialog.close();
+        state.activeCase.metadata={...state.activeCase.metadata,products:draft};state.activeCase.equipment=equipment;hooks.changed(true);closeEditor();
       }catch(error){var status=body.querySelector('.product-error');if(!status){status=document.createElement('p');status.className='notice product-error';status.setAttribute('role','alert');body.prepend(status);}status.textContent=error.message;}finally{save.disabled=false;done?.();}
     };
-    dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();renderDraft();
+    if(!inline){dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();}renderDraft();if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(function(control){control.disabled=true;});
   }
   function runFields(){var id=hooks?.simulation()?.dynamicConfig?.initialProductId;return {initialProductId:id||undefined,productCatalog:id?JSON.parse(JSON.stringify(catalog())):undefined};}
   function destinationCell(row,event,changed){
@@ -68,6 +73,6 @@ window.STProducts=(function(){
     target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
     var h=document.createElement('h3');h.textContent='Production by product';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Product','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>1)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
   }
-  return {init:function(s,h){state=s;hooks=h;},render:render,open:open,runFields:runFields,destinationCell:destinationCell,results:results};
+  return {init:function(s,h){state=s;hooks=h;},render:render,open:open,go:function(){if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
 })();
 </script>

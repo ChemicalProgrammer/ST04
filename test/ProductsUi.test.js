@@ -23,3 +23,11 @@ test('initial product and changeover destination persist by ID; locked controls 
 test('results distinguish full cases, continuous partial equivalents and clear-out inventory',()=>{
  const s=setup(),target=s.w.document.getElementById('results-products');s.w.STProducts.results(target,{products:{rows:[{name:'A',outputUnit:'CASES',outputNative:10.5,completeCases:10,partialCaseEquivalent:.5,outputBottleEquivalents:126,clearoutBottleEquivalents:8}]}});assert.equal(target.querySelector('h3').textContent,'Production by product');assert.equal(target.querySelectorAll('tbody tr').length,1);assert.match(target.textContent,/126/);assert.match(target.textContent,/not production/);
 });
+
+test('Products has an inline editor in its own section and does not open a configuration dialog',async()=>{
+ const s=setup(),w=s.w;s.state.uiView='products';w.document.getElementById('simulation-products').id='products-workspace';w.STProducts.render(true);
+ const editor=w.document.querySelector('#products-workspace .products-editor');assert(editor);assert.equal(w.document.querySelector('dialog'),null);assert(editor.querySelector('.dialog-heading').hidden);
+ editor.querySelector('.product-selector-row button').click();const name=inputFor(w,'Name');enter(w,name,'Inline format');w.STProducts.render();assert.equal(inputFor(w,'Name'),name);assert.equal(name.value,'Inline format');
+ Array.from(editor.querySelectorAll('.dialog-actions button')).find(b=>b.textContent==='Save products').click();await new Promise(r=>setTimeout(r,15));assert.equal(s.state.activeCase.metadata.products[0].name,'Inline format');assert.equal(w.document.querySelector('dialog'),null);
+ const web=fs.readFileSync('apps-script/WebApp.html','utf8');assert.match(web,/id="products-panel"/);assert.doesNotMatch(web,/id="simulation-products"/);assert.match(fs.readFileSync('apps-script/BasicMode.html','utf8'),/\['products','Products','box','products'\]/);
+});

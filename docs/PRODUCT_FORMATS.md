@@ -5,11 +5,13 @@ Available in Basic and Advance with the ST engine. Existing cases keep their ori
 ## Configuration
 
 1. In Equipment / Conveyors, select input and output units. Conveyors transport either bottles or cases without changing units. A Case Packer may receive bottles and output cases. Adjacent output/input units must agree.
+The input/output controls have their own visible card section in Basic and Advance. Cards handling cases also show the selected product’s bottles per case as a read-only value and a Configure in Products shortcut. A Case Packer displays the bottle-to-case conversion. The pack size has one editable source, in Products.
+
 2. Enter machine rates in their **output unit per minute**. For example, 300 bottles/min is 25 cases/min for a 12-bottle case. Existing numeric rates are not silently converted when their unit changes.
-3. In Simulation → Products → Configure products, add one or more products. Confirm the suggested 12 bottles/case. Enter length **along the direction of travel** for bottles and, if used, cases. Container volume is descriptive.
+3. In the Products menu section, add one or more products. Confirm the suggested 12 bottles/case. Enter length **along the direction of travel** for bottles and, if used, cases. Container volume is descriptive.
 4. Enter conveyor-specific moving, accumulated, discharge and infeed **free gaps**. Pitch = length + gap. The same product may have different spacing on different conveyors. Manual belt speeds are entered in m/min and stored in mm/s. A blank override retains the base equipment setting; an explicit speed overrides Population / Overspeed targets for that product. An explicit moving gap determines runtime pitch even when a target is retained for automatic speed; the resulting occupancy can therefore differ from the target.
 5. Enter optional machine rate, startup and ramp settings by product. MTBF / MTTR, installation length and sensor positions remain on equipment.
-6. Select the initial product. The existing equipment configuration option disables profiles and conversion for that simulation.
+6. In Products, select the initial product for the active simulation. The existing equipment configuration option disables profiles and conversion for that simulation.
 7. Enable events. Use + Changeover, or apply scheduled Plant calendar events, then select a destination product on each changeover. A blank destination is a stop that retains the current product and inventory.
 
 ## Changeover policy

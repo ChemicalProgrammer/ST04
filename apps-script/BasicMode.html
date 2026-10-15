@@ -2,7 +2,7 @@
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
   var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
-  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
+  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Products','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
@@ -48,7 +48,7 @@ window.STBasicMode=(function(){
     STPreferences.applyPalette(root.dataset.uiMode);
     if(enabled)mount();else{unmount();if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);}
     var active=Boolean(state.activeCase),view=state.uiView;
-    var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='whatif'?'whatif':'simulation';
+    var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='products'?'products':view==='whatif'?'whatif':'simulation';
     if(view==='comparison')section='comparison';
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
@@ -137,7 +137,7 @@ window.STBasicMode=(function(){
       var data=card.querySelector('.basic-card-data');if(!data){data=node('section','','basic-card-data');card.appendChild(data);}
       data.replaceChildren();
       if(machine){
-        var speedLabel=card._fields.querySelector('.equipment-rate').closest('label');if(speedLabel.firstChild?.nodeType===Node.TEXT_NODE)speedLabel.firstChild.nodeValue='Speed (BPM)';
+        var speedLabel=card._fields.querySelector('.equipment-rate').closest('label');if(speedLabel.firstChild?.nodeType===Node.TEXT_NODE)speedLabel.firstChild.nodeValue='Speed ('+(card._fields.querySelector('.equipment-unit').value||'units').toLowerCase()+'/min)';
         var reliability=e.noiseProfile.reliability||{},a=reliability.mtbfMinutes/(reliability.mtbfMinutes+reliability.mttrMinutes);availability*=Number.isFinite(a)?a:NaN;
         var next=equipment[index+1],audit=next?.type==='CONVEYOR'?audits.find(function(x){return x.equipmentId===next.id;}):null;
         var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits,downstream=equipment.find(function(x){return x.id===audit?.downstreamId;});
@@ -173,7 +173,7 @@ window.STBasicMode=(function(){
     inspector.classList.toggle('hidden',state.uiView!=='editor'||state.basicView!=='conveyors'||conveyorView!=='inputs');
     conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=false;});
   }
-  return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return basic()?'units':unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
+  return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>
 

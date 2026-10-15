@@ -7,7 +7,7 @@ window.STShell = function(state,actions) {
     var active=Boolean(state.activeCase),view=active?(state.uiView||'simulation'):'cases';
     if(active)actions.rememberView?.(view);
     var connected=Boolean(state.bootstrap?.settings?.workspaceRootFolderId);
-    ['cases','editor','run','results','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
+    ['cases','editor','products','run','results','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='products'&&view==='products')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
     document.getElementById('application').classList.toggle('case-open',active);
     document.getElementById('case-sidebar').classList.toggle('hidden',!active);
     document.getElementById('cases-top-actions').classList.toggle('hidden',active);
@@ -21,7 +21,7 @@ window.STShell = function(state,actions) {
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
     document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
     document.getElementById('breadcrumb-case').textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
-    document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),results:__ST_TEXT__('shell.results'),whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
+    document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),products:'Products',results:__ST_TEXT__('shell.results'),whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('save-case').classList.toggle('hidden',!active||(['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode).toUpperCase())&&STPreferences.caseOptions().autosaveEnabled));
     document.getElementById('autosave-indicator').classList.toggle('hidden',!active);
     document.getElementById('settings-case-section').classList.toggle('hidden',!active);
@@ -32,11 +32,12 @@ window.STShell = function(state,actions) {
     document.getElementById('workspace-folder-note').classList.toggle('hidden',!active);
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
+    if(view==='products')STProducts.render();
     if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
     window.STBasicMode?.sync(state);
     var motionView=view+':'+(document.documentElement.dataset.headerView||'');
-    if(motionView!==lastMotionView){lastMotionView=motionView;STMotion.reveal(document.getElementById(({simulation:'run',editor:'editor',results:'results',whatif:'whatif',comparison:'comparison',cases:'cases'}[view]||'run')+'-panel'));}
+    if(motionView!==lastMotionView){lastMotionView=motionView;STMotion.reveal(document.getElementById(({simulation:'run',editor:'editor',products:'products',results:'results',whatif:'whatif',comparison:'comparison',cases:'cases'}[view]||'run')+'-panel'));}
     var engineNotice=document.getElementById('simulation-engine-notice'),simulation=(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
     engineNotice.classList.toggle('hidden',simulation?.dynamicConfig?.engineId!=='DES_SIMPY_EXPERIMENTAL');
   }

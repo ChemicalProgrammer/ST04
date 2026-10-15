@@ -256,11 +256,11 @@ async function openCase(caseId, initialView) {
         var preference=null;
         try{preference=JSON.parse(STPreferences.read(caseViewKey(caseId)));}catch(ignore){}
         var rememberedView=initialView||preference?.view;
-        if(!['editor','simulation','results','whatif','comparison'].includes(rememberedView))rememberedView='simulation';
+        if(!['editor','products','simulation','results','whatif','comparison'].includes(rememberedView))rememberedView='simulation';
         if(rememberedView==='comparison'&&(response.data.simulations||[]).length<2)rememberedView='editor';
         state.restoringCaseView=true;
         state.activeCase = response.data;
-        state.basicView=initialView?'equipment':['equipment','conveyors','results','vgraph','simulation','whatif','comparison'].includes(preference?.basicView)?preference.basicView:null;
+        state.basicView=initialView?'equipment':['equipment','conveyors','products','results','vgraph','simulation','whatif','comparison'].includes(preference?.basicView)?preference.basicView:null;
         autosave.reset();
         STPreferences.initializeCaseOptions();configureSaving();
         toggle('cases-panel', false);
