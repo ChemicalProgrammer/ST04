@@ -14,7 +14,7 @@ window.STPlantCalendar=(function(){
     function render(){var sim=provider(),data=sim?.dynamicConfig?.plantCalendar||{};target.classList.toggle('hidden',!sim);target.replaceChildren();if(!sim)return;
       var heading=document.createElement('h3');heading.textContent='Plant calendar';target.append(heading);
       var enable=document.createElement('label');enable.className='checkbox-label';var checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=data.enabled===true;enable.append(checkbox,document.createTextNode('Consider plant calendar in simulation'));target.append(enable);
-      var content=document.createElement('div');target.append(content);
+      var content=document.createElement('div');content.className='plant-calendar-content';target.append(content);
       var note=document.createElement('p');note.className='chart-note';note.textContent='Minutes. Aggregate mode adjusts projections; scheduled mode (ST engine) stops the whole line and retains conveyor inventory. Shift changes do not create stops. Business external time and CO reporting error are accounting exclusions, not physical events.';content.append(note);
       function group(title,list){var grid=document.createElement('div');grid.className='settings-simulation-grid plant-calendar-grid plant-calendar-inputs';content.append(grid);list.forEach(function(f){var label=document.createElement('label');label.textContent=f[1]+' (min)';var input=document.createElement('input');input.type='number';input.min='0';input.step='any';input.value=data[f[0]]??'';input.disabled=!!locked()||!checkbox.checked;label.append(input);grid.append(label);input.onchange=function(){if(!input.reportValidity())return;save(f[0],input.value===''?null:Number(input.value));};});}
       var modes=document.createElement('div');modes.className='settings-simulation-grid plant-calendar-grid';content.append(modes);
@@ -23,11 +23,11 @@ window.STPlantCalendar=(function(){
       var distribution=select('distribution','Event timing',[['EVEN','Evenly spaced'],['TIMED','Defined start and interval']],'EVEN');
       var restart=select('restartPolicy','After each stop',[['RESTART','Restart with startup and ramps'],['RESUME','Resume without a new startup']],'RESTART');
       group('',fields);
-      var planning=document.createElement('div');content.append(planning);
+      var planning=document.createElement('div');planning.className='plant-calendar-planning';content.append(planning);
       var guidance=document.createElement('p');guidance.className='chart-note';guidance.textContent='Total category minutes are divided by the number of events. Defined times start at minute 0 of plant available time minus CO reporting error. Events must not overlap. Repairs may continue during a planned stop; no new failures are generated while stopped.';planning.append(guidance);
       var planGrid=document.createElement('div');planGrid.className='settings-simulation-grid plant-calendar-grid';planning.append(planGrid);
       fields.filter(function(f){return !['totalMinutes','externalMinutes','coReportingErrorMinutes'].includes(f[0]);}).forEach(function(f){
-        var card=document.createElement('div'),title=document.createElement('strong');title.textContent=f[1];card.append(title);planGrid.append(card);
+        var card=document.createElement('div'),title=document.createElement('strong');card.className='plant-calendar-plan';title.textContent=f[1];card.append(title);planGrid.append(card);
         [['count','Number of events',1],['firstStartMinutes','First start (min)',0],['intervalMinutes','Start interval (min)',null]].forEach(function(def){var label=document.createElement('label');label.textContent=def[1];var input=document.createElement('input');input.type='number';input.min=def[0]==='count'?'1':'0';input.step=def[0]==='count'?'1':'any';if(def[0]==='count')input.max='1000';input.value=data.plans?.[f[0]]?.[def[0]]??def[2]??'';input.dataset.planField=def[0];label.append(input);card.append(label);input.onchange=function(){if(!input.reportValidity())return;var plans=Object.assign({},data.plans);plans[f[0]]=Object.assign({},plans[f[0]],{[def[0]]:input.value===''?null:Number(input.value)});save('plans',plans);};});
       });
       var useDuration=document.createElement('button');useDuration.type='button';useDuration.className='ghost';useDuration.textContent='Use full calendar duration';planning.append(useDuration);
