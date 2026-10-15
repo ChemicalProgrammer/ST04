@@ -365,7 +365,14 @@ html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:minmax(190p
 @media(max-width:600px) { .simulation-duration-grid, #settings-page-simulation .settings-simulation-grid { grid-template-columns:1fr; } }
 
 #simulation-event-section { margin:var(--space-4) 0; padding:var(--space-4); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
-#simulation-event-section .compact-heading { flex-wrap:wrap; gap:var(--space-3); }
+#simulation-event-section .compact-heading { margin:0; padding-top:0; align-items:center; flex-wrap:wrap; gap:var(--space-3); }
+#simulation-event-section .compact-heading > .button-row { margin-block:0; padding:0; }
+#simulation-event-section .compact-heading p { margin:var(--space-2) 0 0; }
+#simulation-event-content:not([hidden]) { margin-top:var(--space-3); }
+#simulation-event-content[hidden] { display:none!important; }
+#toggle-control-events { display:inline-flex; align-items:center; justify-content:flex-start; gap:var(--space-2); min-height:0; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:inherit; font:inherit; line-height:inherit; text-align:left; }
+#toggle-control-events::before { content:""; width:.45em; height:.45em; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg); flex:none; margin-right:var(--space-1); }
+#toggle-control-events[aria-expanded=false]::before { transform:rotate(-45deg); }
 #plant-calendar-dialog { width:min(1100px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); }
 #plant-calendar-dialog > .dialog-body { overflow:auto; min-height:0; }
 #plant-calendar-dialog .plant-calendar-grid { display:grid; }

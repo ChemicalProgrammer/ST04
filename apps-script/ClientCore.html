@@ -131,6 +131,7 @@
       document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
+      document.getElementById('toggle-control-events').addEventListener('click',function(){setControlEventsExpanded(this.getAttribute('aria-expanded')!=='true');});
       document.getElementById('add-control-event').addEventListener('click', addControlEvent);
       document.getElementById('run-simulation').addEventListener('click', runSimulation);
       document.getElementById('play-simulation').addEventListener('click', startPlayback);
