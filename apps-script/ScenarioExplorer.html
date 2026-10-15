@@ -76,7 +76,7 @@ window.STScenarioExplorer=(function(){
     }
     var cardEntries=savedEntries(simulation).map((entry,index)=>({entry:entry,index:index})).filter(item=>sameCard(item.entry)).sort((a,b)=>(Date.parse(b.entry.updatedAt)||0)-(Date.parse(a.entry.updatedAt)||0)||b.index-a.index);
     function resultSnapshot(entry){return JSON.parse(JSON.stringify({analysisOnly:entry.analysisOnly,doe:entry.doe,doeSkippedReason:entry.doeSkippedReason,conditionalFlowDOE:entry.conditionalFlowDOE,method:entry.method,reliabilityTargetSearch:entry.reliabilityTargetSearch,reliabilityCounterfactual:entry.reliabilityCounterfactual,baseline:entry.baseline,candidate:entry.candidate,independentCheck:entry.independentCheck,screening:entry.screening,run:entry.run,depth:entry.depth,status:entry.status,warnings:entry.warnings,finalCapacityDiagnosis:entry.finalCapacityDiagnosis,evaluatedChanges:entry.evaluatedChanges,sourceSignature:entry.sourceSignature,updatedAt:entry.updatedAt}));}
-    var restored=cardEntries[0]?.entry;
+    var restored=cardEntries[0]?.entry||simulation.whatIf?.cardConfigurations?.[cardId];
     if(restored?.sourceSignature===sourceSignature&&restored.categoryInclusions)scopeOptions.forEach(t=>inclusions[t]=restored.categoryInclusions[t]===true);
     if(restored&&!restored.candidate&&!restored.lastResult){var previous=cardEntries.find(item=>item.entry.baseline&&item.entry.candidate)?.entry;if(previous)restored=Object.assign({},restored,{lastResult:resultSnapshot(previous)});}
 
@@ -89,7 +89,7 @@ window.STScenarioExplorer=(function(){
       entry.controls=rows.map(r=>({equipmentId:r.change.equipmentId,path:r.change.path,checked:r.check.checked,limit:r.limit.value,target:r.change.after,doe:r.doe?{selected:r.doe.use.checked,low:r.doe.low.value,high:r.doe.high.value}:null}));
       entry.message=status?.textContent||'';entry.progress=progress?.textContent||'';
       if(!entry.candidate&&state!=='NO_DEMONSTRATED_IMPROVEMENT'){var previous=latest?.baseline&&latest?.candidate?latest:latest?.lastResult;if(previous)entry.lastResult=resultSnapshot(previous);}
-      latest=JSON.parse(JSON.stringify(entry));simulation.whatIf=simulation.whatIf||{};
+      latest=JSON.parse(JSON.stringify(entry));if(clearResultButton)clearResultButton.disabled=false;if(clearNotice)clearNotice.replaceChildren();simulation.whatIf=simulation.whatIf||{};
       simulation.whatIf.evaluations=savedEntries(simulation).filter(r=>!sameCard(r)).concat([latest]);changed(simulation);
       if(entry.baseline&&entry.candidate)renderMetrics(entry);else if(entry.lastResult)renderMetrics(entry.lastResult);else if(metrics)metrics.replaceChildren();
     }
@@ -265,6 +265,25 @@ window.STScenarioExplorer=(function(){
     var results=iconButton('Scenario results','list',showResults);results.classList.add('scenario-results');actions.insertBefore(results,save);
     var resultsDialog=el('dialog','','scenario-results-dialog'),resultsHeading=el('div','','dialog-heading'),resultsBody=el('div','','dialog-body'),resultsFooter=el('div','','dialog-actions');
     resultsDialog.setAttribute('aria-label','Scenario results');var resultsClose=iconButton('Close scenario results','x',function(){resultsDialog.close();});resultsClose.className='ghost icon-button';var resultsDone=button('Done',function(){resultsDialog.close();});resultsHeading.append(el('h2','Scenario results'),resultsClose);resultsFooter.append(resultsDone);resultsDialog.append(resultsHeading,resultsBody,resultsFooter);host.append(resultsDialog);
+    var clearNotice=el('div','','scenario-clear-notice');clearNotice.setAttribute('role','status');host.append(clearNotice);
+    var clearResultButton=iconButton('Delete generated scenario results','trash',function(){
+      if(activeHost)return;
+      var removed=savedEntries(simulation).filter(sameCard),previousConfig=simulation.whatIf?.cardConfigurations?.[cardId],previousLatest=latest,previousLast=last,previousBaseline=baseline,previousBaselineRun=baselineRun,previousStatus=status.textContent,previousState=status.dataset.state,previousSaveDisabled=save.disabled;
+      if(!removed.length&&!metrics.textContent.trim())return;
+      var settings={};['cardId','recordKey','baseRecordKey','uiMode','sourceSimulationId','sourceSignature','title','searchScope','tier','kind','run','depth','categoryInclusions','proposedChanges','searchVariables','selections','controls'].forEach(function(key){if(latest?.[key]!==undefined)settings[key]=JSON.parse(JSON.stringify(latest[key]));});
+      Object.assign(settings,{cardId:cardId,sourceSimulationId:source.id,sourceSignature:sourceSignature,depth:depth,status:'NOT_EVALUATED',message:'Result removed. Run Find best scenario to evaluate.',updatedAt:new Date().toISOString()});
+      simulation.whatIf=simulation.whatIf||{};simulation.whatIf.cardConfigurations=simulation.whatIf.cardConfigurations||{};simulation.whatIf.cardConfigurations[cardId]=settings;
+      simulation.whatIf.evaluations=savedEntries(simulation).filter(function(entry){return !sameCard(entry);});
+      latest=null;last=null;baseline=null;baselineRun=null;generation++;clearTimeout(timer);metrics.replaceChildren();warningSlot.replaceChildren();resultsBody.replaceChildren();if(resultsDialog.open)resultsDialog.close();save.disabled=true;clearResultButton.disabled=true;progress.textContent='';status.textContent=settings.message;status.dataset.state='pending';
+      var undo=button('Undo',function(){
+        if(activeHost||latest)return;
+        simulation.whatIf.evaluations=savedEntries(simulation).filter(function(entry){return !sameCard(entry);}).concat(removed);
+        if(previousConfig)simulation.whatIf.cardConfigurations[cardId]=previousConfig;else delete simulation.whatIf.cardConfigurations[cardId];
+        latest=previousLatest;last=previousLast;baseline=previousBaseline;baselineRun=previousBaselineRun;status.textContent=previousStatus;status.dataset.state=previousState;save.disabled=previousSaveDisabled;clearResultButton.disabled=false;
+        var value=latest?.baseline&&latest?.candidate?latest:latest?.lastResult;if(value)renderMetrics(value);
+        if(latest)renderWarnings(latest.warnings||[],!previousSaveDisabled,latest.evaluatedChanges,latest);clearNotice.replaceChildren();changed(simulation);
+      });undo.className='ghost';clearNotice.replaceChildren(el('span','Result deleted.'),undo);changed(simulation);
+    });clearResultButton.classList.add('scenario-clear-result');actions.append(clearResultButton);
     function showResults(){
       resultsBody.replaceChildren();var entry=latest?.status==='NOT_EVALUATED'?latest:latest?.evaluatedChanges?latest:latest?.lastResult||latest,changes=entry?.evaluatedChanges;
       if(!changes){var linked=(caseProvider?.()?.simulations||[]).find(s=>s.id===entry?.linkedSimulationId);if(linked&&(!entry.linkedSignature||STScenarios.signature(linked)===entry.linkedSignature))changes=linked.scenario?.changes;}
@@ -540,6 +559,7 @@ window.STScenarioExplorer=(function(){
         status.textContent='Saved demo scenario: '+linked.name+' · '+(linked.results.batch?.rounds||1)+' rounds. These values match the existing simulation; a new search can find different targets.';status.dataset.state='saved';save.disabled=true;setIcon(save,'This demo scenario already exists','copy');
       }
     }
+    clearResultButton.disabled=!savedEntries(simulation).some(sameCard)&&!metrics.textContent.trim();
   }
 
   function tools(target,simulation,plan,create){

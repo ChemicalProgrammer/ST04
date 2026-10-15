@@ -327,7 +327,7 @@ async function openCase(caseId, initialView) {
         if(!document.getElementById('case-editor-form').reportValidity())return;
         await prepareCaseDraft();captureSimulationView();
         var draft=cloneJson(state.activeCase);draft.activeSimulationId=state.activeSimulationId;delete draft.expectedRevision;
-        STReports.exportCompleteCase(draft);
+        await STReports.requestCaseExport(draft);
       }catch(error){showError(error);}finally{button.disabled=false;}
     }
     function captureForSave() {
@@ -433,7 +433,7 @@ async function openCase(caseId, initialView) {
       if(exportingCases.has(caseId))return;exportingCases.add(caseId);button.disabled=true;button.dataset.busy='true';
       callServer('getCompleteCaseForExport',[caseId],function(response){
         if(!response.ok)return showError(response.error);
-        try{STReports.exportCompleteCase(response.data);}catch(error){showError(error);}
+        STReports.requestCaseExport(response.data).catch(showError);
       },function(){
         exportingCases.delete(caseId);button.disabled=false;delete button.dataset.busy;
         document.querySelectorAll('.export-gallery-case').forEach(function(current){if(current.dataset.caseId===caseId){current.disabled=false;delete current.dataset.busy;}});

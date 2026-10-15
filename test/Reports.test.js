@@ -179,3 +179,23 @@ test('scenario PDF and JSON include retained sensor targets, reliability scope a
 });
 
 test('Results report retains enabled plant calendar projections without actual comparison',()=>{const h=setup();try{h.sim.dynamicConfig.plantCalendar={enabled:true,totalMinutes:43200,externalMinutes:1441,changeoverMinutes:5393,effectiveMinutes:21307};h.result.summary.qualityAssumption='NO_REJECT_MODEL_ASSUMES_100_PERCENT';const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert.match(html,/Plant calendar/);assert.match(html,/Projected effective runtime/);assert.match(html,/69.67/);assert.doesNotMatch(html,/Actual \/ calendar/);}finally{h.dom.window.close();}});
+
+test('selective case export isolates selected runs, evidence and results without mutating the case',()=>{
+ const h=setup();try{
+  const record={name:'Case',activeSimulationId:'a',equipment:[{id:'root'}],simulations:[{id:'a',equipment:[{id:'ea'}],dynamicConfig:{seed:1},results:{summary:{outputCount:2},replay:{private:1}},whatIf:{evaluations:[{title:'Low'},{title:'High'}]}},{id:'b',equipment:[{id:'eb'}],dynamicConfig:{seed:2,plantCalendar:{totalMinutes:42}},run:{seed:2},geminiHistory:[{text:'chat'}],results:{summary:{outputCount:3},replay:{private:2},view:{},batch:{rows:[{}],replays:[{}],statistics:{outputCount:{mean:3}}}},whatIf:{searchDepth:'HIGH',evaluations:[{title:'Low'},{title:'High'}],measurements:[{private:true}],lossDiagnostic:{private:true}}}]};
+  const before=JSON.stringify(record),choices=h.w.STReports.caseExportSelection(record,'REVIEW');choices[0].included=false;choices[1].scenarioIndexes=[1];choices[1].analysis=false;
+  const copy=h.w.STReports.selectedCaseExport(record,choices);assert.equal(copy.simulations.length,1);assert.equal(copy.activeSimulationId,'b');assert.equal(copy.equipment[0].id,'eb');assert.equal(copy.simulations[0].whatIf.evaluations[0].title,'High');assert.equal(copy.simulations[0].whatIf.evaluations.length,1);assert.equal(copy.simulations[0].results.replay.private,undefined);assert.equal(copy.simulations[0].results.replay.samples.length,1);assert.equal(copy.simulations[0].results.detailCoverage.recordingMode,'SUMMARY');assert.equal(copy.simulations[0].results.batch.rows,undefined);assert.equal(copy.simulations[0].results.batch.statistics.outputCount.mean,3);assert.equal(copy.simulations[0].geminiHistory,undefined);assert.equal(copy.simulations[0].whatIf.measurements,undefined);assert.equal(JSON.stringify(record),before);
+  choices[1].results='NONE';const inputs=h.w.STReports.selectedCaseExport(record,choices).simulations[0];assert.equal(inputs.results,undefined);assert.equal(inputs.run,undefined);assert.equal(inputs.dynamicConfig.plantCalendar.totalMinutes,42);assert.equal(inputs.whatIf.evaluations.length,1);assert.equal(inputs.whatIf.searchDepth,'HIGH');assert.throws(()=>h.w.STReports.selectedCaseExport(record,[]),/at least one/);
+ }finally{h.dom.window.close();}
+});
+
+test('export dialog supports presets, empty selection and local progress lifecycle',async()=>{
+ const h=setup();try{
+  const w=h.w;w.STIcons={svg:()=>'<svg></svg>'};w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};let started=0,ended=0;w.STDialog={beginActivity(){started++;let done=false;return ()=>{if(!done){done=true;ended++;}};}};
+  const record={activeSimulationId:'a',simulations:[{id:'a',name:'A',equipment:[],results:{summary:{}},whatIf:{evaluations:[{title:'High',status:'COMPLETE'}]}},{id:'b',name:'B',equipment:[]}]};
+  const pending=w.STReports.requestCaseExport(record),dialog=w.document.querySelector('.case-export-dialog');await new Promise(r=>setTimeout(r,120));assert.match(dialog.querySelector('.case-export-preview').textContent,/2 simulation/);
+  const includes=dialog.querySelectorAll('legend input');for(const input of includes){input.checked=false;input.onchange();}await new Promise(r=>setTimeout(r,120));assert.match(dialog.querySelector('.case-export-preview').textContent,/at least one/);assert(dialog.querySelector('.dialog-actions button:last-child').disabled);
+  [...dialog.querySelectorAll('.case-export-presets button')].find(b=>b.textContent==='Current simulation').click();await new Promise(r=>setTimeout(r,120));assert.match(dialog.querySelector('.case-export-preview').textContent,/1 simulation/);assert.equal(dialog.querySelectorAll('legend input:checked').length,1);
+  dialog.querySelector('.dialog-heading button').click();assert.equal(await pending,false);assert.equal(started,ended);assert.equal(w.document.querySelector('.case-export-dialog'),null);
+ }finally{h.dom.window.close();}
+});

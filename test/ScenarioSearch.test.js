@@ -410,3 +410,12 @@ test('screening with no eligible target skips simulation and explains that nothi
   assert.equal(h.calls.length,0);assert.match(h.host.querySelector('.scenario-factor-count').textContent,/No eligible input targets/);assert.equal(h.sim.whatIf.evaluations[0].sensitivityScreening.outcome,'NO_ELIGIBLE_TARGETS');
  }finally{h.dom.window.close();}
 });
+
+test('scenario deletion preserves settings and sibling results, supports undo and persists cleared state',async()=>{
+ const h=harness(false);try{
+  await search(h);const evaluation=JSON.parse(JSON.stringify(h.sim.whatIf.evaluations[0]));h.sim.whatIf.evaluations.push({...evaluation,cardId:'other-card',title:'Other'});const originalSettings=h.host.querySelector('.scenario-search-depth').value;
+  h.host.querySelector('.scenario-clear-result').click();assert.equal(h.sim.whatIf.evaluations.length,1);assert.equal(h.sim.whatIf.evaluations[0].title,'Other');assert.equal(h.host.querySelector('.scenario-metrics').textContent,'');assert(h.host.querySelector('.scenario-create').disabled);assert.equal(h.host.querySelector('.scenario-search-depth').value,originalSettings);
+  h.host.querySelector('.scenario-clear-notice button').click();assert.equal(h.sim.whatIf.evaluations.length,2);assert.equal(h.host.querySelector('.scenario-create').disabled,false);assert(h.host.querySelector('.scenario-metrics').textContent.length>0);
+  h.host.querySelector('.scenario-clear-result').click();h.host.remove();const next=h.w.document.createElement('article');h.w.document.body.append(next);h.w.STScenarioExplorer.attach(next,h.project,()=>{},h.sim);assert.equal(next.querySelector('.scenario-metrics').textContent,'');assert(next.querySelector('.scenario-create').disabled);assert.equal(next.querySelector('.scenario-search-depth').value,originalSettings);assert.equal(h.sim.whatIf.evaluations.length,1);
+ }finally{h.dom.window.close();}
+});

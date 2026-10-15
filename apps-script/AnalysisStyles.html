@@ -99,6 +99,11 @@
 .scenario-explorer textarea { min-height:70px; }
 .scenario-external { font-size:var(--font-secondary); color:var(--muted); }
 .scenario-interventions > select,.scenario-interventions > input,.scenario-interventions > textarea { margin-top:var(--space-2); width:100%; }
+.scenario-clear-notice { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-2); font-size:var(--font-secondary); }
+.scenario-clear-notice:not(:empty) { margin-top:var(--space-2); }
+.scenario-clear-notice button { margin:0; }
+.scenario-actions .scenario-clear-result { color:var(--muted); }
+.scenario-actions .scenario-clear-result:hover:not(:disabled) { color:var(--danger); }
 </style>
 <style>
 .scenario-scope { display:flex; align-items:center; gap:var(--space-2); margin:var(--space-2) 0; }

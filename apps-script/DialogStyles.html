@@ -140,4 +140,22 @@ button.error-details-trigger:focus-visible, #header-error-button.error-details-t
 .table-message-dialog th,.table-message-dialog td { overflow-wrap:anywhere; }
 .table-message-dialog td:nth-child(n+3) { font-variant-numeric:tabular-nums; }
 .dialog-table-note { white-space:pre-wrap; }
+/* Case exports share dialog spacing, colors and the heading progress indicator. */
+.case-export-dialog { --dialog-width:820px; }
+.case-export-dialog .dialog-body { display:grid; gap:var(--space-4); }
+.case-export-dialog .dialog-body > p { margin:0; }
+.case-export-presets { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.case-export-presets [aria-pressed=true] { background:var(--selected); color:var(--selected-text); border-color:var(--accent); }
+.case-export-list { display:grid; gap:var(--space-3); }
+.case-export-simulation { min-width:0; margin:0; padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
+.case-export-simulation legend { max-width:100%; padding:0 var(--space-2); font-weight:600; overflow-wrap:anywhere; }
+.case-export-controls { display:grid; gap:var(--space-3); }
+.case-export-controls > label:not(.case-export-check) { display:grid; gap:var(--space-2); margin:0; }
+.case-export-controls select { width:100%; min-width:0; margin:0; }
+.case-export-check { display:flex; align-items:center; gap:var(--space-2); margin:0; font-weight:normal; }
+.case-export-check input { flex:0 0 auto; width:auto; margin:0; }
+.case-export-scenarios { display:grid; gap:var(--space-2); border-top:var(--border-width) solid var(--line); padding-top:var(--space-3); }
+.case-export-scenarios h3,.case-export-scenarios p { margin:0; font-size:var(--font-secondary); }
+.case-export-omitted .case-export-controls { opacity:.55; }
+.case-export-preview { overflow-wrap:anywhere; }
 </style>
