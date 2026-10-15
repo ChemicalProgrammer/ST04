@@ -87,11 +87,12 @@ html[data-ui-mode=basic] .basic-worksheet-group label { grid-template-columns:mi
 #settings-dialog .plant-calendar-grid label { display:flex; flex-direction:column; gap:var(--space-1); margin:0; min-width:0; }
 #settings-dialog .plant-calendar-table { margin:0; }
 #settings-dialog .plant-calendar-table :is(th,td) { overflow-wrap:anywhere; }
-#settings-dialog .settings-color-columns .plant-calendar-table thead th.numeric { width:6em; text-align:right; }
+#settings-dialog .settings-color-columns .plant-calendar-table thead th.numeric { width:9em; text-align:right; }
 #settings-dialog .plant-calendar-table tbody th { font-weight:var(--weight-medium); }
 #settings-dialog .plant-calendar-table td.numeric { text-align:right; }
 #settings-dialog .plant-calendar-table input { width:100%; min-width:0; text-align:right; }
-#settings-dialog .plant-calendar-events .plant-calendar-table thead th.numeric { width:4.5em; }
+#settings-dialog .plant-calendar-events-timed { grid-template-columns:1fr; }
+@media(max-width:620px) { #settings-dialog .plant-calendar-events-timed .plant-calendar-table thead th.numeric { width:20%; } }
 #settings-dialog .plant-calendar-planning > button { justify-self:start; }
 #settings-dialog #settings-plant-calendar > .checkbox-label { margin:0 0 var(--space-3); }
 @media(max-width:640px) { #settings-dialog .settings-simulation-grid { grid-template-columns:1fr; } }
