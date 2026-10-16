@@ -37,7 +37,7 @@ window.STProducts=(function(){
     inline=inline===true;if((!inline&&hooks.locked())||!hooks.capture())return;
     var draft=alignCatalog(data());var initial=initialId(hooks.simulation()),selected=draft.formats.some(f=>f.id===selectedFormatId)?selectedFormatId:draft.formats.some(f=>f.id===initial)?initial:draft.formats[0]?.id;
     var ownerCase=state.activeCase,ownerSimulation=hooks.simulation(),focus=document.activeElement;
-    var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby',inline?'products-title':'formats-dialog-title');
+    var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute(inline?'aria-label':'aria-labelledby',inline?'Formats':'formats-dialog-title');
     var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='formats-dialog-title';title.textContent='Formats';heading.hidden=inline;heading.append(title);
     var tabs=document.createElement('nav');tabs.className='settings-tabs formats-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Format catalogs');
     var body=document.createElement('div');body.className='dialog-body';body.id='formats-tab-panel';body.setAttribute('role','tabpanel');
@@ -79,15 +79,22 @@ window.STProducts=(function(){
     }
     function icon(parent,name,label,handler){var b=document.createElement('button');b.type='button';b.className='ghost icon-button';b.innerHTML=STIcons.svg(name);b.title=label;b.setAttribute('aria-label',label);b.onclick=handler;parent.append(b);return b;}
     function action(parent,text,handler){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=text;b.onclick=handler;parent.append(b);return b;}
+    async function confirmAction(title,message,label,change){
+      if(hooks.locked())return;var answer=await STDialog.open({title:title,message:message,buttons:[{id:'cancel',label:'Cancel'},{id:'confirm',label:label,destructive:true}]});
+      if(answer.action!=='confirm'||!dialog.isConnected||hooks.locked()||ownerCase!==state.activeCase||ownerSimulation!==hooks.simulation())return;change();
+    }
     function renderMaterial(kind){
       var isBox=kind==='boxes',singular=isBox?'box':'product',records=draft[kind],current=records.find(r=>r.id===selection[kind])||records[0];selection[kind]=current?.id;
       var main=section(isBox?'Boxes':'Products'),tools=document.createElement('div');tools.className='product-selector-row';main.append(tools);
-      selectField(tools,isBox?'Box':'Product',current?.id,records,function(value){selection[kind]=value||records[0]?.id;draw();});
+      selectField(tools,isBox?'Current box':'Current product',current?.id,records,function(value){selection[kind]=value||records[0]?.id;draw();});
       icon(tools,'plus','Add '+singular,function(){var r={id:id(singular),name:(isBox?'Box ':'Product ')+(records.length+1),equipment:{}};if(!isBox)r.bottle={};records.push(r);selection[kind]=r.id;alignCatalog(draft);draw();});
-      var remove=icon(tools,'trash','Delete '+singular,function(){var used=draft.formats.filter(f=>f[isBox?'boxId':'productId']===current.id);if(used.length){showError('This '+singular+' is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return;}draft[kind]=records.filter(r=>r.id!==current.id);selection[kind]=draft[kind][0]?.id;draw();});remove.disabled=!current;
-      var clear=action(tools,'Clear fields',function(){Object.keys(current).forEach(key=>{if(key!=='id')delete current[key];});current.name='';if(!isBox)current.bottle={};current.equipment={};alignCatalog(draft);draw();});clear.disabled=!current;
-      var load=action(tools,'Import configuration',function(){importMaterial(kind,current);});load.disabled=!current;
-      var output=action(tools,'Export configuration',function(){try{var payload=SimulatorEngine.materialConfiguration(kind,current,state.activeCase.equipment),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=(current.name||singular).replace(/[^a-z0-9_-]+/gi,'-')+'-configuration.json';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}catch(e){showError(e.message);}});output.disabled=!current;
+      var remove=icon(tools,'trash','Delete '+singular,function(){
+        function inUse(){var used=draft.formats.filter(f=>f[isBox?'boxId':'productId']===current.id);if(!used.length)return false;showError('This '+singular+' is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return true;}
+        if(inUse())return;return confirmAction('Delete '+singular,'Delete "'+(current.name||'Unnamed')+'" and its equipment settings?','Delete',function(){if(inUse()||!draft[kind].includes(current))return;draft[kind]=draft[kind].filter(r=>r.id!==current.id);selection[kind]=draft[kind][0]?.id;draw();});
+      });remove.disabled=!current;
+      var clear=icon(tools,'refresh','Clear fields',function(){return confirmAction('Clear '+singular+' fields','Clear the fields and equipment settings for "'+(current.name||'Unnamed')+'"? Its ID and format references will be retained.','Clear fields',function(){if(!draft[kind].includes(current))return;Object.keys(current).forEach(key=>{if(key!=='id')delete current[key];});current.name='';if(!isBox)current.bottle={};current.equipment={};alignCatalog(draft);draw();});});clear.disabled=!current;
+      var load=icon(tools,'upload','Import configuration',function(){importMaterial(kind,current);});load.disabled=!current;
+      var output=icon(tools,'download','Export configuration',function(){try{var payload=SimulatorEngine.materialConfiguration(kind,current,state.activeCase.equipment),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=(current.name||singular).replace(/[^a-z0-9_-]+/gi,'-')+'-configuration.json';link.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}catch(e){showError(e.message);}});output.disabled=!current;
       if(!current){note(main,'Add a '+singular+' to configure its properties and equipment behavior.');return;}
       var grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';main.append(grid);
       field(grid,isBox?'Box name':'Product name',current,'name',{text:true,required:true});
@@ -107,9 +114,9 @@ window.STProducts=(function(){
     }
     function renderFormats(){
       var choose=section('Packing formats'),tools=document.createElement('div');tools.className='product-selector-row';
-      selectField(tools,'Packing format',selected,draft.formats,function(value){selected=value;selectedFormatId=value;draw();});
+      selectField(tools,'Current format',selected,draft.formats,function(value){selected=value;selectedFormatId=value;draw();});
       var add=icon(tools,'plus','Add packing format',function(){var f={id:id('format'),name:'Packing format '+(draft.formats.length+1),productId:draft.products[0]?.id,boxId:draft.boxes[0]?.id,bottlesPerCase:12,packPattern:'',equipment:{}};draft.formats.push(f);alignCatalog(draft);selected=f.id;selectedFormatId=selected;draw();});add.disabled=!draft.products.length||!draft.boxes.length;
-      var remove=icon(tools,'trash','Delete packing format',function(){var used=references(selected);if(used.length){showError('Format is used by '+used.join(', ')+'. Choose a replacement there first.');return;}draft.formats=draft.formats.filter(f=>f.id!==selected);if(initial===selected)initial='';selected=draft.formats[0]?.id;selectedFormatId=selected;draw();});remove.disabled=!selected;choose.append(tools);
+      var remove=icon(tools,'trash','Delete packing format',function(){var chosen=selected,used=references(chosen);if(used.length){showError('Format is used by '+used.join(', ')+'. Choose a replacement there first.');return;}var format=draft.formats.find(f=>f.id===chosen);return confirmAction('Delete packing format','Delete "'+(format?.name||'Unnamed')+'" and its combination settings?','Delete',function(){var used=references(chosen);if(used.length){showError('Format is used by '+used.join(', ')+'. Choose a replacement there first.');return;}draft.formats=draft.formats.filter(f=>f.id!==chosen);if(initial===chosen)initial='';selected=draft.formats[0]?.id;selectedFormatId=selected;draw();});});remove.disabled=!selected;choose.append(tools);
       var f=draft.formats.find(f=>f.id===selected);if(!f){note(choose,'Create products and boxes first, then combine them in a packing format.');return;}
       var general=section('Format configuration'),grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';general.append(grid);
       field(grid,'Format name',f,'name',{text:true,required:true});selectField(grid,'Product',f.productId,draft.products,value=>{f.productId=value;});selectField(grid,'Box',f.boxId,draft.boxes,value=>{f.boxId=value;});field(grid,'Bottles per case',f,'bottlesPerCase',{min:'1',step:'1',required:true});

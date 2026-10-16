@@ -2706,7 +2706,7 @@ test('UI: enabling events exposes the editor and its calendar dialog in Basic an
 
 test('UI: relational Formats tabs save one product with reusable boxes and preserve a single source of operating settings',async()=>{
  const h=await setup({uiMode:'BASIC',autosaveSeconds:180});try{
-  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="products"]');assert(h.visible('products-panel'));assert(!h.visible('run-panel'));assert.equal(h.d.getElementById('products-title').textContent,'Formats');
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="products"]');assert(h.visible('products-panel'));assert(!h.visible('run-panel'));assert.equal(h.d.getElementById('products-title'),null);assert.equal(h.d.getElementById('products-panel').getAttribute('aria-label'),'Formats');
   const enter=(label,value)=>{const input=h.d.querySelector('[aria-label="'+label+'"]');assert(input,label);input.value=String(value);input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
   await h.click('[aria-label="Add product"]');enter('Product name','Product A');enter('Length along travel (mm)',60);
   await h.click('[data-format-tab="boxes"]');await h.click('[aria-label="Add box"]');enter('Box name','Box A');enter('Length along travel (mm)',300);
@@ -2742,5 +2742,16 @@ test('UI Advance: conveyor inspector opens with hidden serialization fields and 
  const h=await setup({remember:true,uiMode:'ADVANCE',autosaveSeconds:180});try{
   await h.click('.open-case');await h.click('[data-basic-view=conveyors]');const cards=Array.from(h.d.querySelectorAll('.equipment-card')).filter(c=>c._fields.querySelector('.equipment-type').value==='CONVEYOR'),inspector=h.d.getElementById('equipment-inspector');
   for(const card of cards.slice(0,2)){card.click();await settle();assert.equal(inspector.querySelector('.equipment-id').value,card.dataset.equipmentId);assert(inspector.querySelector('.format-zone-grid input'));assert.equal(inspector.querySelector('.equipment-unit').type,'hidden');assert.equal(inspector.querySelector('.equipment-material-flow').tagName,'SELECT');}assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: material toolbar icons and confirmation dialogs protect clear and delete actions',async()=>{
+ const h=await setup({uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view=products]');await h.click('[aria-label="Add product"]');
+  const field=h.d.querySelector('[aria-label="Product name"]');field.value='Protected';field.dispatchEvent(new h.w.Event('input',{bubbles:true}));const selector=h.d.querySelector('[aria-label="Current product"]'),id=selector.value;
+  assert.equal(h.d.getElementById('products-title'),null);for(const label of ['Clear fields','Import configuration','Export configuration']){const button=h.d.querySelector('[aria-label="'+label+'"]');assert(button.classList.contains('icon-button'));assert(button.querySelector('svg'));assert.equal(button.textContent,'');}
+  await h.click('[aria-label="Clear fields"]');assert(h.d.querySelector('.message-dialog').open);await h.click('.message-dialog .ghost');assert.equal(h.d.querySelector('[aria-label="Product name"]').value,'Protected');
+  await h.click('[aria-label="Clear fields"]');assert.equal(h.d.querySelector('.message-dialog .danger').textContent,'Clear fields');await h.click('.message-dialog .danger');assert.equal(h.d.querySelector('[aria-label="Product name"]').value,'');assert.equal(h.d.querySelector('[aria-label="Current product"]').value,id);
+  const name=h.d.querySelector('[aria-label="Product name"]');name.value='Delete me';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('[aria-label="Delete product"]');await h.click('.message-dialog .ghost');assert.equal(h.d.querySelector('[aria-label="Current product"]').value,id);await h.click('[aria-label="Delete product"]');await h.click('.message-dialog .danger');assert.equal(h.d.querySelector('[aria-label="Product name"]'),null);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.formatCatalog?.products?.length===0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
