@@ -2800,3 +2800,23 @@ test('UI: event ranges cross pages and selection resets when switching simulatio
   rows()[0].click();const selector=h.d.getElementById('simulation-selector');selector.value='selection-sibling';selector.dispatchEvent(new h.w.Event('change',{bubbles:true}));await settle();assert.equal(h.d.getElementById('control-event-selection-status').textContent,'0 selected / 102 events');assert(h.d.getElementById('delete-selected-control-events').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: packing-format results retain matched reliability losses and sorted equipment states in Results and exports',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');const record=h.storedCases()[0],sim=record.simulations[0],machine=sim.equipment.find(e=>e.type!=='CONVEYOR');
+  const run={durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:17,rounds:1,initialProductId:'format',productCatalog:[{id:'format',name:'Format',bottlesPerCase:12,equipment:{}}],plannedStops:[{category:'changeoverMinutes',startSeconds:10,endSeconds:20,restartPolicy:'RESTART'}]};
+  sim.dynamicConfig=run;const result={durationSeconds:60,seed:17,inputSignature:h.w.SimulatorEngine.inputSignature({case:{equipment:sim.equipment,unitOfFlow:record.unitOfFlow},run}),products:{rows:[],timeline:[]},summary:{lineOeePercent:50,outputCount:1000,qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'},equipmentMetrics:{[machine.id]:{failureSeconds:6,blockedSeconds:12}},accumulationZoneMetrics:{},samples:[]};
+  let calls=0;h.w.SimulatorEngine.simulateBatch=async input=>{calls++;assert.equal(input.run.reliabilityEnabled,false);assert.equal(input.run.initialProductId,'format');assert.equal(input.run.productCatalog[0].bottlesPerCase,12);assert.equal(input.run.plannedStops[0].endSeconds,20);assert.equal(input.run.seed,17);return {ok:true,result:{summary:{lineOeePercent:70},durationSeconds:60}};};
+  h.w.STResults.render(result,record,sim);await waitFor(()=>sim.whatIf?.lossDiagnostic?.status==='COMPLETE');await settle();const target=h.d.getElementById('results-loss-breakdown'),cards=target.querySelectorAll('.result-kpi strong');assert.deepEqual(Array.from(cards,c=>c.textContent),['20%','—','30%']);
+  const states=target.querySelectorAll('.observed-equipment-times tbody tr');assert.equal(states.length,2);assert.match(states[0].textContent,/Blocking20%/);assert.match(states[1].textContent,/Failure \/ repair10%/);assert.match(target.textContent,/Remaining loss includes speed/);
+  const exported=h.w.STReports.lossBreakdown(result,sim);assert.equal(exported.conditionalReliabilityLoss,20);assert.equal(exported.remainingLossWithoutFailures,30);assert.equal(exported.nominalMachineSpeedGap,null);assert.equal(exported.observedEquipmentTimes.length,2);
+  h.w.STResults.render(result,record,sim);await settle();assert.equal(calls,1);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: packing-format What-If keeps CAPEX cards visible before a validated scenario exists',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+  const record=h.storedCases()[0];record.simulations[0].dynamicConfig.initialFormatId='format';record.expectedRevision=record.revision;h.api.saveCase(record);
+  await h.click('.open-case');await h.click('[data-basic-view=whatif]');const target=h.d.getElementById('simulation-analysis-content'),cards=target.querySelectorAll('.scenario-tier-grid > .analysis-recommendation');assert.equal(cards.length,4);assert.equal(target.querySelectorAll('.analysis-capex').length,uiMode==='BASIC'?3:4);assert.equal(target.querySelectorAll('.scenario-search,.scenario-create').length,0);assert.match(target.textContent,/pending validation/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});

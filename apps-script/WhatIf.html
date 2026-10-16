@@ -21,6 +21,14 @@ window.STWhatIf = (function() {
     checks.appendChild(node('p',__ST_TEXT__('scenario.basis_note'),'chart-note'));
     var list=node('ul');plan.checks.forEach(function(check){list.appendChild(node('li',(check.equipmentId?check.equipmentId+' · ':'')+label(check.rule)+': '+label(check.status)+(check.coverage!=null?' ('+check.coverage.toFixed(2)+'× MTTR)':'')));});checks.appendChild(list);target.appendChild(checks);
   }
+  function unavailable(simulation,target,message){
+    target.replaceChildren();window.STMotion?.watchCards(target);
+    target.append(node('p',message,'notice'));
+    var grid=node('div','','scenario-tier-grid'),basic=window.STBasicMode?.isBasic();
+    if(basic){var current=node('article','','analysis-recommendation scenario-current');current.append(node('h4','Current scenario','scenario-current-title'));var metrics=node('div','','scenario-basic-metrics');[['OEE',simulation.results?.batch?.statistics?.lineOeePercent?.mean??simulation.results?.summary?.lineOeePercent,'%'],['Throughput',simulation.results?.batch?.statistics?.throughputPerMinute?.mean??(simulation.results?.durationSeconds>0?simulation.results.summary?.outputCount/simulation.results.durationSeconds*60:null),' '+(window.STBasicMode?.unitLabel(simulation.results?.unitOfFlow||simulation.unitOfFlow)||'units')+'/min']].forEach(function(spec){var item=node('div','','scenario-basic-metric');item.append(node('span',spec[0]),node('strong',Number.isFinite(spec[1])?spec[1].toFixed(2)+spec[2]:'—'));metrics.append(item);});current.append(metrics);grid.append(current);}
+    (basic?['ZERO','MEDIUM','HIGH']:['ZERO','MEDIUM','HIGH','ALL']).forEach(function(tier){var card=node('article','','analysis-recommendation'),badge=node('span',tier==='ALL'?'All CAPEX':label(tier),'analysis-capex');badge.dataset.tier=tier==='ALL'?'HIGH':tier;card.append(badge,node('h4',tier==='ALL'?'All CAPEX':label(tier)),node('p','No validated scenario available for this configuration.','chart-note'));grid.append(card);});target.append(grid);
+    STReports.bindWhatIf(simulation,{projects:[],candidates:[],checks:[]},[]);
+  }
   function visibleProjects(plan){return (plan.candidates||plan.projects).filter(function(p){return p.changes?.length&&p.disabledReason!=='SCENARIO_INSUFFICIENT_EVIDENCE';});}
   function changeInfo(change,equipment){
     var field=fields[change.path],unit=change.unit||field?.[2]||'',equipmentName=(equipment||[]).find(function(e){return e.id===change.equipmentId;})?.name||change.equipmentId;
@@ -41,7 +49,7 @@ window.STWhatIf = (function() {
     'processData.accumulation.downstreamRampUpSeconds':[__ST_TEXT__('client.downstream_ramp_up_s'),__ST_TEXT__('scenario.explain_ramp'),'s'],
     'processData.upstream.startupTimeSeconds':[__ST_TEXT__('sheetimportmerge.startup_time_s'),__ST_TEXT__('scenario.explain_startup'),'s']
   };
-  return {render:render,card:card,visibleProjects:visibleProjects,changeInfo:changeInfo};
+  return {render:render,unavailable:unavailable,card:card,visibleProjects:visibleProjects,changeInfo:changeInfo};
 })();
 window.STScenarioText = {
   ZERO:__ST_TEXT__('scenario.zero'),MEDIUM:__ST_TEXT__('scenario.medium'),HIGH:__ST_TEXT__('scenario.high'),

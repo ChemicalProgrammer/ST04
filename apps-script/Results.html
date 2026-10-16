@@ -46,7 +46,7 @@ window.STResults=(function(){
   }
   function renderEfficiency(target,equipment,result,simulation){
     target._lossKey=null;target.replaceChildren();
-    if(result?.products){var note=document.createElement('p');note.className='chart-note';note.textContent='Product-specific conversion is included in production and weighted OEE. The detailed loss decomposition is pending validation for multiple units and formats.';target.append(note);return;}
+    var formatted=Boolean(result?.products);
     var d=SimulatorEngine.diagnoseLineEfficiency(equipment,result);
     function add(tag,text,parent){var node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
     if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','Loss breakdown unavailable for the experimental engine.');return;}
@@ -56,10 +56,13 @@ window.STResults=(function(){
     var failuresDisabled=simulation?.dynamicConfig?.reliabilityEnabled===false;
     var conditional=diagnostic?.status==='COMPLETE'?diagnostic.failureFreeOee-diagnostic.baselineOee:counter?.deltaOeePp;
     var failureFree=diagnostic?.status==='COMPLETE'?diagnostic.failureFreeOee:counter?.failureFree.oee;
-    var remaining=Number.isFinite(failureFree)&&Number.isFinite(d.capacityGapPp)?100-d.capacityGapPp-failureFree:null;
-    if(!diagnostic&&!counter&&failuresDisabled&&d.accountingAvailable){conditional=0;remaining=d.residualLossPp;}
+    var capacityGap=formatted?null:d.capacityGapPp;
+    var remaining=Number.isFinite(failureFree)&&(formatted||Number.isFinite(capacityGap))?100-(formatted?0:capacityGap)-failureFree:null;
+    if(!formatted&&!diagnostic&&!counter&&failuresDisabled&&d.accountingAvailable){conditional=0;remaining=d.residualLossPp;}
     var cards=add('div','');cards.className='result-kpis result-loss-kpis';
-    [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',d.capacityGapPp],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':'—',card);});
+    [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',capacityGap],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':'—',card);});
+    if(formatted)add('p','Format-aware losses use the same product schedule, units and seeds. Remaining loss includes speed, transport, planned stops and other flow effects; the nominal machine-speed gap is not separated.').className='chart-note';
+    if(diagnostic?.status==='PENDING')add('p','Calculating matched loss diagnostics…').className='chart-note';
     if(diagnostic?.status==='DEFERRED'){var calculate=add('button','Calculate matched loss diagnostics');calculate.type='button';calculate.className='secondary';calculate.title='Runs the full period again without random failures; may take several minutes.';calculate.onclick=function(){target._longLossKey=diagnostic.key;renderEfficiency(target,equipment,result,simulation);};}
     if(diagnostic?.status==='ERROR'){var retry=add('button','Recalculate losses');retry.type='button';retry.className='secondary';retry.onclick=()=>{lossJobs.delete(diagnostic.key);renderEfficiency(target,equipment,result,simulation);};}
     if(!result)return;
