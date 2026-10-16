@@ -45,7 +45,7 @@ var STConfigurationEditor=(function(){
     if(Object.prototype.hasOwnProperty.call(source.dynamicConfig||{},'initialFormatId'))run.initialProductId=run.initialFormatId;
     else if(Object.prototype.hasOwnProperty.call(source.dynamicConfig||{},'initialProductId'))run.initialFormatId=run.initialProductId;
     if(parsed.case?.metadata?.formatCatalog||parsed.case?.metadata?.products){
-      formatCatalog=SimulatorEngine.mergeFormatCatalogs(SimulatorEngine.normalizeFormatCatalog(current.case.metadata||{}),SimulatorEngine.normalizeFormatCatalog(parsed.case.metadata));
+      formatCatalog=SimulatorEngine.mergeFormatCatalogs(SimulatorEngine.normalizeFormatCatalog(current.case.metadata||{},current.simulation.equipment),SimulatorEngine.normalizeFormatCatalog(parsed.case.metadata,source.equipment||current.simulation.equipment));
       run.productCatalog=SimulatorEngine.resolvePackingFormats(formatCatalog);
     }
     if(run.tickSeconds!==0.25)throw Error('tickSeconds must be 0.25 in this interface.');

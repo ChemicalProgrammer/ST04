@@ -1,70 +1,59 @@
-# Formats: products, boxes and packing formats
+# Products and Formats
 
-The Formats menu uses three tabs with the shared Settings/header tab design and native select styling. All catalogs belong to the case. Reusable operating settings belong to products and boxes; conversion settings belong to packing formats; each simulation selects its own initial format and changeover destinations.
+The Formats menu has two tabs, using shared header tabs, native selects, compact fields and table styles. There is no separate Boxes catalog or Combination settings subsection.
 
-| Tab | Editable data | Reuse |
+| Tab | General fields | Equipment behavior |
 | --- | --- | --- |
-| Products | Product name, volume, bottle dimensions and bottle-processing equipment/conveyor behavior | One product may use several boxes. |
-| Boxes | Box name, external dimensions and case-processing equipment/conveyor behavior | One box may be shared by several products. |
-| Packing formats | Product reference, box reference, bottles per case and combination-specific conversion settings | Each combination has its own operating settings. |
+| Products | Current product, name, volume and bottle length/width/height | Bottle-processing machines and bottle conveyors. |
+| Formats | Current format, name, linked product, bottles per case and case length/width/height | Case Packer, case-processing machines and case conveyors. |
 
-Bottles per case is edited only on the packing format. It depends on the product/box/arrangement combination. The former Packing pattern field is hidden because it did not affect the simulation. Previously saved descriptions are retained; no spatial fit calculation is performed. The current single-lane conveyor model uses the dimension along travel; width and height are reference data.
+One product can have several formats: Product A / 12 bottles, Product A / 24 bottles, Product B / 12 bottles. Each format owns its case dimensions and operating settings. Editing one format's case does not change another format. Product edits are shared by all linked formats.
 
-## Configuration
+## Controls and saving
 
-1. In Equipment and Conveyors, use Material flow: Bottle → Bottle, Bottle → Case or Case → Case. A conveyor uses Transport unit: Bottle or Case. A Case Packer can receive bottles and produce cases. Its downstream conveyor must transport cases. Physical-unit edits apply across packing formats; legacy per-format unit layouts are retained until explicitly changed. Cards have no format selector or edit shortcut; format-derived nominal rates remain read-only.
-2. In Formats → Products, use the Current product selector with Add / Delete, then enter the selected product’s identity and dimensions in the compact grid. Boxes uses the same layout with Current box; Packing formats uses Current format. Clear fields, Import configuration and Export configuration are shared icon buttons with tooltips. The page starts with the tabs, without a duplicate Formats heading. Clear fields requires confirmation and clears only the selected record while retaining its ID and format references; enter a name before saving.
-3. In Boxes, add box dimensions. Pack count is not a box property.
-4. In Packing formats, add a combination, select its product and box, and enter bottles per case. Confirm the suggested pack size of 12.
-5. In Products or Boxes, select the record at the top. Equipment behavior contains Machines followed by Conveyors. Enter machine rate, startup and ramp settings, and conveyor-specific gaps/speeds in its tables. All equipment and conveyors are listed, with a usage label identifying the current physical flow. Product values are used for bottle flow and box values for case flow; conversion settings remain on the packing format. Other material values may be entered in advance, but take effect only if the equipment flow is changed. Combination-specific Bottle → Case settings remain under Packing formats. Rates use output units per minute: 300 bottles/min equals 25 cases/min for a 12-bottle case. Gap means free space; pitch = product length + gap. Manual belt speeds are entered in m/min and stored in mm/s. Blank overrides retain base settings; new records leave overrides blank rather than copying defaults. Use defaults on a row removes its operating overrides. Use settings enables its material-specific values; unchecking it disables/dims the fields, retains their values and falls back to installed defaults during simulation. It does not remove equipment from the line. Existing explicit settings remain intact. MTBF/MTTR, installation length and sensors remain equipment settings.
-6. Use the main case Save button. Catalog edits join the normal case draft and autosave; there is no separate format Save or Discard button. In Simulation, choose Initial format immediately before Playback speed. The selection belongs to the active simulation and is locked during calculation/playback. Base equipment settings retains the legacy uniform-unit model.
-7. In Simulation, enable events and use + Changeover or apply the plant calendar. Destination format selects a complete product/box/count/settings combination. For example, A/Box A → A/Box B → B/Box C.
+Each tab uses a selector followed by Add, Delete, Clear fields, Import configuration and Export configuration icon buttons. Delete and Clear require confirmation; cancellation preserves the draft. Product deletion is blocked while formats reference it. Format deletion is blocked while other simulations or changeovers reference it; deleting the active initial format clears that selection. Clearing a format retains its ID and product reference; its name/count must be re-entered before saving.
 
-The three tabs edit the case draft directly: switching tabs or records retains edits. The main case Save and existing autosave persist them. Validation blocks invalid records from being saved. Delete actions require confirmation. Deleting a product or box is blocked while a format references it. Deleting a format is blocked while another simulation's initial selection or a changeover uses it. Deleting the active simulation's initial format clears that selection. Saved results and run snapshots remain historical records.
+Fields appear immediately below the toolbar in the shared compact grid. Equipment behavior contains Machines, then Conveyors. There are no secondary Save or Discard buttons: edits join the normal case draft and use the main Save / existing autosave. Invalid records cannot be saved.
 
-The same product behavior is reused by all linked formats; the same applies to boxes. Changing box dimensions or case count can therefore change accumulation and bottle-equivalent flow without duplicating the product settings. A converter keeps its own combination-specific rate.
+## Configure the line
 
-## Compatibility and equipment changes
+1. Set physical Material flow on machines: Bottle → Bottle, Bottle → Case, or Case → Case. Set Transport unit on conveyors: Bottle or Case. A Case Packer must use Bottle → Case for conversion; downstream conveyors and the Palletizer use Case / Case → Case.
+2. Add a Product, its bottle dimensions and optional behavior settings.
+3. Add a Format, select the Product, enter bottles per case, and enter case dimensions. Confirm the suggested count of 12.
+4. Under the format's Equipment behavior, set the Case Packer's output rate and any case-machine/conveyor overrides. Rates use output units per minute: 300 bottles/min is equivalent to 25 cases/min for a 12-bottle format. A converter configured with bottle flow still appears with a prompt to configure Bottle → Case; its case fields are disabled until the physical flow is correct.
+5. In Simulation, choose Initial format before Playback speed. It is saved per simulation and locked during execution. Changeover destinations select another format, which supplies its product and packaging settings.
 
-Use settings controls material overrides, not installation membership. Disabled rows use equipment/conveyor defaults. Every format actually used in a run must still have valid geometry and continuous units through the installed serial line. Draft/incomplete or partially mapped formats may remain in the catalog without blocking another valid format. Changing the bottle/case layout at the same installed step during one run is not supported; use separate simulations for different layouts.
+Use settings enables a row's overrides. Unchecking dims/disables its controls, retains entered values, and uses installed defaults during simulation. It never removes equipment from the serial line. Blank values also inherit defaults; zero is an explicit zero gap. Use defaults clears operating overrides while retaining physical units and the checkbox selection.
 
-Profiles follow equipment IDs. New equipment receives blank behavior overrides; it inherits current equipment/conveyor defaults. Rename/reorder changes labels/order while preserving values. A removed profile is pruned only when no other simulation still uses its equipment ID. Product and box records remain independent of equipment topology.
-
-## Existing cases, export and reproducibility
-
-Opening an old product catalog presents an independent migration draft. Each old entry becomes a product, a box and a packing format. Format IDs stay equal to the previous IDs, preserving initial and changeover references. Migration does not guess whether similar records are the same product or box. The next edit and main case Save commit the relational catalog; old snapshots and results are not rewritten.
-
-Version 2 moves reusable equipment behavior into products and boxes. Identical settings become shared; different settings from an older format are retained as visible overrides under Combination settings. Use shared settings removes a retained override for that equipment. Existing IDs, run snapshots and results are preserved.
-
-The canonical case metadata stores `formatCatalog` with products, boxes and formats. Simulation runs receive resolved format snapshots containing the selected bottle/box dimensions and count. Shared catalog edits affect future runs while stored input snapshots remain unchanged. Full case export includes the catalogs; summary export retains format results. Configuration import merges new catalog IDs and rejects conflicting shared records rather than silently overwriting another simulation's data.
-
-## Material configuration files
-
-Each Products/Boxes toolbar imports and exports the selected record as JSON (`st-material-configuration-v1`), including its dimensions and equipment overrides. Import replaces the selected record’s fields while preserving its ID and all format references. Product files cannot be imported as boxes or vice versa. Equipment IDs must match the active simulation; unknown fields, unsafe keys and invalid values are rejected before any change. The import dialog uses the shared dialog layout and local progress bar. Cancellation leaves the record unchanged.
-
-## Simulation scope
-
-This change organizes configuration and format selection; it does not add an automatic production planner. Shifts remain reporting boundaries. Schedule explicit changeovers to change the packing format at the required times.
-
-The ST engine uses continuous equivalent flow, not discrete box assembly. It reports complete-case equivalents and fractional remainder separately. Global production and material balance use bottle equivalents. At destination-format changeover completion, remaining inventory is removed and counted separately as clear-out, then the line starts empty. Progressive draining, mixed product fronts, rejects, multiple lanes and automatic fit checks are not added.
-
-`input = finished output + inventory + overflow + changeover clear-out + numerical residual`
-
-OEE integrates the configured reference for each format. Product-specific What-If/DOE, speed recommendations and loss decomposition remain pending validation. Experimental DES does not support these format changes.
-
-## Validation
-
-Tests cover relational reuse, legacy migration without changing output, independent format counts, shared-source edits versus immutable snapshots, A/Box A → A/Box B → B/Box C changeovers, material balance, asynchronous/batch consistency, catalog references and deletion guards, tab drafts/keyboard navigation, equipment reconciliation, shared select styles, simplified material-flow controls, locked initial-format selection and read-only card values. Plant calibration is still required.
-
-## Conveyor defaults and ownership
-
-Conveyor inputs remain visible and editable even when formats are configured. They are the base values for every product and box that leaves the corresponding override blank. A missing product/box length falls back to each conveyor’s default package length; a run is rejected if neither source supplies valid geometry. An explicit zero gap is an override, not a blank.
+## Field ownership and units
 
 | Field group | Owner |
 | --- | --- |
-| Installed length, prime reserve, discharge/coding runout, sensor positions and sensor delays | Conveyor installation only; not duplicated in products/boxes. |
-| Stop response, residual discharge, insurance factor and conveyor design factors | Conveyor defaults. |
-| Package length, discharge/infeed pitches, moving/accumulated gaps and belt speed | Conveyor defaults; product/box dimensions and explicit spacing/speed overrides take precedence. |
-| Machine rate, startup and ramp | Equipment defaults; matching product/box overrides take precedence. Bottle → Case conversion overrides remain on the format. |
+| Bottle dimensions | Product. |
+| Product reference, bottles per case, case dimensions | Format. |
+| Machine rate, startup and ramp | Product for bottles; format for cases and Bottle → Case conversion; blanks inherit equipment defaults. |
+| Moving/accumulated/discharge/infeed gaps and manual belt speed | Product or format overrides for the matching transported unit; blanks inherit conveyor defaults. |
+| Installed length, prime reserve, discharge/coding runout, sensor positions and delays | Conveyor installation only. |
+| MTBF/MTTR | General equipment configuration. |
 
-Precedence is retained format exception → matching product/box override → equipment/conveyor default. Use shared settings removes an older format exception; Use defaults removes row overrides. Neither rewrites historical run snapshots.
+Gap means free space; pitch = length along travel + gap. Manual speed inputs use m/min, stored as mm/s. Missing product/case lengths inherit valid conveyor package-length defaults; missing both sources is rejected. Width and height are reference data in the current single-lane model. There is no spatial fit or packing-pattern calculation.
+
+Profiles follow equipment IDs. Added equipment receives blank overrides. Removed profiles are pruned only when no other simulation still uses the ID. Physical-unit edits are shared across formats. Different bottle/case layouts during one run are not supported; use separate simulations for different layouts.
+
+## Migration, history and configuration files
+
+Catalog version 3 stores products and formats. Former box dimensions and effective case behavior are copied into each referencing format; IDs, initial-format references and changeover destinations stay unchanged. Former box records are retained in a legacy catalog archive for recovery. Existing run snapshots/results are never rewritten. Legacy bottle-specific format exceptions remain visible as migrated overrides; clearing them restores shared product settings.
+
+Product configuration files retain the v1 material schema. Format files use `st-material-configuration-v2` and include the product reference, count, case dimensions and behavior. Import preserves the current record ID, checks equipment IDs and field types, and rejects missing product references before changing the draft. Import dialogs use the shared dialog layout and local progress bar. Complete-case/configuration imports normalize older catalogs and merge new records without overwriting conflicting shared IDs.
+
+The engine receives resolved immutable snapshots. Editing a product or format affects future runs. Full-case export contains the catalogs and history; summary exports retain format production attribution. A separate Box column is no longer needed beside Format and Product in production tables.
+
+## Simulation scope
+
+The ST engine uses continuous equivalent flow, not discrete box assembly. Global production and material balance use bottle equivalents; results report complete-case equivalents and fractional remainder separately. At destination-format changeover completion, remaining inventory is counted as clear-out and the line starts empty.
+
+`input = finished output + inventory + overflow + changeover clear-out + numerical residual`
+
+This does not add an automatic shift planner, progressive draining, mixed-product fronts, rejects, multiple lanes or fit checks. Explicit changeovers change the active format. OEE integrates its configured rate reference. Product-specific What-If/DOE, speed recommendations and loss decomposition remain pending validation. Experimental DES does not support these format changes.
+
+Tests cover migration equivalence, independent format packaging, shared product behavior, checkbox fallback, configuration import/export, reference guards, main-case saving, format changeovers and material balance. Plant calibration is still required.

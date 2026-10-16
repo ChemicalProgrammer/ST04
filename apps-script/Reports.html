@@ -105,7 +105,7 @@ window.STReports=(function(){
       slots.context+=' · '+escape(result.durationSeconds)+' s'+(result.batch?' · Mean of '+escape(result.batch.rounds)+' rounds':'');
       slots.equipment='';slots.zones='';slots.batch='';slots.representative='';
     }
-    if(result.products){slots.overview+='<h2>Production by packing format</h2>'+table(['Packing format','Product','Box','Output unit','Output equivalent','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'],result.products.rows.map(function(row){return [row.name,row.productName||row.name,row.boxName||'—',row.outputUnit,value(row.outputNative),value(row.completeCases),value(row.partialCaseEquivalent),value(row.outputBottleEquivalents),value(row.clearoutBottleEquivalents)];}))+'<p>Representative round. Continuous equivalent flow; changeover clear-out is removed inventory, not production.</p>';}
+    if(result.products){slots.overview+='<h2>Production by packing format</h2>'+table(['Format','Product','Output unit','Output equivalent','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'],result.products.rows.map(function(row){return [row.name,row.productName||row.name,row.outputUnit,value(row.outputNative),value(row.completeCases),value(row.partialCaseEquivalent),value(row.outputBottleEquivalents),value(row.clearoutBottleEquivalents)];}))+'<p>Representative round. Continuous equivalent flow; changeover clear-out is removed inventory, not production.</p>';}
     if(window.STPlantCalendar){var comparison=document.createElement('section');STPlantCalendar.renderResults(comparison,result,simulation);slots.overview+=comparison.innerHTML;}
     return documentHtml(__ST_TEXT__('exports.results_report'),slots);
   }
