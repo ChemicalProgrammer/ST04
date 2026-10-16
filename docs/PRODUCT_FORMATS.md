@@ -1,28 +1,28 @@
 # Formats: products, boxes and packing formats
 
-The Formats menu uses three tabs with the shared Settings/header tab design and native select styling. All catalogs belong to the case. Operating settings belong to packing formats; each simulation selects its own initial format and changeover destinations.
+The Formats menu uses three tabs with the shared Settings/header tab design and native select styling. All catalogs belong to the case. Reusable operating settings belong to products and boxes; conversion settings belong to packing formats; each simulation selects its own initial format and changeover destinations.
 
 | Tab | Editable data | Reuse |
 | --- | --- | --- |
-| Products | Product name, volume and bottle length/width/height | One product may use several boxes. |
-| Boxes | Box name and external length/width/height | One box may be shared by several products. |
-| Packing formats | Product reference, box reference, bottles per case, packing pattern, equipment settings | Each combination has its own operating settings. |
+| Products | Product name, volume, bottle dimensions and bottle-processing equipment/conveyor behavior | One product may use several boxes. |
+| Boxes | Box name, external dimensions and case-processing equipment/conveyor behavior | One box may be shared by several products. |
+| Packing formats | Product reference, box reference, bottles per case and combination-specific conversion settings | Each combination has its own operating settings. |
 
-Bottles per case is edited only on the packing format. It depends on the product/box/arrangement combination. Packing pattern is descriptive; it does not generate a spatial arrangement or prove the bottles fit the box. The current single-lane conveyor model uses the dimension along travel; width and height are reference data.
+Bottles per case is edited only on the packing format. It depends on the product/box/arrangement combination. The former Packing pattern field is hidden because it did not affect the simulation. Previously saved descriptions are retained; no spatial fit calculation is performed. The current single-lane conveyor model uses the dimension along travel; width and height are reference data.
 
 ## Configuration
 
-1. In Equipment and Conveyors, configure physical input/output units. A conveyor transports bottles or cases. A Case Packer can receive bottles and produce cases. Its downstream conveyor must transport cases. Physical-unit edits apply across packing formats; legacy per-format unit layouts are retained until explicitly changed.
+1. In Equipment and Conveyors, use Material flow: Bottle → Bottle, Bottle → Case or Case → Case. A conveyor uses Transport unit: Bottle or Case. A Case Packer can receive bottles and produce cases. Its downstream conveyor must transport cases. Physical-unit edits apply across packing formats; legacy per-format unit layouts are retained until explicitly changed. Cards have no format selector or edit shortcut; format-derived nominal rates remain read-only.
 2. In Formats → Products, add the products and bottle dimensions using the compact table.
 3. In Boxes, add box dimensions. Pack count is not a box property.
-4. In Packing formats, add a combination, select its product and box, and enter bottles per case and optional packing pattern. Confirm the suggested pack size of 12.
-5. Enter machine rate, startup and ramp settings, and conveyor-specific gaps/speeds in the tables. Rates use output units per minute: 300 bottles/min equals 25 cases/min for a 12-bottle case. Gap means free space; pitch = product length + gap. Manual belt speeds are entered in m/min and stored in mm/s. Blank overrides retain base settings. MTBF/MTTR, installation length and sensors remain equipment settings.
-6. Select Use as initial format for the active simulation and Save formats. Without an initial format the legacy uniform-unit model remains available.
+4. In Packing formats, add a combination, select its product and box, and enter bottles per case. Confirm the suggested pack size of 12.
+5. In Products or Boxes, select the record under Behavior selection. Enter machine rate, startup and ramp settings, and conveyor-specific gaps/speeds in its tables. Only matching physical units are listed. Combination-specific Bottle → Case settings remain under Packing formats. Rates use output units per minute: 300 bottles/min equals 25 cases/min for a 12-bottle case. Gap means free space; pitch = product length + gap. Manual belt speeds are entered in m/min and stored in mm/s. Blank overrides retain base settings. MTBF/MTTR, installation length and sensors remain equipment settings.
+6. Save formats. In Simulation, choose Initial format immediately before Playback speed. The selection belongs to the active simulation and is locked during calculation/playback. Base equipment settings retains the legacy uniform-unit model.
 7. In Simulation, enable events and use + Changeover or apply the plant calendar. Destination format selects a complete product/box/count/settings combination. For example, A/Box A → A/Box B → B/Box C.
 
 The three tabs share a draft: switching tabs retains edits. Save formats commits all catalogs together; Discard edits restores them. Deleting a product or box is blocked while a format references it. Deleting a format is blocked while another simulation's initial selection or a changeover uses it. Deleting the active simulation's initial format clears that selection. Saved results and run snapshots remain historical records.
 
-Equipment cards display the active format, its product/box and pack size. Format rates are read-only there; Edit in Formats opens Packing formats. Equipment-unit selectors remain the one editing location for physical input/output function; packing-format tables display them as text. This avoids duplicate presentation and rate editors.
+The same product behavior is reused by all linked formats; the same applies to boxes. Changing box dimensions or case count can therefore change accumulation and bottle-equivalent flow without duplicating the product settings. A converter keeps its own combination-specific rate.
 
 ## Compatibility and equipment changes
 
@@ -33,6 +33,8 @@ Profiles follow equipment IDs. New equipment receives base defaults in every for
 ## Existing cases, export and reproducibility
 
 Opening an old product catalog presents an independent migration draft. Each old entry becomes a product, a box and a packing format. Format IDs stay equal to the previous IDs, preserving initial and changeover references. Migration does not guess whether similar records are the same product or box. Save formats commits the relational catalog; old snapshots and results are not rewritten.
+
+Version 2 moves reusable equipment behavior into products and boxes. Identical settings become shared; different settings from an older format are retained as visible overrides under Combination settings. Use shared settings removes a retained override for that equipment. Existing IDs, run snapshots and results are preserved.
 
 The canonical case metadata stores `formatCatalog` with products, boxes and formats. Simulation runs receive resolved format snapshots containing the selected bottle/box dimensions and count. Shared catalog edits affect future runs while stored input snapshots remain unchanged. Full case export includes the catalogs; summary export retains format results. Configuration import merges new catalog IDs and rejects conflicting shared records rather than silently overwriting another simulation's data.
 
@@ -48,4 +50,4 @@ OEE integrates the configured reference for each format. Product-specific What-I
 
 ## Validation
 
-Tests cover relational reuse, legacy migration without changing output, independent format counts, shared-source edits versus immutable snapshots, A/Box A → A/Box B → B/Box C changeovers, material balance, asynchronous/batch consistency, catalog references and deletion guards, tab drafts/keyboard navigation, equipment reconciliation, shared select styles and read-only card values. Plant calibration is still required.
+Tests cover relational reuse, legacy migration without changing output, independent format counts, shared-source edits versus immutable snapshots, A/Box A → A/Box B → B/Box C changeovers, material balance, asynchronous/batch consistency, catalog references and deletion guards, tab drafts/keyboard navigation, equipment reconciliation, shared select styles, simplified material-flow controls, locked initial-format selection and read-only card values. Plant calibration is still required.

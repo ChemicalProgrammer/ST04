@@ -13,3 +13,12 @@ test('dangling references, duplicate IDs, invalid dimensions and conflicting com
 
 
 test('configuration catalogs merge new records and reject conflicts without changing either source',()=>{const current=catalog(),incoming=structuredClone(current);incoming.boxes.push({id:'new-box',name:'New box',lengthMm:250});incoming.formats.push({id:'new-format',name:'A / New box',productId:'p-a',boxId:'new-box',bottlesPerCase:18});const before=structuredClone(current),merged=mergeFormatCatalogs(current,incoming);assert.equal(merged.boxes.length,4);assert.equal(merged.formats.length,4);assert.deepEqual(current,before);incoming.products[0].bottle.lengthMm=999;assert.throws(()=>mergeFormatCatalogs(current,incoming),/Shared products record/);assert.deepEqual(current,before);});
+
+test('behavior migration shares product and box settings, preserves differing overrides and keeps packer settings local',()=>{
+ const c=catalog(),eq=input(resolvePackingFormats(c)).case.equipment;
+ for(const f of c.formats)f.equipment={source:{inputUnit:'BOTTLES',outputUnit:'BOTTLES',ratePerMinute:600},boxes:{inputUnit:'CASES',outputUnit:'CASES',movingGapMm:9},packer:{inputUnit:'BOTTLES',outputUnit:'CASES',ratePerMinute:f.bottlesPerCase===24?60:120}};
+ c.formats[1].equipment.source.ratePerMinute=500;
+ const old=resolvePackingFormats(c),migrated=normalizeFormatCatalog({formatCatalog:c},eq),next=resolvePackingFormats(migrated);
+ assert.deepEqual(next,old);assert.deepEqual(run(input(next)).summary,run(input(old)).summary);assert.equal(migrated.products[0].equipment.source.ratePerMinute,600);assert.equal(migrated.boxes[0].equipment.boxes.movingGapMm,9);assert.equal(migrated.formats[0].equipment.source.ratePerMinute,undefined);assert.equal(migrated.formats[1].equipment.source.ratePerMinute,500);assert.equal(migrated.formats[1].equipment.packer.ratePerMinute,60);
+ migrated.products[0].equipment.source.ratePerMinute=700;assert.equal(resolvePackingFormats(migrated)[0].equipment.source.ratePerMinute,700);assert.equal(resolvePackingFormats(migrated)[1].equipment.source.ratePerMinute,500);delete migrated.formats[1].equipment.source.ratePerMinute;assert.equal(resolvePackingFormats(migrated)[1].equipment.source.ratePerMinute,700);assert.equal(old[0].equipment.source.ratePerMinute,600);
+});

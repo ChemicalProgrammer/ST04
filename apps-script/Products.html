@@ -2,7 +2,7 @@
 window.STProducts=(function(){
   var state,hooks,currentTab='products',selectedFormatId;
   function copy(value){return JSON.parse(JSON.stringify(value));}
-  function data(){return SimulatorEngine.normalizeFormatCatalog(state?.activeCase?.metadata||{});}
+  function data(){return SimulatorEngine.normalizeFormatCatalog(state?.activeCase?.metadata||{},state?.activeCase?.equipment||[]);}
   function catalog(){return SimulatorEngine.resolvePackingFormats(data());}
   function initialId(sim){return sim?.dynamicConfig?.initialFormatId??sim?.dynamicConfig?.initialProductId??'';}
   function currentFormat(){try{return catalog().find(f=>f.id===initialId(hooks?.simulation()));}catch(ignore){return null;}}
@@ -20,15 +20,17 @@ window.STProducts=(function(){
       infeedGapMm:Number.isFinite(e.processData?.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,e.processData.downstream.infeedPitchMm-length):undefined,
       speedMmPerSecond:a.speedMode==='MANUAL'?a.conveyorSpeedMmPerSecond:undefined};
   }
-  function alignFormats(formats){
+  function alignCatalog(c){
     var all=state.activeCase.equipment||[],keep=new Set(all.map(e=>e.id)),activeId=hooks.simulation()?.id||state.activeSimulationId;
     (state.activeCase.simulations||[]).filter(s=>s.id!==activeId).forEach(s=>(s.equipment||[]).forEach(e=>keep.add(e.id)));
-    formats.forEach(function(f){f.equipment=f.equipment||{};all.forEach(function(e,i){if(!Object.prototype.hasOwnProperty.call(f.equipment,e.id))f.equipment[e.id]=defaultProfile(e,i);});Object.keys(f.equipment).forEach(key=>{if(!keep.has(key))delete f.equipment[key];});});return formats;
+    [...c.products,...c.boxes].forEach(record=>{record.equipment=record.equipment||{};Object.keys(record.equipment).forEach(key=>{if(!keep.has(key))delete record.equipment[key];});});
+    c.formats.forEach(function(f){f.equipment=f.equipment||{};all.forEach(function(e,i){var input=unit(e,'input'),output=unit(e,'output'),p=f.equipment[e.id];if(!p)f.equipment[e.id]=input!==output?defaultProfile(e,i):{inputUnit:input,outputUnit:output};});Object.keys(f.equipment).forEach(key=>{if(!keep.has(key))delete f.equipment[key];});});
+    all.forEach(function(e,i){var input=unit(e,'input'),output=unit(e,'output');if(input!==output)return;var records=output==='CASES'?c.boxes:c.products;records.forEach(function(record){if(!record.equipment[e.id]){var p=defaultProfile(e,i);delete p.inputUnit;delete p.outputUnit;record.equipment[e.id]=p;}});});return c;
   }
-  function reconcile(){if(!state?.activeCase)return false;var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[];if(!formats.length)return false;var before=JSON.stringify(formats);alignFormats(formats);return before!==JSON.stringify(formats);}
+  function reconcile(){if(!state?.activeCase)return false;var before=JSON.stringify(state.activeCase.metadata||{}),c=alignCatalog(data());if(!c.formats.length&&!c.products.length&&!c.boxes.length)return false;state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:c};delete state.activeCase.metadata.products;return before!==JSON.stringify(state.activeCase.metadata);}
   function setPhysicalUnits(equipmentId,input,output){
-    var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[];
-    formats.forEach(function(f){f.equipment=f.equipment||{};var profile=f.equipment[equipmentId]||(f.equipment[equipmentId]={});profile.inputUnit=input;profile.outputUnit=output;});
+    var c=data();c.formats.forEach(function(f){f.equipment=f.equipment||{};var profile=f.equipment[equipmentId]||(f.equipment[equipmentId]={});profile.inputUnit=input;profile.outputUnit=output;});
+    state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:c};delete state.activeCase.metadata.products;
   }
   function references(formatId){
     var active=hooks.simulation(),sims=(state.activeCase.simulations||[]).slice();if(active&&!sims.some(s=>s.id===active.id))sims.push(active);var refs=[];
@@ -41,7 +43,7 @@ window.STProducts=(function(){
   }
   async function open(inline){
     inline=inline===true;if((!inline&&hooks.locked())||!hooks.capture())return;
-    var draft=data();alignFormats(draft.formats);var initial=initialId(hooks.simulation()),selected=draft.formats.some(f=>f.id===selectedFormatId)?selectedFormatId:draft.formats.some(f=>f.id===initial)?initial:draft.formats[0]?.id;
+    var draft=alignCatalog(data());var initial=initialId(hooks.simulation()),selected=draft.formats.some(f=>f.id===selectedFormatId)?selectedFormatId:draft.formats.some(f=>f.id===initial)?initial:draft.formats[0]?.id;
     var ownerCase=state.activeCase,ownerSimulation=hooks.simulation(),focus=document.activeElement;
     var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby',inline?'products-title':'formats-dialog-title');
     var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='formats-dialog-title';title.textContent='Formats';heading.hidden=inline;heading.append(title);
@@ -80,43 +82,53 @@ window.STProducts=(function(){
     function removeCell(row,label,handler){var td=document.createElement('td');icon(td,'trash',label,handler);row.append(td);}
     function actionHeading(parent,label,handler){var heading=parent.querySelector('.editor-subheading'),actions=document.createElement('div');actions.className='button-row';icon(actions,'plus',label,handler);heading.append(actions);}
     function renderProducts(){
-      var sectionNode=section('Products');actionHeading(sectionNode,'Add product',function(){draft.products.push({id:id('product'),name:'Product '+(draft.products.length+1),bottle:{}});draw();});
+      var sectionNode=section('Products');actionHeading(sectionNode,'Add product',function(){draft.products.push({id:id('product'),name:'Product '+(draft.products.length+1),bottle:{}});alignCatalog(draft);draw();});
       note(sectionNode,'Product identity and bottle dimensions. Reuse the same product in multiple packing formats.');
       table(sectionNode,'Product catalog',['Product','Volume (mL)','Bottle length (mm)','Width (mm)','Height (mm)',''],draft.products,function(row,p){p.bottle=p.bottle||{};nameCell(row,p,'Product name');inputCell(row,p,p,'volumeMl','Volume (mL)');[['lengthMm','Bottle length (mm)'],['widthMm','Bottle width (mm)'],['heightMm','Bottle height (mm)']].forEach(spec=>inputCell(row,p,p.bottle,spec[0],spec[1],{min:'0.001'}));removeCell(row,'Delete product '+p.name,function(){var used=draft.formats.filter(f=>f.productId===p.id);if(used.length){showError('Product is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return;}draft.products=draft.products.filter(item=>item.id!==p.id);draw();});});
     }
     function renderBoxes(){
-      var sectionNode=section('Boxes');actionHeading(sectionNode,'Add box',function(){draft.boxes.push({id:id('box'),name:'Box '+(draft.boxes.length+1)});draw();});note(sectionNode,'Box dimensions are shared. Bottles per case and packing pattern belong to each packing format.');
+      var sectionNode=section('Boxes');actionHeading(sectionNode,'Add box',function(){draft.boxes.push({id:id('box'),name:'Box '+(draft.boxes.length+1)});alignCatalog(draft);draw();});note(sectionNode,'Box dimensions are shared. Bottles per case belongs to each packing format.');
       table(sectionNode,'Box catalog',['Box','Length along travel (mm)','Width (mm)','Height (mm)',''],draft.boxes,function(row,b){nameCell(row,b,'Box name');[['lengthMm','Box length (mm)'],['widthMm','Box width (mm)'],['heightMm','Box height (mm)']].forEach(spec=>inputCell(row,b,b,spec[0],spec[1],{min:'0.001'}));removeCell(row,'Delete box '+b.name,function(){var used=draft.formats.filter(f=>f.boxId===b.id);if(used.length){showError('Box is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return;}draft.boxes=draft.boxes.filter(item=>item.id!==b.id);draw();});});
     }
     function renderFormats(){
       var choose=section('Packing formats'),tools=document.createElement('div');tools.className='product-selector-row';
       selectField(tools,'Packing format',selected,draft.formats,function(value){selected=value;selectedFormatId=value;draw();});
-      var add=icon(tools,'plus','Add packing format',function(){var f={id:id('format'),name:'Packing format '+(draft.formats.length+1),productId:draft.products[0]?.id,boxId:draft.boxes[0]?.id,bottlesPerCase:12,packPattern:'',equipment:{}};alignFormats([f]);draft.formats.push(f);selected=f.id;selectedFormatId=selected;draw();});add.disabled=!draft.products.length||!draft.boxes.length;
+      var add=icon(tools,'plus','Add packing format',function(){var f={id:id('format'),name:'Packing format '+(draft.formats.length+1),productId:draft.products[0]?.id,boxId:draft.boxes[0]?.id,bottlesPerCase:12,packPattern:'',equipment:{}};draft.formats.push(f);alignCatalog(draft);selected=f.id;selectedFormatId=selected;draw();});add.disabled=!draft.products.length||!draft.boxes.length;
       var remove=icon(tools,'trash','Delete packing format',function(){var used=references(selected);if(used.length){showError('Format is used by '+used.join(', ')+'. Choose a replacement there first.');return;}draft.formats=draft.formats.filter(f=>f.id!==selected);if(initial===selected)initial='';selected=draft.formats[0]?.id;selectedFormatId=selected;draw();});remove.disabled=!selected;choose.append(tools);
       var f=draft.formats.find(f=>f.id===selected);if(!f){note(choose,'Create products and boxes first, then combine them in a packing format.');return;}
-      var initialLabel=document.createElement('label');initialLabel.className='checkbox-label product-initial-choice';var check=document.createElement('input');check.type='checkbox';check.id='format-use-initial';check.checked=initial===f.id;check.onchange=function(){initial=check.checked?f.id:'';};initialLabel.append(check,document.createTextNode('Use as initial format for '+(ownerSimulation?.name||'this simulation')));choose.append(initialLabel);
       var general=section('Format configuration'),grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';general.append(grid);
-      field(grid,'Format name',f,'name',{text:true,required:true});selectField(grid,'Product',f.productId,draft.products,value=>{f.productId=value;});selectField(grid,'Box',f.boxId,draft.boxes,value=>{f.boxId=value;});field(grid,'Bottles per case',f,'bottlesPerCase',{min:'1',step:'1',required:true});field(grid,'Packing pattern',f,'packPattern',{text:true});
-      note(general,'One product + one box + a bottle count and packing pattern. Changeovers select a packing format. The suggested count of 12 must be confirmed.');
-      var inputs=section('Equipment inputs');note(inputs,'Operating settings belong to this format. Input/output units describe equipment function and are configured once in Equipment / Conveyors. MTBF / MTTR and installation geometry remain shared.');var all=state.activeCase.equipment||[];
-      function name(row,e){var cell=document.createElement('th');cell.scope='row';cell.textContent=e.name;row.append(cell);}
-      function applies(row,e){var td=document.createElement('td'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=f.equipment[e.id].applies!==false;checkbox.setAttribute('aria-label',e.name+' · Applies');checkbox.onchange=function(){f.equipment[e.id].applies=checkbox.checked;draw();};td.append(checkbox);row.append(td);if(!checkbox.checked)row.classList.add('product-row-inactive');}
-      function disable(row,e){if(f.equipment[e.id].applies===false)row.querySelectorAll('input:not([type=checkbox])').forEach(i=>i.disabled=true);}
-      table(inputs,'Machines',['Equipment','Applies','Input → output','Rate (output/min)','Startup (s)','Ramp up (s)'],all.filter(e=>e.type!=='CONVEYOR'),function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'input',f).toLowerCase()+' → '+unit(e,'output',f).toLowerCase());var p=f.equipment[e.id];inputCell(row,e,p,'ratePerMinute','Rate ('+unit(e,'output',f).toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,p,'startupSeconds','Startup (s)');inputCell(row,e,p,'rampSeconds','Ramp up (s)');disable(row,e);});
-      table(inputs,'Conveyors',['Conveyor','Applies','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],all.filter(e=>e.type==='CONVEYOR'),function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output',f).toLowerCase());var p=f.equipment[e.id];[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(spec=>inputCell(row,e,p,spec[0],spec[1],spec[2]));disable(row,e);});
-      note(inputs,'Applies records compatibility, not a bypass. All steps must be compatible to run this serial line.');
+      field(grid,'Format name',f,'name',{text:true,required:true});selectField(grid,'Product',f.productId,draft.products,value=>{f.productId=value;});selectField(grid,'Box',f.boxId,draft.boxes,value=>{f.boxId=value;});field(grid,'Bottles per case',f,'bottlesPerCase',{min:'1',step:'1',required:true});
+      note(general,'One product + one box + a bottle count. Changeovers select a packing format. The suggested count of 12 must be confirmed.');
+      behaviorTables(f,'format');
     }
+    function behaviorTables(record,kind){
+      record.equipment=record.equipment||{};var all=state.activeCase.equipment||[];
+      var filtered=all.filter(function(e){var input=unit(e,'input'),output=unit(e,'output');return kind==='format'?(input!==output||Object.keys(record.equipment[e.id]||{}).some(k=>!['inputUnit','outputUnit'].includes(k))):input===output&&output===(kind==='boxes'?'CASES':'BOTTLES');});
+      var inputs=section(kind==='format'?'Combination settings':'Equipment behavior');
+      note(inputs,kind==='format'?'Bottle → case conversion settings depend on this combination. Any retained settings from an earlier format are shown here as overrides; use shared settings to remove an override.':'Shared by every format using this '+(kind==='boxes'?'box':'product')+'. MTBF / MTTR remain general equipment settings.');
+      if(kind==='format')filtered.forEach(function(e){if(unit(e,'input')!==unit(e,'output'))return;var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent='Use shared settings: '+e.name;b.onclick=function(){record.equipment[e.id]={inputUnit:unit(e,'input'),outputUnit:unit(e,'output')};draw();};inputs.append(b);});
+      function profile(e){return record.equipment[e.id]||(record.equipment[e.id]={});}
+      function name(row,e){var cell=document.createElement('th');cell.scope='row';cell.textContent=e.name;row.append(cell);}
+      function applies(row,e){var td=document.createElement('td'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=profile(e).applies!==false;checkbox.setAttribute('aria-label',e.name+' · Applies');checkbox.onchange=function(){profile(e).applies=checkbox.checked;draw();};td.append(checkbox);row.append(td);if(!checkbox.checked)row.classList.add('product-row-inactive');}
+      function disable(row,e){if(profile(e).applies===false)row.querySelectorAll('input:not([type=checkbox])').forEach(i=>i.disabled=true);}
+      var machines=filtered.filter(e=>e.type!=='CONVEYOR'),belts=filtered.filter(e=>e.type==='CONVEYOR');
+      if(machines.length)table(inputs,'Machines',['Equipment','Applies','Output unit','Rate (output/min)','Startup (s)','Ramp up (s)'],machines,function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output').toLowerCase());var p=profile(e);inputCell(row,e,p,'ratePerMinute','Rate ('+unit(e,'output').toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,p,'startupSeconds','Startup (s)');inputCell(row,e,p,'rampSeconds','Ramp up (s)');disable(row,e);});
+      if(belts.length)table(inputs,'Conveyors',['Conveyor','Applies','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],belts,function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output').toLowerCase());var p=profile(e);[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(spec=>inputCell(row,e,p,spec[0],spec[1],spec[2]));disable(row,e);});
+      if(!filtered.length)note(inputs,'No matching equipment. Configure Material flow / Transport unit on the equipment cards.');
+    }
+    function sharedBehavior(kind){var records=kind==='products'?draft.products:draft.boxes;if(!records.length)return;var chooser=section('Behavior selection');var key=kind==='products'?'selectedBehaviorProduct':'selectedBehaviorBox';var selected=dialog.dataset[key];if(!records.some(r=>r.id===selected))selected=records[0].id;selectField(chooser,kind==='products'?'Product behavior':'Box behavior',selected,records,function(value){dialog.dataset[key]=value||records[0].id;draw();});behaviorTables(records.find(r=>r.id===selected),kind);}
     [['products','Products'],['boxes','Boxes'],['formats','Packing formats']].forEach(function(pair,index){var b=document.createElement('button');b.type='button';b.id='formats-tab-'+pair[0];b.dataset.formatTab=pair[0];b.setAttribute('role','tab');b.setAttribute('aria-controls',body.id);b.textContent=pair[1];b.onclick=function(){currentTab=pair[0];draw();};b.onkeydown=function(event){var next=event.key==='ArrowRight'?(index+1)%3:event.key==='ArrowLeft'?(index+2)%3:event.key==='Home'?0:event.key==='End'?2:-1;if(next>=0){event.preventDefault();tabs.children[next].click();tabs.children[next].focus();}};tabs.append(b);});
     function draw(){
       body.replaceChildren();error.classList.add('hidden');body.append(error);tabs.querySelectorAll('button').forEach(function(b){var active=b.dataset.formatTab===currentTab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});body.setAttribute('aria-labelledby','formats-tab-'+currentTab);
-      if(currentTab==='products')renderProducts();else if(currentTab==='boxes')renderBoxes();else renderFormats();if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
+      if(currentTab==='products'){renderProducts();sharedBehavior('products');}else if(currentTab==='boxes'){renderBoxes();sharedBehavior('boxes');}else renderFormats();if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
     }
     save.onclick=async function(){
       if(hooks.locked()||ownerCase!==state.activeCase||ownerSimulation!==hooks.simulation())return;if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
       var done=inline?null:STDialog.beginActivity(dialog);save.disabled=true;
       try{
-        await new Promise(resolve=>setTimeout(resolve,0));alignFormats(draft.formats);var resolved=SimulatorEngine.validateFormatCatalog(draft);SimulatorEngine.validateProductDefinitions?.(resolved,state.activeCase.equipment,{requireDimensions:false});
+        await new Promise(resolve=>setTimeout(resolve,0));alignCatalog(draft);var resolved=SimulatorEngine.validateFormatCatalog(draft);SimulatorEngine.validateProductDefinitions?.(resolved,state.activeCase.equipment,{requireDimensions:false});
         var old=data();for(var f of old.formats.filter(f=>!draft.formats.some(next=>next.id===f.id))){var used=references(f.id);if(used.length)throw Error('Cannot delete '+f.name+': used by '+used.join(', '));}
+        initial=initialId(ownerSimulation);if(initial&&!draft.formats.some(f=>f.id===initial))initial='';
         if(initial&&!draft.formats.some(f=>f.id===initial))throw Error('Select an existing initial format.');
         var equipment=state.activeCase.equipment.map(e=>({...e,processData:{...e.processData,flowUnits:e.processData?.flowUnits||{input:'BOTTLES',output:'BOTTLES'}}}));
 
@@ -126,6 +138,12 @@ window.STProducts=(function(){
       }catch(e){showError(e.message);}finally{save.disabled=false;done?.();}
     };
     if(!inline){dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();}draw();
+  }
+  function renderInitialSelector(){
+    var select=document.getElementById('run-initial-format');if(!select)return;var selected=initialId(hooks.simulation());select.replaceChildren();
+    var blank=document.createElement('option');blank.value='';blank.textContent='Base equipment settings';select.append(blank);catalog().forEach(function(f){var o=document.createElement('option');o.value=f.id;o.textContent=f.name;select.append(o);});
+    if(selected&&!Array.from(select.options).some(o=>o.value===selected)){var missing=document.createElement('option');missing.value=selected;missing.textContent='Missing format — choose a replacement';select.append(missing);}select.value=selected;select.disabled=hooks.locked();
+    select.onchange=function(){if(hooks.locked())return;if(!hooks.capture()){select.value=selected;return;}var sim=hooks.simulation();sim.dynamicConfig={...sim.dynamicConfig,initialFormatId:select.value||undefined,initialProductId:select.value||undefined};hooks.changed(true);};
   }
   function runFields(){var selected=initialId(hooks?.simulation());return {initialFormatId:selected||undefined,initialProductId:selected||undefined,productCatalog:selected?catalog():undefined};}
   function destinationCell(row,event,changed){
@@ -137,6 +155,6 @@ window.STProducts=(function(){
     target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
     var h=document.createElement('h3');h.textContent='Production by packing format';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Packing format','Product','Box','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.productName||r.name,r.boxName||'—',r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>3)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
   }
-  return {init:function(s,h){state=s;hooks=h;currentTab='products';selectedFormatId=null;},render:render,open:open,reconcile:reconcile,currentFormat:currentFormat,hasFormats:hasFormats,setPhysicalUnits:setPhysicalUnits,packSize:packSize,go:function(){currentTab='formats';selectedFormatId=initialId(hooks.simulation());if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
+  return {init:function(s,h){state=s;hooks=h;currentTab='products';selectedFormatId=null;},render:render,open:open,reconcile:reconcile,currentFormat:currentFormat,hasFormats:hasFormats,setPhysicalUnits:setPhysicalUnits,packSize:packSize,renderInitialSelector:renderInitialSelector,go:function(){currentTab='formats';selectedFormatId=initialId(hooks.simulation());if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
 })();
 </script>

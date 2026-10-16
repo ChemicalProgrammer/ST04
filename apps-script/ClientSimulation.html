@@ -9,6 +9,7 @@
       syncRunControls();
       renderControlEvents();
       STProducts.render();
+      STProducts.renderInitialSelector();
       renderWorkspaceTabs();
       if (!state.run.result) {
         toggle('simulation-results', false);
@@ -312,7 +313,7 @@
     function runControlsLocked(){return Boolean(state.run.active||state.run.playing||roundSession?.pending||roundSession?.firstUpdating||roundSession?.dirty);}
     function syncRunControls(){
       var locked=runControlsLocked();
-      ['duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
+      ['run-initial-format','duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
       document.querySelectorAll('#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
       document.querySelectorAll('[data-control]').forEach(function(button){button.disabled=document.getElementById(button.dataset.control).disabled;});
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
