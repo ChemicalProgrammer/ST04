@@ -1,6 +1,6 @@
 # Caso C — Comparación diaria con Case C 2.0
 
-Fecha de análisis: 16 de octubre de 2026. Fuente de simulación: `Case C 2.0-complete.json`, Simulation A. Referencia operativa: [registro diario del Caso C](CASE_C_DAILY_PRODUCTION.md). La captura adicional de confiabilidad indica **3 de noviembre de 2025**; falta confirmar que las capturas de tiempos y porcentajes comparten ese día y filtros.
+Fecha de análisis: 16 de octubre de 2026. Actualizado con una segunda corrida que ajusta MTBF/MTTR; véase la sección «Segunda corrida». Fuente de simulación: `Case C 2.0-complete.json`, Simulation A. Referencia operativa: [registro diario del Caso C](CASE_C_DAILY_PRODUCTION.md). La captura adicional de confiabilidad indica **3 de noviembre de 2025**; falta confirmar que las capturas de tiempos y porcentajes comparten ese día y filtros.
 
 ## Conclusión
 
@@ -92,6 +92,52 @@ La transferencia de PAC-PAL equivale a **34.94%** de la referencia de 300 unidad
 Si los paquetes de PAC-PAL son cajas de **12 botellas**, sus **104.81 cajas/min** representarían **1257.68 botellas equivalentes/min**, y la capacidad física de 120 paquetes de esa zona representaría 120 cajas / 1440 botellas. Esa conversión es ilustrativa y condicional: **no se aplicó en el archivo** y el formato del día no está confirmado. No conviene aumentar artificialmente la velocidad del conveyor para hacer coincidir la producción; hay que representar las unidades correctas.
 
 El **Nominal machine-speed gap** de esta configuración es **0%**: todas las máquinas alcanzan como mínimo las 300 unidades/min nominales del Filler. Esto no implica ausencia de restricciones de conveyor. El archivo no guarda un diagnóstico emparejado sin fallas (`lossDiagnostic`); por tanto, no se asigna un porcentaje numérico a Conditional MTBF/MTTR loss o Remaining loss without failures a partir de los tiempos por equipo.
+
+## Segunda corrida — ajuste de MTBF/MTTR sin producto ni formato
+
+Archivo adicional: `Case C 2.0-complete(1).json`, recibido el 16 de octubre de 2026. Resultados completados a las **14:37:56** de Ciudad de México. Se conserva la comparación anterior como primera corrida; esta sección documenta la prueba posterior solicitada por el usuario, sin exigir agregar producto o formato.
+
+### Cambios verificados
+
+- Labeler: MTBF **5.1 → 6.1 min** y MTTR **0.7 → 0.5 min**, tanto en `noiseProfile.reliability` como en `processData.equipment`.
+- También cambiaron las etiquetas de unidades: Case Packer **BOTTLES → CASES**; Conveyor PAC-PAL y Palletizer **CASES → CASES**. No se agregaron producto, formato, catálogo ni botellas por caja; `products` sigue siendo `null`. Por eso no se activa una conversión de 12 botellas/caja. Estas etiquetas no convierten por sí solas los conteos.
+- No cambió la configuración de corrida: cinco rondas de 24 h, semillas **20260909–20260913**, eventos desactivados, tick 0.25 s, mismas velocidades y geometrías. Las firmas guardadas coinciden con los equipos de cada exportación.
+
+### Resultado antes y después
+
+Todas las cifras simuladas de esta tabla son medias de cinco rondas.
+
+| Indicador | Primera corrida | Segunda corrida | Cambio |
+|---|---:|---:|---:|
+| OEE global | 32.623403% | 32.624090% | +0.000687 pp |
+| Producción diaria, unidades del modelo | 140933.10 | 140936.07 | +2.97 |
+| Throughput, unidades del modelo/min | 97.870210 | 97.872270 | +0.002060 |
+| Fallas del Labeler, conteo | 255.8 | 221.6 | -34.2 |
+| Tiempo de falla del Labeler | 179.06 min | 110.80 min | -68.26 min |
+| Back-up stop del Labeler | 735.55 min | 799.92 min | +64.36 min |
+| Tiempo running del Labeler | 481.37 min | 481.56 min | +0.19 min |
+
+La ganancia de producción es **0.0021%**: prácticamente nula a escala del día. En la primera ronda la producción es exactamente igual antes y después (**140481.093837** unidades); en la segunda aumenta **14.835403** unidades. Las demás diferencias de producción son nulas o menores que 0.001 unidades. Se compararon las cinco semillas, no solo la primera ronda que muestra el replay.
+
+### Interpretación
+
+El ajuste sí tuvo efecto: el tiempo de falla del Labeler disminuyó **38.12%**. Sin embargo, su tiempo Back-up stop aumentó **64.36 min**, mientras su tiempo running creció solo **0.19 min**. Es compatible con una línea limitada aguas abajo: recuperar disponibilidad del Labeler no garantiza mayor producción final si no hay capacidad para evacuarla. Estos tiempos no se interpretan como un reparto causal exacto porque son métricas de estados y pueden tener coberturas distintas.
+
+El límite nominal de PAC-PAL continúa en **104.81 unidades del modelo/min** y el throughput queda en **97.87 unidades/min**. La prueba muestra baja sensibilidad de la salida a este ajuste de confiabilidad, dentro de la configuración actual; no demuestra que mejorar el Labeler sea inútil en planta ni resuelve la conversión botella/caja pendiente.
+
+### Contraste con el Labeler del día observado
+
+La segunda corrida pasa de **2.37 a 2.05 veces** los **108 paros menores** de la captura. Por tanto, igualar los números de MTBF/MTTR no igualó todavía la frecuencia de paros.
+
+Una razón concreta que debe homologarse es la base de tiempo. En el motor actual, `updateReliabilityFailures` descuenta el reloj de fallas mientras el equipo está habilitado en AUTO/MANUAL, incluso si su estado de flujo está en Back-up stop; no lo limita a tiempo RUNNING. Solo se suspende bajo las condiciones explícitas del motor, por ejemplo reparación, emergencia, calendario o microparo. Sin restricciones adicionales, una aproximación de renovación de **1440 / (6.1 + 0.5) = 218.18** fallas/día es coherente en orden de magnitud con las **221.6** simuladas. Esa aproximación no es el dato operativo ni una corrida adicional.
+
+Hay que confirmar si el MTBF operativo de 6.1 está calculado con tiempo de marcha, tiempo habilitado u otro denominador, y qué causas comprende Minor Stops. No se debe alterar MTBF hasta forzar 108 paros sin aclarar esa definición.
+
+La utilización derivada de la tabla diaria sigue siendo **47.50%**, frente a OEE **32.62%** en la segunda corrida: diferencia **-14.88 pp**, condicionada a homologar indicadores. Sigue faltando la producción total del día para validar throughput directamente.
+
+No se modificó el simulador ni se ejecutaron nuevas corridas durante este análisis. La comparación utiliza exclusivamente las dos exportaciones recibidas.
+
+SHA-256 del archivo adicional: `3f55067768ca945782fd6ff2d88ca65056b3edccdcd96b00bc27a53cdfb891c0`.
 
 ## Qué falta y siguiente comparación
 
