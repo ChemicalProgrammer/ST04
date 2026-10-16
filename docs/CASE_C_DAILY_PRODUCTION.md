@@ -103,4 +103,4 @@ Las diferencias se dejan pendientes de aclarar. No se asume que sean errores ni 
 4. `image-1792181868361.jpg`: gráfica de contribución por equipo y tabla de causas parcialmente legible.
 5. `image-1792181877141.jpg`: filtros del período y análisis de paros y MTBF/MTTR del Labeler.
 
-La asociación de estas capturas con el Caso C fue indicada por el usuario. Todavía no se ha realizado la comparación con una simulación de este día.
+La asociación de estas capturas con el Caso C fue indicada por el usuario. La comparación con `Case C 2.0-complete.json` se documenta por separado en [Comparación diaria](CASE_C_DAILY_RESULTS_COMPARISON.md).
