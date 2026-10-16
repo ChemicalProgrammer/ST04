@@ -72,7 +72,7 @@ Los MTBF/MTTR generales de este archivo siguen siendo los del Caso C anterior. C
 | Equipo | MTBF / MTTR configurados (min) | Fallas medias | Tiempo de falla medio (min) | Back-up stop medio (min) | Comparación / observación |
 | Unscrambler | 31 / 1.3 | 47.0 | 61.10 | 880.53 | Sin detalle diario confirmado para homologar estas métricas. |
 | Labeller | 5.1 / 0.7 | 255.8 | 179.06 | 735.55 | Referencia operativa: 108 paros menores; mayor discrepancia de frecuencia documentada. |
-| Filler | 14.6 / 1 | 92.8 | 92.80 | 603.87 | La gráfica operativa le atribuye la mayor barra; faltan porcentajes legibles y tiempos por causa. |
+| Filler | 14.6 / 1 | 92.8 | 92.80 | 603.87 | La gráfica operativa muestra 78.8% de contribución; faltan denominador y tiempos por causa para homologar. |
 | Case Packer | 8.9 / 0.4 | 156.2 | 62.43 | 34.02 | Sin detalle diario confirmado para homologar estas métricas. |
 | Palletizer | 48.5 / 1.4 | 23.8 | 33.32 | 0.00 | Sin detalle diario confirmado para homologar estas métricas. |
 
@@ -165,3 +165,9 @@ Estas son recomendaciones; no se modificó el motor ni la configuración del cas
 - Resultados completados: `2026-10-16T20:27:58.005Z` (14:27:58, hora de Ciudad de México).
 - Se verificaron las medias contra las cinco filas y la identidad OEE = producción / (300 × 1440) × 100, dentro del redondeo guardado.
 - No se publicó el JSON original ni datos de cuenta contenidos en él. Los valores de las imágenes y sus limitaciones están conservados en [el registro diario](CASE_C_DAILY_PRODUCTION.md).
+
+## Aclaración posterior sobre las unidades de las capturas
+
+Las imágenes `image-1792183905042.jpg` y `image-1792183911448.jpg` muestran vistas separadas de minutos y porcentajes. Se precisaron las contribuciones operativas de Filler **78.8%**, Labeler **7.8%** y CasePacker **6.9%**, conservando pendiente el denominador. No son proporciones confirmadas de las 24 h ni equivalentes a la suma de tiempos de falla simulados.
+
+La nueva selección muestra MTBF **34.3** y MTTR **1.0**, probablemente minutos, pero el equipo está fuera del recorte. Esos datos se conservan en el registro diario como selección pendiente de identificar, sin asignarlos al Filler o al Labeler ni cambiar las entradas de ninguna corrida. El resultado del sector rojo **17** aparece bajo Major & Minor Downtime; no se utiliza como conteo confirmado. Véanse los detalles y fuentes en [el registro diario](CASE_C_DAILY_PRODUCTION.md).

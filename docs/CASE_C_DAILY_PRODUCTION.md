@@ -60,9 +60,39 @@ Las columnas Stops son conteos; las unidades de MTBF/MTTR quedan pendientes de c
 
 ### Primera captura adicional
 
-- La gráfica de contribución por equipo muestra al **Filler** con la barra más grande, seguido de **Labeler**, **CasePacker**, **Palletizer** y **Feeder**. También aparecen conveyors con contribuciones visualmente pequeñas.
-- Los porcentajes y el denominador no se transcriben como cifras confirmadas por la borrosidad y el recorte. La barra mayor no demuestra por sí sola que el Filler sea la causa única de la pérdida.
+- La gráfica de contribución por equipo muestra al **Filler** con la barra más grande, seguido de **Labeler**, **CasePacker**, **Palletizer** y **Feeder**. También aparecen otros equipos con contribuciones visualmente pequeñas; los nombres se precisan en la captura más nítida descrita abajo.
+- Los porcentajes no eran suficientemente legibles en esta primera captura. Una imagen posterior permite transcribirlos (véase la sección siguiente); su denominador sigue pendiente. La barra mayor no demuestra por sí sola que el Filler sea la causa única de la pérdida.
 - Se leen las causas `Manual Operation`, `Stuck Label`, `Down Bottle` y `Unknown` en una tabla de downtime. Sus números no se registran como confirmados por falta de nitidez. No se asignan automáticamente a las cuatro filas de la otra captura.
+
+### Capturas más nítidas recibidas a continuación
+
+La captura `image-1792183905042.jpg` permite precisar la gráfica de contribución:
+
+| Equipo de la gráfica | Contribución mostrada | Unidad |
+|---|---:|---|
+| Filler | 78.8 | % |
+| Labeler | 7.8 | % |
+| CasePacker | 6.9 | % |
+| Palletizer | No visible como cifra | % |
+| Feeder | No visible como cifra | % |
+| CaseFormer | No visible como cifra | % |
+| PalletWrapper | No visible como cifra | % |
+
+El encabezado de esta gráfica dice **Line / Equip Util Reasons %**. En el reporte también se ven una vista **Line / Equip Util Reasons (Minutes)** y una pestaña **Downtime (Min) MTBF and MTTR**. Por tanto, hay vistas de minutos y vistas de porcentajes: **78.8%, 7.8% y 6.9% no son minutos ni porcentaje del día completo**. Falta conocer el denominador de contribución para convertirlos a tiempo; no se multiplican automáticamente por 636 o 756 min. Los tres porcentajes legibles suman 93.5%; el resto agregado sería 6.5% si comparten el mismo total, con el redondeo de la gráfica.
+
+CaseFormer y PalletWrapper aparecen en el reporte operativo y no están representados como equipos separados en la exportación de nueve elementos analizada. No se asignan contribuciones cero ni se identifica Feeder automáticamente con Unscrambler sin confirmar el mapeo.
+
+La captura `image-1792183911448.jpg` muestra otra selección de equipo cuyo nombre quedó recortado:
+
+| Concepto | Valor mostrado | Unidad / estado |
+|---|---:|---|
+| MTBF — Minor Stops | 34.3 | Probablemente min; pendiente de confirmación explícita |
+| MTTR — Minor Stops | 1.0 | Probablemente min; pendiente de confirmación explícita |
+| MTBF — Major Stops | null | No disponible; no equivale a cero |
+| MTTR — Major Stops | null | No disponible; no equivale a cero |
+| Valor del sector rojo | 17 (100.00%) | Se ve el encabezado Major & Minor Downtime; no se registra como conteo de paros sin verificar la vista y unidad |
+
+El período visible vuelve a ser **2025-11-03 a 2025-11-03**. La interpretación temporal es coherente con minutos (MTTR 1.0 min = 60 s), pero el nombre de la pestaña Downtime (Min) no confirma por sí solo la unidad de todos los indicadores de confiabilidad. El usuario lo considera probable; se conserva como tal. **No se reemplazan con 34.3/1.0 los valores 6.1/0.5 del Labeler**, porque no está identificado el equipo de esta nueva selección. Las filas inferiores también están recortadas y no se agregan al desglose del Labeler.
 
 ### Uso posterior
 
@@ -102,5 +132,8 @@ Las diferencias se dejan pendientes de aclarar. No se asume que sean errores ni 
 
 4. `image-1792181868361.jpg`: gráfica de contribución por equipo y tabla de causas parcialmente legible.
 5. `image-1792181877141.jpg`: filtros del período y análisis de paros y MTBF/MTTR del Labeler.
+
+6. `image-1792183905042.jpg`: contribuciones legibles Filler 78.8%, Labeler 7.8% y CasePacker 6.9%; encabezados de vistas en minutos y porcentajes.
+7. `image-1792183911448.jpg`: MTBF 34.3 y MTTR 1.0 de una selección de equipo no identificada; mismo período ISO.
 
 La asociación de estas capturas con el Caso C fue indicada por el usuario. La comparación con `Case C 2.0-complete.json` se documenta por separado en [Comparación diaria](CASE_C_DAILY_RESULTS_COMPARISON.md).
