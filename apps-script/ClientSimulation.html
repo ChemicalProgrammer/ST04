@@ -319,7 +319,7 @@
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
       if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
       document.querySelectorAll('#products-workspace input,#products-workspace select,#products-workspace button,#planned-line-events input,#planned-line-events select,#planned-line-events button,#add-product-changeover').forEach(function(control){control.disabled=locked||control.dataset.formatDisabled==='true';});
-      STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;
+      STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;syncEventSelection();
     }
     function applyScenarioRunInputs(run) {
       if (!run) return;
@@ -338,10 +338,41 @@
       return JSON.parse(JSON.stringify(value));
     }
 
+    var selectedControlEvents=new Set(),controlEventAnchor=null,controlEventSelectionOwner='';
+    function allEditableControlEvents(){return (state.run.commands||[]).concat(state.run.plannedStops||[]);}
+    function syncEventSelection(){
+      var owner=(state.activeCase?.id||'')+':'+(state.activeSimulationId||''),all=allEditableControlEvents(),live=new Set(all),locked=runControlsLocked();
+      if(controlEventSelectionOwner!==owner){selectedControlEvents.clear();controlEventAnchor=null;controlEventSelectionOwner=owner;}
+      selectedControlEvents.forEach(function(event){if(!live.has(event))selectedControlEvents.delete(event);});if(!live.has(controlEventAnchor))controlEventAnchor=null;
+      var selectAll=document.getElementById('select-all-control-events');selectAll.checked=all.length>0&&selectedControlEvents.size===all.length;selectAll.indeterminate=selectedControlEvents.size>0&&selectedControlEvents.size<all.length;selectAll.disabled=locked||!all.length;
+      document.getElementById('delete-selected-control-events').disabled=locked||!selectedControlEvents.size;document.getElementById('delete-all-control-events').disabled=locked||!all.length;
+      document.getElementById('control-event-selection-status').textContent=selectedControlEvents.size+' selected / '+all.length+' events';
+      document.querySelectorAll('[data-event-selection]').forEach(function(row){var selected=selectedControlEvents.has(row._controlEvent);row.classList.toggle('event-selected',selected);if(row.tagName==='TR')row.setAttribute('aria-selected',String(selected));var box=row.querySelector('.event-select-checkbox');if(box){box.checked=selected;box.disabled=locked;}});
+    }
+    function selectControlEvent(event,gesture,toggle){
+      if(runControlsLocked())return;syncEventSelection();var all=allEditableControlEvents(),index=all.indexOf(event),anchor=all.indexOf(controlEventAnchor);if(index<0)return;
+      if(gesture.shiftKey&&anchor>=0){if(!gesture.ctrlKey&&!gesture.metaKey)selectedControlEvents.clear();all.slice(Math.min(index,anchor),Math.max(index,anchor)+1).forEach(e=>selectedControlEvents.add(e));}
+      else{if(!toggle&&!gesture.ctrlKey&&!gesture.metaKey)selectedControlEvents.clear();if((toggle||gesture.ctrlKey||gesture.metaKey)&&selectedControlEvents.has(event))selectedControlEvents.delete(event);else selectedControlEvents.add(event);controlEventAnchor=event;}
+      syncEventSelection();
+    }
+    function attachControlEventSelection(row,event,label,tableRow){
+      row.dataset.eventSelection='true';row._controlEvent=event;row.tabIndex=0;
+      var cell=document.createElement(tableRow?'td':'label');cell.className='event-select-cell';var checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='event-select-checkbox';checkbox.setAttribute('aria-label','Select '+label);checkbox.disabled=runControlsLocked();cell.append(checkbox);row.prepend(cell);
+      checkbox.addEventListener('click',function(e){e.stopPropagation();selectControlEvent(event,e,true);});
+      row.addEventListener('click',function(e){if(e.target.closest('input,select,textarea,button,label,a'))return;selectControlEvent(event,e,false);});
+      row.addEventListener('keydown',function(e){if(e.target!==row||![' ','Enter'].includes(e.key))return;e.preventDefault();selectControlEvent(event,e,true);});
+    }
+    async function deleteControlEventSelection(all){
+      if(runControlsLocked())return;syncEventSelection();var ownerCase=state.activeCase,owner=state.activeSimulationId,events=all?allEditableControlEvents():Array.from(selectedControlEvents);if(!events.length)return;
+      var answer=await STDialog.open({destructive:true,title:all?'Delete all events':'Delete selected events',message:'Delete '+events.length+' '+(all?'events':'selected events')+' from this simulation? This includes equipment commands and line stops / changeovers in the selection.',buttons:[{id:'cancel',label:'Cancel'},{id:'delete',label:all?'Delete all':'Delete selected',destructive:true}]});
+      if(answer.action!=='delete'||runControlsLocked()||state.activeCase!==ownerCase||state.activeSimulationId!==owner)return;
+      var remove=new Set(events);state.run.commands=state.run.commands.filter(e=>!remove.has(e));if(state.run.plannedStops!==undefined)state.run.plannedStops=state.run.plannedStops.filter(e=>!remove.has(e));
+      state.run.eventPage=Math.min(state.run.eventPage||0,Math.max(0,Math.ceil((state.run.plannedStops||[]).length/100)-1));renderControlEvents();markCaseDirty();syncRunControls();
+    }
     function setControlEventsExpanded(expanded){document.getElementById('toggle-control-events').setAttribute('aria-expanded',String(expanded));document.getElementById('simulation-event-content').hidden=!expanded;}
 
     function addControlEvent() {
-      if (!state.activeCase || !state.activeCase.equipment.length) return;
+      if (runControlsLocked()||!state.activeCase || !state.activeCase.equipment.length) return;
       state.run.commands.push({
         atVirtualSecond: 0,
         equipmentId: state.activeCase.equipment[0].id,
@@ -351,6 +382,7 @@
     }
 
     function renderControlEvents() {
+      syncEventSelection();
       var target = document.getElementById('control-events');
       target.textContent = '';
       state.run.commands.forEach(function(command, index) {
@@ -363,13 +395,13 @@
     }
 
     function renderPlannedStops(){
-      var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];if(!events.length)return;
-      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','Destination format','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
-      events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';var categoryLabel=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1').trim();name.textContent=categoryLabel.charAt(0).toUpperCase()+categoryLabel.slice(1);row.append(name);
+      var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];syncEventSelection();if(!events.length)return;
+      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Select','Line stop','Start (min)','Duration (min)','Destination format','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
+      events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';var categoryLabel=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1').trim();name.textContent=categoryLabel.charAt(0).toUpperCase()+categoryLabel.slice(1);row.append(name);attachControlEventSelection(row,event,name.textContent+' '+(index+1),true);
         ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';input.value=field==='start'?event.startSeconds/60:(event.endSeconds-event.startSeconds)/60;input.setAttribute('aria-label',name.textContent+' '+field+' (min)');input.onchange=function(){if(!input.reportValidity())return;var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=Number(input.value)*60;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+Number(input.value)*60;markCaseDirty();};cell.append(input);row.append(cell);});
         STProducts.destinationCell(row,event,markCaseDirty);
-        var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
-      });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);
+        var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){if(runControlsLocked())return;events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
+      });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);syncEventSelection();
     }
     async function applyPlantCalendar(schedule){
       if(runControlsLocked())throw Error('Stop the current calculation or playback before applying a calendar.');
@@ -402,11 +434,12 @@
       equipmentSelect.addEventListener('change', function(event) { state.run.commands[index].equipmentId = event.target.value; });
       row.querySelector('.command-action').addEventListener('change', function(event) { state.run.commands[index].action = event.target.value; });
       row.querySelector('.remove-command').addEventListener('click', function() {
-        state.run.commands.splice(index, 1);
+        if(runControlsLocked())return;state.run.commands.splice(index, 1);
         renderControlEvents();
       });
       row.addEventListener('change',markCaseDirty);
       row.querySelector('.remove-command').addEventListener('click',markCaseDirty);
+      attachControlEventSelection(row,command,'equipment event '+(index+1),false);
       return row;
     }
 

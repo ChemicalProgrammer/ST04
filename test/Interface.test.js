@@ -2754,3 +2754,49 @@ test('UI: material toolbar icons and confirmation dialogs protect clear and dele
   const name=h.d.querySelector('[aria-label="Product name"]');name.value='Delete me';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('[aria-label="Delete product"]');await h.click('.message-dialog .ghost');assert.equal(h.d.querySelector('[aria-label="Current product"]').value,id);await h.click('[aria-label="Delete product"]');await h.click('.message-dialog .danger');assert.equal(h.d.querySelector('[aria-label="Product name"]'),null);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.formatCatalog?.products?.length===0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: event multi-selection supports ranges, additive clicks and confirmed bulk deletion',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  h.d.getElementById('run-events-enabled').click();
+  for(let i=0;i<3;i++)await h.click('#add-control-event');
+  for(let i=0;i<3;i++)await h.click('#add-product-changeover');
+  const rows=()=>Array.from(h.d.querySelectorAll('[data-event-selection]'));
+  const select=(index,keys={})=>rows()[index].dispatchEvent(new h.w.MouseEvent('click',{bubbles:true,...keys}));
+  const selected=()=>rows().map((r,i)=>r.classList.contains('event-selected')?i:-1).filter(i=>i>=0);
+  assert.equal(rows().length,6);select(0);select(2,{shiftKey:true});assert.deepEqual(selected(),[0,1,2]);
+  select(4,{ctrlKey:true});assert.deepEqual(selected(),[0,1,2,4]);select(1,{metaKey:true});assert.deepEqual(selected(),[0,2,4]);
+  rows()[5].querySelector('input[type=checkbox]').click();assert.deepEqual(selected(),[0,2,4,5]);
+  assert(h.d.getElementById('select-all-control-events').indeterminate);
+  await h.click('#delete-selected-control-events');assert(h.d.querySelector('.message-dialog').open);await h.click('.message-dialog .ghost');assert.equal(rows().length,6);
+  await h.click('#delete-selected-control-events');await h.click('.message-dialog .danger');assert.equal(rows().length,2);assert.equal(h.d.querySelectorAll('#control-events [data-event-selection]').length,1);assert.equal(h.d.querySelectorAll('#planned-line-events tbody tr').length,1);
+  assert(h.d.getElementById('delete-selected-control-events').disabled);
+  await h.click('#select-all-control-events');assert.deepEqual(selected(),[0,1]);await h.click('#select-all-control-events');assert.deepEqual(selected(),[]);
+  await h.click('#delete-all-control-events');await h.click('.message-dialog .ghost');assert.equal(rows().length,2);
+  await h.click('#delete-all-control-events');await h.click('.message-dialog .danger');assert.equal(rows().length,0);assert(h.d.getElementById('delete-all-control-events').disabled);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.plannedStops?.length===0);
+  const run=h.storedCases()[0].simulations[0].dynamicConfig;assert.equal(run.commands.length,0);assert.equal(run.plannedStops.length,0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: shift accounting is configured in Settings Simulation and persists through case save',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');const checkbox=h.d.getElementById('run-track-shifts');assert(checkbox.closest('#settings-page-simulation'));assert.equal(checkbox.closest('#run-panel'),null);
+  h.w.STSettings.open();await h.click('#settings-tab-simulation');if(!checkbox.checked)checkbox.click();await h.w.STSettings.close();await h.click('#save-case');
+  await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.trackShifts===true);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: event ranges cross pages and selection resets when switching simulations',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  const record=h.storedCases()[0],sim=record.simulations[0];sim.dynamicConfig={...sim.dynamicConfig,eventsEnabled:true,commands:[],plannedStops:Array.from({length:102},(_,i)=>({category:'changeoverMinutes',startSeconds:i*60,endSeconds:(i+1)*60,restartPolicy:'RESTART'}))};
+  const sibling=JSON.parse(JSON.stringify(sim));sibling.id='selection-sibling';sibling.name='Second';record.simulations.push(sibling);record.expectedRevision=record.revision;h.api.saveCase(record);
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  const rows=()=>Array.from(h.d.querySelectorAll('#planned-line-events tbody tr'));
+  rows()[98].dispatchEvent(new h.w.MouseEvent('click',{bubbles:true}));
+  Array.from(h.d.querySelectorAll('#planned-line-events button')).find(b=>b.textContent==='Next').click();
+  rows()[1].dispatchEvent(new h.w.MouseEvent('click',{bubbles:true,shiftKey:true}));assert.equal(h.d.getElementById('control-event-selection-status').textContent,'4 selected / 102 events');
+  await h.click('#delete-selected-control-events');await h.click('.message-dialog .danger');assert.equal(rows().length,98);assert.equal(h.d.getElementById('control-event-selection-status').textContent,'0 selected / 98 events');
+  rows()[0].click();const selector=h.d.getElementById('simulation-selector');selector.value='selection-sibling';selector.dispatchEvent(new h.w.Event('change',{bubbles:true}));await settle();assert.equal(h.d.getElementById('control-event-selection-status').textContent,'0 selected / 102 events');assert(h.d.getElementById('delete-selected-control-events').disabled);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
