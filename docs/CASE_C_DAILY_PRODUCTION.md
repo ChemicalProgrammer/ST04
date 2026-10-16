@@ -32,6 +32,35 @@ Valores transcritos de la primera imagen. Los tiempos se registran en minutos, d
 
 Los porcentajes se conservan tal como aparecen. No se los identifica automáticamente como OEE ni se los recalcula para reemplazar la fuente.
 
+## Producción y formato confirmados
+
+El usuario confirmó **12 botellas por caja**, **Throughput/Shift = 4180 cajas** y **3 turnos por día**. La captura `image-1792184164266.jpg` completa el perfil de producción y changeover:
+
+| Concepto | Valor | Unidad / observación |
+|---|---:|---|
+| Botellas por caja | 12 | botellas/caja; confirmado por el usuario |
+| Throughput/Shift | 4180 | cajas/turno; confirmado por el usuario |
+| Turnos por día | 3 | turnos/día; confirmado por el usuario |
+| Producción diaria derivada | 12540 | cajas/día = 4180 × 3 |
+| Producción por turno derivada | 50160 | botellas/turno = 4180 × 12 |
+| Producción diaria derivada | 150480 | botellas/día = 4180 × 3 × 12 |
+| Flujo medio sobre 1440 min | 104.5 | botellas/min = 150480 / 1440 |
+| SKU Count | 1 | SKU |
+| Size Type Count | 1 | tipo de tamaño |
+| Avg Line Speed | 220 | Unidad no impresa; compatible con botellas/min por la identidad de producción indicada abajo |
+| Weight / Unit | 98 | Unidad no visible; no se asume g u otra unidad |
+| CO Count | 0 | changeovers |
+| Avg CO Duration | null | No disponible; no se reemplaza por cero |
+| Distinct CO Types | 1 | Valor conservado aunque CO Count sea cero; definición pendiente |
+| CO RampUp UPDT% | 0.0 | % |
+| Average Runsize (KPcs) | 0 | KPcs, como aparece en la fuente; definición/alcance pendiente |
+
+La producción diaria es una derivación del promedio por turno reportado; puede conservar su redondeo y no sustituye un contador exacto de producción si se dispone de él. En 24 horas, tres turnos corresponden a 8 horas nominales por turno; la captura no aporta sus horarios ni producción individual.
+
+**Comprobación nueva: 684 min efectivos × 220 botellas/min = 150480 botellas**, exactamente la producción diaria derivada. Esto respalda la interpretación de 220 como referencia de velocidad del tiempo efectivo del reporte. No confirma por sí solo todas las definiciones de AU/OEE o calidad.
+
+Con referencia común de 300 botellas/min, la misma producción equivale a **501.6 min ideales** y a **34.8333% de producción / capacidad nominal diaria**. Es una normalización calculada, no un nuevo OEE reportado por planta. El 47.50% calculado como 684/1440 utiliza otra referencia de velocidad; no se debe restar directamente del OEE del simulador sobre 300 botellas/min para atribuir un error al modelo. La discrepancia entre AU% gráfico 44.09% y AU% derivado de los tiempos 47.50% sigue pendiente.
+
 ## Paros y confiabilidad — capturas adicionales
 
 Datos recibidos el 16 de octubre de 2026. La segunda captura adicional identifica el **Labeler** de la línea **FIFCA00G**, con período **2025-11-03 a 2025-11-03**. El selector muestra `11/03/2025`; la fecha ISO del encabezado permite identificarla como 3 de noviembre. Se ven tres turnos seleccionados, con nombres truncados, y cuatro crews seleccionados (`C, D, B, A`); son filtros, no una secuencia cronológica confirmada.
@@ -117,10 +146,10 @@ Las diferencias se dejan pendientes de aclarar. No se asume que sean errores ni 
 
 - Confirmar que las tres capturas iniciales corresponden al 3 de noviembre de 2025, como la captura adicional de MTBF/MTTR, y que comparten filtros, línea y producto/formato.
 - Definiciones y denominadores de AU%, UPDT% y DTD UPDT.
-- Producción total, unidad de conteo y Throughput/Shift del día; duración de los turnos.
-- SKU Count, Size Type Count, Avg Line Speed y Weight / Unit: se ven los nombres, pero los valores quedaron fuera de la tercera captura. No se heredan los valores del período anterior.
-- CO Count, Avg CO Duration, Distinct CO Types, CO RampUp UPDT% y Average Runsize (KPcs): valores no visibles.
-- Producto/formato utilizado y botellas por caja aplicables a este día.
+- Contador exacto de producción y distribución/horarios por turno, si están disponibles; la producción diaria derivada del promedio de 4180 cajas/turno ya está registrada.
+- Confirmar explícitamente la unidad y definición de Avg Line Speed (220) y Weight / Unit (98). Los conteos de SKU y tamaño ya están visibles en la nueva captura.
+- Definiciones de Distinct CO Types = 1 y Average Runsize = 0 KPcs con CO Count = 0; conservar null de Avg CO Duration.
+- Identificación/dimensiones del único producto y tamaño del día; las 12 botellas/caja ya están confirmadas.
 - Confirmación de velocidades del día y MTBF/MTTR de los demás equipos; confirmar las unidades y alcance de los valores del Labeler y completar el desglose de Downtime por equipo/causa. Los agregados de Downtime y UPDT no se ingresarán automáticamente como eventos adicionales, porque podrían duplicar pérdidas que ya modela el motor.
 - Horarios de los paros y condiciones iniciales de la línea para reproducir el período.
 
@@ -135,5 +164,7 @@ Las diferencias se dejan pendientes de aclarar. No se asume que sean errores ni 
 
 6. `image-1792183905042.jpg`: contribuciones legibles Filler 78.8%, Labeler 7.8% y CasePacker 6.9%; encabezados de vistas en minutos y porcentajes.
 7. `image-1792183911448.jpg`: MTBF 34.3 y MTTR 1.0 de una selección de equipo no identificada; mismo período ISO.
+
+8. `image-1792184164266.jpg`: perfil de producción y changeover; confirmación del usuario de 12 botellas/caja, 4180 cajas/turno y 3 turnos/día.
 
 La asociación de estas capturas con el Caso C fue indicada por el usuario. La comparación con `Case C 2.0-complete.json` se documenta por separado en [Comparación diaria](CASE_C_DAILY_RESULTS_COMPARISON.md).
