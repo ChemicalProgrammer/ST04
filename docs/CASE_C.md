@@ -1,5 +1,7 @@
 # Caso C
 
+Registro adicional: [un día de producción de 1,440 minutos](CASE_C_DAILY_PRODUCTION.md), recibido el 16 de octubre de 2026 para una comparación posterior. Sus valores se conservan separados de los del período documentado aquí.
+
 «No indicado» identifica información pendiente. N/A significa que el campo no aplica; no equivale a cero.
 
 ## Equipos
