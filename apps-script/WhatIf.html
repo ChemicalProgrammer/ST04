@@ -15,6 +15,7 @@ window.STWhatIf = (function() {
     window.STMotion?.watchCards(target);
     var plan=STScenarios.plan(simulation);target.textContent='';if(simulation.results?.batch)target.appendChild(node('p',__ST_TEXT__('batch.evidence'),'notice'));var grid=node('div','','scenario-grid');
     var proposals=visibleProjects(plan);STScenarioExplorer.tools(target,simulation,plan,create);
+    if(simulation.dynamicConfig?.initialFormatId||simulation.dynamicConfig?.initialProductId)target.prepend(node('p','Search retains the initial format and changeovers. Product and format settings take precedence over equipment defaults.','chart-note'));
     if(!proposals.length)target.appendChild(node('p',__ST_TEXT__('scenario.no_supported'),'empty'));
     STReports.bindWhatIf(simulation,plan,proposals);
     var checks=node('details','','analysis-checks scenario-design-checks');checks.appendChild(node('summary',__ST_TEXT__('scenario.design_checks')));

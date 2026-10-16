@@ -2814,9 +2814,27 @@ test('UI: packing-format results retain matched reliability losses and sorted eq
  }finally{h.dom.window.close();}
 });
 
-test('UI: packing-format What-If keeps CAPEX cards visible before a validated scenario exists',async()=>{
+test('UI: packing-format What-If retains full CAPEX controls and configuration',async()=>{
  for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
   const record=h.storedCases()[0];record.simulations[0].dynamicConfig.initialFormatId='format';record.expectedRevision=record.revision;h.api.saveCase(record);
-  await h.click('.open-case');await h.click('[data-basic-view=whatif]');const target=h.d.getElementById('simulation-analysis-content'),cards=target.querySelectorAll('.scenario-tier-grid > .analysis-recommendation');assert.equal(cards.length,4);assert.equal(target.querySelectorAll('.analysis-capex').length,uiMode==='BASIC'?3:4);assert.equal(target.querySelectorAll('.scenario-search,.scenario-create').length,0);assert.match(target.textContent,/pending validation/);assert.deepEqual(h.errors,[]);
+  await h.click('.open-case');await h.click('[data-basic-view=whatif]');const target=h.d.getElementById('simulation-analysis-content'),cards=target.querySelectorAll('.scenario-tier-grid > .analysis-recommendation');assert.equal(cards.length,4);assert.equal(target.querySelectorAll('.analysis-capex').length,uiMode==='BASIC'?3:4);assert.equal(target.querySelectorAll('.scenario-search').length,uiMode==='BASIC'?3:4);assert.equal(target.querySelectorAll('.scenario-create').length,uiMode==='BASIC'?3:4);assert.equal(target.querySelectorAll('.scenario-configure').length,uiMode==='BASIC'?3:4);assert.match(target.textContent,/Search retains the initial format/);target.querySelector('.scenario-configure').click();assert(h.d.querySelector('.scenario-config-dialog[open]'));assert(h.d.querySelector('.scenario-config-dialog[open] .scenario-search-depth'));await h.click('.scenario-config-dialog[open] .dialog-heading button');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
+});
+
+test('UI: format CAPEX cards preserve saved metrics and actions even without current proposal targets',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig.initialFormatId='format';
+  const signature=h.w.STScenarios.signature(sim);sim.whatIf={evaluations:[{cardId:JSON.stringify([sim.id,'CAPEX','HIGH']),sourceSimulationId:sim.id,sourceSignature:signature,kind:'CUSTOM',tier:'HIGH',searchScope:'HIGH',status:'NO_DEMONSTRATED_IMPROVEMENT',updatedAt:'2026-10-16T19:00:00Z',baseline:{oee:30,throughput:120},candidate:{oee:48,throughput:192},message:'Saved search result.'}]};
+  const before=JSON.stringify(sim.whatIf),target=h.d.createElement('section');h.d.body.append(target);h.w.STScenarioExplorer.tools(target,sim,{candidates:[]},()=>{});
+  const cards=target.querySelectorAll('.scenario-tier-grid > .analysis-recommendation');assert.equal(cards.length,4);for(const card of Array.from(cards).slice(1)){assert(card.querySelector('.scenario-configure'));assert(card.querySelector('.scenario-search'));assert(card.querySelector('.scenario-create'));}
+  const high=cards[3];assert.match(high.querySelector('.scenario-basic-metrics').textContent,/48.0%/);assert.match(high.querySelector('.scenario-preview-status').textContent,/Saved search result|Previous result/);assert(high.querySelector('.scenario-create').disabled);assert.equal(JSON.stringify(sim.whatIf),before);high.querySelector('.scenario-configure').click();assert(high.querySelector('.scenario-config-dialog[open]'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: What-If evaluation preserves format snapshots and scheduled changeovers',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  const sim=h.storedCases()[0].simulations[0];sim.dynamicConfig={...sim.dynamicConfig,initialFormatId:'format',initialProductId:'format',productCatalog:[{id:'format',name:'Format',bottlesPerCase:12,equipment:{}}],plannedStops:[{category:'changeoverMinutes',startSeconds:10,endSeconds:20,restartPolicy:'RESTART',destinationFormatId:'format'}]};
+  h.w.SimulatorEngine.validateSimulationInput=()=>({ok:true});let calls=0;h.w.SimulatorEngine.simulateBatch=async input=>{calls++;assert.equal(input.run.initialFormatId,'format');assert.equal(input.run.productCatalog[0].bottlesPerCase,12);assert.equal(input.run.plannedStops[0].destinationFormatId,'format');const summary={lineOeePercent:45,outputCount:1000,totalOverflowUnits:0};return {ok:true,result:{durationSeconds:input.run.durationSeconds,summary,batch:{rows:Array.from({length:input.run.rounds||1},(_,i)=>({seed:input.run.seed+i,summary})),statistics:{lineOeePercent:{mean:45},totalOverflowUnits:{mean:0}}}}};};
+  const metric=await h.w.STScenarioExplorer.evaluate(sim,[],()=>false,0);assert.equal(metric.oee,45);assert.equal(calls,1);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });
