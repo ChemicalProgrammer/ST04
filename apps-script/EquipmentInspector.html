@@ -91,7 +91,7 @@ window.STEquipmentInspector=(function(){
     };
   }
   function help(control,text){
-    var label=control.closest('label');label.title=text;
+    var label=control.closest('label');if(!label||control.type==='hidden')return;label.title=text;
     var details=document.createElement('details');details.className='parameter-help';
     var summary=document.createElement('summary');summary.innerHTML=STIcons.svg('info');summary.setAttribute('aria-label',__ST_TEXT__('inspector.parameter_help'));
     var message=document.createElement('p');message.id='parameter-help-'+(++helpSequence);message.textContent=text;message.setAttribute('role','tooltip');
@@ -110,7 +110,8 @@ window.STEquipmentInspector=(function(){
   };
   function decorate(card){
     card._fields.querySelectorAll('input,select,textarea').forEach(function(control){
-      help(control,basic[control.className]||control.closest('label').title);
+      var parentLabel=control.closest('label');if(control.type==='hidden'||!parentLabel)return;
+      help(control,basic[control.className]||parentLabel.title);
       if(control.tagName==='TEXTAREA'){
         var label=control.closest('label'),heading=document.createElement('span'),caption=document.createElement('span'),actions=document.createElement('span');heading.className='json-field-heading';actions.className='button-row';caption.textContent=label.firstChild.textContent;label.firstChild.textContent='';heading.append(caption,actions);label.prepend(heading);
         function action(text,callback){var b=document.createElement('button');b.type='button';b.className='ghost icon-button';b.title=text+' JSON';b.setAttribute('aria-label',b.title);b.innerHTML=STIcons.svg({Edit:'edit',Import:'download',Export:'upload'}[text]);b.onclick=function(event){event.preventDefault();event.stopPropagation();callback();};actions.append(b);}

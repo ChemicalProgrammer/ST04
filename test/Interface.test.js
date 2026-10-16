@@ -1022,7 +1022,7 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
-  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,23);
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,27);
   const requiredInfeedMargin=h.storedCases()[0].equipment[1].processData.speedAndSensors?.overspeedVsInfeedScrewPercent;
   const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2};
   Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
@@ -2714,7 +2714,7 @@ test('UI: relational Formats tabs save one product with reusable boxes and prese
   assert.equal(h.d.querySelectorAll('.product-settings-table select').length,0);const save=Array.from(h.d.querySelectorAll('#products-workspace .dialog-actions button')).find(b=>b.textContent==='Save formats');save.click();await waitFor(()=>h.d.querySelector('[data-format-tab="formats"][aria-selected=true]'));await settle();assert(h.visible('products-panel'));assert(!h.visible('editor-panel'));assert(!h.visible('run-panel'));
   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.formatCatalog?.formats?.length===1);const record=h.storedCases()[0],catalog=record.metadata.formatCatalog;assert.equal(catalog.products[0].name,'Product A');assert.equal(catalog.boxes[0].name,'Box A');assert.equal(catalog.formats[0].bottlesPerCase,12);assert.equal(catalog.formats[0].productId,catalog.products[0].id);assert.equal(catalog.formats[0].boxId,catalog.boxes[0].id);assert.equal(record.metadata.products,undefined);
   await h.click('[data-basic-view="simulation"]');const selector=h.d.getElementById('run-initial-format');assert.equal(selector.closest('.simulation-duration-grid').firstElementChild,selector.closest('label'));assert(!selector.disabled);selector.value=catalog.formats[0].id;selector.dispatchEvent(new h.w.Event('change',{bubbles:true}));await settle();assert.equal(h.w.STProducts.runFields().initialFormatId,catalog.formats[0].id);assert.equal(h.w.STProducts.currentFormat().productName,'Product A');
-  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.initialFormatId===catalog.formats[0].id);assert.equal(h.d.querySelector('.equipment-material-flow').options.length,3);assert.equal(h.d.querySelector('.equipment-product-context'),null);assert.deepEqual(h.errors,[]);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.initialFormatId===catalog.formats[0].id);assert.equal(h.d.querySelector('.equipment-material-flow').options.length,3);assert.equal(h.d.querySelector('.equipment-product-context'),null);await h.click('[data-basic-view=conveyors]');assert(h.d.querySelector('#equipment-inspector .basic-conveyor-worksheet'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -2725,5 +2725,22 @@ test('UI: configuration import carries relational catalog references and rejects
   source.simulation.equipment.forEach(e=>{e.processData.flowUnits={input:'BOTTLES',output:'BOTTLES'};});source.simulation.dynamicConfig={...source.simulation.dynamicConfig,durationMode:'FIXED',durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,rounds:1,seed:1,initialFormatId:'f',initialProductId:'f',commands:[]};
   const config=h.w.STConfigurationEditor.validate(JSON.stringify(source),current);assert.equal(config.formatCatalog.formats[0].productId,'p');assert.equal(config.dynamicConfig.productCatalog[0].boxId,'b');assert.equal(config.dynamicConfig.initialFormatId,'f');assert.equal(current.case.metadata.formatCatalog,undefined);
   current.case.metadata=JSON.parse(JSON.stringify(source.case.metadata));source.case.metadata.formatCatalog.products[0].bottle.lengthMm=61;assert.throws(()=>h.w.STConfigurationEditor.validate(JSON.stringify(source),current),/Shared products record/);assert.equal(current.case.metadata.formatCatalog.products[0].bottle.lengthMm,60);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Basic: conveyor default inputs are actually mounted and visible after navigating from Equipment',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view="equipment"]');await h.click('[data-basic-view="conveyors"]');
+  assert.deepEqual(h.errors,[]);const inspector=h.d.getElementById('equipment-inspector'),fields=inspector.querySelector('.equipment-fields');
+  assert(fields,JSON.stringify({html:inspector.outerHTML,selected:h.d.querySelectorAll('.equipment-selected').length,cards:h.d.querySelectorAll('.equipment-card').length,view:h.d.documentElement.dataset.basicView}));
+  for(const key of ['package-length','discharge-pitch','infeed','moving-gap','accumulated-gap','speed-mode','belt-speed','lact','blocked-delay']){const control=fields.querySelector('.format-zone-'+key);assert(control,key);for(let parent=control.closest('label');parent&&parent!==h.d.body;parent=parent.parentElement)assert.notEqual(h.w.getComputedStyle(parent).display,'none',key+' hidden by '+parent.className);}
+  const second=Array.from(h.d.querySelectorAll('.equipment-card')).filter(c=>c._fields.querySelector('.equipment-type').value==='CONVEYOR')[1];second.click();await settle();assert.equal(inspector.querySelector('.equipment-id').value,second.dataset.equipmentId);assert(inspector.querySelector('.format-zone-moving-gap'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI Advance: conveyor inspector opens with hidden serialization fields and can switch conveyors',async()=>{
+ const h=await setup({remember:true,uiMode:'ADVANCE',autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view=conveyors]');const cards=Array.from(h.d.querySelectorAll('.equipment-card')).filter(c=>c._fields.querySelector('.equipment-type').value==='CONVEYOR'),inspector=h.d.getElementById('equipment-inspector');
+  for(const card of cards.slice(0,2)){card.click();await settle();assert.equal(inspector.querySelector('.equipment-id').value,card.dataset.equipmentId);assert(inspector.querySelector('.format-zone-grid input'));assert.equal(inspector.querySelector('.equipment-unit').type,'hidden');assert.equal(inspector.querySelector('.equipment-material-flow').tagName,'SELECT');}assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
