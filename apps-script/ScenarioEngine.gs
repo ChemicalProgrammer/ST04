@@ -48,7 +48,8 @@ function resolvePackingFormats(catalog){
     for(const id of new Set([...Object.keys(product.equipment||{}),...Object.keys(box.equipment||{}),...Object.keys(format.equipment||{})])){
       const local=format.equipment?.[id]||{},input=local.inputUnit||'BOTTLES',output=local.outputUnit||input;
       const shared=input!==output?{}:(output==='CASES'?box.equipment?.[id]:product.equipment?.[id])||{};
-      profiles[id]={...JSON.parse(JSON.stringify(shared)),...JSON.parse(JSON.stringify(local))};
+      const active=profile=>{const result=JSON.parse(JSON.stringify(profile));if(result.enabled===false||result.applies===false){for(const key of Object.keys(result))if(!['inputUnit','outputUnit'].includes(key))delete result[key];}delete result.enabled;return result;};
+      profiles[id]={...active(shared),...active(local)};
     }
     return {id:format.id,formatId:format.id,name:format.name,productId:product.id,productName:product.name,boxId:box.id,boxName:box.name,
       volumeMl:product.volumeMl,bottleLengthMm:product.bottle?.lengthMm,caseLengthMm:box.lengthMm,bottlesPerCase:format.bottlesPerCase,packPattern:format.packPattern||'',
@@ -63,6 +64,8 @@ function validateFormatCatalog(catalog){
   }
   for(const p of catalog.products){if(p.volumeMl!==undefined&&(!Number.isFinite(p.volumeMl)||p.volumeMl<0))throw Error(p.name+': volume must be nonnegative.');}
   for(const item of [...catalog.products.map(p=>({...p,...p.bottle})),...catalog.boxes])for(const key of ['lengthMm','widthMm','heightMm'])if(item[key]!==undefined&&(!Number.isFinite(item[key])||item[key]<=0))throw Error(item.name+': dimensions must be positive.');
+  for(const p of catalog.products)validateMaterialRecord(p,'products');
+  for(const b of catalog.boxes)validateMaterialRecord(b,'boxes');
   const formats=resolvePackingFormats(catalog);
   for(const f of formats)if(!Number.isInteger(f.bottlesPerCase)||f.bottlesPerCase<1||f.bottlesPerCase>10000)throw Error(f.name+': bottles per case must be an integer from 1 to 10,000.');
   return formats;
@@ -77,6 +80,41 @@ function mergeFormatCatalogs(current,incoming){
     if(!existing)result[key].push(JSON.parse(JSON.stringify(record)));
   }
   validateFormatCatalog(result);return result;
+}
+
+const MATERIAL_PROFILE_KEYS=['ratePerMinute','startupSeconds','rampSeconds','movingGapMm','accumulatedGapMm','dischargeGapMm','infeedGapMm','speedMmPerSecond','enabled','applies'];
+function validateMaterialRecord(record,kind){
+  if(!record||typeof record.name!=='string'||!record.name.trim())throw Error('Enter a '+(kind==='boxes'?'box':'product')+' name.');
+  for(const value of Object.values(record.equipment||{})){
+    if(!value||Array.isArray(value)||typeof value!=='object')throw Error('Equipment settings must be objects.');
+    for(const key of ['enabled','applies'])if(value[key]!==undefined&&typeof value[key]!=='boolean')throw Error(key+' must be a checkbox value.');
+    for(const key of MATERIAL_PROFILE_KEYS.filter(k=>!['enabled','applies'].includes(k)))if(value[key]!==undefined&&(!Number.isFinite(value[key])||value[key]<0||(['ratePerMinute','speedMmPerSecond'].includes(key)&&value[key]===0)))throw Error(record.name+': '+key+' must be '+(['ratePerMinute','speedMmPerSecond'].includes(key)?'positive.':'nonnegative.'));
+  }
+  const shape=kind==='boxes'?record:record.bottle||{};
+  for(const key of ['lengthMm','widthMm','heightMm'])if(shape[key]!==undefined&&(!Number.isFinite(shape[key])||shape[key]<=0))throw Error(record.name+': dimensions must be positive.');
+  if(record.volumeMl!==undefined&&(!Number.isFinite(record.volumeMl)||record.volumeMl<0))throw Error(record.name+': volume must be nonnegative.');
+}
+function materialConfiguration(kind,record,equipment=[]){
+  if(!['products','boxes'].includes(kind))throw Error('Choose a product or box configuration.');
+  validateMaterialRecord(record,kind);
+  return {schema:'st-material-configuration-v1',kind,record:JSON.parse(JSON.stringify(record))};
+}
+function readMaterialConfiguration(text,kind,currentId,equipment=[]){
+  if(text.length>1048576)throw Error('Configuration exceeds 1 MB.');
+  const payload=JSON.parse(text,(key,value)=>{if(['__proto__','constructor','prototype'].includes(key))throw Error('Unsafe configuration key.');return value;});
+  if(payload.schema!=='st-material-configuration-v1'||payload.kind!==kind||!payload.record)throw Error('Import a matching '+(kind==='boxes'?'box':'product')+' configuration.');
+  const source=payload.record,allowed=kind==='boxes'?['id','name','lengthMm','widthMm','heightMm','equipment']:['id','name','volumeMl','bottle','equipment'];
+  for(const key of Object.keys(source))if(!allowed.includes(key))throw Error('Unsupported material field: '+key);
+  if(source.bottle)for(const key of Object.keys(source.bottle))if(!['lengthMm','widthMm','heightMm'].includes(key))throw Error('Unsupported bottle field: '+key);
+  const result={...source,id:currentId,equipment:{}};
+  if(source.equipment&&(Array.isArray(source.equipment)||typeof source.equipment!=='object'))throw Error('Equipment settings must be an object.');
+  for(const [id,profile] of Object.entries(source.equipment||{})){
+    if(!equipment.some(e=>e.id===id))throw Error('Equipment '+id+' is not installed in this simulation. Import into a matching line.');
+    if(!profile||Array.isArray(profile)||typeof profile!=='object')throw Error('Equipment settings must be objects.');
+    for(const key of Object.keys(profile))if(!MATERIAL_PROFILE_KEYS.includes(key))throw Error('Unsupported equipment field: '+key);
+    result.equipment[id]={...profile};
+  }
+  validateMaterialRecord(result,kind);return result;
 }
 
 // Format settings are applied on copies; installation and reliability stay shared.

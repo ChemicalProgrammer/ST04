@@ -39,7 +39,9 @@ html[data-ui-mode=basic] .basic-machine .equipment-flow-controls { grid-template
 .product-presentation { margin:var(--space-3) 0 0; min-width:0; padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
 .product-presentation legend { padding-inline:var(--space-2); color:var(--secondary-text); font-weight:600; font-size:var(--font-card); }
 .product-settings-table input[type=checkbox] { min-width:0; width:auto; }
-.product-row-inactive th,.product-row-inactive td:nth-child(n+3) { opacity:.6; }
+.product-row-inactive th,.product-row-inactive td:nth-child(n+3) { opacity:.5; }
+.product-row-inactive input:disabled { background:var(--surface-soft); color:var(--muted); cursor:not-allowed; }
+.product-selector-row + .product-general-grid { margin-top:var(--space-3); }
 .equipment-product-context { grid-column:1 / -1; margin:0; }
 .formats-tabs { padding-inline:0; margin-bottom:var(--space-3); }
 .product-settings-table input[type=text] { text-align:left; min-width:10rem; }

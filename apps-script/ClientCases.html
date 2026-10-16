@@ -28,7 +28,7 @@
     function syncSaveButton(){var b=document.getElementById('save-case');if(!b)return;b.classList.toggle('hidden',!state.activeCase||automaticSaving());b.disabled=state.saving||!state.isDirty;b.classList.toggle('has-changes',state.isDirty);}
     function configureSaving(){var seconds=STPreferences.caseOptions().autosaveSeconds;autosave.configure({enabled:automaticSaving(),intervalMs:Math.max(1,Math.min(3600,seconds||10))*1000});syncSaveButton();}
     window.addEventListener('st-save-policy-change',configureSaving);
-    function prepareCaseDraft(){if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
+    function prepareCaseDraft(){try{STProducts.validateForSave();}catch(error){return Promise.reject(error);}if(state.activeCase&&!syncPersistentSimulation())return Promise.reject(new Error(__ST_TEXT__('autosave.invalid')));return Promise.resolve();}
     function flushCase(force){return prepareCaseDraft().then(function(){return force===true||automaticSaving()?autosave.flush():undefined;});}
     // Gemini uses the current draft, independently of local/cloud save latency.
     function flushForServer(){return prepareCaseDraft().then(function(){return window.STCaseContext.snapshot(Object.assign({},state.activeCase,{activeSimulationId:state.activeSimulationId}));});}
@@ -331,6 +331,7 @@ async function openCase(caseId, initialView) {
       }catch(error){showError(error);}finally{button.disabled=false;}
     }
     function captureForSave() {
+      STProducts.validateForSave();
       if(whatIfOnlySave&&state.activeCase){var evidenceDraft=Object.assign(cloneJson(state.activeCase),{expectedRevision:state.activeCase.revision});return fitCaseSave(evidenceDraft);}
       var next=collectCaseEditor();if(!next)return null;
       if(!next.name.trim()||next.equipment.some(function(e){return !e.id||!e.name||!(e.nominalRatePerSecond>0);}))throw new Error(__ST_TEXT__('autosave.invalid'));
