@@ -124,9 +124,7 @@
         });
         input.addEventListener('change', function() { state.isDirty = true; renderFormatZonePreview(fields._owner); });
       });
-      if(STProducts.hasFormats?.()){
-        ['moving-gap','accumulated-gap','package-length','discharge-pitch','infeed'].forEach(function(key){var input=equipmentField(card,'.format-zone-'+key);if(input){input.readOnly=true;input.closest('label').hidden=true;input.title='Configure dimensions and behavior in Products / Boxes.';}});
-      }
+      if(equipment.type==='CONVEYOR'){var defaultsNote=document.createElement('p');defaultsNote.className='chart-note';defaultsNote.textContent='Conveyor inputs are defaults. Blank product / box fields inherit these values. Installation geometry and sensors are configured here.';equipmentField(card,'.format-zone-grid').before(defaultsNote);}
       return card;
     }
 

@@ -21,3 +21,7 @@ test('cards show format settings read-only while preserving the source catalog a
  w.STProducts.reconcile=()=>false;w.renderRawJson=()=>{};w.showError=e=>{throw Error(JSON.stringify(e));};assert.equal(w.syncEquipmentFromEditor(),true);
  assert.equal(p.equipment[packer.id].ratePerMinute,25);assert.equal(p.equipment[packer.id].outputUnit,'CASES');assert.equal(w.state.activeCase.equipment.find(e=>e.id===packer.id).processData.flowUnits.output,'BOTTLES');assert.equal(w.state.activeCase.equipment.find(e=>e.id===packer.id).nominalRatePerSecond,baseRate);assert.equal(JSON.stringify(other),before);
 });
+
+test('conveyor defaults remain visible and editable even when formats exist',()=>{
+ const s=setup(),w=s.w,e=w.state.activeCase.equipment.find(e=>e.type==='CONVEYOR'),card=w.createEquipmentCard(e,w.state.activeCase.equipment.indexOf(e));for(const key of ['moving-gap','accumulated-gap','package-length','discharge-pitch','infeed']){const input=card.querySelector('.format-zone-'+key);assert(input,key);assert.equal(input.readOnly,false,key);assert.equal(input.closest('label').hidden,false,key);}assert.equal(card.querySelector('.format-zone-lact').readOnly,false);assert.equal(card.querySelector('.format-zone-blocked-delay').readOnly,false);
+});

@@ -10,22 +10,13 @@ window.STProducts=(function(){
   function packSize(format){return format?.bottlesPerCase??format?.presentations?.case?.bottlesPerCase;}
   function id(prefix){return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);}
   function unit(e,side,format){side=side||'output';var base=e.processData?.flowUnits?.[side]||'BOTTLES';if(format)return format.equipment?.[e.id]?.[side+'Unit']||base;var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[],values=formats.map(f=>f.equipment?.[e.id]?.[side+'Unit']||base);return values.length&&values.every(value=>value===values[0])?values[0]:base;}
-  function defaultProfile(e,index){
-    var a=e.processData?.accumulation||{},u=e.processData?.upstream||{},definition;
-    if(e.type!=='CONVEYOR')return {applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e,'output'),ratePerMinute:e.nominalRatePerSecond*60};
-    try{definition=SimulatorEngine.resolveProductConveyor?.(state.activeCase.equipment,index);}catch(ignore){}
-    var length=u.packageLengthMm??a.productLengthMm;
-    return {applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e,'output'),movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,
-      dischargeGapMm:Number.isFinite(u.dischargePitchMm)&&Number.isFinite(length)?Math.max(0,u.dischargePitchMm-length):undefined,
-      infeedGapMm:Number.isFinite(e.processData?.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,e.processData.downstream.infeedPitchMm-length):undefined,
-      speedMmPerSecond:a.speedMode==='MANUAL'?a.conveyorSpeedMmPerSecond:undefined};
-  }
+  function defaultProfile(e){return {inputUnit:unit(e,'input'),outputUnit:unit(e,'output')};}
   function alignCatalog(c){
     var all=state.activeCase.equipment||[],keep=new Set(all.map(e=>e.id)),activeId=hooks.simulation()?.id||state.activeSimulationId;
     (state.activeCase.simulations||[]).filter(s=>s.id!==activeId).forEach(s=>(s.equipment||[]).forEach(e=>keep.add(e.id)));
     [...c.products,...c.boxes].forEach(record=>{record.equipment=record.equipment||{};Object.keys(record.equipment).forEach(key=>{if(!keep.has(key))delete record.equipment[key];});});
     c.formats.forEach(function(f){f.equipment=f.equipment||{};all.forEach(function(e,i){var input=unit(e,'input'),output=unit(e,'output'),p=f.equipment[e.id];if(!p)f.equipment[e.id]=input!==output?defaultProfile(e,i):{inputUnit:input,outputUnit:output};});Object.keys(f.equipment).forEach(key=>{if(!keep.has(key))delete f.equipment[key];});});
-    all.forEach(function(e,i){var input=unit(e,'input'),output=unit(e,'output');if(input!==output)return;var records=output==='CASES'?c.boxes:c.products;records.forEach(function(record){if(!record.equipment[e.id]){var p=defaultProfile(e,i);delete p.inputUnit;delete p.outputUnit;record.equipment[e.id]=p;}});});return c;
+    all.forEach(function(e){[...c.products,...c.boxes].forEach(function(record){if(!record.equipment[e.id])record.equipment[e.id]={};});});return c;
   }
   function reconcile(){if(!state?.activeCase)return false;var before=JSON.stringify(state.activeCase.metadata||{}),c=alignCatalog(data());if(!c.formats.length&&!c.products.length&&!c.boxes.length)return false;state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:c};delete state.activeCase.metadata.products;return before!==JSON.stringify(state.activeCase.metadata);}
   function setPhysicalUnits(equipmentId,input,output){
@@ -71,7 +62,7 @@ window.STProducts=(function(){
       table.append(body);scroll.append(table);parent.append(scroll);return table;
     }
     function textCell(row,text){var td=document.createElement('td');td.textContent=text;row.append(td);}
-    function inputCell(row,e,profile,key,label,options){var td=document.createElement('td');td.className='numeric';td.append(control(profile,key,e.name+' · '+label,options));row.append(td);}
+    function inputCell(row,e,profile,key,label,options){var td=document.createElement('td');td.className='numeric';var input=control(profile,key,e.name+' · '+label,options);if(!options?.text)input.placeholder='Default';td.append(input);row.append(td);}
     function selectField(parent,labelText,value,choices,changed){
       var label=document.createElement('label');label.textContent=labelText;var select=document.createElement('select');select.setAttribute('aria-label',labelText);
       var blank=document.createElement('option');blank.value='';blank.textContent='Select '+labelText.toLowerCase();select.append(blank);
@@ -103,17 +94,20 @@ window.STProducts=(function(){
     }
     function behaviorTables(record,kind){
       record.equipment=record.equipment||{};var all=state.activeCase.equipment||[];
-      var filtered=all.filter(function(e){var input=unit(e,'input'),output=unit(e,'output');return kind==='format'?(input!==output||Object.keys(record.equipment[e.id]||{}).some(k=>!['inputUnit','outputUnit'].includes(k))):input===output&&output===(kind==='boxes'?'CASES':'BOTTLES');});
+      var filtered=all.filter(function(e){var input=unit(e,'input'),output=unit(e,'output');return kind==='format'?(input!==output||Object.keys(record.equipment[e.id]||{}).some(k=>!['inputUnit','outputUnit'].includes(k))):true;});
       var inputs=section(kind==='format'?'Combination settings':'Equipment behavior');
-      note(inputs,kind==='format'?'Bottle → case conversion settings depend on this combination. Any retained settings from an earlier format are shown here as overrides; use shared settings to remove an override.':'Shared by every format using this '+(kind==='boxes'?'box':'product')+'. MTBF / MTTR remain general equipment settings.');
+      note(inputs,kind==='format'?'Bottle → case conversion settings depend on this combination. Any retained settings from an earlier format are shown here as overrides; use shared settings to remove an override.':'Shared by every format using this '+(kind==='boxes'?'box':'product')+'. Leave fields blank to use equipment / conveyor defaults. Values are used when the physical flow matches this catalog; conversion is configured on the packing format. MTBF / MTTR remain general equipment settings.');
       if(kind==='format')filtered.forEach(function(e){if(unit(e,'input')!==unit(e,'output'))return;var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent='Use shared settings: '+e.name;b.onclick=function(){record.equipment[e.id]={inputUnit:unit(e,'input'),outputUnit:unit(e,'output')};draw();};inputs.append(b);});
       function profile(e){return record.equipment[e.id]||(record.equipment[e.id]={});}
       function name(row,e){var cell=document.createElement('th');cell.scope='row';cell.textContent=e.name;row.append(cell);}
-      function applies(row,e){var td=document.createElement('td'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=profile(e).applies!==false;checkbox.setAttribute('aria-label',e.name+' · Applies');checkbox.onchange=function(){profile(e).applies=checkbox.checked;draw();};td.append(checkbox);row.append(td);if(!checkbox.checked)row.classList.add('product-row-inactive');}
-      function disable(row,e){if(profile(e).applies===false)row.querySelectorAll('input:not([type=checkbox])').forEach(i=>i.disabled=true);}
+      function matches(e){return unit(e,'input')===unit(e,'output')&&unit(e,'output')===(kind==='boxes'?'CASES':'BOTTLES');}
+      function usage(e){var flow=unit(e,'output').toLowerCase();return kind==='format'?flow:unit(e,'input')!==unit(e,'output')?'Combination settings':flow+(matches(e)?' · Active':' · Used in '+(kind==='boxes'?'Products':'Boxes'));}
+      function defaults(row,e){var td=document.createElement('td'),button=document.createElement('button');button.type='button';button.className='ghost';button.textContent='Use defaults';button.setAttribute('aria-label',e.name+' · Use defaults');button.onclick=function(){var p=profile(e);Object.keys(p).forEach(key=>{if(!['inputUnit','outputUnit','applies'].includes(key))delete p[key];});draw();};td.append(button);row.append(td);}
+      function applies(row,e){var td=document.createElement('td'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=profile(e).applies!==false;checkbox.disabled=kind!=='format'&&!matches(e);checkbox.setAttribute('aria-label',e.name+' · Applies');checkbox.onchange=function(){profile(e).applies=checkbox.checked;draw();};td.append(checkbox);row.append(td);if(!checkbox.checked)row.classList.add('product-row-inactive');}
+      function disable(row,e){if(profile(e).applies===false||(kind!=='format'&&unit(e,'input')!==unit(e,'output')))row.querySelectorAll('input:not([type=checkbox])').forEach(i=>i.disabled=true);}
       var machines=filtered.filter(e=>e.type!=='CONVEYOR'),belts=filtered.filter(e=>e.type==='CONVEYOR');
-      if(machines.length)table(inputs,'Machines',['Equipment','Applies','Output unit','Rate (output/min)','Startup (s)','Ramp up (s)'],machines,function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output').toLowerCase());var p=profile(e);inputCell(row,e,p,'ratePerMinute','Rate ('+unit(e,'output').toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,p,'startupSeconds','Startup (s)');inputCell(row,e,p,'rampSeconds','Ramp up (s)');disable(row,e);});
-      if(belts.length)table(inputs,'Conveyors',['Conveyor','Applies','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],belts,function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output').toLowerCase());var p=profile(e);[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(spec=>inputCell(row,e,p,spec[0],spec[1],spec[2]));disable(row,e);});
+      if(machines.length)table(inputs,'Machines',['Equipment','Applies','Output unit','Rate (output/min)','Startup (s)','Ramp up (s)',''],machines,function(row,e){name(row,e);applies(row,e);textCell(row,usage(e));var p=profile(e);inputCell(row,e,p,'ratePerMinute','Rate ('+(kind==='format'?unit(e,'output').toLowerCase():kind==='boxes'?'cases':'bottles')+'/min)',{min:'0.001'});inputCell(row,e,p,'startupSeconds','Startup (s)');inputCell(row,e,p,'rampSeconds','Ramp up (s)');defaults(row,e);disable(row,e);});
+      if(belts.length)table(inputs,'Conveyors',['Conveyor','Applies','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)',''],belts,function(row,e){name(row,e);applies(row,e);textCell(row,usage(e));var p=profile(e);[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(spec=>inputCell(row,e,p,spec[0],spec[1],spec[2]));defaults(row,e);disable(row,e);});
       if(!filtered.length)note(inputs,'No matching equipment. Configure Material flow / Transport unit on the equipment cards.');
     }
     function sharedBehavior(kind){var records=kind==='products'?draft.products:draft.boxes;if(!records.length)return;var chooser=section('Behavior selection');var key=kind==='products'?'selectedBehaviorProduct':'selectedBehaviorBox';var selected=dialog.dataset[key];if(!records.some(r=>r.id===selected))selected=records[0].id;selectField(chooser,kind==='products'?'Product behavior':'Box behavior',selected,records,function(value){dialog.dataset[key]=value||records[0].id;draw();});behaviorTables(records.find(r=>r.id===selected),kind);}

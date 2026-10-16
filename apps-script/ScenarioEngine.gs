@@ -109,7 +109,7 @@ function applyProductProfile(equipment, product) {
     if(profile.rampSeconds!==undefined)item.processData.downstream={...item.processData.downstream,rampUpTimeSeconds:profile.rampSeconds};
     item.processData.productInputRatePerSecond=item.nominalRatePerSecond*productUnitFactor(item,product)/productUnitFactor(item,product,'input');
     if(item.type==='CONVEYOR'||item.processData.role==='CONVEYOR') {
-      const length=productPresentation(product,productFlowUnit(item)).lengthMm;
+      const length=productPresentation(product,productFlowUnit(item)).lengthMm??item.processData.upstream?.packageLengthMm??item.processData.accumulation?.productLengthMm;
       const upstream={...item.processData.upstream,packageLengthMm:length},accumulation={...item.processData.accumulation};
       if(accumulation.productLengthMm!==undefined)accumulation.productLengthMm=length;
       if(accumulation.productPitchMm!==undefined&&profile.movingGapMm!==undefined)accumulation.productPitchMm=length+profile.movingGapMm;
@@ -133,7 +133,7 @@ function validateProductDefinitions(products,equipment=[],options={}){
     if(p.volumeMl!==undefined&&!nonnegative(p.volumeMl))throw Error(p.name+': volume must be nonnegative.');
     for(const unit of PRODUCT_FLOW_UNITS){
       const presentation=productPresentation(p,unit),used=equipment.some(e=>p.equipment?.[e.id]?.applies!==false&&Object.values(productProfileUnits(e,p)).includes(unit));
-      if(options.requireDimensions!==false&&used&&!positive(presentation.lengthMm))throw Error(p.name+': enter the '+(unit==='CASES'?'case':'bottle')+' length along the conveyor.');
+      if(options.requireDimensions!==false&&used&&presentation.lengthMm===undefined){const belts=equipment.filter(e=>(e.type==='CONVEYOR'||e.processData?.role==='CONVEYOR')&&productProfileUnits(e,p).output===unit&&p.equipment?.[e.id]?.applies!==false);if(belts.some(e=>!positive(e.processData?.upstream?.packageLengthMm??e.processData?.accumulation?.productLengthMm)))throw Error(p.name+': enter the '+(unit==='CASES'?'case':'bottle')+' length along the conveyor, or set a default on each conveyor.');}
       for(const key of ['lengthMm','widthMm','heightMm'])if(presentation[key]!==undefined&&!positive(presentation[key]))throw Error(p.name+': '+unit.toLowerCase()+' '+key+' must be positive.');
     }
     for(const [id,profile] of Object.entries(p.equipment||{})){
