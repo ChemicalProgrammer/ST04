@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {diagnoseLineEfficiency} from '../src/analysis/LinePerformanceAnalysis.js';
 import {simulateLine,simulateLineAsync} from '../src/simulation/LineSimulationEngine.js';
 import {simulateBatch} from '../src/simulation/SimulationBatch.js';
 import {applyProductProfile} from '../src/simulation/ProductProfiles.js';
@@ -75,4 +76,13 @@ test('blank conveyor overrides preserve editable base settings while explicit ov
  const i=input(),p=i.run.productCatalog[0],belt=i.case.equipment[1];p.equipment.bottles={};delete p.bottleLengthMm;belt.processData.accumulation.movingGapMm=7;belt.processData.accumulation.accumulatedGapMm=3;belt.processData.accumulation.conveyorSpeedMmPerSecond=321;
  const before=structuredClone(belt),resolved=applyProductProfile(i.case.equipment,p)[1];assert.equal(resolved.processData.accumulation.movingGapMm,7);assert.equal(resolved.processData.accumulation.accumulatedGapMm,3);assert.equal(resolved.processData.accumulation.conveyorSpeedMmPerSecond,321);assert.equal(resolved.processData.upstream.packageLengthMm,belt.processData.upstream?.packageLengthMm??belt.processData.accumulation.productLengthMm);assert.deepEqual(belt,before);
  p.equipment.bottles={movingGapMm:0,accumulatedGapMm:0,speedMmPerSecond:123};const custom=applyProductProfile(i.case.equipment,p)[1];assert.equal(custom.processData.accumulation.movingGapMm,0);assert.equal(custom.processData.accumulation.accumulatedGapMm,0);assert.equal(custom.processData.accumulation.conveyorSpeedMmPerSecond,123);assert.equal(custom.processData.accumulation.usableLengthMm,belt.processData.accumulation.usableLengthMm);delete p.equipment.bottles.speedMmPerSecond;assert.equal(applyProductProfile(i.case.equipment,p)[1].processData.accumulation.conveyorSpeedMmPerSecond,321);
+});
+
+test('real format changeovers retain enough provenance for weighted nominal gap and closed loss accounting',()=>{
+ const i=input();i.run.productCatalog[0].equipment.packer={ratePerMinute:40};
+ const b=structuredClone(i.run.productCatalog[0]);b.id='b';b.name='B';b.bottlesPerCase=6;b.equipment.packer.ratePerMinute=120;i.run.productCatalog.push(b);
+ i.run.plannedStops=[{category:'changeoverMinutes',startSeconds:40,endSeconds:50,targetProductId:'b'}];
+ const result=run(i);result.inputSignature=JSON.stringify({equipment:i.case.equipment,unitOfFlow:i.case.unitOfFlow,run:i.run});
+ const d=diagnoseLineEfficiency(i.case.equipment,result),expected=result.products.rows.find(r=>r.productId==='a').durationSeconds*4/(100*12)*100;
+ assert(Math.abs(d.capacityGapPp-expected)<1e-9);assert(d.accountingAvailable);assert(Math.abs(d.achievedPercent+d.capacityGapPp+d.residualLossPp-100)<1e-9);conserved(result);
 });

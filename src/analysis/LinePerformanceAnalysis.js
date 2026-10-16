@@ -1,3 +1,4 @@
+import { applyProductProfile, productFlowUnit, productPackSize } from '../simulation/ProductProfiles.js';
 import { resolveAccumulationZoneDefinition } from '../simulation/FormatGeometryAdapter.js';
 
 /** Design targets and observed flow. Recovery is an explicit planning estimate. */
@@ -100,12 +101,30 @@ function estimateRecoveryTarget(equipment, item, referenceId, normalBpm) {
 
 // Capacity accounting and observed equipment time are distinct: time losses
 // overlap across machines and must never be summed as causal global OEE loss.
+// Use immutable run snapshots and time-weighted bottle equivalents across formats.
+function formatCapacityCeiling(models,result,provenance){
+  const rows=result.products?.rows,catalog=provenance?.run?.productCatalog;
+  if(!rows?.length||!Array.isArray(catalog))return null;
+  let ideal=0,capacity=0,duration=0;
+  for(const row of rows){
+    const product=catalog.find(p=>p.id===(row.formatId||row.productId));
+    if(!product||!Number.isFinite(row.durationSeconds)||row.durationSeconds<0||!Number.isFinite(row.idealBottleOutput)||row.idealBottleOutput<0)return null;
+    if(!row.durationSeconds)continue;
+    const machines=applyProductProfile(models,product).filter(e=>e.type!=='CONVEYOR'&&e.processData?.role!=='CONVEYOR');
+    const rates=machines.map(e=>e.nominalRatePerSecond*(productFlowUnit(e)==='CASES'?productPackSize(product):1));
+    if(!rates.length||rates.some(r=>!Number.isFinite(r)||r<=0))return null;
+    capacity+=Math.min(row.idealBottleOutput,Math.min(...rates)*row.durationSeconds);
+    ideal+=row.idealBottleOutput;duration+=row.durationSeconds;
+  }
+  if(!(ideal>0)||Math.abs(duration-result.durationSeconds)>Math.max(.001,result.durationSeconds*1e-8))return null;
+  return 100*capacity/ideal;
+}
 export function diagnoseLineEfficiency(equipment,result){
-  let models=equipment||[];
-  if(result?.inputSignature){try{const p=JSON.parse(result.inputSignature);if(Array.isArray(p.equipment))models=p.equipment;}catch(_){}}
+  let models=equipment||[],provenance;
+  try{provenance=JSON.parse(result?.inputSignature||result?.replay?.inputSignature||'null');if(Array.isArray(provenance?.equipment))models=provenance.equipment;}catch(_){}
   const line=analyzeLinePerformance(models,result),reference=line.points.find(p=>p.isPacemaker),machines=line.points.filter(p=>p.configuredBpm>0);
   const referenceBpm=reference?.configuredBpm,minimumBpm=machines.length?Math.min(...machines.map(p=>p.configuredBpm)):null;
-  const ceiling=referenceBpm>0&&minimumBpm>0?Math.min(100,100*minimumBpm/referenceBpm):null;
+  const ceiling=result?.products?formatCapacityCeiling(models,result,provenance):referenceBpm>0&&minimumBpm>0?Math.min(100,100*minimumBpm/referenceBpm):null;
   const mean=result?.batch?.statistics?.lineOeePercent?.mean,achieved=Number.isFinite(mean)?mean:result?.summary?.lineOeePercent;
   const valid=result?.engineId!=='DES_SIMPY_EXPERIMENTAL'&&Number.isFinite(ceiling)&&Number.isFinite(achieved)&&achieved>=0&&achieved<=ceiling+.01;
   const duration=result?.durationSeconds,read=(id,key)=>result?.batch?.equipmentStatistics?.[id]?.[key]?.mean??result?.equipmentMetrics?.[id]?.[key];
@@ -115,5 +134,5 @@ export function diagnoseLineEfficiency(equipment,result){
     achievedPercent:Number.isFinite(achieved)?achieved:null,capacityGapPp:Number.isFinite(ceiling)?100-ceiling:null,residualLossPp:valid?Math.max(0,ceiling-achieved):null,
     accountingAvailable:valid,rounds:result?.batch?.rounds||1,
     equipmentTime:machines.map(p=>({id:p.id,name:p.name,percent:Object.fromEntries(keys.map(key=>{const value=read(p.id,key);return [key,duration>0&&Number.isFinite(value)?100*value/duration:null];}))})),
-    interpretation:'Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions.'};
+    interpretation:result?.products?'Time-weighted nominal machine-speed ceiling in bottle equivalents using saved format profiles and ideal output. Excludes transport constraints, stops and startup. Equipment-time percentages overlap and are not additive global OEE contributions.':'Nominal machine-speed ceiling; excludes transport constraints, stops and startup. Residual loss is not separated causally. Equipment-time percentages overlap and are not additive global OEE contributions.'};
 }

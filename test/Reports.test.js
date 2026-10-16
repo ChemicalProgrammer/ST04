@@ -209,3 +209,16 @@ test('product results survive summary export and appear in printable reports wit
   assert.equal(copy.simulations[0].results.products.rows[0].outputBottleEquivalents,126);assert.equal(copy.simulations[0].results.replay.products.rows[0].completeCases,10);assert.equal(copy.metadata.products[0].id,'format-a');
  }finally{h.dom.window.close();}
 });
+
+test('format loss exports separate nominal speed gap in bottle equivalents and close at 100 percent',()=>{
+ const h=setup();try{
+  h.sim.equipment=[{id:'f',name:'Filler',type:'FILLER',nominalRatePerSecond:10},{id:'p',name:'Packer',type:'CASE_PACKER',nominalRatePerSecond:1,processData:{flowUnits:{input:'BOTTLES',output:'CASES'}}}];
+  const product={id:'a',name:'A',bottlesPerCase:12,equipment:{p:{ratePerMinute:40}}};
+  h.sim.dynamicConfig={seed:17,durationSeconds:60,rounds:1,initialFormatId:'a',productCatalog:[product]};
+  h.result.summary.lineOeePercent=50;h.result.products={rows:[{formatId:'a',name:'A',durationSeconds:60,idealBottleOutput:600}]};
+  h.result.inputSignature=h.w.SimulatorEngine.inputSignature({case:{equipment:h.sim.equipment,unitOfFlow:h.result.unitOfFlow},run:h.sim.dynamicConfig});
+  h.sim.whatIf={lossDiagnostic:{status:'COMPLETE',key:'RESULTS_LOSS_V1:'+h.result.inputSignature,baselineOee:50,failureFreeOee:70}};
+  const loss=h.w.STReports.lossBreakdown(h.result,h.sim);assert.equal(loss.nominalMachineSpeedGap,20);assert.equal(loss.conditionalReliabilityLoss,20);assert.equal(loss.remainingLossWithoutFailures,10);assert.equal(loss.baselineOee+loss.nominalMachineSpeedGap+loss.conditionalReliabilityLoss+loss.remainingLossWithoutFailures,100);
+  h.w.eval(read('Results.html').replace(/^<script>|<\/script>\s*$/g,''));const target=h.w.document.createElement('main');h.w.document.body.append(target);h.w.STResults.renderEfficiency(target,h.sim.equipment,h.result,h.sim);assert.deepEqual(Array.from(target.querySelectorAll('.result-kpi strong'),n=>n.textContent),['20%','20%','10%']);
+ }finally{h.dom.window.close();}
+});

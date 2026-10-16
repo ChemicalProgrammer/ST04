@@ -2838,3 +2838,13 @@ test('UI: What-If evaluation preserves format snapshots and scheduled changeover
   const metric=await h.w.STScenarioExplorer.evaluate(sim,[],()=>false,0);assert.equal(metric.oee,45);assert.equal(calls,1);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: packing production and Plant calendar headers align with numeric values including scheduled stops',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  const target=h.d.createElement('section');h.d.body.append(target);
+  h.w.STProducts.results(target,{products:{rows:[{name:'Case 12',productName:'Product',outputUnit:'CASES',outputNative:12.5,completeCases:12,partialCaseEquivalent:.5,outputBottleEquivalents:150,clearoutBottleEquivalents:0}]}});
+  const table=target.querySelector('table');for(const row of table.rows)Array.from(row.cells).forEach((cell,i)=>{assert.equal(cell.classList.contains('numeric'),i>2);if(i>2)assert.equal(h.w.getComputedStyle(cell).textAlign,'right');});
+  const simulation={dynamicConfig:{plantCalendar:{enabled:true,totalMinutes:60,externalMinutes:0,mode:'SCHEDULED'}}},result={durationSeconds:3600,summary:{lineOeePercent:50,qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'},plantCalendar:{completePeriod:true,plannedStopSeconds:60,observedStopSeconds:60,horizonSeconds:3600,restartPolicy:'RESTART'}};
+  h.w.STPlantCalendar.renderResults(target,result,simulation);const calendar=target.querySelector('table');assert(calendar);for(const row of calendar.rows){assert.equal(row.cells[1].classList.contains('numeric'),true);assert.equal(h.w.getComputedStyle(row.cells[1]).textAlign,'right');}assert.match(calendar.rows[calendar.rows.length-1].textContent,/Observed planned line stops/);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
