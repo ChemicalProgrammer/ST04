@@ -1,66 +1,56 @@
 <script>
 window.STProducts=(function(){
-  var state,hooks,selectedProductId;
-  function catalog(){return state?.activeCase?.metadata?.products||[];}
+  var state,hooks,currentTab='products',selectedFormatId;
   function copy(value){return JSON.parse(JSON.stringify(value));}
-  function unit(e,side,p){side=side||'output';return p?.equipment?.[e.id]?.[side+'Unit']||e.processData?.flowUnits?.[side]||'BOTTLES';}
-  function preparePresentations(p){p.presentations=p.presentations||{};p.presentations.bottle=p.presentations.bottle||{lengthMm:p.bottleLengthMm};p.presentations.case=p.presentations.case||{lengthMm:p.caseLengthMm,bottlesPerCase:p.bottlesPerCase??12};return p;}
-  function packSize(p){return p?.presentations?.case?.bottlesPerCase??p?.bottlesPerCase;}
-  function syncPresentationAliases(p){p.bottleLengthMm=p.presentations.bottle.lengthMm;p.caseLengthMm=p.presentations.case.lengthMm;p.bottlesPerCase=packSize(p);}
-  function equipmentKey(){return JSON.stringify((state?.activeCase?.equipment||[]).map(e=>[e.id,e.name,e.type,e.processData?.flowUnits]));}
-  function render(force){
-    var target=document.getElementById('products-workspace');if(!target||state?.uiView!=='products')return;
-    var identity=JSON.stringify([state.activeCase?.id,hooks.simulation()?.id,hooks.simulation()?.dynamicConfig?.initialProductId,catalog(),equipmentKey()]);
-    if(force!==true&&target._productIdentity===identity&&target.querySelector('.products-editor'))return;
-    target._productIdentity=identity;target.replaceChildren();if(state.activeCase)open(true);
-  }
+  function data(){return SimulatorEngine.normalizeFormatCatalog(state?.activeCase?.metadata||{});}
+  function catalog(){return SimulatorEngine.resolvePackingFormats(data());}
+  function initialId(sim){return sim?.dynamicConfig?.initialFormatId??sim?.dynamicConfig?.initialProductId??'';}
+  function currentFormat(){try{return catalog().find(f=>f.id===initialId(hooks?.simulation()));}catch(ignore){return null;}}
+  function hasFormats(){return !!data().formats.length;}
+  function packSize(format){return format?.bottlesPerCase??format?.presentations?.case?.bottlesPerCase;}
+  function id(prefix){return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);}
+  function unit(e,side,format){side=side||'output';var base=e.processData?.flowUnits?.[side]||'BOTTLES';if(format)return format.equipment?.[e.id]?.[side+'Unit']||base;var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[],values=formats.map(f=>f.equipment?.[e.id]?.[side+'Unit']||base);return values.length&&values.every(value=>value===values[0])?values[0]:base;}
   function defaultProfile(e,index){
-    var data=e.processData||{},a=data.accumulation||{},u=data.upstream||{};
-    var units={applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e)};
-    if(e.type!=='CONVEYOR')return {...units,ratePerMinute:e.nominalRatePerSecond*60};
-    var definition;try{definition=window.SimulatorEngine.resolveProductConveyor?.(state.activeCase.equipment,index);}catch(ignore){}
+    var a=e.processData?.accumulation||{},u=e.processData?.upstream||{},definition;
+    if(e.type!=='CONVEYOR')return {applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e,'output'),ratePerMinute:e.nominalRatePerSecond*60};
+    try{definition=SimulatorEngine.resolveProductConveyor?.(state.activeCase.equipment,index);}catch(ignore){}
     var length=u.packageLengthMm??a.productLengthMm;
-    return {...units,movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,
+    return {applies:true,inputUnit:unit(e,'input'),outputUnit:unit(e,'output'),movingGapMm:a.movingGapMm??definition?.gapMm,accumulatedGapMm:a.accumulatedGapMm??0,
       dischargeGapMm:Number.isFinite(u.dischargePitchMm)&&Number.isFinite(length)?Math.max(0,u.dischargePitchMm-length):undefined,
-      infeedGapMm:Number.isFinite(data.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,data.downstream.infeedPitchMm-length):undefined,
+      infeedGapMm:Number.isFinite(e.processData?.downstream?.infeedPitchMm)&&Number.isFinite(length)?Math.max(0,e.processData.downstream.infeedPitchMm-length):undefined,
       speedMmPerSecond:a.speedMode==='MANUAL'?a.conveyorSpeedMmPerSecond:undefined};
   }
-  function alignProducts(products){
+  function alignFormats(formats){
     var all=state.activeCase.equipment||[],keep=new Set(all.map(e=>e.id)),activeId=hooks.simulation()?.id||state.activeSimulationId;
-    (state.activeCase.simulations||[]).filter(sim=>sim.id!==activeId).forEach(sim=>(sim.equipment||[]).forEach(e=>keep.add(e.id)));
-    products.forEach(function(p){p.equipment=p.equipment||{};all.forEach(function(e,index){if(!Object.prototype.hasOwnProperty.call(p.equipment,e.id))p.equipment[e.id]=defaultProfile(e,index);});Object.keys(p.equipment).forEach(function(id){if(!keep.has(id))delete p.equipment[id];});});
-    return products;
+    (state.activeCase.simulations||[]).filter(s=>s.id!==activeId).forEach(s=>(s.equipment||[]).forEach(e=>keep.add(e.id)));
+    formats.forEach(function(f){f.equipment=f.equipment||{};all.forEach(function(e,i){if(!Object.prototype.hasOwnProperty.call(f.equipment,e.id))f.equipment[e.id]=defaultProfile(e,i);});Object.keys(f.equipment).forEach(key=>{if(!keep.has(key))delete f.equipment[key];});});return formats;
   }
-  function reconcile(){
-    if(!state?.activeCase||!catalog().length)return false;
-    var before=JSON.stringify(catalog());alignProducts(catalog());return before!==JSON.stringify(catalog());
+  function reconcile(){if(!state?.activeCase)return false;var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[];if(!formats.length)return false;var before=JSON.stringify(formats);alignFormats(formats);return before!==JSON.stringify(formats);}
+  function setPhysicalUnits(equipmentId,input,output){
+    var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[];
+    formats.forEach(function(f){f.equipment=f.equipment||{};var profile=f.equipment[equipmentId]||(f.equipment[equipmentId]={});profile.inputUnit=input;profile.outputUnit=output;});
   }
-  function captureProduct(name){
-    var all=state.activeCase.equipment||[],belts=all.filter(e=>e.type==='CONVEYOR'),bottle=belts.find(e=>unit(e)==='BOTTLES'),box=belts.find(e=>unit(e)==='CASES');
-    return preparePresentations(alignProducts([{id:'product-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:name,bottlesPerCase:12,
-      bottleLengthMm:bottle?.processData?.upstream?.packageLengthMm??bottle?.processData?.accumulation?.productLengthMm,
-      caseLengthMm:box?.processData?.upstream?.packageLengthMm??box?.processData?.accumulation?.productLengthMm,equipment:{}}])[0]);
+  function references(formatId){
+    var active=hooks.simulation(),sims=(state.activeCase.simulations||[]).slice();if(active&&!sims.some(s=>s.id===active.id))sims.push(active);var refs=[];
+    sims.forEach(function(sim){if(sim.id!==active?.id&&initialId(sim)===formatId)refs.push((sim.name||sim.id)+' initial format');var events=sim.id===active?.id?(state.run?.plannedStops||sim.dynamicConfig?.plannedStops):sim.dynamicConfig?.plannedStops;if(events?.some(e=>(e.targetFormatId??e.targetProductId)===formatId))refs.push((sim.name||sim.id)+' changeover');});return refs;
   }
-  function references(id){
-    var active=hooks.simulation(),simulations=(state.activeCase.simulations||[]).slice();if(active&&!simulations.some(s=>s.id===active.id))simulations.push(active);
-    var result=[];
-    simulations.forEach(function(sim){
-      if(sim.id!==active?.id&&sim.dynamicConfig?.initialProductId===id)result.push((sim.name||sim.id||'Simulation')+' initial product');
-      var events=sim===active||sim.id===active?.id?(state.run?.plannedStops||sim.dynamicConfig?.plannedStops):sim.dynamicConfig?.plannedStops;
-      if(events?.some(e=>e.targetProductId===id))result.push((sim.name||sim.id||'Simulation')+' changeover');
-    });return result;
+  function render(force){
+    var target=document.getElementById('products-workspace');if(!target||state?.uiView!=='products')return;
+    var identity=JSON.stringify([state.activeCase?.id,hooks.simulation()?.id,initialId(hooks.simulation()),state.activeCase?.metadata?.formatCatalog||state.activeCase?.metadata?.products,state.activeCase?.equipment]);
+    if(force!==true&&target._formatIdentity===identity&&target.querySelector('.products-editor'))return;target._formatIdentity=identity;target.replaceChildren();if(state.activeCase)open(true);
   }
   async function open(inline){
     inline=inline===true;if((!inline&&hooks.locked())||!hooks.capture())return;
-    var draft=alignProducts(copy(catalog())).map(preparePresentations),initial=hooks.simulation()?.dynamicConfig?.initialProductId||'',selected=draft.some(p=>p.id===selectedProductId)?selectedProductId:draft.some(p=>p.id===initial)?initial:draft[0]?.id;
-    var focus=document.activeElement,ownerCase=state.activeCase,ownerSimulation=hooks.simulation();
-    var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby',inline?'products-title':'products-dialog-title');
-    var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='products-dialog-title';title.textContent='Products';heading.append(title);heading.hidden=inline;
-    var body=document.createElement('div');body.className='dialog-body';var footer=document.createElement('footer');footer.className='dialog-actions';dialog.append(heading,body,footer);
-    if(inline)document.getElementById('products-workspace').append(dialog);else document.body.append(dialog);
+    var draft=data();alignFormats(draft.formats);var initial=initialId(hooks.simulation()),selected=draft.formats.some(f=>f.id===selectedFormatId)?selectedFormatId:draft.formats.some(f=>f.id===initial)?initial:draft.formats[0]?.id;
+    var ownerCase=state.activeCase,ownerSimulation=hooks.simulation(),focus=document.activeElement;
+    var dialog=document.createElement(inline?'section':'dialog');dialog.className=inline?'products-editor':'settings-dialog products-dialog';dialog.setAttribute('aria-labelledby',inline?'products-title':'formats-dialog-title');
+    var heading=document.createElement('header');heading.className='dialog-heading';var title=document.createElement('h2');title.id='formats-dialog-title';title.textContent='Formats';heading.hidden=inline;heading.append(title);
+    var tabs=document.createElement('nav');tabs.className='settings-tabs formats-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Format catalogs');
+    var body=document.createElement('div');body.className='dialog-body';body.id='formats-tab-panel';body.setAttribute('role','tabpanel');
+    var footer=document.createElement('footer');footer.className='dialog-actions';dialog.append(heading,tabs,body,footer);if(inline)document.getElementById('products-workspace').append(dialog);else document.body.append(dialog);
     function closeEditor(){if(inline){dialog.remove();render(true);}else dialog.close();}
     var cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent=inline?'Discard edits':'Cancel';cancel.onclick=closeEditor;
-    var save=document.createElement('button');save.type='button';save.textContent='Save products';footer.append(cancel,save);
+    var save=document.createElement('button');save.type='button';save.textContent='Save formats';footer.append(cancel,save);
     var error=document.createElement('p');error.className='notice product-error hidden';error.setAttribute('role','alert');
     function showError(message){error.textContent=message;error.classList.remove('hidden');}
     function section(text){var section=document.createElement('section');section.className='settings-section product-subsection';var heading=document.createElement('div');heading.className='editor-subheading compact-heading';var h=document.createElement('h3');h.textContent=text;heading.append(h);section.append(heading);body.append(section);return section;}
@@ -74,68 +64,79 @@ window.STProducts=(function(){
     function table(parent,caption,columns,equipment,drawRow){
       var scroll=document.createElement('div');scroll.className='table-scroll';var table=document.createElement('table');table.className='settings-color-table product-settings-table';var title=document.createElement('caption');title.textContent=caption;table.append(title);
       var head=document.createElement('thead'),row=document.createElement('tr');columns.forEach(function(text,index){var cell=document.createElement('th');cell.scope='col';cell.textContent=text;if(index>1)cell.className='numeric';row.append(cell);});head.append(row);table.append(head);var body=document.createElement('tbody');
-      equipment.forEach(function(e){var row=document.createElement('tr');row.dataset.equipmentId=e.id;var name=document.createElement('th');name.scope='row';name.textContent=e.name||e.id;row.append(name);drawRow(row,e);body.append(row);});
+      equipment.forEach(function(e){var row=document.createElement('tr');row.dataset.equipmentId=e.id;drawRow(row,e);body.append(row);});
       if(!equipment.length){var row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=columns.length;cell.className='empty';cell.textContent='No '+caption.toLowerCase()+' in this simulation.';row.append(cell);body.append(row);}
       table.append(body);scroll.append(table);parent.append(scroll);return table;
     }
     function textCell(row,text){var td=document.createElement('td');td.textContent=text;row.append(td);}
     function inputCell(row,e,profile,key,label,options){var td=document.createElement('td');td.className='numeric';td.append(control(profile,key,e.name+' · '+label,options));row.append(td);}
-    function renderDraft(){
-      body.replaceChildren();error.classList.add('hidden');body.append(error);
-      var chooser=section('Product selection'),tools=document.createElement('div');tools.className='product-selector-row';var label=document.createElement('label');label.textContent='Product';var select=document.createElement('select');select.id='product-selector';
-      if(!draft.length){var empty=document.createElement('option');empty.textContent='No products configured';empty.value='';select.append(empty);}
-      draft.forEach(function(p){var option=document.createElement('option');option.value=p.id;option.textContent=p.name||'Unnamed product';select.append(option);});select.value=selected||'';select.disabled=!draft.length;select.onchange=function(){selected=select.value;selectedProductId=selected;renderDraft();};label.append(select);tools.append(label);
-      function icon(name,label,handler){var b=document.createElement('button');b.type='button';b.className='ghost icon-button';b.innerHTML=STIcons.svg(name);b.title=label;b.setAttribute('aria-label',label);b.onclick=handler;tools.append(b);return b;}
-      icon('plus','Add product',function(){var p=captureProduct('Product '+(draft.length+1));draft.push(p);selected=p.id;selectedProductId=selected;renderDraft();});
-      var remove=icon('trash','Delete current product',function(){var used=references(selected);if(used.length){showError('This product is used by '+used.join(', ')+'. Choose a replacement there before deleting it.');return;}var index=draft.findIndex(p=>p.id===selected);if(index<0)return;if(initial===selected)initial='';draft.splice(index,1);selected=draft[Math.min(index,draft.length-1)]?.id;selectedProductId=selected;renderDraft();});remove.disabled=!selected;chooser.append(tools);
-      var p=draft.find(p=>p.id===selected);
-      var initialLabel=document.createElement('label');initialLabel.className='checkbox-label product-initial-choice';var initialCheck=document.createElement('input');initialCheck.type='checkbox';initialCheck.id='product-use-initial';initialCheck.checked=!!p&&p.id===initial;initialCheck.disabled=!p;initialCheck.onchange=function(){initial=initialCheck.checked?selected:'';initialNote.textContent=initial?'Initial product: '+(draft.find(p=>p.id===initial)?.name||initial):'No initial product selected; existing equipment configuration will be used.';};initialLabel.append(initialCheck,document.createTextNode('Use selected product as the initial product for '+(ownerSimulation?.name||'this simulation')));chooser.append(initialLabel);
-      var initialNote=note(chooser,initial?'Initial product: '+(draft.find(p=>p.id===initial)?.name||initial):'No initial product selected; existing equipment configuration will be used.');
-      if(!p){note(chooser,'Add a product to enter its dimensions and operating settings.');return;}
-      var general=section('General information'),grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';general.append(grid);
-      field(grid,'Name',p,'name',{text:true,required:true,changed:function(){select.selectedOptions[0].textContent=p.name||'Unnamed product';if(initial===p.id)initialNote.textContent='Initial product: '+p.name;}});
-      field(grid,'Container volume (mL)',p,'volumeMl');
-      [['bottle','Bottle'],['case','Case']].forEach(function(spec){var group=document.createElement('fieldset');group.className='product-presentation';var legend=document.createElement('legend');legend.textContent=spec[1]+' presentation';group.append(legend);var fields=document.createElement('div');fields.className='settings-simulation-grid product-general-grid';group.append(fields);general.append(group);var data=p.presentations[spec[0]];field(fields,spec[1]+' length along travel (mm)',data,'lengthMm',{min:'0.001'});field(fields,spec[1]+' width (mm)',data,'widthMm',{min:'0.001'});field(fields,spec[1]+' height (mm)',data,'heightMm',{min:'0.001'});if(spec[0]==='case')field(fields,'Bottles per case',data,'bottlesPerCase',{min:'1',step:'1',required:true});});
-      note(general,'Bottle and case are two presentations of the same product. Length along travel controls conveyor capacity; width and height are stored for reference.');
-      var inputs=section('Equipment inputs');note(inputs,'Rows follow the current equipment list. Spacing is free space; pitch = product length + spacing. Blank values use equipment settings. MTBF / MTTR remain shared.');
-      var all=state.activeCase.equipment||[];
-      function appliesCell(row,e){var profile=p.equipment[e.id],cell=document.createElement('td'),check=document.createElement('input');check.type='checkbox';check.checked=profile.applies!==false;check.setAttribute('aria-label',e.name+' · Applies');check.onchange=function(){profile.applies=check.checked;renderDraft();};cell.append(check);row.append(cell);if(profile.applies===false)row.classList.add('product-row-inactive');}
-      function presentationSelect(row,e,side,cell){var profile=p.equipment[e.id],select=document.createElement('select');select.setAttribute('aria-label',e.name+' · '+(side==='input'?'Input':'Output')+' presentation');[['BOTTLES','Bottle'],['CASES','Case']].forEach(function(pair){var option=document.createElement('option');option.value=pair[0];option.textContent=pair[1];select.append(option);});select.value=unit(e,side,p);select.disabled=profile.applies===false;select.onchange=function(){profile[side+'Unit']=select.value;if(e.type==='CONVEYOR')profile.inputUnit=profile.outputUnit=select.value;renderDraft();};cell.append(select);}
-      function disableInactive(row,e){if(p.equipment[e.id].applies===false)row.querySelectorAll('input:not([type=checkbox]),select').forEach(c=>c.disabled=true);}
-      table(inputs,'Machines',['Equipment','Applies','Input → output','Rate (output/min)','Startup (s)','Ramp up (s)'],all.filter(e=>e.type!=='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];appliesCell(row,e);var units=document.createElement('td');units.className='product-flow-pair';presentationSelect(row,e,'input',units);var arrow=document.createElement('span');arrow.textContent='→';arrow.setAttribute('aria-hidden','true');units.append(arrow);presentationSelect(row,e,'output',units);row.append(units);inputCell(row,e,profile,'ratePerMinute','Rate ('+unit(e,'output',p).toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,profile,'startupSeconds','Startup (s)');inputCell(row,e,profile,'rampSeconds','Ramp up (s)');disableInactive(row,e);});
-      table(inputs,'Conveyors',['Conveyor','Applies','Presentation','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],all.filter(e=>e.type==='CONVEYOR'),function(row,e){var profile=p.equipment[e.id];appliesCell(row,e);var cell=document.createElement('td');presentationSelect(row,e,'output',cell);row.append(cell);[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(function(spec){inputCell(row,e,profile,spec[0],spec[1],spec[2]);});disableInactive(row,e);});
-      note(inputs,'Applies defines product compatibility. Every installed step is required to run this serial line; an unchecked row does not create a bypass. Select Bottle → Case on a Case Packer, then Case on its downstream conveyor.');
-      note(inputs,'Rates use each machine’s output unit: 300 bottles/min equals 25 cases/min at 12 bottles/case. Confirm the suggested pack size before running.');
-      if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
+    function selectField(parent,labelText,value,choices,changed){
+      var label=document.createElement('label');label.textContent=labelText;var select=document.createElement('select');select.setAttribute('aria-label',labelText);
+      var blank=document.createElement('option');blank.value='';blank.textContent='Select '+labelText.toLowerCase();select.append(blank);
+      choices.forEach(function(item){var option=document.createElement('option');option.value=item.id;option.textContent=item.name;select.append(option);});select.value=value||'';select.onchange=function(){changed(select.value);};label.append(select);parent.append(label);return select;
+    }
+    function icon(parent,name,label,handler){var b=document.createElement('button');b.type='button';b.className='ghost icon-button';b.innerHTML=STIcons.svg(name);b.title=label;b.setAttribute('aria-label',label);b.onclick=handler;parent.append(b);return b;}
+    function nameCell(row,obj,label){var td=document.createElement('td');td.append(control(obj,'name',label,{text:true,required:true}));row.append(td);}
+    function removeCell(row,label,handler){var td=document.createElement('td');icon(td,'trash',label,handler);row.append(td);}
+    function actionHeading(parent,label,handler){var heading=parent.querySelector('.editor-subheading'),actions=document.createElement('div');actions.className='button-row';icon(actions,'plus',label,handler);heading.append(actions);}
+    function renderProducts(){
+      var sectionNode=section('Products');actionHeading(sectionNode,'Add product',function(){draft.products.push({id:id('product'),name:'Product '+(draft.products.length+1),bottle:{}});draw();});
+      note(sectionNode,'Product identity and bottle dimensions. Reuse the same product in multiple packing formats.');
+      table(sectionNode,'Product catalog',['Product','Volume (mL)','Bottle length (mm)','Width (mm)','Height (mm)',''],draft.products,function(row,p){p.bottle=p.bottle||{};nameCell(row,p,'Product name');inputCell(row,p,p,'volumeMl','Volume (mL)');[['lengthMm','Bottle length (mm)'],['widthMm','Bottle width (mm)'],['heightMm','Bottle height (mm)']].forEach(spec=>inputCell(row,p,p.bottle,spec[0],spec[1],{min:'0.001'}));removeCell(row,'Delete product '+p.name,function(){var used=draft.formats.filter(f=>f.productId===p.id);if(used.length){showError('Product is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return;}draft.products=draft.products.filter(item=>item.id!==p.id);draw();});});
+    }
+    function renderBoxes(){
+      var sectionNode=section('Boxes');actionHeading(sectionNode,'Add box',function(){draft.boxes.push({id:id('box'),name:'Box '+(draft.boxes.length+1)});draw();});note(sectionNode,'Box dimensions are shared. Bottles per case and packing pattern belong to each packing format.');
+      table(sectionNode,'Box catalog',['Box','Length along travel (mm)','Width (mm)','Height (mm)',''],draft.boxes,function(row,b){nameCell(row,b,'Box name');[['lengthMm','Box length (mm)'],['widthMm','Box width (mm)'],['heightMm','Box height (mm)']].forEach(spec=>inputCell(row,b,b,spec[0],spec[1],{min:'0.001'}));removeCell(row,'Delete box '+b.name,function(){var used=draft.formats.filter(f=>f.boxId===b.id);if(used.length){showError('Box is used by: '+used.map(f=>f.name).join(', ')+'. Reassign or remove those formats first.');return;}draft.boxes=draft.boxes.filter(item=>item.id!==b.id);draw();});});
+    }
+    function renderFormats(){
+      var choose=section('Packing formats'),tools=document.createElement('div');tools.className='product-selector-row';
+      selectField(tools,'Packing format',selected,draft.formats,function(value){selected=value;selectedFormatId=value;draw();});
+      var add=icon(tools,'plus','Add packing format',function(){var f={id:id('format'),name:'Packing format '+(draft.formats.length+1),productId:draft.products[0]?.id,boxId:draft.boxes[0]?.id,bottlesPerCase:12,packPattern:'',equipment:{}};alignFormats([f]);draft.formats.push(f);selected=f.id;selectedFormatId=selected;draw();});add.disabled=!draft.products.length||!draft.boxes.length;
+      var remove=icon(tools,'trash','Delete packing format',function(){var used=references(selected);if(used.length){showError('Format is used by '+used.join(', ')+'. Choose a replacement there first.');return;}draft.formats=draft.formats.filter(f=>f.id!==selected);if(initial===selected)initial='';selected=draft.formats[0]?.id;selectedFormatId=selected;draw();});remove.disabled=!selected;choose.append(tools);
+      var f=draft.formats.find(f=>f.id===selected);if(!f){note(choose,'Create products and boxes first, then combine them in a packing format.');return;}
+      var initialLabel=document.createElement('label');initialLabel.className='checkbox-label product-initial-choice';var check=document.createElement('input');check.type='checkbox';check.id='format-use-initial';check.checked=initial===f.id;check.onchange=function(){initial=check.checked?f.id:'';};initialLabel.append(check,document.createTextNode('Use as initial format for '+(ownerSimulation?.name||'this simulation')));choose.append(initialLabel);
+      var general=section('Format configuration'),grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';general.append(grid);
+      field(grid,'Format name',f,'name',{text:true,required:true});selectField(grid,'Product',f.productId,draft.products,value=>{f.productId=value;});selectField(grid,'Box',f.boxId,draft.boxes,value=>{f.boxId=value;});field(grid,'Bottles per case',f,'bottlesPerCase',{min:'1',step:'1',required:true});field(grid,'Packing pattern',f,'packPattern',{text:true});
+      note(general,'One product + one box + a bottle count and packing pattern. Changeovers select a packing format. The suggested count of 12 must be confirmed.');
+      var inputs=section('Equipment inputs');note(inputs,'Operating settings belong to this format. Input/output units describe equipment function and are configured once in Equipment / Conveyors. MTBF / MTTR and installation geometry remain shared.');var all=state.activeCase.equipment||[];
+      function name(row,e){var cell=document.createElement('th');cell.scope='row';cell.textContent=e.name;row.append(cell);}
+      function applies(row,e){var td=document.createElement('td'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=f.equipment[e.id].applies!==false;checkbox.setAttribute('aria-label',e.name+' · Applies');checkbox.onchange=function(){f.equipment[e.id].applies=checkbox.checked;draw();};td.append(checkbox);row.append(td);if(!checkbox.checked)row.classList.add('product-row-inactive');}
+      function disable(row,e){if(f.equipment[e.id].applies===false)row.querySelectorAll('input:not([type=checkbox])').forEach(i=>i.disabled=true);}
+      table(inputs,'Machines',['Equipment','Applies','Input → output','Rate (output/min)','Startup (s)','Ramp up (s)'],all.filter(e=>e.type!=='CONVEYOR'),function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'input',f).toLowerCase()+' → '+unit(e,'output',f).toLowerCase());var p=f.equipment[e.id];inputCell(row,e,p,'ratePerMinute','Rate ('+unit(e,'output',f).toLowerCase()+'/min)',{min:'0.001'});inputCell(row,e,p,'startupSeconds','Startup (s)');inputCell(row,e,p,'rampSeconds','Ramp up (s)');disable(row,e);});
+      table(inputs,'Conveyors',['Conveyor','Applies','Transported unit','Moving gap (mm)','Accumulated gap (mm)','Discharge gap (mm)','Infeed gap (mm)','Manual speed (m/min)'],all.filter(e=>e.type==='CONVEYOR'),function(row,e){name(row,e);applies(row,e);textCell(row,unit(e,'output',f).toLowerCase());var p=f.equipment[e.id];[['movingGapMm','Moving gap (mm)'],['accumulatedGapMm','Accumulated gap (mm)'],['dischargeGapMm','Discharge gap (mm)'],['infeedGapMm','Infeed gap (mm)'],['speedMmPerSecond','Manual speed (m/min)',{min:'0.001',scale:.06}]].forEach(spec=>inputCell(row,e,p,spec[0],spec[1],spec[2]));disable(row,e);});
+      note(inputs,'Applies records compatibility, not a bypass. All steps must be compatible to run this serial line.');
+    }
+    [['products','Products'],['boxes','Boxes'],['formats','Packing formats']].forEach(function(pair,index){var b=document.createElement('button');b.type='button';b.id='formats-tab-'+pair[0];b.dataset.formatTab=pair[0];b.setAttribute('role','tab');b.setAttribute('aria-controls',body.id);b.textContent=pair[1];b.onclick=function(){currentTab=pair[0];draw();};b.onkeydown=function(event){var next=event.key==='ArrowRight'?(index+1)%3:event.key==='ArrowLeft'?(index+2)%3:event.key==='Home'?0:event.key==='End'?2:-1;if(next>=0){event.preventDefault();tabs.children[next].click();tabs.children[next].focus();}};tabs.append(b);});
+    function draw(){
+      body.replaceChildren();error.classList.add('hidden');body.append(error);tabs.querySelectorAll('button').forEach(function(b){var active=b.dataset.formatTab===currentTab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});body.setAttribute('aria-labelledby','formats-tab-'+currentTab);
+      if(currentTab==='products')renderProducts();else if(currentTab==='boxes')renderBoxes();else renderFormats();if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
     }
     save.onclick=async function(){
-      if(hooks.locked()||ownerCase!==state.activeCase||ownerSimulation!==hooks.simulation())return;
-      if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
+      if(hooks.locked()||ownerCase!==state.activeCase||ownerSimulation!==hooks.simulation())return;if(!Array.from(body.querySelectorAll('input')).every(i=>i.reportValidity()))return;
       var done=inline?null:STDialog.beginActivity(dialog);save.disabled=true;
       try{
-        await new Promise(resolve=>setTimeout(resolve,0));alignProducts(draft);draft.forEach(syncPresentationAliases);
-        if(initial&&!draft.some(p=>p.id===initial))throw Error('Choose an existing initial product.');
-        var removed=catalog().filter(p=>!draft.some(d=>d.id===p.id));for(var p of removed){var used=references(p.id);if(used.length)throw Error('Cannot delete '+p.name+': used by '+used.join(', '));}
+        await new Promise(resolve=>setTimeout(resolve,0));alignFormats(draft.formats);var resolved=SimulatorEngine.validateFormatCatalog(draft);SimulatorEngine.validateProductDefinitions?.(resolved,state.activeCase.equipment,{requireDimensions:false});
+        var old=data();for(var f of old.formats.filter(f=>!draft.formats.some(next=>next.id===f.id))){var used=references(f.id);if(used.length)throw Error('Cannot delete '+f.name+': used by '+used.join(', '));}
+        if(initial&&!draft.formats.some(f=>f.id===initial))throw Error('Select an existing initial format.');
         var equipment=state.activeCase.equipment.map(e=>({...e,processData:{...e.processData,flowUnits:e.processData?.flowUnits||{input:'BOTTLES',output:'BOTTLES'}}}));
-        SimulatorEngine.validateProductDefinitions?.(draft,equipment,{requireDimensions:false});
-        if(initial){var result=SimulatorEngine.validateSimulationInput({case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:draft,initialProductId:initial,eventsEnabled:false}});if(!result.ok)throw Error(result.error.details.map(d=>d.path+': '+(d.reason||d.message||JSON.stringify(d))).join('\n'));}
-        state.activeCase.metadata={...state.activeCase.metadata,products:draft};state.activeCase.equipment=equipment;
-        ownerSimulation.dynamicConfig={...ownerSimulation.dynamicConfig,initialProductId:initial||undefined};hooks.changed(true);closeEditor();
+
+        if(initial){var validation=SimulatorEngine.validateSimulationInput({case:{equipment:equipment},run:{durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,seed:1,engineId:'ST_CURRENT',productCatalog:resolved,initialProductId:initial,eventsEnabled:false}});if(!validation.ok)throw Error(validation.error.details.map(d=>d.path+': '+d.reason).join('\n'));}
+        state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:draft};delete state.activeCase.metadata.products;state.activeCase.equipment=equipment;
+        ownerSimulation.dynamicConfig={...ownerSimulation.dynamicConfig,initialFormatId:initial||undefined,initialProductId:initial||undefined};hooks.changed(true);closeEditor();
       }catch(e){showError(e.message);}finally{save.disabled=false;done?.();}
     };
-    if(!inline){dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();}renderDraft();
-    if(hooks.locked())dialog.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
+    if(!inline){dialog.addEventListener('close',function(){dialog.remove();focus?.focus();},{once:true});dialog.showModal();}draw();
   }
-  function runFields(){var id=hooks?.simulation()?.dynamicConfig?.initialProductId;return {initialProductId:id||undefined,productCatalog:id?JSON.parse(JSON.stringify(catalog())):undefined};}
+  function runFields(){var selected=initialId(hooks?.simulation());return {initialFormatId:selected||undefined,initialProductId:selected||undefined,productCatalog:selected?catalog():undefined};}
   function destinationCell(row,event,changed){
     var td=document.createElement('td');if(event.category==='changeoverMinutes'){
-      var select=document.createElement('select');select.setAttribute('aria-label','Destination product');[['','Keep current product']].concat(catalog().map(p=>[p.id,p.name])).forEach(function(v){var o=document.createElement('option');o.value=v[0];o.textContent=v[1];select.append(o);});if(event.targetProductId&&!catalog().some(p=>p.id===event.targetProductId)){var missing=document.createElement('option');missing.value=event.targetProductId;missing.textContent='Missing product — select a destination';select.append(missing);}select.value=event.targetProductId||'';select.disabled=hooks.locked();select.onchange=function(){event.targetProductId=select.value||undefined;changed();};td.append(select);
+      var select=document.createElement('select');select.setAttribute('aria-label','Destination packing format');var blank=document.createElement('option');blank.value='';blank.textContent='Keep current format';select.append(blank);var formats=catalog();formats.forEach(f=>{var option=document.createElement('option');option.value=f.id;option.textContent=f.name;select.append(option);});var value=event.targetFormatId??event.targetProductId??'';if(value&&!formats.some(f=>f.id===value)){var option=document.createElement('option');option.value=value;option.textContent='Missing format — select a destination';select.append(option);}select.value=value;select.disabled=hooks.locked();select.onchange=function(){event.targetFormatId=event.targetProductId=select.value||undefined;changed();};td.append(select);
     }else td.textContent='—';row.append(td);
   }
   function results(target,result){
     target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
-    var h=document.createElement('h3');h.textContent='Production by product';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Product','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>1)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
+    var h=document.createElement('h3');h.textContent='Production by packing format';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Packing format','Product','Box','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t){var th=document.createElement('th');th.textContent=t;tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.productName||r.name,r.boxName||'—',r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>3)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
   }
-  return {init:function(s,h){state=s;hooks=h;selectedProductId=null;},render:render,open:open,reconcile:reconcile,packSize:packSize,go:function(){if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
+  return {init:function(s,h){state=s;hooks=h;currentTab='products';selectedFormatId=null;},render:render,open:open,reconcile:reconcile,currentFormat:currentFormat,hasFormats:hasFormats,setPhysicalUnits:setPhysicalUnits,packSize:packSize,go:function(){currentTab='formats';selectedFormatId=initialId(hooks.simulation());if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
 })();
 </script>

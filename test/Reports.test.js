@@ -203,7 +203,7 @@ test('export dialog supports presets, empty selection and local progress lifecyc
 test('product results survive summary export and appear in printable reports without a uniform-unit loss claim',()=>{
  const h=setup();try{
   h.result.products={rows:[{name:'Format A',outputUnit:'CASES',outputNative:10.5,completeCases:10,partialCaseEquivalent:.5,outputBottleEquivalents:126,clearoutBottleEquivalents:4}]};
-  const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert(html.includes('Production by product'));assert(html.includes('Format A'));assert(html.includes('clear-out is removed inventory'));
+  const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert(html.includes('Production by packing format'));assert(html.includes('Format A'));assert(html.includes('clear-out is removed inventory'));
   const record={activeSimulationId:'a',equipment:h.c.equipment,metadata:{products:[{id:'format-a',name:'Format A'}]},simulations:[{...h.sim,results:{...h.result,replay:{samples:[{virtualSecond:60,outputCount:126}]}}}]};
   const choices=h.w.STReports.caseExportSelection(record,'REVIEW'),copy=h.w.STReports.selectedCaseExport(record,choices);
   assert.equal(copy.simulations[0].results.products.rows[0].outputBottleEquivalents,126);assert.equal(copy.simulations[0].results.replay.products.rows[0].completeCases,10);assert.equal(copy.metadata.products[0].id,'format-a');

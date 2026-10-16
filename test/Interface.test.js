@@ -2703,3 +2703,25 @@ test('UI: enabling events exposes the editor and its calendar dialog in Basic an
   enable.click();assert(section.classList.contains('hidden'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
+
+test('UI: relational Formats tabs save one product with reusable boxes and preserve a single source of operating settings',async()=>{
+ const h=await setup({uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="products"]');assert(h.visible('products-panel'));assert(!h.visible('run-panel'));assert.equal(h.d.getElementById('products-title').textContent,'Formats');
+  const enter=(label,value)=>{const input=h.d.querySelector('[aria-label="'+label+'"]');assert(input,label);input.value=String(value);input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+  await h.click('[aria-label="Add product"]');enter('Product name','Product A');enter('Product 1 · Bottle length (mm)',60);
+  await h.click('[data-format-tab="boxes"]');await h.click('[aria-label="Add box"]');enter('Box name','Box A');enter('Box 1 · Box length (mm)',300);
+  await h.click('[data-format-tab="formats"]');await h.click('[aria-label="Add packing format"]');enter('Format name','A / Box A');enter('Bottles per case',12);
+  assert.equal(h.d.querySelectorAll('.product-settings-table select').length,0);const save=Array.from(h.d.querySelectorAll('#products-workspace .dialog-actions button')).find(b=>b.textContent==='Save formats');save.click();await waitFor(()=>h.d.querySelector('[data-format-tab="formats"][aria-selected=true]'));await settle();assert(h.visible('products-panel'));assert(!h.visible('editor-panel'));assert(!h.visible('run-panel'));
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata?.formatCatalog?.formats?.length===1);const record=h.storedCases()[0],catalog=record.metadata.formatCatalog;assert.equal(catalog.products[0].name,'Product A');assert.equal(catalog.boxes[0].name,'Box A');assert.equal(catalog.formats[0].bottlesPerCase,12);assert.equal(catalog.formats[0].productId,catalog.products[0].id);assert.equal(catalog.formats[0].boxId,catalog.boxes[0].id);assert.equal(record.metadata.products,undefined);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: configuration import carries relational catalog references and rejects shared-record conflicts',async()=>{
+ const h=await setup();try{
+  const record=h.storedCases()[0],sim=record.simulations[0],current=h.w.STReports.configuration(record,sim),source=JSON.parse(JSON.stringify(current));
+  source.case.metadata={formatCatalog:{version:1,products:[{id:'p',name:'Product',bottle:{lengthMm:60}}],boxes:[{id:'b',name:'Box',lengthMm:300}],formats:[{id:'f',name:'Format',productId:'p',boxId:'b',bottlesPerCase:12,equipment:{}}]}};
+  source.simulation.equipment.forEach(e=>{e.processData.flowUnits={input:'BOTTLES',output:'BOTTLES'};});source.simulation.dynamicConfig={...source.simulation.dynamicConfig,durationMode:'FIXED',durationSeconds:60,tickSeconds:.25,sampleEverySeconds:1,rounds:1,seed:1,initialFormatId:'f',initialProductId:'f',commands:[]};
+  const config=h.w.STConfigurationEditor.validate(JSON.stringify(source),current);assert.equal(config.formatCatalog.formats[0].productId,'p');assert.equal(config.dynamicConfig.productCatalog[0].boxId,'b');assert.equal(config.dynamicConfig.initialFormatId,'f');assert.equal(current.case.metadata.formatCatalog,undefined);
+  current.case.metadata=JSON.parse(JSON.stringify(source.case.metadata));source.case.metadata.formatCatalog.products[0].bottle.lengthMm=61;assert.throws(()=>h.w.STConfigurationEditor.validate(JSON.stringify(source),current),/Shared products record/);assert.equal(current.case.metadata.formatCatalog.products[0].bottle.lengthMm,60);
+ }finally{h.dom.window.close();}
+});

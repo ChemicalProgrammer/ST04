@@ -41,7 +41,13 @@ var STConfigurationEditor=(function(){
     if(!object(source)||!Array.isArray(source.equipment))throw Error('equipment must be an array.');
     if(source.engineConfig&&JSON.stringify(source.engineConfig)!==JSON.stringify(current.simulation.engineConfig))throw Error('engineConfig is shared by the case and must match the active case.');
     if(source.dynamicConfig!==undefined&&!object(source.dynamicConfig))throw Error('dynamicConfig must be an object.');
-    var run=Object.assign({},current.simulation.dynamicConfig,source.dynamicConfig||{});
+    var run=Object.assign({},current.simulation.dynamicConfig,source.dynamicConfig||{}),formatCatalog;
+    if(Object.prototype.hasOwnProperty.call(source.dynamicConfig||{},'initialFormatId'))run.initialProductId=run.initialFormatId;
+    else if(Object.prototype.hasOwnProperty.call(source.dynamicConfig||{},'initialProductId'))run.initialFormatId=run.initialProductId;
+    if(parsed.case?.metadata?.formatCatalog||parsed.case?.metadata?.products){
+      formatCatalog=SimulatorEngine.mergeFormatCatalogs(SimulatorEngine.normalizeFormatCatalog(current.case.metadata||{}),SimulatorEngine.normalizeFormatCatalog(parsed.case.metadata));
+      run.productCatalog=SimulatorEngine.resolvePackingFormats(formatCatalog);
+    }
     if(run.tickSeconds!==0.25)throw Error('tickSeconds must be 0.25 in this interface.');
     if(!['FIXED','SHIFTS'].includes(run.durationMode)||!Number.isInteger(run.rounds)||run.rounds<1||run.rounds>100)throw Error('Use durationMode FIXED or SHIFTS and rounds from 1 to 100.');
     if(run.durationMode==='SHIFTS'){
@@ -60,7 +66,7 @@ var STConfigurationEditor=(function(){
     if(source.equipment.filter(function(e){return e.type==='PACEMAKER'||e.processData.role==='PACEMAKER'||e.characteristics.isPacemaker===true;}).length>1)throw Error('Select only one machine as the critical machine.');
     var result=SimulatorEngine.validateSimulationInput({case:{equipment:source.equipment},run:run});
     if(!result.ok)throw Error(result.error.details.map(function(d){return d.path+': '+d.reason;}).join('\n'));
-    return {equipment:source.equipment,dynamicConfig:run};
+    return {equipment:source.equipment,dynamicConfig:run,formatCatalog:formatCatalog};
   }
   function init(state,callbacks){
     var dialog=document.getElementById('configuration-dialog'),draft=document.getElementById('configuration-draft'),error=document.getElementById('configuration-error'),file=document.getElementById('configuration-file'),apply=document.getElementById('configuration-apply');

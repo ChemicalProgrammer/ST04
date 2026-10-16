@@ -103,17 +103,16 @@ function validateProductDefinitions(products,equipment=[],options={}){
   }
 }
 function validateProductSetup(input) {
-  const products=input?.run?.productCatalog;
-  if(!products?.length&&!input?.run?.initialProductId){if(input?.run?.eventsEnabled!==false&&input?.run?.plannedStops?.some(e=>e.targetProductId))throw Error('Select an initial product before assigning a changeover destination.');return [];}
+  const products=input?.run?.productCatalog,initialId=input?.run?.initialFormatId??input?.run?.initialProductId;
+  if(input?.run?.initialFormatId&&input?.run?.initialProductId&&input.run.initialFormatId!==input.run.initialProductId)throw Error('Initial format references disagree.');
+  if(!products?.length&&!initialId){if(input?.run?.eventsEnabled!==false&&input?.run?.plannedStops?.some(e=>e.targetFormatId||e.targetProductId))throw Error('Select an initial product before assigning a changeover destination.');return [];}
   if(!Array.isArray(products)||!products.length)throw Error('Configure at least one product.');
   if(input.run.engineId&&input.run.engineId!=='ST_CURRENT')throw Error('Product profiles and bottle/case conversion require the ST engine.');
   const equipment=input.case?.equipment||[];validateProductDefinitions(products,equipment,{requireDimensions:false});
-  const ids=new Set(products.map(p=>p.id)),used=new Set([input.run.initialProductId]);
-  if(!ids.has(input.run.initialProductId))throw Error('Select an initial product.');
-  for(const event of input.run.eventsEnabled===false?[]:(input.run.plannedStops||[]))if(event.targetProductId){
-    if(event.category!=='changeoverMinutes'||!ids.has(event.targetProductId))throw Error('A changeover must reference an existing destination product.');used.add(event.targetProductId);
-  }
-  const scheduled=products.filter(p=>used.has(p.id)),initial=scheduled.find(p=>p.id===input.run.initialProductId);
+  const ids=new Set(products.map(p=>p.id)),used=new Set([initialId]);
+  if(!ids.has(initialId))throw Error('Select an initial product.');
+  for(const event of input.run.eventsEnabled===false?[]:(input.run.plannedStops||[])){const destination=event.targetFormatId??event.targetProductId;if(!destination)continue;if(event.targetFormatId&&event.targetProductId&&event.targetFormatId!==event.targetProductId)throw Error('Changeover format references disagree.');if(event.category!=='changeoverMinutes'||!ids.has(destination))throw Error('A changeover must reference an existing destination packing format.');used.add(destination);}
+  const scheduled=products.filter(p=>used.has(p.id)),initial=scheduled.find(p=>p.id===initialId);
   for(const product of scheduled)for(const e of equipment){const a=productProfileUnits(e,initial),b=productProfileUnits(e,product);if(a.input!==b.input||a.output!==b.output)throw Error(e.name+': changing bottle/case presentation at the same installed step during a run is not supported; use separate simulations.');}
   return scheduled.map(product=>{
     validateProductDefinitions([product],equipment);
@@ -130,6 +129,58 @@ function validateProductSetup(input) {
     }
     return {product,equipment:applyProductProfile(equipment,product)};
   });
+}
+
+
+// Relational authoring catalog; simulation receives immutable resolved format snapshots.
+function normalizeFormatCatalog(metadata={}) {
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  if(metadata.formatCatalog){
+    const source=clone(metadata.formatCatalog);
+    return {version:1,products:source.products||[],boxes:source.boxes||[],formats:source.formats||[]};
+  }
+  const result={version:1,products:[],boxes:[],formats:[]};
+  for(const old of metadata.products||[]){
+    const bottle=old.presentations?.bottle||{lengthMm:old.bottleLengthMm};
+    const box=old.presentations?.case||{lengthMm:old.caseLengthMm};
+    const productId='product-'+old.id,boxId='box-'+old.id;
+    result.products.push({id:productId,name:old.name,volumeMl:old.volumeMl,bottle:clone(bottle)});
+    result.boxes.push({id:boxId,name:(old.name||'Product')+' box',lengthMm:box.lengthMm,widthMm:box.widthMm,heightMm:box.heightMm});
+    result.formats.push({id:old.id,name:old.name,productId,boxId,bottlesPerCase:box.bottlesPerCase??old.bottlesPerCase??12,packPattern:old.packPattern||'',equipment:clone(old.equipment||{})});
+  }
+  return result;
+}
+function resolvePackingFormats(catalog){
+  return catalog.formats.map(format=>{
+    const product=catalog.products.find(p=>p.id===format.productId),box=catalog.boxes.find(b=>b.id===format.boxId);
+    if(!product||!box)throw Error((format.name||'Packing format')+': select an existing product and box.');
+    return {id:format.id,formatId:format.id,name:format.name,productId:product.id,productName:product.name,boxId:box.id,boxName:box.name,
+      volumeMl:product.volumeMl,bottleLengthMm:product.bottle?.lengthMm,caseLengthMm:box.lengthMm,bottlesPerCase:format.bottlesPerCase,packPattern:format.packPattern||'',
+      presentations:{bottle:JSON.parse(JSON.stringify(product.bottle||{})),case:{lengthMm:box.lengthMm,widthMm:box.widthMm,heightMm:box.heightMm,bottlesPerCase:format.bottlesPerCase}},
+      equipment:JSON.parse(JSON.stringify(format.equipment||{}))};
+  });
+}
+function validateFormatCatalog(catalog){
+  for(const [kind,items] of [['Product',catalog.products],['Box',catalog.boxes],['Packing format',catalog.formats]]){
+    if(!Array.isArray(items)||items.length>100)throw Error(kind+': at most 100 records are supported.');
+    const ids=new Set();for(const item of items){if(!item||typeof item.id!=='string'||!item.id||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim())throw Error(kind+' requires a name and a unique ID.');ids.add(item.id);}
+  }
+  for(const p of catalog.products){if(p.volumeMl!==undefined&&(!Number.isFinite(p.volumeMl)||p.volumeMl<0))throw Error(p.name+': volume must be nonnegative.');}
+  for(const item of [...catalog.products.map(p=>({...p,...p.bottle})),...catalog.boxes])for(const key of ['lengthMm','widthMm','heightMm'])if(item[key]!==undefined&&(!Number.isFinite(item[key])||item[key]<=0))throw Error(item.name+': dimensions must be positive.');
+  const formats=resolvePackingFormats(catalog);
+  for(const f of formats)if(!Number.isInteger(f.bottlesPerCase)||f.bottlesPerCase<1||f.bottlesPerCase>10000)throw Error(f.name+': bottles per case must be an integer from 1 to 10,000.');
+  return formats;
+}
+function mergeFormatCatalogs(current,incoming){
+  validateFormatCatalog(current);validateFormatCatalog(incoming);
+  const result=JSON.parse(JSON.stringify(current));
+  const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+  for(const key of ['products','boxes','formats'])for(const record of incoming[key]){
+    const existing=result[key].find(item=>item.id===record.id);
+    if(existing&&JSON.stringify(canonical(existing))!==JSON.stringify(canonical(record)))throw Error('Shared '+key+' record '+record.name+' differs from the current case. Import the complete case or use matching catalog records.');
+    if(!existing)result[key].push(JSON.parse(JSON.stringify(record)));
+  }
+  validateFormatCatalog(result);return result;
 }
 
 
@@ -846,7 +897,8 @@ function resolvePlannedStops(run) {
       if(!['RESTART','RESUME'].includes(e.restartPolicy||'RESTART'))throw new Error('Invalid planned stop restart policy.');
       const startSeconds=Math.ceil((e.startSeconds-1e-8)/tick)*tick,endSeconds=Math.ceil((e.endSeconds-1e-8)/tick)*tick;
       if(endSeconds-startSeconds<tick-1e-8)throw new Error('Planned stop is shorter than one tick.');
-      return {...e,startSeconds,endSeconds,durationSeconds:endSeconds-startSeconds,restartPolicy:e.restartPolicy||'RESTART'};
+      if(e.targetFormatId&&e.targetProductId&&e.targetFormatId!==e.targetProductId)throw new Error('Changeover format references disagree.');
+      return {...e,targetProductId:e.targetFormatId??e.targetProductId,startSeconds,endSeconds,durationSeconds:endSeconds-startSeconds,restartPolicy:e.restartPolicy||'RESTART'};
     }).sort((a,b)=>a.startSeconds-b.startSeconds);
     events.forEach((e,i)=>{if(i&&e.startSeconds<events[i-1].endSeconds-1e-8)throw new Error('Planned stops overlap.');if(run.plantCalendar?.application==='EVENTS'&&e.endSeconds>run.plantCalendar.appliedHorizonSeconds+1e-8)throw new Error('A line stop extends beyond the applied calendar horizon.');});
     return {events,horizonSeconds:run.plantCalendar?.application==='EVENTS'?run.plantCalendar.appliedHorizonSeconds:run.durationSeconds,plannedStopSeconds:events.reduce((s,e)=>s+e.durationSeconds,0),restartPolicy:'PER_EVENT'};
@@ -1218,7 +1270,7 @@ async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
-  const product=input.run.productCatalog?.find(p=>p.id===input.run.initialProductId);
+  const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
   const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
@@ -2574,7 +2626,7 @@ function round(value) {
 
 function currentProductRow(runtime){
   const p=runtime.product;
-  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,name:p.name,bottlesPerCase:productPackSize(p),outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
+  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,formatId:p.formatId||p.id,catalogProductId:p.productId||null,productName:p.productName||p.name,boxId:p.boxId||null,boxName:p.boxName||null,name:p.name,bottlesPerCase:productPackSize(p),outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
 }
 function configureProductFactors(runtime){
   for(const e of runtime.equipment){
@@ -3656,7 +3708,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.0/DES:0.4.0/cache:6',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.0/DES:0.4.0/cache:7',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -3675,6 +3727,10 @@ window.SimulatorEngine = {
   plantCalendarSchedule: plantCalendarSchedule,
   resolvePlannedStops:resolvePlannedStops,
   resolveProductConveyor:function(equipment,index){return resolveAccumulationZoneDefinition(equipment,index).definition;},
+  normalizeFormatCatalog:normalizeFormatCatalog,
+  resolvePackingFormats:resolvePackingFormats,
+  validateFormatCatalog:validateFormatCatalog,
+  mergeFormatCatalogs:mergeFormatCatalogs,
   applyProductProfile:applyProductProfile,
   validateProductSetup:validateProductSetup,
   validateProductDefinitions:validateProductDefinitions,

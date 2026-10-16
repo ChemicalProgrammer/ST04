@@ -66,17 +66,16 @@ export function validateProductDefinitions(products,equipment=[],options={}){
   }
 }
 export function validateProductSetup(input) {
-  const products=input?.run?.productCatalog;
-  if(!products?.length&&!input?.run?.initialProductId){if(input?.run?.eventsEnabled!==false&&input?.run?.plannedStops?.some(e=>e.targetProductId))throw Error('Select an initial product before assigning a changeover destination.');return [];}
+  const products=input?.run?.productCatalog,initialId=input?.run?.initialFormatId??input?.run?.initialProductId;
+  if(input?.run?.initialFormatId&&input?.run?.initialProductId&&input.run.initialFormatId!==input.run.initialProductId)throw Error('Initial format references disagree.');
+  if(!products?.length&&!initialId){if(input?.run?.eventsEnabled!==false&&input?.run?.plannedStops?.some(e=>e.targetFormatId||e.targetProductId))throw Error('Select an initial product before assigning a changeover destination.');return [];}
   if(!Array.isArray(products)||!products.length)throw Error('Configure at least one product.');
   if(input.run.engineId&&input.run.engineId!=='ST_CURRENT')throw Error('Product profiles and bottle/case conversion require the ST engine.');
   const equipment=input.case?.equipment||[];validateProductDefinitions(products,equipment,{requireDimensions:false});
-  const ids=new Set(products.map(p=>p.id)),used=new Set([input.run.initialProductId]);
-  if(!ids.has(input.run.initialProductId))throw Error('Select an initial product.');
-  for(const event of input.run.eventsEnabled===false?[]:(input.run.plannedStops||[]))if(event.targetProductId){
-    if(event.category!=='changeoverMinutes'||!ids.has(event.targetProductId))throw Error('A changeover must reference an existing destination product.');used.add(event.targetProductId);
-  }
-  const scheduled=products.filter(p=>used.has(p.id)),initial=scheduled.find(p=>p.id===input.run.initialProductId);
+  const ids=new Set(products.map(p=>p.id)),used=new Set([initialId]);
+  if(!ids.has(initialId))throw Error('Select an initial product.');
+  for(const event of input.run.eventsEnabled===false?[]:(input.run.plannedStops||[])){const destination=event.targetFormatId??event.targetProductId;if(!destination)continue;if(event.targetFormatId&&event.targetProductId&&event.targetFormatId!==event.targetProductId)throw Error('Changeover format references disagree.');if(event.category!=='changeoverMinutes'||!ids.has(destination))throw Error('A changeover must reference an existing destination packing format.');used.add(destination);}
+  const scheduled=products.filter(p=>used.has(p.id)),initial=scheduled.find(p=>p.id===initialId);
   for(const product of scheduled)for(const e of equipment){const a=productProfileUnits(e,initial),b=productProfileUnits(e,product);if(a.input!==b.input||a.output!==b.output)throw Error(e.name+': changing bottle/case presentation at the same installed step during a run is not supported; use separate simulations.');}
   return scheduled.map(product=>{
     validateProductDefinitions([product],equipment);

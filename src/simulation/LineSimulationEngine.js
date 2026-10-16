@@ -76,7 +76,7 @@ export async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
-  const product=input.run.productCatalog?.find(p=>p.id===input.run.initialProductId);
+  const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
   const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
@@ -1432,7 +1432,7 @@ function round(value) {
 
 function currentProductRow(runtime){
   const p=runtime.product;
-  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,name:p.name,bottlesPerCase:productPackSize(p),outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
+  return runtime.productRows[p.id]||(runtime.productRows[p.id]={productId:p.id,formatId:p.formatId||p.id,catalogProductId:p.productId||null,productName:p.productName||p.name,boxId:p.boxId||null,boxName:p.boxName||null,name:p.name,bottlesPerCase:productPackSize(p),outputUnit:productFlowUnit(runtime.equipment.at(-1)),outputNative:0,outputBottleEquivalents:0,durationSeconds:0,idealBottleOutput:0,clearoutBottleEquivalents:0});
 }
 function configureProductFactors(runtime){
   for(const e of runtime.equipment){

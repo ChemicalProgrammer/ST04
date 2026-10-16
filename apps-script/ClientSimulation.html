@@ -238,7 +238,7 @@
     function renderSimulationAnalysis() {
       var simulation=activePersistentSimulation(),target=document.getElementById('simulation-analysis-content');
       if(!simulation){target.textContent='';toggle('simulation-analysis',false);return;}
-      if(simulation.dynamicConfig?.initialProductId){target.textContent='Product-aware simulation is available in Results. What-If / DOE for product-specific settings is pending validation.';toggle('simulation-analysis',true);return;}
+      if(simulation.dynamicConfig?.initialFormatId||simulation.dynamicConfig?.initialProductId){target.textContent='Packing-format simulation is available in Results. What-If / DOE for format-specific settings is pending validation.';toggle('simulation-analysis',true);return;}
       if(simulation.dynamicConfig?.engineId==='DES_SIMPY_EXPERIMENTAL'){target.textContent='What-If is not yet validated for the experimental SimPy model. Use Results to compare throughput and equipment states, or choose the current engine for What-If.';toggle('simulation-analysis',true);return;}
       STWhatIf.render(simulation,target,createWhatIfScenario);toggle('simulation-analysis',true);
     }
@@ -363,7 +363,7 @@
 
     function renderPlannedStops(){
       var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];if(!events.length)return;
-      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','Destination product','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
+      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Line stop','Start (min)','Duration (min)','Destination format','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
       events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';var categoryLabel=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1').trim();name.textContent=categoryLabel.charAt(0).toUpperCase()+categoryLabel.slice(1);row.append(name);
         ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';input.value=field==='start'?event.startSeconds/60:(event.endSeconds-event.startSeconds)/60;input.setAttribute('aria-label',name.textContent+' '+field+' (min)');input.onchange=function(){if(!input.reportValidity())return;var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=Number(input.value)*60;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+Number(input.value)*60;markCaseDirty();};cell.append(input);row.append(cell);});
         STProducts.destinationCell(row,event,markCaseDirty);
