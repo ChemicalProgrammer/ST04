@@ -82,7 +82,10 @@
       unitInput.addEventListener('change',updateRateUnit);updateRateUnit();
       var rateInput=equipmentField(card,'.equipment-rate');
       var displayedRate=selectedProfile.ratePerMinute===undefined?equipment.nominalRatePerSecond:selectedProfile.ratePerMinute/60;
-      rateInput.value=displayedRate==null?'':Number((displayedRate*60).toPrecision(15));rateInput.readOnly=!!selectedProduct;if(selectedProduct)rateInput.title='Read from the initial format selected in Simulation.';if(selectedProfile.applies===false)rateInput.disabled=true;
+      rateInput.value=displayedRate==null?'':Number((displayedRate*60).toPrecision(15));
+      rateInput.dataset.profileRate=String(selectedProfile.ratePerMinute!==undefined);
+      rateInput.title=selectedProfile.ratePerMinute!==undefined?'Edits the speed configured in the selected product / format.':'Default machine speed; used when the product / format does not specify a speed.';
+      if(selectedProfile.applies===false)rateInput.disabled=true;
       rateInput.dataset.originalBpm=rateInput.value;
       rateInput.dataset.originalRate=displayedRate==null?'':String(displayedRate);
       equipmentField(card, '.equipment-mode').value = window.STBasicMode?.isBasic() ? 'AUTO' : equipment.initialMode || 'AUTO';
@@ -267,7 +270,7 @@ function populateFormatZoneInputs(card, equipment) {
 function updateFormatZoneVisibility(card) {
       var isConveyor = equipmentField(card, '.equipment-type').value === 'CONVEYOR';
       equipmentField(card, '.format-zone-setup').classList.toggle('hidden', !isConveyor);
-      equipmentField(card, '.equipment-rate').readOnly = isConveyor||!!card.dataset.productProfileId;
+      equipmentField(card, '.equipment-rate').readOnly = isConveyor;
       equipmentField(card, '.equipment-rate').closest('label').classList.toggle('hidden', isConveyor);
       if (isConveyor) equipmentField(card, '.equipment-rate').title = __ST_TEXT__('conveyor.help_belt_speed');
     }
@@ -569,12 +572,14 @@ function numericInputValue(input) {
         if(profileProduct&&!unitsEdited){if(baseEquipment.processData?.flowUnits)processData.flowUnits=cloneJson(baseEquipment.processData.flowUnits);else delete processData.flowUnits;}
         else if(outputUnit&&inputUnit){processData.flowUnits={input:type==='CONVEYOR'?outputUnit:inputUnit,output:outputUnit};if(unitsEdited)STProducts.setPhysicalUnits?.(baseEquipment.id,type==='CONVEYOR'?outputUnit:inputUnit,outputUnit);}
         else delete processData.flowUnits;
+        var rate=readEquipmentRate(card),hasRateOverride=profileProduct&&equipmentField(card,'.equipment-rate').dataset.profileRate==='true';
+        if(hasRateOverride)STProducts.setCurrentRate(baseEquipment.id,rate*60);
         equipment.push({
           id: equipmentField(card, '.equipment-id').value.trim(),
           type: type,
           name: equipmentField(card, '.equipment-name').value.trim(),
           unitOfFlow: profileProduct&&!unitsEdited?baseEquipment.unitOfFlow:outputUnit?outputUnit.toLowerCase():equipmentField(card,'.equipment-unit').dataset.legacyLabel||undefined,
-          nominalRatePerSecond: profileProduct?baseEquipment.nominalRatePerSecond:readEquipmentRate(card),
+          nominalRatePerSecond: hasRateOverride?baseEquipment.nominalRatePerSecond:rate,
           initialMode: window.STBasicMode?.isBasic() ? 'AUTO' : equipmentField(card, '.equipment-mode').value,
           characteristics: characteristics,
           noiseProfile: noiseProfile,
@@ -627,5 +632,6 @@ function renderRawJson() {
         STReports.bindConfiguration(configuration);
       }
     }
+
 
 

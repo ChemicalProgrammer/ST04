@@ -7,6 +7,15 @@ window.STProducts=(function(){
   function initialId(sim){return sim?.dynamicConfig?.initialFormatId??sim?.dynamicConfig?.initialProductId??'';}
   function currentFormat(){try{return catalog().find(f=>f.id===initialId(hooks?.simulation()));}catch(ignore){return null;}}
   function hasFormats(){return !!data().formats.length;}
+  // Edit the owner of an active override; inherited speeds remain installation defaults.
+  function setCurrentRate(equipmentId,ratePerMinute){
+    var c=data(),format=c.formats.find(f=>f.id===initialId(hooks.simulation()));if(!format)return false;
+    var local=format.equipment?.[equipmentId]||{},product=c.products.find(p=>p.id===format.productId),shared=product?.equipment?.[equipmentId];
+    var active=p=>p&&p.enabled!==false&&p.applies!==false&&p.ratePerMinute!==undefined;
+    var owner=active(local)?local:(local.inputUnit||'BOTTLES')==='BOTTLES'&&(local.outputUnit||local.inputUnit||'BOTTLES')==='BOTTLES'&&active(shared)?shared:null;
+    if(!owner)return false;
+    owner.ratePerMinute=ratePerMinute;state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:c};delete state.activeCase.metadata.products;return true;
+  }
   function packSize(format){return format?.bottlesPerCase??format?.presentations?.case?.bottlesPerCase;}
   function id(prefix){return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);}
   function unit(e,side,format){side=side||'output';var base=e.processData?.flowUnits?.[side]||'BOTTLES';if(format)return format.equipment?.[e.id]?.[side+'Unit']||base;var metadata=state.activeCase.metadata||{},formats=metadata.formatCatalog?.formats||metadata.products||[],values=formats.map(f=>f.equipment?.[e.id]?.[side+'Unit']||base);return values.length&&values.every(value=>value===values[0])?values[0]:base;}
@@ -157,6 +166,7 @@ window.STProducts=(function(){
     target.replaceChildren();target.classList.toggle('hidden',!result?.products);if(!result?.products)return;
     var h=document.createElement('h3');h.textContent='Production by packing format';target.append(h);var wrap=document.createElement('div');wrap.className='table-scroll';var table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');['Format','Product','Output unit','Processed output','Complete cases','Partial case equivalent','Bottle equivalents','Clear-out (bottles)'].forEach(function(t,i){var th=document.createElement('th');th.scope='col';th.textContent=t;if(i>2)th.className='numeric';tr.append(th);});head.append(tr);table.append(head);var body=document.createElement('tbody');result.products.rows.forEach(function(r){var row=document.createElement('tr');[r.name,r.productName||r.name,r.outputUnit,r.outputNative,r.completeCases,r.partialCaseEquivalent,r.outputBottleEquivalents,r.clearoutBottleEquivalents].forEach(function(v,i){var td=document.createElement('td');td.textContent=v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):v;if(i>2)td.className='numeric';row.append(td);});body.append(row);});table.append(body);wrap.append(table);target.append(wrap);var note=document.createElement('p');note.className='chart-note';note.textContent='Representative round. Global production uses bottle equivalents. Continuous conversion permits fractional case equivalents; clear-out is removed inventory, not production. Product changes use an empty-line reset.';target.append(note);
   }
-  return {init:function(s,h){state=s;hooks=h;currentTab='products';selectedFormatId=null;selection={products:null,formats:null};},render:render,open:open,reconcile:reconcile,currentFormat:currentFormat,hasFormats:hasFormats,setPhysicalUnits:setPhysicalUnits,packSize:packSize,validateForSave:validateForSave,renderInitialSelector:renderInitialSelector,go:function(){currentTab='formats';selectedFormatId=initialId(hooks.simulation());if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
+  return {init:function(s,h){state=s;hooks=h;currentTab='products';selectedFormatId=null;selection={products:null,formats:null};},render:render,open:open,reconcile:reconcile,currentFormat:currentFormat,setCurrentRate:setCurrentRate,hasFormats:hasFormats,setPhysicalUnits:setPhysicalUnits,packSize:packSize,validateForSave:validateForSave,renderInitialSelector:renderInitialSelector,go:function(){currentTab='formats';selectedFormatId=initialId(hooks.simulation());if(hooks.navigate)hooks.navigate();else open();},runFields:runFields,destinationCell:destinationCell,results:results};
 })();
 </script>
+

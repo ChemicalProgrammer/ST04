@@ -2881,6 +2881,14 @@ test('UI: Sheet packing proposal reviews conversion, saves the initial format an
    const saved=h.storedCases()[0],active=saved.simulations.find(s=>s.id==='simulation-a'),format=saved.metadata.formatCatalog.formats[0];
    assert.equal(active.dynamicConfig.initialFormatId,format.id);assert.equal(active.dynamicConfig.engineId,'ST_CURRENT');assert.equal(active.equipment[2].nominalRatePerSecond,25/60);assert.equal(active.equipment[2].processData.flowUnits.output,'CASES');assert(Math.abs(active.equipment[3].processData.accumulation.conveyorSpeedMmPerSecond-data.equipment[3].processData.accumulation.conveyorSpeedMmPerSecond)<1e-10);
    assert.deepEqual(saved.simulations.find(s=>s.id==='preserved-run').equipment,preserved.equipment);assert.equal(saved.simulations.find(s=>s.id==='preserved-run').dynamicConfig.durationSeconds,42);assert.equal(saved.simulations.find(s=>s.id==='preserved-run').results.summary.outputCount,321);
+   // Imported formats inherit editable machine speeds in both interfaces.
+   await h.click('[data-basic-view=equipment]');
+   const rateFor=id=>{const card=h.d.querySelector('.equipment-card[data-equipment-id="'+id+'"]');return card.querySelector('.equipment-rate')||card._fields.querySelector('.equipment-rate');};
+   const packerId=active.equipment[2].id,rate=rateFor(packerId);assert(!rate.readOnly);assert(!rate.disabled);assert.equal(Number(rate.value),25);
+   rate.value=24;rate.dispatchEvent(new h.w.Event('input',{bubbles:true}));await h.click('#save-case');
+   await waitFor(()=>h.storedCases()[0].simulations.find(s=>s.id==='simulation-a').equipment[2].nominalRatePerSecond===24/60);
+   assert.equal(h.w.STProducts.currentFormat().equipment[packerId].ratePerMinute,undefined);
+   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=equipment]');assert.equal(Number(rateFor(packerId).value),24);assert(!rateFor(packerId).readOnly);
    await h.click('#open-sheet-import');await h.click('#sheet-import-read');assert(!h.d.getElementById('sheet-packing-enabled').checked);await h.click('#sheet-import-cancel');assert.equal(h.storedCases()[0].metadata.formatCatalog.formats.length,1);assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
@@ -2896,4 +2904,22 @@ test('UI: reported US-LAB values remain complete and show only information in th
   const card=h.d.querySelector('[data-source-index="1"]');assert.equal(card.dataset.importStatus,'info');assert.match(card.querySelector('.sheet-equipment-issues').textContent,/Info · D11:E11/);assert(!card.querySelector('.sheet-equipment-issues').textContent.includes('Model review'));
   assert.equal(card.querySelector('[data-field="speedFactor"]').closest('tr').children[3].textContent,'0');assert.equal(card.querySelector('[data-field="package"]').closest('tr').children[3].textContent,'60');assert(h.d.getElementById('sheet-import-model-review').classList.contains('hidden'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+test('UI: card speed edits persist active product and format overrides without replacing installed defaults',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+   const getCase=h.api.getCase;let ids,defaults;
+   h.api.getCase=id=>{const record=getCase(id),sim=record.simulations[0];ids=sim.equipment.filter(e=>e.type!=='CONVEYOR').slice(0,2).map(e=>e.id);defaults=sim.equipment.filter(e=>ids.includes(e.id)).map(e=>e.nominalRatePerSecond);
+    if(!record.metadata.formatCatalog){record.metadata.formatCatalog={version:3,products:[{id:'p',name:'Product',bottle:{lengthMm:60},equipment:{[ids[0]]:{enabled:true,ratePerMinute:120}}}],formats:[{id:'f',name:'Format',productId:'p',bottlesPerCase:12,case:{lengthMm:300},equipment:{[ids[1]]:{enabled:true,inputUnit:'BOTTLES',outputUnit:'CASES',ratePerMinute:20}}}]};sim.dynamicConfig.initialFormatId='f';}return record;};
+   await h.click('.open-case');await h.click('[data-basic-view=equipment]');
+   const rates=ids.map(id=>{const card=h.d.querySelector('.equipment-card[data-equipment-id="'+id+'"]');return card.querySelector('.equipment-rate')||card._fields.querySelector('.equipment-rate');});
+   assert.deepEqual(rates.map(r=>Number(r.value)),[120,20]);rates.forEach((r,i)=>{assert(!r.readOnly);assert(!r.disabled);r.value=i?18:110;r.dispatchEvent(new h.w.Event('input',{bubbles:true}));});
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata.formatCatalog?.products[0].equipment[ids[0]].ratePerMinute===110);
+   const saved=h.storedCases()[0];assert.equal(saved.metadata.formatCatalog.formats[0].equipment[ids[1]].ratePerMinute,18);assert.deepEqual(saved.simulations[0].equipment.filter(e=>ids.includes(e.id)).map(e=>e.nominalRatePerSecond),defaults);
+   assert.equal(h.w.STProducts.runFields().productCatalog[0].equipment[ids[0]].ratePerMinute,110);assert.equal(h.w.STProducts.runFields().productCatalog[0].equipment[ids[1]].ratePerMinute,18);
+   await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=equipment]');
+   ids.forEach((id,i)=>{const card=h.d.querySelector('.equipment-card[data-equipment-id="'+id+'"]'),r=card.querySelector('.equipment-rate')||card._fields.querySelector('.equipment-rate');assert.equal(Number(r.value),i?18:110);});assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
 });
