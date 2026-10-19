@@ -365,7 +365,7 @@ async function openCase(caseId, initialView) {
     function captureSheetImport() {
       var editor=collectCaseEditor();
       if (!editor) return null;
-      return {equipment:cloneJson(editor.equipment),sourceImport:cloneJson(activePersistentSimulation()?.sourceImport||{})};
+      return {equipment:cloneJson(editor.equipment),sourceImport:cloneJson(activePersistentSimulation()?.sourceImport||{}),metadata:cloneJson(editor.metadata||{}),initialFormatId:activePersistentSimulation()?.dynamicConfig?.initialFormatId||activePersistentSimulation()?.dynamicConfig?.initialProductId||null};
     }
 
     function exportEquipmentSheet() {
@@ -389,6 +389,11 @@ async function openCase(caseId, initialView) {
       if (!state.activeCase || !simulation || state.saving || result.errors.length || !result.hasChanges) return false;
       syncPersistentSimulation();
       simulation.sourceImport=cloneJson(result.sourceImport);
+      if(result.formatCatalog){
+        state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:cloneJson(result.formatCatalog)};
+        delete state.activeCase.metadata.products;
+        simulation.dynamicConfig={...simulation.dynamicConfig,initialFormatId:result.initialFormatId,initialProductId:result.initialFormatId,engineId:'ST_CURRENT'};
+      }
       if(result.equipmentChanged){
         cancelRoundSession();
         stopPlaybackTimer();
@@ -472,5 +477,6 @@ async function openCase(caseId, initialView) {
       }
       catalogTimer=setTimeout(function(){load(null);},150);
     }
+
 
 

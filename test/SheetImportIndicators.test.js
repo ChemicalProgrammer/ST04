@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
+import {normalizeFormatCatalog} from '../src/simulation/FormatCatalog.js';
 
 function setup(){
  const dom=new JSDOM(`<button id="open-sheet-import"></button><dialog id="sheet-import-dialog"><form id="sheet-import-form"><input id="sheet-import-url"><input id="sheet-import-tab"><button id="sheet-import-read"></button></form><div id="sheet-import-preview"></div><p id="sheet-import-error"></p><p id="sheet-import-summary"></p><input type="checkbox" id="sheet-import-ack"><button id="sheet-import-apply"></button><button id="sheet-import-close"></button><button id="sheet-import-cancel"></button></dialog>`,{runScripts:'outside-only'}),w=dom.window;
@@ -11,7 +12,7 @@ function setup(){
  const units=Array.from({length:4},(_,i)=>({id:'sheet-row-'+(10+i),name:'Machine '+i,type:'CUSTOM',nominalRatePerSecond:2,initialMode:'AUTO',characteristics:{sourceSheetRow:10+i},noiseProfile:{},processData:{role:'MACHINE',equipment:{maximumSpeedBpm:120}}}));
  const preview={equipment:units,source:{sheetName:'Test',spreadsheetId:'test',sheetId:0},sourceRows:units.map((u,i)=>({row:10+i,values:{}})),metadata:{},notes:[],errors:[{cell:'D12:E12',message:'Invalid reliability values.'}],warnings:[{cell:'F11',message:'Confirm the speed unit.'}]};
  let modelReview=true;
- w.SimulatorEngine={validateSimulationInput(input){const index=input.case.equipment.findIndex(e=>e.name==='Machine 3');return modelReview&&index>=0?{ok:false,error:{details:[{path:'case.equipment['+index+'].nominalRatePerSecond',reason:'Check installed speed.'}]}}:{ok:true};}};
+ w.SimulatorEngine={normalizeFormatCatalog,validateSimulationInput(input){const index=input.case.equipment.findIndex(e=>e.name==='Machine 3');return modelReview&&index>=0?{ok:false,error:{details:[{path:'case.equipment['+index+'].nominalRatePerSecond',reason:'Check installed speed.'}]}}:{ok:true};}};
  w.STSheetCorrections={render(){}};w.STDialog={beginActivity(){return ()=>{};}};w.STErrors={capture(){}};
  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:preview});}}}};
  const state={activeCase:{id:'test'},activeSimulationId:'sim',requestEpoch:1},snapshot={equipment:[],sourceImport:{}};
@@ -40,3 +41,4 @@ test('import indicators refresh when selection or target changes without losing 
   const card=h.d.querySelector('[data-source-index="1"]');assert.equal(card.dataset.importStatus,'warning');assert.match(card.querySelector('.sheet-equipment-issues').textContent,/Confirm the speed unit/);assert(card.open);
  }finally{h.dom.window.close();}
 });
+

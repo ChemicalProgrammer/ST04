@@ -199,7 +199,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   if(!equipment.length)issue(errors,'A10:'+columns[columns.length-1][0],'No equipment rows found.');
   if(equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).length>1)equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).forEach(function(unit){issue(errors,'C'+unit.characteristics.sourceSheetRow,'Use Y for only one critical machine; mark the other machines N.');});
   var notes=[
-    'Maximum speed F initializes nominal running speed. All flows use bottle-equivalent units; pack pattern is metadata, not a bottles-to-cases conversion.',
+    'Maximum speed F initializes nominal running speed. The optional packing proposal uses a reviewed Case Packer to assign bottle/case units, create a product and format, and translate bottle-equivalent machine speeds to cases/min. Without that proposal, existing unit settings are retained.',
     'MTBF uses seeded exponential intervals; MTTR is a fixed repair duration. The current failure clock counts AUTO/MANUAL time, including starving/blocking, and excludes manual stops and micro-stops. No extra micro-stop noise is added by import.',
     'Q is interpreted as a speed increase: 5 means discharge velocity multiplied by 1.05. A numeric percent-formatted cell (5%) is also accepted.',
     'I/J and R/S/W are retained with their source cells, but do not control the current conveyor calculation. Infeed overspeed guidance currently assumes 5%.',
@@ -209,4 +209,5 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   if(layout==='plant-sheet-v2')notes=notes.map(function(note){return note.replace(/\b([G-W])(?=\/|\b)/g,function(letter){return String.fromCharCode(letter.charCodeAt(0)+2);});}).concat(['G is the physical conveyor speed in m/min and selects manual belt speed when provided. H is the declared accumulation time in seconds, retained as a reference; geometry still determines simulated capacity.']);
   return {layout:layout,columns:columns,metadata:metadata,equipment:equipment,sourceRows:sourceRows,errors:errors,warnings:warnings,notes:notes,canImport:errors.length===0};
 }
+
 

@@ -7,6 +7,7 @@ import postcss from 'postcss';
 import { renderAppsScript } from '../scripts/render-apps-script.mjs';
 import selectorParser from 'postcss-selector-parser';
 import {gunzipSync} from 'node:zlib';
+import {packingSheetFixture} from './fixtures/sheet-packing-case.js';
 const read = file => fs.readFileSync(new URL('../apps-script/'+file,import.meta.url),'utf8');
 const settle = () => new Promise(resolve=>setTimeout(resolve,35));
 async function waitFor(predicate){for(let i=0;i<80;i++){if(predicate())return;await settle();}assert(predicate(),'Asynchronous UI did not settle');}
@@ -2847,4 +2848,36 @@ test('UI: packing production and Plant calendar headers align with numeric value
   const simulation={dynamicConfig:{plantCalendar:{enabled:true,totalMinutes:60,externalMinutes:0,mode:'SCHEDULED'}}},result={durationSeconds:3600,summary:{lineOeePercent:50,qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'},plantCalendar:{completePeriod:true,plannedStopSeconds:60,observedStopSeconds:60,horizonSeconds:3600,restartPolicy:'RESTART'}};
   h.w.STPlantCalendar.renderResults(target,result,simulation);const calendar=target.querySelector('table');assert(calendar);for(const row of calendar.rows){assert.equal(row.cells[1].classList.contains('numeric'),true);assert.equal(h.w.getComputedStyle(row.cells[1]).textAlign,'right');}assert.match(calendar.rows[calendar.rows.length-1].textContent,/Observed planned line stops/);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
+});
+
+
+test('UI: Sheet packing proposal reviews conversion, saves the initial format and preserves other simulations in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({empty:true,uiMode,autosaveSeconds:180});try{
+   const runtime={};vm.createContext(runtime);for(const file of ['ApiResponse.gs','CaseService.gs','SheetImportService.gs'])vm.runInContext(read(file),runtime);
+   const fixture=packingSheetFixture();const data=JSON.parse(JSON.stringify({...runtime.parseEquipmentSheet_(fixture.metadata,fixture.rows,[],'plant-sheet-v2'),source:{sheetName:'Packing',spreadsheetId:'packing-sheet',sheetId:0}}));
+   if(uiMode==='BASIC')delete data.metadata.bottlesPerCase;
+   h.api.previewSheetImport=()=>data;
+   const getCase=h.api.getCase;let preserved;
+   h.api.getCase=id=>{const record=getCase(id);preserved={...JSON.parse(JSON.stringify(record.simulations[0])),id:'preserved-run',name:'Preserved run',dynamicConfig:{durationSeconds:42},results:{summary:{outputCount:321,lineOeePercent:44},durationSeconds:42,samples:[],equipmentMetrics:[]}};record.simulations.push(preserved);return record;};
+   await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="equipment"]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='packing-sheet';
+   h.d.getElementById('sheet-import-read').click();assert(h.d.querySelector('#sheet-import-dialog .dialog-request-progress'));await waitFor(()=>h.d.querySelector('#sheet-packing-enabled'));
+   assert(h.d.getElementById('sheet-packing-enabled').checked);assert(h.d.querySelector('#sheet-packing-proposal .editor-subheading.compact-heading'));
+   if(uiMode==='BASIC'){
+    await h.click('#sheet-import-ack');assert(h.d.getElementById('sheet-import-apply').disabled);
+    const pack=h.d.getElementById('sheet-packing-bottlesPerCase');pack.value=12;pack.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.d.getElementById('sheet-import-ack').checked);
+   }
+   const basis=h.d.getElementById('sheet-packing-sourceRateBasis');basis.value='BOTTLES';basis.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(h.d.querySelectorAll('#sheet-packing-review tbody tr').length,5);assert.match(h.d.getElementById('sheet-packing-review').textContent,/25/);
+   await h.click('#sheet-import-ack');assert(!h.d.getElementById('sheet-import-apply').disabled);
+   const name=h.d.getElementById('sheet-packing-formatName');name.value='Reviewed Format C';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.d.getElementById('sheet-import-ack').checked);
+   await h.click('#sheet-packing-enabled');assert(h.d.getElementById('sheet-packing-fields').disabled);assert(h.d.getElementById('sheet-packing-review').hidden);await h.click('#sheet-packing-enabled');
+   await h.click('#sheet-import-ack');await h.click('#sheet-import-apply');assert(!h.d.getElementById('sheet-import-dialog').open);
+   const initial=h.d.getElementById('run-initial-format');assert(initial.value);assert.equal(initial.selectedOptions[0].textContent,'Reviewed Format C');
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata.formatCatalog?.formats.length===1);
+   const saved=h.storedCases()[0],active=saved.simulations.find(s=>s.id==='simulation-a'),format=saved.metadata.formatCatalog.formats[0];
+   assert.equal(active.dynamicConfig.initialFormatId,format.id);assert.equal(active.dynamicConfig.engineId,'ST_CURRENT');assert.equal(active.equipment[2].nominalRatePerSecond,25/60);assert.equal(active.equipment[2].processData.flowUnits.output,'CASES');assert(Math.abs(active.equipment[3].processData.accumulation.conveyorSpeedMmPerSecond-data.equipment[3].processData.accumulation.conveyorSpeedMmPerSecond)<1e-10);
+   assert.deepEqual(saved.simulations.find(s=>s.id==='preserved-run').equipment,preserved.equipment);assert.equal(saved.simulations.find(s=>s.id==='preserved-run').dynamicConfig.durationSeconds,42);assert.equal(saved.simulations.find(s=>s.id==='preserved-run').results.summary.outputCount,321);
+   await h.click('#open-sheet-import');await h.click('#sheet-import-read');assert(!h.d.getElementById('sheet-packing-enabled').checked);await h.click('#sheet-import-cancel');assert.equal(h.storedCases()[0].metadata.formatCatalog.formats.length,1);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
 });

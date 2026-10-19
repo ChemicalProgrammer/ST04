@@ -23,8 +23,32 @@ En Preview se pueden seleccionar G y H por separado. Se conservan las referencia
 
 C4 admite una cantidad positiva con su unidad, por ejemplo `500 mL`, `1 L`, `12 oz` o `250 g`. Se conserva la cantidad y la unidad al exportar, sin convertir entre unidades. Una celda numérica puede tomar la unidad de su formato visible o del rótulo A4:B4, por ejemplo `Container size (mL)`. La unidad explícita de C4 tiene prioridad. Un número sin unidad se conserva sin asumir onzas. La etiqueta exportada es `Container size`.
 
-Los datos se guardan en `metadata.containerSize`; `containerSizeOz` se conserva por compatibilidad solo cuando se han declarado onzas. Los casos anteriores que solo tienen `containerSizeOz` se exportan con `oz` explícito. El tamaño del envase es metadata y no cambia el tamaño geométrico del producto ni el motor.
+Los datos se guardan en `metadata.containerSize`; `containerSizeOz` se conserva por compatibilidad solo cuando se han declarado onzas. Los casos anteriores que solo tienen `containerSizeOz` se exportan con `oz` explícito. El tamaño del envase es metadata; la propuesta opcional de producto puede copiar su volumen cuando tiene una unidad explícita reconocida, pero no lo convierte en dimensiones geométricas.
+
+## Propuesta de producto y formato al importar
+
+Preview incluye **Product and packing format**. La propuesta utiliza la línea resultante de las filas y campos seleccionados, respetando los IDs y el orden instalado. Al reconocer un `Case Packer`, propone botellas antes de él, botella → caja en esa máquina y cajas después. Si hay varios candidatos, se debe elegir explícitamente uno y revisar la tabla de flujo. Es un modelo de línea en serie; el nombre no describe ramificaciones ni alimentaciones auxiliares.
+
+- En un caso sin catálogo y con un único Case Packer se activa la propuesta. Se puede desmarcar para aplicar únicamente los campos de equipos seleccionados.
+- C3 propone el nombre del formato; C5 propone botellas por caja. El nombre del producto es editable. Una cantidad faltante de botellas por caja requiere introducirla; no se asume 12.
+- La longitud del producto se propone desde Package length de los conveyors anteriores al Case Packer; la longitud de caja, desde los posteriores. Solo se propone una longitud común cuando las mediciones coinciden. Si no coinciden, el campo queda vacío y cada conveyor conserva su valor predeterminado. Ancho y altura no se inventan.
+- Discharge gap y Moving gap se obtienen como Discharge pitch menos longitud del producto/caja; Infeed gap, como Infeed pitch menos esa longitud. Una separación negativa requiere revisión. No hay datos suficientes para deducir una separación de acumulación diferente.
+- Longitud instalada, Prime, descarga, codificación, sensores, velocidad física manual y MTBF/MTTR permanecen en los equipos/conveyors. Las velocidades de máquinas se heredan de esos valores predeterminados, sin crear overrides redundantes en producto/formato.
+
+**Source machine speeds** exige elegir cómo están expresados los datos de F:
+
+| Opción | Interpretación |
+| --- | --- |
+| Bottle equivalents/min | Las velocidades de salida del Case Packer y de los pasos posteriores se dividen entre botellas por caja. Por ejemplo, 300 / 12 = 25 cajas/min. |
+| Native output/min | Las máquinas anteriores están en botellas/min; Case Packer y máquinas posteriores ya están en cajas/min. No se divide. |
+
+G contiene velocidad física: nunca se divide entre botellas por caja. Al revisar una exportación anterior, comprobar la base de F: las exportaciones de equipos conservan las velocidades nativas configuradas. El selector permite distinguirlas de hojas de planta expresadas completamente en botellas/min.
+
+Al aplicar se añaden un producto y un formato, se asignan las unidades físicas y se selecciona el nuevo formato inicial en la simulación activa, con el motor ST. El formato enlaza el producto para los equipos con botellas y la presentación de caja para los pasos con cajas. Seleccionarlo no precarga inventario. Se invalidan los resultados de esa simulación; las demás simulaciones y sus resultados se conservan. Los cambios se guardan con el mecanismo normal del caso; se puede cancelar la vista previa sin aplicarlos.
+
+Si ya existe catálogo, crear otro producto/formato es opcional y está desactivado por defecto. Se conservan los registros y overrides existentes; revisar Products/Formats si cambian sus mediciones. Para recargas de la misma hoja se registra la base de velocidades y el tamaño de caja utilizados, evitando volver a dividir velocidades ya traducidas. Los valores fuente permanecen en la procedencia de importación.
 
 ## Actualización de Apps Script
 
-Actualizar juntos: `SheetImportService.gs`, `SheetExportService.gs`, `SheetImport.html`, `SheetImportMerge.html` y `SheetImportCorrections.html`. Actualizar el despliegue y volver a abrir el diálogo de importación. No se requieren cambios del motor ni reconstruir `SimulationEngine.html`.
+Para esta mejora, actualizar juntos `ClientCases.html`, `SheetImportService.gs`, `SheetImport.html`, `SheetImportMerge.html` y `SheetImportStyles.html` junto con el resto de la aplicación. Actualizar el despliegue y volver a abrir el diálogo de importación. No se requieren cambios del motor ni reconstruir `SimulationEngine.html`.
+
