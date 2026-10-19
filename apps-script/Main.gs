@@ -145,7 +145,7 @@ function previewSheetImport(request) {
       throw createSimulatorError_('SHEET_READ_FAILED', safeSheetErrorDetail_(error));
     }
   });
-  response.importVersion = 'sheet-import-20260917-2';
+  response.importVersion = typeof sheetImportContractVersion_==='function'?sheetImportContractVersion_():'sheet-import-contract-unavailable';
   if (!response.ok) response.error.message = '[' + response.importVersion + ' / ' + response.error.code + '] ' + response.error.message;
   return response;
 }
@@ -181,3 +181,4 @@ function prepareScenarioDraft(request) {
     return {simulation:prepared.case.simulations.find(function(sim){return sim.id===prepared.simulationId;})};
   });
 }
+

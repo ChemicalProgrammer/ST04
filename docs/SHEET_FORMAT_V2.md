@@ -60,3 +60,13 @@ Los avisos de revisión física y los indicadores de las tarjetas muestran las c
 Los valores derivados, como el paso efectivo, indican sus entradas de cálculo. Back-up y Back-up restart no tienen una celda dedicada en esta plantilla: el aviso lo aclara, muestra las entradas relacionadas y remite a Conveyors → Line setup. Los parámetros exclusivos del simulador tampoco se presentan como datos faltantes de una columna inexistente. Sin una fila fuente vinculada, se indica revisar la configuración en la app.
 
 Las advertencias de longitud compartida y separación del producto/formato también señalan Package length y el pitch correspondiente. La cantidad de botellas por caja remite a C5; el nombre del formato, a C3.
+
+## Notas informativas y compatibilidad de la importación
+
+En conveyors, MTBF/MTTR en N/A y la referencia BPM heredada del equipo anterior se presentan como **información**, con icono de información. No se consideran advertencias de corrección obligatoria. Si hay un error de celda o del modelo, el indicador mantiene la prioridad de error/advertencia.
+
+Las entradas de geometría realmente ausentes se identifican individualmente, con celda y campo. Cero sigue siendo un valor válido para la reserva Prime y el factor porcentual de velocidad; las longitudes y el paso del producto deben ser positivos. La fila US-LAB suministrada (29.93 m/min, 15730 mm, Prime 2540 mm, envase 60 mm, pitch 80 mm y factor 0 %) se verifica mediante RPC, selección y motor; con equipos vecinos válidos no genera avisos de geometría o Back-up.
+
+Al pegar otro enlace se limpia la pestaña recordada automáticamente, para que no sustituya al gid del nuevo enlace. Una pestaña introducida explícitamente por el usuario sí conserva la prioridad.
+
+Cliente y servidor verifican el contrato `sheet-import-20261019-1`. Un despliegue con archivos de importación de versiones incompatibles se detiene antes de aplicar cambios y muestra cómo actualizarlo. Actualizar juntos `Main.gs`, `SheetImportService.gs`, `SheetImport.html` y `SheetImportStyles.html`, actualizar el despliegue y reabrir la aplicación. Esta comprobación previene mezclas de archivos; no sustituye revisar los datos de la hoja seleccionada.

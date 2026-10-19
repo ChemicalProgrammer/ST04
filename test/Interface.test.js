@@ -73,7 +73,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({},{get:()=>()=>{}});
-  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);w.setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args)});}catch(e){failure(e);}},0);})});}
+  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);w.setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args),...(key==='previewSheetImport'?{importVersion:'sheet-import-20261019-1'}:{})});}catch(e){failure(e);}},0);})});}
   w.google={script:{run:runner()}};
  }});
  await new Promise(r=>dom.window.addEventListener('load',r));await settle();
@@ -2880,4 +2880,16 @@ test('UI: Sheet packing proposal reviews conversion, saves the initial format an
    await h.click('#open-sheet-import');await h.click('#sheet-import-read');assert(!h.d.getElementById('sheet-packing-enabled').checked);await h.click('#sheet-import-cancel');assert.equal(h.storedCases()[0].metadata.formatCatalog.formats.length,1);assert.deepEqual(h.errors,[]);
   }finally{h.dom.window.close();}
  }
+});
+
+test('UI: reported US-LAB values remain complete and show only information in the actual preview',async()=>{
+ const h=await setup({empty:true,autosaveSeconds:180});try{
+  const runtime={};vm.createContext(runtime);for(const file of ['ApiResponse.gs','CaseService.gs','SheetImportService.gs'])vm.runInContext(read(file),runtime);
+  const machine=(type,name,speed)=>[type,name,'N',30,1,speed,...Array(19).fill('N/A')];
+  const rows=[machine('CUSTOM','Unscrambler',320),['Conveyor','Conveyor US-LAB','N','N/A','N/A','N/A',29.93,28,15730,2540,0,0,60,80,2,3,80,2,0,0,1,.5,.5,1,5],machine('FILLER','Labeler',300)];
+  h.api.previewSheetImport=()=>JSON.parse(JSON.stringify({...runtime.parseEquipmentSheet_(['','G','','700 ml',12,'',''],rows,[],'plant-sheet-v2'),source:{spreadsheetId:'case-c-book',sheetName:'Case C',schemaVersion:'plant-sheet-v2'}}));
+  await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="equipment"]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='case-c-book';await h.click('#sheet-import-read');
+  const card=h.d.querySelector('[data-source-index="1"]');assert.equal(card.dataset.importStatus,'info');assert.match(card.querySelector('.sheet-equipment-issues').textContent,/Info · D11:E11/);assert(!card.querySelector('.sheet-equipment-issues').textContent.includes('Model review'));
+  assert.equal(card.querySelector('[data-field="speedFactor"]').closest('tr').children[3].textContent,'0');assert.equal(card.querySelector('[data-field="package"]').closest('tr').children[3].textContent,'60');assert(h.d.getElementById('sheet-import-model-review').classList.contains('hidden'));assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
 });

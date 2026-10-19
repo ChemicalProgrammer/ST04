@@ -1,3 +1,4 @@
+function sheetImportContractVersion_(){return 'sheet-import-20261019-1';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -133,7 +134,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   layout=layout||'plant-sheet-v1';
   var errors=[],warnings=[],equipment=[],sourceRows=[],columns=sheetImportColumns_(layout);
   function col(key){return columns.find(function(c){return c[1]===key;})[0];}
-  function issue(list,cell,message){list.push({cell:cell,message:message});}
+  function issue(list,cell,message,severity,code){var item={cell:cell,message:message};if(severity)item.severity=severity;if(code)item.code=code;list.push(item);}
   function missing(value){return value===null||value===undefined||typeof value==='string'&&(/^(?:NA|N\/A)$/i.test(value.trim())||!value.trim());}
   function numeric(value,cell,format) {
     if(missing(value))return null;
@@ -171,7 +172,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     if(values.maximumSpeedBpm===0||values.maximumSpeedBpm===null&&!conveyor)issue(errors,'F'+rowNumber,'Machine maximum speed must be greater than zero.');
     var mtbf=values.mtbfMinutes,mttr=values.mttrMinutes;
     if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or mark both NA.');
-    if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'No reliability data: random failures are disabled for this equipment.');
+    if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'No reliability data: random failures are disabled for this equipment.',conveyor?'info':'warning','NO_RELIABILITY_DATA');
     if(conveyor&&flag==='Y')issue(errors,'C'+rowNumber,'A conveyor cannot be the critical machine. Use Y for one machine only.');
     var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',isPacemaker:flag==='Y'&&!conveyor,rateBasis:'bottles per minute',sourceSheetRow:rowNumber,sourceSheetLayout:layout},noiseProfile:{},processData:{
       role:conveyor?'CONVEYOR':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
@@ -189,13 +190,17 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
         if(values.conveyorSpeedMPerMinute===0)issue(errors,'G'+rowNumber,'Conveyor speed must be greater than zero or NA.');
         if(values.conveyorSpeedMPerMinute>0){unit.processData.accumulation.speedMode='MANUAL';unit.processData.accumulation.conveyorSpeedMmPerSecond=values.conveyorSpeedMPerMinute*1000/60;}
       }
-      if(values.lactMm===null||values.lpPrimeMm===null||values.packageLengthMm===null||values.dischargePitchMm===null||!(values.conveyorSpeedMPerMinute>0)&&values.conveyorSpeedFactorVsDischargeVelocityPercent===null)issue(warnings,col('lactMm')+rowNumber+':'+col('conveyorSpeedFactorVsDischargeVelocityPercent')+rowNumber,'Incomplete conveyor inputs. Complete geometry and discharge speed factor in Line setup before running.');
+      // Zero is a valid Prime reserve or speed increase; test absence explicitly.
+      [['lactMm','Total length',true],['lpPrimeMm','Prime zone',false],['packageLengthMm','Package length',true],['dischargePitchMm','Discharge pitch',true],['conveyorSpeedFactorVsDischargeVelocityPercent','Speed factor vs discharge',false]].forEach(function(input){
+        var value=values[input[0]];
+        if(value===null||input[2]&&value===0)issue(warnings,col(input[0])+rowNumber,input[1]+(value===null?' was read as N/A or blank.':' must be greater than zero; the value read was 0.')+' Enter a numeric value in this cell and select it for import. Zero is valid for Prime zone and speed factor.','warning','CONVEYOR_INPUT_REQUIRED');
+      });
       if(values.lactMm!==null&&values.lpPrimeMm!==null&&values.lpPrimeMm>=values.lactMm)issue(errors,col('lpPrimeMm')+rowNumber,'Prime zone must be shorter than total conveyor length.');
       if(values.dischargePitchMm!==null&&values.packageLengthMm!==null&&values.dischargePitchMm<values.packageLengthMm)issue(warnings,col('dischargePitchMm')+rowNumber,'Discharge pitch is smaller than package length ('+col('packageLengthMm')+rowNumber+'). Imported unchanged as draft data. Verify package orientation, dimensions and pitch before simulation; physical model validation still applies.');
     }
     equipment.push(unit);sourceRows.push({row:rowNumber,values:values});
   });
-  equipment.forEach(function(unit,index){if(unit.type==='CONVEYOR'&&unit.nominalRatePerSecond===null){var upstream=equipment[index-1];if(upstream&&upstream.type!=='CONVEYOR'&&upstream.nominalRatePerSecond>0){unit.nominalRatePerSecond=upstream.nominalRatePerSecond;issue(warnings,'F'+unit.characteristics.sourceSheetRow,'Conveyor has no bpm value: using upstream machine bpm as its nominal reference. Physical belt speed uses G when provided in the updated layout; otherwise it is derived from geometry and the speed factor.');}else issue(errors,'F'+unit.characteristics.sourceSheetRow,'Missing conveyor bpm and no valid upstream machine reference.');}});
+  equipment.forEach(function(unit,index){if(unit.type==='CONVEYOR'&&unit.nominalRatePerSecond===null){var upstream=equipment[index-1];if(upstream&&upstream.type!=='CONVEYOR'&&upstream.nominalRatePerSecond>0){unit.nominalRatePerSecond=upstream.nominalRatePerSecond;issue(warnings,'F'+unit.characteristics.sourceSheetRow,'Conveyor has no bpm value: using upstream machine bpm as its nominal reference. Physical belt speed uses G when provided in the updated layout; otherwise it is derived from geometry and the speed factor.','info','INHERITED_CONVEYOR_RATE');}else issue(errors,'F'+unit.characteristics.sourceSheetRow,'Missing conveyor bpm and no valid upstream machine reference.');}});
   if(!equipment.length)issue(errors,'A10:'+columns[columns.length-1][0],'No equipment rows found.');
   if(equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).length>1)equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).forEach(function(unit){issue(errors,'C'+unit.characteristics.sourceSheetRow,'Use Y for only one critical machine; mark the other machines N.');});
   var notes=[
@@ -207,7 +212,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     'P is retained including Prime sensor delay and used as the ramp duration. The model also waits for physical Prime; it cannot separate the delay and ramp components from one total.'
   ];
   if(layout==='plant-sheet-v2')notes=notes.map(function(note){return note.replace(/\b([G-W])(?=\/|\b)/g,function(letter){return String.fromCharCode(letter.charCodeAt(0)+2);});}).concat(['G is the physical conveyor speed in m/min and selects manual belt speed when provided. H is the declared accumulation time in seconds, retained as a reference; geometry still determines simulated capacity.']);
-  return {layout:layout,columns:columns,metadata:metadata,equipment:equipment,sourceRows:sourceRows,errors:errors,warnings:warnings,notes:notes,canImport:errors.length===0};
+  return {contractVersion:sheetImportContractVersion_(),layout:layout,columns:columns,metadata:metadata,equipment:equipment,sourceRows:sourceRows,errors:errors,warnings:warnings,notes:notes,canImport:errors.length===0};
 }
 
 

@@ -89,8 +89,8 @@ test('RPC preserves Google errors and identifies the responding importer',()=>{
  const r=runtime({SpreadsheetApp:{openById:()=>{throw Error('Sheets service unavailable');}},DriveApp:{getFileById:()=>{throw Error('Drive access denied');}}});
  r.requireCurrentUser_=()=>({email:'owner@test'});r.getCase_=()=>({});
  const response=r.previewSheetImport({caseId:'mine',spreadsheet:'synthetic-sheet-id'});
- assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20260917-2');
- assert.match(response.error.message,/sheet-import-20260917-2.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
+ assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20261019-1');
+ assert.match(response.error.message,/sheet-import-20261019-1.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
  assert.match(response.error.details[0],/Drive access denied/);
  r.previewSheetImport_=()=>{throw Error('Failed while reading cells');};
  assert.match(r.previewSheetImport({}).error.message,/SHEET_READ_FAILED.*Failed while reading cells/);
@@ -187,4 +187,24 @@ test('selective size import replaces legacy ounce metadata with the declared mL 
  const r=runtime(),f=fixture();f.metadata[3]='500 mL';r.window={};for(const file of ['TextResources.gs','SheetImportMerge.html'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8').replace(/<\/?script>/g,''),r);
  const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);out.source={schemaVersion:'plant-sheet-v1',spreadsheetId:'fixture'};const merge=r.window.STSheetImportMerge,previous={metadata:{containerSizeOz:12}},current=plain(out.equipment),plan=merge.create(out,current,previous);
  assert(plan.metadata.containerSize);const result=merge.build(out,plan,current,previous);assert.equal(result.sourceImport.metadata.containerSize,'500 mL');assert.equal(result.sourceImport.metadata.containerSizeOz,null);assert.equal(previous.metadata.containerSizeOz,12);
+});
+
+
+test('the reported US-LAB row passes the real RPC and selected merge with zero speed factor',()=>{
+ const row=['Conveyor','Conveyor US-LAB','N','N/A','N/A','N/A',29.93,28,15730,2540,0,0,60,80,2,3,80,2,0,0,1,.5,.5,1,5];
+ const machine=(type,name,speed)=>[type,name,'N',30,1,speed,...Array(19).fill('N/A')];
+ const rows=[machine('CUSTOM','Unscrambler',320),row,machine('FILLER','Labeler',300)],meta=['','G','','700 ml',12,'',''];
+ const sheet={getLastRow:()=>12,getMaxRows:()=>100,getMaxColumns:()=>25,getSheetId:()=>17,getName:()=> 'Case C',getRange:(r,col,count,width)=>({getValues:()=>r===8?[['',''],['Conveyor Speed (m/min)','Accumulation (s)']]:r===1?meta.map(v=>[v]):r===4?[['Container size','']]:rows,getNumberFormats:()=>rows.map(row=>row.map(()=>'0.00'))})};
+ const rpc=runtime({SpreadsheetApp:{openById:()=>({getSheets:()=>[sheet]})}});rpc.getCase_=()=>({});rpc.requireCurrentUser_=()=>({});
+ const response=rpc.previewSheetImport({caseId:'mine',spreadsheet:'case-c-sheet-id'});assert(response.ok,JSON.stringify(response));assert.equal(response.importVersion,response.data.contractVersion);
+ rpc.window={};for(const file of ['TextResources.gs','SheetImportMerge.html'])vm.runInContext(fs.readFileSync('apps-script/'+file,'utf8').replace(/<\/?script>/g,''),rpc);
+ const merge=rpc.window.STSheetImportMerge,data=JSON.parse(JSON.stringify(response.data)),plan=merge.create(data,[],{}),result=merge.build(data,plan,[],{}),belt=result.equipment[1];
+ assert.equal(belt.processData.upstream.packageLengthMm,60);assert.equal(belt.processData.upstream.dischargePitchMm,80);assert.equal(belt.processData.accumulation.conveyorSpeedFactorPercent,0);assert.equal(belt.processData.accumulation.speedMode,'MANUAL');
+ assert(Math.abs(belt.processData.accumulation.conveyorSpeedMmPerSecond-498.8333333333333)<1e-9);
+ assert(!data.warnings.some(w=>w.code==='CONVEYOR_INPUT_REQUIRED'));const notes=data.warnings.filter(w=>w.cell.endsWith('11'));assert.equal(notes.length,2);assert(notes.every(w=>w.severity==='info'));
+ const run=simulateLine({case:{equipment:plain(result.equipment)},run:{durationSeconds:60,tickSeconds:1,seed:1}});assert(run.ok,JSON.stringify(run.error));
+});
+test('missing conveyor inputs identify only their actual cells; zero reserve and speed factor remain valid',()=>{
+ const r=runtime(),f=updatedFixture();f.rows[1][9]=0;f.rows[1][18]=0;let out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');assert(!out.warnings.some(w=>w.code==='CONVEYOR_INPUT_REQUIRED'));
+ f.rows[1][12]='N/A';out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');const issues=out.warnings.filter(w=>w.code==='CONVEYOR_INPUT_REQUIRED');assert.equal(issues.length,1);assert.equal(issues[0].cell,'M11');assert.match(issues[0].message,/Package length.*read as N\/A/);
 });

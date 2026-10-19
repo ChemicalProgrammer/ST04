@@ -27,6 +27,7 @@
 .sheet-correction p { margin:var(--space-2) 0; }
 #sheet-import-preview .sheet-equipment-choice > summary { position:relative; min-height:24px; padding-inline-end:calc(var(--control-height) + var(--space-2)); }
 .sheet-import-row-status { position:absolute; inset-inline-end:0; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; }
+.sheet-import-row-status[data-status=info] { color:var(--accent); }
 .sheet-import-row-status[data-status=ok] { color:var(--success); }
 .sheet-import-row-status[data-status=warning] { color:var(--warning); }
 .sheet-import-row-status[data-status=error] { color:var(--danger); }
