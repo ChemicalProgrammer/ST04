@@ -80,11 +80,12 @@ window.STSheetImportMerge=(function(){
       var applied=[];
       selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+__ST_TEXT__('sheetimportmerge.fix_this_cell_or_deselect_the_field'));return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value,adjustment:record.adjustments?.[f.id]?copy(record.adjustments[f.id]):undefined});});
       var reliability=selected.some(function(f){return ['mtbf','mttr'].includes(f.id);});
-      if(reliability){var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+__ST_TEXT__('sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection'));}
+      if(reliability){var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+' · D'+record.row+' (MTBF), E'+record.row+' (MTTR): '+__ST_TEXT__('sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection'));}
       if(isNew||record.selected.type||record.selected.critical){unit.processData.role=unit.type==='CONVEYOR'?'CONVEYOR':unit.characteristics.isPacemaker||!record.selected.critical&&(unit.processData.role==='PACEMAKER'||incoming.processData?.role==='PACEMAKER')?'PACEMAKER':unit.characteristics.criticalMachine?'CRITICAL_MACHINE':'MACHINE';unit.processData.machineType=unit.type;}
       if(preview.layout==='plant-sheet-v2'){unit.characteristics=unit.characteristics||{};unit.characteristics.sourceSheetLayout=preview.layout;}
       if(unit.type!=='CONVEYOR')delete unit.processData.accumulation;
-      if(!unit.name||!(unit.nominalRatePerSecond>0))issues.push(__ST_TEXT__('sheetimport.row')+record.row+__ST_TEXT__('sheetimportmerge.new_updated_equipment_needs_a_name_and_positive_nominal_speed_select_those_'));
+      if(!unit.name)issues.push('B'+record.row+' (Equipment name): enter a name and select this field for import.');
+      if(!(unit.nominalRatePerSecond>0))issues.push('F'+record.row+' (Nominal running speed): enter a positive speed, or provide a valid upstream machine speed when this row is a conveyor.');
       var changed=isNew||!equal(currentUnit,unit);
       if(changed){if(isNew){equipment.push(unit);added++;}else{equipment[equipment.indexOf(currentUnit)]=unit;updated++;}}
       changes.push({equipmentId:unit.id,sourceName:incoming.name,row:record.row,sourceKey:key(preview.source),added:isNew,fields:applied});
@@ -98,15 +99,32 @@ window.STSheetImportMerge=(function(){
     return {equipment:equipment,sourceImport:sourceImport,errors:issues,added:added,updated:updated,metadataChanges:metadataChanges.length,equipmentChanged:added+updated>0,hasChanges:effective};
   }
   function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(f?.id==='beltSpeed')v=Number(v)*.06;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
-  function physicalIssue(detail,equipment){
-    var path=String(detail?.path||''),match=path.match(/equipment\[(\d+)\]/);
-    var unit=match&&equipment?.[Number(match[1])];
-    var row=unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
-    var context=unit?unit.name+(row?' · '+__ST_TEXT__('sheetimport.row')+row:'')+' · ':'';
-    var updated=unit?.characteristics?.sourceSheetLayout==='plant-sheet-v2',hint=path.endsWith('.gapMm')&&row?' '+__ST_TEXT__('sheetimport.check_pitch_geometry').replace('{K}',(updated?'M':'K')+row).replace('{L}',(updated?'N':'L')+row).replace('{Q}',(updated?'S':'Q')+row):'';
-    return context+path+': '+String(detail?.reason||'')+hint;
+  function sourceRow(unit,sourceImport){
+    return sourceImport?.lastApplied?.equipment?.find(change=>change.equipmentId===unit?.id)?.row||unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
   }
-  return {fields:fields,fieldsFor:fieldsFor,metadataFields:metadataFields,metadataValue:metadataValue,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue};
+  function sourceLayout(unit,sourceImport){
+    var applied=sourceImport?.lastApplied?.equipment?.some(change=>change.equipmentId===unit?.id);
+    return (applied?sourceImport.source?.schemaVersion:undefined)||unit?.characteristics?.sourceSheetLayout;
+  }
+  function cellReference(unit,ids,sourceImport){
+    var row=sourceRow(unit,sourceImport);if(!row)return 'no linked source row; review Line setup';
+    var mapped=fieldsFor({layout:sourceLayout(unit,sourceImport)});
+    return ids.map(id=>{var f=mapped.find(field=>field.id===id);return f?f.col+row+' ('+f.label+')':null;}).filter(Boolean).join(', ');
+  }
+  function physicalIssue(detail,equipment,sourceImport){
+    var path=String(detail?.path||''),match=path.match(/equipment\[(\d+)\]/),unit=match&&equipment?.[Number(match[1])],reason=String(detail?.reason||'');
+    if(!unit)return reason+' Review the corresponding Products, Formats or Simulation settings; no direct Sheet cell is mapped to '+path+'.';
+    var row=sourceRow(unit,sourceImport),context=unit.name+(row?' · '+__ST_TEXT__('sheetimport.row')+row:'')+' · ';
+    var leaf=path.split('.').pop(),relative=path.replace(/^.*equipment\[\d+\]\./,''),direct=fieldsFor({layout:sourceLayout(unit,sourceImport)}).find(f=>f.paths.includes(relative)||relative==='noiseProfile.reliability.'+(f.id==='mtbf'?'mtbfMinutes':f.id==='mttr'?'mttrMinutes':'-')),label=direct?.label||leaf.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,c=>c.toUpperCase());
+    function check(ids){return ' Check Sheet cells '+cellReference(unit,ids,sourceImport)+'. Verify their values and the selected import fields.';}
+    if(path.endsWith('.processData.accumulation'))return context+'Conveyor geometry: '+reason+'.'+check(['length','prime','package','pitch','speedFactor'])+' Moving spacing can also be overridden in Products / Formats.';
+    if(['backupSensorPositionMm','backupRestartPositionMm'].includes(leaf))return context+(leaf==='backupSensorPositionMm'?'Back-up sensor position':'Back-up restart position')+': '+reason+'. No dedicated cell in this Sheet template; this position is derived from conveyor engineering.'+check(['length','prime','package','pitch','speedFactor'])+' Review the Back-up position / LBA in Conveyors → Line setup if an installed value is needed.';
+    var derived={usableLengthMm:['length'],primeSensorPositionMm:['length','prime'],productLengthMm:['package'],productPitchMm:['package','pitch','speedFactor'],gapMm:['package','pitch','speedFactor'],conveyorSpeedMmPerSecond:sourceLayout(unit,sourceImport)==='plant-sheet-v2'?['beltSpeed','pitch','speedFactor']:['pitch','speedFactor'],bottlesDischargedAtStop:['residual'],downstreamRampUpSeconds:['ramp'],blockedTimeDelaySeconds:['blocked'],clearTimeDelaySeconds:['clear'],dischargeRunoutLengthMm:['discharge'],rejectRunoutLengthMm:['coding']};
+    if(direct)return context+label+': '+reason+'.'+check([direct.id]);
+    if(derived[leaf])return context+label+': '+reason+'.'+check(derived[leaf]);
+    return context+label+': '+reason+'. No dedicated cell in this Sheet template. Configure this value in Conveyors → Line setup or the applicable Products / Formats settings.';
+  }
+  return {fields:fields,fieldsFor:fieldsFor,metadataFields:metadataFields,metadataValue:metadataValue,create:create,defaults:defaults,build:build,equal:equal,display:display,errorsFor:errorsFor,incomingValue:incomingValue,physicalIssue:physicalIssue,cellReference:cellReference,sourceRow:sourceRow};
 })();
 // Editable packing proposal, built from the effective selection rather than raw Sheet rows.
 window.STSheetPackingImport=(function(){
@@ -126,10 +144,15 @@ window.STSheetPackingImport=(function(){
     var result=copy(base),equipment=result.equipment,index=equipment.findIndex(e=>e.id===draft.packerId),issues=result.errors;
     result.packingWarnings=[];result.packingRows=[];
     if(index<0||!candidates(equipment).some(e=>e.id===draft.packerId)){issues.push('Choose a Case Packer included in the final line.');return result;}
-    if(!Number.isInteger(draft.bottlesPerCase)||draft.bottlesPerCase<1||draft.bottlesPerCase>10000)issues.push('Enter bottles per case as a whole number from 1 to 10,000. It is not inferred from the equipment name.');
-    if(!['BOTTLES','NATIVE'].includes(draft.sourceRateBasis))issues.push('Confirm the source machine-speed basis.');
-    if(!String(draft.productName||'').trim()||!String(draft.formatName||'').trim())issues.push('Enter a product name and a format name.');
-    ['bottleLengthMm','caseLengthMm','volumeMl'].forEach(key=>{if(draft[key]!==undefined&&(!Number.isFinite(draft[key])||draft[key]<=0))issues.push(key+': enter a positive value or leave it blank to retain conveyor defaults.');});
+    if(!Number.isInteger(draft.bottlesPerCase)||draft.bottlesPerCase<1||draft.bottlesPerCase>10000)issues.push('C5 (Bottles per case): enter bottles per case as a whole number from 1 to 10,000 in the Sheet or the packing proposal. It is not inferred from the equipment name.');
+    if(!['BOTTLES','NATIVE'].includes(draft.sourceRateBasis))issues.push('Column F (machine speeds): confirm the source machine-speed basis in the packing proposal; the Sheet has no dedicated speed-basis cell.');
+    if(!String(draft.productName||'').trim())issues.push('Product name: enter it in the packing proposal; the Sheet has no dedicated product-name cell.');
+    if(!String(draft.formatName||'').trim())issues.push('C3 (Format name): enter a format name in the Sheet or the packing proposal.');
+    ['bottleLengthMm','caseLengthMm','volumeMl'].forEach(function(key){
+      if(draft[key]===undefined||Number.isFinite(draft[key])&&draft[key]>0)return;
+      var related=key==='volumeMl'?'C4 (Container size)':equipment.filter((e,i)=>belt(e)&&(key==='bottleLengthMm'?i<index:i>index)).map(e=>STSheetImportMerge.cellReference(e,['package'],result.sourceImport)).join('; ');
+      issues.push(key+': enter a positive value in the packing proposal, or leave it blank to retain defaults. '+(related?'Check Sheet cells '+related+'.':'No matching source conveyor row; enter the dimension in the packing proposal.'));
+    });
     if(issues.length)return result;
     var catalog=engine().normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment),product={id:draft.productId,name:draft.productName.trim(),bottle:{},equipment:{}},format={id:draft.formatId,name:draft.formatName.trim(),productId:draft.productId,bottlesPerCase:draft.bottlesPerCase,case:{},equipment:{}};
     if(draft.bottleLengthMm!==undefined)product.bottle.lengthMm=draft.bottleLengthMm;
@@ -150,7 +173,7 @@ window.STSheetPackingImport=(function(){
         if(oldUnits?.output==='CASES'){
           if(output==='CASES')return value;
           var pack=oldFormat?.bottlesPerCase||previous?.bottlesPerCase;
-          if(!pack){issues.push(e.name+': the previous bottles-per-case value is needed to change this step back to bottles.');return value;}
+          if(!pack){issues.push(e.name+': the previous bottles-per-case value is needed to change this step back to bottles. Check C5 in the previous source Sheet or the existing format settings.');return value;}
           return value*pack;
         }
         return value/(output==='CASES'&&draft.sourceRateBasis==='BOTTLES'?draft.bottlesPerCase:1);
@@ -161,8 +184,8 @@ window.STSheetPackingImport=(function(){
         e.characteristics=e.characteristics||{};e.characteristics.rateBasis=output==='CASES'?'cases per minute':'bottles per minute';
       }else{
         var length=output==='CASES'?draft.caseLengthMm:draft.bottleLengthMm,sourceLength=e.processData.upstream?.packageLengthMm??e.processData.accumulation?.productLengthMm;
-        if(length===undefined){result.packingWarnings.push(e.name+': no common '+output.toLowerCase()+' length; using its conveyor default.');length=sourceLength;}
-        [['dischargeGapMm',e.processData.upstream?.dischargePitchMm],['infeedGapMm',e.processData.downstream?.infeedPitchMm]].forEach(function(pair){if(pair[1]==null||length==null)return;var gap=pair[1]-length;if(gap<0)issues.push(e.name+': '+pair[0]+' would be negative. Review package length and pitch.');else profile[pair[0]]=gap;});
+        if(length===undefined){result.packingWarnings.push(e.name+': no common '+output.toLowerCase()+' length; using its conveyor default. Check Sheet cell '+STSheetImportMerge.cellReference(e,['package'],result.sourceImport)+', or enter the shared length in the packing proposal.');length=sourceLength;}
+        [['dischargeGapMm',e.processData.upstream?.dischargePitchMm],['infeedGapMm',e.processData.downstream?.infeedPitchMm]].forEach(function(pair){if(pair[1]==null||length==null)return;var gap=pair[1]-length;if(gap<0)issues.push(e.name+': '+pair[0]+' would be negative. Check Sheet cells '+STSheetImportMerge.cellReference(e,['package',pair[0]==='infeedGapMm'?'infeed':'pitch'],result.sourceImport)+' and the length in the packing proposal.');else profile[pair[0]]=gap;});
         if(profile.dischargeGapMm!==undefined)profile.movingGapMm=profile.dischargeGapMm;
       }
       if(output==='BOTTLES')product.equipment[e.id]=profile;

@@ -42,3 +42,11 @@ test('import indicators refresh when selection or target changes without losing 
  }finally{h.dom.window.close();}
 });
 
+
+test('physical review and card issue list show the same expected Sheet cell',()=>{
+ const h=setup();try{
+  assert.match(h.d.getElementById('sheet-import-model-review').textContent,/F13/);
+  assert.match(h.d.querySelector('[data-source-index="3"] .sheet-equipment-issues').textContent,/F13/);
+  assert.match(h.d.querySelector('[data-source-index="3"] .sheet-import-row-status').title,/F13/);
+ }finally{h.dom.window.close();}
+});

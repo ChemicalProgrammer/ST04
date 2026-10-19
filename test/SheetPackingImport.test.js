@@ -50,3 +50,11 @@ test('initial format applies product bottles upstream and case profiles downstre
 test('a new worksheet requires an explicit speed-basis choice before applying packing',()=>{
  const h=prepare(),unreviewed=packing.create(h.base,h.snapshot);assert.equal(unreviewed.sourceRateBasis,'');assert(packing.apply(h.base,unreviewed,h.snapshot,h.plan).errors.some(e=>e.includes('speed basis')));
 });
+
+test('packing input errors identify metadata and measured geometry cells',()=>{
+ let h=prepare();h.draft.bottlesPerCase=undefined;assert(h.apply().errors.some(e=>e.includes('C5')));
+ h=prepare();h.draft.volumeMl=0;assert(h.apply().errors.some(e=>e.includes('C4')));
+ h=prepare();h.draft.caseLengthMm=0;assert(h.apply().errors.some(e=>e.includes('M13')));
+ h=prepare();h.draft.bottleLengthMm=81;assert(h.apply().errors.some(e=>e.includes('M11')&&e.includes('N11')));
+ h=prepare();h.draft.formatName='';assert(h.apply().errors.some(e=>e.includes('C3')));
+});

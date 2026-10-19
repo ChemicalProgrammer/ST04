@@ -52,3 +52,11 @@ Si ya existe catálogo, crear otro producto/formato es opcional y está desactiv
 
 Para esta mejora, actualizar juntos `ClientCases.html`, `SheetImportService.gs`, `SheetImport.html`, `SheetImportMerge.html` y `SheetImportStyles.html` junto con el resto de la aplicación. Actualizar el despliegue y volver a abrir el diálogo de importación. No se requieren cambios del motor ni reconstruir `SimulationEngine.html`.
 
+
+## Celdas indicadas en los avisos de importación
+
+Los avisos de revisión física y los indicadores de las tarjetas muestran las celdas relacionadas y el nombre del campo, según el formato detectado. Por ejemplo, Package length / Discharge pitch / Speed factor corresponden a K11 / L11 / Q11 en v1 y M11 / N11 / S11 en v2. Al recargar una fila movida o asignarla a un equipo existente se usa la fila de la importación actual.
+
+Los valores derivados, como el paso efectivo, indican sus entradas de cálculo. Back-up y Back-up restart no tienen una celda dedicada en esta plantilla: el aviso lo aclara, muestra las entradas relacionadas y remite a Conveyors → Line setup. Los parámetros exclusivos del simulador tampoco se presentan como datos faltantes de una columna inexistente. Sin una fila fuente vinculada, se indica revisar la configuración en la app.
+
+Las advertencias de longitud compartida y separación del producto/formato también señalan Package length y el pitch correspondiente. La cantidad de botellas por caja remite a C5; el nombre del formato, a C3.

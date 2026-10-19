@@ -50,3 +50,28 @@ test('automatically skipped source errors explain the exact field rather than cl
  assert.match(plan.records[0].reason,/F10: Machine maximum speed/);
  assert(!plan.records[0].reason.includes('Matched'));
 });
+
+
+test('physical review identifies direct source cells in both layouts, including reliability and native speed',()=>{
+ for(const layout of ['plant-sheet-v1','plant-sheet-v2']){
+  const unit=equipment('belt','Conveyor');unit.type='CONVEYOR';unit.characteristics.sourceSheetRow=11;unit.characteristics.sourceSheetLayout=layout;
+  for(const field of merge.fieldsFor({layout})){
+   const message=merge.physicalIssue({path:'case.equipment[0].'+field.paths[0],reason:'is required'},[unit]);
+   assert(message.includes(field.col+'11'),field.id+': '+message);
+  }
+  for(const [path,cell] of [['noiseProfile.reliability.mtbfMinutes','D11'],['noiseProfile.reliability.mttrMinutes','E11']])assert(merge.physicalIssue({path:'case.equipment[0].'+path,reason:'is required'},[unit]).includes(cell));
+ }
+});
+test('derived geometry points to source inputs and sensors explicitly have no dedicated Sheet cell',()=>{
+ const unit=equipment('existing-belt','Conveyor US-LAB');unit.type='CONVEYOR';unit.characteristics.sourceSheetRow=11;
+ const source={source:{schemaVersion:'plant-sheet-v2'},lastApplied:{equipment:[{equipmentId:unit.id,row:27}]}};
+ const geometry=merge.physicalIssue({path:'case.equipment[0].processData.accumulation',reason:'requires effective product pitch, or product length plus gap'},[unit],source);
+ for(const cell of ['I27','J27','M27','N27','S27'])assert(geometry.includes(cell),geometry);
+ assert(!geometry.includes('Row 11'));assert(!geometry.includes('case.equipment'));
+ for(const key of ['backupSensorPositionMm','backupRestartPositionMm']){
+  const message=merge.physicalIssue({path:'case.equipment[0].processData.accumulation.'+key,reason:'is required'},[unit],source);
+  assert.match(message,/No dedicated cell/);assert.match(message,/derived from conveyor engineering/);assert.match(message,/M27/);assert.match(message,/Conveyors → Line setup/);
+ }
+ const appOnly=merge.physicalIssue({path:'case.equipment[0].processData.accumulation.movingGapMm',reason:'is required'},[unit],source);assert.match(appOnly,/No dedicated cell/);
+ delete unit.characteristics.sourceSheetRow;const unlinked=merge.physicalIssue({path:'case.equipment[0].nominalRatePerSecond',reason:'is required'},[unit]);assert.match(unlinked,/no linked source row/);assert(!/F\d+/.test(unlinked));
+});
