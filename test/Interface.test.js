@@ -2863,12 +2863,16 @@ test('UI: Sheet packing proposal reviews conversion, saves the initial format an
    await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="equipment"]');await h.click('#open-sheet-import');h.d.getElementById('sheet-import-url').value='packing-sheet';
    h.d.getElementById('sheet-import-read').click();assert(h.d.querySelector('#sheet-import-dialog .dialog-request-progress'));await waitFor(()=>h.d.querySelector('#sheet-packing-enabled'));
    assert(h.d.getElementById('sheet-packing-enabled').checked);assert(h.d.querySelector('#sheet-packing-proposal .editor-subheading.compact-heading'));
+   await h.click('#sheet-import-ack');assert(h.d.getElementById('sheet-import-apply').disabled);
+   assert(!h.d.getElementById('sheet-import-readiness').hidden);assert(h.d.getElementById('sheet-import-readiness-text').closest('.dialog-actions'));
    if(uiMode==='BASIC'){
-    await h.click('#sheet-import-ack');assert(h.d.getElementById('sheet-import-apply').disabled);
-    const pack=h.d.getElementById('sheet-packing-bottlesPerCase');pack.value=12;pack.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.d.getElementById('sheet-import-ack').checked);
+    assert.match(h.d.getElementById('sheet-import-readiness-text').textContent,/Bottles per case/);await h.click('#sheet-import-review-pending');assert.equal(h.d.activeElement.id,'sheet-packing-bottlesPerCase');
+    const pack=h.d.getElementById('sheet-packing-bottlesPerCase');pack.value=12;pack.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.d.getElementById('sheet-import-ack').checked);await h.click('#sheet-import-ack');
    }
-   const basis=h.d.getElementById('sheet-packing-sourceRateBasis');basis.value='BOTTLES';basis.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(h.d.querySelectorAll('#sheet-packing-review tbody tr').length,5);assert.match(h.d.getElementById('sheet-packing-review').textContent,/25/);
-   await h.click('#sheet-import-ack');assert(!h.d.getElementById('sheet-import-apply').disabled);
+   assert.match(h.d.getElementById('sheet-import-readiness-text').textContent,/Source machine speeds/);await h.click('#sheet-import-review-pending');assert.equal(h.d.activeElement.id,'sheet-packing-sourceRateBasis');
+   const basis=h.d.getElementById('sheet-packing-sourceRateBasis');assert.equal(basis.getAttribute('aria-invalid'),'true');assert(basis.validity.customError);
+   basis.value='BOTTLES';basis.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert(!basis.hasAttribute('aria-invalid'));assert(!basis.validity.customError);assert.equal(h.d.querySelectorAll('#sheet-packing-review tbody tr').length,5);assert.match(h.d.getElementById('sheet-packing-review').textContent,/25/);
+   assert.match(h.d.getElementById('sheet-import-readiness-text').textContent,/I reviewed/);await h.click('#sheet-import-ack');assert(!h.d.getElementById('sheet-import-apply').disabled);assert.match(h.d.getElementById('sheet-import-readiness-text').textContent,/Ready to apply/);
    const name=h.d.getElementById('sheet-packing-formatName');name.value='Reviewed Format C';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));assert(!h.d.getElementById('sheet-import-ack').checked);
    await h.click('#sheet-packing-enabled');assert(h.d.getElementById('sheet-packing-fields').disabled);assert(h.d.getElementById('sheet-packing-review').hidden);await h.click('#sheet-packing-enabled');
    await h.click('#sheet-import-ack');await h.click('#sheet-import-apply');assert(!h.d.getElementById('sheet-import-dialog').open);

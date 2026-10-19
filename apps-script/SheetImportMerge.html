@@ -142,16 +142,17 @@ window.STSheetPackingImport=(function(){
   function apply(base,draft,snapshot,plan){
     if(!draft?.enabled)return base;
     var result=copy(base),equipment=result.equipment,index=equipment.findIndex(e=>e.id===draft.packerId),issues=result.errors;
-    result.packingWarnings=[];result.packingRows=[];
-    if(index<0||!candidates(equipment).some(e=>e.id===draft.packerId)){issues.push('Choose a Case Packer included in the final line.');return result;}
-    if(!Number.isInteger(draft.bottlesPerCase)||draft.bottlesPerCase<1||draft.bottlesPerCase>10000)issues.push('C5 (Bottles per case): enter bottles per case as a whole number from 1 to 10,000 in the Sheet or the packing proposal. It is not inferred from the equipment name.');
-    if(!['BOTTLES','NATIVE'].includes(draft.sourceRateBasis))issues.push('Column F (machine speeds): confirm the source machine-speed basis in the packing proposal; the Sheet has no dedicated speed-basis cell.');
-    if(!String(draft.productName||'').trim())issues.push('Product name: enter it in the packing proposal; the Sheet has no dedicated product-name cell.');
-    if(!String(draft.formatName||'').trim())issues.push('C3 (Format name): enter a format name in the Sheet or the packing proposal.');
+    result.packingWarnings=[];result.packingRows=[];result.packingIssues=[];
+    function packingError(field,message){issues.push(message);result.packingIssues.push({field:field,message:message});}
+    if(index<0||!candidates(equipment).some(e=>e.id===draft.packerId)){packingError('packerId','Choose a Case Packer included in the final line.');return result;}
+    if(!Number.isInteger(draft.bottlesPerCase)||draft.bottlesPerCase<1||draft.bottlesPerCase>10000)packingError('bottlesPerCase','C5 (Bottles per case): enter bottles per case as a whole number from 1 to 10,000 in the Sheet or the packing proposal. It is not inferred from the equipment name.');
+    if(!['BOTTLES','NATIVE'].includes(draft.sourceRateBasis))packingError('sourceRateBasis','Column F (machine speeds): confirm the source machine-speed basis in the packing proposal; the Sheet has no dedicated speed-basis cell.');
+    if(!String(draft.productName||'').trim())packingError('productName','Product name: enter it in the packing proposal; the Sheet has no dedicated product-name cell.');
+    if(!String(draft.formatName||'').trim())packingError('formatName','C3 (Format name): enter a format name in the Sheet or the packing proposal.');
     ['bottleLengthMm','caseLengthMm','volumeMl'].forEach(function(key){
       if(draft[key]===undefined||Number.isFinite(draft[key])&&draft[key]>0)return;
       var related=key==='volumeMl'?'C4 (Container size)':equipment.filter((e,i)=>belt(e)&&(key==='bottleLengthMm'?i<index:i>index)).map(e=>STSheetImportMerge.cellReference(e,['package'],result.sourceImport)).join('; ');
-      issues.push(key+': enter a positive value in the packing proposal, or leave it blank to retain defaults. '+(related?'Check Sheet cells '+related+'.':'No matching source conveyor row; enter the dimension in the packing proposal.'));
+      packingError(key,key+': enter a positive value in the packing proposal, or leave it blank to retain defaults. '+(related?'Check Sheet cells '+related+'.':'No matching source conveyor row; enter the dimension in the packing proposal.'));
     });
     if(issues.length)return result;
     var catalog=engine().normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment),product={id:draft.productId,name:draft.productName.trim(),bottle:{},equipment:{}},format={id:draft.formatId,name:draft.formatName.trim(),productId:draft.productId,bottlesPerCase:draft.bottlesPerCase,case:{},equipment:{}};

@@ -4,7 +4,7 @@ window.STSheetImport=function(state,actions){
   var merge=STSheetImportMerge,importVersion='sheet-import-20261019-1';
   function el(id){return document.getElementById(id);}
   function validContext(){return context&&state.activeCase?.id===context.caseId&&state.activeSimulationId===context.simulationId&&state.requestEpoch===context.epoch;}
-  function clear(){preview=null;plan=null;packingDraft=null;el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}
+  function clear(){preview=null;plan=null;packingDraft=null;el('sheet-import-readiness')?.setAttribute('hidden','');el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}
   function busy(value){el('sheet-import-read').disabled=value;el('sheet-import-read').setAttribute('aria-busy',String(value));el('sheet-import-url').disabled=value;el('sheet-import-tab').disabled=value;}
   function close(){sequence++;clear();snapshot=null;busy(false);el('sheet-import-dialog').close();if(lastFocus&&lastFocus.isConnected)lastFocus.focus();}
   function node(tag,text){var n=document.createElement(tag);n.textContent=text;return n;}
@@ -48,6 +48,29 @@ window.STSheetImport=function(state,actions){
     var scroll=node('div','');scroll.className='table-scroll';var table=node('table',''),caption=node('caption','Proposed flow and nominal machine speeds');table.append(caption);var head=node('thead',''),headers=node('tr','');['Equipment','Input','Output','Native output/min'].forEach((text,index)=>{var th=node('th',text);th.scope='col';if(index===3)th.className='numeric';headers.append(th);});head.append(headers);table.append(head);var body=node('tbody','');result.packingRows.forEach(e=>{var row=node('tr','');[e.name,e.input.toLowerCase(),e.output.toLowerCase(),e.ratePerMinute==null?'—':Number(e.ratePerMinute.toPrecision(10)).toLocaleString()].forEach((text,index)=>{var td=node('td',text);if(index===3)td.className='numeric';row.append(td);});body.append(row);});table.append(body);scroll.append(table);host.append(scroll);
     var note=node('p','Machine rates are expressed in output units. For example, 300 bottles/min ÷ 12 bottles/case = 25 cases/min. Physical belt speeds in m/min are not divided.');note.className='chart-note';host.append(note);
   }
+  function applyReadiness(result){
+    var area=el('sheet-import-readiness');
+    if(!area){
+      area=node('div','');area.id='sheet-import-readiness';area.className='sheet-import-readiness';
+      var text=node('span','');text.id='sheet-import-readiness-text';text.setAttribute('role','status');
+      var jump=node('button','Review pending field');jump.id='sheet-import-review-pending';jump.type='button';jump.className='ghost';area.append(text,jump);el('sheet-import-summary').after(area);
+      el('sheet-import-apply').setAttribute('aria-describedby',text.id);
+    }
+    area.hidden=false;
+    var pending=result.packingIssues||[],first=pending[0],focusId=first?'sheet-packing-'+first.field:'sheet-import-error';
+    var message=result.errors.length?(first?'Complete "'+(el(focusId)?.getAttribute('aria-label')||first.field)+'" in Product and packing format.':result.errors[0]):!result.hasChanges?'No changes selected. Select the fields you want to import.':!el('sheet-import-ack').checked?'Check "I reviewed the mapping, assumptions and warnings" to enable Apply.':'Ready to apply the selected changes.';
+    if(result.errors.length>1)message+=' '+(result.errors.length-1)+' additional requirement(s) remain.';
+    el('sheet-import-readiness-text').textContent=message;area.dataset.status=result.errors.length?'error':!result.hasChanges?'idle':'ready';
+    var jump=el('sheet-import-review-pending');jump.hidden=!result.errors.length;jump.onclick=function(){var target=el(focusId);if(!target)return;if(!target.matches('input,select,button'))target.tabIndex=-1;target.scrollIntoView?.({block:'center',behavior:'smooth'});target.focus({preventScroll:true});};
+    el('sheet-import-apply').title=message;
+    var fields=el('sheet-packing-fields');if(fields)fields.querySelectorAll('input,select').forEach(function(control){
+      var key=control.id.replace('sheet-packing-',''),issue=pending.find(item=>item.field===key),errorId=control.id+'-error';
+      control.setCustomValidity(issue?.message||'');
+      if(issue)control.setAttribute('aria-invalid','true');else control.removeAttribute('aria-invalid');
+      var local=el(errorId);if(!local){local=node('span','');local.id=errorId;local.className='sheet-packing-field-error';control.after(local);}local.textContent=issue?.message||'';local.hidden=!issue;
+      if(issue)control.setAttribute('aria-describedby',errorId);else control.removeAttribute('aria-describedby');
+    });
+  }
   function refresh(){
     if(!preview||!plan)return;var result=buildResult();updatePackingReview(result);
     el('sheet-import-summary').textContent=result.added+__ST_TEXT__('sheetimport.to_add')+result.updated+__ST_TEXT__('sheetimport.to_update')+result.metadataChanges+__ST_TEXT__('sheetimport.metadata_changes')+(result.initialFormatId?' · 1 product + 1 format; initial format selected':'')+(result.equipmentChanged?__ST_TEXT__('sheetimport.existing_results_will_be_cleared_run_again'):'');
@@ -55,7 +78,7 @@ window.STSheetImport=function(state,actions){
     var validation=window.SimulatorEngine.validateSimulationInput({case:{equipment:result.equipment},run:{durationSeconds:1,tickSeconds:1,seed:1,...(result.initialFormatId?{initialFormatId:result.initialFormatId,initialProductId:result.initialFormatId,productCatalog:SimulatorEngine.resolvePackingFormats(result.formatCatalog)}:{})}});updateRowIndicators(result,validation);
     var review=el('sheet-import-model-review');if(review){review.textContent='';review.classList.toggle('hidden',validation.ok);if(!validation.ok){review.open=true;review.appendChild(node('summary',__ST_TEXT__('sheetimport.physical_model_review_drafts_can_be_saved')+' · '+validation.error.details.length));var list=document.createElement('ul');validation.error.details.forEach(function(detail){list.appendChild(node('li',merge.physicalIssue(detail,result.equipment,result.sourceImport)));});review.appendChild(list);}}
     var corrections=el('sheet-import-corrections');if(corrections){corrections.textContent='';STSheetCorrections.render(corrections,preview,plan,result,function(row){el('sheet-import-ack').checked=false;render();el('sheet-import-corrections').querySelector('[data-correction-row="'+row+'"] button')?.focus();});}
-    el('sheet-import-apply').disabled=!result.hasChanges||result.errors.length>0||!el('sheet-import-ack').checked;
+    el('sheet-import-apply').disabled=!result.hasChanges||result.errors.length>0||!el('sheet-import-ack').checked;applyReadiness(result);
   }
   function header(){var table=document.createElement('table');table.innerHTML='<thead><tr><th>Import</th><th>Field</th><th>Current</th><th>'+__ST_TEXT__('sheetimport.reviewed_value')+'</th><th>Status</th></tr></thead>';var body=document.createElement('tbody');table.appendChild(body);return {table:table,body:body};}
   function choice(body,label,before,after,selected,disabled,changed,callback,field,issues){

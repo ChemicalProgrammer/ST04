@@ -70,3 +70,9 @@ Las entradas de geometría realmente ausentes se identifican individualmente, co
 Al pegar otro enlace se limpia la pestaña recordada automáticamente, para que no sustituya al gid del nuevo enlace. Una pestaña introducida explícitamente por el usuario sí conserva la prioridad.
 
 Cliente y servidor verifican el contrato `sheet-import-20261019-1`. Un despliegue con archivos de importación de versiones incompatibles se detiene antes de aplicar cambios y muestra cómo actualizarlo. Actualizar juntos `Main.gs`, `SheetImportService.gs`, `SheetImport.html` y `SheetImportStyles.html`, actualizar el despliegue y reabrir la aplicación. Esta comprobación previene mezclas de archivos; no sustituye revisar los datos de la hoja seleccionada.
+
+## Por qué Apply puede permanecer deshabilitado
+
+Marcar la revisión confirma que se leyeron los avisos; no completa campos obligatorios. Si está activa la propuesta de producto/formato, se debe elegir **Source machine speeds** y completar los datos requeridos, como botellas por caja. En el Caso C, si F contiene las velocidades equivalentes en botellas/min, corresponde **Bottle equivalents/min (worksheet bpm)**.
+
+El pie del diálogo muestra el requisito pendiente junto a los botones, incluso si el error original quedó arriba del contenido desplazable. **Review pending field** lleva al campo y lo enfoca; el campo muestra su error local. Si no hay cambios seleccionados, el pie lo explica. Cuando todo está completo y se marca la revisión, muestra **Ready to apply** y habilita Apply. Editar la selección o la propuesta requiere volver a marcar la revisión. También se puede desactivar **Create product and format** para importar únicamente los equipos. Las advertencias físicas que permiten guardar borradores no bloquean Apply por sí solas.

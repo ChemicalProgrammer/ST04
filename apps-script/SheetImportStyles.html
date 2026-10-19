@@ -43,5 +43,11 @@
 #sheet-import-preview caption { text-align:left; color:var(--muted); padding:var(--space-2) 0; }
 @media(max-width:800px) { #sheet-import-preview .sheet-packing-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:480px) { #sheet-import-preview .sheet-packing-fields { grid-template-columns:1fr; } }
+.sheet-import-readiness { flex-basis:100%; display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); font-size:var(--font-secondary); }
+.sheet-import-readiness[hidden],.sheet-import-readiness button[hidden],.sheet-packing-field-error[hidden] { display:none; }
+.sheet-import-readiness[data-status=error],.sheet-packing-field-error { color:var(--danger); }
+.sheet-packing-field-error { font-size:var(--font-caption); font-weight:var(--weight-regular); }
+#sheet-import-preview .sheet-packing-fields [aria-invalid=true] { border-color:var(--danger); }
+@media(max-width:480px) { .sheet-import-readiness { align-items:flex-start; flex-direction:column; } }
 </style>
 

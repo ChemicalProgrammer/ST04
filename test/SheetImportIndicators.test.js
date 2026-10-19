@@ -71,3 +71,10 @@ test('a remembered worksheet cannot override a newly pasted URL gid, but an expl
   h.d.getElementById('open-sheet-import').click();tab.value='Explicit tab';tab.dispatchEvent(new h.w.Event('input'));url.value='new-book';url.dispatchEvent(new h.w.Event('input'));assert.equal(tab.value,'Explicit tab');h.d.getElementById('sheet-import-form').dispatchEvent(new h.w.Event('submit',{cancelable:true}));assert.equal(h.w.google.script.run.lastRequest.sheetName,'Explicit tab');
  }finally{h.dom.window.close();}
 });
+
+test('Apply explains when review is checked but no import changes are selected',()=>{
+ const h=setup();try{
+  [...h.d.querySelectorAll('#sheet-import-preview button')].find(button=>button.textContent==='Deselect all fields').click();h.d.getElementById('sheet-import-ack').click();assert(h.d.getElementById('sheet-import-ack').checked);assert(h.d.getElementById('sheet-import-apply').disabled);assert.match(h.d.getElementById('sheet-import-readiness-text').textContent,/No changes selected/);assert(h.d.getElementById('sheet-import-review-pending').hidden);
+  h.d.getElementById('sheet-import-cancel').click();assert(h.d.getElementById('sheet-import-readiness').hidden);
+ }finally{h.dom.window.close();}
+});
