@@ -18,7 +18,10 @@
 #real-data-equipment input { min-width:90px; }
 #real-data-equipment select { min-width:150px; }
 #real-data-equipment textarea { min-width:200px; min-height:64px; }
-#realdata-panel :is(td,th) { white-space:normal; }
+#realdata-panel :is(td,th) { white-space:normal; vertical-align:middle; }
+#realdata-panel th { text-align:left; }
+#realdata-panel th.numeric { text-align:right; }
+#real-data-equipment th.numeric { padding-right:calc(var(--table-cell-inline) + var(--space-3)); }
 #real-data-comparison table { min-width:950px; }
 #real-data-comparison .numeric { white-space:nowrap; }
 #real-data-comparison td:last-child { min-width:280px; }
