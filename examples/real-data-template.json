@@ -1,0 +1,131 @@
+{
+  "schema": "st-real-data-v1",
+  "_guide": {
+    "instructions": [
+      "Only records is imported. _guide is explanatory reference data.",
+      "Duplicate a records entry to capture another day or observation period.",
+      "Equipment entries are real observations linked to existing simulation equipment by equipmentId. They do not create or configure physical equipment.",
+      "Template IDs and names come from the currently selected simulation, including conveyors. Preserve IDs to match results.",
+      "All fields ending in Seconds use seconds. MTBF and MTTR use minutes. Display-unit choices do not change JSON units.",
+      "Use null for unknown numeric values and an empty string for unknown text. Zero is a measured zero.",
+      "EXAMPLE ONLY: durationSeconds=86400 means 24 hours; replace it if needed."
+    ],
+    "recordFields": {
+      "id": "Text identifier; fresh IDs are assigned on import.",
+      "name": "Required record title.",
+      "date": "YYYY-MM-DD, or empty when unknown.",
+      "source": "Source / report / reference.",
+      "notes": "Free observations and unresolved definitions (up to 8000 characters).",
+      "status": [
+        "MEASURED",
+        "DERIVED",
+        "ESTIMATED",
+        "PENDING"
+      ],
+      "production": "Non-negative final-output count, or null.",
+      "productionUnit": [
+        "BOTTLES",
+        "CASES",
+        "UNITS"
+      ],
+      "bottlesPerCase": "Positive integer for case conversion, or null.",
+      "referenceSpeedBpm": "Confirmed ideal reference in bottles/min, or null. Not automatically the average running speed.",
+      "reportedEfficiencyPercent": "Source AU / efficiency in percent (0-100), or null. Its definition is not assumed to match OEE.",
+      "qualityPercent": "Observed quality in percent (0-100), or null.",
+      "durationSeconds": "Positive full observation period in seconds, or null.",
+      "downtimeSeconds": "Exclusive line downtime in seconds, or null.",
+      "runTimeSeconds": "Line run time in seconds, or null.",
+      "effectiveRuntimeSeconds": "Effective runtime in seconds, or null.",
+      "updtSeconds": "Source UPDT in seconds, or null; confirm its definition.",
+      "rateLossSeconds": "Equivalent rate-loss seconds, or null. Not automatically a full stop.",
+      "sourceSnapshot": "Optional original source text / serialized JSON. Empty when unavailable; up to 64000 characters.",
+      "equipment": "Array of observations, at most one entry per equipmentId in this period."
+    },
+    "equipmentFields": {
+      "equipmentId": "Required existing equipment ID. Matching uses this ID, not the display name.",
+      "name": "Equipment display name.",
+      "stopClass": [
+        "UNKNOWN",
+        "FAILURES",
+        "MINOR",
+        "ALL"
+      ],
+      "exposureSeconds": "Positive observed exposure period in seconds, or null.",
+      "failureCount": "Integer count of the selected stop class, or null.",
+      "failureSeconds": "Total seconds of the selected stop class, or null.",
+      "mtbfMinutes": "Observed MTBF in minutes, or null; compare with the configured input.",
+      "mttrMinutes": "Observed MTTR in minutes, or null; compare with the configured input.",
+      "notes": "Equipment-specific observations (up to 4000 characters)."
+    },
+    "equipmentCatalog": [
+      {
+        "equipmentId": "replace-with-filler-id",
+        "name": "Example filler",
+        "type": "FILLER"
+      },
+      {
+        "equipmentId": "replace-with-conveyor-id",
+        "name": "Example conveyor",
+        "type": "CONVEYOR"
+      }
+    ],
+    "syntheticEquipmentExample": {
+      "equipmentId": "replace-with-filler-id",
+      "name": "Example filler",
+      "stopClass": "FAILURES",
+      "exposureSeconds": 86400,
+      "failureCount": 4,
+      "failureSeconds": 1200,
+      "mtbfMinutes": 120,
+      "mttrMinutes": 5,
+      "notes": "Synthetic values for structure only; not measured plant data."
+    }
+  },
+  "records": [
+    {
+      "id": "example-day",
+      "name": "Production day",
+      "date": "",
+      "source": "Enter the report, sheet or measurement reference",
+      "notes": "Replace example labels and the 86400-second day with your observation. Unknown numeric values are null, not zero.",
+      "status": "PENDING",
+      "durationSeconds": 86400,
+      "production": null,
+      "productionUnit": "BOTTLES",
+      "bottlesPerCase": null,
+      "referenceSpeedBpm": null,
+      "reportedEfficiencyPercent": null,
+      "qualityPercent": null,
+      "equipment": [
+        {
+          "equipmentId": "replace-with-filler-id",
+          "name": "Example filler",
+          "stopClass": "UNKNOWN",
+          "exposureSeconds": null,
+          "failureCount": null,
+          "failureSeconds": null,
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "notes": ""
+        },
+        {
+          "equipmentId": "replace-with-conveyor-id",
+          "name": "Example conveyor",
+          "stopClass": "UNKNOWN",
+          "exposureSeconds": null,
+          "failureCount": null,
+          "failureSeconds": null,
+          "mtbfMinutes": null,
+          "mttrMinutes": null,
+          "notes": ""
+        }
+      ],
+      "downtimeSeconds": null,
+      "runTimeSeconds": null,
+      "effectiveRuntimeSeconds": null,
+      "updtSeconds": null,
+      "rateLossSeconds": null,
+      "sourceSnapshot": ""
+    }
+  ]
+}

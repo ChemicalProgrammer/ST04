@@ -32,6 +32,12 @@ Use `{ "schema": "st-real-data-v1", "records": [...] }`, a record array, a singl
 
 Record fields: `id`, `name`, `date` (YYYY-MM-DD or empty), `source`, `notes`, `status` (MEASURED / DERIVED / ESTIMATED / PENDING), `production`, `productionUnit` (BOTTLES / CASES / UNITS), `bottlesPerCase`, `referenceSpeedBpm`, `reportedEfficiencyPercent`, `qualityPercent`, `durationSeconds`, `downtimeSeconds`, `runTimeSeconds`, `effectiveRuntimeSeconds`, `updtSeconds`, `rateLossSeconds`, and `equipment`.
 
-Equipment observations use `equipmentId`, optional `name`, `stopClass` (UNKNOWN / FAILURES / MINOR / ALL), `exposureSeconds`, `failureCount`, `failureSeconds`, `mtbfMinutes`, and `mttrMinutes`. Missing equipment IDs are not automatically mapped by name.
+Equipment observations use `equipmentId`, optional `name`, `stopClass` (UNKNOWN / FAILURES / MINOR / ALL), `exposureSeconds`, `failureCount`, `failureSeconds`, `mtbfMinutes`, and `mttrMinutes`, plus free-text `notes`. Missing equipment IDs are not automatically mapped by name.
 
 All stored time fields ending in Seconds are seconds. The UI's seconds / minutes / hours selector converts their presentation without modifying duration. MTBF / MTTR remain in minutes. JSON files are limited to 2 MB; a case holds up to 100 observations and 512 KB of real-data records. Export reports contain the selected record and comparison, not an account API key or replay traces.
+
+## Complete template
+
+The Template button includes every supported record and equipment field. It populates equipment IDs and names from the active simulation, including conveyors, and leaves unknown measurements as null. `_guide` documents all fields, units, valid enumeration values, an equipment catalog and a synthetic observation example. Only `records` is imported; guide examples are never treated as measurements. Duplicate a record for another period. Duplicate equipment IDs within one observation are rejected. Equipment-specific notes can be entered in the UI; observations for unmatched IDs remain editable and are marked as not in the simulation.
+
+A generic example is available at [examples/real-data-template.json](../examples/real-data-template.json). Replace placeholder IDs before using that file; the in-app template already supplies the selected simulation’s IDs. These entries describe real observations; physical equipment configuration continues to use Line Setup / Import JSON.

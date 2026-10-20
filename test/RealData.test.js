@@ -54,3 +54,17 @@ test('legacy statistics-only batches retain means instead of the first-round sum
  const legacy={...result,batch:{statistics:{outputCount:{n:5,mean:120000,standardDeviation:10000,min:110000,max:130000},lineOeePercent:{n:5,mean:27.7777777778}},equipmentStatistics:{filler:{failureCount:{mean:4},failureSeconds:{mean:1800}}}}};
  const d=api.compare(observation(),simulation,legacy,'average');assert.equal(find(d,'Production').simulated,120000);assert.equal(d.run.statistics.n,5);assert.equal(d.run.equipment.filler.failureCount,4);
 });
+test('complete templates include every supported field, live equipment IDs and importable blank observations',()=>{
+ const models=[{id:'filler',name:'Filler',type:'FILLER'},{id:'transfer',name:'Transfer conveyor',type:'CONVEYOR'}];
+ const payload=api.template(models),r=payload.records[0];assert.deepEqual(Object.keys(r).sort(),Object.keys(payload._guide.recordFields).sort());assert.equal(r.sourceSnapshot,'');
+ for(const key of ['downtimeSeconds','runTimeSeconds','effectiveRuntimeSeconds','updtSeconds','rateLossSeconds'])assert.equal(r[key],null);
+ assert.equal(r.equipment.length,2);assert.equal(r.equipment[1].equipmentId,'transfer');assert.equal(r.equipment[1].exposureSeconds,null);
+ assert.deepEqual(Object.keys(r.equipment[0]).sort(),Object.keys(payload._guide.equipmentFields).sort());
+ const imported=api.importRecords(JSON.parse(JSON.stringify(payload)));assert.equal(imported.length,1);assert.equal(imported[0].equipment.length,2);assert.equal(imported[0].equipment[0].failureCount,null);assert.equal(imported[0].equipment[0].notes,'');assert.equal(imported[0].production,null);
+ const edited=JSON.parse(JSON.stringify(payload));edited.records[0].equipment[0].notes='A sensor was replaced';edited.records[0].equipment[0].failureCount=0;assert.equal(api.importRecords(edited)[0].equipment[0].notes,'A sensor was replaced');assert.equal(api.importRecords(edited)[0].equipment[0].failureCount,0);
+ assert.equal(api.importRecords(api.template([]))[0].equipment[0].equipmentId,'replace-with-equipment-id');
+});
+test('equipment notes and IDs validate without silently accepting duplicate measurements',()=>{
+ const row={equipmentId:'filler',notes:'Observed by operator'};
+ assert.throws(()=>api.normalize(observation({equipment:[row,row]})),/unique/);assert.throws(()=>api.normalize(observation({equipment:[{equipmentId:''}]})),/equipmentId/);assert.throws(()=>api.normalize(observation({equipment:[{...row,notes:123}]})),/notes/);
+});
