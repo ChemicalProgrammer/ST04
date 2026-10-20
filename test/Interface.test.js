@@ -789,12 +789,12 @@ test('UI: equipment units persist independently and the resizer remains anchored
  }finally{h.dom.window.close();}
 });
 
-test('UI Basic: inline equipment and fixed conveyor fields persist across the five top sections',async()=>{
+test('UI Basic: inline equipment and fixed conveyor fields persist across the main sections',async()=>{
  const h=await setup({remember:true,uiMode:null});try{
   const style=e=>h.w.getComputedStyle(e).display;
   await h.click('.open-case');assert.equal(h.d.documentElement.dataset.uiMode,'basic');
   assert.equal(style(h.d.getElementById('case-sidebar')),'none');
-  assert.equal(h.d.querySelectorAll('#basic-navigation button:not(.hidden)').length,5);
+  assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not(.hidden)')).map(b=>b.dataset.basicView),['equipment','conveyors','products','vgraph','simulation','realdata','whatif']);
   await h.click('[data-basic-view="equipment"]');
   const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
@@ -1763,7 +1763,7 @@ test('UI: V-graph reacts to draft fields without simulation and Basic sections f
    await h.click('.open-case');const saved=JSON.stringify(h.storedCases()[0].equipment);let simulated=0;
    for(const key of ['simulateLine','simulateLineAsync','simulateBatch'])h.w.SimulatorEngine[key]=()=>{simulated++;throw Error('Design edits must not run simulation');};
    if(uiMode==='BASIC'){
-    assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not([data-basic-view=comparison])')).map(b=>b.dataset.basicView),['equipment','conveyors','vgraph','simulation','results','whatif']);
+    assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not([data-basic-view=comparison])')).map(b=>b.dataset.basicView),['equipment','conveyors','products','vgraph','simulation','results','realdata','whatif']);
     await h.click('[data-basic-view=equipment]');
    }else {await h.click('#open-settings');h.d.getElementById('settings-autosave').checked=false;h.d.getElementById('settings-autosave').dispatchEvent(new h.w.Event('change'));await h.click('#settings-cancel');await h.click('.sidebar [data-view=editor]');}
    const first=h.d.querySelector('.equipment-card'),id=first.dataset.equipmentId;
@@ -3004,3 +3004,26 @@ test('UI: All generated groups delete together after confirmation while manual c
  }finally{h.dom.window.close();}
 });
 
+
+test('UI: real data follows Results, persists observations and compares the active saved batch',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+   await h.click('.open-case');await h.click('[data-basic-view=realdata]');assert(h.visible('realdata-panel'));
+   const nav=Array.from(h.d.querySelectorAll('#basic-navigation [data-basic-view]')).map(e=>e.dataset.basicView);assert.equal(nav.indexOf('realdata'),nav.indexOf('results')+1);
+   assert.equal(h.d.documentElement.dataset.headerView,'realdata');await h.click('#real-data-new');
+   const set=(id,value)=>{const e=h.d.getElementById(id);e.value=value;e.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+   set('real-data-name','Observed day');set('real-data-production',10);set('real-data-source','Production log');set('real-data-durationSeconds',10/60);set('real-data-referenceSpeedBpm',60);
+   const unit=h.d.getElementById('real-data-time-unit');unit.value='SECONDS';unit.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(Number(h.d.getElementById('real-data-durationSeconds').value),10);
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata.realData?.records?.[0]?.production===10);
+   await h.click('[data-basic-view=simulation]');const change=(id,value)=>{const e=h.d.getElementById(id);e.value=value;e.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
+   change('duration-mode','FIXED');change('run-duration-unit','SECONDS');set('run-duration',10);set('run-rounds',2);set('run-sample-interval',1);
+   await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===2);await h.click('[data-basic-view=realdata]');
+   assert.match(h.d.getElementById('real-data-evidence').textContent,/Average of 2 rounds/);assert.equal(h.d.getElementById('real-data-view').value,'average');
+   assert(h.d.querySelectorAll('#real-data-comparison tbody tr').length>5);const inputsBeforeObservationImport=JSON.stringify(h.storedCases()[0].simulations[0].equipment);
+   const file=h.d.getElementById('real-data-file');Object.defineProperty(file,'files',{configurable:true,value:[{size:200,text:async()=>JSON.stringify({schema:'st-real-data-v1',records:[{name:'Second day',durationSeconds:86400,production:100,productionUnit:'BOTTLES'}]})}]});await file.onchange();assert.match(h.d.getElementById('real-data-status').textContent,/Imported 1/);
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata.realData.records.length===2);assert.equal(JSON.stringify(h.storedCases()[0].simulations[0].equipment),inputsBeforeObservationImport);assert.equal(h.storedCases()[0].simulations[0].results.batch.rounds,2);await h.click('#home-cases');await h.click('.open-case');assert(h.visible('realdata-panel'));assert.equal(h.d.getElementById('real-data-record').options.length,2);
+   let blob,name;h.w.URL.createObjectURL=value=>{blob=value;return 'blob:real-comparison';};h.w.URL.revokeObjectURL=()=>{};h.w.HTMLAnchorElement.prototype.click=function(){name=this.download;};await h.click('#real-data-export-json');assert.equal(name,'real-vs-simulated.json');const raw=await new Promise(resolve=>{const reader=new h.w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);});const report=JSON.parse(raw);assert.equal(report.schema,'st-real-comparison-v1');assert.equal(report.observation.name,'Second day');assert.equal(report.run.statistics.n,2);assert(!raw.includes('apiKey'));
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});

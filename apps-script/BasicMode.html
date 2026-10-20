@@ -2,7 +2,7 @@
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
   var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
-  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Formats','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
+  var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Formats','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['realdata','Real data','chart','realdata'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
@@ -49,7 +49,7 @@ window.STBasicMode=(function(){
     if(enabled)mount();else{unmount();if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);}
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='products'?'products':view==='whatif'?'whatif':'simulation';
-    if(view==='comparison')section='comparison';
+    if(view==='comparison')section='comparison';if(view==='realdata')section='realdata';
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
@@ -176,5 +176,6 @@ window.STBasicMode=(function(){
   return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>
+
 
 

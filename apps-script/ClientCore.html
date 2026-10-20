@@ -40,7 +40,7 @@
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
     }
     function rememberCaseView(view) {
-      if(!state.activeCase||state.restoringCaseView||!['editor','products','simulation','results','whatif','comparison'].includes(view))return;
+      if(!state.activeCase||state.restoringCaseView||!['editor','products','simulation','results','realdata','whatif','comparison'].includes(view))return;
       var key=caseViewKey(state.activeCase.id);
       var basicView=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':state.basicView==='vgraph'?'vgraph':null):view;
       var saved=JSON.stringify({view:view,basicView:basicView});
@@ -70,6 +70,7 @@
         apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); if(config.formatCatalog){state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:cloneJson(config.formatCatalog)};delete state.activeCase.metadata.products;} simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
       });
       STProducts.init(state,{navigate:function(){state.basicView='products';navigateView('products');},simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,edited:function(){markCaseDirty();},changed:function(all){invalidateActiveResult();renderEditor();markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();shell.sync();}});
+      STRealData.init(state,{changed:function(){saveGeminiHistory({draftOnly:true});}});
       shell.init();
       if (STPreferences.read('remember') === 'yes') {
         document.getElementById('remember-session').checked = true;
@@ -159,6 +160,7 @@
         markCaseDirty();
       });
     }
+
 
 
 

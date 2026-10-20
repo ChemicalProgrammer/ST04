@@ -7,7 +7,7 @@ window.STShell = function(state,actions) {
     var active=Boolean(state.activeCase),view=active?(state.uiView||'simulation'):'cases';
     if(active)actions.rememberView?.(view);
     var connected=Boolean(state.bootstrap?.settings?.workspaceRootFolderId);
-    ['cases','editor','products','run','results','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='products'&&view==='products')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
+    ['cases','editor','products','run','results','realdata','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='products'&&view==='products')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='realdata'&&view==='realdata')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
     document.getElementById('application').classList.toggle('case-open',active);
     document.getElementById('case-sidebar').classList.toggle('hidden',!active);
     document.getElementById('cases-top-actions').classList.toggle('hidden',active);
@@ -21,7 +21,7 @@ window.STShell = function(state,actions) {
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
     document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
     document.getElementById('breadcrumb-case').textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
-    document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),products:'Formats',results:__ST_TEXT__('shell.results'),whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
+    document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),products:'Formats',results:__ST_TEXT__('shell.results'),realdata:'Real data',whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('save-case').classList.toggle('hidden',!active||(['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode).toUpperCase())&&STPreferences.caseOptions().autosaveEnabled));
     document.getElementById('autosave-indicator').classList.toggle('hidden',!active);
     document.getElementById('settings-case-section').classList.toggle('hidden',!active);
@@ -33,11 +33,12 @@ window.STShell = function(state,actions) {
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
     if(view==='products')STProducts.render();
+    if(view==='realdata')STRealData.render(state.activeCase,(state.activeCase.simulations||[]).find(s=>s.id===state.activeSimulationId),state.run.result);
     if(view==='results') STResults.render(state.run.representative||state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
     window.STBasicMode?.sync(state);
     var motionView=view+':'+(document.documentElement.dataset.headerView||'');
-    if(motionView!==lastMotionView){lastMotionView=motionView;STMotion.reveal(document.getElementById(({simulation:'run',editor:'editor',products:'products',results:'results',whatif:'whatif',comparison:'comparison',cases:'cases'}[view]||'run')+'-panel'));}
+    if(motionView!==lastMotionView){lastMotionView=motionView;STMotion.reveal(document.getElementById(({simulation:'run',editor:'editor',products:'products',results:'results',realdata:'realdata',whatif:'whatif',comparison:'comparison',cases:'cases'}[view]||'run')+'-panel'));}
     var engineNotice=document.getElementById('simulation-engine-notice'),simulation=(state.activeCase?.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
     engineNotice.classList.toggle('hidden',simulation?.dynamicConfig?.engineId!=='DES_SIMPY_EXPERIMENTAL');
   }
@@ -75,7 +76,7 @@ window.STShell = function(state,actions) {
     ['case-filter','case-sort'].forEach(function(id){document.getElementById(id).onchange=actions.cases;});
     var dialog=document.getElementById('command-dialog'),input=document.getElementById('command-search'),list=document.getElementById('command-list');
     function commands(){list.textContent='';var entries=[[__ST_TEXT__('shell.cases'),'folder',actions.home],[__ST_TEXT__('shell.settings'),'settings',STSettings.open]];
-      if(state.activeCase)entries.push([__ST_TEXT__('shell.line_setup'),'edit',function(){actions.navigate('editor');}],[__ST_TEXT__('shell.simulation'),'play',function(){actions.navigate('simulation');}],[__ST_TEXT__('shell.results'),'chart',function(){actions.navigate('results');}],[__ST_TEXT__('shell.what_if'),'flask',function(){actions.navigate('whatif');}]);
+      if(state.activeCase)entries.push([__ST_TEXT__('shell.line_setup'),'edit',function(){actions.navigate('editor');}],[__ST_TEXT__('shell.simulation'),'play',function(){actions.navigate('simulation');}],[__ST_TEXT__('shell.results'),'chart',function(){actions.navigate('results');}],['Real data','chart',function(){actions.navigate('realdata');}],[__ST_TEXT__('shell.what_if'),'flask',function(){actions.navigate('whatif');}]);
       entries.filter(function(e){return e[0].toLowerCase().includes(input.value.toLowerCase());}).forEach(function(e){var b=document.createElement('button');b.className='ghost';b.innerHTML=STIcons.svg(e[1])+e[0];b.onclick=function(){dialog.close();e[2]();};list.appendChild(b);});
       if(!list.children.length)list.textContent=__ST_TEXT__('shell.no_matching_commands');
     }
@@ -90,5 +91,6 @@ window.STShell = function(state,actions) {
   return {init:init,sync:sync,toast:toast};
 };
 </script>
+
 
 

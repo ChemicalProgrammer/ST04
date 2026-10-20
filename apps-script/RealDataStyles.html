@@ -1,0 +1,28 @@
+<style>
+#realdata-panel .real-data-toolbar { display:flex; align-items:end; gap:var(--space-4); flex-wrap:wrap; margin-block:var(--space-4); }
+#realdata-panel .real-data-toolbar > label { flex:1 1 230px; min-width:0; }
+#realdata-panel .real-data-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-4); align-items:end; margin-block:var(--space-4); }
+#realdata-panel .real-data-fields > label { min-width:0; }
+#realdata-panel .real-data-wide { grid-column:1 / -1; }
+#realdata-panel textarea { min-height:110px; resize:vertical; }
+#realdata-panel .real-data-time-picker { max-width:230px; margin-top:var(--space-4); }
+#realdata-panel .real-data-observation,#realdata-panel .real-data-run-evidence { border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-4); margin-block:var(--space-4); }
+#realdata-panel summary { font-weight:var(--weight-semibold); }
+#realdata-panel .real-data-comparison-heading { display:flex; align-items:end; justify-content:space-between; gap:var(--space-4); flex-wrap:wrap; margin-block:var(--space-5) var(--space-3); }
+#realdata-panel .real-data-comparison-heading h3 { margin:0; }
+#realdata-panel .real-data-comparison-heading label { min-width:240px; }
+#realdata-panel .real-data-warnings { color:var(--warning); background:var(--warning-soft); padding:var(--space-4) var(--space-6); border-radius:var(--radius-md); }
+#realdata-panel .real-data-warnings:empty { display:none; }
+#realdata-panel .real-data-warnings li + li { margin-top:var(--space-2); }
+#realdata-panel .real-data-error { color:var(--danger); }
+#real-data-equipment input { min-width:90px; }
+#real-data-equipment select { min-width:150px; }
+#realdata-panel :is(td,th) { white-space:normal; }
+#real-data-comparison table { min-width:950px; }
+#real-data-comparison .numeric { white-space:nowrap; }
+#real-data-comparison td:last-child { min-width:280px; }
+#realdata-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--font-secondary); }
+#realdata-panel .real-data-run-evidence p { margin-top:var(--space-3); }
+@media(max-width:800px){#realdata-panel .real-data-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }}
+@media(max-width:520px){#realdata-panel .real-data-fields { grid-template-columns:1fr; }#realdata-panel .real-data-comparison-heading label { width:100%; min-width:0; }}
+</style>

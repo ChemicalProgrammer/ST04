@@ -18,6 +18,7 @@
     <?!= include_('SheetImportStyles'); ?>
     <?!= include_('BasicModeStyles'); ?>
     <?!= include_('UiStandards'); ?>
+    <?!= include_('RealDataStyles'); ?>
     <?!= include_('ElegantStyles'); ?>
     <?!= include_('MotionStyles'); ?>
     <?!= include_('ThemeResources'); ?>
@@ -54,6 +55,7 @@
           <button class="nav-item" data-view="products" data-icon="box" aria-label="Formats" disabled><span class="nav-label">Formats</span></button>
           <button class="nav-item" data-view="simulation" data-icon="play" aria-label="<?= __ST_TEXT__('shell.simulation') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.simulation') ?></span></button>
           <button class="nav-item" data-view="results" data-icon="chart" aria-label="<?= __ST_TEXT__('shell.results') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.results') ?></span></button>
+          <button class="nav-item" data-view="realdata" data-icon="chart" aria-label="Real data" disabled><span class="nav-label">Real data</span></button>
           <button class="nav-item" data-view="whatif" data-icon="flask" aria-label="<?= __ST_TEXT__('shell.what_if') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.what_if') ?></span></button>
         </nav>
         <nav class="sidebar-section sidebar-footer" aria-label="<?= __ST_TEXT__('view.workspace_actions') ?>">
@@ -249,6 +251,7 @@
             <textarea id="simulation-json-preview" readonly spellcheck="false"></textarea>
           </details></div>
       </section>
+      <?!= include_('RealDataPanel'); ?>
       <section id="whatif-panel" class="card hidden" aria-labelledby="whatif-title">
         <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.scenario_lab') ?></p><h2 id="whatif-title"><?= __ST_TEXT__('shell.what_if') ?></h2><p><?= __ST_TEXT__('view.review_the_recommendation_for_the_selected_simulation_and_create_a_proposed') ?></p></div></div>
         <div id="whatif-empty" class="empty"><h3><?= __ST_TEXT__('view.start_with_a_baseline_run') ?></h3><p><?= __ST_TEXT__('view.run_the_active_simulation_to_generate_an_evidence_based_recommendation') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
@@ -403,6 +406,7 @@
     <?!= include_('Reports'); ?>
     <?!= include_('LocalDrive'); ?>
     <?!= include_('Results'); ?>
+    <?!= include_('RealData'); ?>
     <?!= include_('LinePerformance'); ?>
     <?!= include_('Shell'); ?>
     <?!= include_('Charts'); ?>
