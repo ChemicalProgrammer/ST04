@@ -2996,3 +2996,10 @@ test('UI: pause preview works without animation frames and shows validation besi
   const seed=h.d.getElementById('event-generator-seed');seed.value='';seed.dispatchEvent(new h.w.Event('input',{bubbles:true}));await preview.onclick();assert.match(status.textContent,/Random seed/);assert(apply.disabled);assert.equal(dialog.querySelectorAll('.event-generator-preview tbody tr').length,0);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: All generated groups delete together after confirmation while manual commands and line stops remain',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  const original=h.api.getCase;h.api.getCase=id=>{const c=original(id),e=c.simulations[0].equipment[0].id;c.simulations[0].dynamicConfig.commands=[{atVirtualSecond:0,equipmentId:e,action:'PAUSE',groupId:'a',groupLabel:'A'},{atVirtualSecond:10,equipmentId:e,action:'RUN',groupId:'a',groupLabel:'A'},{atVirtualSecond:20,equipmentId:e,action:'PAUSE',groupId:'b',groupLabel:'B'},{atVirtualSecond:30,equipmentId:e,action:'RUN',groupId:'b',groupLabel:'B'},{atVirtualSecond:40,equipmentId:e,action:'RUN'}];c.simulations[0].dynamicConfig.plannedStops=[{category:'changeoverMinutes',startSeconds:60,endSeconds:120,restartPolicy:'RESTART'}];return c;};
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');const select=h.d.getElementById('event-group-select');assert.equal(select.options[0].textContent,'All');select.value='';await h.click('#delete-event-group');assert.match(h.d.querySelector('.message-dialog').textContent,/4 commands in all generated groups/);await h.click('.message-dialog .dialog-actions .ghost');assert.equal(h.d.querySelectorAll('.control-event').length,5);await h.click('#delete-event-group');await h.click('.message-dialog .danger');assert.equal(h.d.querySelectorAll('.control-event').length,1);assert.equal(h.d.querySelectorAll('#planned-line-events tbody tr').length,1);assert.equal(h.d.getElementById('event-group-select'),null);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
