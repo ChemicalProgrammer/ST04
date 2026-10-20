@@ -13,7 +13,9 @@ Each equipment event has its own Start value and Unit selector: seconds, minutes
 ## Distribute pauses
 
 1. Set the simulation duration and open **Distribute pauses** under Equipment control events.
-2. Enter a group name, total pause minutes, number of pauses, window start / end in minutes, and random seed.
+2. Enter a group name, total pause minutes, number of pauses, window start / end with independent units, and random seed. Window units are seconds, minutes and hours; date entry is also available for a date-range simulation.
+The default window uses the resolved simulation duration, including shift counts, elapsed-time units and date ranges. Invalid fields, missing equipment and out-of-range windows display an explanation next to the preview.
+
 3. Select affected equipment. The total is shared across the selected targets; each pause targets one selected item.
 4. Preview the equipment, start times and durations. Editing any input invalidates the preview.
 5. Generate the paired Pause / Run commands. Events are enabled automatically.
