@@ -48,6 +48,7 @@
     }
     function navigateView(view) {
       if (!state.activeCase) return false;
+      if(view==='realdata'&&!STPreferences.caseOptions().showRealData){view=state.run.result?.summary?'results':'simulation';state.basicView=view;}
       if (!syncPersistentSimulation()) return false;
       var previousView=state.uiView;state.uiView = view;
       if(previousView==='products'&&view!=='products')renderEquipment();

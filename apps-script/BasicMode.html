@@ -54,6 +54,7 @@ window.STBasicMode=(function(){
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('results-title').textContent=section==='vgraph'?'Speed profile':'Performance summary';
+    nav.querySelector('[data-basic-view=realdata]').classList.toggle('hidden',!STPreferences.caseOptions().showRealData);
     nav.querySelector('[data-basic-view=comparison]').classList.toggle('hidden',(state.activeCase?.simulations||[]).length<2);
     nav.querySelector('[data-basic-view=conveyors]').classList.toggle('hidden',!enabled);
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);

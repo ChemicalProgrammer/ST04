@@ -2,6 +2,8 @@
 
 The **Real data** section follows Results in Basic and Advance. Observations belong to the case, so the same production day can be compared with different simulations without duplicating measurements. Enter real values manually, import a JSON file, or download the template. Records are stored in `metadata.realData`, using the existing case Save / autosave mechanism. Observations never change physical inputs or clear simulation results.
 
+**Settings > Simulation > Sections > Show Real data** controls visibility per case in Basic and Advance. It is on by default. Hiding the section retains observations and simulation results; if the section is open, navigation returns to Results or Simulation. The choice is retained through the existing case Save / autosave mechanism.
+
 ## First comparison
 
 1. Open a case and choose **Real data**.

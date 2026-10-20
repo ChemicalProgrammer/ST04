@@ -4,7 +4,7 @@ window.STShell = function(state,actions) {
   var simulationToolbar=document.getElementById('simulation-toolbar');
   function sync() {
     STSettings.applyCaseCharts();
-    var active=Boolean(state.activeCase),view=active?(state.uiView||'simulation'):'cases';
+    var active=Boolean(state.activeCase);if(active&&state.uiView==='realdata'&&!STPreferences.caseOptions().showRealData){state.uiView=state.run.result?.summary?'results':'simulation';state.basicView=state.uiView;}var view=active?(state.uiView||'simulation'):'cases';
     if(active)actions.rememberView?.(view);
     var connected=Boolean(state.bootstrap?.settings?.workspaceRootFolderId);
     ['cases','editor','products','run','results','realdata','whatif','comparison'].forEach(function(name){var visible=(name==='cases'&&view==='cases')||(name==='editor'&&view==='editor')||(name==='products'&&view==='products')||(name==='run'&&view==='simulation')||(name==='results'&&view==='results')||(name==='realdata'&&view==='realdata')||(name==='whatif'&&view==='whatif')||(name==='comparison'&&view==='comparison');document.getElementById(name+'-panel').classList.toggle('hidden',!visible);});
@@ -19,7 +19,7 @@ window.STShell = function(state,actions) {
     actions.assistant();
     document.getElementById('workspace-tabs').classList.toggle('hidden',!active);
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
-    document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
+    document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.classList.toggle('hidden',button.dataset.view==='realdata'&&!STPreferences.caseOptions().showRealData);button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
     document.getElementById('breadcrumb-case').textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
     document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),products:'Formats',results:__ST_TEXT__('shell.results'),realdata:'Real data',whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('save-case').classList.toggle('hidden',!active||(['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode).toUpperCase())&&STPreferences.caseOptions().autosaveEnabled));
@@ -76,7 +76,7 @@ window.STShell = function(state,actions) {
     ['case-filter','case-sort'].forEach(function(id){document.getElementById(id).onchange=actions.cases;});
     var dialog=document.getElementById('command-dialog'),input=document.getElementById('command-search'),list=document.getElementById('command-list');
     function commands(){list.textContent='';var entries=[[__ST_TEXT__('shell.cases'),'folder',actions.home],[__ST_TEXT__('shell.settings'),'settings',STSettings.open]];
-      if(state.activeCase)entries.push([__ST_TEXT__('shell.line_setup'),'edit',function(){actions.navigate('editor');}],[__ST_TEXT__('shell.simulation'),'play',function(){actions.navigate('simulation');}],[__ST_TEXT__('shell.results'),'chart',function(){actions.navigate('results');}],['Real data','chart',function(){actions.navigate('realdata');}],[__ST_TEXT__('shell.what_if'),'flask',function(){actions.navigate('whatif');}]);
+      if(state.activeCase)entries.push([__ST_TEXT__('shell.line_setup'),'edit',function(){actions.navigate('editor');}],[__ST_TEXT__('shell.simulation'),'play',function(){actions.navigate('simulation');}],[__ST_TEXT__('shell.results'),'chart',function(){actions.navigate('results');}],...(STPreferences.caseOptions().showRealData?[['Real data','chart',function(){actions.navigate('realdata');}]]:[]),[__ST_TEXT__('shell.what_if'),'flask',function(){actions.navigate('whatif');}]);
       entries.filter(function(e){return e[0].toLowerCase().includes(input.value.toLowerCase());}).forEach(function(e){var b=document.createElement('button');b.className='ghost';b.innerHTML=STIcons.svg(e[1])+e[0];b.onclick=function(){dialog.close();e[2]();};list.appendChild(b);});
       if(!list.children.length)list.textContent=__ST_TEXT__('shell.no_matching_commands');
     }

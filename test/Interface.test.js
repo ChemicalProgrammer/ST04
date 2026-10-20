@@ -3027,3 +3027,18 @@ test('UI: real data follows Results, persists observations and compares the acti
   }finally{h.dom.window.close();}
  }
 });
+
+test('UI: Real data visibility is saved per case, hides both navigation entries and retains observations',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+   await h.click('.open-case');await h.click('[data-basic-view=realdata]');await h.click('#real-data-new');
+   await h.click('#open-settings');await h.click('#settings-tab-simulation');assert(h.d.getElementById('settings-show-real-data').checked);
+   await h.click('#settings-show-real-data');await h.click('#settings-cancel');assert(!h.visible('realdata-panel'));
+   assert(h.d.querySelector('[data-basic-view=realdata]').classList.contains('hidden'));assert(h.d.querySelector('.sidebar [data-view=realdata]').classList.contains('hidden'));
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].metadata.consoleOptions?.showRealData===false);assert.equal(h.storedCases()[0].metadata.realData.records.length,1);
+   await h.click('#home-cases');await h.click('.open-case');assert(h.d.querySelector('[data-basic-view=realdata]').classList.contains('hidden'));
+   await h.click('#open-settings');await h.click('#settings-tab-simulation');assert(!h.d.getElementById('settings-show-real-data').checked);await h.click('#settings-show-real-data');await h.click('#settings-cancel');
+   assert(!h.d.querySelector('[data-basic-view=realdata]').classList.contains('hidden'));await h.click('[data-basic-view=realdata]');assert.equal(h.d.getElementById('real-data-record').options.length,1);assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});

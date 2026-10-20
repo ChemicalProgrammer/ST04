@@ -58,7 +58,7 @@ window.STPreferences = (function() {
   function caseOptions() {
     var saved=caseProvider?.()?.metadata?.consoleOptions||{};
     var seconds=Number(saved.autosaveSeconds??read('autosaveSeconds')??10);
-    return {autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')==='yes',
+    return {showRealData:saved.showRealData!==false,autosaveEnabled:typeof saved.autosaveEnabled==='boolean'?saved.autosaveEnabled:read('autosaveEnabled')==='yes',
       autosaveSeconds:Number.isInteger(seconds)&&seconds>=1&&seconds<=3600?seconds:10,
       seedPolicy:(saved.seedPolicy??read('seedPolicy'))==='FIXED'?'FIXED':'RANDOM'};
   }
@@ -116,4 +116,5 @@ window.STPreferences = (function() {
   return {reset:reset,caseOptions:caseOptions,setCaseOptions:setCaseOptions,initializeCaseOptions:initializeCaseOptions, connectCase:function(provider,changed){caseProvider=provider;caseChanged=changed;},read: read, write: write, setTheme: setTheme,setAccent:setAccent,automaticThemeAt:automaticThemeAt,setFontScale:setFontScale,applyFontScale:applyFontScale, applyJsonFields:applyJsonFields,applyPalette:applyPalette,resolveInterfaceMode:resolveInterfaceMode };
 })();
 </script>
+
 
