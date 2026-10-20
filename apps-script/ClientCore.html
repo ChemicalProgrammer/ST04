@@ -137,6 +137,7 @@
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
       document.getElementById('toggle-control-events').addEventListener('click',function(){setControlEventsExpanded(this.getAttribute('aria-expanded')!=='true');});
       document.getElementById('add-control-event').addEventListener('click', addControlEvent);
+      document.getElementById('open-event-generator').onclick=openEventGenerator;
       document.getElementById('delete-selected-control-events').onclick=function(){deleteControlEventSelection(false);};
       document.getElementById('delete-all-control-events').onclick=function(){deleteControlEventSelection(true);};
       document.getElementById('select-all-control-events').onchange=function(){if(runControlsLocked())return;var checked=this.checked;syncEventSelection();selectedControlEvents.clear();if(checked)allEditableControlEvents().forEach(e=>selectedControlEvents.add(e));controlEventAnchor=null;syncEventSelection();};
@@ -158,5 +159,6 @@
         markCaseDirty();
       });
     }
+
 
 

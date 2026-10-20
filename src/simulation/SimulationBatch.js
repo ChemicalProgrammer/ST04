@@ -26,7 +26,7 @@ export async function simulateBatch(input, options={}) {
     if(!response.ok){failed=true;return response;}
     if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
-    rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts};
+    rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts,products:result.products,plantCalendar:result.plantCalendar};
     if(index===0){representative=result;options.onFirstRound?.(result);}
     else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
     return response;
@@ -51,6 +51,40 @@ export async function simulateBatch(input, options={}) {
     equipmentStatistics[id]={};
     for(const key of Object.keys(metrics))if(typeof metrics[key]==='number')equipmentStatistics[id][key]=summarizeReplications(rows.map(r=>r.equipmentMetrics[id][key]));
   }
-  const batch={schema:'st-replications-v1',rounds:count,baseSeed,representativeRound:1,durationSeconds:input.run.durationSeconds,shiftSeconds:input.run.shiftSeconds||null,statistics,equipmentStatistics,rows,replays};
+  const batch={schema:'st-replications-v1',rounds:count,baseSeed,representativeRound:closestRound(rows,statistics.outputCount?.mean,statistics.lineOeePercent?.mean),durationSeconds:input.run.durationSeconds,shiftSeconds:input.run.shiftSeconds||null,statistics,equipmentStatistics,rows,replays};
+  if(!options.summaryOnly&&batch.representativeRound>1&&!replays[batch.representativeRound-2]){
+    const row=rows[batch.representativeRound-1],runner=options.runRound||simulateLineAsync;
+    options.onRepresentative?.(row.round);
+    const response=await runner({case:input.case,run:{...input.run,seed:row.seed}},{detail:true,summaryOnly:false,cancelled:options.cancelled});
+    if(options.cancelled?.())throw new Error('BATCH_CANCELLED');if(!response.ok)return response;
+    batch.representativeReplay={...response.result,round:row.round};
+  }
   return {ok:true,result:{...representative,batch}};
+}
+
+
+// Ties use OEE, then round number, so parallel completion order cannot affect selection.
+export function closestRound(rows,productionMean,oeeMean){
+  return rows.slice().sort((a,b)=>Math.abs(a.summary.outputCount-productionMean)-Math.abs(b.summary.outputCount-productionMean)||Math.abs(a.summary.lineOeePercent-oeeMean)-Math.abs(b.summary.lineOeePercent-oeeMean)||a.round-b.round)[0]?.round||1;
+}
+export function averageRoundValues(values){
+  const sample=values.find(v=>v!==undefined&&v!==null);
+  if(typeof sample==='number')return values.reduce((sum,v)=>sum+(Number.isFinite(v)?v:0),0)/values.length;
+  if(!sample||typeof sample!=='object'||Array.isArray(sample))return sample;
+  return Object.fromEntries([...new Set(values.flatMap(v=>Object.keys(v||{})))].map(key=>[key,averageRoundValues(values.map(v=>v?.[key]))]));
+}
+export function replicationView(result,selection='average'){
+  const batch=result?.batch,rows=batch?.rows;if(!rows?.length)return result;
+  if(selection!=='average'){
+    const index=selection==='representative'?(batch.representativeRound||1)-1:Number(selection)-1,row=rows[index];if(!row)return result;
+    let signature=result.inputSignature;try{const p=JSON.parse(signature);p.run.seed=row.seed;p.run.rounds=1;signature=JSON.stringify(p);}catch(_){}
+    const replay=index===0?result:batch.replays?.[index-1]||(batch.representativeReplay?.round===row.round?batch.representativeReplay:null);
+    return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
+  }
+  const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
+  const productRows=rows.flatMap(r=>r.products?.rows||[]),key=r=>JSON.stringify([r.formatId||r.productId,r.outputUnit]);
+  if(productRows.length&&rows.every(r=>r.products)){
+    const keys=[...new Set(productRows.map(key))];view.products={...result.products,timeline:undefined,rows:keys.map(k=>({...averageRoundValues(rows.map(r=>r.products.rows.find(p=>key(p)===k))),bottlesPerCase:productRows.find(r=>key(r)===k).bottlesPerCase})),clearoutBottleEquivalents:averageRoundValues(rows.map(r=>r.products.clearoutBottleEquivalents))};
+  }else if(result.products)view.products=undefined;
+  return view;
 }

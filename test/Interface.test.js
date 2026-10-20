@@ -2923,3 +2923,44 @@ test('UI: card speed edits persist active product and format overrides without r
   }finally{h.dom.window.close();}
  }
 });
+
+test('UI: Results switches all production tables between means and actual rounds in both modes',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+  await h.click('.open-case');const record=h.storedCases()[0],model=record.equipment[0];
+  const rows=[100,200,600].map((n,i)=>({round:i+1,seed:10+i,summary:{lineOeePercent:n/10,outputCount:n,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:i*10},equipmentMetrics:{[model.id]:{outputCount:n,oeePercent:n/10,failureSeconds:i*10,starvedSeconds:0,blockedSeconds:0}},products:{rows:[{formatId:'f',name:'Case 12',productName:'Product',outputUnit:'CASES',outputNative:n/12,completeCases:Math.floor(n/12),partialCaseEquivalent:n/12%1,outputBottleEquivalents:n,clearoutBottleEquivalents:0}]}}));
+  const stats=h.w.JSON.parse(JSON.stringify({outputCount:{mean:300,min:100,max:600},lineOeePercent:{mean:30,min:10,max:60},throughputPerMinute:{mean:300,min:100,max:600}}));
+  const result={...rows[0],durationSeconds:60,unitOfFlow:'BOTTLES',samples:[],batch:{rounds:3,rows,baseSeed:10,representativeRound:2,statistics:stats,equipmentStatistics:{[model.id]:{failureSeconds:{mean:10}}}}};
+  h.w.STResults.render(result,record,record.simulations[0]);assert.match(h.d.getElementById('results-kpis').textContent,/300 bottles/i);assert.match(h.d.getElementById('results-products').textContent,/Mean of 3 rounds/);assert.match(h.d.getElementById('results-products').textContent,/300/);assert.match(h.d.getElementById('results-kpis').textContent,/Min 100 · Max 600/);
+  const select=h.d.getElementById('results-round-select');select.value='representative';select.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/200 bottles/i);assert(!h.d.getElementById('results-kpis').textContent.includes('mean of'));assert.match(h.d.getElementById('results-products').textContent,/200/);assert.match(h.d.getElementById('results-meta').textContent,/Round 2/);
+  h.d.getElementById('results-round-select').value='average';h.d.getElementById('results-round-select').dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/300 bottles/i);assert.equal(result.summary.outputCount,100);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});
+
+test('UI: event units, date origin and generated groups survive saving and can be deleted together',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  const change=(id,value)=>{const input=h.d.getElementById(id);input.value=value;input.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
+  if(!h.d.getElementById('run-events-enabled').checked)await h.click('#run-events-enabled');await h.click('#add-control-event');change('event-time-unit','MINUTES');
+  let time=h.d.querySelector('.command-time');time.value=15;time.dispatchEvent(new h.w.Event('change',{bubbles:true}));change('event-time-unit','HOURS');assert.equal(Number(h.d.querySelector('.command-time').value),.25);
+  change('event-time-unit','DATE');change('event-time-origin','2026-10-20T08:00');assert.match(h.d.querySelector('.command-time').value,/2026-10-20T08:15/);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.eventTimeUnit==='DATE');assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.commands[0].atVirtualSecond,900);
+  await h.click('#delete-all-control-events');await h.click('.message-dialog .danger');change('event-time-unit','MINUTES');
+  change('duration-mode','FIXED');change('run-duration',3600);await h.click('#open-event-generator');assert(h.d.querySelector('.event-generator-dialog[open]'));assert(h.d.querySelector('.event-generator-dialog .dialog-heading'));assert(h.d.querySelector('.event-generator-dialog .editor-subheading'));
+  const set=(name,value)=>{const input=h.d.getElementById('event-generator-'+name);input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+  set('name','Transport');set('total',10);set('count',4);set('start',0);set('end',60);set('seed',42);const choices=h.d.querySelectorAll('.event-generator-equipment-choice');choices[0].checked=true;choices[2].checked=true;choices[0].dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  await h.click('.event-generator-preview-button');assert(!h.d.querySelector('.event-generator-apply').disabled,JSON.stringify({mode:uiMode,status:h.d.querySelector('.event-generator-status').textContent,errors:h.errors,duration:h.d.getElementById('run-duration').value,invalid:Array.from(h.d.querySelectorAll('.event-generator-dialog input')).filter(i=>!i.validity.valid).map(i=>[i.id,i.value,i.validationMessage])}));await waitFor(()=>!h.d.querySelector('.event-generator-apply').disabled);assert.equal(h.d.querySelectorAll('.event-generator-preview tbody tr').length,4);set('seed',43);assert(h.d.querySelector('.event-generator-apply').disabled);await h.click('.event-generator-preview-button');assert(!h.d.querySelector('.event-generator-apply').disabled,JSON.stringify({mode:uiMode,status:h.d.querySelector('.event-generator-status').textContent,errors:h.errors,duration:h.d.getElementById('run-duration').value,invalid:Array.from(h.d.querySelectorAll('.event-generator-dialog input')).filter(i=>!i.validity.valid).map(i=>[i.id,i.value,i.validationMessage])}));await waitFor(()=>!h.d.querySelector('.event-generator-apply').disabled);await h.click('.event-generator-apply');
+  assert.equal(h.d.querySelectorAll('#control-events .control-event').length,8);assert(h.d.getElementById('run-events-enabled').checked);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands.length===8);
+  const commands=h.storedCases()[0].simulations[0].dynamicConfig.commands,group=commands[0].groupId;assert(group);assert(commands.every(c=>c.groupId===group&&c.groupLabel==='Transport'&&c.generatorSeed===43));let total=0;const starts=new Map();commands.forEach(c=>{if(c.action==='PAUSE')starts.set(c.equipmentId,c.atVirtualSecond);else total+=c.atVirtualSecond-starts.get(c.equipmentId);});assert.equal(total,600);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('event-group-select').value,group);await h.click('#delete-event-group');await h.click('.message-dialog .dialog-actions .ghost');assert.equal(h.d.querySelectorAll('#control-events .control-event').length,8);await h.click('#delete-event-group');await h.click('.message-dialog .danger');assert.equal(h.d.querySelectorAll('#control-events .control-event').length,0);assert.equal(h.d.getElementById('event-group-select'),null);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}}
+});
+
+test('UI: completed batches default playback to the chosen representative and retain its replay after reopening',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=30;h.d.getElementById('run-rounds').value=3;h.d.getElementById('run-sample-interval').value=1;
+  const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);if(response.ok){response.result.batch.representativeRound=2;if(!response.result.batch.replays?.[0]){const replay=await h.w.SimulatorEngine.simulateLineAsync({case:args[0].case,run:{...args[0].run,seed:response.result.batch.rows[1].seed}},{detail:true});response.result.batch.representativeReplay={...replay.result,round:2};}}return response;};
+  await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===3);assert.equal(h.d.getElementById('playback-round').value,'1');assert.match(h.d.getElementById('playback-round').selectedOptions[0].textContent,/Representative/);
+  await h.click('[data-basic-view=results]');assert.equal(h.d.getElementById('results-round-select').value,'average');assert.match(h.d.getElementById('results-meta').textContent,/Mean of 3 rounds/);
+  await h.click('#save-case');await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('playback-round').value,'1');assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

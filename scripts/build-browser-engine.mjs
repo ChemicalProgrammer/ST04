@@ -112,6 +112,7 @@ window.addEventListener?.('pagehide',()=>{workerPool?.close();workerPool=null;})
 window.SimulatorEngine = {
   simulateLine: function(input){if(selectedEngine(input)===SIMPY_ENGINE_ID)return {ok:false,error:{code:'ASYNC_ENGINE_REQUIRED',message:'SimPy requires simulateLineAsync.'}};return simulateLine(input);},
   simulateBatch: simulateBrowserBatch,
+  replicationView:replicationView,
   inputSignature: simulationInputSignature,
   concurrency: function(engineId){return engineId===SIMPY_ENGINE_ID?simPyRuntime.size:workersUnavailable||typeof window.Worker!=='function'?1:simulationWorkerCapacity(window.navigator);},
   simulateLineAsync: simulateSelectedLine,
@@ -153,5 +154,6 @@ function removeModuleSyntax(moduleSource) {
     .replace(/^import .*;\n/gm, '')
     .replace(/^export /gm, '');
 }
+
 
 

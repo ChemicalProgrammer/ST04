@@ -78,6 +78,19 @@ window.STResults=(function(){
     });
   }
   function render(result,activeCase,simulation){
+    var source=result,toolbar=document.getElementById('results-round-view');
+    if(!toolbar){toolbar=document.createElement('div');toolbar.id='results-round-view';toolbar.className='button-row results-round-toolbar';document.getElementById('results-meta').closest('.section-heading').after(toolbar);}
+    var owner=(activeCase?.id||'')+':'+(simulation?.id||'')+':'+(result?.inputSignature||'')+':'+(result?.batch?.baseSeed||'');
+    if(toolbar._owner!==owner){toolbar._owner=owner;toolbar._selection='average';}
+    toolbar.replaceChildren();toolbar.hidden=!result?.batch?.rows?.length;
+    if(!toolbar.hidden){
+      var label=document.createElement('label');label.textContent='Results view';var select=document.createElement('select');select.id='results-round-select';
+      [['average','Average of all rounds'],['representative','Representative round ('+(result.batch.representativeRound||1)+')'],...result.batch.rows.map(r=>[String(r.round),'Round '+r.round+' · seed '+r.seed])].forEach(pair=>{var o=document.createElement('option');o.value=pair[0];o.textContent=pair[1];select.append(o);});
+      select.value=toolbar._selection;select.onchange=function(){toolbar._selection=select.value;render(source,activeCase,simulation);};label.append(select);toolbar.append(label);
+      var rep=result.batch.rows[(result.batch.representativeRound||1)-1],mean=result.batch.statistics?.outputCount?.mean,delta=mean?(rep.summary.outputCount/mean-1)*100:0,note=document.createElement('p');note.className='chart-note';note.textContent='Representative round: '+rep.round+' · seed '+rep.seed+' · production '+number(rep.summary.outputCount)+' · '+(delta>=0?'+':'')+number(delta,2)+'% from mean. Chosen by production; OEE breaks ties.';toolbar.append(note);
+      result=SimulatorEngine.replicationView(result,toolbar._selection);
+      if(toolbar._selection==='average'&&source.products&&!result.products){var missing=document.createElement('p');missing.className='chart-note';missing.textContent='Per-format round totals were not saved in this older result. Run again to calculate format averages.';toolbar.append(missing);}
+    }
     var ready=Boolean(result&&result.summary&&!result.provisional);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     STProducts.results(document.getElementById('results-products'),ready?result:null);
@@ -91,9 +104,9 @@ window.STResults=(function(){
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
     if(result.detailCoverage?.aggregated)document.getElementById('results-meta').textContent+=' · bounded history / '+number(result.detailCoverage.effectiveSampleSeconds)+' s buckets';
     if(result.detailCoverage?.omittedEvents)document.getElementById('results-meta').textContent+=' · '+result.detailCoverage.omittedEvents+' detailed events omitted; totals retained';
-    if(result.batch)document.getElementById('results-meta').textContent+=' · '+__ST_TEXT__('batch.representative');
+    document.getElementById('results-meta').textContent+=result.resultView?.mode==='average'?' · Mean of '+result.resultView.rounds+' rounds':result.resultView?.mode==='round'?' · Round '+result.resultView.round:'';
     var target=document.getElementById('results-kpis');target.textContent='';
-    metrics(result).filter(function(_,index){return !window.STBasicMode?.isBasic()||index<3;}).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?__ST_TEXT__('results.primary_kpi'):'');var label=document.createElement('span'),value=document.createElement('strong');var mean=result.batch?.statistics?.[['lineOeePercent','throughputPerMinute','outputCount'][index]]?.mean;label.textContent=item[0]+(Number.isFinite(mean)?' (mean of '+result.batch.rounds+' rounds)':'');value.textContent=number(Number.isFinite(mean)?mean:item[1],index===0?2:undefined)+item[2];card.append(label,value);target.appendChild(card);});
+    metrics(result).filter(function(_,index){return !window.STBasicMode?.isBasic()||index<3;}).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?__ST_TEXT__('results.primary_kpi'):'');var label=document.createElement('span'),value=document.createElement('strong');var mean=result.batch?.statistics?.[['lineOeePercent','throughputPerMinute','outputCount'][index]]?.mean;label.textContent=item[0]+(Number.isFinite(mean)?' (mean of '+result.batch.rounds+' rounds)':'');value.textContent=number(Number.isFinite(mean)?mean:item[1],index===0?2:undefined)+item[2];card.append(label,value);if(Number.isFinite(mean)){var range=document.createElement('small'),stats=result.batch.statistics[['lineOeePercent','throughputPerMinute','outputCount'][index]];range.textContent='Min '+number(stats.min,2)+' · Max '+number(stats.max,2);card.append(range);}target.appendChild(card);});
     document.getElementById('results-reference').textContent=result.engineId==='DES_SIMPY_EXPERIMENTAL'?'DES · SimPy 4.1.2 (experimental). OEE is not validated. '+(result.limitations||[]).join(' '):__ST_TEXT__('results.oee_reference')+(result.summary.lineOeePacemakerName||'not available')+__ST_TEXT__('results.quality_assumes_100_no_reject_model_loss_and_downtime_totals_are_equipment_')+' '+__ST_TEXT__('results.partial_note')+' '+__ST_TEXT__('results.productive_note');
     window.STLinePerformance.render(result,activeCase.equipment||[]);
     var rows=(activeCase.equipment||[]).map(function(e){return {model:e,metric:(result.equipmentMetrics||{})[e.id]||{}};});
@@ -143,5 +156,6 @@ window.STResults=(function(){
   return {renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
 })();
 </script>
+
 
 

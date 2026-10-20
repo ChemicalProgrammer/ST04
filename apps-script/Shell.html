@@ -33,7 +33,7 @@ window.STShell = function(state,actions) {
     document.getElementById('show-new-case').disabled=!connected; document.getElementById('create-demo-case').disabled=!connected;
     document.getElementById('whatif-empty').classList.add('hidden');
     if(view==='products')STProducts.render();
-    if(view==='results') STResults.render(state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
+    if(view==='results') STResults.render(state.run.representative||state.run.result,state.activeCase,(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;}));
     STIcons.decorate(document);
     window.STBasicMode?.sync(state);
     var motionView=view+':'+(document.documentElement.dataset.headerView||'');
@@ -90,4 +90,5 @@ window.STShell = function(state,actions) {
   return {init:init,sync:sync,toast:toast};
 };
 </script>
+
 

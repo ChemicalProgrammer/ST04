@@ -120,7 +120,7 @@
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
       state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();
       var view=simulation.results?.view;
-      if(view?.roundIndex>0&&state.run.representative?.batch?.replays?.[view.roundIndex-1])selectPlaybackRound(view.roundIndex,false);
+      var initialRound=view?.roundIndex??((state.run.representative?.batch?.representativeRound||1)-1);if(initialRound>0&&(state.run.representative?.batch?.replays?.[initialRound-1]||state.run.representative?.batch?.representativeReplay?.round===initialRound+1))selectPlaybackRound(initialRound,false);
       state.run.active=false;state.run.playing=false;
       state.liveZoneDetails=cloneJson(view?.zoneDetails||{});
       if(state.run.result?.samples.length)state.run.sampleIndex=view?findSampleIndexAtOrBefore(state.run.result.samples,view.virtualSecond):state.run.result.samples.length-1;
@@ -192,6 +192,7 @@
         var saved=simulation.results;if(!saved)return;
         compactReplay(saved.replay,600,saved.view?.virtualSecond);
         ['summary','equipmentMetrics','accumulationZoneMetrics','products'].forEach(function(key){if(saved.replay&&saved[key]!==undefined&&JSON.stringify(saved[key])===JSON.stringify(saved.replay[key]))delete saved.replay[key];});
+        if(saved.batch?.representativeReplay)compactReplay(saved.batch.representativeReplay,120);
         if(saved.batch?.replays){
           var laterLimit=Math.max(2,Math.min(120,Math.floor(600/Math.max(1,saved.batch.rounds-1))));
           saved.batch.replays.forEach(function(replay){compactReplay(replay,laterLimit);});
@@ -207,6 +208,7 @@
           return Object.assign({},replay,{samples:retainedReplaySamples(replay.samples,laterLimit)});
         })});
       }
+      if(storedBatch?.representativeReplay)storedBatch.representativeReplay=Object.assign({},storedBatch.representativeReplay,{samples:retainedReplaySamples(storedBatch.representativeReplay.samples,120)});
       var replaySamples=result.samples||[];
       var stored = {
         inputSignature:result.inputSignature,unitOfFlow:result.unitOfFlow,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
@@ -312,8 +314,8 @@
     function runControlsLocked(){return Boolean(state.run.active||state.run.playing||roundSession?.pending||roundSession?.firstUpdating||roundSession?.dirty);}
     function syncRunControls(){
       var locked=runControlsLocked();
-      ['run-initial-format','duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
-      document.querySelectorAll('#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
+      ['run-initial-format','duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event','open-event-generator'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
+      document.querySelectorAll('#event-time-tools input,#event-time-tools select,#event-time-tools button,#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
       document.querySelectorAll('[data-control]').forEach(function(button){button.disabled=document.getElementById(button.dataset.control).disabled;});
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
       if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
@@ -337,6 +339,65 @@
       return JSON.parse(JSON.stringify(value));
     }
 
+    function eventTimeSettings(){var config=activePersistentSimulation()?.dynamicConfig||{};return {unit:config.eventTimeUnit||'SECONDS',origin:config.eventTimeOrigin||''};}
+    function eventSeconds(value,unit,origin){
+      var seconds=unit==='DATE'?(new Date(value).getTime()-new Date(origin).getTime())/1000:Number(value)*(unit==='HOURS'?3600:unit==='MINUTES'?60:1);
+      if(value===''||!Number.isFinite(seconds)||seconds<0)throw Error('Enter a valid time at or after the simulation start.');return seconds;
+    }
+    function eventDate(seconds,origin){if(!origin)return '';var date=new Date(new Date(origin).getTime()+seconds*1000);if(!Number.isFinite(date.getTime()))return '';var local=new Date(date.getTime()-date.getTimezoneOffset()*60000);return local.toISOString().slice(0,23);}
+    function configureEventTime(input,seconds,duration){
+      var settings=eventTimeSettings(),unit=duration&&settings.unit==='DATE'?'MINUTES':settings.unit;
+      input.type=unit==='DATE'?'datetime-local':'number';input.step=unit==='DATE'?'0.001':'any';input.min=unit==='DATE'?settings.origin:'0';input.required=true;
+      input.value=unit==='DATE'?eventDate(seconds,settings.origin):seconds/(unit==='HOURS'?3600:unit==='MINUTES'?60:1);
+      input._eventUnit=unit;input._eventOrigin=settings.origin;return unit==='DATE'?'date / local time':unit.toLowerCase();
+    }
+    function readEventTime(input){input.setCustomValidity('');try{return eventSeconds(input.value,input._eventUnit,input._eventOrigin);}catch(error){input.setCustomValidity(error.message);input.reportValidity();return null;}}
+    function renderEventTools(){
+      var target=document.getElementById('event-time-tools');if(!target)return;target.replaceChildren();var settings=eventTimeSettings();
+      var label=document.createElement('label');label.textContent='Event time';var unit=document.createElement('select');unit.id='event-time-unit';[['SECONDS','Seconds'],['MINUTES','Minutes'],['HOURS','Hours'],['DATE','Date / local time']].forEach(pair=>{var o=document.createElement('option');o.value=pair[0];o.textContent=pair[1];unit.append(o);});unit.value=settings.unit;label.append(unit);target.append(label);
+      var originLabel=document.createElement('label');originLabel.textContent='Simulation start (device local time)';var origin=document.createElement('input');origin.type='datetime-local';origin.id='event-time-origin';origin.value=settings.origin;originLabel.hidden=settings.unit!=='DATE';origin.required=settings.unit==='DATE';originLabel.append(origin);target.append(originLabel);
+      function save(){if(runControlsLocked())return;var sim=activePersistentSimulation();sim.dynamicConfig={...sim.dynamicConfig,eventTimeUnit:unit.value,eventTimeOrigin:origin.value};renderControlEvents();markCaseDirty();syncRunControls();}
+      unit.onchange=save;origin.onchange=function(){if(origin.reportValidity())save();};
+      if(settings.unit==='DATE'&&!settings.origin){var warning=document.createElement('p');warning.className='chart-note';warning.textContent='Set the simulation start before entering event dates. Existing event offsets are retained.';target.append(warning);}
+      var groups=new Map();(state.run.commands||[]).forEach(e=>{if(e.groupId)groups.set(e.groupId,e.groupLabel||e.groupId);});
+      if(groups.size){var groupLabel=document.createElement('label');groupLabel.textContent='Generated group';var select=document.createElement('select');select.id='event-group-select';groups.forEach((name,id)=>{var o=document.createElement('option');o.value=id;o.textContent=name+' · '+id;select.append(o);});groupLabel.append(select);target.append(groupLabel);var remove=document.createElement('button');remove.id='delete-event-group';remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Delete generated group';remove.setAttribute('aria-label',remove.title);remove.onclick=async function(){var group=select.value,owner=activePersistentSimulation(),events=state.run.commands.filter(e=>e.groupId===group);var answer=await STDialog.open({title:'Delete generated group',message:'Delete all '+events.length+' commands in '+groups.get(group)+'?',buttons:[{id:'cancel',label:'Cancel'},{id:'delete',label:'Delete group',destructive:true}]});if(answer.action==='delete'&&!runControlsLocked()&&activePersistentSimulation()===owner){state.run.commands=state.run.commands.filter(e=>e.groupId!==group);renderControlEvents();markCaseDirty();syncRunControls();}};target.append(remove);}
+      target.querySelectorAll('input,select,button').forEach(c=>c.disabled=runControlsLocked());
+    }
+    // The generated duration is scheduled equipment pause time, not guaranteed line loss.
+    function distributeEventPauses(options){
+      var start=options.start,end=options.end,total=options.total,count=options.count,tick=.25;
+      if(![start,end,total,count].every(Number.isFinite)||start<0||!(end>start)||!(total>0)||!Number.isInteger(count)||count<1||count>200||!options.equipmentIds.length)throw Error('Choose equipment, a positive time window / total, and 1–200 pauses.');
+      var ticks=Math.round(total/tick);if(Math.abs(ticks*tick-total)>1e-6||ticks<count)throw Error('Total pause time must use 0.25-second increments and allow at least 0.25 seconds per pause.');
+      var blocked=(options.blocked||[]).filter(r=>r[1]>start&&r[0]<end).sort((a,b)=>a[0]-b[0]),free=[],cursor=Math.ceil(start/tick);
+      blocked.forEach(r=>{var a=Math.max(cursor,Math.floor(r[0]/tick)),b=Math.ceil(r[1]/tick);if(a>cursor)free.push([cursor,a]);cursor=Math.max(cursor,b);});if(cursor<Math.floor(end/tick))free.push([cursor,Math.floor(end/tick)]);
+      // Reserve the largest duration per slot; the final pause absorbs fractional ticks.
+      var length=Math.ceil(ticks/count),slots=free.map(r=>({...{start:r[0],end:r[1]},count:Math.floor((r[1]-r[0])/length)})),available=slots.reduce((n,r)=>n+r.count,0);
+      if(available<count)throw Error('Not enough free time for this total and pause count. Expand the window, reduce the total or change the count. Existing stops are reserved.');
+      var seed=Number(options.seed)>>>0;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+      var chosen=new Set();for(var j=available-count;j<available;j++){var candidate=Math.floor(random()*(j+1));chosen.add(chosen.has(candidate)?j:candidate);}
+      var indices=[...chosen].sort((a,b)=>a-b),pauses=[],remaining=ticks;
+      indices.forEach((index,i)=>{var slot;for(var r of slots){if(index<r.count){slot=r;break;}index-=r.count;}var duration=Math.min(length,remaining-(count-i-1)),at=slot.start+index*length;remaining-=duration;pauses.push({start:at*tick,end:(at+duration)*tick,equipmentId:options.equipmentIds[Math.floor(random()*options.equipmentIds.length)]});});return pauses;
+    }
+    function occupiedEventIntervals(){
+      var intervals=(state.run.plannedStops||[]).map(e=>[e.startSeconds,e.endSeconds]),equipment=new Map();
+      (state.run.commands||[]).forEach(e=>{intervals.push([e.atVirtualSecond-.25,e.atVirtualSecond+.25]);var list=equipment.get(e.equipmentId)||[];list.push(e);equipment.set(e.equipmentId,list);});
+      equipment.forEach(events=>{var paused=null;events.slice().sort((a,b)=>a.atVirtualSecond-b.atVirtualSecond).forEach(e=>{if(['PAUSE','STOP','EMERGENCY_STOP','MANUAL'].includes(e.action)&&paused===null)paused=e.atVirtualSecond;else if(['RUN','AUTO','RESET'].includes(e.action)&&paused!==null){intervals.push([paused-.25,e.atVirtualSecond+.25]);paused=null;}});if(paused!==null)intervals.push([paused,Infinity]);});return intervals;
+    }
+    function openEventGenerator(){
+      if(runControlsLocked()||!state.activeCase?.equipment.length)return;var owner=activePersistentSimulation(),ownerCase=state.activeCase,focus=document.activeElement;
+      var dialog=document.createElement('dialog');dialog.className='settings-dialog event-generator-dialog';dialog.setAttribute('aria-labelledby','event-generator-title');dialog.innerHTML='<header class="dialog-heading"><h2 id="event-generator-title">Distribute equipment pauses</h2></header><div class="dialog-body"><div class="editor-subheading compact-heading"><h3>Distribution settings</h3></div><div class="field-grid event-generator-fields"></div><div class="editor-subheading compact-heading"><h3>Affected equipment</h3></div><div class="event-generator-equipment"></div><p class="chart-note">Total time is shared across the selected equipment, not repeated for each one. Pauses do not overlap; existing equipment pauses and line stops are reserved. This schedules stops, not a guaranteed production loss. Reliability losses remain active; avoid counting the same cause twice.</p><p class="event-generator-status chart-note" role="status" aria-live="polite"></p><div class="table-scroll event-generator-preview"></div></div><footer class="dialog-actions"><button type="button" class="ghost event-generator-cancel">Cancel</button><button type="button" class="secondary event-generator-preview-button">Preview</button><button type="button" class="event-generator-apply" disabled>Generate events</button></footer>';
+      var grid=dialog.querySelector('.event-generator-fields'),inputs={};
+      [['name','Group name','text','External stops'],['total','Total pause time (min)','number',60],['count','Number of pauses','number',12],['start','Window start (min)','number',0],['end','Window end (min)','number',Number(document.getElementById('run-duration').value)/60||480],['seed','Random seed','number',1]].forEach(spec=>{var l=document.createElement('label');l.textContent=spec[1];var input=document.createElement('input');input.type=spec[2];input.id='event-generator-'+spec[0];input.value=spec[3];input.required=true;if(spec[2]==='number'){input.min=spec[0]==='start'||spec[0]==='seed'?'0':spec[0]==='count'?'1':'0.001';input.step=spec[0]==='count'||spec[0]==='seed'?'1':'any';}if(spec[0]==='count')input.max='200';if(spec[0]==='seed')input.max='4294967295';inputs[spec[0]]=input;l.append(input);grid.append(l);});
+      var equipment=dialog.querySelector('.event-generator-equipment');state.activeCase.equipment.forEach(e=>{var l=document.createElement('label');l.className='checkbox-label';var box=document.createElement('input');box.type='checkbox';box.value=e.id;box.className='event-generator-equipment-choice';l.append(box,document.createTextNode(e.name||e.id));equipment.append(l);});
+      var preview=null,apply=dialog.querySelector('.event-generator-apply'),status=dialog.querySelector('.event-generator-status'),table=dialog.querySelector('.event-generator-preview');
+      function invalidate(){preview=null;apply.disabled=true;table.replaceChildren();status.textContent='Preview the distribution before generating events.';}dialog.addEventListener('input',invalidate);dialog.addEventListener('change',invalidate);
+      dialog.querySelector('.event-generator-preview-button').onclick=async function(){if(!Array.from(dialog.querySelectorAll('input')).every(i=>i.reportValidity()))return;var finish=STDialog.beginActivity(dialog);try{await new Promise(resolve=>requestAnimationFrame(resolve));var duration=Number(document.getElementById('run-duration').value),end=Number(inputs.end.value)*60;if(end>duration)throw Error('The event window must fit inside the simulation duration.');preview=distributeEventPauses({start:Number(inputs.start.value)*60,end:end,total:Number(inputs.total.value)*60,count:Number(inputs.count.value),seed:Number(inputs.seed.value),equipmentIds:Array.from(equipment.querySelectorAll('input:checked')).map(i=>i.value),blocked:occupiedEventIntervals()});
+        table.innerHTML='<table><thead><tr><th>Equipment</th><th class="numeric">Start (min)</th><th class="numeric">Duration (min)</th></tr></thead><tbody></tbody></table>';preview.forEach(e=>{var row=document.createElement('tr');[state.activeCase.equipment.find(m=>m.id===e.equipmentId)?.name,e.start/60,(e.end-e.start)/60].forEach((v,i)=>{var cell=document.createElement('td');cell.textContent=i?Number(v.toFixed(4)):v;if(i)cell.className='numeric';row.append(cell);});table.querySelector('tbody').append(row);});status.textContent=preview.length+' pauses · '+Number(inputs.total.value)+' min scheduled · seed '+inputs.seed.value+'. Selected equipment may receive different numbers of pauses.';apply.disabled=false;
+      }catch(error){invalidate();status.textContent=error.message;}finally{finish?.();}};
+      apply.onclick=function(){if(!preview||runControlsLocked()||activePersistentSimulation()!==owner||state.activeCase!==ownerCase)return;var group='events-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name=inputs.name.value.trim();if(!name){inputs.name.reportValidity();return;}
+        preview.forEach(e=>{state.run.commands.push({atVirtualSecond:e.start,equipmentId:e.equipmentId,action:'PAUSE',groupId:group,groupLabel:name,generatorSeed:Number(inputs.seed.value)},{atVirtualSecond:e.end,equipmentId:e.equipmentId,action:'RUN',groupId:group,groupLabel:name,generatorSeed:Number(inputs.seed.value)});});state.run.commands.sort((a,b)=>a.atVirtualSecond-b.atVirtualSecond);document.getElementById('run-events-enabled').checked=true;setControlEventsExpanded(true);dialog.close();renderControlEvents();markCaseDirty();syncRunControls();};
+      dialog.querySelector('.event-generator-cancel').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{dialog.remove();focus?.focus();},{once:true});document.body.append(dialog);dialog.showModal();inputs.name.focus();
+    }
     var selectedControlEvents=new Set(),controlEventAnchor=null,controlEventSelectionOwner='';
     function allEditableControlEvents(){return (state.run.commands||[]).concat(state.run.plannedStops||[]);}
     function syncEventSelection(){
@@ -381,7 +442,7 @@
     }
 
     function renderControlEvents() {
-      syncEventSelection();
+      renderEventTools();syncEventSelection();
       var target = document.getElementById('control-events');
       target.textContent = '';
       state.run.commands.forEach(function(command, index) {
@@ -395,9 +456,9 @@
 
     function renderPlannedStops(){
       var target=document.getElementById('planned-line-events');target.replaceChildren();var events=state.run.plannedStops||[];syncEventSelection();if(!events.length)return;
-      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Select','Line stop','Start (min)','Duration (min)','Destination format','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
+      var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Select','Line stop','Start ('+(eventTimeSettings().unit==='DATE'?'date / local time':eventTimeSettings().unit.toLowerCase())+')','Duration ('+(eventTimeSettings().unit==='DATE'?'minutes':eventTimeSettings().unit.toLowerCase())+')','Destination format','After stop',''].forEach(function(text){var th=document.createElement('th');th.textContent=text;hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody'),page=state.run.eventPage||0,start=page*100;
       events.slice(start,start+100).forEach(function(event,offset){var index=start+offset,row=document.createElement('tr'),name=document.createElement('th');name.scope='row';var categoryLabel=event.category.replace(/Minutes$/,'').replace(/([A-Z])/g,' $1').trim();name.textContent=categoryLabel.charAt(0).toUpperCase()+categoryLabel.slice(1);row.append(name);attachControlEventSelection(row,event,name.textContent+' '+(index+1),true);
-        ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';input.value=field==='start'?event.startSeconds/60:(event.endSeconds-event.startSeconds)/60;input.setAttribute('aria-label',name.textContent+' '+field+' (min)');input.onchange=function(){if(!input.reportValidity())return;var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=Number(input.value)*60;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+Number(input.value)*60;markCaseDirty();};cell.append(input);row.append(cell);});
+        ['start','duration'].forEach(function(field){var cell=document.createElement('td'),input=document.createElement('input');input.type='number';input.min=field==='duration'?'0.001':'0';input.step='any';var timeUnit=configureEventTime(input,field==='start'?event.startSeconds:event.endSeconds-event.startSeconds,field==='duration');input.setAttribute('aria-label',name.textContent+' '+field+' ('+timeUnit+')');input.onchange=function(){var seconds=readEventTime(input);if(seconds===null)return;if(field==='duration'&&seconds<=0){input.setCustomValidity('Duration must be positive.');input.reportValidity();return;}var duration=event.endSeconds-event.startSeconds;if(field==='start'){event.startSeconds=seconds;event.endSeconds=event.startSeconds+duration;}else event.endSeconds=event.startSeconds+seconds;markCaseDirty();};cell.append(input);row.append(cell);});
         STProducts.destinationCell(row,event,markCaseDirty);
         var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){if(runControlsLocked())return;events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
       });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);syncEventSelection();
@@ -426,10 +487,10 @@
         option.textContent = equipment.name || equipment.id;
         equipmentSelect.appendChild(option);
       });
-      row.querySelector('.command-time').value = command.atVirtualSecond;
+      var time=row.querySelector('.command-time'),timeUnit=configureEventTime(time,command.atVirtualSecond);time.closest('label').firstChild.nodeValue='At ('+timeUnit+')';
       equipmentSelect.value = command.equipmentId;
-      row.querySelector('.command-action').value = command.action;
-      row.querySelector('.command-time').addEventListener('change', function(event) { state.run.commands[index].atVirtualSecond = Number(event.target.value); });
+      row.querySelector('.command-action').value = command.action;if(command.groupId){var badge=document.createElement('small');badge.className='chart-note event-group-label';badge.textContent=command.groupLabel||command.groupId;badge.title=command.groupId;row.querySelector('.command-action').parentElement.append(badge);}
+      row.querySelector('.command-time').addEventListener('change', function(event) { var seconds=readEventTime(event.target);if(seconds!==null)state.run.commands[index].atVirtualSecond=seconds; });
       equipmentSelect.addEventListener('change', function(event) { state.run.commands[index].equipmentId = event.target.value; });
       row.querySelector('.command-action').addEventListener('change', function(event) { state.run.commands[index].action = event.target.value; });
       row.querySelector('.remove-command').addEventListener('click', function() {
@@ -444,21 +505,20 @@
 
     function syncPlaybackRounds(){
       var batch=state.run.representative?.batch,selector=document.getElementById('playback-round');
-      var count=batch?.replays?.length===batch?.rounds-1?batch.rounds:1;
-      toggle('playback-round-control',count>1);
-      selector.replaceChildren();
-      for(var i=0;i<count;i++){var option=document.createElement('option');option.value=String(i);option.textContent=String(i+1);selector.append(option);}
-      selector.value=String(Math.min(state.run.roundIndex,count-1));
+      var available=[0];if(batch?.rows)batch.rows.forEach(function(row,index){if(index>0&&(batch.replays?.[index-1]||batch.representativeReplay?.round===index+1))available.push(index);});
+      toggle('playback-round-control',available.length>1);selector.replaceChildren();
+      available.forEach(function(i){var option=document.createElement('option');option.value=String(i);option.textContent=String(i+1)+(i===(batch?.representativeRound||1)-1?' · Representative':'');selector.append(option);});
+      selector.value=String(available.includes(state.run.roundIndex)?state.run.roundIndex:0);
     }
 
     function selectPlaybackRound(index,autoplay){
       var first=state.run.representative,batch=first?.batch;
-      if(!first||index<0||index>=batch?.rounds||index>0&&!batch.replays?.[index-1])return;
+      if(!first||index<0||index>=batch?.rounds||index>0&&!batch.replays?.[index-1]&&batch.representativeReplay?.round!==index+1)return;
       stopPlaybackTimer();state.run.roundIndex=index;
       if(index===0)state.run.result=first;
       else {
-        var row=batch.rows[index],replay=expandStoredReplay(batch.replays[index-1]);
-        state.run.result={caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
+        var row=batch.rows[index],replay=expandStoredReplay(batch.replays?.[index-1]||batch.representativeReplay);
+        state.run.result={...first,products:row.products,plantCalendar:row.plantCalendar,caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
       }
       state.run.sampleIndex=0;document.getElementById('playback-round').value=String(index);
       renderResultJsonPreview(state.run.result);
@@ -482,7 +542,7 @@
       if(!roundSessionActive(session))return;
       result.replicationStatus={state:status,rounds:session.run.rounds,baseSeed:session.run.seed};
       state.run.result=result;state.run.representative=result;state.run.roundIndex=0;
-      syncPlaybackRounds();toggle('simulation-results',true);
+      syncPlaybackRounds();if(status==='COMPLETE'&&result.batch?.representativeRound>1)selectPlaybackRound(result.batch.representativeRound-1,false);toggle('simulation-results',true);
       renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
       var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);state.isDirty=true;saveActiveCase();}
     }
@@ -491,7 +551,7 @@
       session.pending=true;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
       window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       var input={case:cloneJson(session.caseModel),run:cloneJson(session.run)};
-      SimulatorEngine.simulateBatch(input,{firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult||session.run.calculationMode!=='LIVE'?undefined:function(partial){
+      SimulatorEngine.simulateBatch(input,{onRepresentative:function(round){if(roundSessionActive(session))document.getElementById('batch-status').textContent='Preparing representative round '+round+'…';},firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult||session.run.calculationMode!=='LIVE'?undefined:function(partial){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         if(session.first&&!session.streaming)return;
         var previous=session.streaming?state.run.result:null;
@@ -599,9 +659,10 @@
         tickSeconds: 0.25,
         sampleEverySeconds: sampleEverySeconds,
         seed: seed,
+        eventTimeUnit:activePersistentSimulation()?.dynamicConfig?.eventTimeUnit,eventTimeOrigin:activePersistentSimulation()?.dynamicConfig?.eventTimeOrigin,
         commands: state.run.commands.map(function(command) {
           return {
-            atVirtualSecond: Number(command.atVirtualSecond),
+            ...command,atVirtualSecond: Number(command.atVirtualSecond),
             equipmentId: command.equipmentId,
             action: command.action
           };
@@ -634,9 +695,10 @@
         tickSeconds: configuration.tickSeconds,
         sampleEverySeconds: configuration.sampleEverySeconds,
         seed: configuration.seed,
+        eventTimeUnit:activePersistentSimulation()?.dynamicConfig?.eventTimeUnit,eventTimeOrigin:activePersistentSimulation()?.dynamicConfig?.eventTimeOrigin,
         commands: state.run.commands.map(function(command) {
           return {
-            atVirtualSecond: Number(command.atVirtualSecond),
+            ...command,atVirtualSecond: Number(command.atVirtualSecond),
             equipmentId: command.equipmentId,
             action: command.action
           };
@@ -679,5 +741,6 @@
       }
       return selectedIndex;
     }
+
 
 

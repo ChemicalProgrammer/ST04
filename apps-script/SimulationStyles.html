@@ -113,4 +113,17 @@
 .control-event.event-selected { border-color:var(--accent); background:var(--accent-soft); }
 #planned-line-events tr.event-selected > :is(td,th) { background:var(--accent-soft); }
 [data-event-selection]:focus-visible { outline:var(--focus-width) solid var(--accent); outline-offset:2px; }
+
+  .event-time-tools { display:flex; align-items:end; flex-wrap:wrap; gap:var(--size-12); margin:var(--size-12) 0; }
+  .event-time-tools label { flex:1 1 180px; min-width:0; }
+  .event-generator-dialog { width:min(900px,calc(100vw - 32px)); }
+  .event-generator-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--size-12); }
+  .event-generator-equipment { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--size-10); }
+  .event-generator-preview { max-height:35vh; }
+  .event-group-label { display:block; margin-top:var(--size-4); }
+  .results-round-toolbar { align-items:end; margin-bottom:var(--size-12); }
+  .results-round-toolbar label { min-width:220px; }
+  .result-kpi small { display:block; color:var(--muted); margin-top:var(--size-6); }
+  @media(max-width:600px){.event-generator-fields,.event-generator-equipment{grid-template-columns:1fr;}}
 </style>
+

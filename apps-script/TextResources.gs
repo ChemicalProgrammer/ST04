@@ -131,7 +131,7 @@ var ST_TEXT_RESOURCES = {
   "batch.sd":"Standard deviation",
   "batch.range":"Minimum – maximum",
   "batch.by_shift":"Round and shift details",
-  "batch.representative":"Charts and equipment details show the selected round. What-If evidence uses round 1. Replication averages are shown separately above.",
+  "batch.representative":"Results show the selected average or individual round. Playback charts show an actual round; the representative round is closest to mean production.",
   "reports.brand":"SimuLine · Packaging line analysis",
   "reports.subtitle":"Simulation inputs, evidence and analysis",
   "reports.footer":"Generated from the selected simulation",
@@ -840,5 +840,6 @@ function resolveTextResources_(source) {
     return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   });
 }
+
 
 
