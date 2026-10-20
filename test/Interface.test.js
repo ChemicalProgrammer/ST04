@@ -2986,3 +2986,13 @@ test('UI: pause preview resolves shift and date horizons, window dates and visib
   change('event-generator-end','2026-10-22T08:00');assert(h.d.querySelector('.event-generator-apply').disabled);await h.click('.event-generator-preview-button');assert.match(h.d.querySelector('.event-generator-status').textContent,/1,440/);assert(h.d.querySelector('.event-generator-apply').disabled);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+test('UI: pause preview works without animation frames and shows validation beside its buttons',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
+  await h.click('.open-case');await h.click('[data-basic-view=simulation]');await h.click('#open-event-generator');
+  const dialog=h.d.querySelector('.event-generator-dialog'),status=dialog.querySelector('.event-generator-status'),preview=dialog.querySelector('.event-generator-preview-button'),apply=dialog.querySelector('.event-generator-apply');assert(status.closest('.dialog-actions'));assert(status.textContent);await preview.onclick();assert.match(status.textContent,/Choose equipment/);assert(apply.disabled);
+  dialog.querySelector('.event-generator-equipment-choice').checked=true;const original=h.w.requestAnimationFrame;h.w.requestAnimationFrame=()=>{throw Error('Animation frame unavailable');};try{await preview.onclick();}finally{h.w.requestAnimationFrame=original;}
+  assert.equal(dialog.querySelectorAll('.event-generator-preview tbody tr').length,12,status.textContent);assert(!apply.disabled,status.textContent);assert(!dialog.hasAttribute('aria-busy'));
+  const seed=h.d.getElementById('event-generator-seed');seed.value='';seed.dispatchEvent(new h.w.Event('input',{bubbles:true}));await preview.onclick();assert.match(status.textContent,/Random seed/);assert(apply.disabled);assert.equal(dialog.querySelectorAll('.event-generator-preview tbody tr').length,0);assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
