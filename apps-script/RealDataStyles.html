@@ -15,12 +15,15 @@
 #realdata-panel .real-data-warnings:empty { display:none; }
 #realdata-panel .real-data-warnings li + li { margin-top:var(--space-2); }
 #realdata-panel .real-data-error { color:var(--danger); }
-#real-data-equipment input { min-width:90px; }
+#real-data-equipment input { min-width:90px; text-align:right; }
 #real-data-equipment select { min-width:150px; }
 #real-data-equipment textarea { min-width:200px; min-height:64px; }
 #realdata-panel :is(td,th) { white-space:normal; vertical-align:middle; }
 #realdata-panel th { text-align:left; }
-#realdata-panel th.numeric { text-align:right; }
+#realdata-panel :is(th,td).numeric { text-align:right; font-variant-numeric:tabular-nums; }
+#real-data-comparison :is(th,td):nth-child(n+3):not(:last-child),
+#real-data-equipment :is(th,td):nth-child(n+3):nth-child(-n+7) { text-align:right; font-variant-numeric:tabular-nums; }
+#real-data-comparison :is(th,td) { padding:var(--space-3); }
 #real-data-equipment th.numeric { padding-right:calc(var(--table-cell-inline) + var(--space-3)); }
 #real-data-comparison table { min-width:950px; }
 #real-data-comparison .numeric { white-space:nowrap; }

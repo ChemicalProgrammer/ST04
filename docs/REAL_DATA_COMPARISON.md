@@ -30,7 +30,7 @@ The **Real data** section follows Results in Basic and Advance. Observations bel
 
 Use `{ "schema": "st-real-data-v1", "records": [...] }`, a record array, a single record with `durationSeconds`, or an exported `st-real-comparison-v1` report. The archived Spanish Caso C transcription created on 20 October 2026 is also supported: production and time values are mapped, the full source JSON is retained in `sourceSnapshot`, and unconfirmed speed units / unidentified equipment are not inferred.
 
-Record fields: `id`, `name`, `date` (YYYY-MM-DD or empty), `source`, `notes`, `status` (MEASURED / DERIVED / ESTIMATED / PENDING), `production`, `productionUnit` (BOTTLES / CASES / UNITS), `bottlesPerCase`, `referenceSpeedBpm`, `reportedEfficiencyPercent`, `qualityPercent`, `durationSeconds`, `downtimeSeconds`, `runTimeSeconds`, `effectiveRuntimeSeconds`, `updtSeconds`, `rateLossSeconds`, and `equipment`.
+Record fields: `id`, `name`, `date` (YYYY-MM-DD or empty), `source`, `notes`, `status` (MEASURED / DERIVED / ESTIMATED / PENDING), `production`, `productionUnit` (BOTTLES / CASES / UNITS), `bottlesPerCase`, `referenceSpeedBpm`, `reportedEfficiencyPercent`, `qualityPercent`, `lineTimeBasis` (UNCONFIRMED / OUTPUT_FLOW), `durationSeconds`, `downtimeSeconds`, `runTimeSeconds`, `effectiveRuntimeSeconds`, `updtSeconds`, `rateLossSeconds`, and `equipment`.
 
 Equipment observations use `equipmentId`, optional `name`, `stopClass` (UNKNOWN / FAILURES / MINOR / ALL), `exposureSeconds`, `failureCount`, `failureSeconds`, `mtbfMinutes`, and `mttrMinutes`, plus free-text `notes`. Missing equipment IDs are not automatically mapped by name.
 
@@ -41,3 +41,15 @@ All stored time fields ending in Seconds are seconds. The UI's seconds / minutes
 The Template button includes every supported record and equipment field. It populates equipment IDs and names from the active simulation, including conveyors, and leaves unknown measurements as null. `_guide` documents all fields, units, valid enumeration values, an equipment catalog and a synthetic observation example. Only `records` is imported; guide examples are never treated as measurements. Duplicate a record for another period. Duplicate equipment IDs within one observation are rejected. Equipment-specific notes can be entered in the UI; observations for unmatched IDs remain editable and are marked as not in the simulation.
 
 A generic example is available at [examples/real-data-template.json](../examples/real-data-template.json). Replace placeholder IDs before using that file; the in-app template already supplies the selected simulation’s IDs. These entries describe real observations; physical equipment configuration continues to use Line Setup / Import JSON.
+
+### Line-time comparisons
+
+`lineTimeBasis` defaults to `UNCONFIRMED`. Predictions remain visible, with differences disabled until the source definitions are confirmed in the observation form. Select `OUTPUT_FLOW` only when all source definitions match:
+
+- Run time: time with positive flow at final output, at the engine tick resolution.
+- Downtime: full observation period minus that run time; equipment stops are never summed.
+- Effective runtime: final bottle equivalents divided by the observation’s confirmed ideal reference speed.
+- UPDT equivalent: full observation period minus effective runtime, including planned losses; this may differ from a plant’s unplanned-downtime definition.
+- Rate loss: run time minus effective runtime. A reference that gives effective time above running / available time disables these differences.
+
+Averages use all saved rounds. Older results can provide effective runtime from saved production; final-output running time requires saved equipment metrics for every round. If missing, rerun the simulation. Reported AU, simulated OEE and assumed quality retain separate definitions and are not automatically paired.

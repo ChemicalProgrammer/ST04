@@ -68,3 +68,28 @@ test('equipment notes and IDs validate without silently accepting duplicate meas
  const row={equipmentId:'filler',notes:'Observed by operator'};
  assert.throws(()=>api.normalize(observation({equipment:[row,row]})),/unique/);assert.throws(()=>api.normalize(observation({equipment:[{equipmentId:''}]})),/equipmentId/);assert.throws(()=>api.normalize(observation({equipment:[{...row,notes:123}]})),/notes/);
 });
+test('line times use final output and common reference, average every round, and require confirmed definitions',()=>{
+ const timed=structuredClone(result);
+ timed.batch.rows[0].equipmentMetrics.filler.runningSeconds=60000;
+ timed.batch.rows[1].equipmentMetrics.filler.runningSeconds=72000;
+ const real=observation({referenceSpeedBpm:220,runTimeSeconds:66000,downtimeSeconds:20400,effectiveRuntimeSeconds:150480/220*60,updtSeconds:86400-150480/220*60,rateLossSeconds:66000-150480/220*60});
+ const pending=api.compare(real,simulation,timed,'average');
+ assert.equal(find(pending,'Line run time').simulated,1100);
+ assert.equal(find(pending,'Line downtime').simulated,340);
+ assert.equal(find(pending,'Effective runtime').simulated,120000/220);
+ assert.equal(find(pending,'Line downtime').delta,null);
+ const matched=api.compare({...real,lineTimeBasis:'OUTPUT_FLOW'},simulation,timed,'average');
+ assert.equal(find(matched,'Line run time').delta,0);
+ assert.equal(find(matched,'Effective runtime').comparable,true);
+ assert.equal(find(matched,'UPDT').simulated,1440-120000/220);
+ assert.equal(find(matched,'Rate loss equivalent').simulated,1100-120000/220);
+ const one=api.compare({...real,lineTimeBasis:'OUTPUT_FLOW'},simulation,timed,'representative');
+ assert.equal(find(one,'Line run time').simulated,1200);
+ const old=api.compare({...real,lineTimeBasis:'OUTPUT_FLOW'},simulation,result,'average');
+ assert.equal(find(old,'Line downtime').simulated,null);
+ assert.equal(find(old,'Effective runtime').comparable,true);
+ const invalid=api.compare({...real,lineTimeBasis:'OUTPUT_FLOW',referenceSpeedBpm:1},simulation,timed,'average');
+ assert.equal(find(invalid,'Effective runtime').comparable,false);
+ const mismatch=api.compare({...real,lineTimeBasis:'OUTPUT_FLOW',durationSeconds:43200},simulation,timed,'average');
+ assert.equal(find(mismatch,'Line downtime').comparable,false);
+});

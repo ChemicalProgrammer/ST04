@@ -39,7 +39,8 @@
       "updtSeconds": "Source UPDT in seconds, or null; confirm its definition.",
       "rateLossSeconds": "Equivalent rate-loss seconds, or null. Not automatically a full stop.",
       "sourceSnapshot": "Optional original source text / serialized JSON. Empty when unavailable; up to 64000 characters.",
-      "equipment": "Array of observations, at most one entry per equipmentId in this period."
+      "equipment": "Array of observations, at most one entry per equipmentId in this period.",
+      "lineTimeBasis": "UNCONFIRMED by default; OUTPUT_FLOW only after confirming the source uses final-output positive-flow time and an ideal reference speed. UPDT is full period minus effective runtime, including planned losses."
     },
     "equipmentFields": {
       "equipmentId": "Required existing equipment ID. Matching uses this ID, not the display name.",
@@ -125,7 +126,8 @@
       "effectiveRuntimeSeconds": null,
       "updtSeconds": null,
       "rateLossSeconds": null,
-      "sourceSnapshot": ""
+      "sourceSnapshot": "",
+      "lineTimeBasis": "UNCONFIRMED"
     }
   ]
 }
