@@ -148,14 +148,14 @@
       document.getElementById('reset-playback').addEventListener('click', resetPlayback);
       document.getElementById('playback-round').addEventListener('change',function(){selectPlaybackRound(Number(this.value),false);});
       document.getElementById('run-chart-window').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.dynamicConfig.chartWindow=this.value;autosave.change();}if(state.run.result)renderPlaybackFrame();});
-      ['run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','run-calculation-mode','run-events-enabled'].forEach(function(id){document.getElementById(id).addEventListener('change',function(){if(runControlsLocked())return;syncRunControls();markCaseDirty();});});
+      ['run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','run-calculation-mode','run-events-enabled'].forEach(function(id){document.getElementById(id).addEventListener('change',function(){if(runControlsLocked())return;syncRunControls();if(['run-start-at','run-end-at','run-time-zone'].includes(id))renderControlEvents();markCaseDirty();});});
       document.getElementById('settings-shift-count').addEventListener('input',function(){document.getElementById('run-shift-count').value=this.value;syncRunControls();markCaseDirty();});
       document.getElementById('run-playback-rate').addEventListener('change',function(){var simulation=activePersistentSimulation();if(simulation){simulation.playbackRate=Number(this.value);autosave.change();}});
       ['run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].forEach(function(id){document.getElementById(id).addEventListener('input',markCaseDirty);});
       document.getElementById('duration-mode').addEventListener('change', function(event) {
         if(runControlsLocked()){applyScenarioRunInputs(state.run.configuration);return;}
         state.run.durationMode = event.target.value;
-        syncDurationControls();
+        syncDurationControls();renderControlEvents();
         markCaseDirty();
       });
     }

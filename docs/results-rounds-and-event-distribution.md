@@ -8,7 +8,7 @@ The representative round minimizes absolute distance from mean production. Ties 
 
 ## Event time entry
 
-Event time can be entered as seconds, minutes, hours, or date / local time. Dates require a simulation start entered in the device's local timezone. Changing the display unit or origin preserves existing virtual-second offsets. Planned line-stop duration remains in minutes when date entry is selected. Display preferences, origin, and group identifiers are saved with the simulation.
+Each equipment event has its own Start value and Unit selector: seconds, minutes or hours. Date entry is available only when Duration method is **Date and time range**. It uses the simulation start and its configured timezone, including daylight-saving offsets, rather than a separate event origin. Changing units preserves the virtual-second offset and does not affect other cards. When leaving date-range mode, date events display elapsed seconds; the stored offset is retained. Planned line stops use minutes. Per-event units and group identifiers are saved with the simulation. Event removal uses the shared trash icon button.
 
 ## Distribute pauses
 

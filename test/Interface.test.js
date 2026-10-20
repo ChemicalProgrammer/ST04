@@ -2940,11 +2940,18 @@ test('UI: event units, date origin and generated groups survive saving and can b
  for(const uiMode of ['BASIC','ADVANCE']){const h=await setup({remember:true,uiMode,autosaveSeconds:180});try{
   await h.click('.open-case');await h.click('[data-basic-view=simulation]');
   const change=(id,value)=>{const input=h.d.getElementById(id);input.value=value;input.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
-  if(!h.d.getElementById('run-events-enabled').checked)await h.click('#run-events-enabled');await h.click('#add-control-event');change('event-time-unit','MINUTES');
-  let time=h.d.querySelector('.command-time');time.value=15;time.dispatchEvent(new h.w.Event('change',{bubbles:true}));change('event-time-unit','HOURS');assert.equal(Number(h.d.querySelector('.command-time').value),.25);
-  change('event-time-unit','DATE');change('event-time-origin','2026-10-20T08:00');assert.match(h.d.querySelector('.command-time').value,/2026-10-20T08:15/);
-  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.eventTimeUnit==='DATE');assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.commands[0].atVirtualSecond,900);
-  await h.click('#delete-all-control-events');await h.click('.message-dialog .danger');change('event-time-unit','MINUTES');
+  change('duration-mode','FIXED');change('run-duration',3600);
+  if(!h.d.getElementById('run-events-enabled').checked)await h.click('#run-events-enabled');await h.click('#add-control-event');
+  const unit=(index,value)=>{const input=h.d.querySelectorAll('.command-time-unit')[index];input.value=value;input.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
+  assert(!Array.from(h.d.querySelector('.command-time-unit').options).some(o=>o.value==='DATE'));assert.equal(h.d.getElementById('event-time-unit'),null);
+  unit(0,'MINUTES');let time=h.d.querySelector('.command-time');time.value=15;time.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+  await h.click('#add-control-event');unit(1,'HOURS');let second=h.d.querySelectorAll('.command-time')[1];second.value=.5;second.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(h.d.querySelectorAll('.command-time-unit')[0].value,'MINUTES');assert.equal(Number(h.d.querySelector('.command-time').value),15);
+  const remove=h.d.querySelectorAll('.remove-command')[1];assert(remove.classList.contains('icon-button'));assert(remove.querySelector('svg'));assert.equal(remove.getAttribute('aria-label'),'Remove event');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands?.length===2);assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.commands[1].timeUnit,'HOURS');remove.click();await settle();
+  change('duration-mode','DATES');change('run-start-at','2026-10-20T08:00');change('run-end-at','2026-10-20T09:00');change('run-time-zone','America/Mexico_City');unit(0,'DATE');assert.match(h.d.querySelector('.command-time').value,/2026-10-20T08:15/);
+  await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].dynamicConfig.commands?.[0]?.timeUnit==='DATE');assert.equal(h.storedCases()[0].simulations[0].dynamicConfig.commands[0].atVirtualSecond,900);
+  await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');assert.equal(h.d.querySelector('.command-time-unit').value,'DATE');assert.match(h.d.querySelector('.command-time').value,/2026-10-20T08:15/);
+  change('duration-mode','FIXED');assert(!Array.from(h.d.querySelector('.command-time-unit').options).some(o=>o.value==='DATE'));assert.equal(h.d.querySelector('.command-time-unit').value,'SECONDS');assert.equal(Number(h.d.querySelector('.command-time').value),900);
+  await h.click('#delete-all-control-events');await h.click('.message-dialog .danger');
   change('duration-mode','FIXED');change('run-duration',3600);await h.click('#open-event-generator');assert(h.d.querySelector('.event-generator-dialog[open]'));assert(h.d.querySelector('.event-generator-dialog .dialog-heading'));assert(h.d.querySelector('.event-generator-dialog .editor-subheading'));
   const set=(name,value)=>{const input=h.d.getElementById('event-generator-'+name);input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
   set('name','Transport');set('total',10);set('count',4);set('start',0);set('end',60);set('seed',42);const choices=h.d.querySelectorAll('.event-generator-equipment-choice');choices[0].checked=true;choices[2].checked=true;choices[0].dispatchEvent(new h.w.Event('change',{bubbles:true}));
