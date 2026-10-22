@@ -30,7 +30,7 @@ Las flechas punteadas indican una relación por definir. Se conserva la referenc
 | **Conveyor 3** | Etiquetadora → Túnel de vapor Fuji Seal | 3 sensores SICK y otro punto sensor; sensor SICK interno se asocia a etiquetadora. | SICK | General |
 | **Conveyor 4** | Túnel de vapor → Llenadora/Tapadora | Sensores de salida del túnel, rojos, azul/rojo; azules y gris en zona de entrada. | SICK / colores | General |
 | **Conveyor 5** | Llenadora/Tapadora → Empacadora | Sensor(es) azules Wenglor, caja de acero y focos naranja/verde. | Wenglor / señalización | General |
-| **Conveyor 6** | Empacadora → Encintadora | Banda verde, curva con sensor, otra banda verde, tramo metálico y sensor Diagraph. | Curva (1) / Diagraph | Banda / curva / metálico |
+| **Conveyor 6** | Empacadora → Encintadora | Banda verde, curva con sensor, otra banda verde, tramo metálico y sensor Diagraph. El croquis incluye una curva semicircular de **353.43 cm** de recorrido central y **38 cm** de ancho; su asociación exacta con este tramo requiere confirmación. | Curva (1) / Diagraph | Banda / curva / metálico |
 | **Conveyor 7** | Salida de Encintadora | Banda verde de aprox. 100 cm; sensor a 5 cm del inicio. | 1 posición indicada | Banda verde |
 | **Conveyor 8** | Encintadora → Paletizador, tramo 1 | Primera curva metálica. | No indicado | Curva |
 | **Conveyor 9** | Encintadora → Paletizador, tramo 2 | Primer tramo recto metálico. | 1 | Recto |
@@ -126,7 +126,7 @@ Cada fila conserva la expresión de medida y su resultado aritmético. **El tota
 - **Puntos de inicio:** determinar dónde está el cero de cada serie antes de generar una tabla de posiciones absolutas.
 - **Ubicación de llenadora:** reconciliar la referencia «salida de llenadora» previa a etiquetadora con «llenadora/tapadora» posterior al túnel.
 - **Sensor negro:** la expresión `? + 42 + …` está incompleta y no admite un total calculable.
-- **Referencias de curvas:** conservar por separado `225` y `38` del croquis en forma de D hasta confirmar unidad, orientación y geometría; las expresiones `4 × 40 + x` son sumas lineales, no radios.
+- **Curva semicircular (180°) del croquis en forma de D:** distancia centro a centro entre sus extremos = **225 cm** (diámetro de la trayectoria central); ancho del conveyor = **38 cm**; radio central = **112.5 cm**. Longitud de recorrido sobre la línea central = **π × 225 / 2 = 353.43 cm (3.5343 m)**. Como referencia, los bordes interior y exterior miden aproximadamente **293.74 cm** y **413.12 cm**, respectivamente. La curva está provisionalmente relacionada con Conveyor 6, a falta de confirmar el tramo físico exacto. Las expresiones `4 × 40 + x` corresponden a sumas lineales separadas, no a radios de esta curva.
 - **Valores entre paréntesis:** `40 (184)` y `170 (175)` no deben sumarse indiscriminadamente. La cota `155 cm` del último sensor podría ser interna al conveyor.
 - **Separaciones físicas:** los Conveyors 1, 4, 5 y 6 son tramos funcionales; comprobar si están compuestos por varios módulos motorizados.
 - **Sensores:** vincular color, fabricante, referencia y distancia desde el inicio de cada conveyor para su posterior parametrización.
