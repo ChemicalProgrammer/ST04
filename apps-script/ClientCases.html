@@ -387,6 +387,7 @@ async function openCase(caseId, initialView) {
     function applySheetImport(result) {
       var simulation=activePersistentSimulation();
       if (!state.activeCase || !simulation || state.saving || result.errors.length || !result.hasChanges) return false;
+      if(result.realData){state.activeCase.metadata={...state.activeCase.metadata,realData:cloneJson(result.realData)};STRealData.selectRecord(state.activeCase.id,result.realDataRecordId);}
       syncPersistentSimulation();
       simulation.sourceImport=cloneJson(result.sourceImport);
       if(result.formatCatalog){
@@ -408,7 +409,7 @@ async function openCase(caseId, initialView) {
       state.activeCase.metadata=Object.assign({},state.activeCase.metadata,{dataClassification:'USER_PROVIDED'});
       state.isDirty=true;state.uiView='editor';
       renderEditor();shell.sync();autosave.change(true);
-      setStatus(__ST_TEXT__('client.applied_sheet_selection_to')+simulation.name+': '+result.added+__ST_TEXT__('client.added')+result.updated+__ST_TEXT__('client.updated_save_the_case')+(result.equipmentChanged?__ST_TEXT__('client.run_again_to_refresh_results'):''));
+      setStatus(__ST_TEXT__('client.applied_sheet_selection_to')+simulation.name+': '+result.added+__ST_TEXT__('client.added')+result.updated+__ST_TEXT__('client.updated_save_the_case')+(result.realData?' · Real Data observation imported':'')+(result.equipmentChanged?__ST_TEXT__('client.run_again_to_refresh_results'):''));
       return true;
     }
 
@@ -477,6 +478,7 @@ async function openCase(caseId, initialView) {
       }
       catalogTimer=setTimeout(function(){load(null);},150);
     }
+
 
 
 

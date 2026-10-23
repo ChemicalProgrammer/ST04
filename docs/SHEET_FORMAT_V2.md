@@ -76,3 +76,8 @@ Cliente y servidor verifican el contrato `sheet-import-20261019-1`. Un despliegu
 Marcar la revisión confirma que se leyeron los avisos; no completa campos obligatorios. Si está activa la propuesta de producto/formato, se debe elegir **Source machine speeds** y completar los datos requeridos, como botellas por caja. En el Caso C, si F contiene las velocidades equivalentes en botellas/min, corresponde **Bottle equivalents/min (worksheet bpm)**.
 
 El pie del diálogo muestra el requisito pendiente junto a los botones, incluso si el error original quedó arriba del contenido desplazable. **Review pending field** lleva al campo y lo enfoca; el campo muestra su error local. Si no hay cambios seleccionados, el pie lo explica. Cuando todo está completo y se marca la revisión, muestra **Ready to apply** y habilita Apply. Editar la selección o la propuesta requiere volver a marcar la revisión. También se puede desactivar **Create product and format** para importar únicamente los equipos. Las advertencias físicas que permiten guardar borradores no bloquean Apply por sí solas.
+
+
+## Datos de producción y tiempos para Real Data (2026-10-23)
+
+La exportación agrega celdas superiores editables y columnas Z:AE de observaciones, manteniendo A:Y, C1:C7 y el inicio de equipos en fila 10. El bloque opcional se reconoce por `R1 = st-real-sheet-v1`. Import Sheet permite crear/actualizar una observación o importar únicamente Real Data, conservando parámetros, eventos y resultados simulados. [Mapa completo de celdas, unidades y uso](SHEET_REAL_DATA_IMPORT.md).

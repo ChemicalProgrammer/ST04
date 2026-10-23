@@ -206,3 +206,44 @@ window.STSheetPackingImport=(function(){
 })();
 </script>
 
+
+
+<script>
+// Builds an observation against reviewed equipment IDs without touching inputs/results.
+window.STSheetRealData={
+  create:function(preview,plan,current){
+    var targets={};(preview.realData?.record.equipment||[]).forEach(function(e){
+      var mapped=plan.records.find(function(r){return r.row===e.sourceRow;});
+      targets[e.sourceRow]=current.some(function(u){return u.id===e.sourceEquipmentId;})?e.sourceEquipmentId:mapped&&mapped.target!=='skip'?mapped.target:'';
+    });
+    return {enabled:false,recordId:'',newId:'real-sheet-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),targets:targets};
+  },
+  apply:function(result,preview,draft,snapshot){
+    if(!draft?.enabled)return result;
+    var data=preview.realData;
+    if(!data?.hasData){result.errors.push('Real Data: fill observation values in the exported sheet.');return result;}
+    if(data.errors.length){data.errors.forEach(function(e){result.errors.push('Real Data · '+e.cell+': '+e.message);});return result;}
+    try{
+      var raw=JSON.parse(JSON.stringify(data.record)),source=preview.source;
+      raw.id=draft.recordId||draft.newId;
+      raw.source=[raw.source,source.spreadsheetId+' / '+source.sheetName].filter(Boolean).join(' · ');
+      raw.sourceSnapshot=JSON.stringify({layout:data.schema,source:source,fields:data.fields,equipment:data.record.equipment});
+      raw.equipment=raw.equipment.flatMap(function(e){
+        var target=draft.targets[e.sourceRow];if(target==='skip')return [];
+        if(target==='new')target=result.sourceImport.lastApplied.equipment.find(function(c){return c.row===e.sourceRow;})?.equipmentId;
+        var unit=result.equipment.find(function(u){return u.id===target;});
+        if(!unit)throw Error('Row '+e.sourceRow+': select an observation equipment target, or Skip observation.');
+        return [{equipmentId:unit.id,name:unit.name,downtimeSeconds:e.downtimeSeconds,failureSeconds:e.stopClass==='FAILURES'?e.downtimeSeconds:null,failureCount:e.failureCount,stopClass:e.stopClass,exposureSeconds:e.exposureSeconds,notes:e.notes}];
+      });
+      var record=window.STRealData.normalize(raw),records=(snapshot.metadata?.realData?.records||[]).slice(),index=records.findIndex(function(r){return r.id===draft.recordId;});
+      if(draft.recordId&&index<0)throw Error('Observation no longer exists. Preview again.');
+      if(index<0)records.push(record);else records[index]=record;
+      if(records.length>100)throw Error('Limit: 100 observations per case.');
+      var next={schema:'st-real-data-v1',records:records};
+      if(new TextEncoder().encode(JSON.stringify(next)).length>512*1024)throw Error('Real-data records exceed 512 KB.');
+      result.realData=next;result.realDataRecordId=record.id;result.hasChanges=true;
+    }catch(error){result.errors.push('Real Data: '+error.message);}
+    return result;
+  }
+};
+</script>

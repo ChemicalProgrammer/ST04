@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {normalizeFormatCatalog} from '../src/simulation/FormatCatalog.js';
 
-function setup({importVersion='sheet-import-20261019-1',informational=false,rememberedTab=null}={}){
+function setup({importVersion='sheet-import-20261023-1',informational=false,rememberedTab=null}={}){
  const dom=new JSDOM(`<button id="open-sheet-import"></button><dialog id="sheet-import-dialog"><form id="sheet-import-form"><input id="sheet-import-url"><input id="sheet-import-tab"><button id="sheet-import-read"></button></form><div id="sheet-import-preview"></div><p id="sheet-import-error"></p><p id="sheet-import-summary"></p><input type="checkbox" id="sheet-import-ack"><button id="sheet-import-apply"></button><button id="sheet-import-close"></button><button id="sheet-import-cancel"></button></dialog>`,{runScripts:'outside-only'}),w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.eval(fs.readFileSync('apps-script/TextResources.gs','utf8'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
@@ -78,3 +78,4 @@ test('Apply explains when review is checked but no import changes are selected',
   h.d.getElementById('sheet-import-cancel').click();assert(h.d.getElementById('sheet-import-readiness').hidden);
  }finally{h.dom.window.close();}
 });
+

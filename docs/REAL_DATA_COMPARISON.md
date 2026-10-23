@@ -53,3 +53,12 @@ A generic example is available at [examples/real-data-template.json](../examples
 - Rate loss: run time minus effective runtime. A reference that gives effective time above running / available time disables these differences.
 
 Averages use all saved rounds. Older results can provide effective runtime from saved production; final-output running time requires saved equipment metrics for every round. If missing, rerun the simulation. Reported AU, simulated OEE and assumed quality retain separate definitions and are not automatically paired.
+
+
+## Equipment worksheet observations (2026-10-23)
+
+Import Sheet now supports the optional `st-real-sheet-v1` observation block emitted by Export to Google Sheets. It can create or explicitly update a case observation independently of equipment settings. [Exact cells, units, preview workflow, AEM comparison and deployment files](SHEET_REAL_DATA_IMPORT.md).
+
+Additional record fields: `periodStart`, `periodEnd` (ISO dates/timestamps), `shiftProduction` (up to three optional counts), `outputBasis` (UNCONFIRMED / GOOD / GROSS), `reportedUpdtPercent`, `updtDefinition` (UNCONFIRMED / AEM_UNPLANNED / TOTAL_EQUIVALENT_LOSS), `updtPercentDenominator` (UNCONFIRMED / TOTAL / PLANT / PRODUCTION), and `aem` containing `basis` plus `businessExternalDowntimeSeconds`, `plantAvailableSeconds`, `plantDecisionDowntimeSeconds`, `productionAvailableSeconds`. Equipment observations additionally accept `downtimeSeconds` for their declared stop class. All are included in the JSON template and exports.
+
+The prior OUTPUT_FLOW UPDT definition remains for historical observations; AEM_UNPLANNED observations explicitly disable that old equivalent-loss pairing. AEM comparisons are separate, with confirmed definitions, an explicit percentage denominator and a recalculated source column. Runtime means positive flow at final output only when that basis has been confirmed.

@@ -223,3 +223,10 @@ En este ejemplo, T1 − T5 = 630 min de pérdida total equivalente, mientras el 
 5. Separar o renombrar la pérdida equivalente actual para evitar confusión con UPDT AEM, preservando los registros anteriores.
 
 La información es aplicable a SimuLine: aporta una base precisa para distinguir pérdidas de calendario, decisiones de planta, paros no planificados y pérdidas de rendimiento. La integración funcional queda pendiente de esas definiciones y del contrato de importación.
+
+
+## 9. Primera integración implementada — 2026-10-23
+
+La propuesta de integración anterior queda complementada por la implementación de [importación de observaciones desde Sheets](SHEET_REAL_DATA_IMPORT.md). Ese documento define el contrato efectivo, los nombres de campos soportados, las celdas exportadas y las condiciones de comparación. Las tablas de propuestas anteriores no deben interpretarse como una lista de campos ya admitidos.
+
+Se implementaron captura/importación de datos AEM, porcentajes reportados y downtime por equipo, destinos independientes de la configuración física, comparación con valores recalculados y preservación de resultados. Se mantienen pendientes la contabilidad de línea basada en una definición distinta de flujo final y un modelo físico de rechazos/reproceso. No se cambió el motor.

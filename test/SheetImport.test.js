@@ -89,8 +89,8 @@ test('RPC preserves Google errors and identifies the responding importer',()=>{
  const r=runtime({SpreadsheetApp:{openById:()=>{throw Error('Sheets service unavailable');}},DriveApp:{getFileById:()=>{throw Error('Drive access denied');}}});
  r.requireCurrentUser_=()=>({email:'owner@test'});r.getCase_=()=>({});
  const response=r.previewSheetImport({caseId:'mine',spreadsheet:'synthetic-sheet-id'});
- assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20261019-1');
- assert.match(response.error.message,/sheet-import-20261019-1.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
+ assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20261023-1');
+ assert.match(response.error.message,/sheet-import-20261023-1.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
  assert.match(response.error.details[0],/Drive access denied/);
  r.previewSheetImport_=()=>{throw Error('Failed while reading cells');};
  assert.match(r.previewSheetImport({}).error.message,/SHEET_READ_FAILED.*Failed while reading cells/);
@@ -208,3 +208,4 @@ test('missing conveyor inputs identify only their actual cells; zero reserve and
  const r=runtime(),f=updatedFixture();f.rows[1][9]=0;f.rows[1][18]=0;let out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');assert(!out.warnings.some(w=>w.code==='CONVEYOR_INPUT_REQUIRED'));
  f.rows[1][12]='N/A';out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats,'plant-sheet-v2');const issues=out.warnings.filter(w=>w.code==='CONVEYOR_INPUT_REQUIRED');assert.equal(issues.length,1);assert.equal(issues[0].cell,'M11');assert.match(issues[0].message,/Package length.*read as N\/A/);
 });
+

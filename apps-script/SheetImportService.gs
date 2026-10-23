@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261019-1';}
+function sheetImportContractVersion_(){return 'sheet-import-20261023-1';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -88,6 +88,9 @@ function previewSheetImport_(request, user) {
   if(footer>=0){rows=rows.slice(0,footer);formats=formats.slice(0,footer);count=rows.length;}
   var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),readAt:new Date().toISOString(),equipmentRange:'A10:'+lastColumn+(count?count+9:10)};
+  if (sheet.getMaxColumns() >= 31 && sheet.getRange(1,18).getValues()[0][0] === 'st-real-sheet-v1') {
+    result.realData = parseSheetRealData_(sheet.getRange(1,5,7,19).getValues(),sheet.getRange(1,5,7,19).getNumberFormats(),count?sheet.getRange(10,26,count,6).getValues():[],result);
+  }
   return result;
 }
 
@@ -216,3 +219,70 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
 }
 
 
+
+
+// Observation fields are independent of equipment configuration. Blank is unknown.
+function sheetRealDataFields_(){
+  return [
+    ['F1','periodStart','Period start','text','ISO date/time'],['F2','periodEnd','Period end','text','ISO date/time'],
+    ['F3','shift1','Shift 1 production','number','cases'],['F4','shift2','Shift 2 production','number','cases'],['F5','shift3','Shift 3 production','number','cases'],
+    ['F6','production','Total production','number','cases'],['F7','outputBasis','Output basis','text','GOOD / GROSS / UNCONFIRMED'],
+    ['J1','durationSeconds','Total Time','time','min'],['J2','businessExternalDowntimeSeconds','Business External Time','time','min'],
+    ['J3','plantAvailableSeconds','Plant Available Time','time','min'],['J4','plantDecisionDowntimeSeconds','Plant Decision Time','time','min'],
+    ['J5','productionAvailableSeconds','Production Available Time','time','min'],['J6','downtimeSeconds','Downtime','time','min'],['J7','runTimeSeconds','Run Time','time','min'],
+    ['N1','reportedEfficiencyPercent','AU','percent','%'],['N2','reportedUpdtPercent','UPDT','percent','%'],['N3','updtSeconds','UPDT time','time','min'],
+    ['N4','effectiveRuntimeSeconds','Effective Runtime','time','min'],['N5','rateLossSeconds','Rate Loss','time','min'],
+    ['N6','referenceSpeedBpm','Standard rate','number','bottles/min'],['N7','qualityPercent','Quality','percent','%']
+  ].map(function(f){return {cell:f[0],key:f[1],label:f[2],type:f[3],unit:f[4]};});
+}
+function sheetObservationColumns_(){return ['Observed downtime (min)','Observed stop count','Stop class (UNKNOWN/FAILURES/MINOR/ALL)','Observed exposure (min)','Observation notes','Equipment ID'];}
+function parseSheetRealData_(top,formats,rows,preview){
+  var errors=[],fields=[],raw={aem:{},equipment:[]},shifts=[null,null,null];
+  function at(cell){var m=/^([A-Z]+)(\d+)$/.exec(cell),col=0;m[1].split('').forEach(function(c){col=col*26+c.charCodeAt(0)-64;});return {r:Number(m[2])-1,c:col-5};}
+  function value(cell){var p=at(cell);return top[p.r]?.[p.c];}
+  function missing(v){return v==null||typeof v==='string'&&(!v.trim()||/^(NA|N\/A)$/i.test(v.trim()));}
+  function text(v){return missing(v)?'':Object.prototype.toString.call(v)==='[object Date]'?v.toISOString():String(v).trim();}
+  function issue(cell,message){errors.push({cell:cell,message:message});}
+  function number(v,cell,percent){
+    if(missing(v))return null;
+    var p=at(cell),fmt=formats[p.r]?.[p.c]||'',explicit=typeof v==='string'&&/%$/.test(v.trim());
+    if(typeof v!=='number'&&(typeof v!=='string'||!/^\+?(?:\d+(?:\.\d*)?|\.\d+)\s*%?$/.test(v.trim()))){issue(cell,'Expected a non-negative number or blank.');return null;}
+    if(!percent&&explicit){issue(cell,'Use a numeric value without a percent sign.');return null;}
+    var n=Number(typeof v==='string'?v.trim().replace(/%$/,''):v);
+    if(percent&&!explicit&&typeof v==='number'&&/%/.test(fmt.replace(/"[^"]*"|\\./g,'')))n*=100;
+    if(!Number.isFinite(n)||n<0||percent&&n>100){issue(cell,percent?'Expected 0–100%.':'Expected a non-negative number.');return null;}
+    return n;
+  }
+  var hasData=false;
+  sheetRealDataFields_().forEach(function(f){
+    var input=value(f.cell),uCell=f.cell.replace(/^([A-Z])/,function(c){return String.fromCharCode(c.charCodeAt(0)+1);}),unit=text(value(uCell))||f.unit,v=f.type==='text'?text(input):number(input,f.cell,f.type==='percent');
+    if(!missing(input)&&f.key!=='outputBasis')hasData=true;
+    if(f.type==='time'&&v!=null){var factor={s:1,sec:1,seconds:1,min:60,minutes:60,h:3600,hours:3600}[unit.toLowerCase()];if(!factor)issue(uCell,'Use s, min or h.');else v*=factor;}
+    if(f.type==='percent'&&unit!=='%')issue(uCell,'Use %.');
+    if(f.key==='referenceSpeedBpm'&&v!=null&&(v<=0||unit.toLowerCase()!=='bottles/min'))issue(f.cell,'Use a positive standard rate in bottles/min.');
+    if(f.key==='durationSeconds'&&v===0)issue(f.cell,'Total Time must be positive.');
+    if(/^shift/.test(f.key)){shifts[Number(f.key.slice(-1))-1]=v;}
+    else if(['businessExternalDowntimeSeconds','plantAvailableSeconds','plantDecisionDowntimeSeconds','productionAvailableSeconds'].includes(f.key))raw.aem[f.key]=v;
+    else raw[f.key]=v;
+    fields.push(Object.assign({},f,{unit:unit,value:missing(input)?null:f.type==='percent'?v:text(input),sourceValue:missing(input)?null:text(input)}));
+  });
+  raw.productionUnit=text(value('R2'))||'CASES';raw.aem.basis=text(value('R3'))||'UNCONFIRMED';raw.updtDefinition=text(value('R4'))||'UNCONFIRMED';raw.updtPercentDenominator=text(value('R5'))||'UNCONFIRMED';raw.lineTimeBasis=text(value('R6'))||'UNCONFIRMED';
+  raw.outputBasis=raw.outputBasis||'UNCONFIRMED';
+  [['R2',raw.productionUnit,['BOTTLES','CASES','UNITS']],['R3',raw.aem.basis,['UNCONFIRMED','CALENDAR_OUTPUT_FLOW']],['R4',raw.updtDefinition,['UNCONFIRMED','AEM_UNPLANNED','TOTAL_EQUIVALENT_LOSS']],['R5',raw.updtPercentDenominator,['UNCONFIRMED','TOTAL','PLANT','PRODUCTION']],['R6',raw.lineTimeBasis,['UNCONFIRMED','OUTPUT_FLOW']],['F7',raw.outputBasis,['UNCONFIRMED','GOOD','GROSS']]].forEach(function(f){if(!f[2].includes(f[1]))issue(f[0],'Use '+f[2].join(' / ')+'.');fields.push({cell:f[0],label:({'R2':'Production unit','R3':'AEM comparison basis','R4':'UPDT definition','R5':'UPDT % denominator','R6':'Line-time basis','F7':'Output basis'})[f[0]],value:f[1],unit:''});});
+  ['F3','F4','F5','F6'].forEach(function(cell){var unit=text(value(cell.replace('F','G')))||'cases';if(unit.toUpperCase()!==raw.productionUnit&&!(unit.toUpperCase()==='COUNT'&&raw.productionUnit==='UNITS'))issue(cell.replace('F','G'),'Unit must match R2 ('+raw.productionUnit+').');});
+  raw.shiftProduction=shifts;raw.bottlesPerCase=preview.metadata.bottlesPerCase??null;
+  raw.date=raw.periodStart?raw.periodStart.slice(0,10):preview.metadata.dateOfAnalysis||'';
+  raw.name=text(value('V1'))||'Imported production period';raw.source=text(value('V2'));raw.notes=text(value('V3'));raw.status='MEASURED';
+  rows.forEach(function(row,i){
+    if(row.slice(0,5).every(missing))return;hasData=true;
+    var line=i+10,e={sourceRow:line,sourceEquipmentId:text(row[5]),name:preview.equipment.find(function(u){return u.characteristics.sourceSheetRow===line;})?.name||'',downtimeSeconds:number(row[0],'Z'+line,false),failureCount:number(row[1],'AA'+line,false),stopClass:text(row[2])||'UNKNOWN',exposureSeconds:number(row[3],'AC'+line,false),notes:text(row[4])};
+    if(e.downtimeSeconds!=null)e.downtimeSeconds*=60;if(e.exposureSeconds!=null)e.exposureSeconds*=60;
+    if(e.failureCount!=null&&!Number.isInteger(e.failureCount))issue('AA'+line,'Stop count must be an integer.');
+    if(e.exposureSeconds===0)issue('AC'+line,'Exposure must be positive.');
+    if(!['UNKNOWN','FAILURES','MINOR','ALL'].includes(e.stopClass))issue('AB'+line,'Use UNKNOWN / FAILURES / MINOR / ALL.');
+    if(e.exposureSeconds!=null&&e.downtimeSeconds!=null&&e.downtimeSeconds>e.exposureSeconds)issue('Z'+line,'Downtime exceeds the equipment exposure.');
+    raw.equipment.push(e);
+  });
+  ['V1','V2','V3'].forEach(function(cell){fields.push({cell:cell,label:cell==='V1'?'Observation name':cell==='V2'?'Source / reference':'Notes',value:text(value(cell)),unit:''});});
+  return {schema:'st-real-sheet-v1',record:raw,fields:fields,errors:errors,hasData:hasData};
+}

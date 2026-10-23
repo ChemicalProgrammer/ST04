@@ -40,7 +40,15 @@
       "rateLossSeconds": "Equivalent rate-loss seconds, or null. Not automatically a full stop.",
       "sourceSnapshot": "Optional original source text / serialized JSON. Empty when unavailable; up to 64000 characters.",
       "equipment": "Array of observations, at most one entry per equipmentId in this period.",
-      "lineTimeBasis": "UNCONFIRMED by default; OUTPUT_FLOW only after confirming the source uses final-output positive-flow time and an ideal reference speed. UPDT is full period minus effective runtime, including planned losses."
+      "lineTimeBasis": "UNCONFIRMED (default), or OUTPUT_FLOW only after confirming: run time = positive flow at final output; downtime = full period minus run time; effective runtime = final bottles / reference bottles per second; UPDT = full period minus effective runtime (includes planned losses); rate loss = run time minus effective runtime.",
+      "aem": "Optional AEM calendar fields in seconds: businessExternalDowntimeSeconds, plantAvailableSeconds, plantDecisionDowntimeSeconds, productionAvailableSeconds; basis UNCONFIRMED / CALENDAR_OUTPUT_FLOW.",
+      "periodStart": "ISO period start (optional).",
+      "periodEnd": "ISO period end (optional).",
+      "shiftProduction": "Up to 3 optional counts, in productionUnit.",
+      "outputBasis": "GOOD / GROSS / UNCONFIRMED.",
+      "reportedUpdtPercent": "Source UPDT percentage, 0–100.",
+      "updtDefinition": "UNCONFIRMED / AEM_UNPLANNED / TOTAL_EQUIVALENT_LOSS.",
+      "updtPercentDenominator": "UNCONFIRMED / TOTAL / PLANT / PRODUCTION."
     },
     "equipmentFields": {
       "equipmentId": "Required existing equipment ID. Matching uses this ID, not the display name.",
@@ -56,7 +64,8 @@
       "failureSeconds": "Total seconds of the selected stop class, or null.",
       "mtbfMinutes": "Observed MTBF in minutes, or null; compare with the configured input.",
       "mttrMinutes": "Observed MTTR in minutes, or null; compare with the configured input.",
-      "notes": "Equipment-specific observations (up to 4000 characters)."
+      "notes": "Equipment-specific observations (up to 4000 characters).",
+      "downtimeSeconds": "Observed downtime for stopClass; seconds, not the sum of line losses."
     },
     "equipmentCatalog": [
       {
@@ -90,6 +99,7 @@
       "source": "Enter the report, sheet or measurement reference",
       "notes": "Replace example labels and the 86400-second day with your observation. Unknown numeric values are null, not zero.",
       "status": "PENDING",
+      "lineTimeBasis": "UNCONFIRMED",
       "durationSeconds": 86400,
       "production": null,
       "productionUnit": "BOTTLES",
@@ -102,32 +112,51 @@
           "equipmentId": "replace-with-filler-id",
           "name": "Example filler",
           "stopClass": "UNKNOWN",
+          "notes": "",
           "exposureSeconds": null,
           "failureCount": null,
           "failureSeconds": null,
+          "downtimeSeconds": null,
           "mtbfMinutes": null,
-          "mttrMinutes": null,
-          "notes": ""
+          "mttrMinutes": null
         },
         {
           "equipmentId": "replace-with-conveyor-id",
           "name": "Example conveyor",
           "stopClass": "UNKNOWN",
+          "notes": "",
           "exposureSeconds": null,
           "failureCount": null,
           "failureSeconds": null,
+          "downtimeSeconds": null,
           "mtbfMinutes": null,
-          "mttrMinutes": null,
-          "notes": ""
+          "mttrMinutes": null
         }
       ],
+      "sourceSnapshot": "",
+      "aem": {
+        "basis": "UNCONFIRMED",
+        "businessExternalDowntimeSeconds": null,
+        "plantAvailableSeconds": null,
+        "plantDecisionDowntimeSeconds": null,
+        "productionAvailableSeconds": null
+      },
+      "outputBasis": "UNCONFIRMED",
+      "updtDefinition": "UNCONFIRMED",
+      "updtPercentDenominator": "UNCONFIRMED",
+      "periodStart": "",
+      "periodEnd": "",
+      "shiftProduction": [
+        null,
+        null,
+        null
+      ],
+      "reportedUpdtPercent": null,
       "downtimeSeconds": null,
       "runTimeSeconds": null,
       "effectiveRuntimeSeconds": null,
       "updtSeconds": null,
-      "rateLossSeconds": null,
-      "sourceSnapshot": "",
-      "lineTimeBasis": "UNCONFIRMED"
+      "rateLossSeconds": null
     }
   ]
 }

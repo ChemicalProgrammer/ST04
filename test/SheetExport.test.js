@@ -53,7 +53,7 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,1);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,25]);
+  assert.equal(writes.length,1);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,31]);
   assert.equal(values[0][2],"'=1+1");assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[8][24],'Overspeed vs infeed screw (%)');assert.equal(values[10][18],100);
   assert.equal(values[7][0],'');assert(values[7][2].startsWith('Import layout:'));assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
@@ -110,4 +110,20 @@ test('container size exports and reimports its declared unit and preserves legac
  }
  delete request.metadata.containerSize;request.metadata.containerSizeOz=12;const legacy=c.equipmentSheetData_(request.equipment,request.metadata);assert.equal(legacy.metadata[3],'12 oz');
  const out=c.parseEquipmentSheet_(legacy.metadata,legacy.rows,[],legacy.layout);assert.equal(out.metadata.containerSizeOz,12);assert.equal(out.metadata.containerSize,'12 oz');
+});
+
+
+test('exported observation cells and stable equipment IDs round-trip through the actual Preview RPC',()=>{
+ const h=runtime(),request=fixture(h.c);assert(h.c.exportEquipmentSheet(request).ok);
+ const values=h.writes[0].values;
+ assert.equal(values[0][17],'st-real-sheet-v1');assert.equal(values[8][25],'Observed downtime (min)');assert.equal(values[9][30],request.equipment[0].id);
+ assert.equal(values[0][5],'');assert.equal(values[0][9],'');assert.equal(values[0][13],'');
+ const top=()=>values.slice(0,7).map(row=>row.slice(4,23));
+ const blank=h.c.parseSheetRealData_(top(),[],values.slice(9).map(r=>r.slice(25)),{metadata:{},equipment:request.equipment});assert.equal(blank.hasData,false,'export does not fabricate observations');
+ values[0][5]='2026-10-23';values[1][5]='2026-10-24';values[5][5]=14198;values[0][9]=1440;values[0][13]=57.4;values[1][13]=35.78;values[9][25]=12;values[9][26]=4;values[9][27]='FAILURES';values[9][28]=1440;
+ const sheet={getLastRow:()=>values.length,getMaxRows:()=>100,getMaxColumns:()=>31,getSheetId:()=>1,getName:()=> 'Equipment',getRange:(r,col,count=1,width=1)=>({getValues:()=>values.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00'))})};
+ h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[sheet],getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
+ const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet:'new-sheet-id'},{email:'owner@test'});
+ assert.equal(result.realData.hasData,true);assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));assert.equal(result.realData.record.production,14198);assert.equal(result.realData.record.reportedEfficiencyPercent,57.4);assert.equal(result.realData.record.durationSeconds,86400);assert.equal(result.realData.record.equipment[0].sourceEquipmentId,request.equipment[0].id);assert.equal(result.realData.record.equipment[0].downtimeSeconds,720);
+ assert.equal(result.equipment.length,3);assert.equal(result.layout,'plant-sheet-v2');
 });

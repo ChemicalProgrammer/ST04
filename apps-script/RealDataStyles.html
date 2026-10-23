@@ -22,7 +22,7 @@
 #realdata-panel th { text-align:left; }
 #realdata-panel :is(th,td).numeric { text-align:right; font-variant-numeric:tabular-nums; }
 #real-data-comparison :is(th,td):nth-child(n+3):not(:last-child),
-#real-data-equipment :is(th,td):nth-child(n+3):nth-child(-n+7) { text-align:right; font-variant-numeric:tabular-nums; }
+#real-data-equipment :is(th,td):nth-child(n+3):nth-child(-n+8) { text-align:right; font-variant-numeric:tabular-nums; }
 #real-data-comparison :is(th,td) { padding:var(--space-3); }
 #real-data-equipment th.numeric { padding-right:calc(var(--table-cell-inline) + var(--space-3)); }
 #real-data-comparison table { min-width:950px; }
@@ -33,3 +33,4 @@
 @media(max-width:800px){#realdata-panel .real-data-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }}
 @media(max-width:520px){#realdata-panel .real-data-fields { grid-template-columns:1fr; }#realdata-panel .real-data-comparison-heading label { width:100%; min-width:0; }}
 </style>
+
