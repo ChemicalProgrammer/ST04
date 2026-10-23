@@ -229,40 +229,50 @@ window.STRealData=(function(){
     }
     evidence.append(el('p',data.conclusion,'chart-note'));
   }
-  function fillForm(record){
-    record=normalize(record);
-    const form=document.getElementById('real-data-fields');form.replaceChildren();const timeDivisor=timeUnit==='HOURS'?3600:timeUnit==='SECONDS'?1:60;
-    function field(key,label,type,options){const wrapper=el('label',label),input=el(options?'select':type==='textarea'?'textarea':'input');input.id='real-data-'+key;input.dataset.realField=key;
-      if(options)options.forEach(([value,text])=>{const o=el('option',text);o.value=value;input.append(o);});else if(type!=='textarea')input.type=type||'number';
-      if(input.type==='number'){input.min=['durationSeconds','bottlesPerCase','referenceSpeedBpm'].includes(key)?'0.000001':'0';input.step=key==='bottlesPerCase'?'1':'any';if(['reportedEfficiencyPercent','reportedUpdtPercent','qualityPercent'].includes(key))input.max='100';}
-      if(['name','source','notes'].includes(key))input.maxLength=key==='sourceSnapshot'?64000:key==='notes'?8000:key==='source'?2000:160;
-      const stored=key.startsWith('aem.')?record.aem[key.slice(4)]:record[key];input.value=stored==null?'':timeKeys.includes(key)||key.startsWith('aem.')&&key!=='aem.basis'?stored/timeDivisor:stored;wrapper.append(input);form.append(wrapper);if(key==='source'||key==='notes')wrapper.className='real-data-wide';
-      input.addEventListener('input',()=>{if(!input.checkValidity()){status('Correct the highlighted field before it can be stored.',true);return;}const draft={...current(),[key]:input.type==='number'?(input.value===''?null:Number(input.value)*(timeKeys.includes(key)||key.startsWith('aem.')&&key!=='aem.basis'?timeDivisor:1)):input.value};if(key.startsWith('aem.')){draft.aem={...current().aem,[key.slice(4)]:draft[key]};delete draft[key];}try{persist(normalize(draft));status('Observation updated. Follow the case Save / autosave status.');results();}catch(error){status(error.message,true);}});
+  function formRecord(value){
+    const r=normalize(value);
+    // Earlier observations only carried one production total. Display it without losing metadata.
+    if(value.reportedProductionCases===undefined&&value.reportedProductionUnits===undefined){
+      if(r.productionUnit==='CASES')r.reportedProductionCases=r.production;
+      if(r.productionUnit==='BOTTLES')r.reportedProductionUnits=r.production;
     }
-    field('name','Record name','text');field('date','Production date','date');field('status','Data status',null,[['PENDING','Pending confirmation'],['MEASURED','Measured'],['DERIVED','Derived from source'],['ESTIMATED','Estimated']]);field('source','Source / reference','text');
-    field('production','Production at final output');field('productionUnit','Production unit',null,[['BOTTLES','Bottles'],['CASES','Cases'],['UNITS','Native units']]);field('bottlesPerCase','Bottles per case');field('referenceSpeedBpm','Confirmed ideal reference (bottles/min)');field('reportedEfficiencyPercent','Reported AU / efficiency (%)');
-    timeKeys.forEach(key=>field(key,labels[key]+' ('+(timeUnit==='HOURS'?'h':timeUnit==='SECONDS'?'s':'min')+')'));
-    field('lineTimeBasis','Line-time comparison basis',null,[['UNCONFIRMED','Definitions pending — show estimates only'],['OUTPUT_FLOW','Confirmed: final-output flow + ideal reference; UPDT includes all losses']]);
-    field('outputBasis','Production basis',null,[['UNCONFIRMED','Unconfirmed'],['GOOD','Good output'],['GROSS','Gross output (simulation assumes no rejects)']]);
-    field('periodStart','Period start (ISO)','text');field('periodEnd','Period end (ISO)','text');
-    field('reportedUpdtPercent','Reported UPDT (%)');
-    field('updtDefinition','UPDT definition',null,[['UNCONFIRMED','Unconfirmed'],['AEM_UNPLANNED','AEM: production available − runtime'],['TOTAL_EQUIVALENT_LOSS','Total calendar − effective runtime']]);
-    field('updtPercentDenominator','UPDT percentage denominator',null,[['UNCONFIRMED','Unconfirmed'],['TOTAL','Total time'],['PLANT','Plant available'],['PRODUCTION','Production available']]);
-    field('aem.basis','AEM comparison basis',null,[['UNCONFIRMED','Definitions pending'],['CALENDAR_OUTPUT_FLOW','Confirmed: AEM calendar + final-output runtime']]);
-    aemTimeKeys.forEach(key=>field('aem.'+key,key.replace(/Seconds$/,'').replace(/([A-Z])/g,' $1')+' ('+(timeUnit==='HOURS'?'h':timeUnit==='SECONDS'?'s':'min')+')'));
-    if(record.reportedProductionCases!=null||record.reportedProductionUnits!=null){form.append(el('p','Reported production: '+format(record.reportedProductionCases)+' cases / '+format(record.reportedProductionUnits)+' units.','chart-note'));}
-    const shifts=el('p','Shift production: '+record.shiftProduction.map(v=>v==null?'—':format(v)).join(' / ')+' '+record.productionUnit.toLowerCase()+'.');shifts.className='chart-note';form.append(shifts);
-    field('qualityPercent','Observed quality (%)');field('notes','Notes / unresolved definitions','textarea');equipmentForm(record);
+    return r;
+  }
+  function fillForm(record){
+    record=formRecord(record);
+    const form=document.getElementById('real-data-fields');form.replaceChildren();
+    const fields=[['reportedEfficiencyPercent','AU (%)'],['reportedUpdtPercent','UPDT (%)'],['shiftProduction.0','Shift 1 (Cases)'],['shiftProduction.1','Shift 2 (Cases)'],['shiftProduction.2','Shift 3 (Cases)'],['reportedProductionCases','Total Production Day (Cases)'],['reportedProductionUnits','Total Production Day (Units)'],['durationSeconds','Total Time (min)'],['aem.businessExternalDowntimeSeconds','Business External Time (min)'],['aem.plantAvailableSeconds','Plant Available Time (min)'],['aem.plantDecisionDowntimeSeconds','Plant Decision Time (min)'],['aem.productionAvailableSeconds','Production Available Time (min)'],['downtimeSeconds','Downtime (min)'],['runTimeSeconds','Run Time (min)'],['rateLossSeconds','Rate Loss (min)']];
+    fields.forEach(([key,label])=>{
+      const wrapper=el('label',label),input=el('input'),parts=key.split('.'),isTime=key.endsWith('Seconds'),stored=parts.length>1?record[parts[0]][parts[1]]:record[key];
+      input.type='number';input.id='real-data-'+key;input.dataset.realField=key;input.min=key==='durationSeconds'?'0.000001':'0';input.step='any';if(key.endsWith('Percent'))input.max='100';input.value=stored==null?'':stored/(isTime?60:1);wrapper.append(input);form.append(wrapper);
+      input.oninput=()=>{
+        if(!input.checkValidity()){status('Correct the highlighted value.',true);return;}
+        const draft=formRecord(current()),previousDuration=draft.durationSeconds,value=input.value===''?null:Number(input.value)*(isTime?60:1);
+        if(parts.length>1)draft[parts[0]][parts[1]]=value;else draft[key]=value;
+        if(key==='reportedProductionCases'||key==='reportedProductionUnits'){
+          draft.production=draft.reportedProductionUnits??draft.reportedProductionCases;draft.productionUnit=draft.reportedProductionUnits!=null?'BOTTLES':'CASES';
+        }
+        if(key==='runTimeSeconds'||key==='rateLossSeconds')draft.effectiveRuntimeSeconds=draft.runTimeSeconds!=null&&draft.rateLossSeconds!=null&&draft.runTimeSeconds>=draft.rateLossSeconds?draft.runTimeSeconds-draft.rateLossSeconds:null;
+        if(key==='durationSeconds')draft.equipment.forEach(e=>{if(e.exposureSeconds==null||e.exposureSeconds===previousDuration)e.exposureSeconds=value;});
+        try{persist(normalize(draft));status('Observation updated. Follow the case Save / autosave status.');results();}catch(error){status(error.message,true);}
+      };
+    });
+    equipmentForm(record);
   }
   function equipmentForm(record){
-    const target=document.getElementById('real-data-equipment');target.replaceChildren();const table=el('table'),head=el('tr');['Equipment','Stop class','Exposure (min)','Stops','Failure time (min)','Observed downtime (min)','MTBF (min)','MTTR (min)','Notes'].forEach((t,i)=>{const th=el('th',t,i>=2&&i<=7?'numeric':'');th.scope='col';head.append(th);});const thead=el('thead');thead.append(head);table.append(thead);const tbody=el('tbody');
-    const allEquipment=(context.simulation?.equipment||[]).slice();record.equipment.filter(o=>!allEquipment.some(e=>e.id===o.equipmentId)).forEach(o=>allEquipment.push({id:o.equipmentId,name:(o.name||o.equipmentId)+' (not in simulation)'}));
-    allEquipment.forEach(e=>{const tr=el('tr');tr.append(el('th',e.name));const observed=record.equipment.find(o=>o.equipmentId===e.id)||{equipmentId:e.id,name:e.name};
-      ['stopClass','exposureSeconds','failureCount','failureSeconds','downtimeSeconds','mtbfMinutes','mttrMinutes','notes'].forEach(key=>{const td=el('td'),input=el(key==='stopClass'?'select':key==='notes'?'textarea':'input');input.setAttribute('aria-label',e.name+' '+key);input.dataset.equipmentId=e.id;input.dataset.realEquipmentField=key;
-        if(key==='stopClass')[['UNKNOWN','Unknown'],['FAILURES','Failures / repairs'],['MINOR','Minor stops'],['ALL','All stops']].forEach(([value,text])=>{const o=el('option',text);o.value=value;input.append(o);});else if(key==='notes'){input.maxLength=4000;input.rows=2;}else {input.type='number';input.min=key==='exposureSeconds'?'0.000001':'0';input.step=key==='failureCount'?'1':'any';}
-        input.value=observed[key]==null?(key==='stopClass'?'UNKNOWN':''):['exposureSeconds','failureSeconds','downtimeSeconds'].includes(key)?observed[key]/60:observed[key];td.append(input);tr.append(td);
-        input.oninput=()=>{if(!input.checkValidity()){status('Correct the equipment observation.',true);return;}const draft=JSON.parse(JSON.stringify(current())),item=draft.equipment.find(o=>o.equipmentId===e.id)||{equipmentId:e.id,name:e.name};if(!draft.equipment.includes(item))draft.equipment.push(item);item[key]=['stopClass','notes'].includes(key)?input.value:input.value===''?null:Number(input.value)*(['exposureSeconds','failureSeconds','downtimeSeconds'].includes(key)?60:1);try{persist(normalize(draft));status('Equipment observation updated.');results();}catch(error){status(error.message,true);}};
-      });tbody.append(tr);});table.append(tbody);target.append(table);
+    const target=document.getElementById('real-data-equipment');target.replaceChildren();const table=el('table'),head=el('tr');
+    ['Equipment','Downtime (min)'].forEach((text,i)=>{const th=el('th',text,i===1?'numeric':'');th.scope='col';head.append(th);});const thead=el('thead');thead.append(head);table.append(thead);const tbody=el('tbody');
+    const all=(context.simulation?.equipment||[]).slice();record.equipment.filter(o=>!all.some(e=>e.id===o.equipmentId)).forEach(o=>all.push({id:o.equipmentId,name:(o.name||o.equipmentId)+' (not in simulation)'}));
+    all.forEach(e=>{
+      const tr=el('tr'),name=el('th',e.name);name.scope='row';tr.append(name);const td=el('td',null,'numeric'),input=el('input'),observed=record.equipment.find(o=>o.equipmentId===e.id);
+      input.type='number';input.min='0';input.step='any';input.setAttribute('aria-label',e.name+' downtime (min)');input.dataset.equipmentId=e.id;input.dataset.realEquipmentField='downtimeSeconds';input.value=observed?.downtimeSeconds==null?'':observed.downtimeSeconds/60;td.append(input);tr.append(td);tbody.append(tr);
+      input.oninput=()=>{
+        if(!input.checkValidity()){status('Correct the equipment downtime.',true);return;}
+        const draft=formRecord(current()),item=draft.equipment.find(o=>o.equipmentId===e.id)||{equipmentId:e.id,name:e.name,stopClass:'UNKNOWN',exposureSeconds:draft.durationSeconds};
+        if(!draft.equipment.includes(item))draft.equipment.push(item);item.downtimeSeconds=input.value===''?null:Number(input.value)*60;
+        try{persist(normalize(draft));status('Equipment downtime updated.');results();}catch(error){status(error.message,true);}
+      };
+    });table.append(tbody);target.append(table);
   }
   function render(caseRecord,simulation,live){
     if(!state||!caseRecord)return;if(context?.caseRecord.id!==caseRecord.id||context?.simulation?.id!==simulation?.id)selection='average';context={caseRecord,simulation,live};const record=current();if(record)selected.set(caseRecord.id,record.id);
@@ -275,10 +285,9 @@ window.STRealData=(function(){
   }
   function init(currentState,callbacks){
     state=currentState;actions=callbacks;
-    document.getElementById('real-data-new').onclick=()=>{if(records().length>=MAX_RECORDS){status('Limit: '+MAX_RECORDS+' observations per case.',true);return;}const record=empty();try{persist(record);formOwner='';render(context.caseRecord,context.simulation,context.live);status('New observation created.');}catch(error){status(error.message,true);}};
+    document.getElementById('real-data-new').onclick=()=>{if(records().length>=MAX_RECORDS){status('Limit: '+MAX_RECORDS+' observations per case.',true);return;}const record=empty();record.name='Production day '+(records().length+1);record.source='Manual entry';record.status='MEASURED';record.date=state.activeCase.metadata?.dateOfAnalysis||'';record.bottlesPerCase=context.simulation?.sourceImport?.metadata?.bottlesPerCase??state.activeCase.metadata?.bottlesPerCase??null;try{persist(record);formOwner='';render(context.caseRecord,context.simulation,context.live);status('New observation created.');}catch(error){status(error.message,true);}};
     document.getElementById('real-data-record').onchange=e=>{selected.set(state.activeCase.id,e.target.value);formOwner='';render(context.caseRecord,context.simulation,context.live);status('');};
     document.getElementById('real-data-view').onchange=e=>{selection=e.target.value;results();};
-    document.getElementById('real-data-time-unit').onchange=e=>{timeUnit=e.target.value;formOwner='';render(context.caseRecord,context.simulation,context.live);};
     document.getElementById('real-data-delete').onclick=async()=>{const c=state.activeCase,r=current();if(!r)return;const answer=await STDialog.open({title:'Delete observation',message:'Delete '+r.name+'? Simulation inputs and results are retained.',buttons:[{id:'cancel',label:'Cancel'},{id:'delete',label:'Delete',destructive:true}]});if(answer.action!=='delete'||state.activeCase!==c)return;c.metadata.realData={schema:VERSION,records:records().filter(v=>v.id!==r.id)};selected.delete(c.id);actions.changed();formOwner='';render(c,context.simulation,context.live);};
     const file=document.getElementById('real-data-file');document.getElementById('real-data-import').onclick=()=>file.click();
     file.onchange=async()=>{const f=file.files?.[0],owner=state.activeCase,ticket=++revision;file.value='';if(!f)return;try{if(f.size>2*1024*1024)throw Error('Real-data JSON must be 2 MB or smaller.');const imported=importRecords(JSON.parse(await f.text()));if(state.activeCase!==owner||ticket!==revision)return;if(records().length+imported.length>MAX_RECORDS)throw Error('Too many observations.');const added=imported.map(r=>({...r,id:empty().id})),next={schema:VERSION,records:records().concat(added)};if(new Blob([JSON.stringify(next)]).size>512*1024)throw Error('Real-data records exceed 512 KB.');owner.metadata=owner.metadata||{};owner.metadata.realData=next;selected.set(owner.id,added[0].id);actions.changed();formOwner='';render(owner,context.simulation,context.live);status('Imported '+added.length+' observation(s). Review source definitions before comparing.');}catch(error){status('Import failed: '+error.message,true);}};

@@ -43,7 +43,7 @@ Effective runtime may be derived as Run Time minus Rate Loss when both are avail
 
 ## Comparison and limits
 
-Production and throughput compare using matching periods and units. The comparison retains reported values and recalculated source values separately, and flags mismatches. Runtime/UPDT/failure-based differences still require compatible definitions; optional interpretation controls remain in Real Data, not in the simple sheet. Missing standard-rate or stop-class evidence does not prevent importing and saving the observation.
+Production and throughput compare using matching periods and units. The comparison retains reported values and recalculated source values separately, and flags mismatches. Runtime/UPDT/failure-based differences still require compatible definitions; additional definitions, when present in an imported record, are preserved internally; the HTML editor does not ask for them. Missing standard-rate or stop-class evidence does not prevent importing and saving the observation.
 
 Equipment downtimes are never summed as line downtime. An unconfirmed equipment downtime is not silently relabeled as a failure. Existing AEM comparison rules and the complete optional JSON contract remain available for observations with additional evidence, but the worksheet does not require those fields.
 
@@ -54,3 +54,7 @@ Limits: 100 observations / 512 KB per case; at most 300 equipment observations p
 Update `SheetImportService.gs`, `SheetExportService.gs`, `SheetImport.html`, and `RealData.html` together, then update the deployment. This simplification builds on the previous import implementation; keep its other modules installed. Importer contract: `sheet-import-20261023-2`. No engine rebuild is required.
 
 Validation covers the supplied summary values, native percentage formatting, zero/unknown handling, simple export-to-Preview round trips, compatibility with earlier layouts, independent import, equipment matching and preservation of simulation results.
+
+## Simple HTML editor
+
+Real Data uses the same 15 production/time fields as this worksheet, all times in minutes. Its equipment table contains only Equipment and Downtime (min). Bottles per case, quality, standard speed, dates, notes, stop counts, exposure and definition selectors are not repeated as editable form fields. Existing metadata survives edits. Production totals and shifts are editable independently; effective runtime is derived from runtime minus Rate Loss. Update `RealData.html` and `RealDataPanel.html` together for this interface revision.

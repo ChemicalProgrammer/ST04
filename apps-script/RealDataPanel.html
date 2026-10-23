@@ -4,8 +4,8 @@
   <div class="real-data-toolbar"><label>Production record<select id="real-data-record" aria-label="Production record"></select></label><div class="button-row"><button id="real-data-new" type="button" class="secondary">New observation</button><button id="real-data-import" type="button" class="secondary">Import JSON</button><button id="real-data-template" type="button" class="ghost">Template</button><button id="real-data-delete" type="button" class="ghost" disabled>Delete observation</button><input id="real-data-file" type="file" accept=".json,application/json" hidden></div></div>
   <p id="real-data-status" class="chart-note" role="status" aria-live="polite"></p>
   <div id="real-data-editor" hidden>
-    <details class="real-data-observation" open><summary>Observation details</summary><label class="real-data-time-picker">Time display unit<select id="real-data-time-unit"><option value="SECONDS">Seconds</option><option value="MINUTES" selected>Minutes</option><option value="HOURS">Hours</option></select></label><div id="real-data-fields" class="real-data-fields"></div>
-    <details class="real-data-equipment-details"><summary>Equipment observations (optional)</summary><p class="chart-note">MTBF / MTTR are compared with configured inputs, not measured simulation estimates. Stop counts and durations require matching exposure and the Failures / repairs class. Minor stops are not assumed to equal all failures.</p><div id="real-data-equipment" class="table-scroll"></div></details></details>
+    <details class="real-data-observation" open><summary>Production data</summary><div id="real-data-fields" class="real-data-fields"></div>
+    <details class="real-data-equipment-details"><summary>Equipment downtime</summary><div id="real-data-equipment" class="table-scroll"></div></details></details>
   </div>
   <div class="real-data-comparison-heading"><h3>Real vs. simulated</h3><label>Simulation results view<select id="real-data-view"><option value="average">Average of all rounds</option></select></label></div>
   <ul id="real-data-warnings" class="real-data-warnings"></ul>
@@ -13,3 +13,4 @@
   <div id="real-data-comparison" class="table-scroll"></div>
   <details class="real-data-run-evidence"><summary>Run documentation and variability</summary><div id="real-data-evidence"></div></details>
 </section>
+
