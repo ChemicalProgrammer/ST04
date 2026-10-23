@@ -58,3 +58,22 @@ Validation covers the supplied summary values, native percentage formatting, zer
 ## Simple HTML editor
 
 Real Data uses the same 15 production/time fields as this worksheet, all times in minutes. Its equipment table contains only Equipment and Downtime (min). Bottles per case, quality, standard speed, dates, notes, stop counts, exposure and definition selectors are not repeated as editable form fields. Existing metadata survives edits. Production totals and shifts are editable independently; effective runtime is derived from runtime minus Rate Loss. Update `RealData.html` and `RealDataPanel.html` together for this interface revision.
+
+## Immediate comparison of simple observations
+
+The simple Real Data editor now compares its 15 displayed fields directly, without the definition selectors removed from the form. Existing manually entered values are used on the next render; no re-entry is required. Differences refresh after every edit. The screen and HTML report omit the Basis column; explanations remain in warnings, row tooltips and JSON evidence.
+
+The default simple reporting contract is explicit:
+
+- AU uses effective simulated time divided by plant available time. Effective simulated time uses the nominal reference stored with the result (saved OEE × simulated horizon), not a new measured standard speed inferred from observed production.
+- UPDT is non-running line time divided by production available time. Line downtime = production available minus positive-flow runtime at final output. Calendar stops are excluded once.
+- Rate Loss = output runtime minus effective simulated time. Negative or missing results remain unavailable.
+- Production uses base bottle/native units and the existing packing configuration for case conversion. Both reported case and unit totals are preserved.
+- Shift counts use saved per-shift results and the selected-round mean; differing shift counts do not get fabricated by dividing daily production.
+- The equipment downtime table is always rendered for all configured equipment, including rows without an entered observation. Its default downtime = equipment exposure minus time with positive output, which includes starving, blocking and planned stops. It is not a sum of overlapping state counters. Records already classified as failures or microstops keep that narrower interpretation.
+
+The default downtime comparison is descriptive. The source's equipment downtime may have a different scope; the definition above is shown in a warning. AU/UPDT discrepancies between source percentages and source time arithmetic are flagged without discarding the reported percentage. Equipment times are never summed to manufacture line downtime.
+
+Missing detail disables only the affected differences. Different reporting periods, different known packing factors and genuinely stale simulation inputs still suppress incompatible comparisons. Averaged running times and equipment downtime use all selected saved rounds, including legacy statistics-only batches when that detail is available. Old results lacking running-time detail require a new run for those specific metrics.
+
+For this revision update `RealData.html`, `RealDataPanel.html` and `RealDataStyles.html` together. Tests cover numeric differences without hidden selectors, mean/round selection, live edits, missing detail, stale/period guards, shift mismatches, and the always-visible equipment table.

@@ -79,14 +79,16 @@ window.STRealData=(function(){
     const key=k=>average?mean(rows.map(r=>r.summary?.[k])):statsOnly?result.batch.statistics[k]?.mean??null:row.summary?.[k]??null;
     const output=key('outputCount'),duration=result.durationSeconds;
     const outputRunSeconds=outputId?(average?mean(rows.map(r=>r.equipmentMetrics?.[outputId]?.runningSeconds)):statsOnly?result.batch.equipmentStatistics?.[outputId]?.runningSeconds?.mean??null:row.equipmentMetrics?.[outputId]?.runningSeconds??null):null;
-    const metrics=statsOnly?Object.fromEntries(Object.entries(result.batch.equipmentStatistics||{}).map(([id,m])=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds'].map(k=>[k,m[k]?.mean??null]))])):average?Object.fromEntries([...new Set(rows.flatMap(r=>Object.keys(r.equipmentMetrics||{})))].map(id=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds'].map(k=>[k,mean(rows.map(r=>r.equipmentMetrics?.[id]?.[k]))]))])):row.equipmentMetrics||{};
+    const metrics=statsOnly?Object.fromEntries(Object.entries(result.batch.equipmentStatistics||{}).map(([id,m])=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds','runningSeconds'].map(k=>[k,m[k]?.mean??null]))])):average?Object.fromEntries([...new Set(rows.flatMap(r=>Object.keys(r.equipmentMetrics||{})))].map(id=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds','runningSeconds'].map(k=>[k,mean(rows.map(r=>r.equipmentMetrics?.[id]?.[k]))]))])):row.equipmentMetrics||{};
     const products=average?rows.every(r=>r.products)?rows.flatMap(r=>r.products.rows||[]):null:row.products?.rows||null;
     const factors=products?[...new Set(products.map(p=>p.bottlesPerCase).filter(v=>Number.isFinite(v)&&v>0))]:[];
     const statistics=rows.length?{n:rows.length,mean:mean(rows.map(r=>r.summary?.outputCount))}:statsOnly?{...result.batch.statistics.outputCount}:null;
     if(rows.length&&statistics&&statistics.n>1&&statistics.mean!==null){statistics.standardDeviation=Math.sqrt(rows.reduce((v,r)=>v+(r.summary.outputCount-statistics.mean)**2,0)/(rows.length-1));statistics.min=Math.min(...rows.map(r=>r.summary.outputCount));statistics.max=Math.max(...rows.map(r=>r.summary.outputCount));}
-    return {output,duration,outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
+    const shiftRows=average?rows:statsOnly?[]:[row];
+    const shifts=shiftRows.length&&shiftRows.every(r=>Array.isArray(r.shifts))?Array.from({length:Math.max(0,...shiftRows.map(r=>r.shifts.length))},(_,i)=>({outputCount:mean(shiftRows.map(r=>r.shifts[i]?.outputCount)),durationSeconds:mean(shiftRows.map(r=>r.shifts[i]?.durationSeconds))})):[];
+    return {output,duration,shifts,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
   }
-  function compare(record,simulation,result,view,caseRecord){
+  function compareDetailed(record,simulation,result,view,caseRecord){
     const real=normalize(record),sim=snapshot(result,view||'average',simulation?.equipment?.at(-1)?.id),warnings=[],rows=[],equipmentRows=[];
     if(real.status==='PENDING')warnings.push('Real data are pending confirmation.');
     if(!real.date)warnings.push('The production date is not specified.');if(!real.source.trim())warnings.push('The real-data source is not specified.');
@@ -153,7 +155,77 @@ window.STRealData=(function(){
 
       [['Failure count',e.failureCount,m?.failureCount,'stops'],['Failure duration',e.failureSeconds===null?null:e.failureSeconds/60,m?.failureSeconds==null?null:m.failureSeconds/60,'min'],['MTBF input',e.mtbfMinutes,reliability.mtbfMinutes,'min'],['MTTR input',e.mttrMinutes,reliability.mttrMinutes,'min']].forEach(([metric,a,b,u],index)=>{if(a==null)return;const matching=index<2?exposure&&e.stopClass==='FAILURES':false;equipmentRows.push({equipmentId:e.equipmentId,name:target?.name||e.name||e.equipmentId,metric,unit:u,real:a,simulated:b??null,delta:matching&&!stale&&Number.isFinite(b)?b-a:null,comparable:!!matching&&!stale&&Number.isFinite(b),note:!target?'Equipment no longer present':index>=2?'Configured input; not an achieved reliability estimate':!exposure?'Observation exposure must match the simulation':e.stopClass!=='FAILURES'?'Stop class is not confirmed as failures':stale?'Stale simulation inputs':'Matched failure definition and exposure'});});
     });
-    return {schema:'st-real-comparison-v1',exportedAt:new Date().toISOString(),case:{id:caseRecord?.id,name:caseRecord?.name},simulation:{id:simulation?.id,name:simulation?.name},observation:real,run:sim,warnings,rows,equipmentRows,conclusion:'Descriptive comparison only. A close result for one day does not validate predictive accuracy.'};
+    return {schema:'st-real-comparison-v1',stale,exportedAt:new Date().toISOString(),case:{id:caseRecord?.id,name:caseRecord?.name},simulation:{id:simulation?.id,name:simulation?.name},observation:real,run:sim,warnings,rows,equipmentRows,conclusion:'Descriptive comparison only. A close result for one day does not validate predictive accuracy.'};
+  }
+  function compare(record,simulation,result,view,caseRecord,options){
+    if(!options?.simple)return compareDetailed(record,simulation,result,view,caseRecord);
+    const data=compareDetailed(record,simulation,result,view,caseRecord),real=data.observation,sim=data.run,rows=[],equipmentRows=[];
+    // The simple editor has a fixed reporting contract; no removed selectors are required.
+    data.warnings=data.warnings.filter(w=>!['Confirm the line-time basis','Reported AU / efficiency','The real-data source is not specified','The production date is not specified','Real data are pending','AEM','Shift production sum','Line-time predictions','Production units cannot be matched'].some(text=>w.includes(text)));
+    const calendar=simulation?.dynamicConfig?.plantCalendar,source=calendar?.appliedCalendar||calendar;
+    let total=sim?.duration??null,external=sim?0:null,decision=sim?0:null,plant=total,available=total;
+    if(calendar?.enabled){
+      const audit=result?.plantCalendar||result?.replay?.plantCalendar;
+      if(audit?.completePeriod&&source?.totalMinutes>0){
+        total=source.totalMinutes*60;external=(source.externalMinutes||0)*60;plant=total-external;decision=(audit.observedStopSeconds??audit.plannedStopSeconds??0)+(source.coReportingErrorMinutes||0)*60;available=plant-decision;
+      }else {
+        const excluded=(source?.externalMinutes||0)+['coReportingErrorMinutes','changeoverMinutes','cleaningMinutes','autonomousMaintenanceMinutes','plannedMaintenanceMinutes','breakMinutes','trainingMinutes','experimentationMinutes'].reduce((sum,key)=>sum+(source?.[key]||0),0);
+        if(calendar.mode!=='SCHEDULED'&&excluded===0&&source?.totalMinutes>0&&sim&&Math.abs(source.totalMinutes*60-sim.duration)<=1){total=plant=available=sim.duration;external=decision=0;}
+        else {total=external=decision=plant=available=null;data.warnings.push('Calendar comparison requires the saved full scheduled period; aggregate projections with exclusions are not treated as physical output.');}
+      }
+    }
+    const equalPeriod=Number.isFinite(total)&&real.durationSeconds!=null&&Math.abs(total-real.durationSeconds)<=1;
+    const factor=sim?.packFactor||simulation?.sourceImport?.metadata?.bottlesPerCase||caseRecord?.metadata?.bottlesPerCase||real.bottlesPerCase;
+    const declaredUnit=String(result?.unitOfFlow||result?.replay?.unitOfFlow||caseRecord?.unitOfFlow||sim?.unit||'').toUpperCase();
+    const bottlesUnit=['BOTTLES','BOTTLE','UNITS','UNIT'].includes(declaredUnit),casesUnit=['CASES','CASE'].includes(declaredUnit);
+    const bottles=sim&&bottlesUnit?sim.output:sim&&casesUnit&&factor>0?sim.output*factor:null;
+    const cases=sim&&casesUnit?sim.output:bottles!=null&&factor>0?bottles/factor:null;
+    const actualCases=real.reportedProductionCases??(real.productionUnit==='CASES'?real.production:null),actualBottles=real.reportedProductionUnits??(real.productionUnit==='BOTTLES'?real.production:null);
+    let effective=null;
+    if(sim&&Number.isFinite(sim.oee))effective=sim.duration*sim.oee/100;
+    else if(sim?.idealOutput>0&&sim.output!=null)effective=sim.duration*sim.output/sim.idealOutput;
+    else if(sim?.nominalRate>0&&sim.output!=null)effective=sim.output/sim.nominalRate;
+    const run=sim?.outputRunSeconds??null,downtime=available!=null&&run!=null?available-run:null,rateLoss=run!=null&&effective!=null?run-effective:null;
+    const ratio=(n,d)=>Number.isFinite(n)&&d>0?100*n/d:null;
+    const realPlant=real.aem.plantAvailableSeconds??(real.durationSeconds!=null&&real.aem.businessExternalDowntimeSeconds!=null?real.durationSeconds-real.aem.businessExternalDowntimeSeconds:null);
+    const realAvailable=real.aem.productionAvailableSeconds??(realPlant!=null&&real.aem.plantDecisionDowntimeSeconds!=null?realPlant-real.aem.plantDecisionDowntimeSeconds:null);
+    const realEffective=real.runTimeSeconds!=null&&real.rateLossSeconds!=null?real.runTimeSeconds-real.rateLossSeconds:real.effectiveRuntimeSeconds;
+    const matchingFactor=!(sim?.packFactor&&real.bottlesPerCase&&sim.packFactor!==real.bottlesPerCase);
+    const coherent=available!=null&&run!=null&&run>=0&&run<=available+1;
+    function add(metric,actual,predicted,unit,note,allowed=equalPeriod){
+      const valid=Number.isFinite(actual)&&Number.isFinite(predicted)&&allowed&&matchingFactor&&!data.stale;
+      rows.push({metric,unit,real:actual??null,simulated:Number.isFinite(predicted)?predicted:null,delta:valid?predicted-actual:null,relativePercent:valid&&actual!==0?100*(predicted-actual)/Math.abs(actual):null,comparable:valid,note:data.stale?'Saved simulation inputs changed':!allowed?'Different or incomplete reporting periods':note||''});
+    }
+    add('AU',real.reportedEfficiencyPercent,ratio(effective,plant),'%','Effective runtime / plant available; simulation uses its saved nominal reference.');
+    rows.at(-1).recalculated=ratio(realEffective,realPlant);
+    add('UPDT',real.reportedUpdtPercent,coherent?ratio(downtime,available):null,'%','Unplanned non-running line time / production available.');
+    rows.at(-1).recalculated=realAvailable!=null&&real.runTimeSeconds!=null?ratio(realAvailable-real.runTimeSeconds,realAvailable):null;
+    const reportedShiftCount=real.shiftProduction.reduce((n,value,i)=>value!=null?i+1:n,0),matchingShifts=sim?.shifts?.length===reportedShiftCount;
+    real.shiftProduction.forEach((value,i)=>{
+      const shift=matchingShifts?sim?.shifts?.[i]:null,count=shift?.outputCount,predicted=casesUnit?count:bottlesUnit&&factor>0&&count!=null?count/factor:null;
+      add('Shift '+(i+1),value,predicted,'cases','Uses saved shift boundaries and all selected rounds; not a division of daily production.');
+    });
+    add('Total Production Day (Cases)',actualCases,cases,'cases');add('Total Production Day (Units)',actualBottles,bottles,'units');
+    const times=[['Total Time',real.durationSeconds,total],['Business External Time',real.aem.businessExternalDowntimeSeconds,external],['Plant Available Time',real.aem.plantAvailableSeconds,plant],['Plant Decision Time',real.aem.plantDecisionDowntimeSeconds,decision],['Production Available Time',real.aem.productionAvailableSeconds,available],['Downtime',real.downtimeSeconds,coherent?downtime:null],['Run Time',real.runTimeSeconds,run],['Rate Loss',real.rateLossSeconds,rateLoss!=null&&rateLoss>=-1?Math.max(0,rateLoss):null]];
+    times.forEach(([label,a,b])=>add(label,a==null?null:a/60,b==null?null:b/60,'min',label==='Run Time'?'Time with positive flow at final output.':''));
+    for(const row of rows){
+      if(row.recalculated!=null&&row.real!=null&&Math.abs(row.real-row.recalculated)>.05)data.warnings.push(row.metric+' reported percentage differs from the supplied time breakdown; source value retained.');
+    }
+    if(sim&&run==null)data.warnings.push('Saved results lack output running time. Run the simulation again for line downtime/runtime.');
+    if(sim&&effective==null)data.warnings.push('Saved results lack their nominal reference for AU / rate loss. Run the simulation again.');
+    if(real.shiftProduction.some(v=>v!=null)&&!sim?.shifts?.length)data.warnings.push('Saved results have no shift breakdown; daily output is still compared.');
+    if(reportedShiftCount&&sim?.shifts?.length&&!matchingShifts)data.warnings.push('Saved shift boundaries do not match the reported shift count; daily output is still compared.');
+    if(actualCases!=null&&real.shiftProduction.length===3&&real.shiftProduction.every(Number.isFinite)&&Math.abs(real.shiftProduction.reduce((a,b)=>a+b,0)-actualCases)>.001)data.warnings.push('Shift production sum differs from reported cases.');
+    const equipment=(simulation?.equipment||[]).slice();real.equipment.forEach(e=>{if(!equipment.some(u=>u.id===e.equipmentId))equipment.push({id:e.equipmentId,name:e.name||e.equipmentId,unmatched:true});});
+    equipment.forEach(e=>{
+      const observed=real.equipment.find(o=>o.equipmentId===e.id),m=sim?.equipment[e.id],known=observed?.stopClass,exposure=observed?.exposureSeconds??real.durationSeconds;
+      let seconds=known==='FAILURES'?m?.failureSeconds:known==='MINOR'?m?.microStopSeconds:Number.isFinite(m?.runningSeconds)&&sim?sim.duration-m.runningSeconds:null;
+      if(seconds!=null&&(seconds<-.001||seconds>sim.duration+.001))seconds=null;
+      const actual=observed?.downtimeSeconds??(known==='FAILURES'?observed?.failureSeconds:null),valid=Number.isFinite(actual)&&Number.isFinite(seconds)&&!e.unmatched&&!data.stale&&equalPeriod&&sim&&Math.abs(exposure-sim.duration)<=1;
+      equipmentRows.push({equipmentId:e.id,name:e.name,metric:'Downtime',unit:'min',real:actual==null?null:actual/60,simulated:seconds==null?null:Math.max(0,seconds)/60,delta:valid?(seconds-actual)/60:null,relativePercent:valid&&actual!==0?100*(seconds-actual)/actual:null,comparable:!!valid,note:known==='FAILURES'?'Failure/repair time':known==='MINOR'?'Microstop time':'Reporting period minus positive-flow time for this equipment; overlapping equipment stops are not summed.'});
+    });
+    data.warnings.push('AU uses the saved simulation nominal reference. Line downtime excludes calendar stops; equipment downtime includes all time without positive output unless the source already declares a failure/microstop class.');
+    data.rows=rows;data.equipmentRows=equipmentRows;return data;
   }
   function addAemRows(real,sim,simulation,result,effective,run,sameFormat,stale,add,rows,warnings){
     const a=real.aem,hasAem=aemTimeKeys.some(k=>a[k]!=null)||a.basis!=='UNCONFIRMED'||real.reportedUpdtPercent!=null||real.updtDefinition!=='UNCONFIRMED';
@@ -205,21 +277,21 @@ window.STRealData=(function(){
   function escape(v){return String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function format(v){return Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function reportHtml(data){
-    const tables=(rows,equipment)=>'<table><thead><tr>'+[equipment?'Equipment / metric':'Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real','Basis'].map((t,i)=>'<th scope="col"'+(i>=2&&i<=6?' class="numeric"':'')+'>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[equipment?r.name+' / '+r.metric:r.metric,r.unit,format(r.real),format(r.simulated),format(r.delta),format(r.relativePercent),format(r.recalculated),r.note].map((t,i)=>'<td'+(i>=2&&i<=6?' class="numeric"':'')+'>'+escape(t)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+    const tables=(rows,equipment)=>'<table><thead><tr>'+[equipment?'Equipment / metric':'Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real'].map((t,i)=>'<th scope="col"'+(i>=2&&i<=6?' class="numeric"':'')+'>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[equipment?r.name+' / '+r.metric:r.metric,r.unit,format(r.real),format(r.simulated),format(r.delta),format(r.relativePercent),format(r.recalculated)].map((t,i)=>'<td'+(i>=2&&i<=6?' class="numeric"':'')+'>'+escape(t)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
     const evidence={...data.run};delete evidence.equipment;
     return '<!doctype html><html lang="en"><meta charset="utf-8"><title>Real vs. simulated</title><style>body{font:14px system-ui;max-width:1100px;margin:32px auto;padding:20px;color:#213547}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #ccd5dd;padding:8px;text-align:left}th{background:#eef4f7}.numeric{text-align:right;font-variant-numeric:tabular-nums}pre{white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{margin:0}tr{break-inside:avoid}}</style><h1>Real vs. simulated</h1><p>'+escape(data.case.name)+' / '+escape(data.simulation.name)+' / '+escape(data.observation.name)+'</p><p>Production date: '+escape(data.observation.date||'Not specified')+' | Source: '+escape(data.observation.source||'Not specified')+' | Status: '+escape(data.observation.status)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul>'+tables(data.rows,false)+tables(data.equipmentRows,true)+'<h2>Run evidence</h2><pre>'+escape(JSON.stringify(evidence,null,2))+'</pre><h2>Observation and notes</h2><pre>'+escape(JSON.stringify(data.observation,null,2))+'</pre><p>'+escape(data.conclusion)+'</p><p>Exported: '+escape(data.exportedAt)+'</p></html>';
   }
-  function getComparison(){const record=current();return record?compare(record,context.simulation,sourceResult(context.simulation,context.live),selection,context.caseRecord):null;}
+  function getComparison(){const record=current();return record?compare(record,context.simulation,sourceResult(context.simulation,context.live),selection,context.caseRecord,{simple:true}):null;}
   function table(target,rows,equipment){
-    target.replaceChildren();const t=el('table'),thead=el('thead'),head=el('tr');(equipment?['Equipment / metric','Unit','Real','Simulated','Difference','Basis']:['Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real','Basis']).forEach((v,i)=>{const th=el('th',v,i>=2&&i<(equipment?5:7)?'numeric':'');th.scope='col';head.append(th);});thead.append(head);t.append(thead);const body=el('tbody');
-    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name+' / '+row.metric:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',row.comparable?format(row.delta):'Not comparable'];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));values.push(row.note);values.forEach((v,i)=>tr.append(el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'')));body.append(tr);});t.append(body);target.append(t);
+    target.replaceChildren();const t=el('table'),thead=el('thead'),head=el('tr');(equipment?['Equipment','Unit','Real','Simulated','Difference']:['Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real']).forEach((v,i)=>{const th=el('th',v,i>=2&&i<(equipment?5:7)?'numeric':'');th.scope='col';head.append(th);});thead.append(head);t.append(thead);const body=el('tbody');
+    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',row.comparable?format(row.delta):'—'];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));tr.title=row.note||'';values.forEach((v,i)=>tr.append(el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'')));body.append(tr);});t.append(body);target.append(t);
   }
   function results(){
     const data=getComparison(),target=document.getElementById('real-data-comparison'),warnings=document.getElementById('real-data-warnings'),evidence=document.getElementById('real-data-evidence');
     target.replaceChildren();warnings.replaceChildren();evidence.replaceChildren();['real-data-export-json','real-data-export-html'].forEach(id=>document.getElementById(id).disabled=!data);
-    if(!data){target.append(el('p','Add or import an observation to start.','empty'));return;}
+    if(!data){document.getElementById('real-data-downtime-comparison').replaceChildren();target.append(el('p','Add or import an observation to start.','empty'));return;}
     data.warnings.forEach(w=>warnings.append(el('li',w)));table(target,data.rows,false);
-    if(data.equipmentRows.length){target.append(el('h3','Equipment comparison'));const host=el('div',null,'table-scroll');target.append(host);table(host,data.equipmentRows,true);}
+    const equipmentTarget=document.getElementById('real-data-downtime-comparison');equipmentTarget.replaceChildren();table(equipmentTarget,data.equipmentRows,true);
     const sim=data.run;if(sim){
       const stats=sim.statistics;evidence.append(el('p',sim.view+' · '+sim.engine+' · '+format(sim.duration/3600)+' h · seed '+sim.seed));
       if(stats?.n>1)evidence.append(el('p','Batch production: n = '+stats.n+' · mean '+format(stats.mean)+' · sample SD '+format(stats.standardDeviation)+' · min '+format(stats.min)+' · max '+format(stats.max)+' '+sim.unit.toLowerCase()));

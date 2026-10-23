@@ -21,13 +21,15 @@
 #realdata-panel :is(td,th) { white-space:normal; vertical-align:middle; }
 #realdata-panel th { text-align:left; }
 #realdata-panel :is(th,td).numeric { text-align:right; font-variant-numeric:tabular-nums; }
-#real-data-comparison :is(th,td):nth-child(n+3):not(:last-child),
+#real-data-comparison :is(th,td):nth-child(n+3),
 #real-data-equipment :is(th,td):nth-child(n+3):nth-child(-n+8) { text-align:right; font-variant-numeric:tabular-nums; }
 #real-data-comparison :is(th,td) { padding:var(--space-3); }
 #real-data-equipment th.numeric { padding-right:calc(var(--table-cell-inline) + var(--space-3)); }
 #real-data-comparison table { min-width:950px; }
 #real-data-comparison .numeric { white-space:nowrap; }
-#real-data-comparison td:last-child { min-width:280px; }
+#real-data-downtime-comparison table { width:100%; }
+#real-data-downtime-comparison :is(th,td) { padding:var(--space-3); }
+#real-data-downtime-comparison .numeric { text-align:right; white-space:nowrap; }
 #realdata-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--font-secondary); }
 #realdata-panel .real-data-run-evidence p { margin-top:var(--space-3); }
 @media(max-width:800px){#realdata-panel .real-data-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }}
