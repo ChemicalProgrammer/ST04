@@ -48,7 +48,9 @@
       "outputBasis": "GOOD / GROSS / UNCONFIRMED.",
       "reportedUpdtPercent": "Source UPDT percentage, 0–100.",
       "updtDefinition": "UNCONFIRMED / AEM_UNPLANNED / TOTAL_EQUIVALENT_LOSS.",
-      "updtPercentDenominator": "UNCONFIRMED / TOTAL / PLANT / PRODUCTION."
+      "updtPercentDenominator": "UNCONFIRMED / TOTAL / PLANT / PRODUCTION.",
+      "reportedProductionCases": "Source total production in cases (optional).",
+      "reportedProductionUnits": "Source total production in base bottle units (optional)."
     },
     "equipmentFields": {
       "equipmentId": "Required existing equipment ID. Matching uses this ID, not the display name.",
@@ -151,6 +153,8 @@
         null,
         null
       ],
+      "reportedProductionCases": null,
+      "reportedProductionUnits": null,
       "reportedUpdtPercent": null,
       "downtimeSeconds": null,
       "runTimeSeconds": null,

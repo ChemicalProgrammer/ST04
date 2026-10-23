@@ -81,3 +81,7 @@ El pie del diálogo muestra el requisito pendiente junto a los botones, incluso 
 ## Datos de producción y tiempos para Real Data (2026-10-23)
 
 La exportación agrega celdas superiores editables y columnas Z:AE de observaciones, manteniendo A:Y, C1:C7 y el inicio de equipos en fila 10. El bloque opcional se reconoce por `R1 = st-real-sheet-v1`. Import Sheet permite crear/actualizar una observación o importar únicamente Real Data, conservando parámetros, eventos y resultados simulados. [Mapa completo de celdas, unidades y uso](SHEET_REAL_DATA_IMPORT.md).
+
+### Formato simple de observaciones
+
+La hoja exportada usa ahora únicamente F1:F7 (AU, UPDT, turnos y producción), J1:J7 (tiempos), N1 (Rate Loss) y Z (downtime por equipo). AA contiene el ID automático y se oculta. Se retiraron los campos adicionales de captura; el bloque anterior de observaciones sigue siendo importable. [Mapa vigente](SHEET_REAL_DATA_IMPORT.md).

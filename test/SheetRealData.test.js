@@ -69,7 +69,7 @@ test('browser preview imports only Real Data, rejects bad optional cells, and ca
   w.eval(fs.readFileSync('apps-script/TextResources.gs','utf8'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
   for(const p of ['Icons.html','RealData.html','SheetImportMerge.html','SheetImport.html'])w.eval(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''));
   w.SimulatorEngine={normalizeFormatCatalog:()=>({products:[],formats:[]}),validateSimulationInput:()=>({ok:true})};w.STSheetCorrections={render(){}};w.STDialog={beginActivity(){return ()=>{};}};w.STErrors={capture(){}};
-  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:plain(f.preview),importVersion:'sheet-import-20261023-1'});}}}};
+  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:plain(f.preview),importVersion:'sheet-import-20261023-2'});}}}};
   const state={activeCase:{id:'case'},activeSimulationId:'s',requestEpoch:1},snapshot={equipment:[plain(f.unit)],sourceImport:{},metadata:{realData:{schema:'st-real-data-v1',records:[{id:'old',name:'Previous observation'}]}}};let applied;
   w.STSheetImport(state,{capture:()=>snapshot,apply:r=>{applied=r;return true;}}).init();d.getElementById('open-sheet-import').click();d.getElementById('sheet-import-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   assert(d.getElementById('sheet-real-data'));assert.match(d.getElementById('sheet-real-data').textContent,/57.4/);
@@ -89,4 +89,14 @@ test('actual case Apply handler retains saved simulation results and events for 
  const client={state,result,activePersistentSimulation:()=>sim,cloneJson:plain,syncPersistentSimulation:()=>true,STRealData:{selectRecord(){}},renderEditor(){},shell:{sync(){}},autosave:{change(){}},setStatus(){},__ST_TEXT__:x=>x};vm.createContext(client);
  const source=fs.readFileSync('apps-script/ClientCases.html','utf8'),start=source.indexOf('    function applySheetImport(result)'),end=source.indexOf('    function addEquipment()',start);vm.runInContext(source.slice(start,end)+';applySheetImport(result);',client);
  assert.equal(sim.results,saved);assert.equal(sim.dynamicConfig.events,events);assert.equal(caseRecord.metadata.realData.records[0].production,14198);assert.equal(state.isDirty,true);
+});
+
+test('simple worksheet imports only the supplied summary and downtime; blank fields remain unknown',()=>{
+ const c=runtime(),top=Array.from({length:7},()=>Array(10).fill('')),formats=top.map(r=>r.map(()=>'')),preview={metadata:{bottlesPerCase:12,dateOfAnalysis:'2026-10-23'},equipment:[{name:'Filler',characteristics:{sourceSheetRow:10}}]};
+ top[0][1]=.574;formats[0][1]='0.00%';top[1][1]='35.78%';top[5][1]=14198;top[6][1]=170376;top[0][5]=1440;top[1][5]=0;top[6][5]=928;top[0][9]=153;
+ const parsed=c.parseSimpleSheetRealData_(top,formats,[[0,'filler']],preview),r=parsed.record;
+ assert.equal(parsed.errors.length,0);assert.equal(r.reportedEfficiencyPercent,57.4);assert.equal(r.reportedUpdtPercent,35.78);assert.equal(r.aem.businessExternalDowntimeSeconds,0);assert.equal(r.aem.plantDecisionDowntimeSeconds,null);assert.equal(r.equipment[0].downtimeSeconds,0);assert.equal(r.effectiveRuntimeSeconds,775*60);assert.equal(r.referenceSpeedBpm,undefined);assert.equal(r.qualityPercent,undefined);assert.equal(r.equipment[0].failureCount,null);assert.equal(r.updtSeconds,undefined);
+ const normalized=c.window.STRealData.normalize({...r,equipment:[{equipmentId:'filler',downtimeSeconds:0}]});assert.equal(normalized.reportedProductionCases,14198);assert.equal(normalized.reportedProductionUnits,170376);
+ top[6][1]='';const cases=c.parseSimpleSheetRealData_(top,formats,[],preview).record;assert.equal(cases.production,14198);assert.equal(cases.productionUnit,'CASES');
+ top[0][5]='bad';assert(c.parseSimpleSheetRealData_(top,formats,[],preview).errors.some(e=>e.cell==='J1'));
 });

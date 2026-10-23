@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261023-1';}
+function sheetImportContractVersion_(){return 'sheet-import-20261023-2';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -90,6 +90,9 @@ function previewSheetImport_(request, user) {
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),readAt:new Date().toISOString(),equipmentRange:'A10:'+lastColumn+(count?count+9:10)};
   if (sheet.getMaxColumns() >= 31 && sheet.getRange(1,18).getValues()[0][0] === 'st-real-sheet-v1') {
     result.realData = parseSheetRealData_(sheet.getRange(1,5,7,19).getValues(),sheet.getRange(1,5,7,19).getNumberFormats(),count?sheet.getRange(10,26,count,6).getValues():[],result);
+  }
+  if(sheet.getMaxColumns()>=26&&sheet.getRange(1,5).getValues()[0][0]==='AU (%)'&&sheet.getRange(9,26).getValues()[0][0]==='Observed downtime (min)'){
+    result.realData=parseSimpleSheetRealData_(sheet.getRange(1,5,7,10).getValues(),sheet.getRange(1,5,7,10).getNumberFormats(),count?sheet.getRange(10,26,count,sheet.getMaxColumns()>=27?2:1).getValues():[],result);
   }
   return result;
 }
@@ -285,4 +288,44 @@ function parseSheetRealData_(top,formats,rows,preview){
   });
   ['V1','V2','V3'].forEach(function(cell){fields.push({cell:cell,label:cell==='V1'?'Observation name':cell==='V2'?'Source / reference':'Notes',value:text(value(cell)),unit:''});});
   return {schema:'st-real-sheet-v1',record:raw,fields:fields,errors:errors,hasData:hasData};
+}
+
+// Only the reported production summary and one equipment downtime column.
+function simpleSheetRealDataFields_(){
+  return [
+    ['F1','reportedEfficiencyPercent','AU (%)','percent'],['F2','reportedUpdtPercent','UPDT (%)','percent'],
+    ['F3','shift1','Shift 1 (Cases)','number'],['F4','shift2','Shift 2 (Cases)','number'],['F5','shift3','Shift 3 (Cases)','number'],
+    ['F6','reportedProductionCases','Total Production Day (Cases)','number'],['F7','reportedProductionUnits','Total Production Day (Units)','number'],
+    ['J1','durationSeconds','Total Time (min)','time'],['J2','businessExternalDowntimeSeconds','Business External Time (min)','time'],
+    ['J3','plantAvailableSeconds','Plant Available Time (min)','time'],['J4','plantDecisionDowntimeSeconds','Plant Decision Time (min)','time'],
+    ['J5','productionAvailableSeconds','Production Available Time (min)','time'],['J6','downtimeSeconds','Downtime (min)','time'],['J7','runTimeSeconds','Run Time (min)','time'],
+    ['N1','rateLossSeconds','Rate Loss (min)','time']
+  ].map(function(f){return {cell:f[0],key:f[1],label:f[2],type:f[3],unit:f[3]==='percent'?'%':f[3]==='time'?'min':f[1]==='reportedProductionUnits'?'units':'cases'};});
+}
+function parseSimpleSheetRealData_(top,formats,rows,preview){
+  var raw={name:'Production day',date:preview.metadata.dateOfAnalysis||'',status:'MEASURED',aem:{basis:'UNCONFIRMED'},equipment:[],shiftProduction:[null,null,null],productionUnit:'BOTTLES',lineTimeBasis:'UNCONFIRMED',outputBasis:'UNCONFIRMED',updtDefinition:'UNCONFIRMED',updtPercentDenominator:'UNCONFIRMED',bottlesPerCase:preview.metadata.bottlesPerCase??null},fields=[],errors=[],hasData=false;
+  function missing(v){return v==null||typeof v==='string'&&(!v.trim()||/^(NA|N\/A)$/i.test(v.trim()));}
+  function numeric(v,cell,percent,format){
+    if(missing(v))return null;hasData=true;
+    var explicit=typeof v==='string'&&/%$/.test(v.trim());
+    if(typeof v!=='number'&&(typeof v!=='string'||!/^\+?(?:\d+(?:\.\d*)?|\.\d+)\s*%?$/.test(v.trim()))||explicit&&!percent){errors.push({cell:cell,message:'Enter a non-negative number or leave blank.'});return null;}
+    var n=Number(typeof v==='string'?v.trim().replace(/%$/,''):v);
+    if(percent&&!explicit&&typeof v==='number'&&/%/.test(String(format||'').replace(/"[^"]*"|\\./g,'')))n*=100;
+    if(!Number.isFinite(n)||n<0||percent&&n>100){errors.push({cell:cell,message:percent?'Enter 0–100%.':'Enter a non-negative number.'});return null;}return n;
+  }
+  simpleSheetRealDataFields_().forEach(function(f){
+    var r=Number(f.cell.slice(1))-1,c=f.cell.charCodeAt(0)-69,input=top[r]?.[c],n=numeric(input,f.cell,f.type==='percent',formats[r]?.[c]);
+    fields.push(Object.assign({},f,{value:n,sourceValue:missing(input)?null:String(input)}));
+    if(f.type==='time'&&n!=null)n*=60;
+    if(/^shift/.test(f.key))raw.shiftProduction[Number(f.key.slice(-1))-1]=n;
+    else if(['businessExternalDowntimeSeconds','plantAvailableSeconds','plantDecisionDowntimeSeconds','productionAvailableSeconds'].includes(f.key))raw.aem[f.key]=n;
+    else raw[f.key]=n;
+  });
+  if(raw.durationSeconds===0)errors.push({cell:'J1',message:'Total Time must be positive.'});
+  raw.production=raw.reportedProductionUnits;
+  if(raw.production==null){raw.production=raw.reportedProductionCases;raw.productionUnit='CASES';}
+  // This identity uses only the supplied time components; source AU is kept separately.
+  raw.effectiveRuntimeSeconds=raw.runTimeSeconds!=null&&raw.rateLossSeconds!=null&&raw.runTimeSeconds>=raw.rateLossSeconds?raw.runTimeSeconds-raw.rateLossSeconds:null;
+  rows.forEach(function(row,i){var n=numeric(row[0],'Z'+(i+10),false);if(n==null)return;raw.equipment.push({sourceRow:i+10,sourceEquipmentId:missing(row[1])?'':String(row[1]),name:preview.equipment.find(function(u){return u.characteristics.sourceSheetRow===i+10;})?.name||'',downtimeSeconds:n*60,failureCount:null,stopClass:'UNKNOWN',exposureSeconds:raw.durationSeconds,notes:''});});
+  return {schema:'st-real-sheet-simple-v1',record:raw,fields:fields,errors:errors,hasData:hasData};
 }

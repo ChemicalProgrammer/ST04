@@ -89,8 +89,8 @@ test('RPC preserves Google errors and identifies the responding importer',()=>{
  const r=runtime({SpreadsheetApp:{openById:()=>{throw Error('Sheets service unavailable');}},DriveApp:{getFileById:()=>{throw Error('Drive access denied');}}});
  r.requireCurrentUser_=()=>({email:'owner@test'});r.getCase_=()=>({});
  const response=r.previewSheetImport({caseId:'mine',spreadsheet:'synthetic-sheet-id'});
- assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20261023-1');
- assert.match(response.error.message,/sheet-import-20261023-1.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
+ assert.equal(response.ok,false);assert.equal(response.importVersion,'sheet-import-20261023-2');
+ assert.match(response.error.message,/sheet-import-20261023-2.*SHEET_OPEN_FAILED.*Sheets service unavailable/);
  assert.match(response.error.details[0],/Drive access denied/);
  r.previewSheetImport_=()=>{throw Error('Failed while reading cells');};
  assert.match(r.previewSheetImport({}).error.message,/SHEET_READ_FAILED.*Failed while reading cells/);

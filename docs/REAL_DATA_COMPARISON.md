@@ -62,3 +62,7 @@ Import Sheet now supports the optional `st-real-sheet-v1` observation block emit
 Additional record fields: `periodStart`, `periodEnd` (ISO dates/timestamps), `shiftProduction` (up to three optional counts), `outputBasis` (UNCONFIRMED / GOOD / GROSS), `reportedUpdtPercent`, `updtDefinition` (UNCONFIRMED / AEM_UNPLANNED / TOTAL_EQUIVALENT_LOSS), `updtPercentDenominator` (UNCONFIRMED / TOTAL / PLANT / PRODUCTION), and `aem` containing `basis` plus `businessExternalDowntimeSeconds`, `plantAvailableSeconds`, `plantDecisionDowntimeSeconds`, `productionAvailableSeconds`. Equipment observations additionally accept `downtimeSeconds` for their declared stop class. All are included in the JSON template and exports.
 
 The prior OUTPUT_FLOW UPDT definition remains for historical observations; AEM_UNPLANNED observations explicitly disable that old equivalent-loss pairing. AEM comparisons are separate, with confirmed definitions, an explicit percentage denominator and a recalculated source column. Runtime means positive flow at final output only when that basis has been confirmed.
+
+### Simple worksheet revision
+
+The Google Sheets export now asks only for AU, UPDT, three shift counts, case/unit production totals, the seven line times, Rate Loss and one equipment downtime column. `reportedProductionCases` and `reportedProductionUnits` retain both source totals. Extra measurement and definition inputs were removed from the sheet; see the [current cell map](SHEET_REAL_DATA_IMPORT.md). The previous extended observation format remains importable.

@@ -53,7 +53,7 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,1);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,31]);
+  assert.equal(writes.length,1);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,27]);
   assert.equal(values[0][2],"'=1+1");assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[8][24],'Overspeed vs infeed screw (%)');assert.equal(values[10][18],100);
   assert.equal(values[7][0],'');assert(values[7][2].startsWith('Import layout:'));assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
@@ -113,17 +113,18 @@ test('container size exports and reimports its declared unit and preserves legac
 });
 
 
-test('exported observation cells and stable equipment IDs round-trip through the actual Preview RPC',()=>{
+test('simple exported observation cells round-trip through Preview without extra inputs',()=>{
  const h=runtime(),request=fixture(h.c);assert(h.c.exportEquipmentSheet(request).ok);
  const values=h.writes[0].values;
- assert.equal(values[0][17],'st-real-sheet-v1');assert.equal(values[8][25],'Observed downtime (min)');assert.equal(values[9][30],request.equipment[0].id);
- assert.equal(values[0][5],'');assert.equal(values[0][9],'');assert.equal(values[0][13],'');
- const top=()=>values.slice(0,7).map(row=>row.slice(4,23));
- const blank=h.c.parseSheetRealData_(top(),[],values.slice(9).map(r=>r.slice(25)),{metadata:{},equipment:request.equipment});assert.equal(blank.hasData,false,'export does not fabricate observations');
- values[0][5]='2026-10-23';values[1][5]='2026-10-24';values[5][5]=14198;values[0][9]=1440;values[0][13]=57.4;values[1][13]=35.78;values[9][25]=12;values[9][26]=4;values[9][27]='FAILURES';values[9][28]=1440;
- const sheet={getLastRow:()=>values.length,getMaxRows:()=>100,getMaxColumns:()=>31,getSheetId:()=>1,getName:()=> 'Equipment',getRange:(r,col,count=1,width=1)=>({getValues:()=>values.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00'))})};
+ assert.equal(values[0][4],'AU (%)');assert.equal(values[8][25],'Observed downtime (min)');assert.equal(values[9][26],request.equipment[0].id);assert.equal(values[0][17],'');
+ const top=()=>values.slice(0,7).map(row=>row.slice(4,14));
+ assert.equal(h.c.parseSimpleSheetRealData_(top(),[],values.slice(9).map(r=>r.slice(25)),{metadata:{},equipment:request.equipment}).hasData,false);
+ values[0][5]=57.4;values[1][5]=35.78;values[2][5]=6720;values[3][5]=4538;values[4][5]=2940;values[5][5]=14198;values[6][5]=170376;
+ [1440,0,1440,0,1440,512,928].forEach((v,i)=>values[i][9]=v);values[0][13]=153;values[9][25]=12;
+ const sheet={getLastRow:()=>values.length,getMaxRows:()=>100,getMaxColumns:()=>27,getSheetId:()=>1,getName:()=> 'Equipment',getRange:(r,col,count=1,width=1)=>({getValues:()=>values.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00'))})};
  h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[sheet],getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
- const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet:'new-sheet-id'},{email:'owner@test'});
- assert.equal(result.realData.hasData,true);assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));assert.equal(result.realData.record.production,14198);assert.equal(result.realData.record.reportedEfficiencyPercent,57.4);assert.equal(result.realData.record.durationSeconds,86400);assert.equal(result.realData.record.equipment[0].sourceEquipmentId,request.equipment[0].id);assert.equal(result.realData.record.equipment[0].downtimeSeconds,720);
+ const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet:'new-sheet-id'},{email:'owner@test'}),r=result.realData.record;
+ assert.equal(result.realData.errors.length,0);assert.equal(result.realData.schema,'st-real-sheet-simple-v1');assert.equal(r.production,170376);assert.equal(r.reportedProductionCases,14198);assert.equal(r.reportedEfficiencyPercent,57.4);assert.equal(r.durationSeconds,86400);assert.equal(r.effectiveRuntimeSeconds,775*60);assert.equal(r.equipment[0].sourceEquipmentId,request.equipment[0].id);assert.equal(r.equipment[0].downtimeSeconds,720);assert.equal(r.equipment[0].failureCount,null);assert.equal(r.equipment[0].stopClass,'UNKNOWN');
  assert.equal(result.equipment.length,3);assert.equal(result.layout,'plant-sheet-v2');
+ assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===27));
 });

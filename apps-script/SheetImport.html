@@ -1,7 +1,7 @@
 <script>
 window.STSheetImport=function(state,actions){
   var preview=null,plan=null,snapshot=null,sequence=0,context=null,lastFocus,packingDraft=null,inheritedTab=null,observationDraft=null;
-  var merge=STSheetImportMerge,importVersion='sheet-import-20261023-1';
+  var merge=STSheetImportMerge,importVersion='sheet-import-20261023-2';
   function el(id){return document.getElementById(id);}
   function validContext(){return context&&state.activeCase?.id===context.caseId&&state.activeSimulationId===context.simulationId&&state.requestEpoch===context.epoch;}
   function clear(){preview=null;plan=null;packingDraft=null;observationDraft=null;el('sheet-import-readiness')?.setAttribute('hidden','');el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}
@@ -32,7 +32,7 @@ window.STSheetImport=function(state,actions){
     var destinationLabel=node('label','Observation destination'),destination=document.createElement('select');destination.id='sheet-real-destination';destination.add(new Option('Create a new observation',''));
     (snapshot.metadata?.realData?.records||[]).forEach(function(r){destination.add(new Option('Update '+r.name+(r.date?' · '+r.date:''),r.id));});destination.value=observationDraft.recordId;destination.onchange=function(){observationDraft.recordId=destination.value;el('sheet-import-ack').checked=false;refresh();};destinationLabel.append(destination);section.append(destinationLabel);
     var scroll=node('div','');scroll.className='table-scroll';var table=node('table',''),head=node('tr','');['Source cell','Observation field','Value','Unit'].forEach(function(t){var th=node('th',t);th.scope='col';head.append(th);});var thead=node('thead','');thead.append(head);table.append(thead);var tbody=node('tbody','');data.fields.forEach(function(f){var row=node('tr','');[f.cell,f.label,f.value??'Unknown',f.unit].forEach(function(t){row.append(node('td',t));});tbody.append(row);});table.append(tbody);scroll.append(table);section.append(scroll);
-    data.record.equipment.forEach(function(e){var label=node('label','Z'+e.sourceRow+' / AA'+e.sourceRow+' / AB'+e.sourceRow+' / AC'+e.sourceRow+' · '+e.name+' · downtime '+(e.downtimeSeconds==null?'unknown':e.downtimeSeconds/60+' min')+' · '+e.stopClass+' · exposure '+(e.exposureSeconds==null?'unknown':e.exposureSeconds/60+' min')+' · stops '+(e.failureCount??'unknown'));
+    data.record.equipment.forEach(function(e){var label=node('label','Z'+e.sourceRow+' · '+e.name+' · downtime '+(e.downtimeSeconds==null?'unknown':e.downtimeSeconds/60+' min')+(data.schema==='st-real-sheet-simple-v1'?'':' · '+e.stopClass+' · exposure '+(e.exposureSeconds==null?'unknown':e.exposureSeconds/60+' min')+' · stops '+(e.failureCount??'unknown')));
       var select=document.createElement('select');select.dataset.observationRow=e.sourceRow;
       [['','Select equipment'],['skip','Skip observation'],['new','Use equipment added from this row']].concat(snapshot.equipment.map(function(u){return [u.id,u.name+' ('+u.id+')'];})).forEach(function(o){select.add(new Option(o[1],o[0]));});
       select.value=observationDraft.targets[e.sourceRow]||'';select.onchange=function(){observationDraft.targets[e.sourceRow]=select.value;el('sheet-import-ack').checked=false;refresh();};label.append(select);section.append(label);if(e.notes)section.append(node('p','AD'+e.sourceRow+' · '+e.notes));
