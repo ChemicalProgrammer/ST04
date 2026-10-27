@@ -69,7 +69,7 @@ Estas identidades usan razones entre 0 y 1. Con tiempos coherentes, AE ≤ AU �
 
 ## 4. Relación con OEE
 
-La referencia describe OEE como producción conforme a velocidad de diseño durante el tiempo programado para operar, excluyendo paradas externas y decisiones de planta. AEM amplía el análisis al calendario completo y a la capacidad no utilizada por causas de negocio.
+La referencia describe OEE como producción conforme a velocidad de diseño durante el tiempo programado para operar. Las páginas adicionales revisadas el 27 de octubre (sección VII y figura 5) precisan una excepción: setup se conserva como Unplanned Downtime en OEE, mientras AEM lo clasifica en Plant Decision. Por ello, excluir las decisiones de planta no garantiza que ambos denominadores sean iguales. AEM amplía el análisis al calendario completo y a la capacidad no utilizada por causas de negocio.
 
 Por las fórmulas aportadas, OE podría coincidir numéricamente con OEE si ambos utilizan exactamente el mismo T3, velocidad estándar, calidad, unidades y frontera de producción. Esta es una condición matemática, no una equivalencia automática con el OEE guardado actualmente por SimuLine. AU tampoco debe renombrarse OEE.
 
@@ -230,3 +230,33 @@ La información es aplicable a SimuLine: aporta una base precisa para distinguir
 La propuesta de integración anterior queda complementada por la implementación de [importación de observaciones desde Sheets](SHEET_REAL_DATA_IMPORT.md). Ese documento define el contrato efectivo, los nombres de campos soportados, las celdas exportadas y las condiciones de comparación. Las tablas de propuestas anteriores no deben interpretarse como una lista de campos ya admitidos.
 
 Se implementaron captura/importación de datos AEM, porcentajes reportados y downtime por equipo, destinos independientes de la configuración física, comparación con valores recalculados y preservación de resultados. Se mantienen pendientes la contabilidad de línea basada en una definición distinta de flujo final y un modelo físico de rechazos/reproceso. No se cambió el motor.
+
+
+## 10. Ampliación documental — 2026-10-27
+
+Se revisaron las dos series de fotografías adicionales de las secciones I–X y figuras 1–5. El pie visible identifica el documento como TIL 97-015, 14 de julio de 1997. Es una referencia histórica aportada para el proyecto; se debe validar su aplicación en la hoja actual. No se incorporan las fotografías ni una transcripción íntegra al repositorio.
+
+Esta ampliación confirma las fórmulas T1–T5 y AE/AU/OE/RE de las secciones 2–3, y añade las siguientes precisiones:
+
+- **Standard Rate:** máxima velocidad instantánea del equipo cuello de botella para cada SKU o fórmula (IV.E). Validar la referencia usada por el caso; ni la consigna ni la capacidad máxima aislada de otro equipo la determinan automáticamente.
+- **Changeover:** última unidad buena A hasta primera unidad buena B, incluyendo pruebas y ajustes para obtener producto vendible. Excluye la rampa posterior a velocidad estándar (IV.C). El ejemplo de figura 1 no sustituye esta definición formal.
+- **Runtime Losses:** incluye scrap, reproceso y pérdidas de velocidad. Production Rate Losses es solo velocidad; para aislarla del balance T4−T5 hay que separar las pérdidas de calidad (IV.E).
+- **Unplanned Downtime:** incluye también faltantes de proceso/material, personal y problemas operativos; no solo reparaciones (IV.D).
+- **Punto de medición:** la figura 1 registra paros que afectan al equipo cuello de botella, con causas que pueden originarse en otros equipos. La salida final positiva del simulador no queda validada automáticamente como Runtime AEM.
+- **Experimentación:** distinguir pruebas externas de I+D y experimentación de mejora originada por planta (IV.B–C).
+- **OEE:** setup cambia de clasificación entre OEE y AEM; la figura 5 muestra denominadores diferentes. Mantener la condición explícita de equivalencia de la sección 4.
+
+Las imágenes no definen UPDT% ni el reloj o distribución de MTBF/MTTR. Tampoco especifican el algoritmo de pérdida bruta/recuperación por paso utilizado actualmente por el simulador. Las fórmulas generales no validan por sí solas el tratamiento de acumuladores, calidad, fronteras de conteo o períodos con salida superior a la referencia.
+
+### Aplicación provisional al Caso C
+
+Con 80,544 unidades buenas, referencia de 220 unidades/min y tiempos T1=1,440; T2=1,358; T3=704; downtime=286 minutos:
+
+- T4=418 min; T5=366.11 min; pérdidas totales en marcha=51.89 min equivalentes.
+- AE=25.42 %; AU=26.96 %; OE=52.00 %; RE=87.59 %.
+
+Estos resultados son condicionales a la referencia de velocidad, calidad y alcance de los tiempos. Los 366 minutos rotulados “Run Time” en la hoja parecen corresponder a T5. El 50.93 % de AU y el 38.85 % de UPDT reportados siguen sin reconciliarse. El cálculo sobre los 704 minutos corresponde a OE, no AU.
+
+El comparativo de producción de 10 rondas mantiene 96,639.28 unidades simuladas frente a 80,544 observadas (+19.98 %). La documentación no permite atribuir automáticamente esa diferencia a velocidad o confiabilidad: primero hay que alinear las mediciones y las causas.
+
+Las preguntas pendientes y los estados actualizados están en [Confirmaciones para comparar planta y simulación](PLANT_COMPARISON_CONFIRMATIONS.md). Esta ampliación no cambia el motor, los importadores ni los indicadores de la interfaz.
