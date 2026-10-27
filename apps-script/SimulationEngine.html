@@ -1412,7 +1412,9 @@ function createRuntime(input) {
     events: [],
     samples: [],zoneDefinitions:{},
     outputCount: 0,
-    lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateShortfallSeconds: 0, lineRateRecoverySeconds: 0, lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
+    lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateShortfallSeconds: 0, lineRateRecoverySeconds: 0,
+    lineRateShortfallOutputEquivalents: 0, lineRateRecoveryOutputEquivalents: 0,
+    lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
     commandIndex: 0,
     calendar: resolvePlannedStops(input.run),
     calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
@@ -2292,6 +2294,9 @@ function moveFlow(runtime, index, flow, allowOverflow) {
         // Separate shortfall from above-reference discharge; do not erase either.
         runtime.lineRateShortfallSeconds+=Math.max(0,gap);
         runtime.lineRateRecoverySeconds+=Math.max(0,-gap);
+        // Convert at the active format's reference, never a whole-period average.
+        runtime.lineRateShortfallOutputEquivalents+=Math.max(0,gap)*reference;
+        runtime.lineRateRecoveryOutputEquivalents+=Math.max(0,-gap)*reference;
       }
       else runtime.lineRateReferenceValid=false;
     }
@@ -2593,7 +2598,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.6',
+    engineVersion: '0.17.7',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -2615,12 +2620,24 @@ function createSummary(runtime) {
   const lineEffectiveness = createLineEffectiveness(runtime);
   const rateLoss=runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds;
   const validRate=runtime.lineRateReferenceValid;
+  const idealOutput=runtime.product?runtime.idealBottleOutput:(lineEffectiveness.reference?.nominalRatePerSecond||0)*runtime.run.durationSeconds;
+  const lossOutput=runtime.lineRateShortfallOutputEquivalents,recoveryOutput=runtime.lineRateRecoveryOutputEquivalents;
+  const impactAvailable=validRate&&idealOutput>0;
   return {
     lineRunSeconds: round(runtime.lineRunSeconds),
     lineEffectiveRuntimeSeconds: runtime.lineRateReferenceValid?round(runtime.lineEffectiveRuntimeSeconds):null,
     lineRateLossSeconds: validRate?round(runtime.lineRateShortfallSeconds):null,
     lineRateRecoverySeconds: validRate?round(runtime.lineRateRecoverySeconds):null,
     lineNetRateBalanceSeconds: validRate?round(rateLoss):null,
+    lineRateLossOutputEquivalents: validRate?round(lossOutput):null,
+    lineRateRecoveryOutputEquivalents: validRate?round(recoveryOutput):null,
+    lineNetRateBalanceOutputEquivalents: validRate?round(lossOutput-recoveryOutput):null,
+    lineRateLossEfficiencyPp: impactAvailable?round(100*lossOutput/idealOutput):null,
+    lineRateRecoveryEfficiencyPp: impactAvailable?round(100*recoveryOutput/idealOutput):null,
+    lineNetRateBalanceEfficiencyPp: impactAvailable?round(100*(lossOutput-recoveryOutput)/idealOutput):null,
+    lineRateImpactDenominatorOutput: impactAvailable?round(idealOutput):null,
+    lineRateImpactOutputUnit: runtime.unitOfFlow||'units',
+    lineRateImpactBasis: 'ACTIVE_FORMAT_REFERENCE_OVER_FULL_SIMULATED_IDEAL_OUTPUT',
     lineRateLossBasis: 'FINAL_OUTPUT_GROSS_SHORTFALL_AND_RECOVERY_PER_FORMAT_REFERENCE',
     lineRateRecoveryInterpretation: 'Above-reference output may reflect buffer discharge. Runtime - effective runtime = gross loss - recovery; negative net balance alone does not invalidate the reference.',
     equipmentFailureTimeBasis: 'SUM_OF_OVERLAPPING_EQUIPMENT_DURATIONS_NOT_EXCLUSIVE_LINE_DOWNTIME',
@@ -2945,7 +2962,7 @@ function replicationView(result,selection='average'){
     return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
   }
   const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
-  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds']){
+  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds','lineRateLossOutputEquivalents','lineRateRecoveryOutputEquivalents','lineNetRateBalanceOutputEquivalents','lineRateLossEfficiencyPp','lineRateRecoveryEfficiencyPp','lineNetRateBalanceEfficiencyPp','lineRateImpactDenominatorOutput']){
     const values=rows.map(r=>r.summary[key]);
     view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;
   }
@@ -3965,7 +3982,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.6/DES:0.4.0/cache:17',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.7/DES:0.4.0/cache:18',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);

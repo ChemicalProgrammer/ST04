@@ -41,6 +41,7 @@ window.STReports=(function(){
     data.resultView=result.resultView||null;data.lossBreakdown=lossBreakdown(result,simulation);data.replicationStatus=result.replicationStatus||null;data.simulation.dynamicConfig=compact(simulation.dynamicConfig,2);
     if(result.batch)data.batch={rounds:result.batch.rounds,baseSeed:result.batch.baseSeed,durationSeconds:result.batch.durationSeconds,statistics:result.batch.statistics,representativeRound:result.batch.representativeRound||1};
     data.equipment=equipment.slice(0,500).map(function(e){var a=audit.find(function(x){return x.equipmentId===e.id;});return {id:String(e.id).slice(0,120),name:String(e.name).slice(0,120),type:e.type,unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,initialMode:e.initialMode,criticalMachine:e.characteristics?.criticalMachine,processData:compact(e.processData,2),noiseProfile:compact(e.noiseProfile,2),metrics:compact(result.equipmentMetrics?.[e.id],1),accumulation:compact(Object.values(result.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===e.id;}),2),engineering:a?compact(a.engineering,2):undefined,checks:(a?.engineering?.audit?.goals||[]).map(function(g){return {id:g.id,status:g.status};})};});
+    data.rateLossImpact=rateLossImpact(result);data.rateLossImpactBasis='FULL_SIMULATED_IDEAL_OUTPUT';
     const equipmentRateTotal=equipmentRateLoss(result,equipment);data.equipmentRateLossTotal={seconds:equipmentRateTotal.total.rateLossSeconds,basis:equipmentRateTotal.basis};
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')data.limitations=data.limitations.concat(result.limitations||[]);
     var proposals=result.engineId==='DES_SIMPY_EXPERIMENTAL'?[]:STWhatIf.visibleProjects(plan);data.proposals=proposals.map(function(p){return {title:p.title||STScenarioText[p.titleKey]||p.kind,tier:p.tier,basis:p.basis,equipmentId:p.equipmentId,changes:p.changes.map(function(c){return compact(c,0);}),evidence:compact(p.evidence,1)};});
@@ -95,6 +96,42 @@ window.STReports=(function(){
       return result?.summary?.[key]??null;
     };
     return [['Line runtime','lineRunSeconds'],['Effective runtime','lineEffectiveRuntimeSeconds'],['Rate Loss (gross shortfall)','lineRateLossSeconds'],['Above-reference recovery','lineRateRecoverySeconds'],['Net rate balance (loss - recovery)','lineNetRateBalanceSeconds']].map(([label,key])=>[label,metric(key)==null?null:metric(key)/60]);
+  }
+  const rateLossImpactHelp='Equivalent output is measured at each active format reference rate. Efficiency impact = 100 × equivalent output / ideal output over the full simulated duration: loss is negative, recovery positive, net is signed. These are percentage points (pp), not AU or a guaranteed production gain. Final-output recovery may reflect buffer discharge. Full stops are excluded. Means average each round separately. Older results can be converted only when a constant reference is identifiable; otherwise re-run. This is line accounting, not the sum of equipment losses.';
+  function rateLossImpact(result){
+    const specs=[['Rate Loss (gross)','lineRateLossSeconds','lineRateLossOutputEquivalents','lineRateLossEfficiencyPp',-1],['Above-reference recovery','lineRateRecoverySeconds','lineRateRecoveryOutputEquivalents','lineRateRecoveryEfficiencyPp',1],['Net rate balance','lineNetRateBalanceSeconds','lineNetRateBalanceOutputEquivalents','lineNetRateBalanceEfficiencyPp',-1]];
+    const batch=result?.batch,meanView=result?.resultView?.mode!=='round';
+    function constantRate(summary,products){
+      if(products){
+        const rows=products.rows;if(!rows?.length)return null;
+        const rates=rows.map(p=>p.durationSeconds>0&&p.idealBottleOutput>0?p.idealBottleOutput/p.durationSeconds:null);
+        return rates.every(v=>Number.isFinite(v)&&Math.abs(v-rates[0])<=1e-7*Math.max(1,rates[0]))?rates[0]:null;
+      }
+      return summary.lineOeePacemakerRatePerSecond>0?summary.lineOeePacemakerRatePerSecond:null;
+    }
+    function measured(row,spec){
+      const summary=row.summary||{},seconds=summary[spec[1]],products=row.products??result?.products;
+      if(result?.engineId==='DES_SIMPY_EXPERIMENTAL')return [null,null,null];
+      const reference=constantRate(summary,products),duration=row.durationSeconds??result?.durationSeconds;
+      const denominator=summary.lineRateImpactDenominatorOutput??summary.idealBottleOutput??(reference>0&&duration>0?reference*duration:null);
+      const owns=(key)=>Object.prototype.hasOwnProperty.call(summary,key);
+      const output=Number.isFinite(summary[spec[2]])?summary[spec[2]]:owns(spec[2])?null:Number.isFinite(seconds)&&reference>0?seconds*reference:null;
+      const points=Number.isFinite(summary[spec[3]])?summary[spec[3]]:owns(spec[3])?null:Number.isFinite(output)&&denominator>0?100*output/denominator:null;
+      return [Number.isFinite(seconds)?seconds/60:null,output,Number.isFinite(points)?spec[4]*points:null];
+    }
+    let source=result;
+    if(meanView&&batch?.statistics&&!batch.rows?.length)source={summary:Object.fromEntries(Object.entries(batch.statistics).map(([key,stats])=>[key,stats.mean])),products:result.products,durationSeconds:result.durationSeconds};
+    const rows=specs.map(spec=>{
+      const measurements=meanView&&batch?.rows?.length?batch.rows.map(row=>measured(row,spec)):[measured(source||{},spec)];
+      const values=[0,1,2].map(i=>measurements.every(m=>Number.isFinite(m[i]))?measurements.reduce((sum,m)=>sum+m[i],0)/measurements.length:null);
+      return [spec[0],...values];
+    });
+    const bottles=Boolean(result?.products)||['BOTTLE','BOTTLES'].includes(String(result?.unitOfFlow||result?.summary?.lineRateImpactOutputUnit||'').toUpperCase());
+    return {headers:['Metric','Equivalent time (min)',bottles?'Bottle equivalents':'Output equivalents','Efficiency impact (pp)'],rows};
+  }
+  const rateLossImpactHeaderTips=['Measured line loss, above-reference recovery or signed net balance at the final output.','Equivalent minutes for the selected round or mean. Full stops are excluded.','Equivalent output shortfall or recovery using each active format reference rate; not rejected bottles or guaranteed additional production.','Effect on efficiency over the full simulated ideal output. Negative = loss; positive = recovery. Unit: percentage points, not percent change and not automatically AU.'];
+  function rateLossImpactHtml(result){
+    const data=rateLossImpact(result);return '<h2>Rate Loss: production and efficiency impact</h2>'+table(data.headers,data.rows.map(row=>row.map((v,i)=>i?value(v):v)),rateLossImpactHeaderTips)+'<p>'+escape(rateLossImpactHelp)+'</p>';
   }
   const equipmentRateLossHelp='Net equivalent rate loss per equipment = positive-flow operating time - productive equivalent time at that equipment\'s configured nominal rate (per active format). Full stops are excluded. Negative values indicate above-reference production. Total is the sum of equipment balances, including conveyors; simultaneous losses and repeated processing of the same product overlap. This total is a diagnostic, not unique line Rate Loss, line downtime or AEM Production Rate Losses. Mean view uses all rounds; missing counters remain unavailable.';
   function equipmentRateLoss(result,equipment){
@@ -157,7 +194,7 @@ window.STReports=(function(){
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')slots.limitations+=' '+escape('DES · SimPy 4.1.2 (experimental). '+(result.limitations||[]).join(' '));
     var stats=result.batch?.statistics,mean=(key,fallback)=>Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback,loss=lossBreakdown(result,simulation);
     slots.headline=kpis([['OEE',mean('lineOeePercent',result.summary.lineOeePercent),'%'],['Throughput',mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),' '+units+'/min'],['Production',mean('outputCount',result.summary.outputCount),' '+units]]);
-    slots.losses=lossHtml(loss)+'<h2>Line Rate Loss</h2>'+table(['Metric','min'],rateLossRows(result).map(([label,n])=>[label,value(n)]))+'<p>'+escape(rateLossHelp)+'</p>'+equipmentRateLossHtml(result,simulation?.equipment||activeCase.equipment||[]);slots.observed='<h2>Observed equipment times</h2>'+table(['Equipment','Observed state','Time (%)'],loss.observedEquipmentTimes.map(o=>[o.name,o.state,value(o.percent)+'%']));
+    slots.losses=lossHtml(loss)+'<h2>Line Rate Loss</h2>'+table(['Metric','min'],rateLossRows(result).map(([label,n])=>[label,value(n)]))+'<p>'+escape(rateLossHelp)+'</p>'+rateLossImpactHtml(result)+equipmentRateLossHtml(result,simulation?.equipment||activeCase.equipment||[]);slots.observed='<h2>Observed equipment times</h2>'+table(['Equipment','Observed state','Time (%)'],loss.observedEquipmentTimes.map(o=>[o.name,o.state,value(o.percent)+'%']));
     slots.context+=' · '+escape(result.batch?'Mean of '+result.batch.rounds+' rounds':'Single round')+' · '+escape(result.engineId||'ST_CURRENT');
     slots.overview=table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],[[__ST_TEXT__('exports.duration'),result.durationSeconds],[__ST_TEXT__('exports.seed'),result.seed],[__ST_TEXT__('exports.units'),units],[__ST_TEXT__('results.throughput')+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
     (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){slots.equipment+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],scalars(result.equipmentMetrics?.[e.id]||{}))+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars({unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</section>';});
@@ -411,6 +448,6 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {rateLossImpact:rateLossImpact,rateLossImpactHtml:rateLossImpactHtml,rateLossImpactHelp:rateLossImpactHelp,rateLossImpactHeaderTips:rateLossImpactHeaderTips,equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
