@@ -82,9 +82,12 @@ export function replicationView(result,selection='average'){
     return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
   }
   const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
-  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds']){
+  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds']){
     const values=rows.map(r=>r.summary[key]);
     view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;
+  }
+  if(rows.every(r=>r.summary.lineRateLossBasis==='FINAL_OUTPUT_GROSS_SHORTFALL_AND_RECOVERY_PER_FORMAT_REFERENCE')){
+    view.summary.lineRateLossStatus=view.summary.lineRateLossSeconds===null?'INCONSISTENT_REFERENCE':view.summary.lineRateRecoverySeconds>1e-7?'ABOVE_REFERENCE_OUTPUT':'AVAILABLE';
   }
   const productRows=rows.flatMap(r=>r.products?.rows||[]),key=r=>JSON.stringify([r.formatId||r.productId,r.outputUnit]);
   if(productRows.length&&rows.every(r=>r.products)){

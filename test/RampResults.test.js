@@ -28,7 +28,7 @@ test('Rate Loss appears in Results help and printable reports as the selected or
   const summary=(run,effective)=>({outputCount:10,lineOeePercent:50,lineRunSeconds:run,lineEffectiveRuntimeSeconds:effective,lineRateLossSeconds:run-effective}),result={durationSeconds:600,summary:summary(480,300),equipmentMetrics:{},batch:{rows:[{summary:summary(480,300)},{summary:summary(540,300)}]}};
   assert.equal(h.w.STReports.rateLossRows(result)[2][1],3.5);
   h.w.STResults.renderRamps(h.w.document.getElementById('ramp-test'),result,[]);
-  assert(h.w.document.getElementById('ramp-test').textContent.includes('Rate Loss: 3.5 min'));
+  assert(h.w.document.getElementById('ramp-test').textContent.includes('Rate Loss (gross shortfall): 3.5 min'));
   assert(h.w.document.querySelector('#ramp-test details').textContent.includes('comparison-only'));
   delete result.batch;assert.equal(h.w.STReports.rateLossRows(result)[2][1],3);
   delete result.summary.lineRateLossSeconds;assert.equal(h.w.STReports.rateLossRows(result)[2][1],null);

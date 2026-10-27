@@ -1,21 +1,31 @@
-# Rate Loss comparison
+# Rate Loss: gross shortfall, recovery and net balance
 
-The plant Rate Loss field in Real Data and the existing Sheets template is an observation only. Importing or editing it does not create stops, change speeds or deduct production. No additional input fields are required.
+The plant Rate Loss field remains an observation-only input. It never imposes stops or a production penalty. No new capture fields are added.
 
-The ST engine measures these summary fields in seconds for every round:
+## Consistent accounting at final output
 
-- `lineRunSeconds`: ticks with positive flow at the final output.
-- `lineEffectiveRuntimeSeconds`: sum of final output divided by the nominal line reference rate active during that tick. With format profiles, both output and reference use bottle equivalents.
-- `lineRateLossSeconds`: runtime minus equivalent productive time.
+For each tick with positive final output, use the saved nominal reference of the active format, in the same units as the output:
 
-The nominal reference follows the existing pacemaker / Filler / fallback selection. It is not automatically the installed maximum. Output divided by a full-period weighted speed is not used for the measured time when formats change.
+- Equivalent productive time = output / reference rate.
+- Gross shortfall = max(0, tick duration - equivalent productive time).
+- Above-reference recovery = max(0, equivalent productive time - tick duration).
 
-Full stops contribute to downtime, not Rate Loss. Reduced flow during ramps, stop transitions or other constraints contributes to Rate Loss only as seen at final output during positive-flow ticks. A 2-minute ramp at a 300 bottles/min reference producing 300 bottles rather than 600 represents one minute of equivalent loss. The engine retains its existing tick-based ramp behavior; the example describes equivalent loss rather than promising a particular ramp integration accuracy.
+Sum each independently across the run. Their exact unrounded identity is:
 
-Buffers can absorb equipment ramps. Do not add equipment ramp durations or equipment losses to obtain the line value. The current stop transition models response and residual discharge, not gradual deceleration. Quality remains an assumption of 100%; these are not rejected-bottle counts.
+Runtime - effective runtime = gross shortfall - recovery.
 
-Results and HTML/PDF reports show runtime, effective runtime and Rate Loss, with expandable help in Results and Real Data. Selected rounds show their own values. Average views and comparison use the mean of independently measured round counters. Incomplete or inconsistent measurements stay unavailable rather than becoming zero. A negative equivalent loss indicates an inconsistent reference and is not silently converted into a valid loss.
+`lineRateLossSeconds` now records gross shortfall. `lineRateRecoverySeconds` records recovery. `lineNetRateBalanceSeconds` preserves the signed net balance. Negative net balance is retained, not clipped or called an invalid reference merely because final equipment can drain a buffer above the pacemaker rate. Status is `ABOVE_REFERENCE_OUTPUT` if such flow occurred; `INCONSISTENT_REFERENCE` is reserved for missing/invalid reference information.
 
-For comparison, use the same reporting period, product formats, output boundary, reference speeds and definition of runtime. Positive-flow runtime is a model convention and may differ from a plant's PLC runtime signal. Plant Rate Loss remains unchanged; recalculated real AU uses the plant times. The simple comparison uses measured simulation runtime and effective runtime when available. Older single-format results retain an explicitly warned approximation; older multi-format results require a new run for Rate Loss. The experimental DES engine does not acquire this ST-engine measurement.
+The decomposition is at simulation tick resolution. It is not a causal estimate of ramp losses or a guarantee of matching a plant PLC runtime definition. Full no-flow stops remain separate. Faster final equipment, buffer discharge, reference choice and within-tick averaging affect the metric. Gross shortfall is not automatically the AEM plant net Rate Loss.
 
-A model/cache version change ensures new runs calculate the counters. Existing saved observations remain intact.
+## Comparison
+
+Real Data preserves the 15 capture fields. It displays simulated gross shortfall. If above-reference recovery occurs, it explains the equivalent recovery and withholds only the Rate Loss delta until the plant gross/net definition is confirmed. Other comparisons continue under their existing rules. No unsupported difference is fabricated.
+
+Results and printable reports show gross loss, recovery and signed net balance, with the identity above. Each replication saves all counters; averages require all measured round values and never turn missing counters into zero. Re-run older results and What-If evaluations. Saved observations are preserved.
+
+## Interpretation supplied to Gemini
+
+`totalFailureSeconds` is the sum of equipment failures, not exclusive line downtime: intervals overlap and buffers can isolate their effects. Repair recoveries with `repairRampEnabled=false` are expected immediate restarts. Conveyor sensor ramp parameters can act on neighboring machines. Missing conveyor MTBF/MTTR means no modeled own random failures, not physical immunity from stops.
+
+The supplied user JSON was not available for reproduction. Regression checks use deterministic synthetic cases, including buffered bursts. The full Node/UI suite must be run in a usable execution environment.

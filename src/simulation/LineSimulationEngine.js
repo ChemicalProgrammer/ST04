@@ -119,7 +119,7 @@ function createRuntime(input) {
     events: [],
     samples: [],zoneDefinitions:{},
     outputCount: 0,
-    lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
+    lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateShortfallSeconds: 0, lineRateRecoverySeconds: 0, lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
     commandIndex: 0,
     calendar: resolvePlannedStops(input.run),
     calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
@@ -983,7 +983,13 @@ function moveFlow(runtime, index, flow, allowOverflow) {
     if(flow>0){
       const reference=runtime.product?runtime.productReferenceRate:runtime.lineReferenceRate;
       runtime.lineRunSeconds+=runtime.run.tickSeconds;
-      if(reference>0)runtime.lineEffectiveRuntimeSeconds+=output/reference;
+      if(reference>0){
+        const equivalent=output/reference,gap=runtime.run.tickSeconds-equivalent;
+        runtime.lineEffectiveRuntimeSeconds+=equivalent;
+        // Separate shortfall from above-reference discharge; do not erase either.
+        runtime.lineRateShortfallSeconds+=Math.max(0,gap);
+        runtime.lineRateRecoverySeconds+=Math.max(0,-gap);
+      }
       else runtime.lineRateReferenceValid=false;
     }
     if(runtime.product){const row=currentProductRow(runtime);row.outputNative+=flow;row.outputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;}
@@ -1284,7 +1290,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.4',
+    engineVersion: '0.17.5',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1305,13 +1311,17 @@ function createResult(runtime,partial=false) {
 function createSummary(runtime) {
   const lineEffectiveness = createLineEffectiveness(runtime);
   const rateLoss=runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds;
-  const validRate=runtime.lineRateReferenceValid&&rateLoss>=-1e-7;
+  const validRate=runtime.lineRateReferenceValid;
   return {
     lineRunSeconds: round(runtime.lineRunSeconds),
     lineEffectiveRuntimeSeconds: runtime.lineRateReferenceValid?round(runtime.lineEffectiveRuntimeSeconds):null,
-    lineRateLossSeconds: validRate?round(Math.max(0,rateLoss)):null,
-    lineRateLossBasis: 'FINAL_OUTPUT_POSITIVE_FLOW_PER_FORMAT_REFERENCE',
-    lineRateLossStatus: validRate?'AVAILABLE':'INCONSISTENT_REFERENCE',
+    lineRateLossSeconds: validRate?round(runtime.lineRateShortfallSeconds):null,
+    lineRateRecoverySeconds: validRate?round(runtime.lineRateRecoverySeconds):null,
+    lineNetRateBalanceSeconds: validRate?round(rateLoss):null,
+    lineRateLossBasis: 'FINAL_OUTPUT_GROSS_SHORTFALL_AND_RECOVERY_PER_FORMAT_REFERENCE',
+    lineRateRecoveryInterpretation: 'Above-reference output may reflect buffer discharge. Runtime - effective runtime = gross loss - recovery; negative net balance alone does not invalidate the reference.',
+    equipmentFailureTimeBasis: 'SUM_OF_OVERLAPPING_EQUIPMENT_DURATIONS_NOT_EXCLUSIVE_LINE_DOWNTIME',
+    lineRateLossStatus: !validRate?'INCONSISTENT_REFERENCE':runtime.lineRateRecoverySeconds>1e-7?'ABOVE_REFERENCE_OUTPUT':'AVAILABLE',
     outputCount: round(runtime.outputCount),
     materialBalance: {
       inputUnits: round(runtime.product?runtime.inputBottleEquivalents:(runtime.equipment[0]?.outputCount || 0)),
