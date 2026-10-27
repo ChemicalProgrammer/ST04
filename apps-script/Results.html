@@ -77,15 +77,25 @@ window.STResults=(function(){
       entries.forEach(e=>{var row=document.createElement('tr');add('td',e.name,row);add('td',e.label,row);add('td',number(e.value,2)+'%',row).className='numeric';body.append(row);});tableWrap.append(times);
     });
   }
+  function renderEquipmentRateLoss(target,result,equipment){
+    const heading=document.createElement('h3');heading.textContent='Equipment Rate Loss total';target.append(heading);
+    const data=STReports.equipmentRateLoss(result,equipment),scroll=document.createElement('div'),table=document.createElement('table'),thead=document.createElement('thead'),head=document.createElement('tr'),tbody=document.createElement('tbody'),tfoot=document.createElement('tfoot');
+    scroll.className='table-scroll';table.className='equipment-rate-loss-table';
+    STReports.equipmentRateLossHeaders.forEach((label,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=label;if(i)th.className='numeric';head.append(th);});thead.append(head);
+    function row(value,parent){const tr=document.createElement('tr');STReports.equipmentRateLossCells(value).forEach((v,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=i?number(v,2):v;if(i)cell.className='numeric';else cell.scope='row';tr.append(cell);});parent.append(tr);}
+    data.rows.forEach(value=>row(value,tbody));row(data.total,tfoot);table.append(thead,tbody,tfoot);scroll.append(table);target.append(scroll);
+    const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.equipmentRateLossHelp;target.append(note);
+  }
   function renderRamps(target,result,equipment){
     target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
     const rateHeading=document.createElement('h3');rateHeading.textContent='Line Rate Loss';target.append(rateHeading);
     const values=document.createElement('p');values.className='chart-note';values.textContent=STReports.rateLossRows(result).map(([label,n])=>label+': '+number(n,2)+' min').join(' · ');target.append(values);
     const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='How Rate Loss is measured';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
+    renderEquipmentRateLoss(target,result,equipment);
     const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rampNote;target.append(note);
     const scroll=document.createElement('div');scroll.className='table-scroll';const table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');
-    STReports.rampHeaders.forEach((text,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=text;if(i)th.className='numeric';head.append(th);});thead.append(head);table.append(thead);
+    table.className='ramp-accounting-table';STReports.rampHeaders.forEach((text,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=text;if(i)th.className='numeric';head.append(th);});thead.append(head);table.append(thead);
     STReports.rampRows(result,equipment).forEach(row=>{const tr=document.createElement('tr');row.forEach((v,i)=>{const td=document.createElement(i?'td':'th');td.textContent=i?number(v,2):v;if(i)td.className='numeric';else td.scope='row';tr.append(td);});body.append(tr);});table.append(body);scroll.append(table);target.append(scroll);
   }
   function render(result,activeCase,simulation){
