@@ -43,5 +43,5 @@ test('async/summary/background batches retain counters and views average every r
 
 test('repair intervals exclude ramp time; fresh recovery has no ramp by default',()=>{
  const i=input({durationSeconds:12,reliabilityEnabled:true});i.case.equipment[0].noiseProfile={reliability:{mtbfMinutes:.00001,mttrMinutes:.02}};
- const m=run(i).equipmentMetrics.source;assert.equal(m.failureSeconds,8);assert.equal(m.startRampSeconds,0);assert.equal(m.startRampOutputUnits,0);assert.equal(m.startRampCount,0);assert.equal(m.repairRestartCount,4);assert.equal(m.stopTransitionSeconds,0);
+ const m=run(i).equipmentMetrics.source;assert.equal(m.failureSeconds,6);assert.equal(m.startRampSeconds,2);assert.equal(m.startRampOutputUnits,2.5);assert.equal(m.startRampCount,1);assert.equal(m.repairRestartCount,2);assert.equal(m.reliabilityExposureSeconds,3);assert.equal(m.stopTransitionSeconds,0);
 });

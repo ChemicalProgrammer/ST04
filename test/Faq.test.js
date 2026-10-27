@@ -8,7 +8,7 @@ test('FAQ opens from the toolbar, switches language and restores focus after clo
   w.STSettings={open(){}};
   const dialog=d.getElementById('faq-dialog');dialog.showModal=function(){this.open=true;};dialog.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
   w.eval(faq.match(/<script>([\s\S]*)<\/script>/)[1]);d.dispatchEvent(new w.Event('DOMContentLoaded'));
-  const b=d.getElementById('faq-gallery');b.focus();b.click();assert(dialog.open);assert(b.querySelector('svg'));assert.equal(d.querySelectorAll('#faq-answers > details').length,6);
+  const b=d.getElementById('faq-gallery');b.focus();b.click();assert(dialog.open);assert(b.querySelector('svg'));assert.equal(d.querySelectorAll('#faq-answers > details').length,7);
   assert(d.getElementById('faq-answers').textContent.includes('MTBFᵢ / (MTBFᵢ + MTTRᵢ)'));
   assert(d.getElementById('faq-answers').textContent.includes('No solicita automáticamente una nueva rampa'));
   const language=d.getElementById('faq-language');language.value='en';language.dispatchEvent(new w.Event('change'));assert.equal(dialog.lang,'en');assert.equal(d.getElementById('faq-title').textContent,'Frequently asked questions');assert(d.getElementById('faq-answers').textContent.includes('comparison-only'));

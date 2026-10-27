@@ -159,6 +159,16 @@ window.STFaq=(function(){
             "Enclavamiento que requiere RESET y después RUN."
           ]
         ]
+      },
+      {
+        "q": "¿Qué tiempo consume el reloj de MTBF?",
+        "formula": "MTBF observado del período = tiempo de operación productiva / número de fallas",
+        "p": [
+          "El motor ST consume MTBF solo en ticks donde el equipo procesa producto con flujo positivo. Espera de Prime, falta total de producto, bloqueo total, pausas, paros de calendario, reparación, emergencia y retraso inicial sin flujo no consumen ese reloj. Una restricción parcial o una rampa sí cuentan cuando existe producción: se usa el tick completo, no producción dividida entre velocidad nominal.",
+          "La falla se aplica en el siguiente límite de tick después de agotar el intervalo aleatorio de operación. La precisión temporal está limitada por el tick; el intervalo no se vuelve a sortear por esperar producto. El MTTR sigue siendo la duración de reparación según las reglas de paro vigentes.",
+          "reliabilityExposureSeconds registra la exposición y reliabilityClockBasis identifica POSITIVE_PROCESSED_FLOW_TICKS en resultados y reportes. Los promedios usan las rondas completas. La distribución del intervalo de falla sigue siendo exponencial y el MTTR fijo. Los microparos mantienen su propio modelo.",
+          "Esta convención aproxima tiempo productivo. No modela desgaste por tiempo calendario ni una máquina girando vacía; si el MTBF de planta usa esas otras bases, la comparación requiere alinearlas. Recalcula simulaciones y What-If antiguos: la versión anterior consumía MTBF también en espera."
+        ]
       }
     ]
   },
@@ -251,7 +261,7 @@ window.STFaq=(function(){
           "Integrate each positive final-output tick using its active format nominal reference. Record gross below-reference shortfall, above-reference recovery and signed net balance separately. No-flow intervals are not Rate Loss.",
           "Buffer discharge or faster final equipment can temporarily exceed the pacemaker rate. That alone does not invalidate the reference. ABOVE_REFERENCE_OUTPUT identifies this case; net balance can be negative without erasing other ticks of shortfall.",
           "For example, one minute at 150 followed by one minute at 450 bottles/min, at a 300 reference, gives 0.5 min gross loss and 0.5 min recovery: zero net balance. Clipping a negative total balance to zero is not separate loss accounting.",
-          "Plant Rate Loss is observation-only. When recovery is present, Real Data displays simulated gross loss but withholds only its difference pending confirmation of the source gross/net definition. No additional capture fields are required.",
+          "Plant Rate Loss is comparison-only. When recovery is present, Real Data displays simulated gross loss but withholds only its difference pending confirmation of the source gross/net definition. No additional capture fields are required.",
           "Equipment failures and ramps must not be summed as exclusive line downtime or Rate Loss. Repair restarts with repairRampEnabled=false are valid immediate restarts. Conveyor sensor ramp settings can control neighboring machines.",
           "Re-run old results for the new metrics. Quality remains assumed 100%; PLC runtime may differ from the positive-flow convention."
         ]
@@ -303,6 +313,16 @@ window.STFaq=(function(){
             "EMERGENCY_STOP",
             "Latched stop requiring RESET followed by RUN."
           ]
+        ]
+      },
+      {
+        "q": "What time consumes the MTBF clock?",
+        "formula": "Observed period MTBF = productive operating time / failure count",
+        "p": [
+          "The ST engine consumes MTBF only on ticks with positive processed flow. Prime waiting, total starvation/blocking, pause, calendar stops, repairs, emergency and no-flow startup delays consume none. Partial constraints and productive ramps count the full tick, not output divided by nominal speed.",
+          "Failure is applied at the next tick boundary after the operating-time interval is exhausted. Resolution is limited by the tick; waiting for product does not resample the interval. MTTR retains its repair duration and existing stop rules.",
+          "reliabilityExposureSeconds records exposure and reliabilityClockBasis identifies POSITIVE_PROCESSED_FLOW_TICKS. Round means retain these counters. Failure intervals remain exponential and MTTR fixed. The microstop model is unchanged.",
+          "This convention approximates productive operation, not calendar wear or empty spinning. Match plant MTBF exposure definitions. Re-run older simulations and What-If evaluations: the previous version also consumed MTBF while waiting."
         ]
       }
     ]

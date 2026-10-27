@@ -155,6 +155,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
     failureRemainingSeconds: 0,
     failureSeconds: 0,
     failureCount: 0,
+    reliabilityExposureSeconds: 0,
     repairRestartPending: false,
     repairRestartCount: 0,
     emergencyStopLatched: false,
@@ -671,7 +672,8 @@ function updateReliabilityFailures(runtime) {
     if (equipment.timeToFailureRemainingSeconds === null) {
       equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
     }
-    equipment.timeToFailureRemainingSeconds -= runtime.run.tickSeconds;
+    // Exposure is consumed after actual positive processing, not by AUTO/idle time.
+    // A threshold crossed in the previous productive tick fails at this tick boundary.
     if (equipment.timeToFailureRemainingSeconds > 0) return;
 
     equipment.failureRemainingSeconds = profile.mttrMinutes * 60;
@@ -787,9 +789,17 @@ function processEquipment(runtime, index) {
   const phase=eligible&&control&&(control.responseRemainingSeconds>0||control.residualRemainingUnits>0)?'stopTransition':eligible&&!control&&isRampingUp(equipment)?'startRamp':null;
   const before=equipment.outputCount;
   processEquipmentFlow(runtime,index);
+  const flow=equipment.outputCount-before;
+  if(equipment.actualRatePerSecond>0){
+    // Full productive ticks, not output/nominal equivalent time: partial flow and
+    // productive ramps still consume operating time. No-flow states consume none.
+    equipment.reliabilityExposureSeconds+=runtime.run.tickSeconds;
+    if(runtime.run.reliabilityEnabled!==false&&equipment.noiseProfile?.reliability&&equipment.timeToFailureRemainingSeconds!==null){
+      equipment.timeToFailureRemainingSeconds-=runtime.run.tickSeconds;
+    }
+  }
   if(!phase)return;
   equipment[phase+'Seconds']+=runtime.run.tickSeconds;
-  const flow=equipment.outputCount-before;
   equipment[phase+'OutputUnits']+=flow;
   const unit=String(equipment.nativeOutputUnit||equipment.unitOfFlow||runtime.unitOfFlow||'').toUpperCase();
   const factor=runtime.product?equipment.outputBottleFactor:['BOTTLE','BOTTLES'].includes(unit)?1:null;
@@ -1290,7 +1300,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.5',
+    engineVersion: '0.17.6',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1349,6 +1359,7 @@ function createSummary(runtime) {
     lineOeeReference: runtime.product?'PRODUCT_WEIGHTED_IDEAL_OUTPUT':lineEffectiveness.referenceMethod,
     idealBottleOutput:runtime.product?runtime.idealBottleOutput:undefined,
     repairRestartPolicy: 'MTTR_STOP_TO_REPAIR_END_REPAIR_RAMP_OPT_IN',
+    reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     qualityAssumption: 'NO_REJECT_MODEL_ASSUMES_100_PERCENT'
   };
 }
@@ -1356,6 +1367,8 @@ function createSummary(runtime) {
 function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
+    reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
+    reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),
     startRampSeconds: round(equipment.startRampSeconds),
     startRampOutputUnits: round(equipment.startRampOutputUnits),
     startRampBottleEquivalents: equipment.startRampBottleEquivalents===null?null:round(equipment.startRampBottleEquivalents),
