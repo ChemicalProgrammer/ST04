@@ -77,6 +77,14 @@ window.STResults=(function(){
       entries.forEach(e=>{var row=document.createElement('tr');add('td',e.name,row);add('td',e.label,row);add('td',number(e.value,2)+'%',row).className='numeric';body.append(row);});tableWrap.append(times);
     });
   }
+  function renderRamps(target,result,equipment){
+    target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
+    const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);
+    const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rampNote;target.append(note);
+    const scroll=document.createElement('div');scroll.className='table-scroll';const table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');
+    STReports.rampHeaders.forEach((text,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=text;if(i)th.className='numeric';head.append(th);});thead.append(head);table.append(thead);
+    STReports.rampRows(result,equipment).forEach(row=>{const tr=document.createElement('tr');row.forEach((v,i)=>{const td=document.createElement(i?'td':'th');td.textContent=i?number(v,2):v;if(i)td.className='numeric';else td.scope='row';tr.append(td);});body.append(tr);});table.append(body);scroll.append(table);target.append(scroll);
+  }
   function render(result,activeCase,simulation){
     var source=result,toolbar=document.getElementById('results-round-view');
     if(!toolbar){toolbar=document.createElement('div');toolbar.id='results-round-view';toolbar.className='button-row results-round-toolbar';document.getElementById('results-meta').closest('.section-heading').after(toolbar);}
@@ -92,6 +100,8 @@ window.STResults=(function(){
       if(toolbar._selection==='average'&&source.products&&!result.products){var missing=document.createElement('p');missing.className='chart-note';missing.textContent='Per-format round totals were not saved in this older result. Run again to calculate format averages.';toolbar.append(missing);}
     }
     var ready=Boolean(result&&result.summary&&!result.provisional);
+    var ramps=document.getElementById('results-ramp-accounting');if(!ramps){ramps=document.createElement('section');ramps.id='results-ramp-accounting';ramps.className='comparison-section';document.getElementById('results-table').after(ramps);}
+    renderRamps(ramps,ready?result:null,simulation?.equipment||activeCase?.equipment||[]);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     STProducts.results(document.getElementById('results-products'),ready?result:null);
     var designReady=Boolean(activeCase?.equipment?.length);
@@ -153,9 +163,10 @@ window.STResults=(function(){
     ids.forEach(function(id){var e=(a.equipment||[]).concat(b.equipment||[]).find(e=>e.id===id);function value(sim){return sim.results.batch?.equipmentStatistics?.[id]?.oeePercent?.mean??sim.results.equipmentMetrics?.[id]?.oeePercent;}row(e.name||id,value(a),value(b));});
     table.append(body);scroll.append(table);section.append(scroll);target.append(section);
   }
-  return {renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
+  return {renderRamps:renderRamps,renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
 })();
 </script>
+
 
 
 

@@ -102,6 +102,9 @@ function createRuntime(input) {
     equipment.startRampElapsedSeconds = 0;
     equipment.startReason = null;
     equipment.backupControl = null;
+    if(!product&&!['BOTTLE','BOTTLES'].includes(String(equipment.unitOfFlow||input.case.unitOfFlow||'').toUpperCase())){
+      equipment.startRampBottleEquivalents=null;equipment.stopTransitionBottleEquivalents=null;
+    }
   });
 
   const runtime = {
@@ -167,6 +170,17 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
     partialBlockingLossSeconds: 0,
     waitingForPrimeSeconds: 0,
     backupStopSeconds: 0,
+    startRampSeconds: 0,
+    startRampOutputUnits: 0,
+    startRampBottleEquivalents: 0,
+    startRampCount: 0,
+    stopTransitionSeconds: 0,
+    stopTransitionOutputUnits: 0,
+    stopTransitionBottleEquivalents: 0,
+    stopTransitionCount: 0,
+    startSequenceId: 0,
+    lastAccountedStartSequenceId: null,
+    lastAccountedStopControl: null,
     stateSeconds: {}
   };
 }
@@ -757,7 +771,26 @@ function processLineFromDownstream(runtime) {
   }
 }
 
+// Observe the existing flow calculation; counters never change motion or RNG.
 function processEquipment(runtime, index) {
+  const equipment=runtime.equipment[index],control=activeBackupControl(equipment);
+  const eligible=isAvailable(equipment)&&!equipment.calendarStopped&&!requiresPrime(equipment)&&!isStartDelayed(equipment);
+  const phase=eligible&&control&&(control.responseRemainingSeconds>0||control.residualRemainingUnits>0)?'stopTransition':eligible&&!control&&isRampingUp(equipment)?'startRamp':null;
+  const before=equipment.outputCount;
+  processEquipmentFlow(runtime,index);
+  if(!phase)return;
+  equipment[phase+'Seconds']+=runtime.run.tickSeconds;
+  const flow=equipment.outputCount-before;
+  equipment[phase+'OutputUnits']+=flow;
+  const unit=String(equipment.nativeOutputUnit||equipment.unitOfFlow||runtime.unitOfFlow||'').toUpperCase();
+  const factor=runtime.product?equipment.outputBottleFactor:['BOTTLE','BOTTLES'].includes(unit)?1:null;
+  if(factor>0&&equipment[phase+'BottleEquivalents']!==null)equipment[phase+'BottleEquivalents']+=flow*factor;
+  else equipment[phase+'BottleEquivalents']=null;
+  if(phase==='startRamp'&&equipment.lastAccountedStartSequenceId!==equipment.startSequenceId){equipment.startRampCount++;equipment.lastAccountedStartSequenceId=equipment.startSequenceId;}
+  if(phase==='stopTransition'&&equipment.lastAccountedStopControl!==control){equipment.stopTransitionCount++;equipment.lastAccountedStopControl=control;}
+}
+
+function processEquipmentFlow(runtime, index) {
   const equipment = runtime.equipment[index];
   const tickSeconds = runtime.run.tickSeconds;
   if (!isAvailable(equipment)) {
@@ -838,6 +871,7 @@ function requestEquipmentStart(runtime, equipment, reason, options = {}) {
   equipment.startRampDurationSeconds = rampUpSeconds;
   equipment.startRampElapsedSeconds = 0;
   equipment.startReason = reason;
+  equipment.startSequenceId+=1;
   runtime.events.push({
     type: 'EQUIPMENT_START_SEQUENCE_REQUESTED',
     atVirtualSecond: runtime.virtualSecond,
@@ -1226,7 +1260,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.0',
+    engineVersion: '0.17.1',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1280,6 +1314,14 @@ function createSummary(runtime) {
 function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
+    startRampSeconds: round(equipment.startRampSeconds),
+    startRampOutputUnits: round(equipment.startRampOutputUnits),
+    startRampBottleEquivalents: equipment.startRampBottleEquivalents===null?null:round(equipment.startRampBottleEquivalents),
+    startRampCount: equipment.startRampCount,
+    stopTransitionSeconds: round(equipment.stopTransitionSeconds),
+    stopTransitionOutputUnits: round(equipment.stopTransitionOutputUnits),
+    stopTransitionBottleEquivalents: equipment.stopTransitionBottleEquivalents===null?null:round(equipment.stopTransitionBottleEquivalents),
+    stopTransitionCount: equipment.stopTransitionCount,
     outputCount: round(equipment.outputCount),
     unitOfFlow:equipment.nativeOutputUnit||equipment.unitOfFlow,
     stateSeconds: Object.fromEntries(Object.entries(equipment.stateSeconds).map(([state, seconds]) => [state, round(seconds)])),

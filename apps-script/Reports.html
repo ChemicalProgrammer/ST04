@@ -85,9 +85,20 @@ window.STReports=(function(){
     if(original){var svg=original.cloneNode(true),from=[original].concat(Array.from(original.querySelectorAll('*'))),to=[svg].concat(Array.from(svg.querySelectorAll('*')));from.forEach(function(node,i){var style=getComputedStyle(node);['fill','stroke','stroke-width','font-size','font-family'].forEach(function(name){to[i].style.setProperty(name,style.getPropertyValue(name));});});html+='<figure style="background:'+escape(surface)+'">'+svg.outerHTML+'</figure>';}
     return html;
   }
+  function rampRows(result,equipment){
+    function metric(id,key){
+      const batch=result?.batch;
+      if(batch?.rows?.length&&result.resultView?.mode!=='round'){const values=batch.rows.map(r=>r.equipmentMetrics?.[id]?.[key]);return values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;}
+      if(batch?.equipmentStatistics&&!batch.rows?.length&&result.resultView?.mode!=='round')return batch.equipmentStatistics[id]?.[key]?.mean??null;
+      return result?.equipmentMetrics?.[id]?.[key]??null;
+    }
+    return (equipment||[]).map(e=>[e.name||e.id,...['startRampSeconds','startRampBottleEquivalents','stopTransitionSeconds','stopTransitionBottleEquivalents'].map(key=>metric(e.id,key))]);
+  }
+  const rampHeaders=['Equipment','Start ramp (s)','Start ramp (bottles)','Stop transition (s)','Stop transition (bottles)'];
+  const rampNote='Bottle equivalents processed during each phase; not rejected or lost bottles. Start delay is excluded. Stop transition = Back-up response and residual discharge; gradual deceleration is not modeled. A bottle can be counted at several equipment, so rows must not be summed as unique line bottles. — means unavailable (older results or unsupported engine/unit conversion). Re-run the ST engine to record these counters.';
   function resultsHtml(result,activeCase,simulation){
     var units=result.unitOfFlow||activeCase.unitOfFlow||'units';
-    var slots={context:escape(activeCase.name)+' · '+escape(simulation?.name||''),limitations:escape(__ST_TEXT__('exports.report_limitations')),batch:batchHtml(result.batch),representative:escape((result.resultView?.mode==='average'?'Mean of '+result.resultView.rounds+' rounds. ':result.resultView?.round?'Round '+result.resultView.round+'. ':'')+(result.batch?__ST_TEXT__('batch.representative'):'')),charts:chartsHtml(),equipment:'',zones:''};
+    var slots={ramps:'<h2>Start ramps and stop transitions</h2>'+table(rampHeaders,rampRows(result,simulation?.equipment||activeCase.equipment||[]).map(row=>row.map((v,i)=>i?value(v):v)))+'<p>'+escape(rampNote)+'</p>',context:escape(activeCase.name)+' · '+escape(simulation?.name||''),limitations:escape(__ST_TEXT__('exports.report_limitations')),batch:batchHtml(result.batch),representative:escape((result.resultView?.mode==='average'?'Mean of '+result.resultView.rounds+' rounds. ':result.resultView?.round?'Round '+result.resultView.round+'. ':'')+(result.batch?__ST_TEXT__('batch.representative'):'')),charts:chartsHtml(),equipment:'',zones:''};
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')slots.limitations+=' '+escape('DES · SimPy 4.1.2 (experimental). '+(result.limitations||[]).join(' '));
     var stats=result.batch?.statistics,mean=(key,fallback)=>Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback,loss=lossBreakdown(result,simulation);
     slots.headline=kpis([['OEE',mean('lineOeePercent',result.summary.lineOeePercent),'%'],['Throughput',mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),' '+units+'/min'],['Production',mean('outputCount',result.summary.outputCount),' '+units]]);
@@ -345,9 +356,10 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
+
 
 
 
