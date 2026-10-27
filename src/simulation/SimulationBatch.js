@@ -43,7 +43,7 @@ export async function simulateBatch(input, options={}) {
   if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
   const statistics={};
   for(const key of Object.keys(rows[0].summary)) {
-    if(typeof rows[0].summary[key]==='number')statistics[key]=summarizeReplications(rows.map(r=>r.summary[key]));
+    if(typeof rows[0].summary[key]==='number'&&rows.every(r=>Number.isFinite(r.summary[key])))statistics[key]=summarizeReplications(rows.map(r=>r.summary[key]));
   }
   statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/input.run.durationSeconds*60));
   const equipmentStatistics={};
@@ -82,6 +82,10 @@ export function replicationView(result,selection='average'){
     return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
   }
   const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
+  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds']){
+    const values=rows.map(r=>r.summary[key]);
+    view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;
+  }
   const productRows=rows.flatMap(r=>r.products?.rows||[]),key=r=>JSON.stringify([r.formatId||r.productId,r.outputUnit]);
   if(productRows.length&&rows.every(r=>r.products)){
     const keys=[...new Set(productRows.map(key))];view.products={...result.products,timeline:undefined,rows:keys.map(k=>({...averageRoundValues(rows.map(r=>r.products.rows.find(p=>key(p)===k))),bottlesPerCase:productRows.find(r=>key(r)===k).bottlesPerCase})),clearoutBottleEquivalents:averageRoundValues(rows.map(r=>r.products.clearoutBottleEquivalents))};

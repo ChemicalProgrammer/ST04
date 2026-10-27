@@ -86,7 +86,7 @@ window.STRealData=(function(){
     if(rows.length&&statistics&&statistics.n>1&&statistics.mean!==null){statistics.standardDeviation=Math.sqrt(rows.reduce((v,r)=>v+(r.summary.outputCount-statistics.mean)**2,0)/(rows.length-1));statistics.min=Math.min(...rows.map(r=>r.summary.outputCount));statistics.max=Math.max(...rows.map(r=>r.summary.outputCount));}
     const shiftRows=average?rows:statsOnly?[]:[row];
     const shifts=shiftRows.length&&shiftRows.every(r=>Array.isArray(r.shifts))?Array.from({length:Math.max(0,...shiftRows.map(r=>r.shifts.length))},(_,i)=>({outputCount:mean(shiftRows.map(r=>r.shifts[i]?.outputCount)),durationSeconds:mean(shiftRows.map(r=>r.shifts[i]?.durationSeconds))})):[];
-    return {output,duration,shifts,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
+    return {output,duration,shifts,measuredRunSeconds:key('lineRunSeconds'),measuredEffectiveSeconds:key('lineEffectiveRuntimeSeconds'),measuredRateLossSeconds:key('lineRateLossSeconds'),rateLossMeasured:average?rows.every(r=>r.summary?.lineRateLossBasis):statsOnly?!!result.summary.lineRateLossBasis:!!row.summary?.lineRateLossBasis,multiFormat:!!result.products,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
   }
   function compareDetailed(record,simulation,result,view,caseRecord){
     const real=normalize(record),sim=snapshot(result,view||'average',simulation?.equipment?.at(-1)?.id),warnings=[],rows=[],equipmentRows=[];
@@ -185,7 +185,14 @@ window.STRealData=(function(){
     if(sim&&Number.isFinite(sim.oee))effective=sim.duration*sim.oee/100;
     else if(sim?.idealOutput>0&&sim.output!=null)effective=sim.duration*sim.output/sim.idealOutput;
     else if(sim?.nominalRate>0&&sim.output!=null)effective=sim.output/sim.nominalRate;
-    const run=sim?.outputRunSeconds??null,downtime=available!=null&&run!=null?available-run:null,rateLoss=run!=null&&effective!=null?run-effective:null;
+    // Integrate output/reference for each active format; OEE-derived time is only a legacy approximation.
+    const measured=sim?.rateLossMeasured;
+    if(measured)effective=sim.measuredEffectiveSeconds;
+    const run=measured?sim.measuredRunSeconds:sim?.outputRunSeconds??null;
+    const downtime=available!=null&&run!=null?available-run:null;
+    const rateLoss=measured?sim.measuredRateLossSeconds:!sim?.multiFormat&&run!=null&&effective!=null?run-effective:null;
+    if(sim&&!measured)data.warnings.push('Legacy Rate Loss estimate: re-run to measure final-output equivalent loss using each format reference.');
+    if(measured&&rateLoss==null)data.warnings.push('Rate Loss unavailable: output exceeds the saved reference or reference data are incomplete. Check reference speeds.');
     const ratio=(n,d)=>Number.isFinite(n)&&d>0?100*n/d:null;
     const realPlant=real.aem.plantAvailableSeconds??(real.durationSeconds!=null&&real.aem.businessExternalDowntimeSeconds!=null?real.durationSeconds-real.aem.businessExternalDowntimeSeconds:null);
     const realAvailable=real.aem.productionAvailableSeconds??(realPlant!=null&&real.aem.plantDecisionDowntimeSeconds!=null?realPlant-real.aem.plantDecisionDowntimeSeconds:null);
@@ -207,7 +214,7 @@ window.STRealData=(function(){
     });
     add('Total Production Day (Cases)',actualCases,cases,'cases');add('Total Production Day (Units)',actualBottles,bottles,'units');
     const times=[['Total Time',real.durationSeconds,total],['Business External Time',real.aem.businessExternalDowntimeSeconds,external],['Plant Available Time',real.aem.plantAvailableSeconds,plant],['Plant Decision Time',real.aem.plantDecisionDowntimeSeconds,decision],['Production Available Time',real.aem.productionAvailableSeconds,available],['Downtime',real.downtimeSeconds,coherent?downtime:null],['Run Time',real.runTimeSeconds,run],['Rate Loss',real.rateLossSeconds,rateLoss!=null&&rateLoss>=-1?Math.max(0,rateLoss):null]];
-    times.forEach(([label,a,b])=>add(label,a==null?null:a/60,b==null?null:b/60,'min',label==='Run Time'?'Time with positive flow at final output.':''));
+    times.forEach(([label,a,b])=>add(label,a==null?null:a/60,b==null?null:b/60,'min',label==='Run Time'?'Time with positive flow at final output.':label==='Rate Loss'?'Comparison only: runtime minus equivalent productive time, measured at final output using each active format reference. Not added as downtime or a speed penalty.':''));
     for(const row of rows){
       if(row.recalculated!=null&&row.real!=null&&Math.abs(row.real-row.recalculated)>.05)data.warnings.push(row.metric+' reported percentage differs from the supplied time breakdown; source value retained.');
     }

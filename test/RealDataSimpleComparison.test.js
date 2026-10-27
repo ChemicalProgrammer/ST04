@@ -44,3 +44,16 @@ test('native base units are matched, while incompatible shift boundaries are not
 test('a full aggregate calendar with no exclusions does not block the matching physical run',()=>{
  const f=fixture();f.simulation.dynamicConfig.plantCalendar={enabled:true,mode:'AGGREGATE',totalMinutes:10,externalMinutes:0};const d=api.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(row(d,'Total Production Day (Units)').delta,30);assert.equal(row(d,'Downtime').delta,-0.5);
 });
+
+test('measured Rate Loss uses independent per-round counters and plant input never changes the prediction',()=>{
+ const f=fixture();
+ f.result.batch.rows.forEach((r,i)=>Object.assign(r.summary,{lineRunSeconds:480+i*60,lineEffectiveRuntimeSeconds:300+i*60,lineRateLossSeconds:180,lineRateLossBasis:'FINAL_OUTPUT_POSITIVE_FLOW_PER_FORMAT_REFERENCE'}));
+ let d=api.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});
+ assert.equal(row(d,'Rate Loss').simulated,3);assert.equal(row(d,'Rate Loss').delta,1);
+ f.record.rateLossSeconds=300;
+ d=api.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});
+ assert.equal(row(d,'Rate Loss').simulated,3);assert.equal(row(d,'Rate Loss').delta,-2);
+ d=api.compare(f.record,f.simulation,f.result,'2',{}, {simple:true});assert.equal(row(d,'Run Time').simulated,9);
+ f.result.batch.rows[1].summary.lineRateLossSeconds=null;
+ d=api.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(row(d,'Rate Loss').simulated,null);assert.equal(row(d,'Rate Loss').delta,null);
+});

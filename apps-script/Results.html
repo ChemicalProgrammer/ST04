@@ -6,7 +6,7 @@ window.STResults=(function(){
   function downtime(result){return Object.values(result.equipmentMetrics||{}).reduce(function(n,m){return n+(m.pausedSeconds||0)+(m.stoppedSeconds||0);},0)/60;}
   function metrics(result){var s=result.summary;return [
     [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow)+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow),false],
-    [__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
+    ['Rate Loss',s.lineRateLossSeconds==null?null:s.lineRateLossSeconds/60,__ST_TEXT__('client.min'),false],[__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
   var lossJobs=new Map(),calculationCount=0,idleLossTasks=[];
   window.addEventListener('st-calculation-activity',event=>{calculationCount=Math.max(0,calculationCount+(event.detail.active?1:-1));if(!calculationCount)idleLossTasks.splice(0).forEach(start=>start());});
@@ -79,6 +79,9 @@ window.STResults=(function(){
   }
   function renderRamps(target,result,equipment){
     target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
+    const rateHeading=document.createElement('h3');rateHeading.textContent='Line Rate Loss';target.append(rateHeading);
+    const values=document.createElement('p');values.className='chart-note';values.textContent=STReports.rateLossRows(result).map(([label,n])=>label+': '+number(n,2)+' min').join(' · ');target.append(values);
+    const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='How Rate Loss is measured';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
     const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rampNote;target.append(note);
     const scroll=document.createElement('div');scroll.className='table-scroll';const table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');

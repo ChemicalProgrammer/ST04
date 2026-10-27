@@ -22,3 +22,15 @@ test('stored simulation JSON retains per-equipment phase totals and each replica
  const metric={startRampSeconds:4,startRampBottleEquivalents:15,startRampOutputUnits:15,stopTransitionSeconds:3,stopTransitionBottleEquivalents:7,stopTransitionOutputUnits:7},result={summary:{outputCount:100},equipmentMetrics:{source:metric},seed:1,durationSeconds:20,samples:[],batch:{rounds:2,rows:[{round:1,equipmentMetrics:{source:metric}},{round:2,equipmentMetrics:{source:{...metric,startRampBottleEquivalents:19}}}],replays:[]}};
  const saved=c.createStoredSimulationResult(result,{seed:1,durationSeconds:20}),reloaded=JSON.parse(JSON.stringify(saved));assert.equal(reloaded.equipmentMetrics.source.startRampSeconds,4);assert.equal(reloaded.equipmentMetrics.source.stopTransitionBottleEquivalents,7);assert.equal(reloaded.batch.rows[1].equipmentMetrics.source.startRampBottleEquivalents,19);assert.equal(reloaded.replay.equipmentMetrics.source.startRampOutputUnits,15);
 });
+
+test('Rate Loss appears in Results help and printable reports as the selected or mean measured value',()=>{
+ const h=setup();try{
+  const summary=(run,effective)=>({outputCount:10,lineOeePercent:50,lineRunSeconds:run,lineEffectiveRuntimeSeconds:effective,lineRateLossSeconds:run-effective}),result={durationSeconds:600,summary:summary(480,300),equipmentMetrics:{},batch:{rows:[{summary:summary(480,300)},{summary:summary(540,300)}]}};
+  assert.equal(h.w.STReports.rateLossRows(result)[2][1],3.5);
+  h.w.STResults.renderRamps(h.w.document.getElementById('ramp-test'),result,[]);
+  assert(h.w.document.getElementById('ramp-test').textContent.includes('Rate Loss: 3.5 min'));
+  assert(h.w.document.querySelector('#ramp-test details').textContent.includes('comparison-only'));
+  delete result.batch;assert.equal(h.w.STReports.rateLossRows(result)[2][1],3);
+  delete result.summary.lineRateLossSeconds;assert.equal(h.w.STReports.rateLossRows(result)[2][1],null);
+ }finally{h.w.close();}
+});

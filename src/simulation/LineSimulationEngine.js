@@ -119,6 +119,7 @@ function createRuntime(input) {
     events: [],
     samples: [],zoneDefinitions:{},
     outputCount: 0,
+    lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
     commandIndex: 0,
     calendar: resolvePlannedStops(input.run),
     calendarIndex: 0,calendarActive: null,calendarStopSeconds: 0,
@@ -961,7 +962,14 @@ function moveFlow(runtime, index, flow, allowOverflow) {
     runtime.zones[index - 1].waitingUnits = Math.max(0, runtime.zones[index - 1].waitingUnits - flow*(runtime.equipment[index].inputPerOutput||1));
   }
   if (index === runtime.equipment.length - 1) {
-    runtime.outputCount += flow*(runtime.equipment[index].outputBottleFactor||1);
+    const output=flow*(runtime.equipment[index].outputBottleFactor||1);
+    runtime.outputCount += output;
+    if(flow>0){
+      const reference=runtime.product?runtime.productReferenceRate:runtime.lineReferenceRate;
+      runtime.lineRunSeconds+=runtime.run.tickSeconds;
+      if(reference>0)runtime.lineEffectiveRuntimeSeconds+=output/reference;
+      else runtime.lineRateReferenceValid=false;
+    }
     if(runtime.product){const row=currentProductRow(runtime);row.outputNative+=flow;row.outputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;}
     return;
   }
@@ -1260,7 +1268,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.1',
+    engineVersion: '0.17.2',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1280,7 +1288,14 @@ function createResult(runtime,partial=false) {
 
 function createSummary(runtime) {
   const lineEffectiveness = createLineEffectiveness(runtime);
+  const rateLoss=runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds;
+  const validRate=runtime.lineRateReferenceValid&&rateLoss>=-1e-7;
   return {
+    lineRunSeconds: round(runtime.lineRunSeconds),
+    lineEffectiveRuntimeSeconds: runtime.lineRateReferenceValid?round(runtime.lineEffectiveRuntimeSeconds):null,
+    lineRateLossSeconds: validRate?round(Math.max(0,rateLoss)):null,
+    lineRateLossBasis: 'FINAL_OUTPUT_POSITIVE_FLOW_PER_FORMAT_REFERENCE',
+    lineRateLossStatus: validRate?'AVAILABLE':'INCONSISTENT_REFERENCE',
     outputCount: round(runtime.outputCount),
     materialBalance: {
       inputUnits: round(runtime.product?runtime.inputBottleEquivalents:(runtime.equipment[0]?.outputCount || 0)),
