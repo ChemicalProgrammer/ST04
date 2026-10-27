@@ -190,6 +190,8 @@ function validateStartProfile(equipment, path, details) {
   ['actualDischargeMm','actualCodingMm'].forEach(key=>validateOptionalNonNegative(equipment.processData?.geometry?.[key],path+'.processData.geometry.'+key,details));
   validateOptionalNonNegative(equipment.processData?.upstream?.startupTimeSeconds, path + '.processData.upstream.startupTimeSeconds', details);
   validateOptionalNonNegative(equipment.processData?.downstream?.rampUpTimeSeconds, path + '.processData.downstream.rampUpTimeSeconds', details);
+  const repairRamp=equipment.processData?.downstream?.rampAfterRepair;
+  if(repairRamp!==undefined&&typeof repairRamp!=='boolean')details.push(invalid(path+'.processData.downstream.rampAfterRepair','must be a boolean'));
 }
 
 function validateOptionalNonNegative(value, path, details) {

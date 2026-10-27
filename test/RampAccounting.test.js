@@ -41,7 +41,7 @@ test('async/summary/background batches retain counters and views average every r
  const response=await simulateBatch({...i,run:{...i.run,rounds:3}},{workerFirstRound:true,laterSummaryOnly:true,runRound:simulateLineAsync,concurrency:2});assert(response.ok);const r=response.result;assert.equal(r.batch.equipmentStatistics.source.startRampSeconds.mean,4);assert.equal(r.batch.equipmentStatistics.source.startRampBottleEquivalents.mean,15);assert.equal(replicationView(r).equipmentMetrics.source.startRampSeconds,4);assert.equal(replicationView(r,'2').equipmentMetrics.source.startRampBottleEquivalents,15);
 });
 
-test('repair intervals exclude ramp time and request fresh zero-delay recovery sequences',()=>{
+test('repair intervals exclude ramp time; fresh recovery has no ramp by default',()=>{
  const i=input({durationSeconds:12,reliabilityEnabled:true});i.case.equipment[0].noiseProfile={reliability:{mtbfMinutes:.00001,mttrMinutes:.02}};
- const m=run(i).equipmentMetrics.source;assert.equal(m.failureSeconds,8);assert.equal(m.startRampSeconds,4);assert.equal(m.startRampOutputUnits,0);assert.equal(m.startRampCount,4);assert.equal(m.repairRestartCount,4);assert.equal(m.stopTransitionSeconds,0);
+ const m=run(i).equipmentMetrics.source;assert.equal(m.failureSeconds,8);assert.equal(m.startRampSeconds,0);assert.equal(m.startRampOutputUnits,0);assert.equal(m.startRampCount,0);assert.equal(m.repairRestartCount,4);assert.equal(m.stopTransitionSeconds,0);
 });

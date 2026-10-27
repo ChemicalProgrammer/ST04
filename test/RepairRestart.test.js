@@ -9,7 +9,7 @@ function input(edit={}){
 }
 function run(i){const response=simulateLine(i);assert(response.ok,JSON.stringify(response.error));return response.result;}
 
-function repaired(edit={}){const i=input({durationSeconds:40,reliabilityEnabled:true,...edit});i.case.equipment[0].noiseProfile={reliability:{mtbfMinutes:.1,mttrMinutes:2/60}};return i;}
+function repaired(edit={}){const i=input({durationSeconds:40,reliabilityEnabled:true,...edit});i.case.equipment[0].noiseProfile={reliability:{mtbfMinutes:.1,mttrMinutes:2/60}};i.case.equipment[0].processData.downstream.rampAfterRepair=true;return i;}
 const starts=r=>r.events.filter(e=>e.equipmentId==='source'&&e.type==='EQUIPMENT_START_SEQUENCE_REQUESTED'&&e.reason==='REPAIR_COMPLETED');
 test('every repair produces one fresh ramp without repeating initial startup delay',()=>{
  const r=run(repaired()),requests=starts(r),repairs=r.events.filter(e=>e.equipmentId==='source'&&e.type==='REPAIR_COMPLETED');
@@ -19,7 +19,7 @@ test('every repair produces one fresh ramp without repeating initial startup del
  // First recovery: ramp starts at tick 5, then 25/50/75 percent. Initial two-second delay is not repeated.
  const rate=t=>r.samples.find(s=>s.virtualSecond===t+1).equipment.find(e=>e.id==='source').actualRatePerSecond;
  assert.equal(rate(5),0);assert.equal(rate(6),2.5);assert.equal(rate(7),5);assert.equal(rate(8),7.5);assert.equal(rate(9),10);
- assert.equal(r.summary.repairRestartPolicy,'PROVISIONAL_MTTR_TO_PRODUCTION_EXCLUDES_RAMP_NO_EXTRA_DELAY');
+ assert.equal(r.summary.repairRestartPolicy,'MTTR_STOP_TO_REPAIR_END_REPAIR_RAMP_OPT_IN');
 });
 test('repair restart waits for manual RUN and coalesces into one zero-delay request',()=>{
  const r=run(repaired({commands:[{equipmentId:'source',atVirtualSecond:4,action:'STOP'},{equipmentId:'source',atVirtualSecond:9,action:'RUN'}]}));
@@ -58,4 +58,22 @@ test('repair completion before Prime authorization stays pending until the senso
 test('emergency latch prevents repair restart until RESET and RUN',()=>{
  const i=repaired({commands:[{equipmentId:'source',atVirtualSecond:4,action:'EMERGENCY_STOP'},{equipmentId:'source',atVirtualSecond:8,action:'RESET'},{equipmentId:'source',atVirtualSecond:10,action:'RUN'}]});
  const r=run(i);assert(starts(r).length);assert(starts(r).every(e=>e.atVirtualSecond>=10&&e.delaySeconds===0));assert(r.samples.filter(s=>s.virtualSecond>4&&s.virtualSecond<=10).every(s=>s.equipment.find(e=>e.id==='source').actualRatePerSecond===0));
+});
+
+test('missing and false repair-ramp settings recover at nominal speed while initial ramps remain configured',()=>{
+ for(const setting of [undefined,false]){
+  const i=repaired();if(setting===undefined)delete i.case.equipment[0].processData.downstream.rampAfterRepair;else i.case.equipment[0].processData.downstream.rampAfterRepair=setting;
+  const r=run(i),requests=starts(r);assert(requests.length>0);assert(requests.every(e=>e.delaySeconds===0&&e.rampUpSeconds===0));
+  assert.equal(r.samples.find(s=>s.virtualSecond===6).equipment.find(e=>e.id==='source').actualRatePerSecond,10);
+  assert.equal(r.equipmentMetrics.source.repairRampEnabled,false);assert.equal(r.equipmentMetrics.source.repairRestartCount,requests.length);
+  assert.equal(r.events.find(e=>e.reason==='INITIAL_START').rampUpSeconds,4);
+  const opt=run(repaired());assert(r.summary.outputCount>=opt.summary.outputCount);
+ }
+});
+test('RUN after a separate manual stop still uses its configured ramp when repair ramps are off',()=>{
+ const i=input({durationSeconds:20,commands:[{equipmentId:'source',atVirtualSecond:8,action:'STOP'},{equipmentId:'source',atVirtualSecond:12,action:'RUN'}]}),r=run(i),e=r.events.find(e=>e.reason==='COMMAND_RUN');
+ assert.equal(e.rampUpSeconds,4);assert.equal(e.delaySeconds,2);assert.equal(r.equipmentMetrics.source.startRampCount,2);
+});
+test('repair-ramp flag is strictly boolean rather than treating imported strings as enabled',()=>{
+ const i=repaired();i.case.equipment[0].processData.downstream.rampAfterRepair='true';const response=simulateLine(i);assert.equal(response.ok,false);assert(response.error.details.some(d=>d.path.endsWith('rampAfterRepair')));
 });

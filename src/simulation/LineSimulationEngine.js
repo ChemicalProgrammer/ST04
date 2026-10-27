@@ -657,8 +657,8 @@ function updateReliabilityFailures(runtime) {
     if (equipment.failureRemainingSeconds > 0) {
       equipment.failureRemainingSeconds = Math.max(0, equipment.failureRemainingSeconds - runtime.run.tickSeconds);
       if (equipment.failureRemainingSeconds === 0) {
-        // Provisional plant convention: MTTR includes return-to-production preparation,
-        // but excludes subsequent speed recovery. Do not add startup delay again.
+        // Confirmed plant convention: MTTR ends when repair is finished.
+        // Recovery has no extra startup delay; repair ramps are explicitly opt-in.
         cancelEquipmentStart(equipment);
         equipment.repairRestartPending = true;
         runtime.events.push({ type: 'REPAIR_COMPLETED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id });
@@ -881,7 +881,9 @@ function requestEquipmentStart(runtime, equipment, reason, options = {}) {
   if(repairRestart&&(!isAvailable(equipment)||requiresPrime(equipment)||activeBackupControl(equipment)))return false;
   const delaySeconds = repairRestart?0:firstNonNegative(options.delaySeconds, equipment.startupDelaySeconds);
   if(repairRestart){equipment.repairRestartPending=false;equipment.repairRestartCount++;reason='REPAIR_COMPLETED';}
-  const rampUpSeconds = firstNonNegative(options.rampUpSeconds, equipment.restartRampUpSeconds);
+  const rampUpSeconds = repairRestart
+    ? (equipment.processData?.downstream?.rampAfterRepair===true?firstNonNegative(equipment.restartRampUpSeconds):0)
+    : firstNonNegative(options.rampUpSeconds, equipment.restartRampUpSeconds);
   equipment.startDelayRemainingSeconds = delaySeconds;
   equipment.startRampDurationSeconds = rampUpSeconds;
   equipment.startRampElapsedSeconds = 0;
@@ -1282,7 +1284,7 @@ function createResult(runtime,partial=false) {
   return {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.3',
+    engineVersion: '0.17.4',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1336,7 +1338,7 @@ function createSummary(runtime) {
     lineOeePacemakerRatePerSecond: runtime.product ? runtime.idealBottleOutput/runtime.run.durationSeconds : lineEffectiveness.reference?.nominalRatePerSecond || null,
     lineOeeReference: runtime.product?'PRODUCT_WEIGHTED_IDEAL_OUTPUT':lineEffectiveness.referenceMethod,
     idealBottleOutput:runtime.product?runtime.idealBottleOutput:undefined,
-    repairRestartPolicy: 'PROVISIONAL_MTTR_TO_PRODUCTION_EXCLUDES_RAMP_NO_EXTRA_DELAY',
+    repairRestartPolicy: 'MTTR_STOP_TO_REPAIR_END_REPAIR_RAMP_OPT_IN',
     qualityAssumption: 'NO_REJECT_MODEL_ASSUMES_100_PERCENT'
   };
 }
@@ -1349,6 +1351,7 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     startRampBottleEquivalents: equipment.startRampBottleEquivalents===null?null:round(equipment.startRampBottleEquivalents),
     startRampCount: equipment.startRampCount,
     repairRestartCount: equipment.repairRestartCount,
+    repairRampEnabled: equipment.processData?.downstream?.rampAfterRepair===true,
     stopTransitionSeconds: round(equipment.stopTransitionSeconds),
     stopTransitionOutputUnits: round(equipment.stopTransitionOutputUnits),
     stopTransitionBottleEquivalents: equipment.stopTransitionBottleEquivalents===null?null:round(equipment.stopTransitionBottleEquivalents),
