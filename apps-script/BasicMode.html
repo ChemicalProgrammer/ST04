@@ -19,7 +19,7 @@ window.STBasicMode=(function(){
     tools=document.createElement('div');tools.id='basic-case-actions';tools.className='basic-utilities';
     var utilityRow=document.createElement('div');utilityRow.className='button-row';tools.appendChild(utilityRow);
     headerActions=document.getElementById('header-case-actions');headerActionsHome=headerActions.parentNode;headerActionsNext=headerActions.nextSibling;
-    [['open-settings',__ST_TEXT__('shell.settings'),'settings'],['sidebar-app-info',__ST_TEXT__('info.title'),'info'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0])?.click();});if(s[0]==='sidebar-app-info'){b.id='basic-app-info';b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','app-info-dialog');}b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
+    [['open-settings',__ST_TEXT__('shell.settings'),'settings'],['faq-gallery','FAQ / Preguntas frecuentes',''],['sidebar-app-info',__ST_TEXT__('info.title'),'info'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0])?.click();});if(s[0]==='faq-gallery'){b.innerHTML=window.STFaq.icon();b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','faq-dialog');}if(s[0]==='sidebar-app-info'){b.id='basic-app-info';b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','app-info-dialog');}b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
     list=document.getElementById('equipment-list');listHome=list.parentNode;
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
     panel=document.createElement('aside');panel.id='basic-conveyor-panel';panel.setAttribute('aria-label',__ST_TEXT__('basic.conveyor_configuration'));
@@ -177,6 +177,3 @@ window.STBasicMode=(function(){
   return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>
-
-
-

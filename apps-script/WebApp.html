@@ -68,7 +68,7 @@
       <header class="topbar">
         <div class="breadcrumb"><span id="header-case-icon" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span id="breadcrumb-case"><?= __ST_TEXT__('shell.workspace') ?></span><span>/</span><span id="breadcrumb-view"><?= __ST_TEXT__('shell.cases') ?></span></div>
         <span id="user-email" class="user-chip"></span>
-        <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost icon-button" type="button" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>" title="<?= __ST_TEXT__('shell.settings') ?>"></button><button id="show-app-info" class="ghost icon-button" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"></button><button id="cases-sign-out" class="ghost icon-button" type="button" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out') ?>"></button></div>
+        <div id="cases-top-actions" class="button-row"><button id="cases-settings" class="ghost icon-button" type="button" data-icon="settings" aria-label="<?= __ST_TEXT__('shell.settings') ?>" title="<?= __ST_TEXT__('shell.settings') ?>"></button><button id="faq-gallery" class="ghost icon-button" type="button" data-faq-trigger aria-label="FAQ / Preguntas frecuentes" title="FAQ / Preguntas frecuentes" aria-haspopup="dialog" aria-controls="faq-dialog">?</button><button id="show-app-info" class="ghost icon-button" type="button" data-icon="info" aria-haspopup="dialog" aria-controls="app-info-dialog" aria-label="<?= __ST_TEXT__('info.title') ?>" title="<?= __ST_TEXT__('info.title') ?>"></button><button id="cases-sign-out" class="ghost icon-button" type="button" data-icon="logout" aria-label="<?= __ST_TEXT__('view.sign_out') ?>" title="<?= __ST_TEXT__('view.sign_out') ?>"></button></div>
         <div id="header-case-actions" class="header-case-actions hidden">
         <section id="simulation-toolbar" class="simulation-toolbar hidden" aria-label="<?= __ST_TEXT__('view.simulations') ?>">
         <label class="simulation-picker" for="simulation-selector"><span class="sr-only"><?= __ST_TEXT__('view.simulations') ?></span><select id="simulation-selector"></select></label>
@@ -78,6 +78,7 @@
         </section>
         <button id="toggle-gemini" class="secondary icon-button hidden" aria-label="<?= __ST_TEXT__('assistant.gemini') ?>" title="<?= __ST_TEXT__('assistant.gemini') ?>" data-icon="gemini" aria-controls="gemini-panel" aria-expanded="false"></button>
         </div>
+        <div id="faq-advance-controls" class="button-row"><button id="faq-header-settings" type="button" class="ghost icon-button" data-icon="settings" aria-label="Settings" title="Settings"></button><button id="faq-header" class="ghost icon-button" type="button" data-faq-trigger aria-label="FAQ / Preguntas frecuentes" title="FAQ / Preguntas frecuentes" aria-haspopup="dialog" aria-controls="faq-dialog">?</button></div>
         <span id="header-errors" class="hidden" role="status" aria-live="polite"><button id="header-error-button" type="button" class="ghost icon-button error-details-trigger" data-icon="error" aria-haspopup="dialog" aria-label="<?= __ST_TEXT__('errors.view_details') ?>" title="<?= __ST_TEXT__('errors.view_details') ?>"></button><span class="sr-only"><?= __ST_TEXT__('errors.title') ?></span></span>
         <button id="save-case" class="secondary icon-button hidden" type="button" data-icon="save" aria-label="Save case" title="Save case"></button>
         <span id="autosave-indicator" class="sr-only hidden" role="status"><span id="autosave-status" data-error-notice="save" data-error-title="Case saving error" class="sr-only"></span></span><button id="retry-autosave" class="ghost icon-button hidden" data-icon="refresh" aria-label="<?= __ST_TEXT__('autosave.retry') ?>" title="<?= __ST_TEXT__('autosave.retry') ?>"></button>
@@ -438,10 +439,8 @@
     <?!= include_('ConfigurationEditor'); ?>
     <?!= include_('EquipmentRoles'); ?>
     <?!= include_('BasicMode'); ?>
+    <?!= include_('Faq'); ?>
     <?!= include_('BrandConveyorMotion'); ?>
     <?!= includeClient_(); ?>
   </body>
 </html>
-
-
-
