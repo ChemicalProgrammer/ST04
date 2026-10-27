@@ -125,11 +125,15 @@ Estos contadores emplean flujo en la salida final. No son automáticamente Runti
 - [ ] Confirmar el reloj de MTBF: procesando producto, habilitado o tiempo transcurrido; tratamiento de starvation, blocking y marcha en vacío.
 - [ ] Precisar el umbral de microparo: la definición inicial dice menos de 3 o 4 minutos.
 - [ ] Aclarar si los perfiles incluyen solo microparos o fallas mayores; revisar el alcance del MTTR de 17.26 min del Unscrambler frente a esa definición.
-- [ ] Confirmar si los transportadores no presentan fallas propias o si faltan sus datos.
+- [x] Supuesto de conveyors confirmado por el responsable consultado: para este modelo se excluyen sus fallas propias y no se requieren MTBF/MTTR. Sus efectos normales se consideran despreciables frente a los equipos primarios; esto es una simplificación, no una afirmación física de que nunca fallen.
+- [ ] Registrar únicamente excepciones sistémicas o fallas relevantes de conveyors cuando exista evidencia para modelarlas.
 
 El reloj del motor actual avanza en pasos con procesamiento positivo. La referencia AEM aportada no valida ni invalida esa convención de confiabilidad; se debe contrastar con el cálculo de los perfiles de entrada.
 
-## Definición operativa ya recibida
+## Definiciones operativas ya recibidas
+
+**Conveyors — confirmado el 27 de octubre de 2026:** se asumen sin fallas propias dentro de este modelo. No tratarlos como equipos con confiabilidad faltante ni inventar MTBF/MTTR. Conservan su dinámica de transporte y los paros por falta de material, bloqueo, sensores y órdenes. Un perfil de fallas existente se conserva como excepción explícita; desactivarlo requiere una decisión del usuario. La confirmación no se extiende automáticamente a todos los equipos CUSTOM o a cualquier equipo auxiliar.
+
 
 MTTR: desde la detención hasta el fin de reparación. Las máquinas descritas generalmente reinician sin rampa; el motor conserva rampas tras reparación desactivadas por defecto y permite excepciones explícitas por equipo.
 

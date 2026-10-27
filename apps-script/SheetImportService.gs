@@ -178,7 +178,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     if(values.maximumSpeedBpm===0||values.maximumSpeedBpm===null&&!conveyor)issue(errors,'F'+rowNumber,'Machine maximum speed must be greater than zero.');
     var mtbf=values.mtbfMinutes,mttr=values.mttrMinutes;
     if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or mark both NA.');
-    if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'No reliability data: random failures are disabled for this equipment.',conveyor?'info':'warning','NO_RELIABILITY_DATA');
+    if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,conveyor?'Conveyor model assumption: no own random failures. MTBF/MTTR are not required; material and control stops remain active.':'No reliability data: random failures are disabled for this equipment.',conveyor?'info':'warning',conveyor?'CONVEYOR_FAILURES_EXCLUDED':'NO_RELIABILITY_DATA');
     if(conveyor&&flag==='Y')issue(errors,'C'+rowNumber,'A conveyor cannot be the critical machine. Use Y for one machine only.');
     var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',isPacemaker:flag==='Y'&&!conveyor,rateBasis:'bottles per minute',sourceSheetRow:rowNumber,sourceSheetLayout:layout},noiseProfile:{},processData:{
       role:conveyor?'CONVEYOR':flag==='Y'?'CRITICAL_MACHINE':'MACHINE',machineType:type||'CUSTOM',
@@ -211,7 +211,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   if(equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).length>1)equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).forEach(function(unit){issue(errors,'C'+unit.characteristics.sourceSheetRow,'Use Y for only one critical machine; mark the other machines N.');});
   var notes=[
     'Maximum speed F initializes nominal running speed. The optional packing proposal uses a reviewed Case Packer to assign bottle/case units, create a product and format, and translate bottle-equivalent machine speeds to cases/min. Without that proposal, existing unit settings are retained.',
-    'MTBF uses seeded exponential intervals; MTTR is a fixed repair duration. The current failure clock counts AUTO/MANUAL time, including starving/blocking, and excludes manual stops and micro-stops. No extra micro-stop noise is added by import.',
+    'MTBF uses seeded exponential intervals; MTTR is a fixed repair duration. The ST failure clock counts only positive processed-flow ticks; zero-flow starvation/blocking, Prime waiting, repairs and stops do not consume MTBF. No extra micro-stop noise is added by import.',
     'Q is interpreted as a speed increase: 5 means discharge velocity multiplied by 1.05. A numeric percent-formatted cell (5%) is also accepted.',
     'I/J and R/S/W are retained with their source cells, but do not control the current conveyor calculation. Infeed overspeed guidance currently assumes 5%.',
     'The Sheet does not provide installed Back-up position, discharge/reject runout or upstream stop-response time. The current engine derives Back-up position and defaults the missing runout/stop-response values to zero; review these in Line setup.',

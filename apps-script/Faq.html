@@ -85,7 +85,7 @@ window.STFaq=(function(){
         "q": "¿Cómo se calcula la eficiencia teórica?",
         "formula": "Aᵢ = MTBFᵢ / (MTBFᵢ + MTTRᵢ) · Eficiencia teórica = 100 × ∏ Aᵢ",
         "p": [
-          "Theoretical equipment efficiency multiplica las disponibilidades de las máquinas, excluyendo conveyors. MTBF y MTTR deben usar la misma unidad. Si faltan datos válidos, el resultado no se interpreta como una medición.",
+          "Theoretical equipment efficiency multiplica las disponibilidades de las máquinas, excluyendo conveyors. Para esta comparación, los conveyors se asumen sin fallas propias; MTBF/MTTR no son obligatorios. En Advance solo aparecen al activar Model own conveyor failures (exception). Los perfiles ya activos se conservan como excepciones. Siguen existiendo paros por material, bloqueo, sensores y órdenes. MTBF y MTTR deben usar la misma unidad. Si faltan datos válidos, el resultado no se interpreta como una medición.",
           "Ejemplo: dos máquinas con 90 % de disponibilidad dan 0.90 × 0.90 × 100 = 81 %. Es una aproximación de disponibilidad de un sistema en serie con fallas independientes y sin desacoplamiento por buffers. No incluye velocidades, rampas, transporte, calendario ni calidad. No es un límite superior de la eficiencia simulada: los buffers pueden desacoplar los paros.",
           "El techo por velocidades es otra métrica: mínimo de las velocidades nominales de máquinas / velocidad de referencia × 100, limitado a 100 %. Con varios formatos se pondera por la producción ideal de cada formato. La velocidad máxima instalada no sustituye automáticamente la nominal configurada."
         ]
@@ -240,7 +240,7 @@ window.STFaq=(function(){
         "q": "How is theoretical efficiency calculated?",
         "formula": "Aᵢ = MTBFᵢ / (MTBFᵢ + MTTRᵢ) · Theoretical efficiency = 100 × ∏ Aᵢ",
         "p": [
-          "Theoretical equipment efficiency multiplies machine availabilities, excluding conveyors. MTBF and MTTR must use the same unit. Missing valid inputs do not represent measured availability.",
+          "Theoretical equipment efficiency multiplies machine availabilities, excluding conveyors. For this comparison conveyors have no own random failures by default; MTBF/MTTR are not required. Advance shows these fields only when Model own conveyor failures (exception) is enabled. Existing enabled profiles are preserved as exceptions. Material, blocking, sensor and commanded stops remain active. MTBF and MTTR must use the same unit. Missing valid inputs do not represent measured availability.",
           "Two machines at 90% availability give 81%. This is a series-system approximation with independent failures and no buffer decoupling. It excludes speed, ramps, transport, calendar and quality. It is not an upper bound for simulated efficiency: buffers can decouple stops.",
           "The nominal speed ceiling is different: minimum nominal machine rate / reference rate × 100, capped at 100%. Multiple formats use ideal-output weighting. Installed maximum speed does not automatically replace the configured nominal rate."
         ]

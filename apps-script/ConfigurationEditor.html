@@ -7,8 +7,17 @@ var STReliabilityControls = (function(){
     [['enabled',__ST_TEXT__('reliability.enabled')],['mtbfMinutes',__ST_TEXT__('reliability.mtbf')],['mttrMinutes',__ST_TEXT__('reliability.mttr')]].forEach(function(spec){
       var label=document.createElement('label'),input=document.createElement('input');label.textContent=spec[1];label.title=spec[1]+' — positive minutes when failures are enabled; disabling failures retains these values.';input.className='reliability-'+spec[0];input.type=spec[0]==='enabled'?'checkbox':'number';if(input.type==='number'){input.min='0';input.step='any';}label.appendChild(input);group.appendChild(label);controls[spec[0]]=input;
     });
+    var assumption=document.createElement('p');assumption.className='chart-note conveyor-reliability-assumption';assumption.style.gridColumn='1 / -1';group.append(assumption);
+    function visibility(){
+      var conveyor=fields.querySelector('.equipment-type').value==='CONVEYOR';
+      controls.enabled.parentElement.firstChild.nodeValue=conveyor?'Model own conveyor failures (exception)':__ST_TEXT__('reliability.enabled');
+      controls.enabled.parentElement.title=conveyor?'Default assumption: no own random conveyor failures. Enable only for a documented exception with MTBF and MTTR. Existing enabled profiles are preserved.':__ST_TEXT__('reliability.enabled');
+      ['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].parentElement.hidden=conveyor&&!controls.enabled.checked;controls[key].parentElement.style.display=controls[key].parentElement.hidden?'none':'';});
+      assumption.hidden=!conveyor;assumption.textContent=controls.enabled.checked?'Exception active: this conveyor has its own failure model. Existing configured values are preserved; disable the exception to use the no-own-failures assumption.':'Model assumption: conveyors have no own random failures. MTBF and MTTR are not required. Material shortage, blocking, sensors and scheduled or manual stops still affect operation.';
+    }
     fields.querySelector('.equipment-grid').after(group);
-    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}}
+    fields.querySelector('.equipment-type').addEventListener('change',visibility);
+    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}visibility();}
     function update(){
       try{
         var noise=JSON.parse(profile.value),data=JSON.parse(process.value);
@@ -16,9 +25,10 @@ var STReliabilityControls = (function(){
         var rel={mtbfMinutes:Number(controls.mtbfMinutes.value),mttrMinutes:Number(controls.mttrMinutes.value)};
         if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR')controls.enabled.checked=true;
         if(controls.enabled.checked)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
-        data.equipment=Object.assign({},data.equipment,rel);
+        if(controls.enabled.checked||controls.mtbfMinutes.value!==''||controls.mttrMinutes.value!=='')data.equipment=Object.assign({},data.equipment,rel);
         profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
       }catch(e){group.dataset.invalid='true';}
+      visibility();
     }
     Object.values(controls).forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
     profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();

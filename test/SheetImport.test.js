@@ -25,6 +25,8 @@ test('fixed Sheet mapping preserves every A–W value and C1:C7 metadata, with n
  const [a,b]=out.equipment;
  assert.equal(a.nominalRatePerSecond,2);assert.equal(a.processData.role,'CRITICAL_MACHINE');assert.deepEqual(plain(a.noiseProfile),{reliability:{mtbfMinutes:2,mttrMinutes:.25}});
  assert.equal(a.processData.geometry.lactMm,null);assert.deepEqual(plain(b.noiseProfile),{});assert.equal(b.nominalRatePerSecond,2);
+ assert(out.warnings.some(w=>w.code==='CONVEYOR_FAILURES_EXCLUDED'&&w.severity==='info'));
+ assert(!out.warnings.some(w=>w.cell==='D11:E11'&&w.code==='NO_RELIABILITY_DATA'));
  assert.equal(b.processData.geometry.actualDischargeMm,100);assert.equal(b.processData.geometry.actualCodingMm,200);
  assert.equal(b.processData.accumulation.blockedTimeDelaySeconds,.5);assert.equal(b.processData.accumulation.insuranceFactorUnits,2);
  assert.equal(b.processData.speedAndSensors.overspeedVsInfeedScrewPercent,5);assert.equal(b.processData.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent,8);
