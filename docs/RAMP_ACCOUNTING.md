@@ -20,12 +20,13 @@ All counters live in each result's `equipmentMetrics[equipmentId]`:
 | `startRampOutputUnits` | Actual output/transfer during those ticks, in native output units. |
 | `startRampBottleEquivalents` | The same actual output converted to bottle equivalents when the conversion is known. |
 | `startRampCount` | Number of start sequences that actually reached an eligible ramp tick. |
+| `repairRestartCount` | Recovery requests after reliability repair; no startup delay is added. |
 | `stopTransitionSeconds` | Eligible ticks with an active Back-up response or pending residual discharge. |
 | `stopTransitionOutputUnits` | Actual output/transfer during those stopping ticks, in native units. |
 | `stopTransitionBottleEquivalents` | The stopping output converted to bottle equivalents, when known. |
 | `stopTransitionCount` | Number of Back-up controls that reached an eligible stopping tick. |
 
-Eligibility excludes unavailable equipment, calendar stops, Prime waiting and startup delay. A Back-up control takes precedence over a paused start profile, so a tick is not counted in both phases. Unavailable/repair intervals do not increment the counters. The same start sequence resuming after repair is not counted as another start. A manual STOP followed by RUN creates another sequence. A simulation ending partway through a sequence records only its executed ticks.
+Eligibility excludes unavailable equipment, calendar stops, Prime waiting and startup delay. A Back-up control takes precedence over a paused start profile, so a tick is not counted in both phases. Unavailable/repair intervals do not increment the counters. Under the provisional MTTR convention, completing a reliability repair replaces any interrupted sequence with a fresh configured ramp and zero additional startup delay. The request waits while other stop controls remain active. `repairRestartCount` counts these recovery requests, including zero-duration ramps. `startRampCount` counts sequences that actually execute ramp ticks. A manual STOP followed by RUN creates another sequence. A simulation ending partway through a sequence records only its executed ticks.
 
 Time resolution is the physics tick. A configured duration not divisible by the tick is represented by the ticks actually used by the existing flow model. Output is integrated from the actual equipment output delta, including zero/partial output under material constraints. It is not calculated as nominal speed times configured ramp duration.
 
@@ -60,6 +61,14 @@ No new configuration fields or Google Sheets columns are needed. `ScenarioEngine
 
 ## Validation
 
-The targeted engine/report tests cover analytical ramp output, startup-delay exclusion, truncated restarts, emergency/manual/calendar stops, repair pauses, actual Back-up stopping flow, unknown conversions, active case-to-bottle conversions across formats, asynchronous/summary calculations, mean/selected round presentation, missing older metrics and saved JSON. A direct comparison with the previous committed browser engine confirms unchanged production summaries, sampled physics and events for three fixed seeds.
+The targeted engine/report tests cover analytical ramp output, startup-delay exclusion, truncated restarts, emergency/manual/calendar stops, repair pauses, actual Back-up stopping flow, unknown conversions, active case-to-bottle conversions across formats, asynchronous/summary calculations, mean/selected round presentation, missing older metrics and saved JSON. The original phase-counter change preserved production dynamics. The subsequent repair-restart policy intentionally changes production when a repair is followed by a configured ramp; results and What-If evaluations must be recalculated.
 
 A separate existing `SimulationPersistence.test.js` assertion expects all replay events to be dropped. The unchanged baseline code retains up to 2,000 events, so that existing assertion fails with 100 retained versus 0 expected. It is unrelated to these counters and was not modified. The new targeted saved-result test verifies that phase counters and per-round metrics survive JSON serialization.
+
+## Provisional MTTR interpretation (2026-10-27)
+
+MTTR includes preparation until return to production and excludes subsequent speed recovery. Repair completion requests the configured restart ramp with `delaySeconds = 0`; it does not add the initial startup delay again. A zero configured ramp means immediate recovery. Other explicit stop controls must clear before the recovery request is consumed. Coincident calendar/RUN/Prime requests coalesce into the pending repair recovery. Subsequent unrelated stop/start commands retain their existing rules.
+
+The numerical ramp retains the existing physics tick resolution, including its initial zero-speed tick. Therefore MTTR does not guarantee a first bottle at that exact instant: tick discretization, material starvation, transport and downstream constraints can postpone actual output. No new independent microstop policy or gradual stopping ramp is introduced. DES remains unchanged.
+
+The result summary records `repairRestartPolicy` so stored runs retain the assumption used. Re-run old simulations and What-If evaluations after updating the engine. Plant Rate Loss remains comparison-only; measured simulated Rate Loss includes only the final-output effect under its positive-flow runtime convention.
