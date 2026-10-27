@@ -1,14 +1,14 @@
 # Confirmaciones para comparar planta y simulación
 
-Actualizado: 27 de octubre de 2026. Estado: definiciones AEM documentadas; aplicación a las celdas del Caso C pendiente de validación.
+Actualizado: 27 de octubre de 2026. Estado: definiciones AEM documentadas; conciliación de registros de la base de planta del Caso C pendiente.
 
 ## Fuentes y alcance
 
 Se revisaron las dos series de fotografías aportadas el 27 de octubre: secciones I–X y figuras 1–5 del documento AEM, identificado en el pie visible como TIL 97-015, 14 de julio de 1997. Las definiciones siguientes proceden de sus secciones IV y V; las diferencias con OEE, de la sección VII y figura 5.
 
-La referencia aclara el modelo documental. No prueba por sí sola que la hoja actual aplique exactamente esas fórmulas. Las fotografías y el texto íntegro no se incorporan al repositorio; se resume lo necesario para esta comparación.
+Los valores del Caso C provienen de bases de datos de planta; la hoja únicamente los presenta. Las fórmulas AEM ya están documentadas y ejemplificadas. La tarea pendiente es conciliar esos registros concretos con su período, unidades, alcance y lógica de generación; no pedir fórmulas de celdas ni volver a solicitar la definición general de AU. Las fotografías y el texto íntegro no se incorporan al repositorio; se resume lo necesario para esta comparación.
 
-Ver también [referencia AEM](ASSET_EFFECTIVENESS_MODEL.md).
+Consultar primero el [compendio de conceptos, fórmulas y ejemplos AEM](AEM_CONCEPTS_FORMULAS.md). La [referencia histórica de integración](ASSET_EFFECTIVENESS_MODEL.md) conserva propuestas y revisiones anteriores.
 
 ## Definiciones resueltas por el documento
 
@@ -62,9 +62,9 @@ Supuestos por validar: un solo formato de 12 unidades/caja, 80,544 unidades buen
 | OE = T5 / T3 | 52.00 % |
 | RE = T5 / T4 | 87.59 % |
 
-La reconstrucción explica los 366 y 52 minutos redondeados: la celda rotulada “Run Time” parece contener T5, y no T4. Es una inferencia aritmética, no una confirmación de su fórmula. Si existen scrap o reproceso, los 51.89 minutos son pérdidas totales en marcha; no se asignan íntegramente a velocidad sin separar esos componentes.
+La reconstrucción explica los 366 y 52 minutos redondeados: el valor presentado como “Run Time” coincide aproximadamente con T5, y no T4. Es una inferencia aritmética condicionada a 220 unidades/min, no una confirmación del significado del campo de origen ni evidencia de un error de la base. Si existen scrap o reproceso, los 51.89 minutos son pérdidas totales en marcha; no se asignan íntegramente a velocidad sin separar esos componentes.
 
-El documento no resuelve tres discrepancias de la hoja:
+El documento resuelve las fórmulas generales. Quedan tres diferencias por conciliar en los registros presentados:
 
 - Production Available Time muestra 705 min, mientras la resta produce 704.
 - AU muestra 50.93 %, mientras AEM con estos supuestos produce 26.96 %.
@@ -98,13 +98,14 @@ Estos contadores emplean flujo en la salida final. No son automáticamente Runti
 
 ## Confirmaciones que siguen pendientes
 
-### Prioridad 1 — Hoja, referencia y punto de medición
+### Prioridad 1 — Registros de origen, referencia y punto de medición
 
-- [ ] Obtener fórmulas de las celdas AU, UPDT%, Run Time, Rate Loss y Production Available Time, con sus valores sin redondear.
-- [ ] Verificar qué significa AU en esta hoja y por qué no coincide con T5/T2 del documento.
+- [x] Definición general de AU resuelta: T5/T2, sección V.b; ver ejemplos de figuras 3 y 5 en el compendio.
+- [ ] Obtener el diccionario de campos o una explicación de la lógica del reporte/consulta que genera AU, UPDT%, Run Time, Rate Loss y Production Available Time; solicitar valores sin redondear si están disponibles.
+- [ ] Conciliar AU 50.93 % con los tiempos y producción del mismo registro: identificar período, línea, SKU, velocidad estándar, numerador, denominador y método de agregación utilizados por el reporte. No asumir que AU carece de definición.
 - [ ] Identificar numerador y denominador de UPDT%; no asumir que es 286/704.
-- [ ] Resolver 704 frente a 705 minutos.
-- [ ] Confirmar si “Run Time” está mal rotulado y contiene Effective Runtime.
+- [ ] Explicar 704 frente a 705 minutos mediante precisión original, cobertura temporal, filtros o ajustes del reporte; conservar ambos valores hasta resolverlo.
+- [ ] Confirmar el significado del campo de origen “Run Time” y por qué su valor coincide con producción/220. No presuponer un rótulo erróneo.
 - [ ] Validar 220 unidades/min como velocidad estándar AEM del cuello de botella para este formato, distinguiéndola de consignas y capacidades máximas configuradas.
 - [ ] Identificar el cuello de botella de referencia y dónde se miden runtime, downtime, producción y velocidad.
 - [ ] Confirmar que las 80,544 unidades son producto bueno y del mismo período/formato; separar scrap, reproceso y otras pérdidas.
@@ -152,7 +153,8 @@ Los datos observados continúan como referencia comparativa. Esta actualización
 | Runtime / Effective Runtime | Documentados: sección IV.D–F | | 2026-10-27 |
 | Velocidad estándar / pérdidas | Documentadas: sección IV.E | | 2026-10-27 |
 | Changeover / rampa posterior | Documentados: sección IV.C | | 2026-10-27 |
-| Fórmulas y etiquetas de la hoja actual | Pendiente | | |
+| Origen de los valores | Base de datos de planta; hoja de presentación, confirmado por el usuario | | 2026-10-27 |
+| Conciliación de campos y lógica del reporte | Pendiente; conceptos AEM ya documentados | | |
 | UPDT% | Pendiente: no definido en esta referencia | | |
 | Calendario y eventos del Caso C | Pendiente | | |
 | Perfiles MTBF/MTTR y excepciones | Pendiente, salvo MTTR y reinicio sin rampa ya recibidos | | |

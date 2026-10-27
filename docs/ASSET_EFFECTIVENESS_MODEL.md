@@ -1,6 +1,10 @@
 # Asset Effectiveness Model (AEM): referencia y aplicación en SimuLine
 
-Fecha: 2026-10-23. Estado: referencia documentada y propuesta de integración; no implementa cambios en cálculos, interfaz ni importadores.
+Fecha inicial: 2026-10-23. Referencia histórica de integración, ampliada el 2026-10-27. No implementa cambios en cálculos, interfaz ni importadores.
+
+**Referencia de consulta:** [Compendio AEM: conceptos, fórmulas y ejemplos](AEM_CONCEPTS_FORMULAS.md). Contiene las definiciones consolidadas y los ejemplos numéricos verificados. Para el Caso C, consultar [las confirmaciones pendientes](PLANT_COMPARISON_CONFIRMATIONS.md).
+
+**Origen aclarado:** los indicadores del Caso C proceden de bases de datos de planta; la hoja los presenta. Las referencias históricas a celdas describen su ubicación visual, no el origen del cálculo. Las fórmulas generales AEM, incluida AU, están resueltas; la conciliación de registros requiere la lógica del reporte y su alcance.
 
 ## 1. Propósito y procedencia
 
