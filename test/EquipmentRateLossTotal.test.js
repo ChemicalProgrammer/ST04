@@ -54,3 +54,19 @@ test('above-reference equipment balance stays signed rather than hiding recovery
   assert.equal(d.rows[0].rateLossSeconds,-30);assert.equal(d.total.rateLossSeconds,-15);
  }finally{w.close();}
 });
+
+test('both Results tables explain every header and report tooltips use the same definitions',()=>{
+ const w=setup();try{
+  const result={summary:{},equipmentMetrics:{a:metrics(120,90),b:metrics(120,60)}};
+  w.STResults.renderRamps(w.document.getElementById('target'),result,equipment);
+  for(const [selector,tips] of [['.equipment-rate-loss-table',w.STReports.equipmentRateLossHeaderTips],['.ramp-accounting-table',w.STReports.rampHeaderTips]]){
+   const headers=[...w.document.querySelectorAll(selector+' thead th')];assert.equal(headers.length,tips.length);
+   headers.forEach((th,i)=>{assert.equal(th.title,tips[i]);assert(th.title.length>30);assert.equal(th.getAttribute('aria-description'),th.title);assert.equal(th.tabIndex,0);});
+  }
+  const report=new JSDOM(w.STReports.equipmentRateLossHtml(result,equipment));
+  [...report.window.document.querySelectorAll('thead th')].forEach((th,i)=>assert.equal(th.title,w.STReports.equipmentRateLossHeaderTips[i]));report.window.close();
+  assert(w.STReports.rampHeaderTips[1].includes('not equivalent lost production time'));
+  assert(w.STReports.rampHeaderTips[6].includes('repair ramps disabled'));
+  assert(w.STReports.equipmentRateLossHeaderTips[3].includes('overlap'));
+ }finally{w.close();}
+});
