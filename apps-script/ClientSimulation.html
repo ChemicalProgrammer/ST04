@@ -139,6 +139,8 @@
     }
 
     function retainedReplaySamples(samples,limit) {
+      if(limit<=0)return [];
+      if(limit===1)return samples?.length?[samples.at(-1)]:[];
       if(!Array.isArray(samples)||samples.length<=limit)return samples||[];
       var retained=[];
       for(var index=0;index<limit;index++)retained.push(samples[Math.floor(index*(samples.length-1)/(limit-1))]);
@@ -156,6 +158,13 @@
       var exact=viewIndex<0?original.slice(-2):original.slice(Math.max(0,viewIndex-1),viewIndex+1).concat(original.slice(-2));
       var samples=original.length<=limit?original:retainedReplaySamples(original,Math.max(2,limit-tail.length-exact.length)).concat(tail,exact);
       samples=samples.filter(function(sample,index,list){return list.findIndex(function(other){return other.virtualSecond===sample.virtualSecond;})===index;}).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
+      // Small emergency budgets still keep the first, displayed and final frames.
+      // Tail/exact-frame additions must not leave the replay above its limit.
+      if(samples.length>limit){
+        var requiredTimes=new Set([original[0]].concat(exact).map(function(sample){return sample.virtualSecond;}));
+        var required=samples.filter(function(sample){return requiredTimes.has(sample.virtualSecond);});
+        samples=required.concat(retainedReplaySamples(samples.filter(function(sample){return !requiredTimes.has(sample.virtualSecond);}),Math.max(0,limit-required.length))).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
+      }
       replay.samples=samples.map(function(sample){
         var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
         frame.accumulationZones=(sample.accumulationZones||[]).map(function(zone){
@@ -756,7 +765,3 @@
       }
       return selectedIndex;
     }
-
-
-
-

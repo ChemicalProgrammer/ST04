@@ -337,7 +337,6 @@ async function openCase(caseId, initialView) {
       if(!next.name.trim()||next.equipment.some(function(e){return !e.id||!e.name||!(e.nominalRatePerSecond>0);}))throw new Error(__ST_TEXT__('autosave.invalid'));
       var simulation=activePersistentSimulation(),run=readRunConfiguration();if(!run)return null;
       if(simulation){var before=JSON.stringify([simulation.equipment,simulation.dynamicConfig]);simulation.equipment=cloneJson(next.equipment);simulation.dynamicConfig=cloneJson(run);if(before!==JSON.stringify([simulation.equipment,simulation.dynamicConfig]))simulation.updatedAt=new Date().toISOString();captureSimulationView();}
-      compactStoredReplays(state.activeCase.simulations);
       next.simulations=state.activeCase.simulations;
       return fitCaseSave(cloneJson(next));
     }
@@ -348,7 +347,7 @@ async function openCase(caseId, initialView) {
       while(bytes()>window.ST_CASE_SAVE_LIMITS.maxBytes){
         var changed=false;(draft.simulations||[]).forEach(function(simulation){
           var result=simulation.results;if(!result)return;
-          [result.replay].concat(result.batch?.replays||[]).filter(Boolean).forEach(function(replay){
+          [result.replay,result.batch?.representativeReplay].concat(result.batch?.replays||[]).filter(Boolean).forEach(function(replay){
             if(replay.samples?.length>6){var previous=replay.samples.length;compactReplay(replay,Math.max(6,Math.floor(previous/2)),result.view?.virtualSecond);changed=changed||replay.samples.length<previous;}
             if(replay.events?.length){replay.detailCoverage=Object.assign({},replay.detailCoverage,{savedEventsOmitted:replay.events.length+(replay.detailCoverage?.savedEventsOmitted||0)});replay.events=[];changed=true;}
           });
