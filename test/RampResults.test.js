@@ -29,7 +29,7 @@ test('Rate Loss appears in Results help and printable reports as the selected or
   assert.equal(h.w.STReports.rateLossRows(result)[2][1],3.5);
   h.w.STResults.renderRamps(h.w.document.getElementById('ramp-test'),result,[]);
   assert(h.w.document.getElementById('ramp-test').textContent.includes('Rate Loss (gross shortfall): 3.5 min'));
-  assert(h.w.document.querySelector('#ramp-test details').textContent.includes('comparison-only'));
+  assert(h.w.document.querySelector('#ramp-test details').textContent.includes('solo sirve como comparación'));
   delete result.batch;assert.equal(h.w.STReports.rateLossRows(result)[2][1],3);
   delete result.summary.lineRateLossSeconds;assert.equal(h.w.STReports.rateLossRows(result)[2][1],null);
  }finally{h.w.close();}

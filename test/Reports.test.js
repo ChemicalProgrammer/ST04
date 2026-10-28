@@ -227,7 +227,7 @@ test('format loss exports separate nominal speed gap in bottle equivalents and c
 test('Basic printable report includes ramp/stop phase totals without inventing older or DES counters',()=>{
  const h=setup();try{
   h.w.STBasicMode={isBasic:()=>true};h.result.equipmentMetrics[h.sim.equipment[0].id]={startRampSeconds:8,startRampBottleEquivalents:50,stopTransitionSeconds:3,stopTransitionBottleEquivalents:6};
-  const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert(html.includes('Start ramps and stop transitions'));assert(html.includes('Start ramp (bottles)'));assert(html.includes('gradual deceleration is not modeled'));assert(html.includes('50'));
+  const html=h.w.STReports.resultsHtml(h.result,h.c,h.sim);assert(html.includes('Start ramps and stop transitions'));assert(html.includes('Start ramp (bottles)'));assert(html.includes('no se modela desaceleración gradual'));assert(html.includes('50'));
   const old=h.w.STReports.rampRows({...h.result,equipmentMetrics:{}},h.sim.equipment);assert.equal(old[0][1],null);assert.equal(old[0][2],null);
  }finally{h.w.close();}
 });

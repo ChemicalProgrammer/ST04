@@ -79,17 +79,17 @@ window.STResults=(function(){
   }
   function renderRateLossImpact(target,result){
     const data=STReports.rateLossImpact(result),heading=document.createElement('h3'),scroll=document.createElement('div'),table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');
-    heading.textContent='Rate Loss: production and efficiency impact';target.append(heading);scroll.className='table-scroll';table.className='line-rate-loss-impact-table';
+    heading.textContent='Rate Loss de línea: efecto en producción y eficiencia';target.append(heading);scroll.className='table-scroll';table.className='line-rate-loss-impact-table';
     data.headers.forEach((label,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=label;th.title=STReports.rateLossImpactHeaderTips[i];th.setAttribute('aria-description',th.title);th.tabIndex=0;if(i)th.className='numeric';head.append(th);});thead.append(head);
-    data.rows.forEach(row=>{const tr=document.createElement('tr');row.forEach((v,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=i?number(v,i===3?3:2):v;if(i)cell.className='numeric';else cell.scope='row';tr.append(cell);});body.append(tr);});
+    data.rows.forEach((row,rowIndex)=>{const tr=document.createElement('tr');row.forEach((v,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=i?number(v,i===3?3:2):v;if(i)cell.className='numeric';else{cell.scope='row';cell.title=STReports.rateLossImpactRowTips[rowIndex];cell.setAttribute('aria-description',cell.title);cell.tabIndex=0;}tr.append(cell);});body.append(tr);});
     table.append(thead,body);scroll.append(table);target.append(scroll);const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rateLossImpactHelp;target.append(note);
   }
   function renderEquipmentRateLoss(target,result,equipment){
-    const heading=document.createElement('h3');heading.textContent='Equipment Rate Loss total';target.append(heading);
+    const heading=document.createElement('h3');heading.textContent='Balance neto de velocidad por equipo';target.append(heading);
     const data=STReports.equipmentRateLoss(result,equipment),scroll=document.createElement('div'),table=document.createElement('table'),thead=document.createElement('thead'),head=document.createElement('tr'),tbody=document.createElement('tbody'),tfoot=document.createElement('tfoot');
     scroll.className='table-scroll';table.className='equipment-rate-loss-table';
     STReports.equipmentRateLossHeaders.forEach((label,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=label;th.title=STReports.equipmentRateLossHeaderTips[i];th.setAttribute('aria-description',th.title);th.tabIndex=0;if(i)th.className='numeric';head.append(th);});thead.append(head);
-    function row(value,parent){const tr=document.createElement('tr');STReports.equipmentRateLossCells(value).forEach((v,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=i?number(v,2):v;if(i)cell.className='numeric';else cell.scope='row';tr.append(cell);});parent.append(tr);}
+    function row(value,parent){const tr=document.createElement('tr');STReports.equipmentRateLossCells(value).forEach((v,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=i?number(v,2):v;if(i)cell.className='numeric';else{cell.scope='row';cell.title=value.explanation||STReports.equipmentRateLossHeaderTips[3];cell.setAttribute('aria-description',cell.title);cell.tabIndex=0;}tr.append(cell);});parent.append(tr);}
     data.rows.forEach(value=>row(value,tbody));row(data.total,tfoot);table.append(thead,tbody,tfoot);scroll.append(table);target.append(scroll);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.equipmentRateLossHelp;target.append(note);
   }
@@ -97,7 +97,7 @@ window.STResults=(function(){
     target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
     const rateHeading=document.createElement('h3');rateHeading.textContent='Line Rate Loss';target.append(rateHeading);
     const values=document.createElement('p');values.className='chart-note';values.textContent=STReports.rateLossRows(result).map(([label,n])=>label+': '+number(n,2)+' min').join(' · ');target.append(values);
-    const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='How Rate Loss is measured';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
+    const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='Cómo se calcula el rate loss';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
     renderRateLossImpact(target,result);
     renderEquipmentRateLoss(target,result,equipment);
     const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);

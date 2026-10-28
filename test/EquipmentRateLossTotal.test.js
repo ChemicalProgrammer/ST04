@@ -20,9 +20,9 @@ test('equipment rate total sums net equivalent seconds and does not substitute l
   assert.equal(d.total.rateLossSeconds,90);assert.equal(result.summary.lineRateLossSeconds,3);
   w.STResults.renderRamps(w.document.getElementById('target'),result,equipment);
   const table=w.document.querySelector('.equipment-rate-loss-table');assert.equal(table.tBodies[0].rows.length,2);
-  assert.equal(table.tFoot.rows[0].cells[3].textContent,'1.5');assert.equal(table.querySelectorAll('one').length,0);
+  assert.equal(table.tFoot.rows[0].cells[3].textContent,'1.5');assert(table.tFoot.rows[0].cells[0].title.includes('Filler: 0.5'));assert(table.tFoot.rows[0].cells[0].title.includes('Conveyor <one>: 1'));assert.equal(table.querySelectorAll('one').length,0);
   const html=w.STReports.equipmentRateLossHtml(result,equipment);
-  assert(html.includes('Total equipment (overlapping)'));assert(html.includes('Conveyor &lt;one&gt;'));assert(html.includes('not unique line Rate Loss'));
+  assert(html.includes('Suma de equipos (tiempos simultáneos)'));assert(html.includes('Conveyor &lt;one&gt;'));assert(html.includes('no equivale a la pérdida única de la línea'));
  }finally{w.close();}
 });
 
@@ -65,8 +65,8 @@ test('both Results tables explain every header and report tooltips use the same 
   }
   const report=new JSDOM(w.STReports.equipmentRateLossHtml(result,equipment));
   [...report.window.document.querySelectorAll('thead th')].forEach((th,i)=>assert.equal(th.title,w.STReports.equipmentRateLossHeaderTips[i]));report.window.close();
-  assert(w.STReports.rampHeaderTips[1].includes('not equivalent lost production time'));
-  assert(w.STReports.rampHeaderTips[6].includes('repair ramps disabled'));
-  assert(w.STReports.equipmentRateLossHeaderTips[3].includes('overlap'));
+  assert(w.STReports.rampHeaderTips[1].includes('no tiempo equivalente de producción perdida'));
+  assert(w.STReports.rampHeaderTips[6].includes('rampas tras reparación desactivadas'));
+  assert(w.STReports.equipmentRateLossHeaderTips[3].includes('tiempos simultáneos'));
  }finally{w.close();}
 });

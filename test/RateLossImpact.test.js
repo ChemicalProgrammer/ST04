@@ -27,7 +27,7 @@ test('legacy constant-format result reproduces Case C conversions and renders si
   const data=w.STReports.rateLossImpact(result);assert(Math.abs(data.rows[0][2]-1540.6606028)<1e-6);assert(Math.abs(data.rows[0][3]+.9947447074)<1e-9);
   assert(Math.abs(data.rows[1][3]-.9516978932)<1e-9);assert(Math.abs(data.rows[2][2]-66.6709054)<1e-6);
   w.STResults.renderRamps(w.document.getElementById('target'),result,[]);const table=w.document.querySelector('.line-rate-loss-impact-table');
-  assert.equal(table.tBodies[0].rows.length,3);assert.equal(table.tBodies[0].rows[0].cells[3].textContent,'-0.995');assert.equal(table.tBodies[0].rows[2].cells[3].textContent,'-0.043');assert([...table.querySelectorAll('thead th')].every(th=>th.title));
+  assert.equal(table.tBodies[0].rows.length,3);[...table.querySelectorAll('tbody th')].forEach((cell,i)=>{assert.equal(cell.title,w.STReports.rateLossImpactRowTips[i]);assert.equal(cell.getAttribute('aria-description'),cell.title);assert.equal(cell.tabIndex,0);});assert.equal(table.tBodies[0].rows[0].cells[3].textContent,'-0.995');assert.equal(table.tBodies[0].rows[2].cells[3].textContent,'-0.043');assert([...table.querySelectorAll('thead th')].every(th=>th.title));
   const report=new JSDOM(w.STReports.rateLossImpactHtml(result));assert(report.window.document.body.textContent.includes('Efficiency impact (pp)'));assert.equal(report.window.document.querySelectorAll('tbody tr').length,3);report.window.close();
  }finally{w.close();}
 });
