@@ -28,3 +28,12 @@ Ejemplo del Caso C de 704 minutos, referencia constante de 220 botellas/min y sa
 | Pérdida neta | 0.303050 | 66.670905 | −0.043047 |
 
 Estas magnitudes se calculan en la salida final y no se obtienen sumando pérdidas de equipos. Ver [compendio AEM](AEM_CONCEPTS_FORMULAS.md) para distinguir denominadores y [confirmaciones pendientes](PLANT_COMPARISON_CONFIRMATIONS.md) para la comparación con planta.
+
+
+Resultados muestra además un resumen de tres tarjetas inmediatamente debajo de los indicadores principales, tanto en modo básico como avanzado:
+
+- Botellas equivalentes no producidas por rate loss (o unidades equivalentes si no existe conversión a botellas).
+- Producción ideal perdida por rate loss (%).
+- Eficiencia perdida por rate loss (pp).
+
+Las tarjetas expresan la magnitud positiva de la pérdida bruta. El porcentaje de producción ideal y los puntos porcentuales de eficiencia tienen el mismo valor numérico, al compartir denominador; no son dos pérdidas que deban sumarse. La tabla inferior conserva por separado pérdida bruta, recuperación y balance neto con su efecto firmado. Se reutilizan los contadores y las reglas de promedio existentes, sin modificar el flujo del motor.

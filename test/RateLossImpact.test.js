@@ -28,7 +28,7 @@ test('legacy constant-format result reproduces Case C conversions and renders si
   assert(Math.abs(data.rows[1][3]-.9516978932)<1e-9);assert(Math.abs(data.rows[2][2]-66.6709054)<1e-6);
   w.STResults.renderRamps(w.document.getElementById('target'),result,[]);const table=w.document.querySelector('.line-rate-loss-impact-table');
   assert.equal(table.tBodies[0].rows.length,3);[...table.querySelectorAll('tbody th')].forEach((cell,i)=>{assert.equal(cell.title,w.STReports.rateLossImpactRowTips[i]);assert.equal(cell.getAttribute('aria-description'),cell.title);assert.equal(cell.tabIndex,0);});assert.equal(table.tBodies[0].rows[0].cells[3].textContent,'-0.995');assert.equal(table.tBodies[0].rows[2].cells[3].textContent,'-0.043');assert([...table.querySelectorAll('thead th')].every(th=>th.title));
-  const report=new JSDOM(w.STReports.rateLossImpactHtml(result));assert(report.window.document.body.textContent.includes('Efficiency impact (pp)'));assert.equal(report.window.document.querySelectorAll('tbody tr').length,3);report.window.close();
+  const report=new JSDOM(w.STReports.rateLossImpactHtml(result));assert(report.window.document.body.textContent.includes('Efecto en eficiencia (pp)'));assert.equal(report.window.document.querySelectorAll('tbody tr').length,3);report.window.close();
  }finally{w.close();}
 });
 test('mean points average per-round ratios and selected views do not reuse batch means',()=>{
@@ -47,5 +47,36 @@ test('legacy mixed references, incomplete rounds, missing counters and unsupport
   result.batch={rows:[{summary:result.summary},{summary:{}}]};assert.equal(w.STReports.rateLossImpact(result).rows[0][2],null);
   result.engineId='DES_SIMPY_EXPERIMENTAL';assert.equal(w.STReports.rateLossImpact(result).rows[0][1],null);
   const native={summary:{...summary,lineRateLossOutputEquivalents:0,lineRateLossEfficiencyPp:0},unitOfFlow:'cases'};d=w.STReports.rateLossImpact(native);assert.equal(d.headers[2],'Output equivalents');assert.equal(d.rows[0][2],0);
+ }finally{w.close();}
+});
+
+test('explicit rate loss highlights expose bottle loss, ideal-output percentage and efficiency points together',()=>{
+ const w=ui();try{
+  const result={summary:{lineRateLossSeconds:60,lineRateLossOutputEquivalents:200,lineRateLossEfficiencyPp:2},unitOfFlow:'bottles'};
+  const target=w.document.getElementById('target');w.STBasicMode={isBasic:()=>true};
+  w.STResults.renderRateLossHighlights(target,result);
+  const cards=[...target.querySelectorAll('.result-kpi')];assert.equal(cards.length,3);
+  assert(cards[0].textContent.includes('Botellas equivalentes no producidas por rate loss'));
+  assert.equal(cards[0].querySelector('strong').textContent,'200 botellas');
+  assert.equal(cards[1].querySelector('strong').textContent,'2 %');
+  assert.equal(cards[2].querySelector('strong').textContent,'2 pp');
+  assert(cards.every(c=>c.title.length>30&&c.tabIndex===0&&c.getAttribute('aria-description')===c.title));
+  assert(target.textContent.includes('no se suman'));assert(target.textContent.includes('antes de descontar la recuperación'));
+  result.batch={rows:[{summary:{lineRateLossOutputEquivalents:10,lineRateLossEfficiencyPp:10}},{summary:{lineRateLossOutputEquivalents:10,lineRateLossEfficiencyPp:5}}]};
+  let h=w.STReports.rateLossHighlights(result);assert.equal(h.cards[0].value,10);assert.equal(h.cards[2].value,7.5);
+  result.resultView={mode:'round'};h=w.STReports.rateLossHighlights(result);assert.equal(h.cards[0].value,200);assert.equal(h.cards[2].value,2);
+  const report=w.STReports.rateLossImpactHtml(result);assert(report.includes('Eficiencia perdida por rate loss'));assert(report.includes('Pérdida bruta por rate loss'));
+  w.STResults.renderRateLossHighlights(target,null);assert(target.hidden);assert.equal(target.childElementCount,0);
+ }finally{w.close();}
+});
+test('highlights preserve zero, unknown loss and native output units without inventing bottles',()=>{
+ const w=ui();try{
+  const target=w.document.getElementById('target');
+  let h=w.STReports.rateLossHighlights({summary:{lineRateLossOutputEquivalents:0,lineRateLossEfficiencyPp:0},unitOfFlow:'cases'});
+  assert.equal(h.cards[0].value,0);assert.equal(h.cards[0].unit,' unidades');assert.equal(h.cards[2].value,0);
+  w.STResults.renderRateLossHighlights(target,{summary:{},unitOfFlow:'bottles'});
+  assert([...target.querySelectorAll('strong')].every(c=>c.textContent.startsWith('—')));
+  h=w.STReports.rateLossHighlights({engineId:'DES_SIMPY_EXPERIMENTAL',summary:{lineRateLossOutputEquivalents:200,lineRateLossEfficiencyPp:2}});
+  assert.equal(h.cards[0].value,null);assert.equal(h.cards[2].value,null);
  }finally{w.close();}
 });
