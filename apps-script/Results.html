@@ -6,8 +6,46 @@ window.STResults=(function(){
   function downtime(result){return Object.values(result.equipmentMetrics||{}).reduce(function(n,m){return n+(m.pausedSeconds||0)+(m.stoppedSeconds||0);},0)/60;}
   function metrics(result){var s=result.summary;return [
     [__ST_TEXT__('results.global_oee'),s.lineOeePercent,'%',false],[__ST_TEXT__('results.throughput'),s.outputCount/result.durationSeconds*60,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow)+'/min',false],[__ST_TEXT__('results.production'),s.outputCount,' '+unitLabel(result.unitOfFlow||result.replay?.unitOfFlow),false],
-    ['Rate Loss',s.lineRateLossSeconds==null?null:s.lineRateLossSeconds/60,__ST_TEXT__('client.min'),false],[__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.failure_time'),s.totalFailureSeconds/60,__ST_TEXT__('client.min'),true]
+    ['Rate Loss',s.lineRateLossSeconds==null?null:s.lineRateLossSeconds/60,__ST_TEXT__('client.min'),false],[__ST_TEXT__('results.equipment_downtime'),downtime(result),__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.starving'),s.totalStarvedSeconds/60,__ST_TEXT__('client.min'),true],[__ST_TEXT__('results.blocking'),s.totalBlockedSeconds/60,__ST_TEXT__('client.min'),true]
   ];}
+  function failureBreakdown(result,equipment){
+    const batch=result?.batch,meanView=result?.resultView?.mode!=='round';
+    const models=new Map((equipment||[]).map(e=>[e.id,e]));
+    Object.keys(result?.equipmentMetrics||{}).forEach(id=>{if(!models.has(id))models.set(id,{id,name:id});});
+    Object.keys(batch?.equipmentStatistics||{}).forEach(id=>{if(!models.has(id))models.set(id,{id,name:id});});
+    if(meanView)batch?.rows?.forEach(row=>Object.keys(row.equipmentMetrics||{}).forEach(id=>{if(!models.has(id))models.set(id,{id,name:id});}));
+    const rows=[...models.values()].map(e=>{
+      let seconds;
+      if(meanView&&batch?.rows?.length){const values=batch.rows.map(r=>r.equipmentMetrics?.[e.id]?.failureSeconds);seconds=values.every(Number.isFinite)?values.reduce((sum,v)=>sum+v,0)/values.length:null;}
+      else if(meanView&&batch?.equipmentStatistics)seconds=batch.equipmentStatistics[e.id]?.failureSeconds?.mean;
+      else seconds=result?.equipmentMetrics?.[e.id]?.failureSeconds;
+      return {id:e.id,name:e.name||e.id,minutes:Number.isFinite(seconds)?seconds/60:null};
+    });
+    const total=rows.length&&rows.every(row=>Number.isFinite(row.minutes))?rows.reduce((sum,row)=>sum+row.minutes,0):null;
+    rows.forEach(row=>{row.percent=Number.isFinite(total)&&Number.isFinite(row.minutes)?(total>0?100*row.minutes/total:0):null;});
+    return {rows,total,percent:Number.isFinite(total)?(total>0?100:0):null,view:meanView&&batch?'Promedio de todas las rondas':'Ronda seleccionada'};
+  }
+  function openFailureBreakdown(data){
+    const focus=document.activeElement,dialog=document.createElement('dialog');dialog.className='equipment-failure-dialog';dialog.setAttribute('aria-labelledby','equipment-failure-title');
+    const header=document.createElement('header');header.className='dialog-heading';
+    const title=document.createElement('h2');title.id='equipment-failure-title';title.textContent='Desglose de downtime por fallas (MTBF/MTTR)';header.append(title);
+    const body=document.createElement('div');body.className='dialog-body';
+    const note=document.createElement('p');note.textContent=data.view+'. Minutos en estado de falla propia del equipo, asociados a MTBF/MTTR. El porcentaje es la participación de cada equipo en la suma de minutos por fallas. Se excluyen pausas programadas, falta de producto, bloqueo y rampas. Las fallas simultáneas de varios equipos se suman: este total no es tiempo único de parada de la línea. — significa que faltan contadores y no se puede completar la suma.';
+    const scroll=document.createElement('div');scroll.className='table-scroll';const table=document.createElement('table');table.className='equipment-failure-breakdown';
+    const head=document.createElement('thead'),tr=document.createElement('tr');
+    ['Equipo','Downtime por fallas (min)','Participación del total (%)'].forEach((label,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=label;if(i)th.className='numeric';tr.append(th);});head.append(tr);
+    const tbody=document.createElement('tbody'),tfoot=document.createElement('tfoot');
+    function addRow(name,minutes,percent,parent){const row=document.createElement('tr');[name,number(minutes,2),number(percent,2)].forEach((text,i)=>{const cell=document.createElement(i?'td':'th');cell.textContent=text;if(i)cell.className='numeric';else cell.scope='row';row.append(cell);});parent.append(row);}
+    data.rows.forEach(row=>addRow(row.name,row.minutes,row.percent,tbody));addRow('Total de equipos (incluye tiempos simultáneos)',data.total,data.percent,tfoot);
+    table.append(head,tbody,tfoot);scroll.append(table);body.append(note,scroll);
+    const footer=document.createElement('footer');footer.className='dialog-actions';const close=document.createElement('button');close.type='button';close.textContent='Cerrar';close.onclick=()=>dialog.close();footer.append(close);dialog.append(header,body,footer);
+    dialog.addEventListener('close',()=>{dialog.remove();if(focus?.isConnected)focus.focus();},{once:true});document.body.append(dialog);dialog.showModal();close.focus();
+  }
+  function renderFailureCard(target,result,equipment){
+    const data=failureBreakdown(result,equipment),card=document.createElement('button');card.type='button';card.className='result-kpi equipment-failure-kpi';card.style.textAlign='start';card.setAttribute('aria-haspopup','dialog');
+    card.title='Suma de minutos en falla propia por MTBF/MTTR de todos los equipos. Incluye tiempos simultáneos. Pulsa para ver minutos y participación porcentual por equipo.';card.setAttribute('aria-description',card.title);
+    const label=document.createElement('span'),value=document.createElement('strong'),hint=document.createElement('small');label.textContent='Downtime total por fallas (MTBF/MTTR)';value.textContent=number(data.total,2)+' min';hint.textContent='Ver desglose por equipo · '+data.view;card.append(label,value,hint);card.onclick=()=>openFailureBreakdown(data);target.append(card);
+  }
   var lossJobs=new Map(),calculationCount=0,idleLossTasks=[];
   window.addEventListener('st-calculation-activity',event=>{calculationCount=Math.max(0,calculationCount+(event.detail.active?1:-1));if(!calculationCount)idleLossTasks.splice(0).forEach(start=>start());});
   function resultMean(result){return result?.batch?.statistics?.lineOeePercent?.mean??result?.summary?.lineOeePercent;}
@@ -143,6 +181,7 @@ window.STResults=(function(){
     document.getElementById('results-meta').textContent+=result.resultView?.mode==='average'?' · Mean of '+result.resultView.rounds+' rounds':result.resultView?.mode==='round'?' · Round '+result.resultView.round:'';
     var target=document.getElementById('results-kpis');target.textContent='';
     metrics(result).filter(function(_,index){return !window.STBasicMode?.isBasic()||index<3;}).forEach(function(item,index){var card=document.createElement('article');card.className='result-kpi'+(index===0?__ST_TEXT__('results.primary_kpi'):'');var label=document.createElement('span'),value=document.createElement('strong');var mean=result.batch?.statistics?.[['lineOeePercent','throughputPerMinute','outputCount'][index]]?.mean;label.textContent=item[0]+(Number.isFinite(mean)?' (mean of '+result.batch.rounds+' rounds)':'');value.textContent=number(Number.isFinite(mean)?mean:item[1],index===0?2:undefined)+item[2];card.append(label,value);if(Number.isFinite(mean)){var range=document.createElement('small'),stats=result.batch.statistics[['lineOeePercent','throughputPerMinute','outputCount'][index]];range.textContent='Min '+number(stats.min,2)+' · Max '+number(stats.max,2);card.append(range);}target.appendChild(card);});
+    renderFailureCard(target,result,simulation?.equipment||activeCase?.equipment||[]);
     document.getElementById('results-reference').textContent=result.engineId==='DES_SIMPY_EXPERIMENTAL'?'DES · SimPy 4.1.2 (experimental). OEE is not validated. '+(result.limitations||[]).join(' '):__ST_TEXT__('results.oee_reference')+(result.summary.lineOeePacemakerName||'not available')+__ST_TEXT__('results.quality_assumes_100_no_reject_model_loss_and_downtime_totals_are_equipment_')+' '+__ST_TEXT__('results.partial_note')+' '+__ST_TEXT__('results.productive_note');
     window.STLinePerformance.render(result,activeCase.equipment||[]);
     var rows=(activeCase.equipment||[]).map(function(e){return {model:e,metric:(result.equipmentMetrics||{})[e.id]||{}};});
@@ -189,7 +228,7 @@ window.STResults=(function(){
     ids.forEach(function(id){var e=(a.equipment||[]).concat(b.equipment||[]).find(e=>e.id===id);function value(sim){return sim.results.batch?.equipmentStatistics?.[id]?.oeePercent?.mean??sim.results.equipmentMetrics?.[id]?.oeePercent;}row(e.name||id,value(a),value(b));});
     table.append(body);scroll.append(table);section.append(scroll);target.append(section);
   }
-  return {renderRateLossHighlights:renderRateLossHighlights,renderRamps:renderRamps,renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
+  return {failureBreakdown:failureBreakdown,renderFailureCard:renderFailureCard,renderRateLossHighlights:renderRateLossHighlights,renderRamps:renderRamps,renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
 })();
 </script>
 
