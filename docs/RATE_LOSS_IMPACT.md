@@ -37,3 +37,8 @@ Resultados muestra además un resumen de tres tarjetas inmediatamente debajo de 
 - Eficiencia perdida por rate loss (pp).
 
 Las tarjetas expresan la magnitud positiva de la pérdida bruta. El porcentaje de producción ideal y los puntos porcentuales de eficiencia tienen el mismo valor numérico, al compartir denominador; no son dos pérdidas que deban sumarse. La tabla inferior conserva por separado pérdida bruta, recuperación y balance neto con su efecto firmado. Se reutilizan los contadores y las reglas de promedio existentes, sin modificar el flujo del motor.
+
+
+La tarjeta **Effective Run Time** aplica la fórmula solicitada: Production Available Time − Unplanned Downtime de línea − Production Rate Losses brutas. El downtime de línea se obtiene como tiempo disponible menos tiempo con salida final positiva, nunca sumando fallas de equipos. El calendario requiere un período físico completo y coherente; las proyecciones agregadas con exclusiones no se presentan como tiempos físicos. Se calculan las rondas antes de promediar y se conserva la ausencia de datos.
+
+Esta tarjeta resta pérdida bruta y no suma recuperación. Por tanto, puede diferir de `lineEffectiveRuntimeSeconds` (producción / referencia integrada por formato), que reconcilia con el balance neto. La equivalencia con el T5 del compendio AEM requiere que la definición de Production Rate Losses sea compatible y que las pérdidas de calidad estén separadas; la simulación actual supone calidad del 100 %.
