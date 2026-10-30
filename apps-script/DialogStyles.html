@@ -161,4 +161,11 @@ button.error-details-trigger:focus-visible, #header-error-button.error-details-t
 .case-export-scenarios p { font-size:var(--font-secondary); }
 .case-export-omitted .case-export-controls { opacity:.55; }
 .case-export-preview { overflow-wrap:anywhere; }
+/* Equipment failure detail uses available desktop width before scrolling. */
+.equipment-failure-dialog { --dialog-width:1100px; }
+.equipment-failure-dialog .dialog-heading h2 { min-width:0; overflow-wrap:anywhere; }
+.equipment-failure-dialog .dialog-body { overflow:auto; }
+.equipment-failure-dialog .equipment-failure-breakdown { min-width:440px; }
+.equipment-failure-dialog .equipment-failure-breakdown th { white-space:normal; overflow-wrap:anywhere; }
+.equipment-failure-dialog .equipment-failure-breakdown th:first-child { width:54%; }
 </style>

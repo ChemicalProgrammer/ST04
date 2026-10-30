@@ -42,9 +42,9 @@ window.STResults=(function(){
     dialog.addEventListener('close',()=>{dialog.remove();if(focus?.isConnected)focus.focus();},{once:true});document.body.append(dialog);dialog.showModal();close.focus();
   }
   function renderFailureCard(target,result,equipment){
-    const data=failureBreakdown(result,equipment),card=document.createElement('button');card.type='button';card.className='result-kpi equipment-failure-kpi';card.style.textAlign='start';card.setAttribute('aria-haspopup','dialog');
+    const data=failureBreakdown(result,equipment),card=document.createElement('article');card.className='result-kpi equipment-failure-kpi';card.setAttribute('role','button');card.tabIndex=0;card.style.cursor='pointer';card.setAttribute('aria-haspopup','dialog');
     card.title='Suma de minutos en falla propia por MTBF/MTTR de todos los equipos. Incluye tiempos simultáneos. Pulsa para ver minutos y participación porcentual por equipo.';card.setAttribute('aria-description',card.title);
-    const label=document.createElement('span'),value=document.createElement('strong'),hint=document.createElement('small');label.textContent='Downtime total por fallas (MTBF/MTTR)';value.textContent=number(data.total,2)+' min';hint.textContent='Ver desglose por equipo · '+data.view;card.append(label,value,hint);card.onclick=()=>openFailureBreakdown(data);target.append(card);
+    const label=document.createElement('span'),value=document.createElement('strong');label.textContent='Downtime total por fallas (MTBF/MTTR)';value.textContent=number(data.total,2)+' min';card.append(label,value);card.title+=' '+data.view+'.';card.setAttribute('aria-description',card.title);card.onclick=()=>openFailureBreakdown(data);card.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();card.click();}};target.append(card);
   }
   var lossJobs=new Map(),calculationCount=0,idleLossTasks=[];
   window.addEventListener('st-calculation-activity',event=>{calculationCount=Math.max(0,calculationCount+(event.detail.active?1:-1));if(!calculationCount)idleLossTasks.splice(0).forEach(start=>start());});

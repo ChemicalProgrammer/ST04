@@ -15,8 +15,8 @@ test('failure card opens equipment minutes, percentage and matching total; dialo
  const w=setup();try{
   const result={summary:{totalFailureSeconds:9999},equipmentMetrics:{a:{failureSeconds:120,pausedSeconds:600},b:{failureSeconds:60,blockedSeconds:600}}};
   const target=w.document.getElementById('target');w.STBasicMode={isBasic:()=>true};
-  w.STResults.renderFailureCard(target,result,equipment);const button=target.querySelector('button');
-  assert.equal(button.querySelector('strong').textContent,'3 min');assert.equal(button.getAttribute('aria-haspopup'),'dialog');
+  w.STResults.renderFailureCard(target,result,equipment);const button=target.querySelector('[role=button]');
+  assert.equal(button.tagName,'ARTICLE');assert.equal(button.children.length,2);assert.equal(button.tabIndex,0);assert.equal(button.querySelector('strong').textContent,'3 min');assert.equal(button.getAttribute('aria-haspopup'),'dialog');
   button.focus();button.click();
   const dialog=w.document.querySelector('dialog');assert(dialog.open);
   const table=dialog.querySelector('table');assert.equal(table.tBodies[0].rows.length,2);
@@ -24,7 +24,7 @@ test('failure card opens equipment minutes, percentage and matching total; dialo
   assert.equal(table.tBodies[0].rows[0].cells[1].textContent,'2');assert.equal(table.tBodies[0].rows[0].cells[2].textContent,'66.67');
   assert.equal(table.tFoot.rows[0].cells[1].textContent,'3');assert.equal(table.tFoot.rows[0].cells[2].textContent,'100');
   assert(dialog.textContent.includes('no es tiempo único de parada'));dialog.querySelector('button').click();
-  assert.equal(w.document.querySelector('dialog'),null);assert.equal(w.document.activeElement,button);
+  assert.equal(w.document.querySelector('dialog'),null);assert.equal(w.document.activeElement,button);button.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));assert(w.document.querySelector('dialog').open);w.document.querySelector('dialog button').click();button.dispatchEvent(new w.KeyboardEvent('keydown',{key:' ',bubbles:true,cancelable:true}));assert(w.document.querySelector('dialog').open);
  }finally{w.close();}
 });
 test('failure breakdown uses all round counters or statistics and honors selected round',()=>{
