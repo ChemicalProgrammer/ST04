@@ -310,7 +310,7 @@ window.STRealData=(function(){
   }
   function validationHtml(data){
     if(!data)return '';
-    return '<h3>Validación por OEE y rate loss</h3><p>'+escape(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul><div class="table-scroll"><table><thead><tr><th>Columna</th><th>Indicador</th><th>Valor</th><th>Unidad</th><th>Fórmula / interpretación</th></tr></thead><tbody>'+data.rows.map(r=>'<tr><th scope="row">'+escape(r.column)+'</th><td>'+escape(r.label)+'</td><td class="numeric">'+escape(typeof r.value==='string'?r.value:format(r.value))+'</td><td>'+escape(r.unit)+'</td><td>'+escape(r.formula)+(r.reason?'<p class="chart-note">No calculado: '+escape(r.reason)+'</p>':'')+'</td></tr>').join('')+'</tbody></table></div>';
+    return '<h3>Validación por OEE y rate loss</h3><p>'+escape(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul><div class="table-scroll"><table><thead><tr><th>Columna</th><th>Indicador</th><th>Valor</th><th>Unidad</th><th>Fórmula / interpretación</th></tr></thead><tbody>'+data.rows.map(r=>'<tr><th scope="row">'+escape(r.column)+'</th><td'+tooltipAttributes(r.formula+(r.reason?' No calculado: '+r.reason:''))+'>'+escape(r.label)+'</td><td class="numeric"'+tooltipAttributes(r.formula+(r.reason?' No calculado: '+r.reason:''))+'>'+escape(typeof r.value==='string'?r.value:format(r.value))+'</td><td>'+escape(r.unit)+'</td><td>'+escape(r.formula)+(r.reason?'<p class="chart-note">No calculado: '+escape(r.reason)+'</p>':'')+'</td></tr>').join('')+'</tbody></table></div>';
   }
   function renderValidation(data){
     let section=document.getElementById('real-data-validation');
@@ -378,23 +378,87 @@ window.STRealData=(function(){
   function download(value,name,type){const url=URL.createObjectURL(new Blob([value],{type})),a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function escape(v){return String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function format(v){return Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
+  const comparisonHeaderTips=[
+    'Indicador de planta o simulación. Su tooltip describe el cálculo y el origen de los datos.',
+    'Unidad del indicador. Las diferencias de eficiencias expresadas en % son puntos porcentuales (pp).',
+    'Dato real reportado por planta. Se conserva sin sustituirlo por el recálculo.',
+    'Valor calculado con los resultados guardados de la ronda o del promedio seleccionado, según la definición del indicador.',
+    'Diferencia = simulado − real. Si el indicador es una eficiencia en %, la diferencia está en puntos porcentuales. Solo se calcula con bases compatibles.',
+    'Diferencia relativa (%) = 100 × (simulado − real) / |real|. No se calcula cuando real = 0 o faltan datos comparables.',
+    'Recálculo independiente a partir de los tiempos reales capturados. No sustituye el valor reportado por planta.'
+  ];
+  function comparisonTooltip(row,index,data,equipment){
+    const definitions={
+      'AU':'AU (Asset Utilization) = 100 × Effective Runtime / Plant Available Time. Plant Available Time = Total Time − Business External Time. No usa Production Available Time como denominador y no equivale automáticamente a OEE.',
+      'Total Production Day (Cases)':'Producción diaria en cajas: usa la salida final en cajas; si está en botellas, cajas = botellas / botellas por caja. El dato real conserva el total reportado.',
+      'Total Production Day (Units)':'Producción diaria en unidades: usa las botellas de salida final; si la salida está en cajas, botellas = cajas × botellas por caja. El dato real conserva el total reportado.',
+      'Total Time':'Duración total del período: tiempo observado real frente al período simulado. Conversión a minutos = segundos / 60.',
+      'Business External Time':'Tiempo externo al negocio: dato real ingresado y exclusión del calendario de simulación. No se deduce de las fallas de los equipos. Conversión a minutos = segundos / 60.',
+      'Plant Available Time':'Plant Available Time = Total Time − Business External Time. La columna Real conserva el dato ingresado; el simulado se obtiene del calendario guardado compatible.',
+      'Plant Decision Time':'Plant Decision Time simulado = paradas programadas de línea observadas en el calendario + corrección de reporte de cambio de formato. Se utiliza el calendario físico guardado; las exclusiones no se descuentan dos veces.',
+      'Production Available Time':'Production Available Time = Plant Available Time − Plant Decision Time. Es el denominador de UPDT y de la validación por OEE/rate loss, no el denominador de AU.',
+      'Downtime':'Downtime de línea = Production Available Time − Run Time con flujo positivo en la salida final. Excluye las paradas de calendario ya descontadas del tiempo disponible. No se obtiene sumando downtime por equipo.',
+      'Run Time':'Run Time simulado = suma de intervalos con flujo positivo en la salida final. Los intervalos parcialmente productivos cuentan completos. No equivale a Effective Runtime ni a la suma de tiempos por equipo.',
+      'Rate Loss':'Rate Loss simulado bruto = suma de máximo(0, duración del intervalo − salida / velocidad de referencia del formato activo), solo con salida positiva. La recuperación por encima de la referencia se registra aparte. En resultados antiguos sin contadores medidos, la estimación heredada es Run Time − Effective Runtime (balance neto), cuya base debe confirmarse.',
+      'Production':'Producción de salida final del período seleccionado. Las conversiones entre cajas y botellas requieren el factor de botellas por caja; no se suman productos procesados en varios equipos.',
+      'Throughput':'Throughput = producción de salida final / duración del período × 60, en unidades por minuto cuando la duración está en segundos.',
+      'Observation duration':'Duración del período observado y del simulado, convertida de segundos a minutos dividiendo entre 60.',
+      'Average throughput':'Throughput promedio = producción de salida final / duración completa del período × 60, en unidades por minuto si la duración está en segundos.',
+      'Efficiency at common reference':'Eficiencia a referencia común (%) = 100 × botellas de salida / (referencia real en botellas/min × duración del período en minutos). Requiere referencia y unidades compatibles.',
+      'Quality':'Calidad real: porcentaje reportado. La simulación supone 100 % de calidad; no es una predicción de rechazos o retrabajos.',
+      'Reported AU / efficiency':'Porcentaje reportado por planta. Se conserva como dato de origen y no se sustituye automáticamente por el OEE de simulación.',
+      'Saved simulated OEE':'OEE global guardado = 100 × producción final / producción ideal del período simulado. La producción ideal utiliza la referencia y duración de cada formato. No equivale automáticamente a AU.',
+      'Line downtime':'Tiempo sin flujo positivo en la salida final = duración total del período − tiempo de operación de salida. Esta comparación detallada usa el período completo, a diferencia del downtime simple que descuenta previamente el calendario.',
+      'Line run time':'Tiempo con flujo positivo en la salida final; se mide con la resolución de los intervalos del motor.',
+      'Effective runtime':'Tiempo equivalente de producción = botellas de salida final / referencia confirmada en botellas por segundo. No es necesariamente tiempo de reloj.',
+      'UPDT':'UPDT simulado (%) = 100 × (Production Available Time − Run Time con salida positiva) / Production Available Time. Recalculated real aplica esa fórmula a los tiempos reales; Real conserva el porcentaje reportado. La definición de UPDT de la base de planta debe coincidir.',
+      'Rate loss equivalent':'Balance neto de velocidad = Run Time de salida − Effective Runtime. No es la pérdida bruta cuando existe recuperación por encima de la referencia.',
+      'AEM Asset Effectiveness':'Asset Effectiveness = 100 × Effective Runtime (T5) / Total Time (T1). Incluye las exclusiones de negocio y planta en el denominador.',
+      'AEM Asset Utilization':'Asset Utilization (AU) = 100 × Effective Runtime (T5) / Plant Available Time (T2). T2 = T1 − Business External Downtime.',
+      'AEM Operating Efficiency':'Operating Efficiency = 100 × Effective Runtime (T5) / Production Available Time (T3). T3 = T2 − Plant Decision Downtime.',
+      'AEM Runtime Efficiency':'Runtime Efficiency = 100 × Effective Runtime (T5) / Runtime (T4). T4 = T3 − Unplanned Downtime.',
+      'Defined UPDT':'Tiempo UPDT según la definición elegida: AEM_UNPLANNED = Production Available Time − Runtime; TOTAL_EQUIVALENT_LOSS = Total Time − Effective Runtime. No se intercambian sin confirmar la base.',
+      'Defined UPDT percentage':'Porcentaje UPDT = 100 × tiempo UPDT de la definición elegida / denominador elegido (Total, Plant Available o Production Available).'
+    };
+    let definition=definitions[row.metric];
+    if(row.metric==='UPDT'&&row.unit==='min')definition='En la comparación detallada, UPDT equivalente = duración total del período − Effective Runtime. Incluye pérdidas programadas y no equivale automáticamente al Unplanned Downtime AEM. La base de planta debe confirmarse antes de comparar.';
+    if(/^Shift [1-3]$/.test(row.metric))definition='Producción del turno = salida guardada dentro de los límites de ese turno. Si está en botellas, cajas = botellas / botellas por caja. No se divide la producción diaria entre el número de turnos.';
+    if(equipment){
+      const observed=data?.observation?.equipment?.find(e=>e.equipmentId===row.equipmentId),stopClass=observed?.stopClass;
+      definition=row.metric==='MTBF input'?'MTBF configurado en minutos; es una entrada, no el promedio de fallas alcanzado en esta corrida.':row.metric==='MTTR input'?'MTTR configurado en minutos; es una entrada, no el tiempo medio de reparación alcanzado en esta corrida.':row.metric==='Failure count'?'Cantidad de fallas registradas del equipo durante la exposición seleccionada.':row.metric==='Failure duration'||stopClass==='FAILURES'?'Downtime por fallas = segundos registrados en estado de falla / 60. No incluye las rampas posteriores a reparación.':stopClass==='MINOR'?'Downtime por microparadas = segundos registrados en microparada / 60.':'Downtime del equipo = (duración del período − tiempo con flujo positivo del equipo) / 60. Incluye esperas, bloqueo y otras causas sin producción; no es exclusivamente MTBF/MTTR.';
+      definition+=' Los tiempos de equipos pueden coincidir; no se suman como downtime único de línea.';
+    }
+    let text=(definition||'Valor del indicador conservado para la ronda o el promedio seleccionado. No se reemplazan los datos reales por estimaciones.')+' '+comparisonHeaderTips[index];
+    if(index===4&&row.comparable)text+=' Cálculo: '+format(row.simulated)+' − '+format(row.real)+' = '+format(row.delta)+(row.unit==='%'?' pp.':' '+row.unit+'.');
+    if(index===5&&row.comparable&&row.real!==0)text+=' Cálculo: 100 × ('+format(row.simulated)+' − '+format(row.real)+') / |'+format(row.real)+'| = '+format(row.relativePercent)+' %.';
+    if(row.metric==='AU'&&index===6){
+      const r=data?.observation,plant=r?.aem?.plantAvailableSeconds??(r?.durationSeconds!=null&&r?.aem?.businessExternalDowntimeSeconds!=null?r.durationSeconds-r.aem.businessExternalDowntimeSeconds:null);
+      const effective=r?.runTimeSeconds!=null&&r?.rateLossSeconds!=null?r.runTimeSeconds-r.rateLossSeconds:r?.effectiveRuntimeSeconds;
+      text+=' Recálculo real: Effective Runtime = Run Time − Rate Loss cuando ambos existen; de lo contrario utiliza Effective Runtime capturado. 100 × '+format(effective==null?null:effective/60)+' / '+format(plant==null?null:plant/60)+' = '+format(row.recalculated)+' %. Tiempos en minutos.';
+    }
+    if(row.metric==='AU'&&index===3)text+=' El tiempo efectivo simulado integra salida / referencia de cada formato. En resultados antiguos utiliza el OEE guardado × duración / 100, o producción / referencia disponible.';
+    if(index>=4&&!row.comparable)text+=' Diferencia no disponible: faltan valores o no coinciden el período, las unidades, la referencia o la configuración guardada. Para rate loss también debe coincidir la definición bruta/neta.';
+    return text;
+  }
+  function tooltipAttributes(text){return ' title="'+escape(text)+'" aria-description="'+escape(text)+'" tabindex="0"';}
+  function applyTooltip(element,text){element.title=text;element.setAttribute('aria-description',text);element.tabIndex=0;}
   function reportHtml(data){
-    const tables=(rows,equipment)=>'<table><thead><tr>'+[equipment?'Equipment / metric':'Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real'].map((t,i)=>'<th scope="col"'+(i>=2&&i<=6?' class="numeric"':'')+'>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[equipment?r.name+' / '+r.metric:r.metric,r.unit,format(r.real),format(r.simulated),format(r.delta),format(r.relativePercent),format(r.recalculated)].map((t,i)=>'<td'+(i>=2&&i<=6?' class="numeric"':'')+'>'+escape(t)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+    const tables=(rows,equipment)=>'<table><thead><tr>'+[equipment?'Equipment / metric':'Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real'].map((t,i)=>'<th scope="col"'+(i>=2&&i<=6?' class="numeric"':'')+tooltipAttributes(comparisonHeaderTips[i])+'>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[equipment?r.name+' / '+r.metric:r.metric,r.unit,format(r.real),format(r.simulated),format(r.delta),format(r.relativePercent),format(r.recalculated)].map((t,i)=>'<td'+(i>=2&&i<=6?' class="numeric"':'')+tooltipAttributes(comparisonTooltip(r,i,data,equipment))+'>'+escape(t)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
     const evidence={...data.run};delete evidence.equipment;
     return '<!doctype html><html lang="en"><meta charset="utf-8"><title>Real vs. simulated</title><style>body{font:14px system-ui;max-width:1100px;margin:32px auto;padding:20px;color:#213547}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #ccd5dd;padding:8px;text-align:left}th{background:#eef4f7}.numeric{text-align:right;font-variant-numeric:tabular-nums}pre{white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{margin:0}tr{break-inside:avoid}}</style><h1>Real vs. simulated</h1><p>'+escape(data.case.name)+' / '+escape(data.simulation.name)+' / '+escape(data.observation.name)+'</p><p>Production date: '+escape(data.observation.date||'Not specified')+' | Source: '+escape(data.observation.source||'Not specified')+' | Status: '+escape(data.observation.status)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul>'+validationHtml(data.validation)+tables(data.rows,false)+tables(data.equipmentRows,true)+'<h2>Run evidence</h2><pre>'+escape(JSON.stringify(evidence,null,2))+'</pre><h2>Observation and notes</h2><pre>'+escape(JSON.stringify(data.observation,null,2))+'</pre><p>'+escape(data.conclusion)+'</p><p>Exported: '+escape(data.exportedAt)+'</p></html>';
   }
   function getComparison(){const record=current();return record?compare(record,context.simulation,sourceResult(context.simulation,context.live),selection,context.caseRecord,{simple:true}):null;}
-  function table(target,rows,equipment){
-    target.replaceChildren();const t=el('table'),thead=el('thead'),head=el('tr');(equipment?['Equipment','Unit','Real','Simulated','Difference']:['Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real']).forEach((v,i)=>{const th=el('th',v,i>=2&&i<(equipment?5:7)?'numeric':'');th.scope='col';head.append(th);});thead.append(head);t.append(thead);const body=el('tbody');
-    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',row.comparable?format(row.delta):'—'];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));tr.title=row.note||'';values.forEach((v,i)=>tr.append(el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'')));body.append(tr);});t.append(body);target.append(t);
+  function table(target,rows,equipment,data){
+    target.replaceChildren();const t=el('table'),thead=el('thead'),head=el('tr');(equipment?['Equipment','Unit','Real','Simulated','Difference']:['Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real']).forEach((v,i)=>{const th=el('th',v,i>=2&&i<(equipment?5:7)?'numeric':'');th.scope='col';applyTooltip(th,comparisonHeaderTips[i]);head.append(th);});thead.append(head);t.append(thead);const body=el('tbody');
+    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',row.comparable?format(row.delta):'—'];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));tr.title=comparisonTooltip(row,0,data,equipment);values.forEach((v,i)=>{const cell=el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'');applyTooltip(cell,comparisonTooltip(row,i,data,equipment));tr.append(cell);});body.append(tr);});t.append(body);target.append(t);
   }
   function results(){
     const data=getComparison(),target=document.getElementById('real-data-comparison'),warnings=document.getElementById('real-data-warnings'),evidence=document.getElementById('real-data-evidence');
     target.replaceChildren();warnings.replaceChildren();evidence.replaceChildren();['real-data-export-json','real-data-export-html'].forEach(id=>document.getElementById(id).disabled=!data);
     renderValidation(data);
     if(!data){document.getElementById('real-data-downtime-comparison').replaceChildren();target.append(el('p','Add or import an observation to start.','empty'));return;}
-    data.warnings.forEach(w=>warnings.append(el('li',w)));table(target,data.rows,false);
-    const equipmentTarget=document.getElementById('real-data-downtime-comparison');equipmentTarget.replaceChildren();table(equipmentTarget,data.equipmentRows,true);
+    data.warnings.forEach(w=>warnings.append(el('li',w)));table(target,data.rows,false,data);
+    const equipmentTarget=document.getElementById('real-data-downtime-comparison');equipmentTarget.replaceChildren();table(equipmentTarget,data.equipmentRows,true,data);
     const sim=data.run;if(sim){
       const stats=sim.statistics;evidence.append(el('p',sim.view+' · '+sim.engine+' · '+format(sim.duration/3600)+' h · seed '+sim.seed));
       if(stats?.n>1)evidence.append(el('p','Batch production: n = '+stats.n+' · mean '+format(stats.mean)+' · sample SD '+format(stats.standardDeviation)+' · min '+format(stats.min)+' · max '+format(stats.max)+' '+sim.unit.toLowerCase()));
@@ -471,6 +535,6 @@ window.STRealData=(function(){
     document.getElementById('real-data-export-html').onclick=()=>{const data=getComparison();if(data)download(reportHtml(data),'real-vs-simulated.html','text/html;charset=utf-8');};
   }
   function selectRecord(caseId,id){selected.set(caseId,id);formOwner='';}
-  return {validationData,init,render,selectRecord,normalize,importRecords,compare,snapshot,reportHtml,template};
+  return {comparisonTooltip,validationData,init,render,selectRecord,normalize,importRecords,compare,snapshot,reportHtml,template};
 })();
 </script>
