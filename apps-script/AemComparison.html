@@ -1,0 +1,100 @@
+<script>
+window.STAemComparison=(function(){
+  'use strict';
+  const finite=Number.isFinite,fmt=v=>finite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
+  const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ratio=(n,d)=>finite(n)&&finite(d)&&d>0?n/d:null;
+  const reliabilityEquipment=equipment=>(equipment||[]).filter(e=>e.type!=='CONVEYOR'||e.noiseProfile?.reliability?.enabled!==false&&e.noiseProfile?.reliability?.mtbfMinutes>0);
+  function calculate(real,sim,times,equipment){
+    const a=real.aem||{},warnings=[],t1=real.durationSeconds,t2=a.plantAvailableSeconds??(finite(t1)&&finite(a.businessExternalDowntimeSeconds)?t1-a.businessExternalDowntimeSeconds:null);
+    const t3=a.productionAvailableSeconds??(finite(t2)&&finite(a.plantDecisionDowntimeSeconds)?t2-a.plantDecisionDowntimeSeconds:null);
+    const t4=finite(t3)&&finite(real.downtimeSeconds)?t3-real.downtimeSeconds:real.runTimeSeconds;
+    const standard=real.referenceSpeedBpm,fromQuantity=units=>standard>0&&finite(units)?units/standard*60:null;
+    const scrap=a.scrapSeconds??fromQuantity(a.scrapUnits),rework=a.reworkSeconds??fromQuantity(a.reworkUnits);
+    const reportedBottles=real.reportedProductionUnits??(real.productionUnit==='BOTTLES'?real.production:real.productionUnit==='CASES'&&real.bottlesPerCase>0&&finite(real.production)?real.production*real.bottlesPerCase:null);
+    const good=a.goodOutputUnits??(real.outputBasis==='GOOD'?reportedBottles:real.outputBasis==='GROSS'&&finite(real.qualityPercent)&&finite(reportedBottles)?reportedBottles*real.qualityPercent/100:null);
+    const outputTime=fromQuantity(good);
+    const lossTime=[t4,real.rateLossSeconds,scrap,rework].every(finite)?t4-real.rateLossSeconds-scrap-rework:null;
+    const t5=outputTime??lossTime,derivedRate=[t4,t5,scrap,rework].every(finite)?t4-t5-scrap-rework:null;
+    const validT5=finite(t5)&&t5>=0?t5:null;
+    if(finite(outputTime)&&finite(lossTime)&&Math.abs(outputTime-lossTime)>1)warnings.push('La producción conforme / velocidad estándar no coincide con Runtime − Rate Loss − Scrap − Rework. Se conserva el cálculo por producción conforme.');
+    if(finite(t5)&&t5<0)warnings.push('El tiempo efectivo AEM resultó negativo. Revisa las pérdidas capturadas.');
+    if(finite(t4)&&finite(real.runTimeSeconds)&&Math.abs(t4-real.runTimeSeconds)>1)warnings.push('Runtime AEM (Production Available − Unplanned Downtime) difiere del Run Time capturado. No se sobrescribe el dato.');
+    if(finite(t4)&&finite(validT5)&&validT5>t4+1)warnings.push('Effective Runtime supera Runtime. Revisa la referencia estándar, las unidades y el límite de medición.');
+    if(finite(derivedRate)&&finite(real.rateLossSeconds)&&Math.abs(derivedRate-real.rateLossSeconds)>1)warnings.push('El rate loss despejado de los tiempos difiere del rate loss reportado; ambos se conservan.');
+    if(standard>0&&finite(sim?.nominalRate)&&!sim.multiFormat&&Math.abs(standard-sim.nominalRate*60)>1e-6)warnings.push('La velocidad estándar de planta difiere de la referencia guardada de simulación.');
+    if(sim?.multiFormat)warnings.push('La simulación tiene formatos. Su tiempo equivalente integra las referencias por formato; no se usa una velocidad media para convertir la producción.');
+    const supported=!!sim&&sim.engine!=='DES_SIMPY_EXPERIMENTAL',st4=times.run,st5=supported?times.effective:null;
+    const pct=(n,d)=>{const v=ratio(n,d);return v==null?null:100*v;};
+    const rows=[],add=(label,unit,r,s,formula,reason)=>rows.push({label,unit,real:finite(r)?r:null,simulated:finite(s)?s:null,delta:finite(r)&&finite(s)?s-r:null,formula,reason:reason||''});
+    const min=v=>finite(v)?v/60:null;
+    add('Total Available Time (T1)','min',min(t1),min(times.total),'T1 = duración calendario del período. Minutos = segundos / 60.');
+    add('Business / External Downtime','min',min(a.businessExternalDowntimeSeconds),min(times.external),'Exclusiones de negocio o externas capturadas. No se deducen de fallas de equipos.');
+    add('Plant Available Time (T2)','min',min(t2),min(times.plant),'T2 = T1 − Business / External Downtime.');
+    add('Plant Decision Downtime','min',min(a.plantDecisionDowntimeSeconds),min(times.decision),'Suma de paradas planificadas de planta: mantenimiento, changeovers, limpieza, reuniones y descansos. Se reutiliza el total capturado.');
+    add('Production Available Time (T3)','min',min(t3),min(times.available),'T3 = T2 − Plant Decision Downtime.');
+    add('Unplanned Downtime','min',min(real.downtimeSeconds),finite(times.available)&&finite(st4)?min(times.available-st4):null,'UPDT = T3 − Runtime. No es la suma de tiempos de equipos; incluye las causas no programadas que detienen la línea.');
+    add('Runtime AEM (T4)','min',min(t4),min(st4),'T4 = T3 − Unplanned Downtime. En planta se mide con la señal de marcha; en el simulador se usa flujo positivo en la salida. Son bases distintas que deben revisarse.');
+    add('Production Rate Losses reportadas','min',min(real.rateLossSeconds),supported?min(sim?.measuredRateLossSeconds):null,'Rate loss reportado frente a pérdida bruta simulada. La definición bruta/neta debe coincidir; la recuperación simulada permanece separada.');
+    add('Rate Loss despejado / balance neto','min',min(derivedRate),supported&&finite(st4)&&finite(st5)?min(st4-st5):null,'Rate Loss = Runtime − Effective Runtime − Scrap − Rework. En simulación sin rechazos equivale al balance neto; puede diferir de la pérdida bruta.', 'Para despejarlo en planta se requieren Runtime, tiempo efectivo, Scrap y Rework conocidos.');
+    add('Scrap (tiempo equivalente)','min',min(scrap),supported?0:null,'Scrap = unidades desechadas / Standard Rate en unidades/min. Si se capturan minutos, se usan directamente; no se suma nuevamente al volumen conforme.', 'Ingresa minutos o unidades desechadas y velocidad estándar. Cero debe declararse explícitamente.');
+    add('Rework (tiempo equivalente)','min',min(rework),supported?0:null,'Rework = unidades reprocesadas / Standard Rate en unidades/min. Si se capturan minutos, se usan directamente.', 'Ingresa minutos o unidades reprocesadas y velocidad estándar. Cero debe declararse explícitamente.');
+    add('Effective Runtime AEM (T5)','min',min(validT5),min(st5),'T5 = producción conforme / Standard Rate. Alternativa: T4 − Rate Loss − Scrap − Rework, si se conocen todas las pérdidas.', 'Ingresa producción conforme y velocidad estándar, o completa todas las pérdidas de tiempo.');
+    add('Standard Rate','botellas/min',standard,sim&&!sim.multiFormat&&finite(sim.nominalRate)?sim.nominalRate*60:null,'Velocidad estándar máxima del cuello de botella para el producto. No se reemplaza automáticamente por la velocidad media observada.');
+    add('Asset Effectiveness (AE)','%',pct(validT5,t1),pct(st5,times.total),'AE = 100 × T5 / T1.');
+    add('Asset Utilization (AU)','%',pct(validT5,t2),pct(st5,times.plant),'AU = 100 × T5 / T2. No usa T3 como denominador.');
+    add('Operating Efficiency (OE)','%',pct(validT5,t3),pct(st5,times.available),'OE = 100 × T5 / T3. No se identifica automáticamente con OEE: la clasificación de setup puede cambiar el denominador.');
+    add('Runtime Efficiency (RTE)','%',pct(validT5,t4),pct(st5,st4),'RTE = 100 × T5 / T4. Incluye las pérdidas de velocidad y calidad durante la marcha.');
+    add('UPDT','%',pct(real.downtimeSeconds,finite(t4)&&finite(real.downtimeSeconds)?t4+real.downtimeSeconds:null),pct(finite(times.available)&&finite(st4)?times.available-st4:null,times.available),'UPDT (%) = 100 × Unplanned Downtime / (Runtime + Unplanned Downtime) = 100 × UPDT / T3 cuando los tiempos reconcilian.');
+    const reliability=[];
+    for(const e of reliabilityEquipment(equipment)){
+      const r=real.equipment.find(o=>o.equipmentId===e.id)||{},m=sim?.equipment?.[e.id]||{},configured=e.noiseProfile?.reliability;
+      const count=r.failureCount,simCount=m.failureCount;
+      const observedMtbf=ratio(r.operatingSeconds,count),observedMttr=ratio(r.failureSeconds,count);
+      const rb=finite(observedMtbf)?observedMtbf/60:r.mtbfMinutes,rt=finite(observedMttr)?observedMttr/60:r.mttrMinutes;
+      const sb=ratio(m.runningSeconds,simCount),st=ratio(m.failureSeconds,simCount);
+      const addEq=(metric,unit,rv,sv,formula)=>reliability.push({equipmentId:e.id,name:e.name||e.id,label:metric,unit,real:finite(rv)?rv:null,simulated:finite(sv)?sv:null,delta:finite(rv)&&finite(sv)?sv-rv:null,formula});
+      addEq('MTBF medido / reportado','min',rb,sb==null?null:sb/60,'MTBF = tiempo operativo interno / número de fallas. Si no hay fallas, el estimador no está disponible; no se supone infinito. En lotes se usa la razón de exposiciones y fallas agregadas.');
+      addEq('MTTR medido / reportado','min',rt,st==null?null:st/60,'MTTR = tiempo interno de falla / número de fallas. Si faltan contadores reales se usa MTTR reportado, cuando existe. Una reparación que cruza el límite del período puede sesgar el estimador.');
+      addEq('Disponibilidad interna medida','%',finite(rb)&&finite(rt)?pct(rb,rb+rt):null,finite(sb)&&finite(st)?pct(sb,sb+st):null,'Disponibilidad interna (%) = 100 × MTBF / (MTBF + MTTR). No es AU ni disponibilidad global de línea.');
+      addEq('Disponibilidad por MTBF/MTTR reportados / configurados','%',finite(r.mtbfMinutes)&&finite(r.mttrMinutes)?pct(r.mtbfMinutes,r.mtbfMinutes+r.mttrMinutes):null,configured?.enabled!==false&&configured?.mtbfMinutes>0&&finite(configured?.mttrMinutes)?pct(configured.mtbfMinutes,configured.mtbfMinutes+configured.mttrMinutes):null,'Real: indicadores MTBF/MTTR reportados. Simulado: entradas configuradas. Disponibilidad teórica = 100 × MTBF / (MTBF + MTTR). Se separa de la medida en la corrida.');
+    }
+    return {rows,reliability,warnings,note:'Las fórmulas se actualizan al capturar datos y no ejecutan el motor. Las diferencias son simulado − real; para porcentajes son puntos porcentuales. El simulador continuo supone calidad del 100 %: Scrap y Rework simulados son cero por hipótesis, no por validación con planta. No se asume cero para pérdidas reales desconocidas. Los microparos de 3–4 minutos describen la población de datos de diseño: no se aplica un filtro automático ni se recortan las fallas simuladas. La comparación por equipo requiere igual exposición y clase de paro. Se conserva el modelo de transportadores sin fallas propias salvo excepción configurada.'};
+  }
+  function html(data){
+    if(!data)return '';
+    const table=(rows,equipment)=>'<div class="table-scroll"><table><thead><tr><th>Concepto'+(equipment?' / equipo':'')+'</th><th>Unidad</th><th class="numeric">Real calculado</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th><th>Fórmula e interpretación</th></tr></thead><tbody>'+rows.map(r=>{
+      const tip=r.formula+(r.reason?' '+r.reason:''),attrs=' title="'+esc(tip)+'" aria-description="'+esc(tip)+'" tabindex="0"';
+      return '<tr><th scope="row"'+attrs+'>'+esc((equipment?r.name+' · ':'')+r.label)+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'<td>'+esc(r.formula)+((r.real==null&&r.reason)?'<p>'+esc(r.reason)+'</p>':'')+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+    return '<h3>Comparación AEM: tiempos, calidad y confiabilidad</h3><p class="chart-note">'+esc(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul>'+table(data.rows,false)+'<details><summary>Criterios de medición en planta</summary><p>Standard Rate debe corresponder al SKU y al cuello de botella, y actualizarse cuando cambie la capacidad estándar. Changeover se mide desde la última unidad conforme del producto A hasta la primera unidad conforme comercializable del producto B; una parada posterior se registra por separado. El MTTR termina al finalizar la reparación y no añade automáticamente una rampa. El Runtime de planta puede provenir de una señal de marcha del PLC; no se presupone que sea idéntico al flujo positivo de salida del simulador. MTBF, MTTR y disponibilidad deben usar la misma clase de paro y el mismo período.</p></details><h4>Confiabilidad interna por equipo</h4>'+table(data.reliability,true);
+  }
+  function render(target,data,real,equipment,onEdit){
+    const active=document.activeElement,keep=target.contains(active)&&active.matches('input')?target.querySelector('.aem-inputs'):null;
+    target.replaceChildren();target.hidden=!data;if(!data)return;
+    const content=document.createElement('div');content.innerHTML=html(data);
+    const inputs=keep||document.createElement('div');inputs.className='aem-inputs';
+    function control(parent,label,path,value,scale,equipmentId){
+      const wrapper=document.createElement('label'),input=document.createElement('input');wrapper.textContent=label;input.type='number';input.min=path==='referenceSpeedBpm'?'0.000001':'0';input.step=path==='failureCount'?'1':'any';input.dataset.aemField=path;if(equipmentId)input.dataset.equipmentId=equipmentId;input.value=value==null?'':value/(scale||1);wrapper.append(input);parent.append(wrapper);
+      input.oninput=()=>{if(input.checkValidity())onEdit(path,input.value===''?null:Number(input.value)*(scale||1),equipmentId);};
+    }
+    if(!keep){
+      const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Completar datos AEM (opcional)';details.append(summary);
+      const grid=document.createElement('div');grid.className='real-data-fields';
+      for(const [key,label,scale] of [['referenceSpeedBpm','Standard Rate (botellas/min)',1],['aem.goodOutputUnits','Producción conforme (botellas)',1],['aem.scrapSeconds','Scrap (min equivalentes)',60],['aem.scrapUnits','Scrap (botellas)',1],['aem.reworkSeconds','Rework (min equivalentes)',60],['aem.reworkUnits','Rework (botellas)',1]]){
+        const parts=key.split('.');control(grid,label,key,parts.length===2?real.aem[parts[1]]:real[key],scale);
+      }
+      details.append(grid);const note=document.createElement('p');note.className='chart-note';note.textContent='Para Scrap y Rework captura minutos o botellas. Si capturas ambos, los minutos tienen prioridad. Declara cero cuando esté confirmado; dejar vacío significa desconocido. La producción conforme y Standard Rate deben corresponder al mismo producto y período.';details.append(note);
+      const eq=document.createElement('details'),eqSummary=document.createElement('summary');eqSummary.textContent='Completar mediciones de confiabilidad por equipo';eq.append(eqSummary);
+      for(const e of reliabilityEquipment(equipment)){
+        const obs=real.equipment.find(o=>o.equipmentId===e.id)||{},h=document.createElement('h4'),g=document.createElement('div');h.textContent=e.name||e.id;g.className='real-data-fields';
+        for(const [key,label,scale] of [['operatingSeconds','Tiempo operativo interno (min)',60],['failureCount','Número de fallas',1],['failureSeconds','Tiempo interno de fallas (min)',60],['mtbfMinutes','MTBF reportado (min)',1],['mttrMinutes','MTTR reportado (min)',1]])control(g,label,key,obs[key],scale,e.id);
+        eq.append(h,g);
+      }
+      details.append(eq);inputs.append(details);
+    }
+    content.firstElementChild.after(inputs);target.append(content);if(keep&&active.isConnected)active.focus({preventScroll:true});
+  }
+  return {calculate,html,render};
+})();
+</script>
