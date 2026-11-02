@@ -1,25 +1,21 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {JSDOM} from 'jsdom';
-test('template download uses live IDs, imports all equipment and edits conveyor / unmatched downtime without extra form fields',async()=>{
- const dom=new JSDOM('<!doctype html>'+fs.readFileSync(new URL('../apps-script/RealDataPanel.html',import.meta.url),'utf8'),{runScripts:'outside-only'});const w=dom.window,d=w.document;
- try{
-  w.eval(fs.readFileSync(new URL('../apps-script/RealData.html',import.meta.url),'utf8').replace(/^<script>/,'').replace(/<\/script>\s*$/,''));
-  const equipment=[{id:'filler',name:'Filler',type:'FILLER'},{id:'transfer',name:'Transfer conveyor',type:'CONVEYOR'}],sim={id:'s',name:'Baseline',equipment},c={id:'c',name:'Test case',metadata:{}},state={activeCase:c};let edits=0,blob;
-  w.URL.createObjectURL=value=>{blob=value;return 'blob:template';};w.URL.revokeObjectURL=()=>{};w.HTMLAnchorElement.prototype.click=function(){};
-  w.STRealData.init(state,{changed:()=>edits++});w.STRealData.render(c,sim);d.getElementById('real-data-template').click();
-  const text=await new Promise(resolve=>{const reader=new w.FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(blob);});const payload=JSON.parse(text);
-  assert.equal(payload.records[0].equipment[1].equipmentId,'transfer');assert.equal(payload.records[0].downtimeSeconds,null);assert(payload._guide.equipmentFields.notes);
-  payload.records[0].equipment.push({equipmentId:'old-machine',name:'Old machine',notes:'Not in current line'});
-  const file=d.getElementById('real-data-file');Object.defineProperty(file,'files',{value:[{size:text.length,text:async()=>JSON.stringify(payload)}]});await file.onchange();assert.equal(c.metadata.realData.records[0].equipment.length,3);
-  const downtime=d.querySelector('[data-equipment-id=transfer][data-real-equipment-field=downtimeSeconds]');assert(downtime);downtime.value='12';downtime.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(c.metadata.realData.records[0].equipment[1].downtimeSeconds,720);assert(d.querySelector('[data-equipment-id=old-machine][data-real-equipment-field=downtimeSeconds]'));assert(edits>=2);
-  assert.equal(d.querySelectorAll('#real-data-fields input').length,15);assert.equal(d.querySelectorAll('#real-data-fields select,#real-data-fields textarea').length,0);
-  const labels=[...d.querySelectorAll('#real-data-fields label')].map(e=>e.textContent);
-  assert.deepEqual(labels,['AU (%)','UPDT (%)','Shift 1 (Cases)','Shift 2 (Cases)','Shift 3 (Cases)','Total Production Day (Cases)','Total Production Day (Units)','Total Time (min)','Business External Time (min)','Plant Available Time (min)','Plant Decision Time (min)','Production Available Time (min)','Downtime (min)','Run Time (min)','Rate Loss (min)']);
-  assert.equal(d.getElementById('real-data-bottlesPerCase'),null);assert.equal(d.getElementById('real-data-time-unit'),null);assert.deepEqual([...d.querySelectorAll('#real-data-equipment thead th')].map(e=>e.textContent),['Equipment','Downtime (min)']);
-  const change=(key,value)=>{const input=d.querySelector('[data-real-field="'+key+'"]');input.value=value;input.dispatchEvent(new w.Event('input',{bubbles:true}));};
-  change('reportedProductionCases','14198');change('reportedProductionUnits','170376');change('shiftProduction.0','6720');change('runTimeSeconds','928');change('rateLossSeconds','153');
-  const saved=c.metadata.realData.records[0];assert.equal(saved.production,170376);assert.equal(saved.productionUnit,'BOTTLES');assert.equal(saved.shiftProduction[0],6720);assert.equal(saved.effectiveRuntimeSeconds,775*60);assert.equal(saved.equipment.find(e=>e.equipmentId==='old-machine').notes,'Not in current line');
-  change('reportedProductionUnits','');assert.equal(c.metadata.realData.records[0].production,14198);assert.equal(c.metadata.realData.records[0].productionUnit,'CASES');
-
- }finally{dom.window.close();}
+import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
+test('the four-block workspace captures all inputs once and recalculates on input without moving focus',()=>{
+ const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f);
+ assert.equal(w.document.querySelectorAll('.real-data-block').length,4);assert.equal(w.document.querySelectorAll('#real-data-validation,#real-data-aem-comparison').length,0);
+ const inputs=[...w.document.querySelectorAll('#real-data-editor [data-real-field]')].filter(e=>!e.dataset.equipmentId);
+ assert.equal(new Set(inputs.map(e=>e.dataset.realField)).size,inputs.length);
+ for(const key of ['aem.goodOutputUnits','aem.scrapSeconds','aem.reworkSeconds','referenceSpeedBpm','validation.reportedOeePercent'])assert(inputs.some(e=>e.dataset.realField===key));
+ const input=w.document.querySelector('[data-real-field="rateLossSeconds"]');input.focus();input.value='200.5';input.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal(w.document.activeElement,input);assert.equal(input.value,'200.5');assert.equal(owner.metadata.realData.records[0].rateLossSeconds,200.5*60);
+ const adjusted=w.document.querySelector('[data-calibration="adjusted"] .numeric');assert(adjusted.textContent!=='—');assert.equal(JSON.stringify(f.result),saved);
+ const known=w.document.getElementById('real-data-known-only'),before=w.document.querySelectorAll('#real-data-comparison tr[data-metric]').length;known.checked=false;known.dispatchEvent(new w.Event('change'));assert(w.document.querySelectorAll('#real-data-comparison tr[data-metric]').length>=before);
+ }finally{w.close();}
 });
-
+test('failure inputs persist separately from general downtime and existing UNKNOWN records keep their classification',()=>{
+ const w=setup();try{const f=fixture();f.record.equipment[0]={equipmentId:'f',stopClass:'UNKNOWN',downtimeSeconds:500*60};const {owner}=mount(w,f);
+ const legacy=w.document.querySelector('[data-real-equipment-field="downtimeSeconds"][data-equipment-id="f"]');assert.equal(legacy.value,'500');
+ const own=w.document.querySelector('[data-real-equipment-field="failureSeconds"][data-equipment-id="f"]');own.focus();own.value='15';own.dispatchEvent(new w.Event('input'));
+ const r=owner.metadata.realData.records[0].equipment[0];assert.equal(r.failureSeconds,900);assert.equal(r.downtimeSeconds,30000);assert.equal(r.stopClass,'UNKNOWN');assert.equal(w.document.activeElement,own);
+ assert(w.document.getElementById('real-data-downtime-comparison').textContent.includes('Total de equipos'));
+ }finally{w.close();}
+});

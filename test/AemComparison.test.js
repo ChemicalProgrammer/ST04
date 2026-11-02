@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {JSDOM} from 'jsdom';
-function setup(){const w=new JSDOM(fs.readFileSync('apps-script/RealDataPanel.html','utf8'),{runScripts:'outside-only'}).window;for(const name of ['AemComparison','RealData'])w.eval(fs.readFileSync('apps-script/'+name+'.html','utf8').replace(/<\/?script>/g,''));return w;}
+function setup(){const w=new JSDOM(fs.readFileSync('apps-script/RealDataPanel.html','utf8'),{runScripts:'outside-only'}).window;for(const name of ['AemComparison','RealDataModel','RealData'])w.eval(fs.readFileSync('apps-script/'+name+'.html','utf8').replace(/<\/?script>/g,''));return w;}
 const row=(d,label)=>d.aemComparison.rows.find(r=>r.label===label);
 function fixture(){return {record:{id:'r',name:'AEM example',date:'2026-11-02',durationSeconds:1440*60,downtimeSeconds:512*60,rateLossSeconds:153*60,referenceSpeedBpm:220,aem:{businessExternalDowntimeSeconds:0,plantAvailableSeconds:1440*60,plantDecisionDowntimeSeconds:0,productionAvailableSeconds:1440*60,goodOutputUnits:775*220,scrapSeconds:0,reworkSeconds:0},equipment:[{equipmentId:'a',operatingSeconds:6000,failureCount:5,failureSeconds:600,mtbfMinutes:20,mttrMinutes:2}]},sim:{id:'s',dynamicConfig:{},equipment:[{id:'a',name:'Filler <x>',noiseProfile:{reliability:{mtbfMinutes:100,mttrMinutes:5}}}]},result:{durationSeconds:86400,unitOfFlow:'bottles',summary:{outputCount:775*220,lineOeePercent:775/1440*100,lineRunSeconds:928*60,lineEffectiveRuntimeSeconds:775*60,lineRateLossSeconds:153*60,lineRateRecoverySeconds:0,lineNetRateBalanceSeconds:153*60,lineOeePacemakerRatePerSecond:220/60,lineRateLossBasis:'MEASURED'},equipmentMetrics:{a:{runningSeconds:12000,failureCount:4,failureSeconds:1200}}}};}
 test('AEM computes time hierarchy and all percentages using the correct denominators',()=>{
@@ -40,11 +40,11 @@ test('AEM UI updates on input, persists extra fields and export includes equatio
   w.STRealData.init({activeCase:owner},{changed(){}});w.STRealData.render(owner,{...f.sim,results:f.result});
   const input=w.document.querySelector('[data-aem-field="aem.goodOutputUnits"]');input.closest('details').open=true;input.focus();input.value=String(700*220);input.dispatchEvent(new w.Event('input',{bubbles:true}));
   assert.equal(w.document.activeElement,input);assert.equal(owner.metadata.realData.records[0].aem.goodOutputUnits,700*220);
-  const section=w.document.getElementById('real-data-aem-comparison');assert(section.textContent.includes('Runtime Efficiency (RTE)'));
-  assert([...section.querySelectorAll('tbody tr')].find(r=>r.cells[0].textContent==='Effective Runtime AEM (T5)').cells[2].textContent==='700');
+  const section=w.document.getElementById('real-data-comparison');assert(section.textContent.includes('Runtime Efficiency (RTE)'));
+  assert([...section.querySelectorAll('tbody tr')].find(r=>r.cells[0].textContent==='Effective Runtime').cells[2].textContent==='700');
   assert(section.querySelector('th[title]').getAttribute('aria-description'));
   const d=w.STRealData.compare(owner.metadata.realData.records[0],f.sim,f.result,'average',{}, {simple:true});
-  const report=w.STRealData.reportHtml(d);assert(report.includes('Comparación AEM'));assert(report.includes('RTE = 100'));assert(report.includes('Filler &lt;x&gt;'));assert.equal(JSON.stringify(f.result),before);
+  const report=w.STRealData.reportHtml(d);assert(report.includes('Comparación de parámetros'));assert(report.includes('RTE = 100'));assert(report.includes('Filler &lt;x&gt;'));assert.equal(JSON.stringify(f.result),before);
   const template=w.STRealData.template(f.sim.equipment);assert.equal(template.records[0].aem.scrapUnits,null);assert.equal(template.records[0].equipment[0].operatingSeconds,null);
  }finally{w.close();}
 });
@@ -66,7 +66,7 @@ test('hierarchy reconciles every level and flags independent real-time differenc
   assert(rows.filter(r=>r.children).every(r=>r.realResidual===0&&r.simulatedResidual===0));
   f.record.aem.goodOutputUnits=700*220;d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
   rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('runtime').realResidual,75);
-  const report=new JSDOM(w.STRealData.reportHtml(d));assert(report.window.document.querySelector('.aem-time-hierarchy').textContent.includes('Diferencia: 75 min'));report.window.close();
+  assert.equal(get('runtime').realResidual,75);
   delete f.record.aem.scrapSeconds;delete f.record.aem.reworkSeconds;
   d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('losses').real,null);assert.equal(get('runtime').realResidual,null);
   f.result.summary.lineEffectiveRuntimeSeconds=f.result.summary.lineRunSeconds+60;

@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {TextEncoder} from 'node:util';
 import {JSDOM} from 'jsdom';
 const plain=x=>JSON.parse(JSON.stringify(x));
-function runtime(){const c={window:{},TextEncoder,console};vm.createContext(c);for(const p of ['TextResources.gs','SheetImportService.gs','RealData.html','SheetImportMerge.html'])vm.runInContext(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''),c);return c;}
+function runtime(){const c={window:{},TextEncoder,console};vm.createContext(c);for(const p of ['TextResources.gs','SheetImportService.gs','AemComparison.html','RealDataModel.html','RealData.html','SheetImportMerge.html'])vm.runInContext(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''),c);return c;}
 function setup(c){
  const top=Array.from({length:7},()=>Array(19).fill('')),formats=top.map(r=>r.map(()=>''));
  const set=(cell,value,unit)=>{const m=/([A-Z])(\d)/.exec(cell),r=+m[2]-1,col=m[1].charCodeAt(0)-69;top[r][col]=value;if(unit)top[r][col+1]=unit;};
@@ -48,17 +48,17 @@ test('AEM comparisons expose source discrepancies and distinguish unplanned from
  data.equipment=[];data.aem.basis='CALENDAR_OUTPUT_FLOW';data.lineTimeBasis='OUTPUT_FLOW';
  const sim={equipment:[{id:'out',name:'Output'}],dynamicConfig:{}},result={durationSeconds:86400,unitOfFlow:'bottles',summary:{outputCount:170376,lineOeePercent:53.78},equipmentMetrics:{out:{runningSeconds:928*60}}};
  const record=api.normalize(data),out=api.compare(record,sim,result,'average');
- assert(out.warnings.some(w=>w.includes('Asset Utilization: reported value differs')));assert.equal(out.rows.find(r=>r.metric==='AEM Asset Utilization').delta,null);assert.equal(out.rows.find(r=>r.metric==='AEM Asset Utilization').recalculated,775/1440*100);assert.equal(out.rows.find(r=>r.metric==='UPDT').simulated,null);
+ assert(out.warnings.some(w=>w.includes('difiere')));assert.equal(out.rows.find(r=>r.id==='au').reported,57.4);assert(Math.abs(out.rows.find(r=>r.id==='au').real-(170376/220/1440*100))<1e-9);assert.equal(out.rows.find(r=>r.id==='updt').simulated,512/1440*100);
  // Coherent data: 100 minutes unplanned, 90 minutes speed loss.
  const r=api.normalize({name:'Synthetic',durationSeconds:1440*60,production:810*100,productionUnit:'BOTTLES',referenceSpeedBpm:100,outputBasis:'GOOD',runTimeSeconds:900*60,effectiveRuntimeSeconds:810*60,updtSeconds:100*60,updtDefinition:'AEM_UNPLANNED',updtPercentDenominator:'PRODUCTION',aem:{basis:'CALENDAR_OUTPUT_FLOW',businessExternalDowntimeSeconds:240*60,plantAvailableSeconds:1200*60,plantDecisionDowntimeSeconds:200*60,productionAvailableSeconds:1000*60}});
- sim.dynamicConfig.plantCalendar={enabled:true,totalMinutes:1440,externalMinutes:240};result.durationSeconds=1200*60;result.summary.outputCount=81000;result.equipmentMetrics.out.runningSeconds=900*60;result.plantCalendar={horizonSeconds:1200*60,completePeriod:true,plannedStopSeconds:200*60};
- const d=api.compare(r,sim,result,'average'),au=d.rows.find(r=>r.metric==='AEM Asset Utilization'),updt=d.rows.find(r=>r.metric==='Defined UPDT');assert.equal(au.real,67.5);assert.equal(au.simulated,67.5);assert.equal(au.delta,0);assert.equal(updt.simulated,100);assert.equal(updt.delta,0);
- r.updtDefinition='TOTAL_EQUIVALENT_LOSS';r.updtSeconds=630*60;assert.equal(api.compare(r,sim,result).rows.find(r=>r.metric==='Defined UPDT').simulated,630);
+ sim.dynamicConfig.plantCalendar={enabled:true,totalMinutes:1440,externalMinutes:240};result.durationSeconds=1440*60;result.summary.outputCount=81000;result.summary.lineEffectiveRuntimeSeconds=810*60;result.equipmentMetrics.out.runningSeconds=900*60;result.plantCalendar={horizonSeconds:1440*60,completePeriod:true,observedStopSeconds:200*60};
+ const d=api.compare(r,sim,result,'average'),au=d.rows.find(r=>r.id==='au'),updt=d.rows.find(r=>r.id==='updt');assert.equal(au.real,67.5);assert.equal(au.simulated,67.5);assert.equal(au.delta,0);assert.equal(updt.simulated,10);assert.equal(updt.delta,0);
+ r.updtDefinition='TOTAL_EQUIVALENT_LOSS';r.updtSeconds=630*60;assert.equal(api.compare(r,sim,result).observation.updtSeconds,630*60);
 });
 test('all saved rounds contribute equipment downtime means; unknown/all stop classes never sum overlapping states',()=>{
  const c=runtime(),api=c.window.STRealData,sim={equipment:[{id:'e',name:'Machine'}]},r={name:'Test',durationSeconds:60,equipment:[{equipmentId:'e',downtimeSeconds:6,stopClass:'MINOR',exposureSeconds:60}]};
  const result={durationSeconds:60,summary:{},batch:{rows:[{summary:{outputCount:1},equipmentMetrics:{e:{microStopSeconds:4}}},{summary:{outputCount:2},equipmentMetrics:{e:{microStopSeconds:8}}}]}};
- let d=api.compare(r,sim,result);assert.equal(d.equipmentRows[0].delta,0);r.equipment[0].stopClass='ALL';d=api.compare(r,sim,result);assert.equal(d.equipmentRows[0].simulated,null);assert.equal(d.equipmentRows[0].delta,null);
+ let d=api.compare(r,sim,result);assert.equal(d.downtime.rows[0].real,null);assert.equal(d.downtime.rows[0].simulated,null);r.equipment[0].stopClass='ALL';d=api.compare(r,sim,result);assert.equal(d.downtime.rows[0].simulated,null);assert.equal(d.downtime.rows[0].delta,null);
 });
 
 test('browser preview imports only Real Data, rejects bad optional cells, and can update an existing observation',()=>{
@@ -67,7 +67,7 @@ test('browser preview imports only Real Data, rejects bad optional cells, and ca
  try{
   w.TextEncoder=TextEncoder;w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.eval(fs.readFileSync('apps-script/TextResources.gs','utf8'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
-  for(const p of ['Icons.html','RealData.html','SheetImportMerge.html','SheetImport.html'])w.eval(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''));
+  for(const p of ['Icons.html','AemComparison.html','RealDataModel.html','RealData.html','SheetImportMerge.html','SheetImport.html'])w.eval(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''));
   w.SimulatorEngine={normalizeFormatCatalog:()=>({products:[],formats:[]}),validateSimulationInput:()=>({ok:true})};w.STSheetCorrections={render(){}};w.STDialog={beginActivity(){return ()=>{};}};w.STErrors={capture(){}};
   w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:plain(f.preview),importVersion:'sheet-import-20261023-2'});}}}};
   const state={activeCase:{id:'case'},activeSimulationId:'s',requestEpoch:1},snapshot={equipment:[plain(f.unit)],sourceImport:{},metadata:{realData:{schema:'st-real-data-v1',records:[{id:'old',name:'Previous observation'}]}}};let applied;

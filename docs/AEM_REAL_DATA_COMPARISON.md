@@ -1,5 +1,7 @@
 # Comparación AEM en Real Data
 
+> Interfaz actual: [Real Data reprogramado en cuatro bloques](REAL_DATA_WORKSPACE.md). Las secciones siguientes conservan las fórmulas y decisiones previas como referencia.
+
 La sección reutiliza los conceptos de las fotografías aportadas y el [compendio AEM](AEM_CONCEPTS_FORMULAS.md). Se mantiene separada de la validación aritmética A–N y de AU reportado.
 
 - T1: período calendario total.

@@ -1,5 +1,7 @@
 # Validación por OEE y rate loss
 
+> Interfaz actual: [Real Data reprogramado en cuatro bloques](REAL_DATA_WORKSPACE.md). Las secciones siguientes conservan las fórmulas y decisiones previas como referencia.
+
 La sección de Real Data reproduce los indicadores A–N de la tabla de validación. Sus porcentajes usan Production Available Time; AU permanece separado.
 
 | Columna | Indicador | Regla |

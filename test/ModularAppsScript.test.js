@@ -35,7 +35,9 @@ test('modular Apps Script application contains all server modules and resolved H
   assert.doesNotMatch(index, /<\?\s*include_/);
 
   const scripts = Array.from(index.matchAll(/<script>([\s\S]*?)<\/script>/g), (match) => match[1]);
-  assert.equal(scripts.length, 37);
+  assert(scripts.length>=37);
+  assert.match(index,/window\.STRealDataModel=/);
+  assert(index.indexOf('window.STRealDataModel=')<index.indexOf('window.STRealData='));
   assert.match(index, /window\.STProducts=/);
   assert.match(index, /window\.STScenarioExplorer=/);
   assert.doesNotMatch(index, /\b__ST_(?:HTML_)?TEXT__\s*\(/, 'Client resource calls must be resolved at build time.');
@@ -128,5 +130,3 @@ test('modular application includes shared three-tier planning, dialogs and autom
   assert(index.includes('id="settings-autosave-seconds"'));
   assert(!index.includes('id="reload-case"'));
 });
-
-

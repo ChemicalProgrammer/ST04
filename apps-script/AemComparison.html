@@ -94,47 +94,6 @@ window.STAemComparison=(function(){
     }
     return entries;
   }
-  function hierarchyHtml(data){
-    const rows=hierarchy(data),status=(row,key)=>{
-      const residual=row[key+'Residual'];return !row.children?'':!finite(residual)?'Faltan datos':Math.abs(residual)<=1/60?'Cierra':'Diferencia: '+fmt(residual)+' min';
-    };
-    const cell=(row,key)=>'<td class="numeric">'+fmt(row[key])+(row[key]<0?'<small> · balance negativo</small>':'')+'</td><td>'+esc(status(row,key))+'</td>';
-    return '<section class="aem-time-hierarchy"><h4>Jerarquía de tiempos: real y simulado</h4><p class="chart-note">Todos los valores están en minutos. Cada nivel divide al anterior; no se suman filas de distintos niveles. Rate Loss, Scrap y Rework son tiempos equivalentes. Cierra significa que la igualdad coincide dentro de 1 segundo, no que el modelo esté validado. La simulación usa balance neto (pérdida bruta − recuperación) para conciliar con la salida; una pérdida bruta real no siempre es comparable con ese neto.</p><div class="table-scroll"><table><thead><tr><th>Concepto / nivel</th><th class="numeric">Real (min)</th><th>Cierre real</th><th class="numeric">Simulado (min)</th><th>Cierre simulado</th></tr></thead><tbody>'+rows.map(row=>'<tr data-hierarchy-id="'+row.id+'"><th scope="row" style="padding-inline-start:calc(var(--space-3, 12px) + '+row.depth+' * 16px)" title="'+esc(row.formula)+'" aria-description="'+esc(row.formula)+'" tabindex="0">'+esc(row.label)+'</th>'+cell(row,'real')+cell(row,'simulated')+'</tr>').join('')+'</tbody></table></div></section>';
-  }
-  function html(data){
-    if(!data)return '';
-    const table=(rows,equipment)=>'<div class="table-scroll"><table><thead><tr><th>Concepto'+(equipment?' / equipo':'')+'</th><th>Unidad</th><th class="numeric">Real calculado</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th><th>Fórmula e interpretación</th></tr></thead><tbody>'+rows.map(r=>{
-      const tip=r.formula+(r.reason?' '+r.reason:''),attrs=' title="'+esc(tip)+'" aria-description="'+esc(tip)+'" tabindex="0"';
-      return '<tr><th scope="row"'+attrs+'>'+esc((equipment?r.name+' · ':'')+r.label)+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'<td>'+esc(r.formula)+((r.real==null&&r.reason)?'<p>'+esc(r.reason)+'</p>':'')+'</td></tr>';
-    }).join('')+'</tbody></table></div>';
-    return '<h3>Comparación AEM: tiempos, calidad y confiabilidad</h3><p class="chart-note">'+esc(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul>'+hierarchyHtml(data)+table(data.rows,false)+'<details><summary>Criterios de medición en planta</summary><p>Standard Rate debe corresponder al SKU y al cuello de botella, y actualizarse cuando cambie la capacidad estándar. Changeover se mide desde la última unidad conforme del producto A hasta la primera unidad conforme comercializable del producto B; una parada posterior se registra por separado. El MTTR termina al finalizar la reparación y no añade automáticamente una rampa. El Runtime de planta puede provenir de una señal de marcha del PLC; no se presupone que sea idéntico al flujo positivo de salida del simulador. MTBF, MTTR y disponibilidad deben usar la misma clase de paro y el mismo período.</p></details><h4>Confiabilidad interna por equipo</h4>'+table(data.reliability,true);
-  }
-  function render(target,data,real,equipment,onEdit){
-    const active=document.activeElement,keep=target.contains(active)&&active.matches('input')?target.querySelector('.aem-inputs'):null;
-    target.replaceChildren();target.hidden=!data;if(!data)return;
-    const content=document.createElement('div');content.innerHTML=html(data);
-    const inputs=keep||document.createElement('div');inputs.className='aem-inputs';
-    function control(parent,label,path,value,scale,equipmentId){
-      const wrapper=document.createElement('label'),input=document.createElement('input');wrapper.textContent=label;input.type='number';input.min=path==='referenceSpeedBpm'?'0.000001':'0';input.step=path==='failureCount'?'1':'any';input.dataset.aemField=path;if(equipmentId)input.dataset.equipmentId=equipmentId;input.value=value==null?'':value/(scale||1);wrapper.append(input);parent.append(wrapper);
-      input.oninput=()=>{if(input.checkValidity())onEdit(path,input.value===''?null:Number(input.value)*(scale||1),equipmentId);};
-    }
-    if(!keep){
-      const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Completar datos AEM (opcional)';details.append(summary);
-      const grid=document.createElement('div');grid.className='real-data-fields';
-      for(const [key,label,scale] of [['referenceSpeedBpm','Standard Rate (botellas/min)',1],['aem.goodOutputUnits','Producción conforme (botellas)',1],['aem.scrapSeconds','Scrap (min equivalentes)',60],['aem.scrapUnits','Scrap (botellas)',1],['aem.reworkSeconds','Rework (min equivalentes)',60],['aem.reworkUnits','Rework (botellas)',1]]){
-        const parts=key.split('.');control(grid,label,key,parts.length===2?real.aem[parts[1]]:real[key],scale);
-      }
-      details.append(grid);const note=document.createElement('p');note.className='chart-note';note.textContent='Para Scrap y Rework captura minutos o botellas. Si capturas ambos, los minutos tienen prioridad. Declara cero cuando esté confirmado; dejar vacío significa desconocido. La producción conforme y Standard Rate deben corresponder al mismo producto y período.';details.append(note);
-      const eq=document.createElement('details'),eqSummary=document.createElement('summary');eqSummary.textContent='Completar mediciones de confiabilidad por equipo';eq.append(eqSummary);
-      for(const e of reliabilityEquipment(equipment)){
-        const obs=real.equipment.find(o=>o.equipmentId===e.id)||{},h=document.createElement('h4'),g=document.createElement('div');h.textContent=e.name||e.id;g.className='real-data-fields';
-        for(const [key,label,scale] of [['operatingSeconds','Tiempo operativo interno (min)',60],['failureCount','Número de fallas',1],['failureSeconds','Tiempo interno de fallas (min)',60],['mtbfMinutes','MTBF reportado (min)',1],['mttrMinutes','MTTR reportado (min)',1]])control(g,label,key,obs[key],scale,e.id);
-        eq.append(h,g);
-      }
-      details.append(eq);inputs.append(details);
-    }
-    content.firstElementChild.after(inputs);target.append(content);if(keep&&active.isConnected)active.focus({preventScroll:true});
-  }
-  return {calculate,hierarchy,html,render};
+  return {calculate,hierarchy};
 })();
 </script>
