@@ -61,13 +61,53 @@ window.STAemComparison=(function(){
     }
     return {rows,reliability,warnings,note:'Las fórmulas se actualizan al capturar datos y no ejecutan el motor. Las diferencias son simulado − real; para porcentajes son puntos porcentuales. El simulador continuo supone calidad del 100 %: Scrap y Rework simulados son cero por hipótesis, no por validación con planta. No se asume cero para pérdidas reales desconocidas. Los microparos de 3–4 minutos describen la población de datos de diseño: no se aplica un filtro automático ni se recortan las fallas simuladas. La comparación por equipo requiere igual exposición y clase de paro. Se conserva el modelo de transportadores sin fallas propias salvo excepción configurada.'};
   }
+  function hierarchy(data){
+    const find=label=>data.rows.find(row=>row.label===label)||{};
+    const sum=(values)=>values.every(finite)?values.reduce((a,b)=>a+b,0):null;
+    const scrap=find('Scrap (tiempo equivalente)'),rework=find('Rework (tiempo equivalente)');
+    const realRate=find('Production Rate Losses reportadas').real??find('Rate Loss despejado / balance neto').real;
+    const simRate=find('Rate Loss despejado / balance neto').simulated;
+    const definitions=[
+      ['total',0,'Total Time','Total Available Time (T1)',['external','plant']],
+      ['external',1,'Business External Downtime','Business / External Downtime'],
+      ['plant',1,'Plant Available Time','Plant Available Time (T2)',['decision','production']],
+      ['decision',2,'Plant Decision Downtime','Plant Decision Downtime'],
+      ['production',2,'Production Available Time','Production Available Time (T3)',['downtime','runtime']],
+      ['downtime',3,'Unplanned Downtime','Unplanned Downtime'],
+      ['runtime',3,'Runtime','Runtime AEM (T4)',['losses','effective']],
+      ['losses',4,'Runtime Losses',null,['rate','scrap','rework']],
+      ['rate',5,'Rate Loss (base de conciliación)',null],
+      ['scrap',5,'Scrap (equivalente)','Scrap (tiempo equivalente)'],
+      ['rework',5,'Rework (equivalente)','Rework (tiempo equivalente)'],
+      ['effective',4,'Effective Runtime','Effective Runtime AEM (T5)']
+    ];
+    const entries=definitions.map(([id,depth,label,source,children])=>({id,depth,label,children,real:source?find(source).real:null,simulated:source?find(source).simulated:null}));
+    const byId=Object.fromEntries(entries.map(row=>[row.id,row]));
+    byId.rate.real=realRate;byId.rate.simulated=simRate;
+    for(const key of ['real','simulated'])byId.losses[key]=sum([byId.rate[key],byId.scrap[key],byId.rework[key]]);
+    for(const row of entries){
+      row.formula=row.children?row.label+' = '+row.children.map(id=>byId[id].label).join(' + '):row.id==='rate'?'Real: rate loss capturado (su base debe confirmarse). Simulado: balance neto = pérdida bruta − recuperación, para conciliar con el tiempo equivalente de salida.':'Minutos del concepto; no se suman todos los niveles de esta jerarquía.';
+      for(const key of ['real','simulated']){
+        const children=row.children?.map(id=>byId[id][key]);
+        row[key+'Residual']=children&&finite(row[key])&&children.every(finite)?row[key]-sum(children):null;
+      }
+    }
+    return entries;
+  }
+  function hierarchyHtml(data){
+    const rows=hierarchy(data),status=(row,key)=>{
+      const residual=row[key+'Residual'];return !row.children?'':!finite(residual)?'Faltan datos':Math.abs(residual)<=1/60?'Cierra':'Diferencia: '+fmt(residual)+' min';
+    };
+    const cell=(row,key)=>'<td class="numeric">'+fmt(row[key])+(row[key]<0?'<small> · balance negativo</small>':'')+'</td><td>'+esc(status(row,key))+'</td>';
+    return '<section class="aem-time-hierarchy"><h4>Jerarquía de tiempos: real y simulado</h4><p class="chart-note">Todos los valores están en minutos. Cada nivel divide al anterior; no se suman filas de distintos niveles. Rate Loss, Scrap y Rework son tiempos equivalentes. Cierra significa que la igualdad coincide dentro de 1 segundo, no que el modelo esté validado. La simulación usa balance neto (pérdida bruta − recuperación) para conciliar con la salida; una pérdida bruta real no siempre es comparable con ese neto.</p><div class="table-scroll"><table><thead><tr><th>Concepto / nivel</th><th class="numeric">Real (min)</th><th>Cierre real</th><th class="numeric">Simulado (min)</th><th>Cierre simulado</th></tr></thead><tbody>'+rows.map(row=>'<tr data-hierarchy-id="'+row.id+'"><th scope="row" style="padding-inline-start:calc(var(--space-3, 12px) + '+row.depth+' * 16px)" title="'+esc(row.formula)+'" aria-description="'+esc(row.formula)+'" tabindex="0">'+esc(row.label)+'</th>'+cell(row,'real')+cell(row,'simulated')+'</tr>').join('')+'</tbody></table></div></section>';
+  }
   function html(data){
     if(!data)return '';
     const table=(rows,equipment)=>'<div class="table-scroll"><table><thead><tr><th>Concepto'+(equipment?' / equipo':'')+'</th><th>Unidad</th><th class="numeric">Real calculado</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th><th>Fórmula e interpretación</th></tr></thead><tbody>'+rows.map(r=>{
       const tip=r.formula+(r.reason?' '+r.reason:''),attrs=' title="'+esc(tip)+'" aria-description="'+esc(tip)+'" tabindex="0"';
       return '<tr><th scope="row"'+attrs+'>'+esc((equipment?r.name+' · ':'')+r.label)+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'<td>'+esc(r.formula)+((r.real==null&&r.reason)?'<p>'+esc(r.reason)+'</p>':'')+'</td></tr>';
     }).join('')+'</tbody></table></div>';
-    return '<h3>Comparación AEM: tiempos, calidad y confiabilidad</h3><p class="chart-note">'+esc(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul>'+table(data.rows,false)+'<details><summary>Criterios de medición en planta</summary><p>Standard Rate debe corresponder al SKU y al cuello de botella, y actualizarse cuando cambie la capacidad estándar. Changeover se mide desde la última unidad conforme del producto A hasta la primera unidad conforme comercializable del producto B; una parada posterior se registra por separado. El MTTR termina al finalizar la reparación y no añade automáticamente una rampa. El Runtime de planta puede provenir de una señal de marcha del PLC; no se presupone que sea idéntico al flujo positivo de salida del simulador. MTBF, MTTR y disponibilidad deben usar la misma clase de paro y el mismo período.</p></details><h4>Confiabilidad interna por equipo</h4>'+table(data.reliability,true);
+    return '<h3>Comparación AEM: tiempos, calidad y confiabilidad</h3><p class="chart-note">'+esc(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul>'+hierarchyHtml(data)+table(data.rows,false)+'<details><summary>Criterios de medición en planta</summary><p>Standard Rate debe corresponder al SKU y al cuello de botella, y actualizarse cuando cambie la capacidad estándar. Changeover se mide desde la última unidad conforme del producto A hasta la primera unidad conforme comercializable del producto B; una parada posterior se registra por separado. El MTTR termina al finalizar la reparación y no añade automáticamente una rampa. El Runtime de planta puede provenir de una señal de marcha del PLC; no se presupone que sea idéntico al flujo positivo de salida del simulador. MTBF, MTTR y disponibilidad deben usar la misma clase de paro y el mismo período.</p></details><h4>Confiabilidad interna por equipo</h4>'+table(data.reliability,true);
   }
   function render(target,data,real,equipment,onEdit){
     const active=document.activeElement,keep=target.contains(active)&&active.matches('input')?target.querySelector('.aem-inputs'):null;
@@ -95,6 +135,6 @@ window.STAemComparison=(function(){
     }
     content.firstElementChild.after(inputs);target.append(content);if(keep&&active.isConnected)active.focus({preventScroll:true});
   }
-  return {calculate,html,render};
+  return {calculate,hierarchy,html,render};
 })();
 </script>

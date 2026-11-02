@@ -57,3 +57,19 @@ test('zero failures do not invent reliability and mixed formats do not use a sin
   assert.equal(row(d,'Standard Rate').simulated,null);assert(d.aemComparison.warnings.some(w=>w.includes('formatos')));
  }finally{w.close();}
 });
+
+test('hierarchy reconciles every level and flags independent real-time differences without hiding arithmetic',()=>{
+ const w=setup();try{
+  const f=fixture();let d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
+  let rows=w.STAemComparison.hierarchy(d.aemComparison),get=id=>rows.find(r=>r.id===id);
+  assert.equal(get('runtime').real,928);assert.equal(get('losses').real,153);assert.equal(get('effective').real,775);
+  assert(rows.filter(r=>r.children).every(r=>r.realResidual===0&&r.simulatedResidual===0));
+  f.record.aem.goodOutputUnits=700*220;d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
+  rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('runtime').realResidual,75);
+  const report=new JSDOM(w.STRealData.reportHtml(d));assert(report.window.document.querySelector('.aem-time-hierarchy').textContent.includes('Diferencia: 75 min'));report.window.close();
+  delete f.record.aem.scrapSeconds;delete f.record.aem.reworkSeconds;
+  d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('losses').real,null);assert.equal(get('runtime').realResidual,null);
+  f.result.summary.lineEffectiveRuntimeSeconds=f.result.summary.lineRunSeconds+60;
+  d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('rate').simulated,-1);
+ }finally{w.close();}
+});

@@ -27,3 +27,12 @@ Runtime de PLC y tiempo de flujo positivo en salida son mediciones distintas: su
 La confiabilidad medida usa los contadores de exposición y fallas de la vista seleccionada. En lotes usa una razón de totales agregados (no el promedio de razones por ronda). Los MTBF/MTTR reportados son respaldo cuando no hay contadores reales completos; se distinguen de las entradas configuradas en simulación. Cero fallas no produce un MTBF infinito ni disponibilidad medida del 100 %. Las fallas cortadas por el horizonte pueden sesgar el MTTR.
 
 El criterio de microparos de 3–4 minutos es una población de datos de diseño, no un filtro automático del motor. La comparación requiere iguales clases de paro y exposición. No se recortan las duraciones simuladas ni se modifican las hipótesis de confiabilidad de conveyors.
+
+
+## Jerarquía de tiempos
+
+La sección y el reporte muestran una jerarquía con columnas reales y simuladas. Cada nivel concilia una igualdad: T1 = External + T2; T2 = Plant Decision + T3; T3 = Unplanned + T4; T4 = Runtime Losses + T5; Runtime Losses = Rate Loss + Scrap + Rework.
+
+La conciliación real conserva el rate loss capturado cuando existe, evitando ocultar diferencias contra T5 calculado por producción conforme. El lado simulado usa balance neto para incluir la recuperación de acumuladores; no reemplaza la pérdida bruta ya mostrada en el desglose. Los valores negativos se identifican como balances, sin recortarlos.
+
+Se muestra Cierra dentro de una tolerancia de un segundo, Diferencia con el residuo o Faltan datos cuando no se conocen los operandos. Un cierre algebraico no demuestra validez física del modelo. Las categorías de cada nivel no se suman nuevamente con sus totales padre.
