@@ -73,6 +73,11 @@ window.STRealData=(function(){
   }
   function sourceResult(simulation,live){return simulation?.results||live||null;}
   function mean(values){const valid=values.filter(Number.isFinite);return valid.length===values.length&&valid.length?valid.reduce((a,b)=>a+b,0)/valid.length:null;}
+  function hasMeasuredRateLoss(summary){
+    if(summary?.lineRateLossBasis)return true;
+    const loss=summary?.lineRateLossSeconds,recovery=summary?.lineRateRecoverySeconds,net=summary?.lineNetRateBalanceSeconds;
+    return [loss,recovery,net].every(Number.isFinite)&&loss>=0&&recovery>=0&&Math.abs(loss-recovery-net)<=1e-5;
+  }
   function snapshot(result,view,outputId){
     if(!result?.summary||result.provisional||!(result.durationSeconds>0))return null;
     if(result.replicationStatus?.state&&result.replicationStatus.state!=='COMPLETE')return null;
@@ -89,7 +94,7 @@ window.STRealData=(function(){
     if(rows.length&&statistics&&statistics.n>1&&statistics.mean!==null){statistics.standardDeviation=Math.sqrt(rows.reduce((v,r)=>v+(r.summary.outputCount-statistics.mean)**2,0)/(rows.length-1));statistics.min=Math.min(...rows.map(r=>r.summary.outputCount));statistics.max=Math.max(...rows.map(r=>r.summary.outputCount));}
     const shiftRows=average?rows:statsOnly?[]:[row];
     const shifts=shiftRows.length&&shiftRows.every(r=>Array.isArray(r.shifts))?Array.from({length:Math.max(0,...shiftRows.map(r=>r.shifts.length))},(_,i)=>({outputCount:mean(shiftRows.map(r=>r.shifts[i]?.outputCount)),durationSeconds:mean(shiftRows.map(r=>r.shifts[i]?.durationSeconds))})):[];
-    return {output,duration,shifts,measuredRunSeconds:key('lineRunSeconds'),measuredEffectiveSeconds:key('lineEffectiveRuntimeSeconds'),measuredRateLossSeconds:key('lineRateLossSeconds'),rateRecoverySeconds:key('lineRateRecoverySeconds'),netRateBalanceSeconds:key('lineNetRateBalanceSeconds'),rateLossMeasured:average?rows.every(r=>r.summary?.lineRateLossBasis):statsOnly?!!result.summary.lineRateLossBasis:!!row.summary?.lineRateLossBasis,multiFormat:!!result.products,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
+    return {output,duration,shifts,measuredRunSeconds:key('lineRunSeconds'),measuredEffectiveSeconds:key('lineEffectiveRuntimeSeconds'),measuredRateLossSeconds:key('lineRateLossSeconds'),rateRecoverySeconds:key('lineRateRecoverySeconds'),netRateBalanceSeconds:key('lineNetRateBalanceSeconds'),rateLossMeasured:average?rows.every(r=>hasMeasuredRateLoss(r.summary)):statsOnly?hasMeasuredRateLoss({...result.summary,...Object.fromEntries(Object.entries(result.batch.statistics).map(([k,v])=>[k,v.mean]))}):hasMeasuredRateLoss(row.summary),multiFormat:!!result.products,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
   }
   function compareDetailed(record,simulation,result,view,caseRecord){
     const real=normalize(record),sim=snapshot(result,view||'average',simulation?.equipment?.at(-1)?.id),warnings=[],rows=[],equipmentRows=[];
@@ -190,8 +195,8 @@ window.STRealData=(function(){
     else if(sim?.nominalRate>0&&sim.output!=null)effective=sim.output/sim.nominalRate;
     // Integrate output/reference for each active format; OEE-derived time is only a legacy approximation.
     const measured=sim?.rateLossMeasured;
-    if(measured)effective=sim.measuredEffectiveSeconds;
-    const run=measured?sim.measuredRunSeconds:sim?.outputRunSeconds??null;
+    if(measured&&Number.isFinite(sim.measuredEffectiveSeconds))effective=sim.measuredEffectiveSeconds;
+    const run=measured?(sim.measuredRunSeconds??sim.outputRunSeconds):sim?.outputRunSeconds??null;
     const downtime=available!=null&&run!=null?available-run:null;
     const rateLoss=measured?sim.measuredRateLossSeconds:!sim?.multiFormat&&run!=null&&effective!=null?run-effective:null;
     if(sim&&!measured)data.warnings.push('Legacy Rate Loss estimate: re-run to measure final-output equivalent loss using each format reference.');
@@ -237,9 +242,15 @@ window.STRealData=(function(){
       equipmentRows.push({equipmentId:e.id,name:e.name,metric:'Downtime',unit:'min',real:actual==null?null:actual/60,simulated:seconds==null?null:Math.max(0,seconds)/60,delta:valid?(seconds-actual)/60:null,relativePercent:valid&&actual!==0?100*(seconds-actual)/actual:null,comparable:!!valid,note:known==='FAILURES'?'Failure/repair time':known==='MINOR'?'Microstop time':'Reporting period minus positive-flow time for this equipment; overlapping equipment stops are not summed.'});
     });
     data.warnings.push('AU uses the saved simulation nominal reference. Line downtime excludes calendar stops; equipment downtime includes all time without positive output unless the source already declares a failure/microstop class.');
-    data.rows=rows;data.equipmentRows=equipmentRows;data.validation=validationData(real,sim,available,effective,equalPeriod&&matchingFactor&&!data.stale);return data;
+    data.rows=rows;data.equipmentRows=equipmentRows;data.validation=validationData(real,sim,available,effective,equalPeriod&&matchingFactor&&!data.stale,[
+      !sim?'No hay una simulación completa seleccionada.':null,
+      sim&&!Number.isFinite(total)?'El calendario no tiene un período físico guardado compatible.':null,
+      sim&&Number.isFinite(total)&&!equalPeriod?'La duración real ('+format(real.durationSeconds/60)+' min) no coincide con la simulada ('+format(total/60)+' min).':null,
+      !matchingFactor?'Las unidades o botellas por caja no coinciden.':null,
+      data.stale?'La configuración del motor cambió después de simular. Vuelve a simular con esa configuración.':null
+    ].filter(Boolean));return data;
   }
-  function validationData(real,sim,simAvailable,simEffective,matched){
+  function validationData(real,sim,simAvailable,simEffective,matched,blockers=[]){
     const warnings=[],v=real.validation||{},ratio=(n,d)=>Number.isFinite(n)&&Number.isFinite(d)&&d>0?100*n/d:null;
     const plant=real.aem.plantAvailableSeconds??(real.durationSeconds!=null&&real.aem.businessExternalDowntimeSeconds!=null?real.durationSeconds-real.aem.businessExternalDowntimeSeconds:null);
     const d=real.aem.productionAvailableSeconds??(plant!=null&&real.aem.plantDecisionDowntimeSeconds!=null?plant-real.aem.plantDecisionDowntimeSeconds:null),e=real.downtimeSeconds,f=real.rateLossSeconds;
@@ -249,7 +260,7 @@ window.STRealData=(function(){
     const simulatedLoss=basis==='NET'?sim?.netRateBalanceSeconds:sim?.rateLossMeasured?sim.measuredRateLossSeconds:null;
     const k=ratio(simulatedLoss,simAvailable);
     const referenceMatches=!(real.referenceSpeedBpm>0&&sim?.nominalRate>0&&!sim.multiFormat&&Math.abs(real.referenceSpeedBpm/60-sim.nominalRate)>1e-6);
-    const allowed=!!matched&&referenceMatches&&Number.isFinite(d)&&d>0&&g!=null&&Number.isFinite(simAvailable)&&simAvailable>0;
+    const allowed=!!matched&&referenceMatches&&Number.isFinite(d)&&d>0&&Number.isFinite(simAvailable)&&simAvailable>0;
     const l=allowed&&Number.isFinite(i)&&Number.isFinite(k)?i-k:null,m=Number.isFinite(j)&&Number.isFinite(l)?j-l:null,n=Number.isFinite(m)&&Number.isFinite(h)?m-h:null;
     if(k==null)warnings.push('Faltan contadores compatibles de rate loss en la simulación. Repite la simulación para completar K y el ajuste.');
     if(!matched)warnings.push('El ajuste no se calcula si el período, las unidades o los resultados guardados no coinciden.');
@@ -276,11 +287,30 @@ window.STRealData=(function(){
       ['M','OEE ajustado por diferencia de rate loss',m,'%','M = J − L = J + K − I. Ajuste aritmético estimado; no calibra el motor.'],
       ['N','Diferencia residual: ajustado − Opera',n,'pp','N = M − H. Positivo: la simulación ajustada sobreestima; negativo: subestima.']
     ].map(([column,label,value,unit,formula])=>({column,label,value,unit,formula}));
+    const missing=(items)=>items.filter(([value])=>!Number.isFinite(value)).map(([,label])=>label).join(', ');
+    const missingTimes=missing([[d,'Production Available Time (D)'],[e,'Unplanned Downtime (E)'],[f,'Production Rate Losses (F)']]);
+    const denominatorIssue=d==null?'Ingresa Production Available Time (D), o Plant Available Time y Plant Decision Time para derivarlo.':d<=0?'Production Available Time (D) debe ser mayor que cero.':'';
+    const simDenominatorIssue=!sim?'Completa o selecciona una simulación.':!(simAvailable>0)?'No hay Production Available Time simulado válido. Revisa el período y el calendario.':'';
+    const matchIssue=!matched?(blockers.join(' ')||'Revisa que el período, las unidades y la configuración coincidan.'):!referenceMatches?'Las velocidades de referencia de planta y simulación difieren.':'';
+    const reasons={
+      A:'Ingresa la identificación de la línea.',B:'Ingresa la fecha del registro.',C:'Ingresa la duración del período.',
+      D:denominatorIssue,E:'Ingresa Downtime (min) en Production data. No se usa la suma de fallas de equipos.',
+      F:'Ingresa Rate Loss (min) en Production data.',
+      G:missingTimes?'Faltan: '+missingTimes+'.':'D − E − F es negativo. Revisa los tiempos ingresados.',
+      H:'Ingresa OEE Opera reportado o completa un tiempo efectivo G válido y un denominador D positivo.',
+      I:denominatorIssue||'Ingresa Production Rate Losses (F).',
+      J:simDenominatorIssue||'El resultado no conserva tiempo productivo equivalente ni una referencia u OEE para reconstruirlo. Vuelve a simular.',
+      K:simDenominatorIssue||(basis==='NET'?'El resultado no conserva el balance neto de velocidad. Vuelve a simular.':'El resultado no conserva contadores compatibles de pérdida bruta. No puede reconstruirse solo con producción total o con la reproducción; vuelve a simular.'),
+      L:matchIssue||denominatorIssue||(!Number.isFinite(i)?'Completa I (rate loss real).':'Completa K (rate loss simulado).'),
+      M:matchIssue||(!Number.isFinite(l)?'Completa L: '+(denominatorIssue||(!Number.isFinite(i)?'falta I.':'falta K.')):'Completa J (OEE simulado).'),
+      N:matchIssue||(!Number.isFinite(m)?'Completa M (OEE ajustado).':'Completa H (OEE Opera reportado o calculado).')
+    };
+    rows.forEach(row=>{row.reason=row.value==null?reasons[row.column]||'Dato no disponible.':'';});
     return {rows,warnings,basis,estimated:true,formula:'I=F/D; L=I-K; M=J-L; N=M-H',note:'Ajuste aritmético de referencia; no modifica la producción, los parámetros ni el motor y no valida por sí solo la simulación. Los porcentajes H, I, J y K usan Production Available Time. Las diferencias L y N son puntos porcentuales. La recuperación por encima de la referencia permanece separada. AU se conserva como un indicador distinto.'};
   }
   function validationHtml(data){
     if(!data)return '';
-    return '<h3>Validación por OEE y rate loss</h3><p>'+escape(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul><div class="table-scroll"><table><thead><tr><th>Columna</th><th>Indicador</th><th>Valor</th><th>Unidad</th><th>Fórmula / interpretación</th></tr></thead><tbody>'+data.rows.map(r=>'<tr><th scope="row">'+escape(r.column)+'</th><td>'+escape(r.label)+'</td><td class="numeric">'+escape(typeof r.value==='string'?r.value:format(r.value))+'</td><td>'+escape(r.unit)+'</td><td>'+escape(r.formula)+'</td></tr>').join('')+'</tbody></table></div>';
+    return '<h3>Validación por OEE y rate loss</h3><p>'+escape(data.note)+'</p><ul>'+data.warnings.map(w=>'<li>'+escape(w)+'</li>').join('')+'</ul><div class="table-scroll"><table><thead><tr><th>Columna</th><th>Indicador</th><th>Valor</th><th>Unidad</th><th>Fórmula / interpretación</th></tr></thead><tbody>'+data.rows.map(r=>'<tr><th scope="row">'+escape(r.column)+'</th><td>'+escape(r.label)+'</td><td class="numeric">'+escape(typeof r.value==='string'?r.value:format(r.value))+'</td><td>'+escape(r.unit)+'</td><td>'+escape(r.formula)+(r.reason?'<p class="chart-note">No calculado: '+escape(r.reason)+'</p>':'')+'</td></tr>').join('')+'</tbody></table></div>';
   }
   function renderValidation(data){
     let section=document.getElementById('real-data-validation');
@@ -294,7 +324,10 @@ window.STRealData=(function(){
       input.onchange=()=>{if(!input.checkValidity())return;const draft=formRecord(current());if(key==='date')draft.date=input.value;else draft.validation[key]=key==='reportedOeePercent'?(input.value===''?null:Number(input.value)):input.value;try{persist(normalize(draft));status('Validación actualizada.');results();}catch(error){status(error.message,true);}};
       wrapper.append(input);controls.append(wrapper);
     }
-    const content=el('div');content.innerHTML=validationHtml(data.validation);content.firstElementChild.after(controls);section.append(content);
+    const content=el('div');content.innerHTML=validationHtml(data.validation);content.firstElementChild.after(controls);
+    const actions=el('div',null,'button-row'),recalculate=el('button','Recalcular comparación','secondary');recalculate.id='real-data-validation-recalculate';recalculate.type='button';recalculate.title='Recalcula con los datos reales y resultados guardados actuales. No ejecuta nuevamente el motor ni modifica la simulación.';
+    recalculate.onclick=()=>{results();const next=getComparison(),missing=next?.validation?.rows.filter(row=>row.value==null).map(row=>row.column).join(', ');status(missing?'Comparación recalculada. Revisa la explicación junto a los campos pendientes: '+missing+'.':'Comparación recalculada con los datos actuales.');document.getElementById('real-data-validation-recalculate')?.focus();};
+    actions.append(recalculate);const hint=el('p','Los cálculos se actualizan al editar los datos. Este botón actualiza la comparación sin repetir la simulación; junto a cada guion se indica qué falta.','chart-note');controls.after(actions,hint);section.append(content);
   }
   function addAemRows(real,sim,simulation,result,effective,run,sameFormat,stale,add,rows,warnings){
     const a=real.aem,hasAem=aemTimeKeys.some(k=>a[k]!=null)||a.basis!=='UNCONFIRMED'||real.reportedUpdtPercent!=null||real.updtDefinition!=='UNCONFIRMED';

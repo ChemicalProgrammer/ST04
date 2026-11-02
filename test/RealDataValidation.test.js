@@ -37,7 +37,7 @@ test('net selection, means, selected rounds, incomplete measurements and zero lo
   d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'J'),65);assert.equal(field(d,'K'),.5);
   d=w.STRealData.compare(f.record,f.simulation,f.result,'2',{}, {simple:true});assert(Math.abs(field(d,'J')-70)<1e-10);assert.equal(field(d,'K'),1);
   delete f.result.batch.rows[1].summary.lineRateLossSeconds;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),null);assert.equal(field(d,'M'),null);
-  delete f.result.batch;delete f.result.summary.lineRateLossBasis;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),null);
+  delete f.result.batch;delete f.result.summary.lineRateLossBasis;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),.99);delete f.result.summary.lineRateRecoverySeconds;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),null);
   assert.throws(()=>w.STRealData.normalize({...f.record,validation:{reportedOeePercent:101}}));
   assert.throws(()=>w.STRealData.normalize({...f.record,validation:{rateLossBasis:'OTHER'}}));
  }finally{w.close();}
@@ -50,5 +50,49 @@ test('new Real Data section edits and persists independent OEE without changing 
   const input=section.querySelector('#real-validation-reportedOeePercent');input.value='54';input.dispatchEvent(new w.Event('change'));
   assert.equal(owner.metadata.realData.records[0].validation.reportedOeePercent,54);assert.equal(owner.metadata.realData.records[0].reportedEfficiencyPercent,77);assert.equal(JSON.stringify(f.result),before);
   assert(w.document.getElementById('real-data-validation').textContent.includes('Diferencia residual'));
+ }finally{w.close();}
+});
+
+test('missing real downtime affects G but does not block independent rate loss adjustment',()=>{
+ const w=setup();try{
+  const f=fixture();delete f.record.downtimeSeconds;
+  const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});
+  assert.equal(field(d,'G'),null);assert(d.validation.rows.find(r=>r.column==='G').reason.includes('Unplanned Downtime'));
+  assert.equal(field(d,'H'),53.8);assert(Math.abs(field(d,'M')-55.635)<1e-10);assert(Math.abs(field(d,'N')-1.835)<1e-10);
+  assert.equal(d.validation.rows.find(r=>r.column==='M').reason,'');
+ }finally{w.close();}
+});
+test('compact aggregates recover measured counters without relying on first-round metadata',()=>{
+ const w=setup();try{
+  const f=fixture();const summary={...f.result.summary};delete summary.lineRateLossBasis;
+  f.result.batch={statistics:Object.fromEntries(Object.entries(summary).filter(([,v])=>typeof v==='number').map(([key,mean])=>[key,{mean}]))};
+  f.result.summary={outputCount:100};
+  let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),.99);assert.equal(field(d,'J'),65.27);
+  f.result.batch.statistics.lineNetRateBalanceSeconds.mean=0;
+  d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),null);
+ }finally{w.close();}
+});
+test('available OEE reconstructs J when measured equivalent runtime is absent but never invents gross loss',()=>{
+ const w=setup();try{
+  const f=fixture();delete f.result.summary.lineEffectiveRuntimeSeconds;
+  let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'J'),65.27);
+  delete f.result.summary.lineRateLossSeconds;
+  d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'K'),null);assert.equal(field(d,'M'),null);assert(d.validation.rows.find(r=>r.column==='K').reason.includes('vuelve a simular'));
+ }finally{w.close();}
+});
+test('recalculate refreshes edited real data and explains remaining gaps without rerunning or mutating simulation',()=>{
+ const w=setup();try{
+  const f=fixture();delete f.record.downtimeSeconds;
+  const saved=JSON.stringify(f.result),owner={id:'case',metadata:{realData:{records:[w.STRealData.normalize(f.record)]}}};
+  w.STRealData.init({activeCase:owner},{changed(){}});w.STRealData.render(owner,{...f.simulation,results:f.result});
+  const find=c=>[...w.document.querySelectorAll('#real-data-validation tbody tr')].find(row=>row.cells[0].textContent===c);
+  assert(find('G').textContent.includes('No calculado:'));assert(find('G').textContent.includes('Unplanned Downtime'));
+  const input=w.document.querySelector('[data-real-field=rateLossSeconds]');input.value='200';input.dispatchEvent(new w.Event('input'));
+  assert.equal(find('F').cells[2].textContent,'200');
+  w.document.getElementById('real-data-validation-recalculate').click();
+  assert(w.document.getElementById('real-data-status').textContent.includes('recalculada'));assert(find('M').cells[2].textContent!=='—');assert.equal(JSON.stringify(f.result),saved);
+  const duration=w.document.querySelector('[data-real-field=durationSeconds]');duration.value='720';duration.dispatchEvent(new w.Event('input'));
+  w.document.getElementById('real-data-validation-recalculate').click();
+  assert.equal(find('M').cells[2].textContent,'—');assert(find('M').textContent.includes('no coincide'));
  }finally{w.close();}
 });
