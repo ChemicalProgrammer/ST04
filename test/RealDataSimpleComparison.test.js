@@ -20,7 +20,7 @@ test('missing detail blocks only affected rows; no fabricated shifts or equipmen
  const d=api.compare(record,simulation,result,'average',{}, {simple:true});assert.equal(row(d,'Total Production Day (Units)').delta,30);assert.equal(row(d,'AU').delta,2.5);assert.equal(row(d,'Run Time').simulated,null);assert.equal(row(d,'Shift 1').simulated,null);assert.equal(d.equipmentRows[0].delta,0);assert.equal(d.equipmentRows[1].simulated,null);
 });
 test('period and stale guards remain effective; selected round and means use the correct detail',()=>{
- const {record,simulation,result}=fixture();let d=api.compare({...record,durationSeconds:1200},simulation,result,'average',{}, {simple:true});assert.equal(row(d,'Total Production Day (Units)').delta,null);
+ const {record,simulation,result}=fixture();let d=api.compare({...record,durationSeconds:1200},simulation,result,'average',{}, {simple:true});assert.equal(row(d,'Total Production Day (Units)').delta,30);assert.equal(row(d,'Total Production Day (Units)').comparable,false);
  d=api.compare(record,simulation,result,'representative',{}, {simple:true});assert.equal(row(d,'Total Production Day (Units)').simulated,900);assert.equal(d.equipmentRows[0].simulated,100/60);
  c.window.SimulatorEngine=c.SimulatorEngine={inputSignature:()=> 'new'};d=api.compare(record,simulation,{...result,inputSignature:'old'},'average',{unitOfFlow:'bottles'},{simple:true});assert(d.stale);assert(d.rows.every(r=>!r.comparable));delete c.window.SimulatorEngine;delete c.SimulatorEngine;
 });

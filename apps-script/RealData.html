@@ -170,6 +170,7 @@ window.STRealData=(function(){
     const data=compareDetailed(record,simulation,result,view,caseRecord),real=data.observation,sim=data.run,rows=[],equipmentRows=[];
     // The simple editor has a fixed reporting contract; no removed selectors are required.
     data.warnings=data.warnings.filter(w=>!['Confirm the line-time basis','Reported AU / efficiency','The real-data source is not specified','The production date is not specified','Real data are pending','AEM','Shift production sum','Line-time predictions','Production units cannot be matched'].some(text=>w.includes(text)));
+    if(data.stale)data.warnings=data.warnings.map(w=>w==='Saved results do not match the current simulation inputs. Run again before comparing.'?'La configuración actual difiere de la simulada. Las restas se calculan con los resultados guardados, sin volver a ejecutar el motor.':w);
     const calendar=simulation?.dynamicConfig?.plantCalendar,source=calendar?.appliedCalendar||calendar;
     let total=sim?.duration??null,external=sim?0:null,decision=sim?0:null,plant=total,available=total;
     if(calendar?.enabled){
@@ -202,7 +203,7 @@ window.STRealData=(function(){
     if(sim&&!measured)data.warnings.push('Legacy Rate Loss estimate: re-run to measure final-output equivalent loss using each format reference.');
     if(measured&&rateLoss==null)data.warnings.push('Rate Loss unavailable: reference data are incomplete, or this is a legacy net-balance result. Re-run before interpreting the gap.');
     const hasRecovery=sim?.rateRecoverySeconds>1e-7;
-    if(hasRecovery)data.warnings.push('Above-reference final output: '+(sim.rateRecoverySeconds/60).toFixed(2)+' min equivalent recovery. Simulated Rate Loss is gross shortfall, not runtime minus effective time alone. Confirm whether plant Rate Loss uses gross shortfall or net balance before comparing; the Rate Loss difference is withheld.');
+    if(hasRecovery)data.warnings.push('Above-reference final output: '+(sim.rateRecoverySeconds/60).toFixed(2)+' min equivalent recovery. Simulated Rate Loss is gross shortfall, not runtime minus effective time alone. The arithmetic difference is displayed; confirm whether plant Rate Loss uses gross shortfall or net balance before interpreting it.');
     const ratio=(n,d)=>Number.isFinite(n)&&d>0?100*n/d:null;
     const realPlant=real.aem.plantAvailableSeconds??(real.durationSeconds!=null&&real.aem.businessExternalDowntimeSeconds!=null?real.durationSeconds-real.aem.businessExternalDowntimeSeconds:null);
     const realAvailable=real.aem.productionAvailableSeconds??(realPlant!=null&&real.aem.plantDecisionDowntimeSeconds!=null?realPlant-real.aem.plantDecisionDowntimeSeconds:null);
@@ -211,7 +212,7 @@ window.STRealData=(function(){
     const coherent=available!=null&&run!=null&&run>=0&&run<=available+1;
     function add(metric,actual,predicted,unit,note,allowed=equalPeriod){
       const valid=Number.isFinite(actual)&&Number.isFinite(predicted)&&allowed&&matchingFactor&&!data.stale;
-      rows.push({metric,unit,real:actual??null,simulated:Number.isFinite(predicted)?predicted:null,delta:valid?predicted-actual:null,relativePercent:valid&&actual!==0?100*(predicted-actual)/Math.abs(actual):null,comparable:valid,note:data.stale?'Saved simulation inputs changed':!allowed?(metric==='Rate Loss'&&hasRecovery?'Confirm plant gross/net Rate Loss basis; final output includes above-reference recovery.':'Different or incomplete reporting periods'):note||''});
+      rows.push({metric,unit,real:actual??null,simulated:Number.isFinite(predicted)?predicted:null,delta:Number.isFinite(actual)&&Number.isFinite(predicted)?predicted-actual:null,relativePercent:Number.isFinite(actual)&&Number.isFinite(predicted)&&actual!==0?100*(predicted-actual)/Math.abs(actual):null,comparable:valid,note:data.stale?'Saved simulation inputs changed':!allowed?(metric==='Rate Loss'&&hasRecovery?'Confirm plant gross/net Rate Loss basis; final output includes above-reference recovery.':'Different or incomplete reporting periods'):note||''});
     }
     add('AU',real.reportedEfficiencyPercent,ratio(effective,plant),'%','Effective runtime / plant available; simulation uses its saved nominal reference.');
     rows.at(-1).recalculated=ratio(realEffective,realPlant);
@@ -239,7 +240,7 @@ window.STRealData=(function(){
       let seconds=known==='FAILURES'?m?.failureSeconds:known==='MINOR'?m?.microStopSeconds:Number.isFinite(m?.runningSeconds)&&sim?sim.duration-m.runningSeconds:null;
       if(seconds!=null&&(seconds<-.001||seconds>sim.duration+.001))seconds=null;
       const actual=observed?.downtimeSeconds??(known==='FAILURES'?observed?.failureSeconds:null),valid=Number.isFinite(actual)&&Number.isFinite(seconds)&&!e.unmatched&&!data.stale&&equalPeriod&&sim&&Math.abs(exposure-sim.duration)<=1;
-      equipmentRows.push({equipmentId:e.id,name:e.name,metric:'Downtime',unit:'min',real:actual==null?null:actual/60,simulated:seconds==null?null:Math.max(0,seconds)/60,delta:valid?(seconds-actual)/60:null,relativePercent:valid&&actual!==0?100*(seconds-actual)/actual:null,comparable:!!valid,note:known==='FAILURES'?'Failure/repair time':known==='MINOR'?'Microstop time':'Reporting period minus positive-flow time for this equipment; overlapping equipment stops are not summed.'});
+      equipmentRows.push({equipmentId:e.id,name:e.name,metric:'Downtime',unit:'min',real:actual==null?null:actual/60,simulated:seconds==null?null:Math.max(0,seconds)/60,delta:Number.isFinite(actual)&&Number.isFinite(seconds)?(seconds-actual)/60:null,relativePercent:Number.isFinite(actual)&&Number.isFinite(seconds)&&actual!==0?100*(seconds-actual)/Math.abs(actual):null,comparable:!!valid,note:known==='FAILURES'?'Failure/repair time':known==='MINOR'?'Microstop time':'Reporting period minus positive-flow time for this equipment; overlapping equipment stops are not summed.'});
     });
     data.warnings.push('AU uses the saved simulation nominal reference. Line downtime excludes calendar stops; equipment downtime includes all time without positive output unless the source already declares a failure/microstop class.');
     data.rows=rows;data.equipmentRows=equipmentRows;data.validation=validationData(real,sim,available,effective,equalPeriod&&matchingFactor&&!data.stale,[
@@ -247,7 +248,7 @@ window.STRealData=(function(){
       sim&&!Number.isFinite(total)?'El calendario no tiene un período físico guardado compatible.':null,
       sim&&Number.isFinite(total)&&!equalPeriod?'La duración real ('+format(real.durationSeconds/60)+' min) no coincide con la simulada ('+format(total/60)+' min).':null,
       !matchingFactor?'Las unidades o botellas por caja no coinciden.':null,
-      data.stale?'La configuración del motor cambió después de simular. Vuelve a simular con esa configuración.':null
+      data.stale?'La configuración actual difiere de la simulada. La resta utiliza los resultados guardados.':null
     ].filter(Boolean));return data;
   }
   function validationData(real,sim,simAvailable,simEffective,matched,blockers=[]){
@@ -261,10 +262,10 @@ window.STRealData=(function(){
     const k=ratio(simulatedLoss,simAvailable);
     const referenceMatches=!(real.referenceSpeedBpm>0&&sim?.nominalRate>0&&!sim.multiFormat&&Math.abs(real.referenceSpeedBpm/60-sim.nominalRate)>1e-6);
     const allowed=!!matched&&referenceMatches&&Number.isFinite(d)&&d>0&&Number.isFinite(simAvailable)&&simAvailable>0;
-    const l=allowed&&Number.isFinite(i)&&Number.isFinite(k)?i-k:null,m=Number.isFinite(j)&&Number.isFinite(l)?j-l:null,n=Number.isFinite(m)&&Number.isFinite(h)?m-h:null;
+    const l=Number.isFinite(i)&&Number.isFinite(k)?i-k:null,m=Number.isFinite(j)&&Number.isFinite(l)?j-l:null,n=Number.isFinite(m)&&Number.isFinite(h)?m-h:null;
     if(k==null)warnings.push('Faltan contadores compatibles de rate loss en la simulación. Repite la simulación para completar K y el ajuste.');
-    if(!matched)warnings.push('El ajuste no se calcula si el período, las unidades o los resultados guardados no coinciden.');
-    if(!referenceMatches)warnings.push('Las velocidades de referencia de planta y simulación difieren; no se calcula el ajuste.');
+    if(!matched)warnings.push('Se muestra la resta aritmética de los valores disponibles, aunque el período, las unidades o los resultados guardados no coincidan. Revisa esos avisos antes de interpretarla como validación. '+blockers.join(' '));
+    if(!referenceMatches)warnings.push('Las velocidades de referencia de planta y simulación difieren. El ajuste mostrado es solo aritmético y no confirma comparabilidad.');
     if(g==null)warnings.push('Faltan tiempos de planta o Production Available Time − Unplanned Downtime − Production Rate Losses es negativo.');
     if(v.rateLossBasis!=='GROSS'&&v.rateLossBasis!=='NET')warnings.push('Definición de rate loss de planta pendiente: K usa pérdida bruta y el ajuste es provisional. Confirma si el dato de planta es bruto o neto.');
     if(recalculated!=null&&v.reportedOeePercent!=null&&Math.abs(recalculated-v.reportedOeePercent)>.05)warnings.push('El OEE Opera reportado difiere de G / D. Se conserva el reportado para H y se muestra el recálculo en su fórmula.');
@@ -306,7 +307,7 @@ window.STRealData=(function(){
       N:matchIssue||(!Number.isFinite(m)?'Completa M (OEE ajustado).':'Completa H (OEE Opera reportado o calculado).')
     };
     rows.forEach(row=>{row.reason=row.value==null?reasons[row.column]||'Dato no disponible.':'';});
-    return {rows,warnings,basis,estimated:true,formula:'I=F/D; L=I-K; M=J-L; N=M-H',note:'Ajuste aritmético de referencia; no modifica la producción, los parámetros ni el motor y no valida por sí solo la simulación. Los porcentajes H, I, J y K usan Production Available Time. Las diferencias L y N son puntos porcentuales. La recuperación por encima de la referencia permanece separada. AU se conserva como un indicador distinto.'};
+    return {rows,warnings,basis,comparable:allowed,estimated:true,formula:'I=F/D; L=I-K; M=J-L; N=M-H',note:'Ajuste aritmético de referencia; no modifica la producción, los parámetros ni el motor y no valida por sí solo la simulación. Los porcentajes H, I, J y K usan Production Available Time. Las diferencias L y N son puntos porcentuales. La recuperación por encima de la referencia permanece separada. AU se conserva como un indicador distinto.'};
   }
   function validationHtml(data){
     if(!data)return '';
@@ -315,19 +316,20 @@ window.STRealData=(function(){
   function renderValidation(data){
     let section=document.getElementById('real-data-validation');
     if(!section){section=el('section',null,'real-data-observation');section.id='real-data-validation';document.getElementById('real-data-comparison').before(section);}
+    const focused=document.activeElement,keepControls=section.contains(focused)&&focused.matches('input,select')?section.querySelector('.real-data-fields'):null;
     section.replaceChildren();section.hidden=!data;if(!data)return;
-    const controls=el('div',null,'real-data-fields'),v=data.observation.validation;
-    for(const [key,label] of [['line','Línea'],['date','Fecha del registro'],['reportedOeePercent','OEE Opera reportado (%) — opcional'],['rateLossBasis','Definición del rate loss de planta']]){
+    const controls=keepControls||el('div',null,'real-data-fields'),v=data.observation.validation;
+    for(const [key,label] of (keepControls?[]:[['line','Línea'],['date','Fecha del registro'],['reportedOeePercent','OEE Opera reportado (%) — opcional'],['rateLossBasis','Definición del rate loss de planta']])){
       const wrapper=el('label',label),input=el(key==='rateLossBasis'?'select':'input');input.id='real-validation-'+key;
       if(key==='rateLossBasis'){[['UNCONFIRMED','Pendiente de confirmar (cálculo bruto provisional)'],['GROSS','Pérdida bruta'],['NET','Balance neto: pérdida menos recuperación']].forEach(([value,label])=>{const o=el('option',label);o.value=value;input.append(o);});input.value=v[key];}
       else{input.type=key==='line'?'text':key==='date'?'date':'number';input.value=(key==='date'?data.observation.date:v[key])??'';if(key==='line')input.maxLength=160;else if(key!=='date'){input.min='0';input.max='100';input.step='any';}}
-      input.onchange=()=>{if(!input.checkValidity())return;const draft=formRecord(current());if(key==='date')draft.date=input.value;else draft.validation[key]=key==='reportedOeePercent'?(input.value===''?null:Number(input.value)):input.value;try{persist(normalize(draft));status('Validación actualizada.');results();}catch(error){status(error.message,true);}};
+      input.oninput=input.onchange=()=>{if(!input.checkValidity())return;const draft=formRecord(current()),next=key==='reportedOeePercent'?(input.value===''?null:Number(input.value)):input.value,previous=key==='date'?draft.date:draft.validation[key];if(previous===next)return;if(key==='date')draft.date=next;else draft.validation[key]=next;try{persist(normalize(draft));status('Validación actualizada.');results();}catch(error){status(error.message,true);}};
       wrapper.append(input);controls.append(wrapper);
     }
     const content=el('div');content.innerHTML=validationHtml(data.validation);content.firstElementChild.after(controls);
     const actions=el('div',null,'button-row'),recalculate=el('button','Recalcular comparación','secondary');recalculate.id='real-data-validation-recalculate';recalculate.type='button';recalculate.title='Recalcula con los datos reales y resultados guardados actuales. No ejecuta nuevamente el motor ni modifica la simulación.';
     recalculate.onclick=()=>{results();const next=getComparison(),missing=next?.validation?.rows.filter(row=>row.value==null).map(row=>row.column).join(', ');status(missing?'Comparación recalculada. Revisa la explicación junto a los campos pendientes: '+missing+'.':'Comparación recalculada con los datos actuales.');document.getElementById('real-data-validation-recalculate')?.focus();};
-    actions.append(recalculate);const hint=el('p','Los cálculos se actualizan al editar los datos. Este botón actualiza la comparación sin repetir la simulación; junto a cada guion se indica qué falta.','chart-note');controls.after(actions,hint);section.append(content);
+    actions.append(recalculate);const hint=el('p','Los cálculos se actualizan al editar los datos. Este botón actualiza la comparación sin repetir la simulación; junto a cada guion se indica qué falta.','chart-note');controls.after(actions,hint);section.append(content);if(keepControls&&focused.isConnected)focused.focus({preventScroll:true});
   }
   function addAemRows(real,sim,simulation,result,effective,run,sameFormat,stale,add,rows,warnings){
     const a=real.aem,hasAem=aemTimeKeys.some(k=>a[k]!=null)||a.basis!=='UNCONFIRMED'||real.reportedUpdtPercent!=null||real.updtDefinition!=='UNCONFIRMED';
@@ -383,8 +385,8 @@ window.STRealData=(function(){
     'Unidad del indicador. Las diferencias de eficiencias expresadas en % son puntos porcentuales (pp).',
     'Dato real reportado por planta. Se conserva sin sustituirlo por el recálculo.',
     'Valor calculado con los resultados guardados de la ronda o del promedio seleccionado, según la definición del indicador.',
-    'Diferencia = simulado − real. Si el indicador es una eficiencia en %, la diferencia está en puntos porcentuales. Solo se calcula con bases compatibles.',
-    'Diferencia relativa (%) = 100 × (simulado − real) / |real|. No se calcula cuando real = 0 o faltan datos comparables.',
+    'Diferencia = simulado − real, calculada siempre que ambos valores estén disponibles. Si el indicador es una eficiencia en %, se expresa en puntos porcentuales. Los avisos de compatibilidad se muestran por separado.',
+    'Diferencia relativa (%) = 100 × (simulado − real) / |real|. No se calcula cuando real = 0 o falta algún valor. Los avisos de compatibilidad no ocultan la resta.',
     'Recálculo independiente a partir de los tiempos reales capturados. No sustituye el valor reportado por planta.'
   ];
   function comparisonTooltip(row,index,data,equipment){
@@ -429,15 +431,15 @@ window.STRealData=(function(){
       definition+=' Los tiempos de equipos pueden coincidir; no se suman como downtime único de línea.';
     }
     let text=(definition||'Valor del indicador conservado para la ronda o el promedio seleccionado. No se reemplazan los datos reales por estimaciones.')+' '+comparisonHeaderTips[index];
-    if(index===4&&row.comparable)text+=' Cálculo: '+format(row.simulated)+' − '+format(row.real)+' = '+format(row.delta)+(row.unit==='%'?' pp.':' '+row.unit+'.');
-    if(index===5&&row.comparable&&row.real!==0)text+=' Cálculo: 100 × ('+format(row.simulated)+' − '+format(row.real)+') / |'+format(row.real)+'| = '+format(row.relativePercent)+' %.';
+    if(index===4&&Number.isFinite(row.delta))text+=' Cálculo: '+format(row.simulated)+' − '+format(row.real)+' = '+format(row.delta)+(row.unit==='%'?' pp.':' '+row.unit+'.');
+    if(index===5&&Number.isFinite(row.relativePercent)&&row.real!==0)text+=' Cálculo: 100 × ('+format(row.simulated)+' − '+format(row.real)+') / |'+format(row.real)+'| = '+format(row.relativePercent)+' %.';
     if(row.metric==='AU'&&index===6){
       const r=data?.observation,plant=r?.aem?.plantAvailableSeconds??(r?.durationSeconds!=null&&r?.aem?.businessExternalDowntimeSeconds!=null?r.durationSeconds-r.aem.businessExternalDowntimeSeconds:null);
       const effective=r?.runTimeSeconds!=null&&r?.rateLossSeconds!=null?r.runTimeSeconds-r.rateLossSeconds:r?.effectiveRuntimeSeconds;
       text+=' Recálculo real: Effective Runtime = Run Time − Rate Loss cuando ambos existen; de lo contrario utiliza Effective Runtime capturado. 100 × '+format(effective==null?null:effective/60)+' / '+format(plant==null?null:plant/60)+' = '+format(row.recalculated)+' %. Tiempos en minutos.';
     }
     if(row.metric==='AU'&&index===3)text+=' El tiempo efectivo simulado integra salida / referencia de cada formato. En resultados antiguos utiliza el OEE guardado × duración / 100, o producción / referencia disponible.';
-    if(index>=4&&!row.comparable)text+=' Diferencia no disponible: faltan valores o no coinciden el período, las unidades, la referencia o la configuración guardada. Para rate loss también debe coincidir la definición bruta/neta.';
+    if(index>=4&&!row.comparable)text+=Number.isFinite(row.delta)?' Se muestra la resta aritmética; la compatibilidad del período, unidades, referencia, configuración o definición bruta/neta está pendiente de revisar.':' Faltan valores para efectuar esta resta. Los datos ausentes no se sustituyen por cero.';
     return text;
   }
   function tooltipAttributes(text){return ' title="'+escape(text)+'" aria-description="'+escape(text)+'" tabindex="0"';}
@@ -450,7 +452,7 @@ window.STRealData=(function(){
   function getComparison(){const record=current();return record?compare(record,context.simulation,sourceResult(context.simulation,context.live),selection,context.caseRecord,{simple:true}):null;}
   function table(target,rows,equipment,data){
     target.replaceChildren();const t=el('table'),thead=el('thead'),head=el('tr');(equipment?['Equipment','Unit','Real','Simulated','Difference']:['Metric','Unit','Real','Simulated','Difference','Difference %','Recalculated real']).forEach((v,i)=>{const th=el('th',v,i>=2&&i<(equipment?5:7)?'numeric':'');th.scope='col';applyTooltip(th,comparisonHeaderTips[i]);head.append(th);});thead.append(head);t.append(thead);const body=el('tbody');
-    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',row.comparable?format(row.delta):'—'];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));tr.title=comparisonTooltip(row,0,data,equipment);values.forEach((v,i)=>{const cell=el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'');applyTooltip(cell,comparisonTooltip(row,i,data,equipment));tr.append(cell);});body.append(tr);});t.append(body);target.append(t);
+    rows.forEach(row=>{const tr=el('tr');let values=[equipment?row.name:row.metric,row.unit,format(row.real),Number.isFinite(row.simulated)?format(row.simulated):'Unavailable',format(row.delta)];if(!equipment)values.push(format(row.relativePercent),format(row.recalculated));tr.title=comparisonTooltip(row,0,data,equipment);values.forEach((v,i)=>{const cell=el('td',v,i>=2&&i<(equipment?5:7)?'numeric':'');applyTooltip(cell,comparisonTooltip(row,i,data,equipment));tr.append(cell);});body.append(tr);});t.append(body);target.append(t);
   }
   function results(){
     const data=getComparison(),target=document.getElementById('real-data-comparison'),warnings=document.getElementById('real-data-warnings'),evidence=document.getElementById('real-data-evidence');

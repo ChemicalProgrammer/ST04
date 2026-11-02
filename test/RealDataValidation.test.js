@@ -23,9 +23,9 @@ test('both simulated percentages use production available time and preserve peri
   f.simulation.dynamicConfig.plantCalendar={enabled:true,mode:'SCHEDULED',totalMinutes:1440};
   f.result.plantCalendar={completePeriod:true,observedStopSeconds:720*60};f.result.summary.lineEffectiveRuntimeSeconds=300*60;f.result.summary.lineRateLossSeconds=7.2*60;
   let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'J'),100*300/720);assert(Math.abs(field(d,'K')-1)<1e-10);
-  f.record.durationSeconds=43200;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'M'),null);
+  f.record.durationSeconds=43200;d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert(Number.isFinite(field(d,'M')));assert.equal(d.validation.comparable,false);
   f.record.durationSeconds=86400;f.record.referenceSpeedBpm=220;f.result.summary.lineOeePacemakerRatePerSecond=5;
-  d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert.equal(field(d,'M'),null);
+  d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}, {simple:true});assert(Number.isFinite(field(d,'M')));assert.equal(d.validation.comparable,false);
  }finally{w.close();}
 });
 test('net selection, means, selected rounds, incomplete measurements and zero loss stay explicit',()=>{
@@ -93,6 +93,27 @@ test('recalculate refreshes edited real data and explains remaining gaps without
   assert(w.document.getElementById('real-data-status').textContent.includes('recalculada'));assert(find('M').cells[2].textContent!=='—');assert.equal(JSON.stringify(f.result),saved);
   const duration=w.document.querySelector('[data-real-field=durationSeconds]');duration.value='720';duration.dispatchEvent(new w.Event('input'));
   w.document.getElementById('real-data-validation-recalculate').click();
-  assert.equal(find('M').cells[2].textContent,'—');assert(find('M').textContent.includes('no coincide'));
+  assert.notEqual(find('M').cells[2].textContent,'—');assert(w.document.getElementById('real-data-validation').textContent.includes('no coincide'));
+ }finally{w.close();}
+});
+
+test('visible operands always produce L M N even with stale results or different periods; edits calculate on input without blur',()=>{
+ const w=setup();try{
+  const f=fixture();f.record.validation={line:'G',rateLossBasis:'NET'};f.record.date='2026-11-02';
+  f.result.summary.lineNetRateBalanceSeconds=-.0003*86400;
+  f.result.inputSignature='saved';w.SimulatorEngine={inputSignature:()=> 'changed'};
+  const owner={id:'case',unitOfFlow:'bottles',metadata:{realData:{records:[w.STRealData.normalize(f.record)]}}};
+  const before=JSON.stringify(f.result);w.STRealData.init({activeCase:owner},{changed(){}});w.STRealData.render(owner,{...f.simulation,results:f.result});
+  const find=c=>[...w.document.querySelectorAll('#real-data-validation tbody tr')].find(row=>row.cells[0].textContent===c);
+  const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',owner,{simple:true});
+  assert(d.stale);assert.equal(d.validation.comparable,false);
+  assert(Math.abs(field(d,'L')-10.655)<1e-10);assert(Math.abs(field(d,'M')-54.615)<1e-10);
+  assert(Math.abs(field(d,'N')-(54.615-775/1440*100))<1e-10);
+  const row=d.rows.find(r=>r.metric==='AU');assert.equal(row.comparable,false);assert(Number.isFinite(row.delta));const auUi=[...w.document.querySelectorAll('#real-data-comparison tbody tr')].find(r=>r.cells[0].textContent==='AU');assert.notEqual(auUi.cells[4].textContent,'—');assert.notEqual(auUi.cells[5].textContent,'—');
+  const oee=w.document.getElementById('real-validation-reportedOeePercent');oee.focus();oee.value='53.5';oee.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(find('H').cells[2].textContent,'53.5');assert.equal(w.document.activeElement,oee);assert.equal(w.document.getElementById('real-validation-reportedOeePercent'),oee);
+  assert(Math.abs(Number(find('N').cells[2].textContent)-1.115)<=.0051);assert.equal(oee.value,'53.5');
+  oee.value='0';oee.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(find('H').cells[2].textContent,'0');
+  assert.equal(JSON.stringify(f.result),before);
  }finally{w.close();}
 });
