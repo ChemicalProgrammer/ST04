@@ -27,6 +27,9 @@ window.STRealData=(function(){
         if(!entry){entry={equipmentId,name:context.simulation?.equipment?.find(e=>e.id===equipmentId)?.name||equipmentId,stopClass:'FAILURES'};draft.equipment.push(entry);}
         entry[path]=value;
       }else {
+        if(path.startsWith('timeBreakdown.unplanned.')&&M.timeMode(draft,'unplanned')&&!draft.timeOverrides.unplanned){
+          draft.timeOverrides.unplanned={enabled:true,valueSeconds:M.timeHierarchy(draft).values.unplanned};
+        }
         M.set(draft,path,value);
         if(path.startsWith('timeBreakdown.')){const branch=path.split('.')[1];draft.timeBreakdown[branch].enabled=true;draft.timeHierarchyEnabled=true;draft.timeOverrides[branch]={...(draft.timeOverrides[branch]||{}),enabled:false};}
         if(path.startsWith('timeOverrides.'))draft.timeHierarchyEnabled=true;
@@ -120,7 +123,7 @@ window.STRealData=(function(){
     }
     for(const id of M.timeSectionIds){
       const node=document.querySelector('[data-time-node="'+id+'"]');if(!node)continue;const manual=M.timeMode(record,id);node.dataset.manual=String(manual);
-      for(const panel of document.querySelectorAll('[data-time-owner="'+id+'"]'))for(const input of panel.querySelectorAll('[data-real-field]'))if(!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual;
+      for(const panel of document.querySelectorAll('[data-time-owner="'+id+'"]'))for(const input of panel.querySelectorAll('[data-real-field]'))if(!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual&&id!=='unplanned';
     }
   }
   function register(){
@@ -161,20 +164,25 @@ window.STRealData=(function(){
       panel.dataset.explorerPanel=id;panel.hidden=true;
       const descriptor={id,label,panel,body,heading,children:[],parent:null};panel.append(heading,body);all.set(id,descriptor);content.append(panel);return descriptor;
     }
-    function equipmentSection(element){
-      const d=section('equipment:'+element.dataset.equipmentEditor,element.querySelector(':scope > summary').textContent);d.panel.dataset.equipmentEditor=element.dataset.equipmentEditor;
-      for(const child of [...element.children])if(child.tagName!=='SUMMARY')d.body.append(child);return d;
-    }
     function maintenanceSection(element){
-      const d=section('unscheduledMaintenance','Unscheduled Maintenance');d.panel.dataset.timeConcept='unscheduledMaintenance';
+      const d=section('unscheduledMaintenance','Unscheduled Maintenance');
+      d.panel.dataset.timeConcept='unscheduledMaintenance';
       const equipment=element.querySelector('.real-data-input-group');
-      if(equipment){for(const child of [...equipment.children])if(child.tagName==='P')d.body.append(child);for(const e of equipment.querySelectorAll(':scope > details[data-equipment-editor]'))d.children.push(equipmentSection(e));}
+      if(equipment)for(const child of [...equipment.children]){
+        if(child.tagName==='P')d.body.append(child);
+        else if(child.dataset.equipmentEditor){
+          const row=el('section',null,'real-data-equipment-row');
+          row.dataset.equipmentEditor=child.dataset.equipmentEditor;
+          row.append(el('h4',child.querySelector('summary').textContent),child.querySelector('.real-data-fields'));
+          d.body.append(row);
+        }
+      }
       return d;
     }
     function timeSection(element){
       const id=element.dataset.timeNode,summary=element.querySelector(':scope > summary'),label=summary?.querySelector(':scope > span')?.textContent||(id==='total'?'Total Time':element.querySelector(':scope > span')?.textContent||id);
       const d=section(id,label);d.panel.dataset.timeNode=id;
-      if(summary){const header=el('div',null,'real-data-explorer-value');for(const child of [...summary.childNodes])if(child.nodeType===1&&(child.tagName==='LABEL'||child.classList.contains('switchable-value')))header.append(child);if(header.childNodes.length)d.body.append(header);}
+      if(summary){const header=el('div',null,'real-data-explorer-value real-data-explorer-heading');header.append(d.heading);for(const child of [...summary.childNodes])if(child.nodeType===1&&(child.tagName==='LABEL'||child.classList.contains('switchable-value')))header.append(child);d.panel.insertBefore(header,d.body);}
       else {const output=element.querySelector('[data-time-value]');if(output)d.body.append(output);}
       const source=element.querySelector(':scope > .real-data-time-children');
       if(source)for(const child of [...source.children]){
@@ -190,6 +198,7 @@ window.STRealData=(function(){
           if(grid.children.length){
             d.body.append(grid);
             d.panel.dataset.timeOwner=id;
+            if(id==='unplanned')d.body.append(el('p','Al editar el desglose, el total pasa a modo calculado. El valor manual se conserva.','chart-note'));
           }
         }
       }

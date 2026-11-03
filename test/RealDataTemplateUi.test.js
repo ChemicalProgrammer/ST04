@@ -13,7 +13,7 @@ test('the four-block workspace captures all inputs once and recalculates on inpu
 });
 test('failure inputs persist separately from general downtime and existing UNKNOWN records keep their classification',()=>{
  const w=setup();try{const f=fixture();f.record.equipment[0]={equipmentId:'f',stopClass:'UNKNOWN',downtimeSeconds:500*60};const {owner}=mount(w,f);
- assert.equal(w.document.querySelector('[data-real-equipment-field="downtimeSeconds"][data-equipment-id="f"]'),null);w.document.querySelector('[data-explorer-select="equipment:f"]').click();
+ assert.equal(w.document.querySelector('[data-real-equipment-field="downtimeSeconds"][data-equipment-id="f"]'),null);w.document.querySelector('[data-explorer-select="unscheduledMaintenance"]').click();
  const own=w.document.querySelector('[data-real-equipment-field="failureSeconds"][data-equipment-id="f"]');own.focus();own.value='15';own.dispatchEvent(new w.Event('input'));
  const r=owner.metadata.realData.records[0].equipment[0];assert.equal(r.failureSeconds,900);assert.equal(r.downtimeSeconds,30000);assert.equal(r.stopClass,'UNKNOWN');assert.equal(w.document.activeElement,own);
  assert(w.document.getElementById('real-data-downtime-comparison').textContent.includes('Total de equipos'));

@@ -25,15 +25,32 @@ test('edits keep the selected concept and folder state, and switching records re
 });
 test('equipment pages expose only failure minutes and failure count, preserve hidden historical data and never change configured reliability',()=>{
  const w=setup();try{const f=fixture();Object.assign(f.record.equipment[0],{mtbfMinutes:91,mttrMinutes:4,notes:'history'});const configuration=JSON.stringify(f.simulation.equipment),saved=JSON.stringify(f.result),{owner}=mount(w,f);
- assert(w.document.querySelector('[data-explorer-folder="unscheduledMaintenance"] [data-explorer-select="equipment:f"]'));
- for(const e of f.simulation.equipment){const panel=choose(w,'equipment:'+e.id),fields=[...panel.querySelectorAll('[data-real-equipment-field]')];assert.deepEqual(fields.map(f=>f.dataset.realEquipmentField),['failureSeconds','failureCount']);assert.equal(panel.querySelectorAll('input').length,2);assert.equal(panel.querySelector('select,textarea'),null);}
- const panel=choose(w,'equipment:f'),minutes=panel.querySelector('[data-real-equipment-field="failureSeconds"]'),count=panel.querySelector('[data-real-equipment-field="failureCount"]');minutes.value='20';minutes.dispatchEvent(new w.Event('input'));count.value='4';count.dispatchEvent(new w.Event('input'));
+ assert(w.document.querySelector('[data-explorer-panel="unscheduledMaintenance"] [data-equipment-editor="f"]'));
+ for(const e of f.simulation.equipment){const panel=choose(w,'unscheduledMaintenance').querySelector('[data-equipment-editor="'+e.id+'"]'),fields=[...panel.querySelectorAll('[data-real-equipment-field]')];assert.deepEqual(fields.map(f=>f.dataset.realEquipmentField),['failureSeconds','failureCount']);assert.equal(panel.querySelectorAll('input').length,2);assert.equal(panel.querySelector('select,textarea'),null);}
+ const panel=choose(w,'unscheduledMaintenance').querySelector('[data-equipment-editor="f"]'),minutes=panel.querySelector('[data-real-equipment-field="failureSeconds"]'),count=panel.querySelector('[data-real-equipment-field="failureCount"]');minutes.value='20';minutes.dispatchEvent(new w.Event('input'));count.value='4';count.dispatchEvent(new w.Event('input'));
  const r=owner.metadata.realData.records[0].equipment.find(e=>e.equipmentId==='f');assert.equal(r.failureSeconds,1200);assert.equal(r.failureCount,4);assert.equal(r.mtbfMinutes,91);assert.equal(r.mttrMinutes,4);assert.equal(r.notes,'history');assert.equal(r.operatingSeconds,6000);assert.equal(JSON.stringify(f.simulation.equipment),configuration);assert.equal(JSON.stringify(f.result),saved);
  assert.equal(w.document.querySelector('[data-time-value="unplanned"]').value,'512');
  }finally{w.close();}
 });
 test('only legacy downtime explicitly classified as failures prepopulates the simplified failure input',()=>{
  const w=setup();try{const f=fixture();f.record.equipment[0]={equipmentId:'f',stopClass:'FAILURES',downtimeSeconds:17*60};f.record.equipment[1]={equipmentId:'l',stopClass:'UNKNOWN',downtimeSeconds:30*60};mount(w,f);
- assert.equal(choose(w,'equipment:f').querySelector('[data-real-equipment-field="failureSeconds"]').value,'17');assert.equal(choose(w,'equipment:l').querySelector('[data-real-equipment-field="failureSeconds"]').value,'0');
+ assert.equal(choose(w,'unscheduledMaintenance').querySelector('[data-equipment-editor="f"]').querySelector('[data-real-equipment-field="failureSeconds"]').value,'17');assert.equal(choose(w,'unscheduledMaintenance').querySelector('[data-equipment-editor="l"]').querySelector('[data-real-equipment-field="failureSeconds"]').value,'0');
+ }finally{w.close();}
+});
+test('editing unplanned downtime breakdown restores calculated mode and keeps the previous manual total',()=>{
+ const w=setup();try{
+  mount(w);
+  const panel=choose(w,'unplanned');
+  const toggle=panel.querySelector('[data-time-toggle="unplanned"]');
+  const input=panel.querySelector('[data-real-field="timeBreakdown.unplanned.processShortagesSeconds"]');
+  assert.equal(toggle.checked,true);
+  assert.equal(input.disabled,false);
+  input.value='15';
+  input.dispatchEvent(new w.Event('input'));
+  assert.equal(toggle.checked,false);
+  assert.equal(panel.querySelector('[data-time-value="unplanned"]').value,'15');
+  toggle.checked=true;
+  toggle.dispatchEvent(new w.Event('change'));
+  assert.equal(panel.querySelector('[data-time-value="unplanned"]').value,'512');
  }finally{w.close();}
 });

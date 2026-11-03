@@ -42,7 +42,7 @@ test('legacy totals start as manual inputs and all manual time sections propagat
 });
 test('registration frames sections, omits main notes and nests equipment under unscheduled maintenance without summing failures into line stops',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),editor=w.document.getElementById('real-data-editor');
- const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(editor.querySelector('[data-explorer-folder="unscheduledMaintenance"] [data-explorer-select="equipment:f"]'));assert(editor.querySelector('[data-explorer-folder="unplanned"] [data-explorer-select="equipment:f"]'));
+ const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(editor.querySelector('[data-explorer-panel="unscheduledMaintenance"] [data-equipment-editor="f"]'));assert(editor.querySelector('[data-explorer-folder="unplanned"] [data-explorer-select="unscheduledMaintenance"]'));
  for(const text of ['Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('.real-data-explorer-link')].some(e=>e.textContent===text));
  assert.equal(editor.querySelector('[data-real-field="notes"]:not([data-equipment-id])'),null);
  const effective=editor.querySelector('[data-time-node="effective"]');assert.equal(effective.tagName,'ARTICLE');assert.equal(effective.querySelector('summary,input'),null);
