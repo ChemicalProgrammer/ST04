@@ -1,11 +1,13 @@
 <style>
-#realdata-panel .real-data-toolbar { display:flex;align-items:end;gap:var(--space-3);flex-wrap:wrap;margin-block:var(--space-3); }
-#realdata-panel .real-data-toolbar > label { flex:1 1 220px;min-width:0; }
-#realdata-panel .real-data-block { margin-block:var(--space-4);border:var(--border-width) solid var(--line);border-radius:var(--radius-md);padding:var(--space-4);min-width:0; }
+#realdata-panel .real-data-toolbar { display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-width:0;margin-inline-start:auto; }
+#realdata-panel .real-data-toolbar > select { width:auto;min-width:min(100%,180px);max-width:100%; }
+#realdata-panel .real-data-block { margin-block:var(--space-4);min-width:0; }
 #realdata-panel .real-data-block h3 { margin:0 0 var(--space-3); }
 #realdata-panel .real-data-block-heading { display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;padding-bottom:var(--space-3);margin-bottom:var(--space-3);border-bottom:1px solid var(--elegant-border,var(--secondary,var(--line))); }
 #realdata-panel .real-data-block-heading > .subsection-title { color:var(--secondary-text,var(--secondary));margin:0; }
-#realdata-panel .real-data-block-heading label { min-width:min(100%,220px); }
+#realdata-panel > .section-heading { flex-direction:row;align-items:center; }
+#realdata-panel #real-data-status:empty { margin:0; }
+#realdata-panel .real-data-block-heading label { min-width:min(100%,220px);margin-inline-start:auto; }
 #realdata-panel .real-data-fields { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:var(--space-3);align-items:end;margin-block:var(--space-3); }
 #realdata-panel .real-data-fields > label { min-width:0; }
 #realdata-panel .real-data-fields > label:has(textarea) { grid-column:1/-1; }
@@ -22,7 +24,6 @@
 #realdata-panel tfoot { font-weight:var(--weight-semibold);border-top:var(--border-width) solid var(--line); }
 #realdata-panel .real-data-error { color:var(--danger); }
 #realdata-panel textarea { min-height:80px; }
-@media(max-width:600px){#realdata-panel .real-data-block{padding:var(--space-3)}}
 #realdata-panel .real-data-calibration-scroll { max-width:100%;overflow-x:auto; }
 #realdata-panel .real-data-calibration-table { width:100%;min-width:1600px;border-collapse:collapse; }
 #realdata-panel .real-data-calibration-table thead { background:#24599a;color:#fff; }
@@ -59,7 +60,6 @@
 #realdata-panel .real-data-equipment-table { width:100%;min-width:390px; }
 #realdata-panel .real-data-equipment-table input { width:100%;min-width:70px;box-sizing:border-box; }
 #realdata-panel .real-data-equipment-table :is(th,td) { vertical-align:middle; }
-#realdata-panel .real-data-comparison-block { border:0;padding-inline:0; }
 #realdata-panel .real-data-downtime-table { width:100%;min-width:470px; }
 /* Reserve the same marker column for folders and leaves at every depth. */
 #real-data-editor .real-data-explorer-entry > summary,
