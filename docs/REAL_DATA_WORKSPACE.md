@@ -4,9 +4,9 @@ La interfaz tiene cuatro bloques. No se añaden paneles a la implementación ant
 
 ## 1. Registro
 
-Una entrada por dato. Identificación, tiempos, producción/calidad, porcentajes reportados y mediciones por equipo se organizan en grupos desplegables. Se capturan minutos de falla propia, número de fallas, exposición, tiempo operativo, MTBF y MTTR reportados.
+Una entrada por dato. El registro usa un explorador de carpetas a la izquierda y un panel de contenido a la derecha. Identificación, Total Time, Producción y calidad e Indicadores reportados aparecen como conceptos seleccionables. Las ramas de tiempo se pueden expandir o cerrar de forma independiente; seleccionar el nombre abre sus datos a la derecha. En pantallas estrechas, el explorador se coloca arriba. El panel conserva la selección y el estado de las carpetas al cambiar entre registros durante la sesión.
 
-Los tiempos se capturan en un árbol colapsable con el input Total Time en el encabezado principal:
+El árbol de tiempos aparece en el explorador y Total Time tiene su input en el panel derecho:
 
 - Total Time contiene Business / External Downtime y Plant Available Time.
 - Business / External Downtime suma Production Day Losses, Non-Production Days, Outside Sources y Holidays.
@@ -14,7 +14,7 @@ Los tiempos se capturan en un árbol colapsable con el input Total Time en el en
 - Plant Decision Downtime suma Planned Maintenance, Changeovers, Cleanout / Sanitation, Planned Meetings / Training, Breaks / Lunch y Plant Experimentation / Plant Shutdown.
 - Production Available Time contiene Unplanned Downtime y Runtime.
 - Unplanned Downtime suma Unscheduled Maintenance, Process Shortages, Labor Shortages y Plant Operations.
-- Runtime contiene Runtime Losses y Effective Runtime. Effective Runtime es una fila fija de resultado, sin desplegable propio.
+- Runtime contiene Runtime Losses y Effective Runtime. Effective Runtime es un concepto final con un resultado calculado, sin carpeta desplegable ni input.
 - Runtime Losses suma Production Rate Losses, Scrap y Rework. Scrap y Rework admiten sus minutos equivalentes o su conversión desde botellas y velocidad estándar.
 
 Cada encabezado muestra minutos y una fórmula explicada en español. El mismo patrón de checkbox y valor usado en conveyors permite elegir entrada manual (marcado) o salida calculada (desmarcado). El valor manual se conserva al cambiar a calculado, y el desglose se conserva al cambiar a manual. El total manual sustituye al calculado; nunca se suma a su propio desglose. En modo manual, los inputs que alimentan directamente ese total quedan inactivos. Los subniveles independientes y las mediciones por equipo siguen disponibles. Los balances manuales que no concuerdan con sus conceptos generan un aviso. Plant Available Time = Total Time − Business / External Downtime; Production Available Time = Plant Available Time − Plant Decision Downtime; Runtime = Production Available Time − Unplanned Downtime; Effective Runtime del árbol = Runtime − Runtime Losses. El ajuste calibrado conserva su fórmula específica ya acordada, sin deducir Scrap o Rework.
@@ -23,9 +23,9 @@ Los valores nuevos se guardan en timeBreakdown (segundos), con grupos external, 
 
 Los modos y valores manuales se guardan en timeOverrides, por sección: external, plant, decision, production, unplanned, runtime y losses. Cada entrada contiene enabled y valueSeconds. Si un registro antiguo contiene un total positivo sin desglose, se muestra en modo manual para no perderlo. Al desmarcar el checkbox se usa la suma de conceptos, considerando vacíos como cero. La importación/exportación conserva modos, totales y desgloses. El reporte HTML identifica los valores manuales.
 
-Total Time contiene Business / External Downtime y Plant Available Time en una columna. Dentro de Plant Available Time, Plant Decision Downtime y Production Available Time usan dos columnas cuando caben y se apilan en pantallas estrechas. Identificación, Producción y calidad e Indicadores reportados tienen el mismo marco que Total Time. No se muestra el cuadro general de notas; las notas antiguas se conservan en los registros.
+Los conceptos muestran un solo formulario a la vez en el panel derecho. Los valores de cada sección conservan su checkbox de entrada manual o salida calculada, y sus conceptos hijos se pueden abrir desde el explorador o desde el panel padre. Los campos que no alimentan un total manual no se duplican. El cuadro general de notas sigue oculto y las notas antiguas se conservan.
 
-El registro de downtime y confiabilidad por equipo se encuentra dentro de Unplanned Downtime → Unscheduled Maintenance. Los minutos por equipo pueden solaparse y no se suman automáticamente al paro exclusivo de línea. La posición agrupa el detalle de fallas y no cambia la definición de ese total. El árbol sigue capturando una sola vez los minutos de Rate Loss, Scrap y Rework; no se reintroducen los campos duplicados ni la sección sin desglose.
+Dentro de Unplanned Downtime → Unscheduled Maintenance se puede seleccionar cada equipo. Su formulario contiene solo Downtime por fallas (min) y Número de fallas. MTBF y MTTR siguen en la configuración del equipo; no se vuelven a pedir. Los campos históricos se conservan y se siguen usando cuando corresponde al comparar o exportar. Un downtime previo solo prellena minutos de falla si ya estaba clasificado como falla propia. Los minutos por equipo pueden solaparse y no se suman automáticamente al paro exclusivo de línea. El árbol sigue capturando una sola vez Rate Loss, Scrap y Rework.
 
 
 La edición actualiza los cálculos en el evento input sin reconstruir los controles. Se preservan el foco, el texto decimal y la selección. No se ejecuta el motor ni se modifica su configuración. Los datos reales siguen perteneciendo al caso.

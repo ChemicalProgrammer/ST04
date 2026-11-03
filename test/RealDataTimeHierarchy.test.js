@@ -1,16 +1,16 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {JSDOM} from 'jsdom';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
 const clean=v=>JSON.parse(JSON.stringify(v));
-function change(w,path,value){const input=w.document.querySelector('[data-real-field="'+path+'"]');assert(input,path);input.focus();input.value=value;input.dispatchEvent(new w.Event('input'));return input;}
-function toggle(w,id,checked){const e=w.document.querySelector('[data-time-toggle="'+id+'"]');e.checked=checked;e.dispatchEvent(new w.Event('change'));return e;}
+function change(w,path,value){const input=w.document.querySelector('[data-real-field="'+path+'"]');assert(input,path);const panel=input.closest('[data-explorer-panel]');if(panel)w.document.querySelector('[data-explorer-select="'+panel.dataset.explorerPanel+'"]').click();input.focus();input.value=value;input.dispatchEvent(new w.Event('input'));return input;}
+function toggle(w,id,checked){const e=w.document.querySelector('[data-time-toggle="'+id+'"]');w.document.querySelector('[data-explorer-select="'+id+'"]').click();e.checked=checked;e.dispatchEvent(new w.Event('change'));return e;}
 const numeric=(w,id)=>Number(w.document.querySelector('[data-time-value="'+id+'"]').value);
 test('time hierarchy defaults to zero, clearing a leaf means zero and focus/collapse state stay intact',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),node=id=>w.document.querySelector('[data-time-node="'+id+'"]');
- const children=id=>[...node(id).querySelector(':scope > .real-data-time-children').children].filter(e=>e.dataset.timeNode).map(e=>e.dataset.timeNode);
+ const children=id=>[...w.document.querySelector('[data-explorer-folder="'+id+'"]').querySelectorAll(':scope > .real-data-explorer-children > .real-data-explorer-entry > summary > button, :scope > .real-data-explorer-children > .real-data-explorer-entry > button')].map(e=>e.dataset.explorerSelect);
  assert.deepEqual(children('total'),['external','plant']);assert.deepEqual(children('plant'),['decision','production']);assert.deepEqual(children('production'),['unplanned','runtime']);assert.deepEqual(children('runtime'),['losses','effective']);
  assert(!w.document.getElementById('real-data-editor').textContent.includes('Sin pérdidas: completar con 0'));
  const blank=w.document.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]');assert.equal(blank.value,'0');
- node('external').open=false;const input=change(w,'timeBreakdown.external.productionDayLossesSeconds','82');
- assert.equal(numeric(w,'external'),82);assert.equal(numeric(w,'plant'),1358);assert.equal(node('external').open,false);assert.equal(w.document.activeElement,input);
+ const folder=w.document.querySelector('[data-explorer-folder="decision"]');folder.open=false;const input=change(w,'timeBreakdown.external.productionDayLossesSeconds','82');
+ assert.equal(numeric(w,'external'),82);assert.equal(numeric(w,'plant'),1358);assert.equal(folder.open,false);assert.equal(w.document.activeElement,input);
  change(w,'timeBreakdown.external.productionDayLossesSeconds','');assert.equal(numeric(w,'external'),0);assert.equal(numeric(w,'plant'),1440);assert.equal(owner.metadata.realData.records[0].timeBreakdown.external.productionDayLossesSeconds,0);
  assert.equal(JSON.stringify(f.result),saved);
  const sample=w.STRealData.template(f.simulation.equipment).records[0];assert.equal(sample.timeBreakdown.unplanned.unscheduledMaintenanceSeconds,0);assert.equal(sample.rateLossSeconds,0);
@@ -42,13 +42,13 @@ test('legacy totals start as manual inputs and all manual time sections propagat
 });
 test('registration frames sections, omits main notes and nests equipment under unscheduled maintenance without summing failures into line stops',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),editor=w.document.getElementById('real-data-editor');
- const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(equipment.closest('[data-time-concept="unscheduledMaintenance"]'));assert(equipment.closest('[data-time-node="unplanned"]'));
- for(const text of ['Identificación','Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('details.real-data-input-group > summary')].some(e=>e.textContent===text));
+ const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(editor.querySelector('[data-explorer-folder="unscheduledMaintenance"] [data-explorer-select="equipment:f"]'));assert(editor.querySelector('[data-explorer-folder="unplanned"] [data-explorer-select="equipment:f"]'));
+ for(const text of ['Identificación','Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('.real-data-explorer-link')].some(e=>e.textContent===text));
  assert.equal(editor.querySelector('[data-real-field="notes"]:not([data-equipment-id])'),null);
- const effective=editor.querySelector('[data-time-node="effective"]');assert.equal(effective.tagName,'DIV');assert.equal(effective.querySelector('summary,input'),null);
+ const effective=editor.querySelector('[data-time-node="effective"]');assert.equal(effective.tagName,'ARTICLE');assert.equal(effective.querySelector('summary,input'),null);
  const paths=[...editor.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(paths).size,paths.length);
  equipment.value='100';equipment.dispatchEvent(new w.Event('input'));assert.equal(numeric(w,'unplanned'),512);assert.equal(owner.metadata.realData.records[0].equipment[0].failureSeconds,6000);assert.equal(JSON.stringify(f.result),saved);
- const css=fs.readFileSync('apps-script/RealDataStyles.html','utf8');assert(css.includes('[data-time-node="plant"][open] > .real-data-time-children'));assert(!css.includes('[data-time-node="total"][open] > .real-data-time-children { display:grid'));assert(css.includes('details.real-data-input-group { border:'));
+ const css=fs.readFileSync('apps-script/RealDataStyles.html','utf8');assert(css.includes('.real-data-explorer { display:grid'));assert(css.includes('.real-data-explorer-panel { border:'));
  }finally{w.close();}
 });
 test('hierarchy reports negative balances and uses legacy quality quantities while empty quality counts as zero',()=>{

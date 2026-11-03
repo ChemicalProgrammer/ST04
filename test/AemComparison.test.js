@@ -38,7 +38,7 @@ test('AEM UI updates on input, persists extra fields and export includes equatio
  const w=setup();try{
   const f=fixture(),before=JSON.stringify(f.result),owner={id:'case',metadata:{realData:{records:[w.STRealData.normalize(f.record)]}}};
   w.STRealData.init({activeCase:owner},{changed(){}});w.STRealData.render(owner,{...f.sim,results:f.result});
-  const input=w.document.querySelector('[data-aem-field="aem.goodOutputUnits"]');input.closest('details').open=true;input.focus();input.value=String(700*220);input.dispatchEvent(new w.Event('input',{bubbles:true}));
+  w.document.querySelector('[data-explorer-select="group:production"]').click();const input=w.document.querySelector('[data-aem-field="aem.goodOutputUnits"]');input.focus();input.value=String(700*220);input.dispatchEvent(new w.Event('input',{bubbles:true}));
   assert.equal(w.document.activeElement,input);assert.equal(owner.metadata.realData.records[0].aem.goodOutputUnits,700*220);
   const section=w.document.getElementById('real-data-comparison');assert(section.textContent.includes('Runtime Efficiency (RTE)'));
   assert([...section.querySelectorAll('tbody tr')].find(r=>r.cells[0].textContent==='Effective Runtime').cells[2].textContent==='700');

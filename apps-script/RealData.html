@@ -3,6 +3,7 @@ window.STRealData=(function(){
   'use strict';
   const M=window.STRealDataModel,finite=Number.isFinite;
   let state,actions,context,owner='',selection='average',data=null,revision=0;
+  const editorSelections=new Map(),editorFolders=new Map();
   const selected=new Map(),fmt=v=>finite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
   const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
@@ -42,7 +43,7 @@ window.STRealData=(function(){
   function control(parent,field,record,equipmentId){
     const [path,label,type,scale=1,options]=field,wrapper=el('label',label),input=el(type==='select'?'select':type==='textarea'?'textarea':'input');
     let value=M.at(record,path);
-    const zeroDefault=type==='number'&&(path.startsWith('timeBreakdown.')||path.startsWith('timeOverrides.')||['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'].includes(path));
+    const zeroDefault=type==='number'&&(path.startsWith('timeBreakdown.')||path.startsWith('timeOverrides.')||['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'].includes(path)||equipmentId&&['failureSeconds','failureCount'].includes(path));
     if(type==='select')for(const [v,text] of options){const option=el('option',text);option.value=v;input.append(option);}
     else if(type!=='textarea')input.type=type;
     input.dataset.realField=path;if(equipmentId){input.dataset.equipmentId=equipmentId;input.dataset.realEquipmentField=path;}
@@ -114,11 +115,14 @@ window.STRealData=(function(){
     }
     for(const id of M.timeSectionIds){
       const node=document.querySelector('[data-time-node="'+id+'"]');if(!node)continue;const manual=M.timeMode(record,id);node.dataset.manual=String(manual);
-      for(const input of node.querySelectorAll('[data-real-field]'))if(input.closest('[data-time-node]')===node&&!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual;
+      for(const panel of document.querySelectorAll('[data-time-owner="'+id+'"]'))for(const input of panel.querySelectorAll('[data-real-field]'))if(!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual;
+      for(const note of document.querySelectorAll('[data-time-parent-message="'+id+'"]'))note.hidden=!manual;
     }
   }
   function register(){
-    const target=document.getElementById('real-data-editor');target.replaceChildren();const record=current();if(!record){target.append(el('p','Crea o importa un registro.','empty'));return;}
+    const target=document.getElementById('real-data-editor'),oldExplorer=target.querySelector('.real-data-explorer');
+    if(oldExplorer){const folders=new Map([...oldExplorer.querySelectorAll('[data-explorer-folder]')].map(e=>[e.dataset.explorerFolder,e.open]));editorFolders.set(oldExplorer.dataset.editorKey,folders);}
+    target.replaceChildren();const record=current();if(!record){target.append(el('p','Crea o importa un registro.','empty'));return;}
     const r=M.normalize(record);
     if(r.reportedProductionUnits==null&&r.productionUnit==='BOTTLES')r.reportedProductionUnits=r.production;
     if(r.reportedProductionCases==null&&r.productionUnit==='CASES')r.reportedProductionCases=r.production;
@@ -126,24 +130,93 @@ window.STRealData=(function(){
     for(const group of M.fieldGroups){
       if(group.id==='times'){timeTree(target,r);continue;}
       const fields=group.fields.filter(([path])=>!capturedInTree.has(path));if(!fields.length)continue;
-      const details=el('details',null,'real-data-input-group'),summary=el('summary',group.label),grid=el('div',null,'real-data-fields');details.open=!!group.open;details.append(summary,grid);
+      const details=el('details',null,'real-data-input-group'),summary=el('summary',group.label),grid=el('div',null,'real-data-fields');details.dataset.editorGroup=group.id;details.open=!!group.open;details.append(summary,grid);
       for(const field of fields)control(grid,field,r);target.append(details);
     }
+    installRegistrationExplorer(target);
   }
   function registerEquipment(target,r){
-    const details=el('details',null,'real-data-input-group'),summary=el('summary','Downtime y confiabilidad por equipo'),note=el('p','Captura las fallas propias relacionadas con MTTR/MTBF. Los minutos de equipos pueden coincidir. Los campos vacíos son desconocidos; cero debe ser un dato confirmado.','chart-note');details.append(summary,note);
+    const details=el('details',null,'real-data-input-group'),summary=el('summary','Downtime por equipo'),note=el('p','Captura únicamente minutos de falla propia y número de fallas. MTBF y MTTR se conservan en la configuración de los equipos. Los minutos de equipos pueden coincidir y no se suman automáticamente como paro de línea.','chart-note');details.append(summary,note);
     const models=(context.simulation?.equipment||[]).slice();for(const e of r.equipment)if(!models.some(m=>m.id===e.equipmentId))models.push({id:e.equipmentId,name:e.name||e.equipmentId});
     for(const e of models){
-      const item=r.equipment.find(o=>o.equipmentId===e.id)||{},sub=el('details'),heading=el('summary',e.name||e.id),grid=el('div',null,'real-data-fields');sub.append(heading,grid);
-      const base=[['failureSeconds','Downtime por fallas propias (min)','number',60],['failureCount','Número de fallas','number'],['operatingSeconds','Tiempo operativo interno (min)','number',60],['exposureSeconds','Período observado (min)','number',60],['mtbfMinutes','MTBF reportado (min)','number'],['mttrMinutes','MTTR reportado (min)','number'],['notes','Notas del equipo','textarea']];
+      const item={...(r.equipment.find(o=>o.equipmentId===e.id)||{})},sub=el('details'),heading=el('summary',e.name||e.id),grid=el('div',null,'real-data-fields');sub.dataset.equipmentEditor=e.id;sub.append(heading,grid);
+      if(item.failureSeconds==null&&item.stopClass==='FAILURES'&&finite(item.downtimeSeconds))item.failureSeconds=item.downtimeSeconds;
+      const base=[['failureSeconds','Downtime por fallas (min)','number',60],['failureCount','Número de fallas','number']];
       for(const field of base)control(grid,field,item,e.id);
-      if(item.downtimeSeconds!=null||item.stopClass&&item.stopClass!=='FAILURES'){
-        control(grid,['downtimeSeconds','Downtime previamente capturado (min)','number',60],item,e.id);
-        control(grid,['stopClass','Clase del downtime previo','select',1,[['UNKNOWN','Sin confirmar'],['FAILURES','Fallas propias MTTR/MTBF'],['MINOR','Microparos'],['ALL','Todas las causas']]],item,e.id);
-      }
       details.append(sub);
     }
     target.append(details);
+  }
+  function installRegistrationExplorer(target){
+    const key=String(state.activeCase.id)+'/'+String(current().id),previous=editorFolders.get(key)||new Map(),all=new Map();
+    const explorer=el('div',null,'real-data-explorer'),nav=el('nav',null,'real-data-explorer-nav'),content=el('div',null,'real-data-explorer-content');nav.setAttribute('aria-label','Conceptos del registro');
+    explorer.dataset.editorKey=key;
+    let serial=0;
+    function section(id,label,timeOwner){
+      const panel=el('article',null,'real-data-explorer-panel'),heading=el('h3',label),body=el('div',null,'real-data-explorer-body');
+      panel.dataset.explorerPanel=id;panel.hidden=true;if(timeOwner)panel.dataset.timeOwner=timeOwner;
+      const descriptor={id,label,panel,body,heading,children:[],parent:null};panel.append(heading,body);all.set(id,descriptor);content.append(panel);return descriptor;
+    }
+    function fieldsSection(labelElement,owner){
+      const input=labelElement.querySelector('[data-real-field]'),path=input.dataset.realField,label=labelElement.firstChild.textContent.trim(),id='field:'+path;
+      const d=section(id,label,owner),grid=el('div',null,'real-data-fields');grid.append(labelElement);d.body.append(grid);
+      if(owner){const note=el('p','Este concepto no modifica el total mientras su sección padre esté en modo de entrada manual.','chart-note');note.dataset.timeParentMessage=owner;note.hidden=true;d.body.append(note);}
+      return d;
+    }
+    function equipmentSection(element){
+      const d=section('equipment:'+element.dataset.equipmentEditor,element.querySelector(':scope > summary').textContent);d.panel.dataset.equipmentEditor=element.dataset.equipmentEditor;
+      for(const child of [...element.children])if(child.tagName!=='SUMMARY')d.body.append(child);return d;
+    }
+    function maintenanceSection(element){
+      const d=section('unscheduledMaintenance','Unscheduled Maintenance','unplanned');d.panel.dataset.timeConcept='unscheduledMaintenance';
+      const grid=el('div',null,'real-data-fields');grid.append(...element.querySelector(':scope > summary').childNodes);d.body.append(grid);
+      const equipment=element.querySelector('.real-data-input-group');
+      if(equipment){for(const child of [...equipment.children])if(child.tagName==='P')d.body.append(child);for(const e of equipment.querySelectorAll(':scope > details[data-equipment-editor]'))d.children.push(equipmentSection(e));}
+      return d;
+    }
+    function timeSection(element){
+      const id=element.dataset.timeNode,summary=element.querySelector(':scope > summary'),label=summary?.querySelector(':scope > span')?.textContent||(id==='total'?'Total Time':element.querySelector(':scope > span')?.textContent||id);
+      const d=section(id,label);d.panel.dataset.timeNode=id;
+      if(summary){const header=el('div',null,'real-data-explorer-value');for(const child of [...summary.childNodes])if(child.nodeType===1&&(child.tagName==='LABEL'||child.classList.contains('switchable-value')))header.append(child);if(header.childNodes.length)d.body.append(header);}
+      else {const output=element.querySelector('[data-time-value]');if(output)d.body.append(output);}
+      const source=element.querySelector(':scope > .real-data-time-children');
+      if(source)for(const child of [...source.children]){
+        if(child.dataset.timeNode)d.children.push(timeSection(child));
+        else if(child.classList.contains('real-data-fields'))for(const field of [...child.children]){
+          if(field.dataset.timeConcept)d.children.push(maintenanceSection(field));
+          else if(field.tagName==='LABEL'){
+            const input=field.querySelector('[data-real-field]');if(input?.type==='select'){const grid=el('div',null,'real-data-fields');grid.append(field);d.body.append(grid);d.panel.dataset.timeOwner=id;}
+            else d.children.push(fieldsSection(field,id));
+          }
+        }
+      }
+      return d;
+    }
+    const roots=[];
+    for(const source of [...target.children]){
+      if(source.dataset.timeNode)roots.push(timeSection(source));
+      else if(source.dataset.editorGroup){const d=section('group:'+source.dataset.editorGroup,source.querySelector(':scope > summary').textContent);for(const child of [...source.children])if(child.tagName!=='SUMMARY')d.body.append(child);roots.push(d);}
+    }
+    function choose(id,focus=false){
+      const d=all.get(id);if(!d)return;editorSelections.set(key,id);
+      for(const item of all.values()){item.panel.hidden=item!==d;item.button.setAttribute('aria-current',item===d?'page':'false');}
+      for(let parent=d.parent;parent;parent=parent.parent)if(parent.folder)parent.folder.open=true;
+      if(focus){d.heading.tabIndex=-1;d.heading.focus();}
+    }
+    function navigation(d,parent){
+      d.parent=parent;const wrap=el(d.children.length?'details':'div',null,'real-data-explorer-entry'),button=el('button',d.label,'real-data-explorer-link');button.type='button';button.dataset.explorerSelect=d.id;button.id='real-data-concept-'+(++serial);button.setAttribute('aria-controls','real-data-panel-'+serial);d.panel.id='real-data-panel-'+serial;d.panel.setAttribute('aria-labelledby',button.id);d.button=button;
+      button.onclick=e=>{e.stopPropagation();choose(d.id);};
+      if(d.children.length){
+        d.folder=wrap;wrap.dataset.explorerFolder=d.id;wrap.open=previous.has(d.id)?previous.get(d.id):['total','plant','production','runtime'].includes(d.id);
+        const summary=el('summary'),children=el('div',null,'real-data-explorer-children');summary.append(button);wrap.append(summary,children);
+        wrap.addEventListener('toggle',()=>{let saved=editorFolders.get(key);if(!saved){saved=new Map();editorFolders.set(key,saved);}saved.set(d.id,wrap.open);});
+        for(const child of d.children)children.append(navigation(child,d));
+        const links=el('div',null,'real-data-explorer-shortcuts');for(const child of d.children){const link=el('button',child.label,'real-data-explorer-child');link.type='button';link.dataset.explorerShortcut=child.id;link.onclick=()=>choose(child.id,true);links.append(link);}d.body.append(links);
+      }else wrap.append(button);
+      if(parent){const back=el('button','Volver a '+parent.label,'real-data-explorer-back');back.type='button';back.onclick=()=>choose(parent.id,true);d.panel.insertBefore(back,d.heading);}
+      return wrap;
+    }
+    for(const root of roots)nav.append(navigation(root,null));explorer.append(nav,content);target.replaceChildren(explorer);choose(all.has(editorSelections.get(key))?editorSelections.get(key):all.has('total')?'total':roots[0]?.id);
   }
   function displayText(value){
     const names={T1:'tiempo total',T2:'tiempo disponible de planta',T3:'tiempo disponible para producción',T4:'tiempo de marcha',T5:'tiempo efectivo'};
