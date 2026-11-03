@@ -1,23 +1,24 @@
 <section id="realdata-panel" class="card hidden" aria-labelledby="real-data-title">
   <div class="section-heading">
     <div><h2 id="real-data-title" class="sr-only">Real Data</h2><p id="real-data-simulation"></p></div>
-    <details class="export-menu">
-      <summary class="icon-button" data-icon="upload" aria-label="Exportar datos reales" title="Exportar datos reales"></summary>
-      <div>
-        <button id="real-data-export-json" type="button" class="ghost" disabled>JSON</button>
-        <button id="real-data-export-html" type="button" class="ghost" disabled>Reporte HTML</button>
-      </div>
-    </details>
   </div>
   <section class="real-data-block" aria-labelledby="real-data-register-title">
     <div class="real-data-block-heading">
-      <h3 class="subsection-title" id="real-data-register-title">1. Registro</h3>
+      <h3 class="real-data-section-title" id="real-data-register-title">1. Registro</h3>
       <div class="real-data-toolbar">
         <select id="real-data-record" aria-label="Seleccionar registro"></select>
         <div class="button-row">
           <button id="real-data-new" type="button" class="secondary icon-button" data-icon="plus" aria-label="Nuevo registro" title="Nuevo registro"></button>
           <button id="real-data-import" type="button" class="secondary icon-button" data-icon="download" aria-label="Importar JSON" title="Importar JSON"></button>
-          <button id="real-data-template" type="button" class="ghost icon-button" data-icon="copy" aria-label="Descargar plantilla JSON" title="Descargar plantilla JSON"></button>
+          <details class="export-menu">
+            <summary class="icon-button" data-icon="upload" aria-label="Exportar" title="Exportar"></summary>
+            <div>
+              <button id="real-data-export-case" type="button" class="ghost">Caso completo (JSON)</button>
+              <button id="real-data-template" type="button" class="ghost">Plantilla (JSON)</button>
+              <button id="real-data-export-json" type="button" class="ghost" disabled>Comparación (JSON)</button>
+              <button id="real-data-export-html" type="button" class="ghost" disabled>Reporte HTML</button>
+            </div>
+          </details>
           <button id="real-data-delete" type="button" class="ghost icon-button" data-icon="trash" aria-label="Eliminar registro" title="Eliminar registro" disabled></button>
           <input id="real-data-file" type="file" accept=".json,application/json" hidden>
         </div>
@@ -28,13 +29,13 @@
   </section>
   <section class="real-data-block" aria-labelledby="real-data-compare-title">
     <div class="real-data-block-heading">
-      <h3 class="subsection-title" id="real-data-compare-title">2. Comparación de parámetros</h3>
-      <label>Resultados guardados<select id="real-data-view"><option value="average">Promedio de rondas</option></select></label>
+      <h3 class="real-data-section-title" id="real-data-compare-title">2. Comparación de parámetros</h3>
+      <select id="real-data-view" aria-label="Resultados guardados"><option value="average">Promedio de rondas</option></select>
     </div>
     <div id="real-data-comparison"></div>
   </section>
   <section class="real-data-block" aria-labelledby="real-data-calibration-title">
-    <div class="real-data-block-heading"><h3 class="subsection-title" id="real-data-calibration-title">3. Ajuste calibrado de rate loss</h3></div>
+    <div class="real-data-block-heading"><h3 class="real-data-section-title" id="real-data-calibration-title">3. Ajuste calibrado de rate loss</h3></div>
     <div id="real-data-calibration"></div>
   </section>
 </section>
