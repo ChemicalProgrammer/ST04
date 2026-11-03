@@ -201,8 +201,8 @@ window.STRealDataModel=(function(){
     add('rte','Runtime Efficiency (RTE)','%',realPct(t4),simPct(times.run),'RTE = 100 × Effective Runtime / Runtime.','Indicadores');
     add('updt','UPDT','%',percent(actualDowntime,finite(actualAvailable)?actualAvailable*60:null),percent(finite(times.available)&&finite(times.run)?times.available-times.run:null,times.available),'UPDT = 100 × Unplanned Downtime / (Runtime + Unplanned Downtime).','Indicadores',real.reportedUpdtPercent);
     add('globalOee','OEE global guardado','%',null,sim?.oee,'Indicador guardado: producción / producción ideal de toda la simulación × 100. Se distingue de OE y AU por su base.','Indicadores');
-    const i=percent(real.rateLossSeconds,finite(actualAvailable)?actualAvailable*60:null),k=percent(simLoss,times.available),h=real.validation.reportedOeePercent??realOe,j=simOe,l=finite(i)&&finite(k)?i-k:null,m=finite(j)&&finite(l)?j-l:null,n=finite(m)&&finite(h)?m-h:null;
-    const calibration={basis:selectedBasis,rows:[
+    const i=percent(real.rateLossSeconds,finite(actualAvailable)?actualAvailable*60:null),k=percent(sim?.rateLossMeasured?sim.measuredRateLossSeconds:null,times.available),h=real.validation.reportedOeePercent??realOe,j=simOe,l=finite(i)&&finite(k)?i-k:null,m=finite(j)&&finite(l)?j-l:null,n=finite(m)&&finite(h)?m-h:null;
+    const calibration={basis:'GROSS',rows:[
       {id:'realLoss',label:'Rate loss real',value:i,unit:'%',formula:'Rate loss real / Production Available Time real × 100.'},
       {id:'simLoss',label:'Rate loss simulado',value:k,unit:'%',formula:'Rate loss simulado / Production Available Time simulado × 100.'},
       {id:'lossDifference',label:'Diferencia de rate loss',value:l,unit:'pp',formula:'Rate loss real − rate loss simulado.'},
@@ -211,6 +211,27 @@ window.STRealDataModel=(function(){
       {id:'adjusted',label:'Eficiencia ajustada por rate loss',value:m,unit:'%',formula:'Eficiencia simulada − diferencia de rate loss.'},
       {id:'residual',label:'Diferencia residual',value:n,unit:'pp',formula:'Eficiencia ajustada − eficiencia Opera reportada o calculada con base T3.'}
     ],note:'Ajuste aritmético de calibración; no cambia el motor ni la producción simulada. No demuestra por sí solo validez predictiva. Se actualiza al escribir.'};
+    // Spreadsheet A–N: keep the source fields and derived results in the user's order.
+    const calRow=id=>calibration.rows.find(r=>r.id===id);
+    const col=(letter,label,value,unit,formula,id=letter)=>({letter,label,value,unit,formula,id});
+    calibration.columns=[
+      col('A','Line',real.validation.line,'','Línea capturada en Registro.'),
+      col('B','Date',real.date,'','Fecha capturada en Registro.'),
+      col('C','Runtime',finite(real.runTimeSeconds)?real.runTimeSeconds/60:null,'min','Runtime reportado en Registro. Se conserva el valor capturado; Runtime AEM = D − E se muestra en la comparación general.'),
+      col('D','Production Available Time',actualAvailable,'min','Tiempo disponible para producción real (T3).'),
+      col('E','Unplanned Downtime',finite(actualDowntime)?actualDowntime/60:null,'min','Paros no planificados reales capturados.'),
+      col('F','Production Rate Losses',finite(real.rateLossSeconds)?real.rateLossSeconds/60:null,'min','Pérdida de velocidad real capturada, en minutos equivalentes.'),
+      col('G','Effective Run Time',realEffective,'min','Tiempo efectivo real. G = D − E − F cuando Scrap y Rework son cero; también puede provenir de producción conforme / velocidad estándar.'),
+      col('H','OEE (Opera)',h,'%','OEE reportado de Opera; si falta, G / D × 100.','actualEfficiency'),
+      col('I','Rate Loss',i,'%','I = F / D × 100.','realLoss'),
+      col('J','OEE Simulador',j,'%','J = tiempo efectivo simulado / tiempo disponible para producción simulado × 100.','baseline'),
+      col('K','Rate Loss Simulado',k,'%','K = rate loss bruto simulado / tiempo disponible para producción simulado × 100. Se utiliza la pérdida bruta, sin descontar recuperaciones.','simLoss'),
+      col('L','Rate Loss Opera - Simulador',l,'pp','L = I − K. Diferencia en puntos porcentuales.','lossDifference'),
+      col('M','OEE Calibrado',m,'%','M = J − L. OEE simulado ajustado por la diferencia de rate loss.','adjusted'),
+      col('N','OEE Simulador Calibrado - OEE Opera',n,'pp','N = M − H. Diferencia residual en puntos porcentuales.','residual')
+    ];
+    for(const c of calibration.columns){const row=calRow(c.id);if(row)row.formula=c.formula;}
+    calibration.note='M = J − (I − K). N = M − H. K utiliza rate loss bruto. Cálculo automático con precisión completa; se muestran dos decimales. El ajuste no modifica la simulación.';
     if(real.validation.rateLossBasis==='UNCONFIRMED')warnings.push('La base del rate loss de planta está pendiente. El ajuste usa pérdida bruta provisional.');
     const failureModels=models.filter(e=>e.type!=='CONVEYOR'||e.noiseProfile?.reliability?.enabled!==false&&e.noiseProfile?.reliability?.mtbfMinutes>0||real.equipment.some(r=>r.equipmentId===e.id&&(finite(r.failureSeconds)||r.stopClass==='FAILURES'&&finite(r.downtimeSeconds))));
     const equipmentRows=failureModels.map(e=>{

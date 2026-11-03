@@ -18,9 +18,9 @@ El OEE global guardado mantiene su denominador propio y no se renombra AU u OE. 
 
 ## 3. Ajuste calibrado de rate loss
 
-Se muestran la pérdida real, simulada, diferencia en pp, eficiencia Opera usada como referencia, eficiencia simulada sobre tiempo disponible, eficiencia ajustada y diferencia residual.
+La sección reproduce la hoja horizontal A–N: Line, Date, Runtime, Production Available Time, Unplanned Downtime, Production Rate Losses, Effective Run Time, OEE (Opera), Rate Loss, OEE Simulador, Rate Loss Simulado, Rate Loss Opera − Simulador, OEE Calibrado y OEE Simulador Calibrado − OEE Opera. Mantiene los encabezados azules y resalta G, I, L, M y N en verde; dispone de desplazamiento horizontal y tooltips en español. La exportación HTML utiliza la misma tabla. Runtime (C) conserva el dato reportado; no se sustituye por el tiempo calendario.
 
-La fórmula sigue siendo ajustada = simulada − (rate loss real − rate loss simulado); residual = ajustada − eficiencia Opera reportada o calculada. Es un ajuste aritmético de referencia: no cambia el motor ni acredita validez predictiva. Se mantiene la selección bruto/neto. La calidad desconocida no se considera cero automáticamente.
+La fórmula sigue siendo ajustada = simulada − (rate loss real − rate loss simulado); residual = ajustada − eficiencia Opera reportada o calculada. Es un ajuste aritmético de referencia: no cambia el motor ni acredita validez predictiva. K utiliza siempre rate loss bruto simulado / Production Available Time simulado × 100. La selección bruto/neto permanece únicamente en la comparación general. I = F / D × 100; L = I − K; M = J − L; N = M − H. Las diferencias L y N están en puntos porcentuales aunque el encabezado conserva [%] como la hoja. Se calcula con precisión completa antes de redondear; los números de la imagen no se fijan en el código. La calidad desconocida no se considera cero automáticamente.
 
 ## 4. Downtime por fallas de equipos
 
