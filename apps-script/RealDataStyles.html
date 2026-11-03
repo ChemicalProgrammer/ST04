@@ -7,7 +7,15 @@
 #realdata-panel .real-data-block-heading > .real-data-section-title { color:var(--secondary-text,var(--secondary));margin:0;border-bottom:0;background-image:none; }
 #realdata-panel .real-data-section-title::before,
 #realdata-panel .real-data-section-title::after { content:none; }
-#realdata-panel > .section-heading { flex-direction:row;align-items:center; }
+#realdata-panel > .section-heading { flex-direction:row;align-items:center;margin-bottom:var(--space-2); }
+#realdata-panel > .section-heading + .real-data-block { margin-block-start:0; }
+#realdata-panel .real-data-toolbar .export-menu { margin:0; }
+#realdata-panel .real-data-toolbar .export-menu > summary {
+  box-sizing:border-box;
+  min-height:var(--control-height);
+  justify-content:center;
+  padding:var(--space-2);
+}
 #realdata-panel #real-data-status:empty { margin:0; }
 #realdata-panel .real-data-block-heading > select { width:auto;min-width:min(100%,220px);max-width:100%;margin-inline-start:auto; }
 #realdata-panel .real-data-fields { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:var(--space-3);align-items:end;margin-block:var(--space-3); }
