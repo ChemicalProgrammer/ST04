@@ -78,19 +78,37 @@ window.STRealData=(function(){
     }
     target.append(details);
   }
-  function comparisonHtml(result,knownOnly){
-    const groups=['Tiempos','Producción','Inputs','Indicadores'],rows=(knownOnly?result.rows.filter(r=>finite(r.real)||finite(r.simulated)||finite(r.reported)):[...result.rows]).sort((a,b)=>groups.indexOf(a.group)-groups.indexOf(b.group));
-    let group='';
-    return '<table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+rows.map(r=>{
-      const label=r.group!==group?(group=r.group,'<tr class="real-data-group-row"><th colspan="5">'+esc(group)+'</th></tr>'):'';
-      const text=r.formula+' Real mostrado: '+r.realSource+'. '+(r.reported!=null?' Reportado en planta: '+fmt(r.reported)+' '+r.unit+'.':'')+' Diferencia = simulado − real.'+(r.unit==='%'?' La diferencia se expresa en pp.':'');
-      const attrs=' title="'+esc(text)+'" aria-description="'+esc(text)+'" tabindex="0"';
-      return label+'<tr data-metric="'+esc(r.id)+'"><th scope="row"'+attrs+'>'+esc(r.metric)+(r.reported!=null?'<small class="real-data-reported">Reportado: '+fmt(r.reported)+' '+esc(r.unit)+'</small>':'')+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'</tr>';
-    }).join('')+'</tbody></table>';
+  function displayText(value){
+    const names={T1:'tiempo total',T2:'tiempo disponible de planta',T3:'tiempo disponible para producción',T4:'tiempo de marcha',T5:'tiempo efectivo'};
+    return String(value??'').replace(/\s*\(T[1-5]\)/g,'').replace(/\bAEM\b\s*/g,'').replace(/\bT[1-5]\b/g,key=>names[key]).replace(/\s{2,}/g,' ').trim();
+  }
+  function comparisonHtml(result,knownOnly,openGroups=null){
+    const groups=[
+      ['calendar','Calendario y disponibilidad de planta',r=>['Total Available Time (T1)','Business / External Downtime','Plant Available Time (T2)'].includes(r.id)],
+      ['planned','Paradas planificadas y tiempo disponible para producción',r=>['Plant Decision Downtime','Production Available Time (T3)'].includes(r.id)],
+      ['operation','Paradas no planificadas y tiempo de marcha',r=>['Unplanned Downtime','Runtime AEM (T4)'].includes(r.id)],
+      ['losses','Pérdidas durante la marcha y tiempo efectivo',r=>r.group==='Tiempos'],
+      ['production','Producción',r=>r.group==='Producción'],
+      ['inputs','Parámetros de referencia',r=>r.group==='Inputs'],
+      ['indicators','Indicadores de desempeño',()=>true]
+    ];
+    const buckets=groups.map(([id,label])=>({id,label,rows:[]}));
+    for(const r of result.rows){
+      if(knownOnly&&!finite(r.real)&&!finite(r.simulated)&&!finite(r.reported))continue;
+      buckets[groups.findIndex(([, ,matches])=>matches(r))].rows.push(r);
+    }
+    return buckets.filter(g=>g.rows.length).map(g=>{
+      const open=openGroups?.has(g.id)?openGroups.get(g.id):true;
+      return '<details class="real-data-comparison-group" data-comparison-group="'+g.id+'"'+(open?' open':'')+'><summary>'+esc(g.label)+'</summary><div class="real-data-comparison-scroll"><table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+g.rows.map(r=>{
+        const text=displayText(r.formula)+' Real mostrado: '+r.realSource+'. '+(r.reported!=null?' Reportado en planta: '+fmt(r.reported)+' '+r.unit+'.':'')+' Diferencia = simulado − real.'+(r.unit==='%'?' La diferencia se expresa en pp.':'');
+        const attrs=' title="'+esc(text)+'" aria-description="'+esc(text)+'" tabindex="0"';
+        return '<tr data-metric="'+esc(r.id)+'"><th scope="row"'+attrs+'>'+esc(displayText(r.metric))+(r.reported!=null?'<small class="real-data-reported">Reportado: '+fmt(r.reported)+' '+esc(r.unit)+'</small>':'')+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'</tr>';
+      }).join('')+'</tbody></table></div></details>';
+    }).join('');
   }
   function calibrationHtml(result){
     const columns=result.calibration.columns;
-    const attrs=c=>' title="'+esc(c.formula)+'" aria-description="'+esc(c.formula)+'" tabindex="0"';
+    const attrs=c=>' title="'+esc(displayText(c.formula))+'" aria-description="'+esc(displayText(c.formula))+'" tabindex="0"';
     return '<div class="real-data-calibration-scroll" role="region" aria-label="Hoja de cálculo de rate loss calibrado" tabindex="0"><table class="real-data-calibration-table"><thead><tr>'+columns.map(c=>'<th scope="col"'+attrs(c)+'>'+esc(c.label)+(c.unit?'<small>['+esc(c.unit==='pp'?'%':c.unit)+']</small>':'')+'</th>').join('')+'</tr></thead><tbody><tr>'+columns.map(c=>'<td data-calibration="'+esc(c.id)+'" class="'+(c.letter==='A'||c.letter==='B'?'':'numeric')+'"'+attrs(c)+'>'+((c.letter==='A'||c.letter==='B')?esc(c.value||'—'):fmt(c.value))+(c.unit==='%'?' %':'')+'</td>').join('')+'</tr></tbody></table></div><p class="chart-note">'+esc(result.calibration.note)+'</p>';
 
   }
@@ -102,10 +120,11 @@ window.STRealData=(function(){
     }).join('')+'</tbody><tfoot><tr><th>Total de equipos</th>'+[d.totalReal,d.totalSim,d.delta,finite(d.totalReal)?d.totalReal>0?100:0:null,finite(d.totalSim)?d.totalSim>0?100:0:null,null,null].map(v=>'<td class="numeric">'+fmt(v)+'</td>').join('')+'</tr></tfoot></table><details><summary>Cómo interpretar minutos y porcentajes</summary><p class="chart-note">'+esc(d.note)+'</p></details>'+((d.totalReal==null&&finite(d.knownReal))?'<p class="chart-note">Subtotal real conocido: '+fmt(d.knownReal)+' min. Total pendiente.</p>':'')+((d.totalSim==null&&finite(d.knownSim))?'<p class="chart-note">Subtotal simulado conocido: '+fmt(d.knownSim)+' min. Total pendiente.</p>':'');
   }
   function refresh(){
+    const openGroups=new Map([...document.querySelectorAll('[data-comparison-group]')].map(e=>[e.dataset.comparisonGroup,e.open]));
     const r=current();data=r?M.build(r,context.simulation,source(),selection,context.caseRecord):null;
     for(const id of ['real-data-export-json','real-data-export-html'])document.getElementById(id).disabled=!data;
-    for(const [id,html] of [['real-data-comparison',data?comparisonHtml(data,document.getElementById('real-data-known-only').checked):''],['real-data-calibration',data?calibrationHtml(data):''],['real-data-downtime-comparison',data?downtimeHtml(data):'']])document.getElementById(id).innerHTML=html||'<p class="empty">Sin registro seleccionado.</p>';
-    const warnings=document.getElementById('real-data-warnings');warnings.replaceChildren();for(const w of data?.warnings||[])warnings.append(el('li',w));
+    for(const [id,html] of [['real-data-comparison',data?comparisonHtml(data,document.getElementById('real-data-known-only').checked,openGroups):''],['real-data-calibration',data?calibrationHtml(data):''],['real-data-downtime-comparison',data?downtimeHtml(data):'']])document.getElementById(id).innerHTML=html||'<p class="empty">Sin registro seleccionado.</p>';
+    const warnings=document.getElementById('real-data-warnings');warnings.replaceChildren();for(const w of data?.warnings||[])warnings.append(el('li',displayText(w)));
     document.getElementById('real-data-review-summary').textContent='Revisión de datos · '+(data?.warnings.length||0)+' avisos';
     const evidence=document.getElementById('real-data-evidence');evidence.replaceChildren();
     if(data?.run)evidence.append(el('p',data.run.view+' · '+fmt(data.run.duration/60)+' min · '+(data.run.engineVersion||'Versión no registrada')+' · seed '+(data.run.seed??'—'),'chart-note'));
@@ -129,7 +148,7 @@ window.STRealData=(function(){
     const fields=M.fieldGroups.flatMap(g=>g.fields.map(([path,label,type,scale=1])=>({label,value:M.at(result.observation,path),scale,type}))).filter(r=>r.value!=null&&r.value!=='');
     if(result.observation.reportedProductionUnits==null&&result.observation.reportedProductionCases==null&&finite(result.observation.production))fields.push({label:'Producción original ('+result.observation.productionUnit+')',value:result.observation.production,scale:1});
     const registration='<table><tbody>'+fields.map(f=>'<tr><th>'+esc(f.label)+'</th><td>'+esc(typeof f.value==='number'?fmt(f.value/f.scale):f.value)+'</td></tr>').join('')+'</tbody></table>';
-    return '<!doctype html><html lang="es"><meta charset="utf-8"><title>Comparación de datos reales</title><style>body{font:14px system-ui;max-width:1200px;margin:24px auto;padding:16px;color:#213547}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{padding:8px;border-bottom:1px solid #ccd5dd;text-align:left}.real-data-calibration-scroll{overflow-x:auto}.real-data-calibration-table{min-width:1600px}.real-data-calibration-table thead{background:#24599a;color:white}.real-data-calibration-table th{text-align:center}.real-data-calibration-table small{display:block}.numeric{text-align:right;font-variant-numeric:tabular-nums}.real-data-reported{display:block;font-weight:400}.chart-note{color:#52616c}.real-data-group-row{background:#eef4f7}section{margin:24px 0}@media print{tr{break-inside:avoid}body{max-width:none;margin:0}}</style><h1>'+esc(result.observation.name)+'</h1><section><h2>1. Registro</h2>'+registration+'</section><section><h2>2. Comparación de parámetros</h2>'+comparisonHtml(result,false)+'</section><section><h2>3. Ajuste calibrado de rate loss</h2>'+calibrationHtml(result)+'</section><section><h2>4. Downtime por fallas de equipos</h2>'+downtimeHtml(result)+'</section><details><summary>Datos de equipos capturados</summary><pre>'+esc(JSON.stringify(result.observation.equipment,null,2))+'</pre></details><h2>Revisión de datos</h2><ul>'+result.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul></html>';
+    return '<!doctype html><html lang="es"><meta charset="utf-8"><title>Comparación de datos reales</title><style>body{font:14px system-ui;max-width:1200px;margin:24px auto;padding:16px;color:#213547}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{padding:8px;border-bottom:1px solid #ccd5dd;text-align:left}.real-data-calibration-scroll{overflow-x:auto}.real-data-calibration-table{min-width:1600px}.real-data-calibration-table thead{background:#24599a;color:white}.real-data-calibration-table th{text-align:center}.real-data-calibration-table small{display:block}.numeric{text-align:right;font-variant-numeric:tabular-nums}.real-data-reported{display:block;font-weight:400}.chart-note{color:#52616c}.real-data-group-row{background:#eef4f7}section{margin:24px 0}@media print{tr{break-inside:avoid}body{max-width:none;margin:0}}</style><h1>'+esc(result.observation.name)+'</h1><section><h2>1. Registro</h2>'+registration+'</section><section><h2>2. Comparación de parámetros</h2>'+comparisonHtml(result,false)+'</section><section><h2>3. Ajuste calibrado de rate loss</h2>'+calibrationHtml(result)+'</section><section><h2>4. Downtime por fallas de equipos</h2>'+downtimeHtml(result)+'</section><details><summary>Datos de equipos capturados</summary><pre>'+esc(JSON.stringify(result.observation.equipment,null,2))+'</pre></details><h2>Revisión de datos</h2><ul>'+result.warnings.map(w=>'<li>'+esc(displayText(w))+'</li>').join('')+'</ul></html>';
   }
   function init(currentState,callbacks){
     state=currentState;actions=callbacks;

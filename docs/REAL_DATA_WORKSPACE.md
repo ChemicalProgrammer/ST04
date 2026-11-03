@@ -10,7 +10,7 @@ La edición actualiza los cálculos en el evento input sin reconstruir los contr
 
 ## 2. Comparación
 
-Una tabla: parámetro, unidad, real, simulado y diferencia. Incluye tiempos, producción, inputs e indicadores. Un filtro opcional oculta únicamente las filas sin datos. Las fórmulas y su origen están en tooltips, sin columnas de explicación permanentes.
+Los parámetros se agrupan en siete apartados colapsables: calendario y disponibilidad de planta; paradas planificadas y tiempo disponible para producción; paradas no planificadas y tiempo de marcha; pérdidas durante la marcha y tiempo efectivo; producción; parámetros de referencia; indicadores de desempeño. Cada apartado conserva las columnas parámetro, unidad, real, simulado y diferencia. El estado abierto/cerrado se mantiene al editar inputs y cambiar el filtro. Las etiquetas y tooltips visibles usan nombres completos, sin códigos T1–T5 ni la sigla del modelo; los identificadores internos y cálculos permanecen compatibles. El reporte HTML usa los mismos apartados. Un filtro opcional oculta únicamente las filas sin datos. Las fórmulas y su origen están en tooltips, sin columnas de explicación permanentes.
 
 Se centraliza la definición del tiempo efectivo: producción conforme / Standard Rate tiene prioridad; después se usa Runtime menos todas las pérdidas conocidas. Para registros antiguos, el tiempo efectivo reportado o Runtime − Rate Loss sirve como alternativa provisional respecto a calidad, con aviso. Los valores reportados de AU, UPDT y eficiencia Opera se conservan y se muestran como referencia junto al indicador. Si no puede calcularse un indicador, puede mostrarse su valor reportado identificado como tal.
 
