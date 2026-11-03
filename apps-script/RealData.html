@@ -168,15 +168,27 @@ window.STRealData=(function(){
       const d=section('unscheduledMaintenance','Unscheduled Maintenance');
       d.panel.dataset.timeConcept='unscheduledMaintenance';
       const equipment=element.querySelector('.real-data-input-group');
-      if(equipment)for(const child of [...equipment.children]){
+      if(!equipment)return d;
+      const scroll=el('div',null,'real-data-comparison-scroll'),table=el('table',null,'real-data-equipment-table');
+      const header=table.createTHead().insertRow();
+      for(const label of ['Equipo','Downtime (min)','Número de fallas']){
+        const column=el('th',label);column.scope='col';header.append(column);
+      }
+      const body=table.createTBody();
+      for(const child of [...equipment.children]){
         if(child.tagName==='P')d.body.append(child);
         else if(child.dataset.equipmentEditor){
-          const row=el('section',null,'real-data-equipment-row');
-          row.dataset.equipmentEditor=child.dataset.equipmentEditor;
-          row.append(el('h4',child.querySelector('summary').textContent),child.querySelector('.real-data-fields'));
-          d.body.append(row);
+          const row=body.insertRow();row.dataset.equipmentEditor=child.dataset.equipmentEditor;
+          const name=child.querySelector('summary').textContent;
+          const heading=el('th',name);heading.scope='row';row.append(heading);
+          const inputs=child.querySelectorAll('[data-real-equipment-field]');
+          inputs.forEach((input,index)=>{
+            input.setAttribute('aria-label',header.cells[index+1].textContent+' · '+name);
+            row.insertCell().append(input);
+          });
         }
       }
+      scroll.append(table);d.body.append(scroll);
       return d;
     }
     function timeSection(element){
@@ -240,7 +252,7 @@ window.STRealData=(function(){
     const names={T1:'tiempo total',T2:'tiempo disponible de planta',T3:'tiempo disponible para producción',T4:'tiempo de marcha',T5:'tiempo efectivo'};
     return String(value??'').replace(/\s*\(T[1-5]\)/g,'').replace(/\bAEM\b\s*/g,'').replace(/\bT[1-5]\b/g,key=>names[key]).replace(/\s{2,}/g,' ').trim();
   }
-  function comparisonHtml(result,knownOnly,openGroups=null){
+  function comparisonHtml(result,knownOnly){
     const groups=[
       ['calendar','Calendario y disponibilidad de planta',r=>['Total Available Time (T1)','Business / External Downtime','Plant Available Time (T2)'].includes(r.id)],
       ['planned','Paradas planificadas y tiempo disponible para producción',r=>['Plant Decision Downtime','Production Available Time (T3)'].includes(r.id)],
@@ -256,8 +268,7 @@ window.STRealData=(function(){
       buckets[groups.findIndex(([, ,matches])=>matches(r))].rows.push(r);
     }
     return buckets.filter(g=>g.rows.length).map(g=>{
-      const open=openGroups?.has(g.id)?openGroups.get(g.id):true;
-      return '<details class="real-data-comparison-group" data-comparison-group="'+g.id+'"'+(open?' open':'')+'><summary>'+esc(g.label)+'</summary><div class="real-data-comparison-scroll"><table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+g.rows.map(r=>{
+      return '<details class="real-data-comparison-group" data-comparison-group="'+g.id+'" open><summary>'+esc(g.label)+'</summary><div class="real-data-comparison-scroll"><table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+g.rows.map(r=>{
         const text=displayText(r.formula)+' Real mostrado: '+r.realSource+'. '+(r.reported!=null?' Reportado en planta: '+fmt(r.reported)+' '+r.unit+'.':'')+' Diferencia = simulado − real.'+(r.unit==='%'?' La diferencia se expresa en pp.':'');
         const attrs=' title="'+esc(text)+'" aria-description="'+esc(text)+'" tabindex="0"';
         return '<tr data-metric="'+esc(r.id)+'"><th scope="row"'+attrs+'>'+esc(displayText(r.metric))+(r.reported!=null?'<small class="real-data-reported">Reportado: '+fmt(r.reported)+' '+esc(r.unit)+'</small>':'')+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'</tr>';
@@ -277,12 +288,48 @@ window.STRealData=(function(){
       return '<tr><th scope="row" title="'+esc(help)+'" tabindex="0">'+esc(r.name)+'<details><summary>MTBF / MTTR</summary><p>Reales medidos/reportados: '+fmt(r.realMtbf)+' / '+fmt(r.realMttr)+' min.</p><p>Simulados (inputs): '+fmt(r.configuredMtbf)+' / '+fmt(r.configuredMttr)+' min.</p></details></th>'+[r.real,r.simulated,r.delta,r.realShare,r.simulatedShare,r.realUnavailabilityPercent,r.unavailabilityPercent].map(v=>'<td class="numeric" title="'+esc(help)+'" aria-description="'+esc(help)+'" tabindex="0">'+fmt(v)+'</td>').join('')+'</tr>';
     }).join('')+'</tbody><tfoot><tr><th>Total de equipos</th>'+[d.totalReal,d.totalSim,d.delta,finite(d.totalReal)?d.totalReal>0?100:0:null,finite(d.totalSim)?d.totalSim>0?100:0:null,null,null].map(v=>'<td class="numeric">'+fmt(v)+'</td>').join('')+'</tr></tfoot></table><details><summary>Cómo interpretar minutos y porcentajes</summary><p class="chart-note">'+esc(d.note)+'</p></details>'+((d.totalReal==null&&finite(d.knownReal))?'<p class="chart-note">Subtotal real conocido: '+fmt(d.knownReal)+' min. Total pendiente.</p>':'')+((d.totalSim==null&&finite(d.knownSim))?'<p class="chart-note">Subtotal simulado conocido: '+fmt(d.knownSim)+' min. Total pendiente.</p>':'');
   }
+  function showComparisonExplorer(target,selectedGroup){
+    const groups=[...target.querySelectorAll('[data-comparison-group]')];
+    if(!groups.length)return;
+    const layout=el('div',null,'real-data-explorer');
+    const nav=el('nav',null,'real-data-explorer-nav');
+    nav.setAttribute('aria-label','Rubros de comparación');
+    const content=el('div',null,'real-data-explorer-content');
+    const buttons=new Map();
+    function select(id){
+      for(const [key,{button,panel}] of buttons){
+        button.setAttribute('aria-current',key===id?'page':'false');
+        panel.hidden=key!==id;
+      }
+    }
+    for(const group of groups){
+      const id=group.dataset.comparisonGroup;
+      const label=group.querySelector('summary').textContent;
+      const button=el('button',label,'real-data-explorer-link');
+      button.type='button';
+      button.dataset.comparisonSelect=id;
+      button.setAttribute('aria-controls','real-data-comparison-'+id);
+      button.onclick=()=>select(id);
+      const panel=el('article',null,'real-data-explorer-panel');
+      panel.id='real-data-comparison-'+id;
+      panel.dataset.comparisonGroup=id;
+      panel.append(el('h3',label),group.querySelector('.real-data-comparison-scroll'));
+      buttons.set(id,{button,panel});
+      nav.append(el('div'));nav.lastChild.append(button);
+      content.append(panel);
+    }
+    layout.append(nav,content);
+    target.replaceChildren(layout);
+    select(buttons.has(selectedGroup)?selectedGroup:groups[0].dataset.comparisonGroup);
+  }
   function refresh(){
     refreshTimeTree();
-    const openGroups=new Map([...document.querySelectorAll('[data-comparison-group]')].map(e=>[e.dataset.comparisonGroup,e.open]));
+    const comparison=document.getElementById('real-data-comparison');
+    const selectedGroup=comparison.querySelector('[aria-current="page"]')?.dataset.comparisonSelect;
     const r=current();data=r?M.build(r,context.simulation,source(),selection,context.caseRecord):null;
     for(const id of ['real-data-export-json','real-data-export-html'])document.getElementById(id).disabled=!data;
-    for(const [id,html] of [['real-data-comparison',data?comparisonHtml(data,document.getElementById('real-data-known-only').checked,openGroups):''],['real-data-calibration',data?calibrationHtml(data):''],['real-data-downtime-comparison',data?downtimeHtml(data):'']])document.getElementById(id).innerHTML=html||'<p class="empty">Sin registro seleccionado.</p>';
+    for(const [id,html] of [['real-data-comparison',data?comparisonHtml(data,document.getElementById('real-data-known-only').checked):''],['real-data-calibration',data?calibrationHtml(data):''],['real-data-downtime-comparison',data?downtimeHtml(data):'']])document.getElementById(id).innerHTML=html||'<p class="empty">Sin registro seleccionado.</p>';
+    showComparisonExplorer(comparison,selectedGroup);
     const warnings=document.getElementById('real-data-warnings');warnings.replaceChildren();for(const w of data?.warnings||[])warnings.append(el('li',displayText(w)));
     document.getElementById('real-data-review-summary').textContent='Revisión de datos · '+(data?.warnings.length||0)+' avisos';
     const evidence=document.getElementById('real-data-evidence');evidence.replaceChildren();

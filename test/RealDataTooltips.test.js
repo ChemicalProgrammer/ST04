@@ -8,16 +8,16 @@ test('comparison and report share exact formulas and reported values without per
  assert.equal(report.window.document.querySelector('[data-metric="au"] th').title,au.cells[0].title);assert.equal(report.window.document.querySelectorAll('section').length,4);assert.equal(report.window.document.querySelectorAll('one').length,0);report.window.close();
  }finally{w.close();}
 });
-test('comparison groups follow the time hierarchy, remove unexplained codes and retain collapse state on input',()=>{
+test('comparison groups follow the time hierarchy, remove unexplained codes and retain selection on input',()=>{
  const w=setup();try{const f=fixture();mount(w,f);
- const panel=w.document.getElementById('real-data-comparison'),groups=[...panel.querySelectorAll('details[data-comparison-group]')];
+ const panel=w.document.getElementById('real-data-comparison'),groups=[...panel.querySelectorAll('article[data-comparison-group]')];
  assert.equal(groups.length,7);assert.deepEqual(groups.map(e=>e.dataset.comparisonGroup),['calendar','planned','operation','losses','production','inputs','indicators']);
  const ids=[...panel.querySelectorAll('[data-metric]')].map(e=>e.dataset.metric);assert.equal(ids.length,new Set(ids).size);
  const allText=panel.textContent+' '+[...panel.querySelectorAll('[title]')].map(e=>e.title).join(' ');assert(!/\b(?:AEM|T[1-5])\b/.test(allText));
- groups[2].open=false;groups[3].open=false;
+ panel.querySelector('[data-comparison-select="operation"]').click();
  setUnplannedMinutes(w,500);
- assert.equal(panel.querySelector('[data-comparison-group="operation"]').open,false);assert.equal(panel.querySelector('[data-comparison-group="losses"]').open,false);
- assert.equal(panel.querySelector('[data-comparison-group="calendar"]').open,true);
+ assert.equal(panel.querySelector('[data-comparison-group="operation"]').hidden,false);assert.equal(panel.querySelector('[data-comparison-group="losses"]').hidden,true);
+ assert.equal(panel.querySelector('[data-comparison-group="calendar"]').hidden,true);
  assert.equal(panel.querySelector('[data-metric="Unplanned Downtime"]').cells[2].textContent,'500');
  const result=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}),report=new JSDOM(w.STRealData.reportHtml(result));
  assert.equal(report.window.document.querySelectorAll('[data-comparison-group]').length,7);
