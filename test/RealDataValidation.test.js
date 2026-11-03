@@ -18,16 +18,29 @@ test('only missing operands leave calibration unavailable and average compaction
 });
 test('spreadsheet renders A–N in order and recalculates its visible cells immediately',async()=>{
  const {mount}=await import('./helpers/RealDataHarness.js');const w=setup();try{
- const f=fixture();f.record.runTimeSeconds=86400;f.record.validation.reportedOeePercent=53.8;mount(w,f);
+ const f=fixture();f.record.runTimeSeconds=928*60;f.record.validation.reportedOeePercent=53.8;mount(w,f);
  const table=w.document.querySelector('.real-data-calibration-table');
- assert.deepEqual([...table.tHead.rows[0].cells].map(c=>c.textContent),'ABCDEFGHIJKLMN'.split(''));
+ assert.equal(table.tHead.rows.length,1);assert.equal(table.tHead.rows[0].cells.length,14);assert.equal(table.querySelectorAll('.real-data-sheet-letters,.real-data-calibration-highlight').length,0);
  assert.equal(table.tBodies[0].rows[0].cells.length,14);
- assert.equal(table.querySelector('[data-calibration="C"]').textContent.replaceAll(',',''),'1440');
+ assert.equal(table.querySelector('[data-calibration="C"]').textContent.replaceAll(',',''),'928');
  assert.equal(table.querySelector('[data-calibration="adjusted"]').textContent,'55.64 %');
  assert.equal(table.querySelector('[data-calibration="lossDifference"]').textContent,'9.64');
  assert.equal(table.querySelector('[data-calibration="residual"]').textContent,'1.84');
  const input=w.document.querySelector('[data-real-field="rateLossSeconds"]');input.value='144';input.dispatchEvent(new w.Event('input'));
  assert.equal(w.document.querySelector('[data-calibration="realLoss"]').textContent,'10 %');
  assert.equal(w.document.querySelector('[data-calibration="adjusted"]').textContent,'56.26 %');
+ }finally{w.close();}
+});
+
+test('editing reported runtime updates effective time and dependent calibration without rerunning',async()=>{
+ const {mount}=await import('./helpers/RealDataHarness.js');const w=setup();try{
+ const f=fixture();f.record.runTimeSeconds=928*60;f.record.effectiveRuntimeSeconds=622*60;const saved=JSON.stringify(f.result);mount(w,f);
+ const cell=id=>w.document.querySelector('[data-calibration="'+id+'"]');
+ assert.equal(cell('G').textContent,'775');
+ const input=w.document.querySelector('[data-real-field="runTimeSeconds"]');input.value='900';input.dispatchEvent(new w.Event('input'));
+ assert.equal(cell('C').textContent,'900');assert.equal(cell('G').textContent,'747');assert.equal(cell('actualEfficiency').textContent,'51.88 %');
+ assert.equal(cell('residual').textContent,'3.76');assert.equal(cell('adjusted').textContent,'55.64 %');assert.equal(JSON.stringify(f.result),saved);
+ const opera=w.document.querySelector('[data-real-field="validation.reportedOeePercent"]');opera.value='53.8';opera.dispatchEvent(new w.Event('input'));input.value='880';input.dispatchEvent(new w.Event('input'));
+ assert.equal(cell('G').textContent,'727');assert.equal(cell('actualEfficiency').textContent,'53.8 %');
  }finally{w.close();}
 });

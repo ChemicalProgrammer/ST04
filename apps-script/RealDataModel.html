@@ -201,7 +201,13 @@ window.STRealDataModel=(function(){
     add('rte','Runtime Efficiency (RTE)','%',realPct(t4),simPct(times.run),'RTE = 100 × Effective Runtime / Runtime.','Indicadores');
     add('updt','UPDT','%',percent(actualDowntime,finite(actualAvailable)?actualAvailable*60:null),percent(finite(times.available)&&finite(times.run)?times.available-times.run:null,times.available),'UPDT = 100 × Unplanned Downtime / (Runtime + Unplanned Downtime).','Indicadores',real.reportedUpdtPercent);
     add('globalOee','OEE global guardado','%',null,sim?.oee,'Indicador guardado: producción / producción ideal de toda la simulación × 100. Se distingue de OE y AU por su base.','Indicadores');
-    const i=percent(real.rateLossSeconds,finite(actualAvailable)?actualAvailable*60:null),k=percent(sim?.rateLossMeasured?sim.measuredRateLossSeconds:null,times.available),h=real.validation.reportedOeePercent??realOe,j=simOe,l=finite(i)&&finite(k)?i-k:null,m=finite(j)&&finite(l)?j-l:null,n=finite(m)&&finite(h)?m-h:null;
+    // Calibration follows reported runtime when supplied; keep the AEM balance separate.
+    const calibrationRuntime=finite(real.runTimeSeconds)?real.runTimeSeconds/60:t4;
+    const qualityMinutes=label=>find(label).real;
+    const scrapMinutes=qualityMinutes('Scrap (tiempo equivalente)'),reworkMinutes=qualityMinutes('Rework (tiempo equivalente)');
+    const calibrationEffective=finite(real.runTimeSeconds)&&finite(real.rateLossSeconds)?calibrationRuntime-real.rateLossSeconds/60-(finite(scrapMinutes)?scrapMinutes:0)-(finite(reworkMinutes)?reworkMinutes:0):realEffective;
+    if(finite(real.runTimeSeconds)&&finite(real.rateLossSeconds)&&(!finite(scrapMinutes)||!finite(reworkMinutes)))warnings.push('Ajuste de rate loss: Effective Run Time se recalcula desde Runtime reportado menos rate loss y pérdidas de calidad conocidas. Scrap o Rework pendientes: cálculo provisional.');
+    const i=percent(real.rateLossSeconds,finite(actualAvailable)?actualAvailable*60:null),k=percent(sim?.rateLossMeasured?sim.measuredRateLossSeconds:null,times.available),h=real.validation.reportedOeePercent??percent(calibrationEffective,actualAvailable),j=simOe,l=finite(i)&&finite(k)?i-k:null,m=finite(j)&&finite(l)?j-l:null,n=finite(m)&&finite(h)?m-h:null;
     const calibration={basis:'GROSS',rows:[
       {id:'realLoss',label:'Rate loss real',value:i,unit:'%',formula:'Rate loss real / Production Available Time real × 100.'},
       {id:'simLoss',label:'Rate loss simulado',value:k,unit:'%',formula:'Rate loss simulado / Production Available Time simulado × 100.'},
@@ -217,11 +223,11 @@ window.STRealDataModel=(function(){
     calibration.columns=[
       col('A','Line',real.validation.line,'','Línea capturada en Registro.'),
       col('B','Date',real.date,'','Fecha capturada en Registro.'),
-      col('C','Runtime',finite(real.runTimeSeconds)?real.runTimeSeconds/60:null,'min','Runtime reportado en Registro. Se conserva el valor capturado; Runtime AEM = D − E se muestra en la comparación general.'),
+      col('C','Runtime',finite(real.runTimeSeconds)?real.runTimeSeconds/60:null,'min','Runtime reportado en Registro. Este dato alimenta el tiempo efectivo y el OEE calculado del ajuste. Runtime AEM = Production Available Time − Unplanned Downtime se muestra por separado en la comparación general.'),
       col('D','Production Available Time',actualAvailable,'min','Tiempo disponible para producción real (T3).'),
       col('E','Unplanned Downtime',finite(actualDowntime)?actualDowntime/60:null,'min','Paros no planificados reales capturados.'),
       col('F','Production Rate Losses',finite(real.rateLossSeconds)?real.rateLossSeconds/60:null,'min','Pérdida de velocidad real capturada, en minutos equivalentes.'),
-      col('G','Effective Run Time',realEffective,'min','Tiempo efectivo real. G = D − E − F cuando Scrap y Rework son cero; también puede provenir de producción conforme / velocidad estándar.'),
+      col('G','Effective Run Time',calibrationEffective,'min','Tiempo efectivo para el ajuste = Runtime reportado − rate loss − Scrap − Rework conocidos. Si no hay Runtime reportado, se usa el tiempo efectivo AEM. Las pérdidas de calidad pendientes hacen provisional el cálculo.'),
       col('H','OEE (Opera)',h,'%','OEE reportado de Opera; si falta, G / D × 100.','actualEfficiency'),
       col('I','Rate Loss',i,'%','I = F / D × 100.','realLoss'),
       col('J','OEE Simulador',j,'%','J = tiempo efectivo simulado / tiempo disponible para producción simulado × 100.','baseline'),
