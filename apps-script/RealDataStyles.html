@@ -35,4 +35,12 @@
 #realdata-panel .real-data-comparison-group { border-bottom:var(--border-width) solid var(--line);padding-block:var(--space-2); }
 #realdata-panel .real-data-comparison-group > summary { padding:var(--space-2); }
 #realdata-panel .real-data-comparison-scroll { max-width:100%;overflow-x:auto; }
+#realdata-panel .real-data-time-node { border:var(--border-width) solid var(--line);border-radius:var(--radius-md);margin-block:var(--space-2);min-width:0; }
+#realdata-panel .real-data-time-node > summary { padding:var(--space-3);display:list-item; }
+#realdata-panel .real-data-time-node > summary > output { float:right;margin-left:var(--space-2);font-weight:var(--weight-semibold); }
+#realdata-panel .real-data-time-node > summary > label { display:inline-flex;align-items:center;gap:var(--space-3);width:calc(100% - 24px); }
+#realdata-panel .real-data-time-node > summary input { width:130px;margin-left:auto; }
+#realdata-panel .real-data-time-children { padding:0 var(--space-2) var(--space-2);min-width:0; }
+#realdata-panel .real-data-time-children > .real-data-fields { margin-inline:var(--space-2); }
+@media(max-width:600px){#realdata-panel .real-data-time-node > summary{padding:var(--space-2)}#realdata-panel .real-data-time-node > summary > output{float:none;display:block;margin-left:var(--space-3)}}
 </style>

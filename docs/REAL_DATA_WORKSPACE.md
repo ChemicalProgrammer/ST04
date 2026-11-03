@@ -6,6 +6,23 @@ La interfaz tiene cuatro bloques. No se añaden paneles a la implementación ant
 
 Una entrada por dato. Identificación, tiempos, producción/calidad, porcentajes reportados y mediciones por equipo se organizan en grupos desplegables. Se capturan minutos de falla propia, número de fallas, exposición, tiempo operativo, MTBF y MTTR reportados.
 
+Los tiempos se capturan en un árbol colapsable con el input Total Time en el encabezado principal:
+
+- Total Time contiene Business / External Downtime y Plant Available Time.
+- Business / External Downtime suma Production Day Losses, Non-Production Days, Outside Sources y Holidays.
+- Plant Available Time contiene Plant Decision Downtime y Production Available Time.
+- Plant Decision Downtime suma Planned Maintenance, Changeovers, Cleanout / Sanitation, Planned Meetings / Training, Breaks / Lunch y Plant Experimentation / Plant Shutdown.
+- Production Available Time contiene Unplanned Downtime y Runtime.
+- Unplanned Downtime suma Unscheduled Maintenance, Process Shortages, Labor Shortages y Plant Operations.
+- Runtime contiene Runtime Losses y Effective Runtime.
+- Runtime Losses suma Production Rate Losses, Scrap y Rework. Scrap y Rework admiten sus minutos equivalentes o su conversión desde botellas y velocidad estándar.
+
+Cada encabezado muestra minutos calculados y una fórmula explicada en español. Plant Available Time = Total Time − Business / External Downtime; Production Available Time = Plant Available Time − Plant Decision Downtime; Runtime = Production Available Time − Unplanned Downtime; Effective Runtime del árbol = Runtime − Runtime Losses. El ajuste calibrado conserva su fórmula específica ya acordada, sin deducir Scrap o Rework.
+
+Los valores nuevos se guardan en timeBreakdown (segundos), con grupos external, decision y unplanned. Cada grupo tiene enabled y sus conceptos numéricos. El total de un desglose activo solo existe cuando todos los conceptos tienen valor; un campo vacío no se convierte en cero. El botón «Sin pérdidas: completar con 0» confirma explícitamente todos los ceros de ese grupo. Se muestran los balances negativos con aviso, sin truncarlos.
+
+Los totales históricos se conservan en «Totales y tiempos reportados (sin desglose)», junto con Runtime y Effective Runtime reportados. No se reparten artificialmente entre causas desconocidas. Si no se ha activado el desglose de un grupo, se usa su total previo. Al capturar el desglose o modificar los tiempos principales se activa el cálculo de la jerarquía para la comparación; los originales siguen almacenados. Los datos por equipo se registran aparte y no se suman automáticamente como paro exclusivo de línea. El template y la exportación incluyen el nuevo desglose, y la normalización/importación conserva sus valores.
+
 La edición actualiza los cálculos en el evento input sin reconstruir los controles. Se preservan el foco, el texto decimal y la selección. No se ejecuta el motor ni se modifica su configuración. Los datos reales siguen perteneciendo al caso.
 
 ## 2. Comparación
