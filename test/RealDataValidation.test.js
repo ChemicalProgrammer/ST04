@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,calibration} from './helpers/RealDataHarness.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,calibration,setUnplannedMinutes} from './helpers/RealDataHarness.js';
 test('calibration applies the agreed spreadsheet formulas without changing the simulated output',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(calibration(d,'realLoss'),10.625);assert.equal(calibration(d,'simLoss'),.99);assert(Math.abs(calibration(d,'lossDifference')-9.635)<1e-9);
@@ -39,13 +39,12 @@ test('only calibration uses available minus unplanned downtime minus rate loss, 
  const saved=JSON.stringify(f.result);mount(w,f);
  const cell=id=>w.document.querySelector('[data-calibration="'+id+'"]');
  assert.equal(cell('G').textContent,'775');
- const input=w.document.querySelector('[data-real-field="runTimeSeconds"]');input.value='880';input.dispatchEvent(new w.Event('input'));
- assert.equal(cell('C').textContent,'880');assert.equal(cell('G').textContent,'775');
- const down=w.document.querySelector('[data-real-field="downtimeSeconds"]');down.value='500';down.dispatchEvent(new w.Event('input'));
+ assert.equal(w.document.querySelector('[data-real-field="runTimeSeconds"]'),null);assert.equal(cell('C').textContent,'900');assert.equal(cell('G').textContent,'775');
+ setUnplannedMinutes(w,500);
  assert.equal(cell('G').textContent,'787');
  const loss=w.document.querySelector('[data-real-field="rateLossSeconds"]');loss.value='150';loss.dispatchEvent(new w.Event('input'));
  assert.equal(cell('G').textContent,'790');assert.equal(JSON.stringify(f.result),saved);
- down.value='';down.dispatchEvent(new w.Event('input'));assert.equal(cell('G').textContent,'—');
+ setUnplannedMinutes(w,null);assert.equal(cell('G').textContent,'—');
  }finally{w.close();}
 });
 test('calibration formula does not overwrite the general AEM effective time',()=>{

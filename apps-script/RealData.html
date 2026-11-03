@@ -85,7 +85,7 @@ window.STRealData=(function(){
     const losses=node(runtime.body,'losses','Runtime Losses','Production Rate Losses + Scrap + Rework, en minutos equivalentes.');
     const grid=el('div',null,'real-data-fields');losses.body.append(grid);
     for(const field of [['rateLossSeconds','Production Rate Losses (min)','number',60],['aem.scrapSeconds','Scrap (min equivalentes)','number',60],['aem.reworkSeconds','Rework (min equivalentes)','number',60],['validation.rateLossBasis','Definición del rate loss','select',1,[['UNCONFIRMED','Pendiente'],['GROSS','Pérdida bruta'],['NET','Balance neto']]]])control(grid,field,record);
-    const effective=node(runtime.body,'effective','Effective Runtime','Runtime − Runtime Losses. Runtime Losses = Production Rate Losses + Scrap + Rework. El ajuste calibrado conserva su fórmula específica.');effective.body.append(el('p','Minutos equivalentes aprovechados después de descontar las pérdidas de velocidad y calidad.','chart-note'));
+    const effective=el('div',null,'real-data-time-node real-data-time-result'),effectiveValue=el('output',null,'numeric');effective.dataset.timeNode='effective';effectiveValue.dataset.timeValue='effective';effectiveValue.setAttribute('aria-label','Effective Runtime calculado en minutos');tip(effectiveValue,'Effective Runtime = Runtime − Runtime Losses. Runtime Losses = Production Rate Losses + Scrap + Rework. El ajuste calibrado conserva su fórmula específica.');effective.append(el('span','Effective Runtime'),effectiveValue);runtime.body.append(effective);
   }
   function refreshTimeTree(){
     const record=current();if(!record)return;const h=M.timeHierarchy(record);
@@ -97,13 +97,12 @@ window.STRealData=(function(){
     const r=M.normalize(record);
     if(r.reportedProductionUnits==null&&r.productionUnit==='BOTTLES')r.reportedProductionUnits=r.production;
     if(r.reportedProductionCases==null&&r.productionUnit==='CASES')r.reportedProductionCases=r.production;
+    const capturedInTree=new Set(['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds','aem.scrapUnits','aem.reworkUnits','validation.rateLossBasis','updtSeconds','updtDefinition']);
     for(const group of M.fieldGroups){
+      if(group.id==='times'){timeTree(target,r);continue;}
+      const fields=group.fields.filter(([path])=>!capturedInTree.has(path));if(!fields.length)continue;
       const details=el('details',null,'real-data-input-group'),summary=el('summary',group.label),grid=el('div',null,'real-data-fields');details.open=!!group.open;details.append(summary,grid);
-      if(group.id==='times'){
-        timeTree(target,r);
-        details.open=false;summary.textContent='Totales y tiempos reportados (sin desglose)';
-        for(const field of group.fields.filter(([path])=>!['durationSeconds','rateLossSeconds','validation.rateLossBasis'].includes(path)))control(grid,field,r);
-      }else for(const field of group.fields.filter(([path])=>!['aem.scrapSeconds','aem.reworkSeconds'].includes(path)))control(grid,field,r);if(group.id==='production')details.append(el('p','Scrap y Rework: captura minutos o botellas. Si completas ambos, se usan los minutos. Vacío significa desconocido.','chart-note'));target.append(details);
+      for(const field of fields)control(grid,field,r);target.append(details);
     }
     const details=el('details',null,'real-data-input-group'),summary=el('summary','Downtime y confiabilidad por equipo'),note=el('p','Captura las fallas propias relacionadas con MTTR/MTBF. Los minutos de equipos pueden coincidir. Los campos vacíos son desconocidos; cero debe ser un dato confirmado.','chart-note');details.append(summary,note);
     const models=(context.simulation?.equipment||[]).slice();for(const e of r.equipment)if(!models.some(m=>m.id===e.equipmentId))models.push({id:e.equipmentId,name:e.name||e.equipmentId});

@@ -37,3 +37,17 @@ test('explicit zero action updates only its branch and invalid balances remain v
  const quality=w.STRealDataModel.timeHierarchy(r);assert.equal(quality.values.scrap,60);assert.equal(quality.values.losses,null);assert.equal(quality.values.effective,null);
  }finally{w.close();}
 });
+
+test('effective runtime is a static result and registration has no redundant summary or quality inputs',()=>{
+ const w=setup();try{const f=fixture();f.record.runTimeSeconds=900*60;f.record.effectiveRuntimeSeconds=622*60;f.record.aem.scrapUnits=12;f.record.updtSeconds=30*60;
+ const {owner}=mount(w,f),editor=w.document.getElementById('real-data-editor'),effective=editor.querySelector('[data-time-node="effective"]');
+ assert.equal(effective.tagName,'DIV');assert.equal(effective.querySelector('summary,details,input'),null);assert(effective.querySelector('output'));
+ assert(!editor.textContent.includes('Totales y tiempos reportados (sin desglose)'));
+ for(const key of ['aem.businessExternalDowntimeSeconds','aem.plantAvailableSeconds','aem.plantDecisionDowntimeSeconds','aem.productionAvailableSeconds','downtimeSeconds','runTimeSeconds','effectiveRuntimeSeconds','aem.scrapUnits','aem.reworkUnits','updtSeconds','updtDefinition'])assert.equal(editor.querySelector('[data-real-field="'+key+'"]:not([data-equipment-id])'),null);
+ for(const key of ['rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'])assert.equal(editor.querySelectorAll('[data-real-field="'+key+'"]').length,1);
+ const keys=[...editor.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(keys).size,keys.length);
+ const rate=editor.querySelector('[data-real-field="rateLossSeconds"]');rate.value='150';rate.dispatchEvent(new w.Event('input'));
+ assert.equal(effective.querySelector('output').textContent,'778 min');
+ const saved=owner.metadata.realData.records[0];assert.equal(saved.runTimeSeconds,900*60);assert.equal(saved.effectiveRuntimeSeconds,622*60);assert.equal(saved.aem.scrapUnits,12);assert.equal(saved.updtSeconds,30*60);
+ }finally{w.close();}
+});

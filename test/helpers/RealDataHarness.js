@@ -18,3 +18,8 @@ export function mount(w,f=fixture()){
 }
 export const row=(d,id)=>d.rows.find(r=>r.id===id);
 export const calibration=(d,id)=>d.calibration.rows.find(r=>r.id===id).value;
+
+export function setUnplannedMinutes(w,minutes){
+ const fields=['processShortagesSeconds','laborShortagesSeconds','plantOperationsSeconds','unscheduledMaintenanceSeconds'];
+ for(const key of fields){const input=w.document.querySelector('[data-real-field="timeBreakdown.unplanned.'+key+'"]');input.value=key==='unscheduledMaintenanceSeconds'?(minutes==null?'':String(minutes)):'0';input.dispatchEvent(new w.Event('input'));}
+}

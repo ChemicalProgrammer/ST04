@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';import {setup,fixture,mount,setUnplannedMinutes} from './helpers/RealDataHarness.js';
 test('comparison and report share exact formulas and reported values without permanent explanation columns',()=>{
  const w=setup();try{const f=fixture();mount(w,f);
  const table=w.document.querySelector('#real-data-comparison table');assert.equal(table.tHead.rows[0].cells.length,5);
@@ -15,7 +15,7 @@ test('comparison groups follow the time hierarchy, remove unexplained codes and 
  const ids=[...panel.querySelectorAll('[data-metric]')].map(e=>e.dataset.metric);assert.equal(ids.length,new Set(ids).size);
  const allText=panel.textContent+' '+[...panel.querySelectorAll('[title]')].map(e=>e.title).join(' ');assert(!/\b(?:AEM|T[1-5])\b/.test(allText));
  groups[2].open=false;groups[3].open=false;
- const input=w.document.querySelector('[data-real-field="downtimeSeconds"]');input.value='500';input.dispatchEvent(new w.Event('input'));
+ setUnplannedMinutes(w,500);
  assert.equal(panel.querySelector('[data-comparison-group="operation"]').open,false);assert.equal(panel.querySelector('[data-comparison-group="losses"]').open,false);
  assert.equal(panel.querySelector('[data-comparison-group="calendar"]').open,true);
  assert.equal(panel.querySelector('[data-metric="Unplanned Downtime"]').cells[2].textContent,'500');
