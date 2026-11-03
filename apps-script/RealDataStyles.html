@@ -61,4 +61,29 @@
 #realdata-panel .real-data-equipment-table :is(th,td) { vertical-align:middle; }
 #realdata-panel .real-data-comparison-block { border:0;padding-inline:0; }
 #realdata-panel .real-data-downtime-table { width:100%;min-width:470px; }
+/* Reserve the same marker column for folders and leaves at every depth. */
+#real-data-editor .real-data-explorer-entry > summary,
+#real-data-editor div.real-data-explorer-entry {
+  display:grid;
+  grid-template-columns:10px minmax(0,1fr);
+  column-gap:2px;
+  align-items:center;
+}
+#real-data-editor .real-data-explorer-entry > summary { list-style:none; }
+#real-data-editor .real-data-explorer-entry > summary::-webkit-details-marker { display:none; }
+#real-data-editor .real-data-explorer-entry > summary::before {
+  content:"";
+  width:0;
+  height:0;
+  border-block:4px solid transparent;
+  border-inline-start:5px solid currentColor;
+  justify-self:center;
+}
+#real-data-editor .real-data-explorer-entry[open] > summary::before { transform:rotate(90deg); }
+#real-data-editor .real-data-explorer-entry .real-data-explorer-link {
+  grid-column:2;
+  min-width:0;
+  max-width:100%;
+  padding-inline-start:2px;
+}
 </style>
