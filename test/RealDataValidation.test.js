@@ -32,15 +32,30 @@ test('spreadsheet renders A–N in order and recalculates its visible cells imme
  }finally{w.close();}
 });
 
-test('editing reported runtime updates effective time and dependent calibration without rerunning',async()=>{
+test('only calibration uses available minus unplanned downtime minus rate loss, updating on input',async()=>{
  const {mount}=await import('./helpers/RealDataHarness.js');const w=setup();try{
- const f=fixture();f.record.runTimeSeconds=928*60;f.record.effectiveRuntimeSeconds=622*60;const saved=JSON.stringify(f.result);mount(w,f);
+ const f=fixture();f.record.runTimeSeconds=900*60;f.record.effectiveRuntimeSeconds=622*60;
+ f.record.aem.scrapSeconds=20*60;f.record.aem.reworkSeconds=10*60;
+ const saved=JSON.stringify(f.result);mount(w,f);
  const cell=id=>w.document.querySelector('[data-calibration="'+id+'"]');
  assert.equal(cell('G').textContent,'775');
- const input=w.document.querySelector('[data-real-field="runTimeSeconds"]');input.value='900';input.dispatchEvent(new w.Event('input'));
- assert.equal(cell('C').textContent,'900');assert.equal(cell('G').textContent,'747');assert.equal(cell('actualEfficiency').textContent,'51.88 %');
- assert.equal(cell('residual').textContent,'3.76');assert.equal(cell('adjusted').textContent,'55.64 %');assert.equal(JSON.stringify(f.result),saved);
- const opera=w.document.querySelector('[data-real-field="validation.reportedOeePercent"]');opera.value='53.8';opera.dispatchEvent(new w.Event('input'));input.value='880';input.dispatchEvent(new w.Event('input'));
- assert.equal(cell('G').textContent,'727');assert.equal(cell('actualEfficiency').textContent,'53.8 %');
+ const input=w.document.querySelector('[data-real-field="runTimeSeconds"]');input.value='880';input.dispatchEvent(new w.Event('input'));
+ assert.equal(cell('C').textContent,'880');assert.equal(cell('G').textContent,'775');
+ const down=w.document.querySelector('[data-real-field="downtimeSeconds"]');down.value='500';down.dispatchEvent(new w.Event('input'));
+ assert.equal(cell('G').textContent,'787');
+ const loss=w.document.querySelector('[data-real-field="rateLossSeconds"]');loss.value='150';loss.dispatchEvent(new w.Event('input'));
+ assert.equal(cell('G').textContent,'790');assert.equal(JSON.stringify(f.result),saved);
+ down.value='';down.dispatchEvent(new w.Event('input'));assert.equal(cell('G').textContent,'—');
+ }finally{w.close();}
+});
+test('calibration formula does not overwrite the general AEM effective time',()=>{
+ const w=setup();try{const f=fixture();f.record.effectiveRuntimeSeconds=622*60;f.record.runTimeSeconds=900*60;
+ const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
+ assert.equal(d.calibration.columns.find(c=>c.letter==='G').value,775);
+ assert.equal(d.rows.find(r=>r.id==='effective').real,775);
+ f.record.aem.goodOutputUnits=220*600;
+ const changed=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
+ assert.equal(changed.rows.find(r=>r.id==='effective').real,600);
+ assert.equal(changed.calibration.columns.find(c=>c.letter==='G').value,775);
  }finally{w.close();}
 });
