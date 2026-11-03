@@ -9,7 +9,7 @@ test('time hierarchy defaults to zero, clearing a leaf means zero and focus/coll
  assert.deepEqual(children('total'),['external','plant']);assert.deepEqual(children('plant'),['decision','production']);assert.deepEqual(children('production'),['unplanned','runtime']);assert.deepEqual(children('runtime'),['losses','effective']);
  assert(!w.document.getElementById('real-data-editor').textContent.includes('Sin pérdidas: completar con 0'));
  const blank=w.document.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]');assert.equal(blank.value,'0');
- const folder=w.document.querySelector('[data-explorer-folder="decision"]');folder.open=false;const input=change(w,'timeBreakdown.external.productionDayLossesSeconds','82');
+ const folder=w.document.querySelector('[data-explorer-folder="production"]');folder.open=false;const input=change(w,'timeBreakdown.external.productionDayLossesSeconds','82');
  assert.equal(numeric(w,'external'),82);assert.equal(numeric(w,'plant'),1358);assert.equal(folder.open,false);assert.equal(w.document.activeElement,input);
  change(w,'timeBreakdown.external.productionDayLossesSeconds','');assert.equal(numeric(w,'external'),0);assert.equal(numeric(w,'plant'),1440);assert.equal(owner.metadata.realData.records[0].timeBreakdown.external.productionDayLossesSeconds,0);
  assert.equal(JSON.stringify(f.result),saved);
@@ -43,7 +43,7 @@ test('legacy totals start as manual inputs and all manual time sections propagat
 test('registration frames sections, omits main notes and nests equipment under unscheduled maintenance without summing failures into line stops',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),editor=w.document.getElementById('real-data-editor');
  const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(editor.querySelector('[data-explorer-folder="unscheduledMaintenance"] [data-explorer-select="equipment:f"]'));assert(editor.querySelector('[data-explorer-folder="unplanned"] [data-explorer-select="equipment:f"]'));
- for(const text of ['Identificación','Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('.real-data-explorer-link')].some(e=>e.textContent===text));
+ for(const text of ['Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('.real-data-explorer-link')].some(e=>e.textContent===text));
  assert.equal(editor.querySelector('[data-real-field="notes"]:not([data-equipment-id])'),null);
  const effective=editor.querySelector('[data-time-node="effective"]');assert.equal(effective.tagName,'ARTICLE');assert.equal(effective.querySelector('summary,input'),null);
  const paths=[...editor.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(paths).size,paths.length);

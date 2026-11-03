@@ -4,9 +4,9 @@ const visible=w=>[...w.document.querySelectorAll('[data-explorer-panel]')].filte
 test('explorer shows a collapsible navigation and exactly one content panel with unique input controls',()=>{
  const w=setup();try{mount(w);assert(w.document.querySelector('nav[aria-label="Conceptos del registro"]'));assert.equal(w.document.querySelectorAll('.real-data-explorer-nav input').length,0);
  assert.equal(visible(w).length,1);assert.equal(visible(w)[0].dataset.explorerPanel,'total');assert(visible(w)[0].querySelector('[data-real-field="durationSeconds"]'));
- const panel=choose(w,'field:timeBreakdown.external.holidaysSeconds');assert.equal(visible(w).length,1);assert.equal(visible(w)[0],panel);assert(panel.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]'));
- assert.equal(w.document.querySelector('[data-explorer-select="field:timeBreakdown.external.holidaysSeconds"]').getAttribute('aria-current'),'page');
- assert.equal(w.document.querySelector('[data-explorer-folder="external"]').open,true);
+ const panel=choose(w,'external');assert.equal(visible(w).length,1);assert.equal(visible(w)[0],panel);assert(panel.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]'));
+ assert.equal(w.document.querySelector('[data-explorer-select="external"]').getAttribute('aria-current'),'page');
+ assert.equal(w.document.querySelector('[data-explorer-folder="external"]'),null);
  const effective=choose(w,'effective');assert.equal(effective.querySelector('details,input'),null);assert(effective.querySelector('output'));
  assert.equal(w.document.querySelector('[data-explorer-folder="effective"]'),null);
  const ids=[...w.document.querySelectorAll('[id]')].map(e=>e.id);assert.equal(new Set(ids).size,ids.length);
@@ -14,13 +14,13 @@ test('explorer shows a collapsible navigation and exactly one content panel with
  }finally{w.close();}
 });
 test('edits keep the selected concept and folder state, and switching records restores navigation and saved values',()=>{
- const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f);const id='field:timeBreakdown.external.holidaysSeconds',panel=choose(w,id),folder=w.document.querySelector('[data-explorer-folder="decision"]');folder.open=false;
- const input=panel.querySelector('input');input.focus();input.value='12.5';input.dispatchEvent(new w.Event('input'));
- assert.equal(w.document.activeElement,input);assert.equal(visible(w)[0],panel);assert.equal(folder.open,false);assert.equal(input.value,'12.5');assert.equal(owner.metadata.realData.records[0].timeBreakdown.external.holidaysSeconds,750);
+ const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f);const id='external',panel=choose(w,id),folder=w.document.querySelector('[data-explorer-folder="production"]');folder.open=false;
+ const input=panel.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]');input.focus();input.value='12.5';input.dispatchEvent(new w.Event('input'));
+ assert.equal(w.document.activeElement,input);assert.equal(visible(w)[0],panel);assert.match(w.document.querySelector('[data-explorer-minutes="external"]').textContent,/12.5 min/);assert.equal(folder.open,false);assert.equal(input.value,'12.5');assert.equal(owner.metadata.realData.records[0].timeBreakdown.external.holidaysSeconds,750);
  assert.equal(w.document.querySelector('[data-time-value="plant"]').value,'1427.5');
  w.document.getElementById('real-data-new').click();assert.equal(visible(w)[0].dataset.explorerPanel,'total');
  const select=w.document.getElementById('real-data-record');select.value='real';select.dispatchEvent(new w.Event('change'));
- assert.equal(visible(w)[0].dataset.explorerPanel,id);assert.equal(visible(w)[0].querySelector('input').value,'12.5');assert.equal(w.document.querySelector('[data-explorer-folder="decision"]').open,false);assert.equal(JSON.stringify(f.result),saved);
+ assert.equal(visible(w)[0].dataset.explorerPanel,id);assert.equal(visible(w)[0].querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]').value,'12.5');assert.equal(w.document.querySelector('[data-explorer-folder="production"]').open,false);assert.equal(JSON.stringify(f.result),saved);
  }finally{w.close();}
 });
 test('equipment pages expose only failure minutes and failure count, preserve hidden historical data and never change configured reliability',()=>{

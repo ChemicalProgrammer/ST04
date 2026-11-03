@@ -113,10 +113,14 @@ window.STRealData=(function(){
         const toggle=document.querySelector('[data-time-toggle="'+id+'"]');toggle.checked=manual;
       }else output.textContent=fmt(h.values[id]==null?null:h.values[id]/60)+' min';
     }
+    for(const minutes of document.querySelectorAll('[data-explorer-minutes]')){
+      const id=minutes.dataset.explorerMinutes;
+      const seconds=id==='unscheduledMaintenance'?M.at(record,'timeBreakdown.unplanned.unscheduledMaintenanceSeconds')??0:h.values[id];
+      minutes.textContent=' · '+fmt(finite(seconds)?seconds/60:null)+' min';
+    }
     for(const id of M.timeSectionIds){
       const node=document.querySelector('[data-time-node="'+id+'"]');if(!node)continue;const manual=M.timeMode(record,id);node.dataset.manual=String(manual);
       for(const panel of document.querySelectorAll('[data-time-owner="'+id+'"]'))for(const input of panel.querySelectorAll('[data-real-field]'))if(!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual;
-      for(const note of document.querySelectorAll('[data-time-parent-message="'+id+'"]'))note.hidden=!manual;
     }
   }
   function register(){
@@ -152,24 +156,17 @@ window.STRealData=(function(){
     const explorer=el('div',null,'real-data-explorer'),nav=el('nav',null,'real-data-explorer-nav'),content=el('div',null,'real-data-explorer-content');nav.setAttribute('aria-label','Conceptos del registro');
     explorer.dataset.editorKey=key;
     let serial=0;
-    function section(id,label,timeOwner){
+    function section(id,label){
       const panel=el('article',null,'real-data-explorer-panel'),heading=el('h3',label),body=el('div',null,'real-data-explorer-body');
-      panel.dataset.explorerPanel=id;panel.hidden=true;if(timeOwner)panel.dataset.timeOwner=timeOwner;
+      panel.dataset.explorerPanel=id;panel.hidden=true;
       const descriptor={id,label,panel,body,heading,children:[],parent:null};panel.append(heading,body);all.set(id,descriptor);content.append(panel);return descriptor;
-    }
-    function fieldsSection(labelElement,owner){
-      const input=labelElement.querySelector('[data-real-field]'),path=input.dataset.realField,label=labelElement.firstChild.textContent.trim(),id='field:'+path;
-      const d=section(id,label,owner),grid=el('div',null,'real-data-fields');grid.append(labelElement);d.body.append(grid);
-      if(owner){const note=el('p','Este concepto no modifica el total mientras su sección padre esté en modo de entrada manual.','chart-note');note.dataset.timeParentMessage=owner;note.hidden=true;d.body.append(note);}
-      return d;
     }
     function equipmentSection(element){
       const d=section('equipment:'+element.dataset.equipmentEditor,element.querySelector(':scope > summary').textContent);d.panel.dataset.equipmentEditor=element.dataset.equipmentEditor;
       for(const child of [...element.children])if(child.tagName!=='SUMMARY')d.body.append(child);return d;
     }
     function maintenanceSection(element){
-      const d=section('unscheduledMaintenance','Unscheduled Maintenance','unplanned');d.panel.dataset.timeConcept='unscheduledMaintenance';
-      const grid=el('div',null,'real-data-fields');grid.append(...element.querySelector(':scope > summary').childNodes);d.body.append(grid);
+      const d=section('unscheduledMaintenance','Unscheduled Maintenance');d.panel.dataset.timeConcept='unscheduledMaintenance';
       const equipment=element.querySelector('.real-data-input-group');
       if(equipment){for(const child of [...equipment.children])if(child.tagName==='P')d.body.append(child);for(const e of equipment.querySelectorAll(':scope > details[data-equipment-editor]'))d.children.push(equipmentSection(e));}
       return d;
@@ -182,19 +179,27 @@ window.STRealData=(function(){
       const source=element.querySelector(':scope > .real-data-time-children');
       if(source)for(const child of [...source.children]){
         if(child.dataset.timeNode)d.children.push(timeSection(child));
-        else if(child.classList.contains('real-data-fields'))for(const field of [...child.children]){
-          if(field.dataset.timeConcept)d.children.push(maintenanceSection(field));
-          else if(field.tagName==='LABEL'){
-            const input=field.querySelector('[data-real-field]');if(input?.type==='select'){const grid=el('div',null,'real-data-fields');grid.append(field);d.body.append(grid);d.panel.dataset.timeOwner=id;}
-            else d.children.push(fieldsSection(field,id));
+        else if(child.classList.contains('real-data-fields')){
+          const grid=el('div',null,'real-data-fields');
+          for(const field of [...child.children]){
+            if(field.dataset.timeConcept){
+              grid.append(...field.querySelector(':scope > summary').childNodes);
+              d.children.push(maintenanceSection(field));
+            }else if(field.tagName==='LABEL')grid.append(field);
+          }
+          if(grid.children.length){
+            d.body.append(grid);
+            d.panel.dataset.timeOwner=id;
           }
         }
       }
       return d;
     }
     const roots=[];
+    let identification;
     for(const source of [...target.children]){
       if(source.dataset.timeNode)roots.push(timeSection(source));
+      else if(source.dataset.editorGroup==='identity')identification=source.querySelector('.real-data-fields');
       else if(source.dataset.editorGroup){const d=section('group:'+source.dataset.editorGroup,source.querySelector(':scope > summary').textContent);for(const child of [...source.children])if(child.tagName!=='SUMMARY')d.body.append(child);roots.push(d);}
     }
     function choose(id,focus=false){
@@ -213,10 +218,14 @@ window.STRealData=(function(){
         for(const child of d.children)children.append(navigation(child,d));
         const links=el('div',null,'real-data-explorer-shortcuts');for(const child of d.children){const link=el('button',child.label,'real-data-explorer-child');link.type='button';link.dataset.explorerShortcut=child.id;link.onclick=()=>choose(child.id,true);links.append(link);}d.body.append(links);
       }else wrap.append(button);
-      if(parent){const back=el('button','Volver a '+parent.label,'real-data-explorer-back');back.type='button';back.onclick=()=>choose(parent.id,true);d.panel.insertBefore(back,d.heading);}
+      if(d.panel.dataset.timeNode||d.id==='unscheduledMaintenance'){
+        const minutes=el('span',null,'real-data-explorer-minutes');
+        minutes.dataset.explorerMinutes=d.panel.dataset.timeNode||d.id;
+        button.append(minutes);
+      }
       return wrap;
     }
-    for(const root of roots)nav.append(navigation(root,null));explorer.append(nav,content);target.replaceChildren(explorer);choose(all.has(editorSelections.get(key))?editorSelections.get(key):all.has('total')?'total':roots[0]?.id);
+    for(const root of roots)nav.append(navigation(root,null));explorer.append(nav,content);target.replaceChildren(...(identification?[identification,explorer]:[explorer]));choose(all.has(editorSelections.get(key))?editorSelections.get(key):all.has('total')?'total':roots[0]?.id);
   }
   function displayText(value){
     const names={T1:'tiempo total',T2:'tiempo disponible de planta',T3:'tiempo disponible para producción',T4:'tiempo de marcha',T5:'tiempo efectivo'};
