@@ -44,5 +44,12 @@
 #realdata-panel .real-data-time-children > .real-data-fields { margin-inline:var(--space-2); }
 @media(max-width:600px){#realdata-panel .real-data-time-node > summary{padding:var(--space-2)}#realdata-panel .real-data-time-node > summary > output{float:none;display:block;margin-left:var(--space-3)}}
 #realdata-panel .real-data-time-result { display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);padding:var(--space-3);font-weight:var(--weight-semibold); }
-#realdata-panel [data-time-node="total"][open] > .real-data-time-children { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:var(--space-3);align-items:start; }
+#realdata-panel [data-time-node="plant"][open] > .real-data-time-children { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:var(--space-3);align-items:start; }
+#realdata-panel details.real-data-input-group { border:var(--border-width) solid var(--line);border-radius:var(--radius-md);margin-block:var(--space-2);padding:var(--space-3); }
+#realdata-panel .real-data-time-switch { display:inline-flex;align-items:center;gap:var(--space-2);float:right;margin-left:var(--space-2); }
+#realdata-panel .real-data-time-switch input[type="checkbox"] { width:auto;min-height:0;margin:0; }
+#realdata-panel .real-data-time-switch input[type="number"] { width:110px;margin:0;text-align:right; }
+#realdata-panel .real-data-time-switch .calculated-value { background:var(--surface-soft);color:var(--muted); }
+#realdata-panel [data-time-concept] { grid-column:1 / -1; }
+@media(max-width:600px){#realdata-panel .real-data-time-switch{float:none;display:flex;margin-block:var(--space-2);justify-content:flex-end}}
 </style>

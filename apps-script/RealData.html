@@ -27,7 +27,8 @@ window.STRealData=(function(){
         entry[path]=value;
       }else {
         M.set(draft,path,value);
-        if(path.startsWith('timeBreakdown.')){const branch=path.split('.')[1];draft.timeBreakdown[branch].enabled=true;draft.timeHierarchyEnabled=true;}
+        if(path.startsWith('timeBreakdown.')){const branch=path.split('.')[1];draft.timeBreakdown[branch].enabled=true;draft.timeHierarchyEnabled=true;draft.timeOverrides[branch]={...(draft.timeOverrides[branch]||{}),enabled:false};}
+        if(path.startsWith('timeOverrides.'))draft.timeHierarchyEnabled=true;
         if(['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'].includes(path))draft.timeHierarchyEnabled=true;
         for(const [id,category] of Object.entries(M.timeCategories))if(path===category.total){draft.timeBreakdown[id].enabled=false;draft.timeHierarchyEnabled=true;}
       }
@@ -41,14 +42,15 @@ window.STRealData=(function(){
   function control(parent,field,record,equipmentId){
     const [path,label,type,scale=1,options]=field,wrapper=el('label',label),input=el(type==='select'?'select':type==='textarea'?'textarea':'input');
     let value=M.at(record,path);
+    const zeroDefault=type==='number'&&(path.startsWith('timeBreakdown.')||path.startsWith('timeOverrides.')||['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'].includes(path));
     if(type==='select')for(const [v,text] of options){const option=el('option',text);option.value=v;input.append(option);}
     else if(type!=='textarea')input.type=type;
     input.dataset.realField=path;if(equipmentId){input.dataset.equipmentId=equipmentId;input.dataset.realEquipmentField=path;}
     if(path.startsWith('aem.')||path==='referenceSpeedBpm')input.dataset.aemField=path;
     if(type==='number'){
-      input.min=['durationSeconds','referenceSpeedBpm','bottlesPerCase','exposureSeconds'].includes(path)?'0.000001':'0';
+      input.min=['referenceSpeedBpm','bottlesPerCase','exposureSeconds'].includes(path)?'0.000001':'0';
       input.step=['failureCount','bottlesPerCase'].includes(path)?'1':'any';if(/Percent$/.test(path))input.max='100';
-      input.value=value==null?'':value/scale;
+      input.value=value==null?(zeroDefault?'0':''):value/scale;
     }else input.value=value??'';
     if(type==='text')input.maxLength=path==='source'?2000:160;
     if(type==='textarea')input.maxLength=equipmentId?4000:8000;
@@ -57,26 +59,40 @@ window.STRealData=(function(){
     if(path==='operatingSeconds')tip(input,'Tiempo operativo interno medido, no el período calendario. Se usa para calcular MTBF = tiempo operativo / número de fallas.');
     if(path==='exposureSeconds')tip(input,'Período de observación del equipo. Debe coincidir con el período de la simulación para una comparación equivalente.');
     if(path==='validation.rateLossBasis')tip(input,'La pérdida bruta no resta recuperación. El balance neto es pérdida bruta − recuperación. La selección solo cambia la comparación, no el motor.');
-    input.oninput=()=>{if(!input.checkValidity()){status('Revisa el valor de '+label+'.',true);return;}edit(path,type==='number'?(input.value===''?null:Number(input.value)*scale):input.value,equipmentId);};
+    input.oninput=()=>{if(input.readOnly||input.disabled)return;if(!input.checkValidity()){status('Revisa el valor de '+label+'.',true);return;}edit(path,type==='number'?(input.value===''?(zeroDefault?0:null):Number(input.value)*scale):input.value,equipmentId);};
     wrapper.append(input);parent.append(wrapper);
+    if(parent.tagName==='SUMMARY'){input.addEventListener('click',e=>e.stopPropagation());input.addEventListener('keydown',e=>e.stopPropagation());}
+    return input;
   }
   function timeTree(target,record){
     function node(parent,id,label,formula){
       const details=el('details',null,'real-data-time-node'),summary=el('summary'),body=el('div',null,'real-data-time-children');details.dataset.timeNode=id;
-      const title=el('span',label),value=el('output',null,'numeric');value.dataset.timeValue=id;value.setAttribute('aria-label',label+' calculado en minutos');tip(value,formula);
-      summary.append(title,value);details.open=['total','plant','production','runtime'].includes(id);details.append(summary,body);parent.append(details);return {details,summary,body};
+      const title=el('span',label);summary.append(title);
+      if(M.timeSectionIds.includes(id)){
+        const group=el('span',null,'switchable-value real-data-time-switch'),toggle=el('input'),value=el('input');toggle.type='checkbox';toggle.dataset.timeToggle=id;toggle.setAttribute('aria-label','Capturar '+label+' manualmente');toggle.title='Marcado: entrada manual. Desmarcado: salida calculada a partir de sus conceptos.';
+        value.type='number';value.min='0';value.step='any';value.dataset.timeValue=id;value.dataset.realField='timeOverrides.'+id+'.valueSeconds';value.setAttribute('aria-label',label+' (min)');tip(value,formula+' Marcado: valor manual. Desmarcado: valor calculado.');
+        for(const input of [toggle,value]){input.addEventListener('click',e=>e.stopPropagation());input.addEventListener('keydown',e=>e.stopPropagation());}
+        toggle.onchange=()=>{
+          try{const draft=M.normalize(current()),h=M.timeHierarchy(draft),previous=draft.timeOverrides[id];draft.timeOverrides[id]={enabled:toggle.checked,valueSeconds:previous?.valueSeconds??Math.max(0,h.values[id]||0)};draft.timeHierarchyEnabled=true;if(M.timeCategories[id])draft.timeBreakdown[id].enabled=!toggle.checked;persist(M.normalize(draft));refresh();status('Modo de captura actualizado.');}catch(error){status(error.message,true);}
+        };
+        value.oninput=()=>{if(value.readOnly||!value.checkValidity())return;edit(value.dataset.realField,value.value===''?0:Number(value.value)*60);};
+        group.append(toggle,value,el('span','min'));summary.append(group);
+      }
+      details.open=['total','plant','production','runtime'].includes(id);details.append(summary,body);parent.append(details);return {details,summary,body};
     }
     const root=node(target,'total','Total Time','Duración total del período observado.');root.summary.replaceChildren();
     control(root.summary,['durationSeconds','Total Time (min)','number',60],record);
     const totalInput=root.summary.querySelector('input');totalInput.addEventListener('click',e=>e.stopPropagation());totalInput.addEventListener('keydown',e=>e.stopPropagation());
     function branch(parent,id){
-      const c=M.timeCategories[id],n=node(parent,id,c.label,'Suma de los conceptos de '+c.label+'. Completa todos los valores del desglose; cero significa ausencia confirmada.');
+      const c=M.timeCategories[id],n=node(parent,id,c.label,'Suma de los conceptos de '+c.label+'. Los campos vacíos cuentan como cero.');
       const grid=el('div',null,'real-data-fields');n.body.append(grid);
-      for(const [key,label] of c.fields)control(grid,['timeBreakdown.'+id+'.'+key,label+' (min)','number',60],record);
-      const note=el('p',null,'chart-note');note.dataset.timeSource=id;n.body.append(note);
-      const zero=el('button','Sin pérdidas: completar con 0');zero.type='button';zero.className='btn';zero.onclick=()=>{
-        try{const draft=M.normalize(current());draft.timeHierarchyEnabled=true;draft.timeBreakdown[id].enabled=true;for(const [key] of c.fields){draft.timeBreakdown[id][key]=0;const input=grid.querySelector('[data-real-field="timeBreakdown.'+id+'.'+key+'"]');input.value='0';}persist(M.normalize(draft));refresh();status('Desglose actualizado.');}catch(error){status(error.message,true);}
-      };n.body.append(zero);return n;
+      for(const [key,label] of c.fields){
+        if(id==='unplanned'&&key==='unscheduledMaintenanceSeconds'){
+          const concept=el('details',null,'real-data-time-node'),summary=el('summary'),body=el('div',null,'real-data-time-children');concept.dataset.timeConcept='unscheduledMaintenance';concept.append(summary,body);grid.append(concept);
+          control(summary,['timeBreakdown.'+id+'.'+key,label+' (min)','number',60],record);registerEquipment(body,record);
+        }else control(grid,['timeBreakdown.'+id+'.'+key,label+' (min)','number',60],record);
+      }
+      return n;
     }
     branch(root.body,'external');
     const plant=node(root.body,'plant','Plant Available Time','Total Time − Business / External Downtime.');branch(plant.body,'decision');
@@ -89,21 +105,32 @@ window.STRealData=(function(){
   }
   function refreshTimeTree(){
     const record=current();if(!record)return;const h=M.timeHierarchy(record);
-    for(const output of document.querySelectorAll('[data-time-value]'))output.textContent=fmt(h.values[output.dataset.timeValue]==null?null:h.values[output.dataset.timeValue]/60)+' min';
-    for(const note of document.querySelectorAll('[data-time-source]')){const id=note.dataset.timeSource;note.textContent=record.timeBreakdown?.[id]?.enabled?'El total se calcula al completar el desglose. Vacío significa desconocido.':'Total previo sin desglosar: '+fmt(h.values[id]==null?null:h.values[id]/60)+' min. Completa el desglose para recalcularlo.';}
+    for(const output of document.querySelectorAll('[data-time-value]')){
+      const id=output.dataset.timeValue;if(output.tagName==='INPUT'){
+        const manual=M.timeMode(record,id),wasManual=output.dataset.inputMode==='true';output.readOnly=!manual;output.classList.toggle('calculated-value',!manual);output.dataset.inputMode=String(manual);
+        if(document.activeElement!==output||!manual||manual!==wasManual)output.value=finite(h.values[id])?Number((h.values[id]/60).toFixed(6)):'';
+        const toggle=document.querySelector('[data-time-toggle="'+id+'"]');toggle.checked=manual;
+      }else output.textContent=fmt(h.values[id]==null?null:h.values[id]/60)+' min';
+    }
+    for(const id of M.timeSectionIds){
+      const node=document.querySelector('[data-time-node="'+id+'"]');if(!node)continue;const manual=M.timeMode(record,id);node.dataset.manual=String(manual);
+      for(const input of node.querySelectorAll('[data-real-field]'))if(input.closest('[data-time-node]')===node&&!input.dataset.timeValue&&!input.dataset.equipmentId)input.disabled=manual;
+    }
   }
   function register(){
     const target=document.getElementById('real-data-editor');target.replaceChildren();const record=current();if(!record){target.append(el('p','Crea o importa un registro.','empty'));return;}
     const r=M.normalize(record);
     if(r.reportedProductionUnits==null&&r.productionUnit==='BOTTLES')r.reportedProductionUnits=r.production;
     if(r.reportedProductionCases==null&&r.productionUnit==='CASES')r.reportedProductionCases=r.production;
-    const capturedInTree=new Set(['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds','aem.scrapUnits','aem.reworkUnits','validation.rateLossBasis','updtSeconds','updtDefinition']);
+    const capturedInTree=new Set(['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds','aem.scrapUnits','aem.reworkUnits','validation.rateLossBasis','updtSeconds','updtDefinition','notes']);
     for(const group of M.fieldGroups){
       if(group.id==='times'){timeTree(target,r);continue;}
       const fields=group.fields.filter(([path])=>!capturedInTree.has(path));if(!fields.length)continue;
       const details=el('details',null,'real-data-input-group'),summary=el('summary',group.label),grid=el('div',null,'real-data-fields');details.open=!!group.open;details.append(summary,grid);
       for(const field of fields)control(grid,field,r);target.append(details);
     }
+  }
+  function registerEquipment(target,r){
     const details=el('details',null,'real-data-input-group'),summary=el('summary','Downtime y confiabilidad por equipo'),note=el('p','Captura las fallas propias relacionadas con MTTR/MTBF. Los minutos de equipos pueden coincidir. Los campos vacíos son desconocidos; cero debe ser un dato confirmado.','chart-note');details.append(summary,note);
     const models=(context.simulation?.equipment||[]).slice();for(const e of r.equipment)if(!models.some(m=>m.id===e.equipmentId))models.push({id:e.equipmentId,name:e.name||e.equipmentId});
     for(const e of models){
@@ -188,6 +215,7 @@ window.STRealData=(function(){
   function reportHtml(result){
     const fields=M.fieldGroups.flatMap(g=>g.fields.map(([path,label,type,scale=1])=>({label,value:M.at(result.observation,path),scale,type}))).filter(r=>r.value!=null&&r.value!=='');
     for(const [id,category] of Object.entries(M.timeCategories))for(const [key,label] of category.fields){const value=result.observation.timeBreakdown?.[id]?.[key];if(value!=null)fields.push({label:category.label+' / '+label+' (min)',value,scale:60,type:'number'});}
+    for(const [id,mode] of Object.entries(result.observation.timeOverrides||{}))if(mode.enabled)fields.push({label:(M.timeCategories[id]?.label||({plant:'Plant Available Time',production:'Production Available Time',runtime:'Runtime',losses:'Runtime Losses'})[id])+' (entrada manual, min)',value:mode.valueSeconds??0,scale:60,type:'number'});
     if(result.observation.reportedProductionUnits==null&&result.observation.reportedProductionCases==null&&finite(result.observation.production))fields.push({label:'Producción original ('+result.observation.productionUnit+')',value:result.observation.production,scale:1});
     const registration='<table><tbody>'+fields.map(f=>'<tr><th>'+esc(f.label)+'</th><td>'+esc(typeof f.value==='number'?fmt(f.value/f.scale):f.value)+'</td></tr>').join('')+'</tbody></table>';
     return '<!doctype html><html lang="es"><meta charset="utf-8"><title>Comparación de datos reales</title><style>body{font:14px system-ui;max-width:1200px;margin:24px auto;padding:16px;color:#213547}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{padding:8px;border-bottom:1px solid #ccd5dd;text-align:left}.real-data-calibration-scroll{overflow-x:auto}.real-data-calibration-table{min-width:1600px}.real-data-calibration-table thead{background:#24599a;color:white}.real-data-calibration-table th{text-align:center}.real-data-calibration-table small{display:block}.numeric{text-align:right;font-variant-numeric:tabular-nums}.real-data-reported{display:block;font-weight:400}.chart-note{color:#52616c}.real-data-group-row{background:#eef4f7}section{margin:24px 0}@media print{tr{break-inside:avoid}body{max-width:none;margin:0}}</style><h1>'+esc(result.observation.name)+'</h1><section><h2>1. Registro</h2>'+registration+'</section><section><h2>2. Comparación de parámetros</h2>'+comparisonHtml(result,false)+'</section><section><h2>3. Ajuste calibrado de rate loss</h2>'+calibrationHtml(result)+'</section><section><h2>4. Downtime por fallas de equipos</h2>'+downtimeHtml(result)+'</section><details><summary>Datos de equipos capturados</summary><pre>'+esc(JSON.stringify(result.observation.equipment,null,2))+'</pre></details><h2>Revisión de datos</h2><ul>'+result.warnings.map(w=>'<li>'+esc(displayText(w))+'</li>').join('')+'</ul></html>';

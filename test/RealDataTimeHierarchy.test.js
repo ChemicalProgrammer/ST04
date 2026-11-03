@@ -1,53 +1,60 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {JSDOM} from 'jsdom';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
 const clean=v=>JSON.parse(JSON.stringify(v));
-test('registration nests the entire time hierarchy and recalculates without losing focus or collapse state',()=>{
- const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f);
- const node=id=>w.document.querySelector('[data-time-node="'+id+'"]'),value=id=>w.document.querySelector('[data-time-value="'+id+'"]');
- assert(node('total').querySelector(':scope > summary [data-real-field="durationSeconds"]'));
- const childIds=id=>[...node(id).querySelector(':scope > .real-data-time-children').children].filter(e=>e.dataset.timeNode).map(e=>e.dataset.timeNode);
- assert.deepEqual(childIds('total'),['external','plant']);assert.deepEqual(childIds('plant'),['decision','production']);assert.deepEqual(childIds('production'),['unplanned','runtime']);assert.deepEqual(childIds('runtime'),['losses','effective']);
- node('external').open=false;const input=w.document.querySelector('[data-real-field="timeBreakdown.external.productionDayLossesSeconds"]');input.focus();input.value='82';input.dispatchEvent(new w.Event('input'));
- assert.equal(value('external').textContent,'— min');assert.equal(value('plant').textContent,'— min');assert.equal(node('external').open,false);assert.equal(w.document.activeElement,input);
- for(const key of ['nonProductionDaysSeconds','outsideSourcesSeconds','holidaysSeconds']){const e=w.document.querySelector('[data-real-field="timeBreakdown.external.'+key+'"]');e.value='0';e.dispatchEvent(new w.Event('input'));}
- assert.equal(value('external').textContent,'82 min');assert.equal(value('plant').textContent.replaceAll(',',''),'1358 min');assert.equal(value('production').textContent.replaceAll(',',''),'1358 min');
- const stored=owner.metadata.realData.records[0];assert.equal(stored.timeBreakdown.external.productionDayLossesSeconds,82*60);assert.equal(stored.aem.businessExternalDowntimeSeconds,0);
- const compared=w.STRealData.compare(stored,f.simulation,f.result,'average',{});assert.equal(compared.rows.find(r=>r.id==='Plant Available Time (T2)').real,1358);assert.equal(compared.rows.find(r=>r.id==='Business / External Downtime').real,82);assert.equal(compared.observation.aem.businessExternalDowntimeSeconds,0);
+function change(w,path,value){const input=w.document.querySelector('[data-real-field="'+path+'"]');assert(input,path);input.focus();input.value=value;input.dispatchEvent(new w.Event('input'));return input;}
+function toggle(w,id,checked){const e=w.document.querySelector('[data-time-toggle="'+id+'"]');e.checked=checked;e.dispatchEvent(new w.Event('change'));return e;}
+const numeric=(w,id)=>Number(w.document.querySelector('[data-time-value="'+id+'"]').value);
+test('time hierarchy defaults to zero, clearing a leaf means zero and focus/collapse state stay intact',()=>{
+ const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),node=id=>w.document.querySelector('[data-time-node="'+id+'"]');
+ const children=id=>[...node(id).querySelector(':scope > .real-data-time-children').children].filter(e=>e.dataset.timeNode).map(e=>e.dataset.timeNode);
+ assert.deepEqual(children('total'),['external','plant']);assert.deepEqual(children('plant'),['decision','production']);assert.deepEqual(children('production'),['unplanned','runtime']);assert.deepEqual(children('runtime'),['losses','effective']);
+ assert(!w.document.getElementById('real-data-editor').textContent.includes('Sin pérdidas: completar con 0'));
+ const blank=w.document.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]');assert.equal(blank.value,'0');
+ node('external').open=false;const input=change(w,'timeBreakdown.external.productionDayLossesSeconds','82');
+ assert.equal(numeric(w,'external'),82);assert.equal(numeric(w,'plant'),1358);assert.equal(node('external').open,false);assert.equal(w.document.activeElement,input);
+ change(w,'timeBreakdown.external.productionDayLossesSeconds','');assert.equal(numeric(w,'external'),0);assert.equal(numeric(w,'plant'),1440);assert.equal(owner.metadata.realData.records[0].timeBreakdown.external.productionDayLossesSeconds,0);
  assert.equal(JSON.stringify(f.result),saved);
+ const sample=w.STRealData.template(f.simulation.equipment).records[0];assert.equal(sample.timeBreakdown.unplanned.unscheduledMaintenanceSeconds,0);assert.equal(sample.rateLossSeconds,0);
  }finally{w.close();}
 });
-test('branch totals distinguish unknown and zero, persist through JSON import and preserve historical aggregate records',()=>{
- const w=setup();try{const f=fixture(),record=w.STRealData.normalize(f.record),before=JSON.stringify(record);let h=w.STRealDataModel.timeHierarchy(record);
- assert.equal(h.values.external,0);assert.equal(h.values.unplanned,512*60);assert.equal(h.values.runtime,928*60);assert.equal(h.values.effective,775*60);assert.equal(JSON.stringify(record),before);
- record.timeBreakdown.decision.enabled=true;record.timeBreakdown.decision.plannedMaintenanceSeconds=100*60;h=w.STRealDataModel.timeHierarchy(record);assert.equal(h.values.decision,null);assert.equal(h.values.production,null);
- for(const [key] of w.STRealDataModel.timeCategories.decision.fields)record.timeBreakdown.decision[key]=0;
- record.timeBreakdown.decision.plannedMaintenanceSeconds=100*60;
- const restored=w.STRealData.normalize(clean(record));assert.equal(restored.timeHierarchyEnabled,true);h=w.STRealDataModel.timeHierarchy(restored);assert.equal(h.values.decision,100*60);assert.equal(h.values.production,1340*60);assert.equal(h.values.effective,675*60);
- const compare=w.STRealData.compare(restored,f.simulation,f.result,'average',{});assert.equal(compare.rows.find(r=>r.id==='Production Available Time (T3)').real,1340);
- const imported=w.STRealData.importRecords({schema:'st-real-data-v1',records:[clean(restored)]});assert.equal(imported[0].timeBreakdown.decision.plannedMaintenanceSeconds,100*60);
- const report=new JSDOM(w.STRealData.reportHtml(compare));assert(report.window.document.body.textContent.includes('Planned Maintenance (min)'));report.window.close();
- const template=w.STRealData.template(f.simulation.equipment);assert(template.records[0].timeBreakdown.unplanned);assert.equal(template.records[0].timeBreakdown.unplanned.unscheduledMaintenanceSeconds,null);
+test('checkbox switches input/output, preserves manual value and breakdown and prevents double counting',()=>{
+ const w=setup();try{const f=fixture(),{owner}=mount(w,f);change(w,'timeBreakdown.external.productionDayLossesSeconds','10');
+ const output=w.document.querySelector('[data-time-value="external"]');assert.equal(output.readOnly,true);assert.equal(output.value,'10');
+ toggle(w,'external',true);assert.equal(output.readOnly,false);assert.equal(output.value,'10');
+ change(w,'timeOverrides.external.valueSeconds','25');assert.equal(numeric(w,'external'),25);assert.equal(numeric(w,'plant'),1415);
+ assert.equal(w.document.querySelector('[data-real-field="timeBreakdown.external.productionDayLossesSeconds"]').disabled,true);
+ toggle(w,'external',false);assert.equal(output.value,'10');assert.equal(output.readOnly,true);assert.equal(numeric(w,'plant'),1430);
+ toggle(w,'external',true);assert.equal(output.value,'25');change(w,'timeOverrides.external.valueSeconds','');assert.equal(numeric(w,'external'),0);
+ const r=owner.metadata.realData.records[0];assert.equal(r.timeBreakdown.external.productionDayLossesSeconds,600);assert.equal(r.timeOverrides.external.valueSeconds,0);
+ const restored=w.STRealData.normalize(clean(r));assert.equal(w.STRealDataModel.timeHierarchy(restored).values.external,0);
+ const imported=w.STRealData.importRecords({schema:'st-real-data-v1',records:[clean(r)]});assert.equal(imported[0].timeOverrides.external.enabled,true);
  }finally{w.close();}
 });
-test('explicit zero action updates only its branch and invalid balances remain visible',()=>{
- const w=setup();try{const f=fixture(),{owner}=mount(w,f),branch=w.document.querySelector('[data-time-node="unplanned"]');branch.querySelector('button').click();
- assert.equal(w.document.querySelector('[data-time-value="unplanned"]').textContent,'0 min');const r=owner.metadata.realData.records[0];assert.equal(r.timeBreakdown.unplanned.enabled,true);assert.equal(r.timeBreakdown.external.enabled,false);assert.equal(r.downtimeSeconds,512*60);
- r.timeBreakdown.unplanned.unscheduledMaintenanceSeconds=1500*60;
- const h=w.STRealDataModel.timeHierarchy(r);assert.equal(h.values.runtime,-60*60);assert(h.warnings.some(v=>v.includes('Runtime')));
- r.aem.scrapSeconds=null;r.aem.scrapUnits=220;r.aem.reworkSeconds=null;r.aem.reworkUnits=null;
- const quality=w.STRealDataModel.timeHierarchy(r);assert.equal(quality.values.scrap,60);assert.equal(quality.values.losses,null);assert.equal(quality.values.effective,null);
+test('legacy totals start as manual inputs and all manual time sections propagate into their dependent balances',()=>{
+ const w=setup();try{const f=fixture(),{owner}=mount(w,f);assert.equal(w.document.querySelector('[data-time-toggle="unplanned"]').checked,true);assert.equal(numeric(w,'unplanned'),512);
+ toggle(w,'plant',true);change(w,'timeOverrides.plant.valueSeconds','1300');assert.equal(numeric(w,'production'),1300);assert.equal(numeric(w,'runtime'),788);
+ let d=w.STRealData.compare(owner.metadata.realData.records[0],f.simulation,f.result,'average',{});assert.equal(d.rows.find(r=>r.id==='Plant Available Time (T2)').real,1300);assert.equal(d.rows.find(r=>r.id==='Plant Available Time (T2)').realSource,'capturado manualmente');
+ toggle(w,'runtime',true);change(w,'timeOverrides.runtime.valueSeconds','600');d=w.STRealData.compare(owner.metadata.realData.records[0],f.simulation,f.result,'average',{});assert.equal(d.rows.find(r=>r.id==='Runtime AEM (T4)').real,600);assert(d.warnings.some(v=>v.includes('Runtime')&&v.includes('balance')));
+ toggle(w,'losses',true);change(w,'timeOverrides.losses.valueSeconds','200');assert.equal(w.document.querySelector('[data-time-value="effective"]').textContent,'400 min');
+ assert.equal(owner.metadata.realData.records[0].downtimeSeconds,512*60);
+ const withoutOutput=clean(owner.metadata.realData.records[0]);withoutOutput.aem.goodOutputUnits=null;const fromManualLoss=w.STRealData.compare(withoutOutput,f.simulation,f.result,'average',{});assert.equal(fromManualLoss.rows.find(r=>r.id==='effective').real,400);
+ const report=new JSDOM(w.STRealData.reportHtml(d));assert(report.window.document.body.textContent.includes('1300')||report.window.document.body.textContent.includes('1,300'));report.window.close();
  }finally{w.close();}
 });
-
-test('effective runtime is a static result and registration has no redundant summary or quality inputs',()=>{
- const w=setup();try{const f=fixture();f.record.runTimeSeconds=900*60;f.record.effectiveRuntimeSeconds=622*60;f.record.aem.scrapUnits=12;f.record.updtSeconds=30*60;
- const {owner}=mount(w,f),editor=w.document.getElementById('real-data-editor'),effective=editor.querySelector('[data-time-node="effective"]');
- assert.equal(effective.tagName,'DIV');assert.equal(effective.querySelector('summary,details,input'),null);assert(effective.querySelector('output'));
- assert(!editor.textContent.includes('Totales y tiempos reportados (sin desglose)'));
- for(const key of ['aem.businessExternalDowntimeSeconds','aem.plantAvailableSeconds','aem.plantDecisionDowntimeSeconds','aem.productionAvailableSeconds','downtimeSeconds','runTimeSeconds','effectiveRuntimeSeconds','aem.scrapUnits','aem.reworkUnits','updtSeconds','updtDefinition'])assert.equal(editor.querySelector('[data-real-field="'+key+'"]:not([data-equipment-id])'),null);
- for(const key of ['rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds'])assert.equal(editor.querySelectorAll('[data-real-field="'+key+'"]').length,1);
- const keys=[...editor.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(keys).size,keys.length);
- const rate=editor.querySelector('[data-real-field="rateLossSeconds"]');rate.value='150';rate.dispatchEvent(new w.Event('input'));
- assert.equal(effective.querySelector('output').textContent,'778 min');
- const saved=owner.metadata.realData.records[0];assert.equal(saved.runTimeSeconds,900*60);assert.equal(saved.effectiveRuntimeSeconds,622*60);assert.equal(saved.aem.scrapUnits,12);assert.equal(saved.updtSeconds,30*60);
+test('registration frames sections, omits main notes and nests equipment under unscheduled maintenance without summing failures into line stops',()=>{
+ const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f),editor=w.document.getElementById('real-data-editor');
+ const equipment=editor.querySelector('[data-real-equipment-field="failureSeconds"]');assert(equipment.closest('[data-time-concept="unscheduledMaintenance"]'));assert(equipment.closest('[data-time-node="unplanned"]'));
+ for(const text of ['Identificación','Producción y calidad','Indicadores reportados'])assert([...editor.querySelectorAll('details.real-data-input-group > summary')].some(e=>e.textContent===text));
+ assert.equal(editor.querySelector('[data-real-field="notes"]:not([data-equipment-id])'),null);
+ const effective=editor.querySelector('[data-time-node="effective"]');assert.equal(effective.tagName,'DIV');assert.equal(effective.querySelector('summary,input'),null);
+ const paths=[...editor.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(paths).size,paths.length);
+ equipment.value='100';equipment.dispatchEvent(new w.Event('input'));assert.equal(numeric(w,'unplanned'),512);assert.equal(owner.metadata.realData.records[0].equipment[0].failureSeconds,6000);assert.equal(JSON.stringify(f.result),saved);
+ const css=fs.readFileSync('apps-script/RealDataStyles.html','utf8');assert(css.includes('[data-time-node="plant"][open] > .real-data-time-children'));assert(!css.includes('[data-time-node="total"][open] > .real-data-time-children { display:grid'));assert(css.includes('details.real-data-input-group { border:'));
+ }finally{w.close();}
+});
+test('hierarchy reports negative balances and uses legacy quality quantities while empty quality counts as zero',()=>{
+ const w=setup();try{const r=w.STRealData.normalize(fixture().record);r.timeBreakdown.unplanned.enabled=true;r.timeOverrides.unplanned={enabled:false,valueSeconds:512*60};r.timeBreakdown.unplanned.unscheduledMaintenanceSeconds=1500*60;
+ let h=w.STRealDataModel.timeHierarchy(r);assert.equal(h.values.runtime,-60*60);assert(h.warnings.some(v=>v.includes('Runtime')));
+ r.aem.scrapSeconds=null;r.aem.scrapUnits=220;r.aem.reworkSeconds=null;r.aem.reworkUnits=null;h=w.STRealDataModel.timeHierarchy(r);assert.equal(h.values.scrap,60);assert.equal(h.values.rework,0);assert.equal(h.values.losses,154*60);
+ const old=w.STRealData.normalize(fixture().record);const before=JSON.stringify(old);assert.equal(w.STRealDataModel.timeHierarchy(old).values.effective,775*60);assert.equal(JSON.stringify(old),before);
  }finally{w.close();}
 });

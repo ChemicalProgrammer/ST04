@@ -44,7 +44,7 @@ test('only calibration uses available minus unplanned downtime minus rate loss, 
  assert.equal(cell('G').textContent,'787');
  const loss=w.document.querySelector('[data-real-field="rateLossSeconds"]');loss.value='150';loss.dispatchEvent(new w.Event('input'));
  assert.equal(cell('G').textContent,'790');assert.equal(JSON.stringify(f.result),saved);
- setUnplannedMinutes(w,null);assert.equal(cell('G').textContent,'—');
+ setUnplannedMinutes(w,null);assert.equal(cell('G').textContent.replaceAll(',',''),'1290');
  }finally{w.close();}
 });
 test('calibration formula does not overwrite the general AEM effective time',()=>{

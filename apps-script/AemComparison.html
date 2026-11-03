@@ -8,16 +8,16 @@ window.STAemComparison=(function(){
   function calculate(real,sim,times,equipment){
     const a=real.aem||{},warnings=[],t1=real.durationSeconds,t2=a.plantAvailableSeconds??(finite(t1)&&finite(a.businessExternalDowntimeSeconds)?t1-a.businessExternalDowntimeSeconds:null);
     const t3=a.productionAvailableSeconds??(finite(t2)&&finite(a.plantDecisionDowntimeSeconds)?t2-a.plantDecisionDowntimeSeconds:null);
-    const t4=finite(t3)&&finite(real.downtimeSeconds)?t3-real.downtimeSeconds:real.runTimeSeconds;
+    const t4=finite(real.lineRunOverrideSeconds)?real.lineRunOverrideSeconds:finite(t3)&&finite(real.downtimeSeconds)?t3-real.downtimeSeconds:real.runTimeSeconds;
     const standard=real.referenceSpeedBpm,fromQuantity=units=>standard>0&&finite(units)?units/standard*60:null;
     const scrap=a.scrapSeconds??fromQuantity(a.scrapUnits),rework=a.reworkSeconds??fromQuantity(a.reworkUnits);
     const reportedBottles=real.reportedProductionUnits??(real.productionUnit==='BOTTLES'?real.production:real.productionUnit==='CASES'&&real.bottlesPerCase>0&&finite(real.production)?real.production*real.bottlesPerCase:null);
     const good=a.goodOutputUnits??(real.outputBasis==='GOOD'?reportedBottles:real.outputBasis==='GROSS'&&finite(real.qualityPercent)&&finite(reportedBottles)?reportedBottles*real.qualityPercent/100:null);
     const outputTime=fromQuantity(good);
-    const lossTime=[t4,real.rateLossSeconds,scrap,rework].every(finite)?t4-real.rateLossSeconds-scrap-rework:null;
+    const lossTime=finite(t4)&&finite(real.runtimeLossOverrideSeconds)?t4-real.runtimeLossOverrideSeconds:[t4,real.rateLossSeconds,scrap,rework].every(finite)?t4-real.rateLossSeconds-scrap-rework:null;
     const t5=outputTime??lossTime,derivedRate=[t4,t5,scrap,rework].every(finite)?t4-t5-scrap-rework:null;
     const validT5=finite(t5)&&t5>=0?t5:null;
-    if(finite(outputTime)&&finite(lossTime)&&Math.abs(outputTime-lossTime)>1)warnings.push('La producción conforme / velocidad estándar no coincide con Runtime − Rate Loss − Scrap − Rework. Se conserva el cálculo por producción conforme.');
+    if(finite(outputTime)&&finite(lossTime)&&Math.abs(outputTime-lossTime)>1)warnings.push(finite(real.runtimeLossOverrideSeconds)?'La producción conforme / velocidad estándar no coincide con Runtime − Runtime Losses capturado. Se conserva el cálculo por producción conforme.':'La producción conforme / velocidad estándar no coincide con Runtime − Rate Loss − Scrap − Rework. Se conserva el cálculo por producción conforme.');
     if(finite(t5)&&t5<0)warnings.push('El tiempo efectivo AEM resultó negativo. Revisa las pérdidas capturadas.');
     if(finite(t4)&&finite(real.runTimeSeconds)&&Math.abs(t4-real.runTimeSeconds)>1)warnings.push('Runtime AEM (Production Available − Unplanned Downtime) difiere del Run Time capturado. No se sobrescribe el dato.');
     if(finite(t4)&&finite(validT5)&&validT5>t4+1)warnings.push('Effective Runtime supera Runtime. Revisa la referencia estándar, las unidades y el límite de medición.');
