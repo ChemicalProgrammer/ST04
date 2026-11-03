@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,mount} from './helpers/RealDataHarness.js';
-test('the four-block workspace captures all inputs once and recalculates on input without moving focus',()=>{
+test('the workspace captures all inputs once and recalculates on input without moving focus',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),{owner}=mount(w,f);
- assert.equal(w.document.querySelectorAll('.real-data-block').length,4);assert.equal(w.document.querySelectorAll('#real-data-validation,#real-data-aem-comparison').length,0);
+ assert.equal(w.document.querySelectorAll('.real-data-block').length,3);assert.equal(w.document.querySelectorAll('#real-data-validation,#real-data-aem-comparison').length,0);
  const inputs=[...w.document.querySelectorAll('#real-data-editor [data-real-field]')].filter(e=>!e.dataset.equipmentId);
  assert.equal(new Set(inputs.map(e=>e.dataset.realField)).size,inputs.length);
  for(const key of ['aem.goodOutputUnits','aem.scrapSeconds','aem.reworkSeconds','referenceSpeedBpm','validation.reportedOeePercent'])assert(inputs.some(e=>e.dataset.realField===key));
@@ -16,6 +16,12 @@ test('failure inputs persist separately from general downtime and existing UNKNO
  assert.equal(w.document.querySelector('[data-real-equipment-field="downtimeSeconds"][data-equipment-id="f"]'),null);w.document.querySelector('[data-explorer-select="unscheduledMaintenance"]').click();
  const own=w.document.querySelector('[data-real-equipment-field="failureSeconds"][data-equipment-id="f"]');own.focus();own.value='15';own.dispatchEvent(new w.Event('input'));
  const r=owner.metadata.realData.records[0].equipment[0];assert.equal(r.failureSeconds,900);assert.equal(r.downtimeSeconds,30000);assert.equal(r.stopClass,'UNKNOWN');assert.equal(w.document.activeElement,own);
- assert(w.document.getElementById('real-data-downtime-comparison').textContent.includes('Total de equipos'));
+ assert.equal(w.document.getElementById('real-data-review'),null);
+ assert.equal(w.document.getElementById('real-data-downtime-comparison'),null);
+ w.document.querySelector('[data-comparison-select="equipment-downtime"]').click();
+ const comparison=w.document.querySelector('[data-comparison-group="equipment-downtime"]');
+ assert.equal(comparison.hidden,false);
+ assert.deepEqual([...comparison.querySelectorAll('thead th')].map(cell=>cell.textContent),['Equipo','Real (min)','Simulado (min)','Real (%)','Simulado (%)']);
+ assert(comparison.textContent.includes('Total de equipos'));
  }finally{w.close();}
 });

@@ -11,7 +11,7 @@ test('normalization and import retain legacy observations, quality, equipment ti
 });
 test('saved engine results remain unchanged after all real calculations and report exports',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result);const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
- assert.equal(JSON.stringify(f.result),saved);const html=w.STRealData.reportHtml(d);assert(html.includes('1. Registro'));assert(html.includes('4. Downtime por fallas'));assert(!html.includes('<one>'));assert(html.includes('Filler &lt;one&gt;'));
+ assert.equal(JSON.stringify(f.result),saved);const html=w.STRealData.reportHtml(d);assert(html.includes('1. Registro'));assert(html.includes('Downtime por equipo'));assert(!html.includes('4. Downtime por fallas'));assert(!html.includes('<one>'));assert(html.includes('Filler &lt;one&gt;'));
  }finally{w.close();}
 });
 test('template includes zero time defaults, input/output modes and unmeasured equipment fields',()=>{
