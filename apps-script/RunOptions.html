@@ -25,13 +25,13 @@ window.STRunOptions=(function(){
     document.querySelectorAll('[data-duration-method]').forEach(function(label){label.classList.toggle('hidden',!label.dataset.durationMethod.split(' ').includes(method));});
     el('run-shift-hours').closest('label').classList.toggle('hidden',method!=='SHIFTS'&&!el('run-track-shifts').checked);
     el('settings-shift-count').value=el('run-shift-count').value;
-    ['duration-mode','run-shift-hours','run-shift-count','run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','settings-shift-count','run-calculation-mode','run-events-enabled'].forEach(function(id){el(id).disabled=!!locked;});
+    ['duration-mode','run-shift-hours','run-shift-count','run-duration-unit','run-start-at','run-end-at','run-time-zone','run-track-shifts','settings-shift-count','run-calculation-mode','run-events-enabled','run-reliability-enabled'].forEach(function(id){el(id).disabled=!!locked;});
     el('run-duration').disabled=!!locked||['SHIFTS','DATES'].includes(method);
     var enabled=el('run-events-enabled').checked;document.documentElement.dataset.eventsEnabled=String(enabled);el('simulation-event-section').classList.toggle('hidden',!enabled);
     try{var c=config(),duration=resolve(c),shifts=duration/(c.shiftHours*3600);el('run-duration-summary').textContent=(duration/86400).toLocaleString(undefined,{maximumFractionDigits:3})+' days · '+(duration/3600).toLocaleString(undefined,{maximumFractionDigits:2})+' hours'+(el('run-track-shifts').checked?' · '+Math.floor(shifts)+' complete shifts'+(shifts%1>1e-8?' + '+((shifts%1)*100).toFixed(1)+'% of one shift':''):'')+(c.method==='DATES'?' · '+c.timeZone:'');}catch(error){el('run-duration-summary').textContent=error.message;}
   }
   function apply(run){
-    var c=run.durationOptions||{};if(c.method&&c.method!==run.durationMode)c={amount:run.durationSeconds,unit:'SECONDS'};el('run-duration-unit').value=c.unit||'SECONDS';el('run-duration').value=c.amount??run.durationSeconds??300;el('run-start-at').value=c.start||'';el('run-end-at').value=c.end||'';el('run-time-zone').value=c.timeZone||'America/Mexico_City';el('run-track-shifts').checked=run.trackShifts??run.durationMode==='SHIFTS';el('run-calculation-mode').value=run.calculationPreference||run.calculationMode||'AUTO';el('run-chart-window').value=run.chartWindow||'AUTO';el('run-events-enabled').checked=run.eventsEnabled??Boolean(run.commands?.length||run.plannedStops?.length||run.plantCalendar?.enabled&&run.plantCalendar.mode==='SCHEDULED');sync(false);
+    el('run-reliability-enabled').checked=run.reliabilityEnabled!==false;var c=run.durationOptions||{};if(c.method&&c.method!==run.durationMode)c={amount:run.durationSeconds,unit:'SECONDS'};el('run-duration-unit').value=c.unit||'SECONDS';el('run-duration').value=c.amount??run.durationSeconds??300;el('run-start-at').value=c.start||'';el('run-end-at').value=c.end||'';el('run-time-zone').value=c.timeZone||'America/Mexico_City';el('run-track-shifts').checked=run.trackShifts??run.durationMode==='SHIFTS';el('run-calculation-mode').value=run.calculationPreference||run.calculationMode||'AUTO';el('run-chart-window').value=run.chartWindow||'AUTO';el('run-events-enabled').checked=run.eventsEnabled??Boolean(run.commands?.length||run.plannedStops?.length||run.plantCalendar?.enabled&&run.plantCalendar.mode==='SCHEDULED');sync(false);
   }
   function setSeconds(seconds){el('duration-mode').value='FIXED';el('run-duration-unit').value='SECONDS';el('run-duration').value=seconds;el('run-duration').step='any';sync(false);}
   function windowSeconds(end,shift){var value=el('run-chart-window').value;if(value==='FULL')return Infinity;if(value==='SHIFT')return shift||28800;if(value!=='AUTO')return Number(value);return end<=300?60:end<=3600?900:end<=86400?3600:end<=604800?86400:Math.min(end,604800);}
@@ -39,3 +39,4 @@ window.STRunOptions=(function(){
   return {read:read,apply:apply,sync:sync,resolve:resolve,zonedTimestamp:zonedTimestamp,setSeconds:setSeconds,windowSeconds:windowSeconds,windowLabel:windowLabel};
 })();
 </script>
+
