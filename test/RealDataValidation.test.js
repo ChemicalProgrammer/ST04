@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,calibration,setUnplannedMinutes} from './helpers/RealDataHarness.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,calibration,setUnplannedMinutes,mount} from './helpers/RealDataHarness.js';
 test('calibration applies the agreed spreadsheet formulas without changing the simulated output',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(calibration(d,'realLoss'),10.625);assert.equal(calibration(d,'simLoss'),.99);assert(Math.abs(calibration(d,'lossDifference')-9.635)<1e-9);
@@ -39,7 +39,7 @@ test('only calibration uses available minus unplanned downtime minus rate loss, 
  const saved=JSON.stringify(f.result);mount(w,f);
  const cell=id=>w.document.querySelector('[data-calibration="'+id+'"]');
  assert.equal(cell('G').textContent,'775');
- assert.equal(w.document.querySelector('[data-real-field="runTimeSeconds"]'),null);assert.equal(cell('C').textContent,'900');assert.equal(cell('G').textContent,'775');
+ assert.equal(w.document.querySelector('[data-real-field="runTimeSeconds"]'),null);assert.equal(cell('C').textContent,'928');assert.equal(cell('G').textContent,'775');
  setUnplannedMinutes(w,500);
  assert.equal(cell('G').textContent,'787');
  const loss=w.document.querySelector('[data-real-field="rateLossSeconds"]');loss.value='150';loss.dispatchEvent(new w.Event('input'));
@@ -56,5 +56,21 @@ test('calibration formula does not overwrite the general AEM effective time',()=
  const changed=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(changed.rows.find(r=>r.id==='effective').real,622);
  assert.equal(changed.calibration.columns.find(c=>c.letter==='G').value,775);
+ }finally{w.close();}
+});
+
+ test('calibration Runtime follows live time inputs without a reported runtime or another simulation',()=>{
+ const w=setup();try{
+  const f=fixture(),saved=JSON.stringify(f.result);delete f.record.runTimeSeconds;
+  const {owner}=mount(w,f),cell=()=>w.document.querySelector('[data-calibration="C"]').textContent.replaceAll(',','');
+  assert.equal(cell(),'928');
+  const input=w.document.querySelector('[data-real-field="timeBreakdown.unplanned.processShortagesSeconds"]');
+  input.value='120';input.dispatchEvent(new w.Event('input'));
+  assert.equal(cell(),'1320');
+  assert.equal(owner.metadata.realData.records[0].runTimeSeconds,null);
+  input.value='0';input.dispatchEvent(new w.Event('input'));assert.equal(cell(),'1440');
+  const toggle=w.document.querySelector('[data-time-toggle="runtime"]');toggle.checked=true;toggle.dispatchEvent(new w.Event('change'));
+  const runtime=w.document.querySelector('[data-real-field="timeOverrides.runtime.valueSeconds"]');runtime.value='800';runtime.dispatchEvent(new w.Event('input'));assert.equal(cell(),'800');
+  assert.equal(JSON.stringify(f.result),saved);
  }finally{w.close();}
 });

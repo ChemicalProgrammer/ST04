@@ -7,8 +7,8 @@
 #realdata-panel .real-data-block-heading > .real-data-section-title { color:var(--secondary-text,var(--secondary));margin:0;border-bottom:0;background-image:none; }
 #realdata-panel .real-data-section-title::before,
 #realdata-panel .real-data-section-title::after { content:none; }
-#realdata-panel > .section-heading { flex-direction:row;align-items:center;margin-bottom:var(--space-2); }
-#realdata-panel > .section-heading + .real-data-block { margin-block-start:0; }
+#realdata-panel > .real-data-block[aria-labelledby="real-data-register-title"] { margin-block-start:0; }
+#realdata-panel #real-data-simulation { margin:0 0 var(--space-2); }
 #realdata-panel .real-data-toolbar .export-menu { margin:0; }
 #realdata-panel .real-data-toolbar .export-menu > summary {
   box-sizing:border-box;

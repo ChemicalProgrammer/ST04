@@ -262,7 +262,7 @@ window.STRealDataModel=(function(){
     calibration.columns=[
       col('A','Line',real.validation.line,'','Línea capturada en Registro.'),
       col('B','Date',real.date,'','Fecha capturada en Registro.'),
-      col('C','Runtime',finite(real.runTimeSeconds)?real.runTimeSeconds/60:null,'min','Runtime reportado en Registro, mostrado como referencia. No interviene en el tiempo efectivo del ajuste: este se calcula con Production Available Time − Unplanned Downtime − Production Rate Losses.'),
+      col('C','Runtime',t4,'min','Runtime calculado del registro = Production Available Time − Unplanned Downtime. Si Runtime está en modo manual en el árbol, se usa ese valor. Se actualiza al editar sus inputs. El tiempo efectivo del ajuste se calcula con Production Available Time − Unplanned Downtime − Production Rate Losses.'),
       col('D','Production Available Time',actualAvailable,'min','Tiempo disponible para producción real (T3).'),
       col('E','Unplanned Downtime',finite(actualDowntime)?actualDowntime/60:null,'min','Paros no planificados reales capturados.'),
       col('F','Production Rate Losses',finite(real.rateLossSeconds)?real.rateLossSeconds/60:null,'min','Pérdida de velocidad real capturada, en minutos equivalentes.'),
