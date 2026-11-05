@@ -7,7 +7,7 @@ test('explorer shows a collapsible navigation and exactly one content panel with
  const panel=choose(w,'external');assert.equal(visible(w).length,1);assert.equal(visible(w)[0],panel);assert(panel.querySelector('[data-real-field="timeBreakdown.external.holidaysSeconds"]'));
  assert.equal(w.document.querySelector('[data-explorer-select="external"]').getAttribute('aria-current'),'page');
  assert.equal(w.document.querySelector('[data-explorer-folder="external"]'),null);
- const effective=choose(w,'effective');assert.equal(effective.querySelector('details,input'),null);assert(effective.querySelector('output'));
+ const effective=choose(w,'effective');assert.equal(effective.querySelector('details'),null);assert(effective.querySelector('[data-real-field="effectiveRuntimeSeconds"]'));assert(effective.querySelector('output'));
  assert.equal(w.document.querySelector('[data-explorer-folder="effective"]'),null);
  const ids=[...w.document.querySelectorAll('[id]')].map(e=>e.id);assert.equal(new Set(ids).size,ids.length);
  const paths=[...w.document.querySelectorAll('[data-real-field]:not([data-equipment-id])')].map(e=>e.dataset.realField);assert.equal(new Set(paths).size,paths.length);

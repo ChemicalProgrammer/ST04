@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture,row} from './helpers/RealDataHarness.js';
 test('canonical comparison uses one effective time for AU OE RTE and keeps reported percentages separately',()=>{
- const w=setup();try{const f=fixture(),d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
+ const w=setup();try{const f=fixture();f.record.effectiveRuntimeSeconds=775*60;const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(row(d,'effective').real,775);assert.equal(row(d,'au').real,775/1440*100);assert.equal(row(d,'au').reported,53.8);
  assert.equal(row(d,'oe').real,775/1440*100);assert.equal(row(d,'rte').real,775/928*100);assert.equal(row(d,'updt').real,512/1440*100);
  assert.equal(new Set(d.rows.map(r=>r.id)).size,d.rows.length);assert.equal(d.rows.filter(r=>r.id==='effective').length,1);

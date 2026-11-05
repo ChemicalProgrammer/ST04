@@ -105,13 +105,11 @@ window.STRealData=(function(){
     const losses=node(runtime.body,'losses','Runtime Losses','Production Rate Losses + Scrap + Rework, en minutos equivalentes.');
     const grid=el('div',null,'real-data-fields');losses.body.append(grid);
     for(const field of [['rateLossSeconds','Production Rate Losses (min)','number',60],['aem.scrapSeconds','Scrap (min equivalentes)','number',60],['aem.reworkSeconds','Rework (min equivalentes)','number',60],['validation.rateLossBasis','Definición del rate loss','select',1,[['UNCONFIRMED','Pendiente'],['GROSS','Pérdida bruta'],['NET','Balance neto']]]])control(grid,field,record);
-    const effective=el('div',null,'real-data-time-node real-data-time-result'),effectiveValue=el('output',null,'numeric');effective.dataset.timeNode='effective';effectiveValue.dataset.timeValue='effective';effectiveValue.setAttribute('aria-label','Effective Runtime calculado en minutos');tip(effectiveValue,'Effective Runtime = producción conforme / Standard Rate. Si faltan esos datos, se muestra el balance de tiempos como provisional.');effective.append(el('span','Effective Runtime'),effectiveValue);
-    const reconciliation=el('table',null,'real-data-effective-reconciliation');
-    for(const [key,label] of [['effectiveProduction','Por producción conforme / Standard Rate'],['effectiveBalance','Por balance de tiempos'],['effectiveDifference','Diferencia de conciliación (producción − balance)']]){
-      const row=reconciliation.insertRow(),heading=el('th',label),cell=row.insertCell();heading.scope='row';row.insertBefore(heading,cell);
-      const output=el('output',null,'numeric');output.dataset.effectiveReconciliation=key;cell.append(output);
-    }
-    const source=el('p',null,'chart-note');source.dataset.effectiveSource='true';effective.append(source,reconciliation);runtime.body.append(effective);
+    const effective=el('div',null,'real-data-time-node real-data-time-result'),effectiveValue=el('output',null,'numeric');effective.dataset.timeNode='effective';effectiveValue.dataset.timeValue='effective';effectiveValue.setAttribute('aria-label','Effective Runtime calculado en minutos');tip(effectiveValue,'Effective Runtime calculado = Runtime − Runtime Losses. Runtime Losses = Production Rate Losses + Scrap + Rework, salvo total capturado manualmente.');effective.append(el('span','Effective Runtime'),effectiveValue);
+    const reported=el('div',null,'real-data-fields');
+    const reportedInput=control(reported,['effectiveRuntimeSeconds','Effective Runtime reportado (min)','number',60],record);
+    tip(reportedInput,'Valor reportado por planta. Es el único Effective Runtime real utilizado en las comparaciones y sus indicadores derivados. Si está vacío, queda pendiente; cero es un valor válido.');
+    effective.append(reported);runtime.body.append(effective);
   }
   function refreshTimeTree(){
     const record=current();if(!record)return;const h=M.timeHierarchy(record);
@@ -122,11 +120,6 @@ window.STRealData=(function(){
         const toggle=document.querySelector('[data-time-toggle="'+id+'"]');toggle.checked=manual;
       }else output.textContent=fmt(h.values[id]==null?null:h.values[id]/60)+' min';
     }
-    for(const output of document.querySelectorAll('[data-effective-reconciliation]')){
-      const seconds=h.values[output.dataset.effectiveReconciliation];
-      output.textContent=fmt(finite(seconds)?seconds/60:null)+' min';
-    }
-    for(const source of document.querySelectorAll('[data-effective-source]'))source.textContent='Origen del valor principal: '+h.sources.effective+'.';
     for(const minutes of document.querySelectorAll('[data-explorer-minutes]')){
       const id=minutes.dataset.explorerMinutes;
       const seconds=id==='unscheduledMaintenance'?M.at(record,'timeBreakdown.unplanned.unscheduledMaintenanceSeconds')??0:h.values[id];
@@ -144,7 +137,7 @@ window.STRealData=(function(){
     const r=M.normalize(record);
     if(r.reportedProductionUnits==null&&r.productionUnit==='BOTTLES')r.reportedProductionUnits=r.production;
     if(r.reportedProductionCases==null&&r.productionUnit==='CASES')r.reportedProductionCases=r.production;
-    const capturedInTree=new Set(['durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds','aem.scrapUnits','aem.reworkUnits','validation.rateLossBasis','updtSeconds','updtDefinition','notes']);
+    const capturedInTree=new Set(['effectiveRuntimeSeconds','durationSeconds','rateLossSeconds','aem.scrapSeconds','aem.reworkSeconds','aem.scrapUnits','aem.reworkUnits','validation.rateLossBasis','updtSeconds','updtDefinition','notes']);
     for(const group of M.fieldGroups){
       if(group.id==='times'){timeTree(target,r);continue;}
       const fields=group.fields.filter(([path])=>!capturedInTree.has(path));if(!fields.length)continue;

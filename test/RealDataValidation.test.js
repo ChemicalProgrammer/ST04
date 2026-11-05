@@ -51,10 +51,10 @@ test('calibration formula does not overwrite the general AEM effective time',()=
  const w=setup();try{const f=fixture();f.record.effectiveRuntimeSeconds=622*60;f.record.runTimeSeconds=900*60;
  const d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(d.calibration.columns.find(c=>c.letter==='G').value,775);
- assert.equal(d.rows.find(r=>r.id==='effective').real,775);
+ assert.equal(d.rows.find(r=>r.id==='effective').real,622);
  f.record.aem.goodOutputUnits=220*600;
  const changed=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
- assert.equal(changed.rows.find(r=>r.id==='effective').real,600);
+ assert.equal(changed.rows.find(r=>r.id==='effective').real,622);
  assert.equal(changed.calibration.columns.find(c=>c.letter==='G').value,775);
  }finally{w.close();}
 });

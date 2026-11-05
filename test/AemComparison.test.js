@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {JSDOM} from 'jsdom';
 function setup(){const w=new JSDOM(fs.readFileSync('apps-script/RealDataPanel.html','utf8'),{runScripts:'outside-only'}).window;for(const name of ['AemComparison','RealDataModel','RealData'])w.eval(fs.readFileSync('apps-script/'+name+'.html','utf8').replace(/<\/?script>/g,''));return w;}
 const row=(d,label)=>d.aemComparison.rows.find(r=>r.label===label);
-function fixture(){return {record:{id:'r',name:'AEM example',date:'2026-11-02',durationSeconds:1440*60,downtimeSeconds:512*60,rateLossSeconds:153*60,referenceSpeedBpm:220,aem:{businessExternalDowntimeSeconds:0,plantAvailableSeconds:1440*60,plantDecisionDowntimeSeconds:0,productionAvailableSeconds:1440*60,goodOutputUnits:775*220,scrapSeconds:0,reworkSeconds:0},equipment:[{equipmentId:'a',operatingSeconds:6000,failureCount:5,failureSeconds:600,mtbfMinutes:20,mttrMinutes:2}]},sim:{id:'s',dynamicConfig:{},equipment:[{id:'a',name:'Filler <x>',noiseProfile:{reliability:{mtbfMinutes:100,mttrMinutes:5}}}]},result:{durationSeconds:86400,unitOfFlow:'bottles',summary:{outputCount:775*220,lineOeePercent:775/1440*100,lineRunSeconds:928*60,lineEffectiveRuntimeSeconds:775*60,lineRateLossSeconds:153*60,lineRateRecoverySeconds:0,lineNetRateBalanceSeconds:153*60,lineOeePacemakerRatePerSecond:220/60,lineRateLossBasis:'MEASURED'},equipmentMetrics:{a:{runningSeconds:12000,failureCount:4,failureSeconds:1200}}}};}
+function fixture(){return {record:{id:'r',name:'AEM example',date:'2026-11-02',durationSeconds:1440*60,effectiveRuntimeSeconds:775*60,downtimeSeconds:512*60,rateLossSeconds:153*60,referenceSpeedBpm:220,aem:{businessExternalDowntimeSeconds:0,plantAvailableSeconds:1440*60,plantDecisionDowntimeSeconds:0,productionAvailableSeconds:1440*60,goodOutputUnits:775*220,scrapSeconds:0,reworkSeconds:0},equipment:[{equipmentId:'a',operatingSeconds:6000,failureCount:5,failureSeconds:600,mtbfMinutes:20,mttrMinutes:2}]},sim:{id:'s',dynamicConfig:{},equipment:[{id:'a',name:'Filler <x>',noiseProfile:{reliability:{mtbfMinutes:100,mttrMinutes:5}}}]},result:{durationSeconds:86400,unitOfFlow:'bottles',summary:{outputCount:775*220,lineOeePercent:775/1440*100,lineRunSeconds:928*60,lineEffectiveRuntimeSeconds:775*60,lineRateLossSeconds:153*60,lineRateRecoverySeconds:0,lineNetRateBalanceSeconds:153*60,lineOeePacemakerRatePerSecond:220/60,lineRateLossBasis:'MEASURED'},equipmentMetrics:{a:{runningSeconds:12000,failureCount:4,failureSeconds:1200}}}};}
 test('AEM computes time hierarchy and all percentages using the correct denominators',()=>{
  const w=setup();try{
   const f=fixture(),d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
@@ -25,12 +25,12 @@ test('quality units convert at standard rate, known zero stays zero, and missing
   let d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
   assert.equal(row(d,'Scrap (tiempo equivalente)').real,1);assert.equal(row(d,'Rework (tiempo equivalente)').real,2);
   assert.equal(row(d,'Rate Loss despejado / balance neto').real,150);
-  assert(d.aemComparison.warnings.some(w=>w.includes('no coincide')));
-  delete f.record.aem.goodOutputUnits;delete f.record.aem.scrapUnits;delete f.record.aem.reworkUnits;
+  assert(d.aemComparison.warnings.some(w=>w.includes('rate loss despejado')));
+  f.record.effectiveRuntimeSeconds=null;delete f.record.aem.goodOutputUnits;delete f.record.aem.scrapUnits;delete f.record.aem.reworkUnits;
   d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
   assert.equal(row(d,'Effective Runtime AEM (T5)').real,null);assert.equal(row(d,'Scrap (tiempo equivalente)').real,null);
   assert.equal(row(d,'Scrap (tiempo equivalente)').simulated,0);
-  f.record.aem.scrapSeconds=0;f.record.aem.reworkSeconds=0;
+  f.record.aem.scrapSeconds=0;f.record.aem.reworkSeconds=0;f.record.effectiveRuntimeSeconds=775*60;
   d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});assert.equal(row(d,'Effective Runtime AEM (T5)').real,775);
  }finally{w.close();}
 });
@@ -38,8 +38,8 @@ test('AEM UI updates on input, persists extra fields and export includes equatio
  const w=setup();try{
   const f=fixture(),before=JSON.stringify(f.result),owner={id:'case',metadata:{realData:{records:[w.STRealData.normalize(f.record)]}}};
   w.STRealData.init({activeCase:owner},{changed(){}});w.STRealData.render(owner,{...f.sim,results:f.result});
-  w.document.querySelector('[data-explorer-select="group:production"]').click();const input=w.document.querySelector('[data-aem-field="aem.goodOutputUnits"]');input.focus();input.value=String(700*220);input.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.equal(w.document.activeElement,input);assert.equal(owner.metadata.realData.records[0].aem.goodOutputUnits,700*220);
+  w.document.querySelector('[data-explorer-select="effective"]').click();const input=w.document.querySelector('[data-real-field="effectiveRuntimeSeconds"]');input.focus();input.value='700';input.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(w.document.activeElement,input);assert.equal(owner.metadata.realData.records[0].effectiveRuntimeSeconds,700*60);
   const section=w.document.getElementById('real-data-comparison');assert(section.textContent.includes('Runtime Efficiency (RTE)'));
   assert([...section.querySelectorAll('tbody tr')].find(r=>r.cells[0].textContent==='Effective Runtime').cells[2].textContent==='700');
   assert(section.querySelector('th[title]').getAttribute('aria-description'));
@@ -64,7 +64,7 @@ test('hierarchy reconciles every level and flags independent real-time differenc
   let rows=w.STAemComparison.hierarchy(d.aemComparison),get=id=>rows.find(r=>r.id===id);
   assert.equal(get('runtime').real,928);assert.equal(get('losses').real,153);assert.equal(get('effective').real,775);
   assert(rows.filter(r=>r.children).every(r=>r.realResidual===0&&r.simulatedResidual===0));
-  f.record.aem.goodOutputUnits=700*220;d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
+  f.record.effectiveRuntimeSeconds=700*60;d=w.STRealData.compare(f.record,f.sim,f.result,'average',{}, {simple:true});
   rows=w.STAemComparison.hierarchy(d.aemComparison);assert.equal(get('runtime').realResidual,75);
   assert.equal(get('runtime').realResidual,75);
   delete f.record.aem.scrapSeconds;delete f.record.aem.reworkSeconds;
