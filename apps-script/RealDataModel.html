@@ -29,8 +29,12 @@ window.STRealDataModel=(function(){
     values.plant=value('plant',values.total-values.external);values.production=value('production',values.plant-values.decision);values.runtime=value('runtime',values.production-values.unplanned);
     const quality=kind=>known(record.aem?.[kind+'Seconds'])?record.aem[kind+'Seconds']:known(record.aem?.[kind+'Units'])&&record.referenceSpeedBpm>0?record.aem[kind+'Units']/record.referenceSpeedBpm*60:0;
     values.rateLoss=zero(record.rateLossSeconds);values.scrap=quality('scrap');values.rework=quality('rework');
-    values.losses=value('losses',values.rateLoss+values.scrap+values.rework);values.effective=values.runtime-values.losses;
-    for(const [key,v] of Object.entries(values))if(v<0)warnings.push('El balance de '+({plant:'Plant Available Time',production:'Production Available Time',runtime:'Runtime',effective:'Effective Runtime'}[key]||key)+' es negativo. Revisa los tiempos capturados.');
+    values.losses=value('losses',values.rateLoss+values.scrap+values.rework);values.effectiveBalance=values.runtime-values.losses;
+    values.effectiveProduction=window.STAemComparison.effectiveRuntimeFromProduction(record);
+    values.effective=known(values.effectiveProduction)?values.effectiveProduction:values.effectiveBalance;
+    values.effectiveDifference=known(values.effectiveProduction)?values.effectiveProduction-values.effectiveBalance:null;
+    sources.effective=known(values.effectiveProduction)?'Producción conforme / Standard Rate':'Balance de tiempos provisional';
+    for(const [key,v] of Object.entries(values))if(v<0&&key!=='effectiveDifference')warnings.push('El balance de '+({plant:'Plant Available Time',production:'Production Available Time',runtime:'Runtime',effective:'Effective Runtime',effectiveBalance:'Effective Runtime por balance',effectiveProduction:'Effective Runtime por producción'}[key]||key)+' es negativo. Revisa los tiempos capturados.');
     for(const [id,expected] of [['plant',values.total-values.external],['production',values.plant-values.decision],['runtime',values.production-values.unplanned],['losses',values.rateLoss+values.scrap+values.rework]])if(timeMode(record,id)&&Math.abs(values[id]-expected)>1)warnings.push('El valor manual de '+({plant:'Plant Available Time',production:'Production Available Time',runtime:'Runtime',losses:'Runtime Losses'}[id])+' difiere del balance de sus conceptos. Se conserva el valor capturado.');
     return {values,sources,warnings};
   }
@@ -224,9 +228,20 @@ window.STRealDataModel=(function(){
     const simLoss=selectedBasis==='NET'?sim?.netRateBalanceSeconds:sim?.rateLossMeasured?sim.measuredRateLossSeconds:null;
     add('rateLoss','Production Rate Losses ('+(selectedBasis==='NET'?'neto':'bruto')+')','min',real.rateLossSeconds==null?null:real.rateLossSeconds/60,finite(simLoss)?simLoss/60:null,'Rate Loss real capturado. Simulado: pérdida bruta o balance neto según la definición elegida. Las paradas completas se contabilizan aparte.');
     add('effective','Effective Runtime','min',realEffective,finite(times.effective)?times.effective/60:null,'Tiempo efectivo = producción conforme / velocidad estándar. Si solo se captura Runtime Losses, la alternativa es Runtime − ese total. Alternativa con todas las pérdidas: Runtime − Rate Loss − Scrap − Rework. Si faltan pérdidas de calidad, el dato reportado o Runtime − Rate Loss se identifica como provisional.','Tiempos',finite(real.effectiveRuntimeSeconds)?real.effectiveRuntimeSeconds/60:null);
+    const effectiveRow=rows.find(row=>row.id==='effective');
+    if(finite(aem.reconciliation.productionSeconds))effectiveRow.realSource='producción conforme / velocidad estándar';
+    else if(finite(realEffective))effectiveRow.realSource='balance o dato reportado provisional';
+    const realBalance=aem.reconciliation.balanceSeconds;
+    let simulatedBalance=null;
+    if(finite(times.run)&&finite(sim?.netRateBalanceSeconds))simulatedBalance=times.run-sim.netRateBalanceSeconds;
+    else if(finite(times.run)&&sim?.rateLossMeasured&&finite(sim.measuredRateLossSeconds)&&finite(sim.rateRecoverySeconds))simulatedBalance=times.run-sim.measuredRateLossSeconds+sim.rateRecoverySeconds;
+    const minutes=value=>finite(value)?value/60:null;
+    add('effectiveProduction','Effective Runtime por producción','min',minutes(aem.reconciliation.productionSeconds),minutes(times.effective),'Producción conforme / velocidad estándar. La referencia y la producción deben usar las mismas unidades. La simulación usa el tiempo equivalente medido por formato.');
+    add('effectiveBalance','Effective Runtime por balance de tiempos','min',minutes(realBalance),minutes(simulatedBalance),'Runtime − Rate Loss − Scrap − Rework. Si se captura Runtime Losses como total, se resta ese total. En simulación continua, se incluye la recuperación de producción: Runtime − pérdida bruta + recuperación.');
+    add('effectiveReconciliation','Diferencia de conciliación de Effective Runtime','min',minutes(aem.reconciliation.differenceSeconds),finite(times.effective)&&finite(simulatedBalance)?minutes(times.effective-simulatedBalance):null,'Tiempo por producción − tiempo por balance. Cero indica coincidencia. Un valor positivo indica más tiempo equivalente por producción que el explicado por el balance.');
     const pack=real.bottlesPerCase??sim?.packFactor??simulation?.sourceImport?.metadata?.bottlesPerCase??caseRecord?.metadata?.bottlesPerCase;
     const output=sim?.output,unit=String(sim?.unit==='UNITS'&&caseRecord?.unitOfFlow?caseRecord.unitOfFlow:sim?.unit||'').toUpperCase(),bottles=sim?.multiFormat||['BOTTLES','BOTTLE'].includes(unit)?output:['CASES','CASE'].includes(unit)&&pack>0&&finite(output)?output*pack:null;
-    const realBottles=real.reportedProductionUnits??(real.productionUnit==='BOTTLES'?real.production:real.productionUnit==='CASES'&&pack>0&&finite(real.production)?real.production*pack:null);
+    const realBottles=real.reportedProductionUnits??(finite(real.reportedProductionCases)&&pack>0?real.reportedProductionCases*pack:real.productionUnit==='BOTTLES'?real.production:real.productionUnit==='CASES'&&pack>0&&finite(real.production)?real.production*pack:null);
     const realCases=real.reportedProductionCases??(finite(realBottles)&&pack>0?realBottles/pack:null);
     add('bottles','Producción total','botellas',realBottles,bottles,'Salida final del período. Cajas × botellas por caja cuando se requiere conversión.','Producción');
     add('cases','Producción total','cajas',realCases,['CASE','CASES'].includes(unit)?output:finite(bottles)&&pack>0?bottles/pack:null,'Cajas = botellas / botellas por caja. No se suman conteos de equipos sucesivos.','Producción');

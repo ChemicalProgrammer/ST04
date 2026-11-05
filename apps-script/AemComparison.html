@@ -5,15 +5,26 @@ window.STAemComparison=(function(){
   const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const ratio=(n,d)=>finite(n)&&finite(d)&&d>0?n/d:null;
   const reliabilityEquipment=equipment=>(equipment||[]).filter(e=>e.type!=='CONVEYOR'||e.noiseProfile?.reliability?.enabled!==false&&e.noiseProfile?.reliability?.mtbfMinutes>0);
+  function effectiveRuntimeFromProduction(real){
+    const standardRate=real.referenceSpeedBpm;
+    if(!(standardRate>0))return null;
+    const packing=real.bottlesPerCase;
+    let bottles=real.reportedProductionUnits;
+    if(!finite(bottles)&&finite(real.reportedProductionCases)&&packing>0)bottles=real.reportedProductionCases*packing;
+    if(!finite(bottles)&&real.productionUnit==='BOTTLES')bottles=real.production;
+    if(!finite(bottles)&&real.productionUnit==='CASES'&&packing>0&&finite(real.production))bottles=real.production*packing;
+    let good=real.aem?.goodOutputUnits;
+    if(!finite(good)&&real.outputBasis==='GOOD')good=bottles;
+    if(!finite(good)&&real.outputBasis==='GROSS'&&finite(real.qualityPercent)&&finite(bottles))good=bottles*real.qualityPercent/100;
+    return finite(good)&&good>=0?good/standardRate*60:null;
+  }
   function calculate(real,sim,times,equipment){
     const a=real.aem||{},warnings=[],t1=real.durationSeconds,t2=a.plantAvailableSeconds??(finite(t1)&&finite(a.businessExternalDowntimeSeconds)?t1-a.businessExternalDowntimeSeconds:null);
     const t3=a.productionAvailableSeconds??(finite(t2)&&finite(a.plantDecisionDowntimeSeconds)?t2-a.plantDecisionDowntimeSeconds:null);
     const t4=finite(real.lineRunOverrideSeconds)?real.lineRunOverrideSeconds:finite(t3)&&finite(real.downtimeSeconds)?t3-real.downtimeSeconds:real.runTimeSeconds;
     const standard=real.referenceSpeedBpm,fromQuantity=units=>standard>0&&finite(units)?units/standard*60:null;
     const scrap=a.scrapSeconds??fromQuantity(a.scrapUnits),rework=a.reworkSeconds??fromQuantity(a.reworkUnits);
-    const reportedBottles=real.reportedProductionUnits??(real.productionUnit==='BOTTLES'?real.production:real.productionUnit==='CASES'&&real.bottlesPerCase>0&&finite(real.production)?real.production*real.bottlesPerCase:null);
-    const good=a.goodOutputUnits??(real.outputBasis==='GOOD'?reportedBottles:real.outputBasis==='GROSS'&&finite(real.qualityPercent)&&finite(reportedBottles)?reportedBottles*real.qualityPercent/100:null);
-    const outputTime=fromQuantity(good);
+    const outputTime=effectiveRuntimeFromProduction(real);
     const lossTime=finite(t4)&&finite(real.runtimeLossOverrideSeconds)?t4-real.runtimeLossOverrideSeconds:[t4,real.rateLossSeconds,scrap,rework].every(finite)?t4-real.rateLossSeconds-scrap-rework:null;
     const t5=outputTime??lossTime,derivedRate=[t4,t5,scrap,rework].every(finite)?t4-t5-scrap-rework:null;
     const validT5=finite(t5)&&t5>=0?t5:null;
@@ -59,7 +70,7 @@ window.STAemComparison=(function(){
       addEq('Disponibilidad interna medida','%',finite(rb)&&finite(rt)?pct(rb,rb+rt):null,finite(sb)&&finite(st)?pct(sb,sb+st):null,'Disponibilidad interna (%) = 100 × MTBF / (MTBF + MTTR). No es AU ni disponibilidad global de línea.');
       addEq('Disponibilidad por MTBF/MTTR reportados / configurados','%',finite(r.mtbfMinutes)&&finite(r.mttrMinutes)?pct(r.mtbfMinutes,r.mtbfMinutes+r.mttrMinutes):null,configured?.enabled!==false&&configured?.mtbfMinutes>0&&finite(configured?.mttrMinutes)?pct(configured.mtbfMinutes,configured.mtbfMinutes+configured.mttrMinutes):null,'Real: indicadores MTBF/MTTR reportados. Simulado: entradas configuradas. Disponibilidad teórica = 100 × MTBF / (MTBF + MTTR). Se separa de la medida en la corrida.');
     }
-    return {rows,reliability,warnings,note:'Las fórmulas se actualizan al capturar datos y no ejecutan el motor. Las diferencias son simulado − real; para porcentajes son puntos porcentuales. El simulador continuo supone calidad del 100 %: Scrap y Rework simulados son cero por hipótesis, no por validación con planta. No se asume cero para pérdidas reales desconocidas. Los microparos de 3–4 minutos describen la población de datos de diseño: no se aplica un filtro automático ni se recortan las fallas simuladas. La comparación por equipo requiere igual exposición y clase de paro. Se conserva el modelo de transportadores sin fallas propias salvo excepción configurada.'};
+    return {rows,reliability,warnings,reconciliation:{productionSeconds:outputTime,balanceSeconds:lossTime,differenceSeconds:finite(outputTime)&&finite(lossTime)?outputTime-lossTime:null},note:'Las fórmulas se actualizan al capturar datos y no ejecutan el motor. Las diferencias son simulado − real; para porcentajes son puntos porcentuales. El simulador continuo supone calidad del 100 %: Scrap y Rework simulados son cero por hipótesis, no por validación con planta. No se asume cero para pérdidas reales desconocidas. Los microparos de 3–4 minutos describen la población de datos de diseño: no se aplica un filtro automático ni se recortan las fallas simuladas. La comparación por equipo requiere igual exposición y clase de paro. Se conserva el modelo de transportadores sin fallas propias salvo excepción configurada.'};
   }
   function hierarchy(data){
     const find=label=>data.rows.find(row=>row.label===label)||{};
@@ -94,6 +105,6 @@ window.STAemComparison=(function(){
     }
     return entries;
   }
-  return {calculate,hierarchy};
+  return {calculate,hierarchy,effectiveRuntimeFromProduction};
 })();
 </script>
