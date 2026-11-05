@@ -51,6 +51,109 @@ window.STReports=(function(){
     return text;
   }
   function download(text,name,type){var url=URL.createObjectURL(new Blob([text],{type:type})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+  function recordedChartData(result,activeCase,simulation,round){
+    var models=new Map((simulation?.equipment||activeCase?.equipment||[]).map(function(e){return [e.id,e];}));
+    var line={id:'',name:'Producción acumulada de la línea',unit:result.unitOfFlow||activeCase?.unitOfFlow||'unidades',points:[]};
+    var equipment=new Map();
+    result.samples.forEach(function(frame){
+      if(!Number.isFinite(frame.virtualSecond))return;
+      line.points.push({time:frame.virtualSecond,output:frame.outputCount,product:frame.productId});
+      (frame.equipment||[]).forEach(function(sample){
+        if(!sample.id)return;
+        if(!equipment.has(sample.id)){
+          var model=models.get(sample.id);
+          equipment.set(sample.id,{
+            id:sample.id,name:model?.name||sample.id,
+            unit:result.equipmentMetrics?.[sample.id]?.unitOfFlow||model?.unitOfFlow||'unidades',
+            points:[]
+          });
+        }
+        equipment.get(sample.id).points.push({
+          time:frame.virtualSecond,output:sample.outputCount??sample.processedUnits,
+          rate:sample.meanRatePerSecond??sample.actualRatePerSecond,
+          min:sample.minRatePerSecond,max:sample.maxRatePerSecond,
+          state:sample.availabilityState,product:frame.productId
+        });
+      });
+    });
+    return {
+      name:simulation?.name||activeCase?.name||'Simulación',
+      round:round,seed:result.seed,duration:result.durationSeconds,
+      coverage:result.detailCoverage||{},line:line,equipment:Array.from(equipment.values())
+    };
+  }
+  function recordedChartCsv(data){
+    function cell(value){
+      if(value==null||typeof value==='number'&&!Number.isFinite(value))return '';
+      if(typeof value==='number')return String(value);
+      var text=String(value);
+      if(/^[\s\u0000-\u001f]*[=+@-]|^[\t\r\n]/.test(text))text="'"+text;
+      return '"'+text.replace(/"/g,'""')+'"';
+    }
+    var rows=[['simulacion','ronda','semilla','origen','serie','equipo_id','equipo','tiempo_s','formato_id','unidad','produccion_acumulada','velocidad_unidades_min','velocidad_minima_unidades_min','velocidad_maxima_unidades_min','estado'].join(',')];
+    var origin=data.coverage.savedReplaySampled?'historial reducido':'muestras disponibles';
+    [data.line].concat(data.equipment).forEach(function(series){
+      series.points.forEach(function(point){
+        var rate=function(value){return Number.isFinite(value)?value*60:null;};
+        rows.push([data.name,data.round,data.seed,origin,series.id?'equipo':'linea',series.id,series.name,point.time,point.product,series.unit,point.output,rate(point.rate),rate(point.min),rate(point.max),point.state].map(cell).join(','));
+      });
+    });
+    return '\ufeff'+rows.join('\r\n')+'\r\n';
+  }
+  function recordedChartSvg(series,duration,isLine){
+    var left=76,top=20,width=794,height=160;
+    var last=series.points.at(-1)?.time||0;
+    var end=Math.max(1,last,Number.isFinite(duration)?duration:0);
+    var maximum=series.points.reduce(function(high,point){
+      var v=isLine?point.output:Math.max(point.rate||0,point.max||0)*60;
+      return Number.isFinite(v)?Math.max(high,v):high;
+    },1);
+    var x=function(time){return left+time/end*width;};
+    var y=function(v){return top+height-v/maximum*height;};
+    var number=new Intl.NumberFormat('es-MX',{maximumFractionDigits:2});
+    var ticks='',path='',bounds='',drawing=false;
+    for(var i=0;i<=4;i++){
+      var f=i/4,gridY=y(maximum*f),gridX=x(end*f);
+      ticks+='<path class="grid" d="M'+left+' '+gridY+'h'+width+'"/><text x="'+(left-8)+'" y="'+(gridY+4)+'" text-anchor="end">'+number.format(maximum*f)+'</text>';
+      ticks+='<text x="'+gridX+'" y="202" text-anchor="middle">'+number.format(end*f/60)+'</text>';
+    }
+    series.points.forEach(function(point){
+      var v=isLine?point.output:Number.isFinite(point.rate)?point.rate*60:NaN;
+      if(!Number.isFinite(v)){drawing=false;return;}
+      var pos=x(point.time).toFixed(2);
+      path+=(drawing?'L':'M')+pos+' '+y(v).toFixed(2);
+      drawing=true;
+      if(!isLine&&Number.isFinite(point.min)&&Number.isFinite(point.max)){
+        bounds+='M'+pos+' '+y(point.min*60).toFixed(2)+'V'+y(point.max*60).toFixed(2);
+      }
+    });
+    return '<svg viewBox="0 0 900 230" role="img" aria-label="'+escape(series.name)+'">'+ticks+
+      '<path class="range" d="'+bounds+'"/><path class="trend" d="'+path+'"/>'+
+      '<text x="473" y="223" text-anchor="middle">Tiempo simulado (min)</text></svg>';
+  }
+  function recordedChartsHtml(data){
+    var coverage=data.coverage.savedReplaySampled?'Historial reducido al guardar el caso.':'Muestras registradas por el motor.';
+    var interval=Number.isFinite(data.coverage.effectiveSampleSeconds)?' Intervalo de registro del motor: '+data.coverage.effectiveSampleSeconds+' s.':'';
+    var sections=[data.line].concat(data.equipment).map(function(series){
+      var isLine=!series.id;
+      return '<section><h2>'+escape(series.name)+'</h2><p>'+escape(isLine?series.unit:series.unit+'/min')+'</p>'+
+        recordedChartSvg(series,data.duration,isLine)+'</section>';
+    }).join('');
+    return '<!doctype html><html lang="es"><meta charset="utf-8"><title>Gráficas de simulación</title>'+
+      '<style>body{font:16px system-ui,sans-serif;color:#17324a;margin:24px auto;padding:0 18px;max-width:960px}h2{margin-bottom:0}p{margin:6px 0 12px}section{border-top:1px solid #ced9e2;margin-top:24px;break-inside:avoid}svg{display:block;width:100%;height:auto}svg text{font-size:12px;fill:#17324a}.grid,.trend,.range{fill:none}.grid{stroke:#d8e2eb}.trend{stroke:#19618e;stroke-width:1.8}.range{stroke:#73a8c9;stroke-opacity:.6}</style>'+
+      '<h1>'+escape(data.name)+'</h1><p>Ronda '+data.round+(data.seed==null?'':' · Semilla '+escape(data.seed))+' · '+data.line.points.length+' muestras</p>'+
+      '<p>'+escape(coverage+interval)+' En los equipos, la línea muestra la velocidad media registrada y las marcas verticales indican el mínimo y máximo cuando están disponibles.</p>'+sections+'</html>';
+  }
+  function bindChartExports(result,activeCase,simulation,round){
+    var ready=!!result&&!result.provisional&&result.detailCoverage?.recordingMode!=='SUMMARY'&&result.samples?.length>1;
+    var filename='simulation-charts-round-'+round;
+    bind('export-live-charts-html',ready,function(){
+      download(recordedChartsHtml(recordedChartData(result,activeCase,simulation,round)),filename+'.html','text/html;charset=utf-8');
+    });
+    bind('export-live-charts-csv',ready,function(){
+      download(recordedChartCsv(recordedChartData(result,activeCase,simulation,round)),filename+'.csv','text/csv;charset=utf-8');
+    });
+  }
   function table(headers,rows,headerTips,rowTips){
     var fragment=document.getElementById('report-table-template').content.cloneNode(true);
     var tr=document.createElement('tr');headers.forEach(function(h,i){var th=document.createElement('th');th.scope='col';th.textContent=h;if(headerTips?.[i]){th.title=headerTips[i];th.setAttribute('aria-description',headerTips[i]);th.tabIndex=0;}tr.append(th);});fragment.querySelector('thead').append(tr);
@@ -450,6 +553,7 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {rateLossHighlights:rateLossHighlights,rateLossHighlightsHtml:rateLossHighlightsHtml,rateLossImpactRowTips:rateLossImpactRowTips,rateLossImpact:rateLossImpact,rateLossImpactHtml:rateLossImpactHtml,rateLossImpactHelp:rateLossImpactHelp,rateLossImpactHeaderTips:rateLossImpactHeaderTips,equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {rateLossHighlights:rateLossHighlights,rateLossHighlightsHtml:rateLossHighlightsHtml,rateLossImpactRowTips:rateLossImpactRowTips,rateLossImpact:rateLossImpact,rateLossImpactHtml:rateLossImpactHtml,rateLossImpactHelp:rateLossImpactHelp,rateLossImpactHeaderTips:rateLossImpactHeaderTips,equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindChartExports:bindChartExports,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
+

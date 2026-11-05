@@ -204,6 +204,13 @@
             <button id="pause-simulation" class="secondary icon-button" type="button" data-icon="pause" aria-label="<?= __ST_TEXT__('client.pause') ?>" title="<?= __ST_TEXT__('client.pause') ?>"></button>
             <button id="reset-playback" class="secondary icon-button" type="button" data-icon="refresh" aria-label="<?= __ST_TEXT__('client.reset') ?>" title="<?= __ST_TEXT__('client.reset') ?>"></button>
             <span id="playback-status"><?= __ST_TEXT__('casegallery.ready') ?></span><output id="playback-progress" aria-label="Simulation progress">0%</output>
+            <details class="export-menu">
+              <summary class="icon-button" data-icon="upload" aria-label="Exportar gráficas" title="Exportar gráficas de la ronda seleccionada"></summary>
+              <div>
+                <button id="export-live-charts-html" class="ghost" type="button" disabled>Gráficas (HTML)</button>
+                <button id="export-live-charts-csv" class="ghost" type="button" disabled>Datos de gráficas (CSV)</button>
+              </div>
+            </details>
           </div>
           <div class="metrics-grid">
             <article><span><?= __ST_TEXT__('view.virtual_time') ?></span><strong id="metric-time">—</strong></article>
@@ -446,4 +453,5 @@
     <?!= includeClient_(); ?>
   </body>
 </html>
+
 
