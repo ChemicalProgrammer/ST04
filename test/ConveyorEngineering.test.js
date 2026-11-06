@@ -202,3 +202,50 @@ test('target Overspeed sets active belt speed and pitch and rejects conflicting 
  for(const invalid of [-1,1001,NaN]){acc.targetOverspeedPercent=invalid;assert.equal(simulateLine({case:line,run:{durationSeconds:1,tickSeconds:.25,sampleEverySeconds:1,seed:17}}).ok,false);}
  acc.targetOverspeedPercent=20;acc.targetPopulationPercent=50;assert.equal(simulateLine({case:line,run:{durationSeconds:1,tickSeconds:.25,sampleEverySeconds:1,seed:17}}).ok,false);
 });
+
+test('measured Sheet conveyors preserve discharge pitch and derive belt pitch from machine cadence', () => {
+  const model = createFlowPilotLine();
+  const conveyor = model.equipment[1];
+  Object.assign(conveyor.processData.accumulation, {
+    speedMode: 'MANUAL', conveyorSpeedMmPerSecond: 552.666666666667
+  });
+  model.equipment.forEach(unit => {
+    unit.processData.flowUnits = { input: 'BOTTLES', output: 'BOTTLES' };
+    unit.nominalRatePerSecond = 5;
+  });
+  const product = {
+    id: 'sheet-format-test', name: 'Sheet format', bottlesPerCase: 12, bottleLengthMm: 85,
+    equipment: { conveyor: { dischargeGapMm: 65, movingGapMm: 65 } }
+  };
+  const simulate = () => {
+    const result = simulateLine({
+      case: model,
+      run: {
+        durationSeconds: 150, tickSeconds: 0.25, sampleEverySeconds: 1, seed: 17,
+        initialFormatId: product.id, productCatalog: [product]
+      }
+    });
+    assert.equal(result.ok, true, JSON.stringify(result.error));
+    closeTo(result.result.summary.materialBalance.residualUnits, 0);
+    return result.result.accumulationZoneMetrics['conveyor--physical-zone'];
+  };
+
+  const legacy = simulate();
+  closeTo(legacy.movingPitchMm, 110.5333333333334);
+  closeTo(legacy.transferCapacityPerSecond, 5);
+  assert.equal(legacy.accumulatedPitchMm, 85);
+  assert.equal(legacy.engineering.input.upstreamDischargePitchMm, 150);
+  assert.equal(product.equipment.conveyor.movingGapMm, 65);
+
+  delete product.equipment.conveyor.movingGapMm;
+  closeTo(simulate().movingPitchMm, legacy.movingPitchMm);
+
+  product.equipment.conveyor.movingGapMm = 70;
+  assert.equal(simulate().movingPitchMm, 155);
+
+  delete product.equipment.conveyor.movingGapMm;
+  conveyor.processData.accumulation.conveyorSpeedMmPerSecond = 300;
+  const slower = simulate();
+  assert.equal(slower.movingPitchMm, 85);
+  closeTo(slower.transferCapacityPerSecond, 300 / 85);
+});

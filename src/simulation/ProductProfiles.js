@@ -34,6 +34,16 @@ export function applyProductProfile(equipment, product) {
       if(accumulation.productPitchMm!==undefined&&profile.movingGapMm!==undefined)accumulation.productPitchMm=length+profile.movingGapMm;
       if(profile.movingGapMm!==undefined)accumulation.productSpacingOverride=true;
       for(const key of ['movingGapMm','accumulatedGapMm'])if(profile[key]!==undefined)accumulation[key]=profile[key];
+      // Earlier Sheet imports copied the discharge gap into the moving gap.
+      // A separately specified belt gap or engineering target still takes precedence.
+      const importedFormat = (product.formatId ?? product.id)?.startsWith('sheet-format-');
+      const legacyDischargeGap = profile.movingGapMm === undefined || profile.movingGapMm === profile.dischargeGapMm;
+      if (importedFormat && Number.isFinite(profile.dischargeGapMm) && legacyDischargeGap &&
+          item.processData.accumulation?.movingGapMm === undefined &&
+          accumulation.gapMm === undefined && item.processData.accumulation?.productPitchMm === undefined &&
+          accumulation.targetPopulationPercent === undefined && accumulation.targetOverspeedPercent === undefined) {
+        accumulation.useDischargeCadence = true;
+      }
       if(profile.dischargeGapMm!==undefined)upstream.dischargePitchMm=length+profile.dischargeGapMm;
       const downstream={...item.processData.downstream};
       if(profile.infeedGapMm!==undefined)downstream.infeedPitchMm=length+profile.infeedGapMm;
