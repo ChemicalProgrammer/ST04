@@ -95,7 +95,7 @@ export function replicationView(result,selection='average'){
       reachedRounds:rows.filter(r=>r.effectiveRuntimeStop?.status==='REACHED').length,totalRounds:rows.length,
       accumulatedSeconds:rows.every(r=>Number.isFinite(r.effectiveRuntimeStop?.accumulatedSeconds))?averageRoundValues(rows.map(r=>r.effectiveRuntimeStop.accumulatedSeconds)):null};
   }
-  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds','lineRateLossOutputEquivalents','lineRateRecoveryOutputEquivalents','lineNetRateBalanceOutputEquivalents','lineRateLossEfficiencyPp','lineRateRecoveryEfficiencyPp','lineNetRateBalanceEfficiencyPp','lineRateImpactDenominatorOutput']){
+  for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateLossStarvationSeconds','lineRateLossRampSeconds','lineRateLossStopTransitionSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds','lineRateLossOutputEquivalents','lineRateRecoveryOutputEquivalents','lineNetRateBalanceOutputEquivalents','lineRateLossEfficiencyPp','lineRateRecoveryEfficiencyPp','lineNetRateBalanceEfficiencyPp','lineRateImpactDenominatorOutput']){
     const values=rows.map(r=>r.summary[key]);
     view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;
   }

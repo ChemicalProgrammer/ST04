@@ -40,3 +40,24 @@ test('replications persist measured loss and means never turn incomplete measure
  assert.equal(replicationView(r,'2').summary.lineRateLossSeconds,values[1]);
  r.batch.rows[1].summary.lineRateLossSeconds=null;assert.equal(replicationView(r).summary.lineRateLossSeconds,null);
 });
+
+test('line attribution counts only the deficit observed at final output',()=>{
+ const data=input();
+ data.case.equipment.at(-1).nominalRatePerSecond=100;
+ const {summary:s,equipmentMetrics}=run(data);
+ assert(s.lineRateLossStarvationSeconds>0);
+ assert.equal(s.lineRateLossRampSeconds,0);
+ assert.equal(s.lineRateLossStopTransitionSeconds,0);
+ assert(s.lineRateLossStarvationSeconds<=s.lineRateLossSeconds);
+ assert(equipmentMetrics.source.rampRateLossSeconds>0);
+
+ const rampOnly=input({durationSeconds:10});
+ const [source,belt,sink]=rampOnly.case.equipment;
+ source.processData={};
+ belt.processData.accumulation.downstreamRampUpSeconds=4;
+ sink.nominalRatePerSecond=10;
+ const {summary:r}=run(rampOnly);
+ assert(r.lineRateLossRampSeconds>0);
+ assert.equal(r.lineRateLossRampSeconds,r.lineRateLossSeconds);
+ assert.equal(r.lineRateLossStarvationSeconds,0);
+});

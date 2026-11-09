@@ -218,8 +218,11 @@ window.STRealDataModel=(function(){
     }
     for(const r of aem.rows.filter(r=>!['Production Rate Losses reportadas','Rate Loss despejado / balance neto','Standard Rate','Effective Runtime AEM (T5)','Asset Effectiveness (AE)','Asset Utilization (AU)','Operating Efficiency (OE)','Runtime Efficiency (RTE)','UPDT'].includes(r.label)))add(r.label,r.label,r.unit,r.real,r.simulated,r.formula,'Tiempos',r.label==='Runtime AEM (T4)'&&finite(real.runTimeSeconds)?real.runTimeSeconds/60:null);
     const selectedBasis=real.validation.rateLossBasis==='NET'?'NET':'GROSS';
-    const simLoss=selectedBasis==='NET'?sim?.netRateBalanceSeconds:sim?.rateLossMeasured?sim.measuredRateLossSeconds:null;
-    add('rateLoss','Production Rate Losses ('+(selectedBasis==='NET'?'neto':'bruto')+')','min',real.rateLossSeconds==null?null:real.rateLossSeconds/60,finite(simLoss)?simLoss/60:null,'Rate Loss real capturado. Simulado: pérdida bruta o balance neto según la definición elegida. Las paradas completas se contabilizan aparte.');
+    const reportOptions=caseRecord?.metadata?.consoleOptions?.rateLossCategories;
+    const filtered=window.STReports?.rateLossCategories.some(category=>reportOptions?.[category.id]===false);
+    const reported=filtered&&sim?.rateLossMeasured?window.STReports.rateLossAttribution(result,reportOptions,view).reported:null;
+    const simLoss=filtered?(finite(reported)?(selectedBasis==='NET'?(finite(sim.rateRecoverySeconds)?reported-sim.rateRecoverySeconds:null):reported):null):selectedBasis==='NET'?sim?.netRateBalanceSeconds:sim?.rateLossMeasured?sim.measuredRateLossSeconds:null;
+    add('rateLoss','Production Rate Losses ('+(selectedBasis==='NET'?'neto':'bruto')+')','min',real.rateLossSeconds==null?null:real.rateLossSeconds/60,finite(simLoss)?simLoss/60:null,filtered?'Rate Loss real capturado frente a las categorías incluidas en Settings. En base neta se resta la recuperación. — indica que faltan contadores para aplicar el filtro.':'Rate Loss real capturado. Simulado: pérdida bruta o balance neto según la definición elegida. Las paradas completas se contabilizan aparte.');
     add('effective','Effective Runtime','min',realEffective,finite(times.effective)?times.effective/60:null,'Real: Effective Runtime reportado, capturado en el registro. No se sustituye por el balance ni por producción / velocidad estándar. Simulado: tiempo equivalente de la producción simulada.','Tiempos');
     rows.find(row=>row.id==='effective').realSource=finite(realEffective)?'reportado':'pendiente';
     const pack=real.bottlesPerCase??sim?.packFactor??simulation?.sourceImport?.metadata?.bottlesPerCase??caseRecord?.metadata?.bottlesPerCase;

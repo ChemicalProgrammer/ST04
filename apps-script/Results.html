@@ -172,12 +172,13 @@ window.STResults=(function(){
     data.rows.forEach(value=>row(value,tbody));row(data.total,tfoot);table.append(thead,tbody,tfoot);scroll.append(table);target.append(scroll);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.equipmentRateLossHelp;target.append(note);
   }
-  function renderRamps(target,result,equipment){
+  function renderRamps(target,result,equipment,rateLossCategories){
     target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
     const rateHeading=document.createElement('h3');rateHeading.textContent='Line Rate Loss';target.append(rateHeading);
     const values=document.createElement('p');values.className='chart-note';values.textContent=STReports.rateLossRows(result).map(([label,n])=>label+': '+number(n,2)+' min').join(' · ');target.append(values);
     const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='Cómo se calcula el rate loss';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
     renderRateLossImpact(target,result);
+    const breakdown=document.createElement('section');breakdown.innerHTML=STReports.rateLossAttributionHtml(result,equipment,rateLossCategories);target.append(breakdown);
     renderEquipmentRateLoss(target,result,equipment);
     const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rampNote;target.append(note);
@@ -244,7 +245,7 @@ window.STResults=(function(){
     var operating=document.getElementById('results-equipment-operation');
     if(!operating){operating=document.createElement('section');operating.id='results-equipment-operation';operating.className='comparison-section';document.getElementById('results-table').after(operating);}
     renderEquipmentOperatingResults(operating,ready?result:null,source,simulation?.equipment||activeCase?.equipment||[]);
-    renderRamps(ramps,ready?result:null,simulation?.equipment||activeCase?.equipment||[]);
+    renderRamps(ramps,ready?result:null,simulation?.equipment||activeCase?.equipment||[],activeCase?.metadata?.consoleOptions?.rateLossCategories);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     STProducts.results(document.getElementById('results-products'),ready?result:null);
     var designReady=Boolean(activeCase?.equipment?.length);

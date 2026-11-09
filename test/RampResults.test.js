@@ -34,3 +34,21 @@ test('Rate Loss appears in Results help and printable reports as the selected or
   delete result.summary.lineRateLossSeconds;assert.equal(h.w.STReports.rateLossRows(result)[2][1],null);
  }finally{h.w.close();}
 });
+
+test('reporting selection reconciles measured line loss without changing the gross loss',()=>{
+ const h=setup();try{
+  const reports=h.w.STReports,summary={lineRateLossSeconds:60,lineRateLossStarvationSeconds:20,lineRateLossRampSeconds:15,lineRateLossStopTransitionSeconds:5};
+  const result={summary};
+  assert.equal(reports.rateLossAttribution(result).reported,60);
+  const filtered=reports.rateLossAttribution(result,{ramp:false,unassigned:false});
+  assert.equal(filtered.gross,60);
+  assert.equal(filtered.reported,25);
+  assert.equal(filtered.rows.find(row=>row.id==='unassigned').seconds,20);
+  const legacy={summary:{lineRateLossSeconds:60}};
+  assert.equal(reports.rateLossAttribution(legacy).reported,60);
+  assert.equal(reports.rateLossAttribution(legacy,{ramp:false}).reported,null);
+  const batch={...result,batch:{rows:[{round:1,summary},{round:2,summary:{...summary,lineRateLossStarvationSeconds:40}}]}};
+  assert.equal(reports.rateLossAttribution(batch,{starvation:false}).reported,30);
+  assert.equal(reports.rateLossAttribution(batch,{starvation:false},'2').reported,20);
+ }finally{h.w.close();}
+});

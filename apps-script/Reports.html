@@ -191,6 +191,47 @@ window.STReports=(function(){
     return html;
   }
   const rateLossHelp="La pérdida bruta de velocidad de la línea suma los déficits de cada intervalo con salida positiva: máximo(0, duración del intervalo − producción / velocidad de referencia del formato activo). La recuperación suma por separado la producción por encima de esa referencia. Balance neto = pérdida bruta − recuperación = tiempo de operación − tiempo productivo equivalente. Puede ser negativo por descarga de acumuladores. Las paradas completas se contabilizan aparte. Ejemplo: producir 300 botellas en una rampa de 2 min con referencia de 300 botellas/min equivale a perder 1 min. La pérdida de línea se mide en la salida final; no es la suma de los equipos. El dato real de planta solo sirve como comparación y no agrega una penalización al motor. Antes de compararlo deben coincidir periodo, referencia y definición bruta o neta. Se supone calidad del 100 %. No se modela desaceleración gradual. La vista promedio utiliza las mediciones de todas las rondas.";
+  const rateLossCategories=[
+    {id:'starvation',label:'Falta parcial de producto en la salida',key:'lineRateLossStarvationSeconds'},
+    {id:'ramp',label:'Rampa del equipo de salida',key:'lineRateLossRampSeconds'},
+    {id:'stop',label:'Transición de paro del equipo de salida',key:'lineRateLossStopTransitionSeconds'},
+    {id:'unassigned',label:'Sin atribuir'}
+  ];
+  function rateLossCounter(result,key,view='average',id){
+    const batch=result?.batch,rows=batch?.rows;
+    const read=row=>id?row?.equipmentMetrics?.[id]?.[key]:row?.summary?.[key];
+    if(view==='average'&&result?.resultView?.mode!=='round'){
+      if(rows?.length){
+        const values=rows.map(read);
+        return values.every(Number.isFinite)?values.reduce((sum,v)=>sum+v,0)/values.length:null;
+      }
+      if(batch?.statistics)return (id?batch.equipmentStatistics?.[id]?.[key]:batch.statistics[key])?.mean??null;
+    }
+    if(rows?.length&&view!=='average')return read(rows.find(row=>row.round===(view==='representative'?batch.representativeRound:Number(view))))??null;
+    return read(result)??null;
+  }
+  function rateLossAttribution(result,selection={},view='average'){
+    const gross=rateLossCounter(result,'lineRateLossSeconds',view);
+    const known=rateLossCategories.filter(category=>category.key).map(category=>rateLossCounter(result,category.key,view));
+    const available=Number.isFinite(gross)&&known.every(Number.isFinite);
+    const residual=available?Math.max(0,gross-known.reduce((sum,v)=>sum+v,0)):null;
+    const rows=rateLossCategories.map((category,index)=>({...category,included:selection?.[category.id]!==false,seconds:category.key?known[index]:residual}));
+    const all=rows.every(row=>row.included),selected=rows.filter(row=>row.included);
+    return {rows,gross,available,reported:all?gross:available?Math.min(gross,selected.reduce((sum,row)=>sum+row.seconds,0)):null};
+  }
+  function rateLossAttributionHtml(result,equipment,selection){
+    const data=rateLossAttribution(result,selection),min=seconds=>Number.isFinite(seconds)?value(seconds/60):'—';
+    const fields=['partialStarvationLossSeconds','partialBlockingLossSeconds','rampRateLossSeconds','stopTransitionRateLossSeconds'];
+    const line=table(['Causa observada en la salida','Min equivalentes','Incluida en reportado'],[
+      ...data.rows.map(row=>[row.label,min(row.seconds),row.included?'Sí':'No']),
+      ['Rate Loss bruto',min(data.gross),'—'],['Rate Loss reportado',min(data.reported),'—']
+    ]);
+    const local=table(['Equipo','Falta parcial de producto (min eq.)','Bloqueo parcial (min eq.)','Rampa (min eq.)','Transición de paro (min eq.)'],
+      equipment.map(e=>[e.name||e.id,...fields.map(key=>min(rateLossCounter(result,key,'average',e.id)))]));
+    const note='La tabla de línea reparte el déficit de salida una sola vez. La falta parcial de producto identifica el mecanismo inmediato y puede tener su origen aguas arriba. Sin atribuir incluye el déficit que la salida no permite asociar a una categoría. Los contadores por equipo son locales y pueden solaparse.';
+    const missing=data.available?'':' El desglose de línea requiere una corrida del motor continuo con los contadores nuevos.';
+    return '<h3>Desglose de Rate Loss de línea</h3><p class="chart-note">'+escape(note+missing)+'</p><div class="table-scroll">'+line+'</div><h3>Pérdidas de velocidad por equipo</h3><div class="table-scroll">'+local+'</div>';
+  }
   function rateLossRows(result){
     const metric=key=>{
       const b=result?.batch;
@@ -299,7 +340,7 @@ window.STReports=(function(){
     if(result.engineId==='DES_SIMPY_EXPERIMENTAL')slots.limitations+=' '+escape('DES · SimPy 4.1.2 (experimental). '+(result.limitations||[]).join(' '));
     var stats=result.batch?.statistics,mean=(key,fallback)=>Number.isFinite(stats?.[key]?.mean)?stats[key].mean:fallback,loss=lossBreakdown(result,simulation);
     slots.headline=kpis([['OEE',mean('lineOeePercent',result.summary.lineOeePercent),'%'],['Throughput',mean('throughputPerMinute',result.summary.outputCount/result.durationSeconds*60),' '+units+'/min'],['Production',mean('outputCount',result.summary.outputCount),' '+units]]);
-    slots.losses=lossHtml(loss)+'<h2>Line Rate Loss</h2>'+table(['Metric','min'],rateLossRows(result).map(([label,n])=>[label,value(n)]))+'<p>'+escape(rateLossHelp)+'</p>'+rateLossImpactHtml(result)+equipmentRateLossHtml(result,simulation?.equipment||activeCase.equipment||[]);slots.observed='<h2>Observed equipment times</h2>'+table(['Equipment','Observed state','Time (%)'],loss.observedEquipmentTimes.map(o=>[o.name,o.state,value(o.percent)+'%']));
+    slots.losses=lossHtml(loss)+'<h2>Line Rate Loss</h2>'+table(['Metric','min'],rateLossRows(result).map(([label,n])=>[label,value(n)]))+'<p>'+escape(rateLossHelp)+'</p>'+rateLossImpactHtml(result)+equipmentRateLossHtml(result,simulation?.equipment||activeCase.equipment||[])+rateLossAttributionHtml(result,simulation?.equipment||activeCase.equipment||[],activeCase.metadata?.consoleOptions?.rateLossCategories);slots.observed='<h2>Observed equipment times</h2>'+table(['Equipment','Observed state','Time (%)'],loss.observedEquipmentTimes.map(o=>[o.name,o.state,value(o.percent)+'%']));
     slots.context+=' · '+escape(result.batch?'Mean of '+result.batch.rounds+' rounds':'Single round')+' · '+escape(result.engineId||'ST_CURRENT');
     slots.overview=table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],[[__ST_TEXT__('exports.duration'),result.durationSeconds],[__ST_TEXT__('exports.seed'),result.seed],[__ST_TEXT__('exports.units'),units],[__ST_TEXT__('results.throughput')+' ('+units+'/min)',value(result.summary.outputCount/result.durationSeconds*60)]].concat(scalars(result.summary)));
     (simulation?.equipment||activeCase.equipment||[]).forEach(function(e){slots.equipment+='<section><h3>'+escape(e.name)+' · '+escape(e.type)+'</h3>'+table([__ST_TEXT__('results.metric'),__ST_TEXT__('exports.value')],scalars(result.equipmentMetrics?.[e.id]||{}))+table([__ST_TEXT__('exports.parameter'),__ST_TEXT__('exports.value')],scalars({unitOfFlow:e.unitOfFlow||'units',nominalRatePerSecond:e.nominalRatePerSecond,processData:e.processData,noiseProfile:e.noiseProfile}))+'</section>';});
@@ -553,7 +594,7 @@ window.STReports=(function(){
   }
   function bindResults(result,activeCase,simulation){var ready=!!result?.summary;bind('export-ai',ready,function(){download(analysis(result,activeCase,simulation),'simulation-analysis.json','application/json');});bind('export-results-html',ready,function(){download(resultsHtml(result,activeCase,simulation),'simulation-results.html','text/html');});bind('export-results-pdf',ready,function(){pdf(resultsHtml(result,activeCase,simulation));});}
   function bindWhatIf(simulation,plan,projects){bind('export-whatif-json',!!simulation,function(){download(JSON.stringify(whatIfData(simulation,plan),null,2),'what-if.json','application/json');});bind('export-whatif-html',projects.length>0,function(){download(whatIfHtml(simulation,plan),'what-if.html','text/html');});bind('export-whatif-pdf',projects.length>0,function(){pdf(whatIfHtml(simulation,plan));});}
-  return {rateLossHighlights:rateLossHighlights,rateLossHighlightsHtml:rateLossHighlightsHtml,rateLossImpactRowTips:rateLossImpactRowTips,rateLossImpact:rateLossImpact,rateLossImpactHtml:rateLossImpactHtml,rateLossImpactHelp:rateLossImpactHelp,rateLossImpactHeaderTips:rateLossImpactHeaderTips,equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindChartExports:bindChartExports,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
+  return {rateLossCategories:rateLossCategories,rateLossAttribution:rateLossAttribution,rateLossAttributionHtml:rateLossAttributionHtml,rateLossHighlights:rateLossHighlights,rateLossHighlightsHtml:rateLossHighlightsHtml,rateLossImpactRowTips:rateLossImpactRowTips,rateLossImpact:rateLossImpact,rateLossImpactHtml:rateLossImpactHtml,rateLossImpactHelp:rateLossImpactHelp,rateLossImpactHeaderTips:rateLossImpactHeaderTips,equipmentRateLossHeaderTips:equipmentRateLossHeaderTips,rampHeaderTips:rampHeaderTips,equipmentRateLoss:equipmentRateLoss,equipmentRateLossHeaders:equipmentRateLossHeaders,equipmentRateLossCells:equipmentRateLossCells,equipmentRateLossHtml:equipmentRateLossHtml,equipmentRateLossHelp:equipmentRateLossHelp,rateLossRows:rateLossRows,rateLossHelp:rateLossHelp,rampRows:rampRows,rampHeaders:rampHeaders,rampNote:rampNote,caseExportSelection:caseExportSelection,selectedCaseExport:selectedCaseExport,requestCaseExport:requestCaseExport,exportCompleteCase:exportCompleteCase,chatHistory:chatHistory,chatText:chatText,chatHtml:chatHtml,exportChat:exportChat,batchHtml:batchHtml,lossBreakdown:lossBreakdown,configuration:configuration,configurationHtml:configurationHtml,comparisonData:comparisonData,comparisonHtml:comparisonHtml,bindComparison:bindComparison,whatIfData:whatIfData,bindConfiguration:bindConfiguration,analysis:analysis,resultsHtml:resultsHtml,whatIfHtml:whatIfHtml,bindResults:bindResults,bindChartExports:bindChartExports,bindWhatIf:bindWhatIf,characterBudget:characterBudget};
 })();
 </script>
 

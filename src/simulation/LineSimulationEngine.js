@@ -125,6 +125,7 @@ function createRuntime(input) {
     events: [],
     samples: [],zoneDefinitions:{},
     outputCount: 0,
+    lineRateLossStarvationSeconds:0,lineRateLossRampSeconds:0,lineRateLossStopTransitionSeconds:0,
     lineRunSeconds: 0, lineEffectiveRuntimeSeconds: 0, lineRateShortfallSeconds: 0, lineRateRecoverySeconds: 0,
     lineRateShortfallOutputEquivalents: 0, lineRateRecoveryOutputEquivalents: 0,
     lineRateReferenceValid: true, lineReferenceRate: resolveLineOeeReference(equipment)?.nominalRatePerSecond,
@@ -178,6 +179,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
     stoppedSeconds: 0,
     starvedSeconds: 0,
     blockedSeconds: 0,
+    rampRateLossSeconds:0,stopTransitionRateLossSeconds:0,
     partialStarvationLossSeconds: 0,
     partialBlockingLossSeconds: 0,
     waitingForPrimeSeconds: 0,
@@ -870,7 +872,13 @@ function processEquipmentFlow(runtime, index) {
   const downstreamSpace = getDownstreamSpace(runtime, index);
   const flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge);
-  moveFlow(runtime, index, flow, residualDischarge);
+  const phase=control?'STOP':isRampingUp(equipment)?'RAMP':null;
+  if(flow>0&&phase){
+    const phaseLoss=Math.max(0,tickSeconds-requestedFlow/equipment.nominalRatePerSecond);
+    if(phase==='STOP')equipment.stopTransitionRateLossSeconds+=phaseLoss;
+    else equipment.rampRateLossSeconds+=phaseLoss;
+  }
+  moveFlow(runtime, index, flow, residualDischarge, requestedFlow, inputAvailable, phase);
   equipment.outputCount += flow;
   if(runtime.product)equipment.productiveNativeSeconds=(equipment.productiveNativeSeconds||0)+flow/equipment.nominalRatePerSecond;
   equipment.actualRatePerSecond = flow / tickSeconds;
@@ -995,7 +1003,7 @@ function getDownstreamSpace(runtime, index) {
   return getZoneEntrySpace(zone);
 }
 
-function moveFlow(runtime, index, flow, allowOverflow) {
+function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvailable, phase) {
   if(runtime.product&&index===0)runtime.inputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;
   if (index > 0) {
     runtime.zones[index - 1].waitingUnits = Math.max(0, runtime.zones[index - 1].waitingUnits - flow*(runtime.equipment[index].inputPerOutput||1));
@@ -1011,6 +1019,15 @@ function moveFlow(runtime, index, flow, allowOverflow) {
         runtime.lineEffectiveRuntimeSeconds+=equivalent;
         // Separate shortfall from above-reference discharge; do not erase either.
         runtime.lineRateShortfallSeconds+=Math.max(0,gap);
+        if(gap>0){
+          const factor=runtime.equipment[index].outputBottleFactor||1;
+          const requestedEquivalent=Math.min(runtime.run.tickSeconds,requestedFlow*factor/reference);
+          const nominalEquivalent=Math.min(runtime.run.tickSeconds,runtime.equipment[index].nominalRatePerSecond*runtime.run.tickSeconds*factor/reference);
+          const phaseLoss=Math.max(0,nominalEquivalent-requestedEquivalent);
+          if(phase==='RAMP')runtime.lineRateLossRampSeconds+=phaseLoss;
+          if(phase==='STOP')runtime.lineRateLossStopTransitionSeconds+=phaseLoss;
+          if(inputAvailable<requestedFlow)runtime.lineRateLossStarvationSeconds+=Math.max(0,requestedEquivalent-equivalent);
+        }
         runtime.lineRateRecoverySeconds+=Math.max(0,-gap);
         // Convert at the active format's reference, never a whole-period average.
         runtime.lineRateShortfallOutputEquivalents+=Math.max(0,gap)*reference;
@@ -1354,6 +1371,9 @@ function createSummary(runtime) {
     lineRunSeconds: round(runtime.lineRunSeconds),
     lineEffectiveRuntimeSeconds: runtime.lineRateReferenceValid?round(runtime.lineEffectiveRuntimeSeconds):null,
     lineRateLossSeconds: validRate?round(runtime.lineRateShortfallSeconds):null,
+    lineRateLossStarvationSeconds:validRate?round(runtime.lineRateLossStarvationSeconds):null,
+    lineRateLossRampSeconds:validRate?round(runtime.lineRateLossRampSeconds):null,
+    lineRateLossStopTransitionSeconds:validRate?round(runtime.lineRateLossStopTransitionSeconds):null,
     lineRateRecoverySeconds: validRate?round(runtime.lineRateRecoverySeconds):null,
     lineNetRateBalanceSeconds: validRate?round(rateLoss):null,
     lineRateLossOutputEquivalents: validRate?round(lossOutput):null,
@@ -1431,6 +1451,8 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     emergencyStopSeconds: round(equipment.emergencyStopSeconds),
     starvedSeconds: round(equipment.starvedSeconds),
     blockedSeconds: round(equipment.blockedSeconds),
+    rampRateLossSeconds:round(equipment.rampRateLossSeconds),
+    stopTransitionRateLossSeconds:round(equipment.stopTransitionRateLossSeconds),
     partialStarvationLossSeconds: round(equipment.partialStarvationLossSeconds),
     partialBlockingLossSeconds: round(equipment.partialBlockingLossSeconds),
     waitingForPrimeSeconds: round(equipment.waitingForPrimeSeconds),

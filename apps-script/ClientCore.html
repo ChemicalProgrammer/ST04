@@ -104,6 +104,7 @@
       },runControlsLocked);
       window.addEventListener('st-simpy-status',function(event){if(roundSession?.pending)document.getElementById('batch-status').textContent=event.detail.message;});
       STPreferences.connectCase(function(){return state.activeCase;},function(){autosave.change();});
+      window.addEventListener('st-rate-loss-reporting-change',function(){shell.sync();});
       STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STPlantCalendar.connectApply(applyPlantCalendar);
