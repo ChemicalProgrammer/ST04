@@ -216,6 +216,8 @@
           <div class="metrics-grid">
             <article><span><?= __ST_TEXT__('view.virtual_time') ?></span><strong id="metric-time">—</strong></article>
             <article><span><?= __ST_TEXT__('view.output') ?></span><strong id="metric-output">—</strong></article>
+            <article><span title="Tiempo acumulado con salida menos la pérdida bruta de velocidad. Cada minuto de reloj aporta como máximo un minuto efectivo.">Effective Runtime</span><strong id="metric-effective-runtime">—</strong></article>
+            <article><span title="Minutos equivalentes de pérdida bruta de velocidad mientras hay producción a la salida. Las paradas sin producción se contabilizan aparte.">Runtime Losses</span><strong id="metric-runtime-losses">—</strong></article>
             <article><span><?= __ST_TEXT__('view.instantaneous_output_rate') ?></span><strong id="metric-instant-rate">—</strong></article>
             <article><span><?= __ST_TEXT__('view.cumulative_average_rate') ?></span><strong id="metric-rate">—</strong></article>
             <article><span><?= __ST_TEXT__('view.accumulation_inventory') ?></span><strong id="metric-buffer">—</strong></article>

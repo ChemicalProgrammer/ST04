@@ -85,6 +85,8 @@ test('effective runtime target uses gross speed loss and records actual calendar
  assert(first.effectiveRuntimeStop.accumulatedSeconds>=30&&first.effectiveRuntimeStop.accumulatedSeconds<30.25);
  assert(Math.abs(first.summary.lineRunSeconds-first.summary.lineRateLossSeconds-first.effectiveRuntimeStop.accumulatedSeconds)<.001);
  assert.equal(first.samples.at(-1).virtualSecond,first.durationSeconds);
+ assert.equal(first.samples.at(-1).effectiveRuntimeSeconds,first.effectiveRuntimeStop.accumulatedSeconds);
+ assert.equal(first.samples.at(-1).runtimeLossSeconds,first.summary.lineRateLossSeconds);
  assert.equal(first.shifts.at(-1).durationSeconds,first.durationSeconds);
  for(const row of first.batch.rows){
    assert.equal(row.effectiveRuntimeStop.status,'REACHED');

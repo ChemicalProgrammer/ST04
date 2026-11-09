@@ -56,7 +56,8 @@
       state.run.timer = window.setTimeout(function() {
         if (!state.run.playing) return;
         var target=virtualStart+(performance.now()-started)*rate/1000;
-        state.run.sampleIndex=Math.min(samples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(samples,target)));
+        var currentSamples=state.run.result.samples;
+        state.run.sampleIndex=Math.min(currentSamples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(currentSamples,target)));
         schedulePlaybackStep();
       }, delay);
     }
@@ -91,13 +92,21 @@
           effective.textContent='Effective Runtime: '+(Number.isFinite(observed)?formatMinutes(observed):'—')+' / '+formatMinutes(stop.targetSeconds)+' · Calendario: '+formatMinutes(finished?result.durationSeconds:frame?.virtualSecond||0)+' · Producción: '+formatNumber(finished?result.summary.outputCount:frame?.outputCount||0)+(finished?(stop.status==='REACHED'?' · Objetivo alcanzado':' · Objetivo no alcanzado al límite'):'');
         }
       }
-      if (!state.run.result || !state.run.result.samples.length){if(progress)progress.textContent='0%';return;}
+      var effectiveCard=document.getElementById('metric-effective-runtime'),lossCard=document.getElementById('metric-runtime-losses');
+      if (!state.run.result || !state.run.result.samples.length){
+        if(progress)progress.textContent='0%';if(effectiveCard)effectiveCard.textContent='—';if(lossCard)lossCard.textContent='—';return;
+      }
       var scrollAnchor = captureLiveEquipmentScrollAnchor();
       var sample = state.run.result.samples[state.run.sampleIndex];
       var time = sample.virtualSecond;
       var duration=Number(state.run.result.durationSeconds);if(progress)progress.textContent=(duration>0?Math.max(0,Math.min(100,time/duration*100)).toFixed(1):'0')+'%';
       document.getElementById('metric-time').textContent = formatSeconds(time);
       document.getElementById('metric-output').textContent = formatNumber(sample.outputCount);
+      var finalSummary=!state.run.result.provisional&&time>=duration?state.run.result.summary:null;
+      var losses=sample.runtimeLossSeconds??finalSummary?.lineRateLossSeconds;
+      var effectiveSeconds=sample.effectiveRuntimeSeconds??(Number.isFinite(finalSummary?.lineRunSeconds)&&Number.isFinite(losses)?Math.max(0,finalSummary.lineRunSeconds-losses):null);
+      if(effectiveCard)effectiveCard.textContent=Number.isFinite(effectiveSeconds)?formatMinutes(effectiveSeconds):'—';
+      if(lossCard)lossCard.textContent=Number.isFinite(losses)?formatMinutes(losses):'—';
       document.getElementById('metric-instant-rate').textContent = formatInstantaneousOutputRate();
       document.getElementById('metric-rate').textContent = time > 0 ? formatRatePerMinute(sample.outputCount / time) : '—';
       document.getElementById('metric-buffer').textContent = formatNumber(sum(sample.buffers));

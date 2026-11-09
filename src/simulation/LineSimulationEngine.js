@@ -1219,7 +1219,8 @@ function addSample(runtime) {
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     productId:runtime.product?.id,
-    effectiveRuntimeSeconds:runtime.run.effectiveRuntimeTargetSeconds===undefined?undefined:round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds),
+    effectiveRuntimeSeconds:runtime.lineRateReferenceValid?round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds):null,
+    runtimeLossSeconds:runtime.lineRateReferenceValid?round(runtime.lineRateShortfallSeconds):null,
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
     accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),

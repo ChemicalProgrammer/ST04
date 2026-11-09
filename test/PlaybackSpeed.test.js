@@ -21,3 +21,24 @@ test('1000x playback skips display samples and reaches the final frame without c
  assert.equal(JSON.stringify(state.run.result),before);
 });
 
+
+test('completing a target batch keeps the final playback frame and saves that view',()=>{
+ const code=readClientSource(),samples=[{virtualSecond:0,outputCount:0},{virtualSecond:42,outputCount:77}];
+ const state={run:{result:{samples},sampleIndex:1,roundIndex:0}};
+ const result={samples,effectiveRuntimeStop:{status:'REACHED'},batch:{representativeRound:2}};
+ const tab={};
+ const context={state,result,session:{run:{rounds:3,calculationMode:'LIVE'}},roundSessionActive:()=>true,
+   syncPlaybackRounds(){},selectPlaybackRound(){assert.fail('target completion switched the playback round');},
+   toggle(){},renderResultJsonPreview(){},shell:{sync(){}},renderPlaybackFrame(){},
+   activePersistentSimulation:()=>tab,cloneJson:value=>JSON.parse(JSON.stringify(value)),
+   createStoredSimulationResult:()=>({}),captureSimulationView(){tab.results.view={virtualSecond:state.run.result.samples[state.run.sampleIndex].virtualSecond};},
+   saveActiveCase(){}};
+ vm.createContext(context);
+ for(const name of ['findSampleIndexAtOrBefore','persistRoundResult']){
+  const start=code.indexOf('    function '+name+'('),end=code.indexOf('\n    function ',start+10);
+  vm.runInContext(code.slice(start,end),context);
+ }
+ vm.runInContext("persistRoundResult(session,result,'COMPLETE')",context);
+ assert.equal(state.run.result.samples[state.run.sampleIndex].outputCount,77);
+ assert.equal(tab.results.view.virtualSecond,42);
+});

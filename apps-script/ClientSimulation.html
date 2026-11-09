@@ -166,7 +166,7 @@
         samples=required.concat(retainedReplaySamples(samples.filter(function(sample){return !requiredTimes.has(sample.virtualSecond);}),Math.max(0,limit-required.length))).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
       }
       replay.samples=samples.map(function(sample){
-        var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,effectiveRuntimeSeconds:sample.effectiveRuntimeSeconds,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
+        var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,effectiveRuntimeSeconds:sample.effectiveRuntimeSeconds,runtimeLossSeconds:sample.runtimeLossSeconds,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
         frame.accumulationZones=(sample.accumulationZones||[]).map(function(zone){
           var dynamic=Object.assign({},zone),staticKeys=['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry'];
           var definition=definitions[zone.id]||{};
@@ -565,11 +565,17 @@
     }
     function persistRoundResult(session,result,status){
       if(!roundSessionActive(session))return;
+      var previousFrame=state.run.result?.samples?.[state.run.sampleIndex];
       result.replicationStatus={state:status,rounds:session.run.rounds,baseSeed:session.run.seed};
       state.run.result=result;state.run.representative=result;state.run.roundIndex=0;
-      syncPlaybackRounds();if(status==='COMPLETE'&&result.batch?.representativeRound>1)selectPlaybackRound(result.batch.representativeRound-1,false);toggle('simulation-results',true);
+      if(result.effectiveRuntimeStop){
+        state.run.sampleIndex=status==='COMPLETE'&&session.run.calculationMode!=='LIVE'
+          ?Math.max(0,result.samples.length-1)
+          :findSampleIndexAtOrBefore(result.samples,previousFrame?.virtualSecond??0);
+      }
+      syncPlaybackRounds();if(!result.effectiveRuntimeStop&&status==='COMPLETE'&&result.batch?.representativeRound>1)selectPlaybackRound(result.batch.representativeRound-1,false);toggle('simulation-results',true);
       renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
-      var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);state.isDirty=true;saveActiveCase();}
+      var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);if(result.effectiveRuntimeStop)captureSimulationView();state.isDirty=true;saveActiveCase();}
     }
     function computeRoundSession(session,firstResult){
       var generation=++session.generation,version=session.version,startedAt=Date.now();
@@ -653,6 +659,7 @@
         tab.dynamicConfig=cloneJson(run);
         tab.run = cloneJson(run);
         tab.results = state.run.result.provisional?null:createStoredSimulationResult(state.run.result, run);
+        if(state.run.result.effectiveRuntimeStop&&!state.run.result.provisional&&run.calculationMode!=='LIVE'){state.run.sampleIndex=Math.max(0,state.run.result.samples.length-1);captureSimulationView();}
         state.isDirty = true;
         saveActiveCase();
       }
