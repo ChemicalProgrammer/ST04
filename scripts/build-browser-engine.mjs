@@ -55,7 +55,7 @@ self.onmessage=async function(event){
     const task=event.data;
     try {
       let lastProgressAt=0;
-      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>self.postMessage({type:'partial',id:task.id,result}):undefined,progress:value=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value});}}});
+      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>self.postMessage({type:'partial',id:task.id,result}):undefined,progress:(value,detail)=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value,detail});}}});
       self.postMessage({type:'result',id:task.id,response});
     }catch(error){self.postMessage({type:'error',id:task.id,message:error.message});}
   };
@@ -70,9 +70,13 @@ function selectedEngine(input){
   return id;
 }
 async function simulateSelectedLine(input,options={}){
-  return selectedEngine(input)===SIMPY_ENGINE_ID?simPyRuntime.run(input,options):simulateLineAsync(input,options);
+  return selectedEngine(input)===SIMPY_ENGINE_ID?input.run.effectiveRuntimeTargetSeconds!==undefined?effectiveRuntimeUnsupported():simPyRuntime.run(input,options):simulateLineAsync(input,options);
+}
+function effectiveRuntimeUnsupported(){
+  return {ok:false,error:{code:'EFFECTIVE_RUNTIME_ENGINE',message:'Effective Runtime targets require the continuous simulation engine.'}};
 }
 async function calculateBrowserBatch(input,options={}){
+  if(input.run.effectiveRuntimeTargetSeconds!==undefined&&selectedEngine(input)===SIMPY_ENGINE_ID)return effectiveRuntimeUnsupported();
   if(selectedEngine(input)===SIMPY_ENGINE_ID)return simulateBatch(input,{...options,runRound:simPyRuntime.run,workerFirstRound:true,concurrency:options.parallel===false?1:simPyRuntime.size,laterSummaryOnly:options.laterSummaryOnly!==false});
   let published=false;
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
@@ -100,7 +104,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.9/DES:0.4.0/cache:21',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.9/DES:0.4.0/cache:22',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);

@@ -8,7 +8,7 @@ export function summarizeReplications(values) {
 export async function simulateBatch(input, options={}) {
   const count=input.run.rounds||1;
   if(!Number.isInteger(count)||count<1||count>100)throw new Error('INVALID_BATCH_ROUNDS');
-  if(options.firstResult&&(options.firstResult.seed!==(input.run.seed>>>0)||options.firstResult.durationSeconds!==input.run.durationSeconds))throw new Error('BATCH_FIRST_RESULT_MISMATCH');
+  if(options.firstResult&&(options.firstResult.seed!==(input.run.seed>>>0)||(options.firstResult.effectiveRuntimeStop?.limitSeconds??options.firstResult.durationSeconds)!==input.run.durationSeconds||options.firstResult.effectiveRuntimeStop?.targetSeconds!==input.run.effectiveRuntimeTargetSeconds))throw new Error('BATCH_FIRST_RESULT_MISMATCH');
   const baseSeed=input.run.seed>>>0,rows=new Array(count),replays=[];let representative,failed=false;
   const fractions=new Array(count).fill(0);
   async function calculate(index){
@@ -18,15 +18,16 @@ export async function simulateBatch(input, options={}) {
     if(index>0&&!summaryOnly)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
     const runner=options.runRound&&(index>0||summaryOnly||options.workerFirstRound)?options.runRound:simulateLineAsync;
     const caseModel=runner===options.runRound?{id:input.case.id,unitOfFlow:input.case.unitOfFlow,equipment:input.case.equipment}:input.case;
-    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
+    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:(f,detail)=>{
       fractions[index]=Math.max(fractions[index],f);
-      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count);
+      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count,detail?{...detail,round:index+1}:undefined);
     }});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok){failed=true;return response;}
     if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
     rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts,products:result.products,plantCalendar:result.plantCalendar};
+    if(result.effectiveRuntimeStop)Object.assign(rows[index],{durationSeconds:result.durationSeconds,effectiveRuntimeStop:result.effectiveRuntimeStop});
     const conveyorRows=Object.values(result.accumulationZoneMetrics||{}).filter(zone=>Number.isFinite(zone.conveyorSpeedMmPerSecond));
     if(conveyorRows.length)rows[index].conveyorResults=conveyorRows.map(zone=>({
       id:zone.id,ownerEquipmentId:zone.ownerEquipmentId,conveyorSpeedMmPerSecond:zone.conveyorSpeedMmPerSecond,
@@ -51,7 +52,7 @@ export async function simulateBatch(input, options={}) {
   for(const key of Object.keys(rows[0].summary)) {
     if(typeof rows[0].summary[key]==='number'&&rows.every(r=>Number.isFinite(r.summary[key])))statistics[key]=summarizeReplications(rows.map(r=>r.summary[key]));
   }
-  statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/input.run.durationSeconds*60));
+  statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/(r.durationSeconds??input.run.durationSeconds)*60));
   const equipmentStatistics={};
   for(const [id,metrics] of Object.entries(rows[0].equipmentMetrics)) {
     equipmentStatistics[id]={};
@@ -88,6 +89,12 @@ export function replicationView(result,selection='average'){
     return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
   }
   const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
+  if(result.effectiveRuntimeStop){
+    view.durationSeconds=averageRoundValues(rows.map(r=>r.durationSeconds));
+    view.effectiveRuntimeStop={...result.effectiveRuntimeStop,status:'BATCH',
+      reachedRounds:rows.filter(r=>r.effectiveRuntimeStop?.status==='REACHED').length,totalRounds:rows.length,
+      accumulatedSeconds:rows.every(r=>Number.isFinite(r.effectiveRuntimeStop?.accumulatedSeconds))?averageRoundValues(rows.map(r=>r.effectiveRuntimeStop.accumulatedSeconds)):null};
+  }
   for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds','lineRateLossOutputEquivalents','lineRateRecoveryOutputEquivalents','lineNetRateBalanceOutputEquivalents','lineRateLossEfficiencyPp','lineRateRecoveryEfficiencyPp','lineNetRateBalanceEfficiencyPp','lineRateImpactDenominatorOutput']){
     const values=rows.map(r=>r.summary[key]);
     view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;

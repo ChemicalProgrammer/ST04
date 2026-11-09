@@ -166,7 +166,7 @@
         samples=required.concat(retainedReplaySamples(samples.filter(function(sample){return !requiredTimes.has(sample.virtualSecond);}),Math.max(0,limit-required.length))).sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
       }
       replay.samples=samples.map(function(sample){
-        var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
+        var frame={virtualSecond:sample.virtualSecond,productId:sample.productId,effectiveRuntimeSeconds:sample.effectiveRuntimeSeconds,outputCount:sample.outputCount,buffers:sample.buffers,equipment:sample.equipment};
         frame.accumulationZones=(sample.accumulationZones||[]).map(function(zone){
           var dynamic=Object.assign({},zone),staticKeys=['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry'];
           var definition=definitions[zone.id]||{};
@@ -223,7 +223,7 @@
         inputSignature:result.inputSignature,unitOfFlow:result.unitOfFlow,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
         seed: run.seed,
         durationMode:run.durationMode,shiftHours:run.shiftHours,shiftCount:run.shiftCount,shiftSeconds:run.shiftSeconds,rounds:run.rounds,
-        durationSeconds: run.durationSeconds,
+        durationSeconds: result.durationSeconds??run.durationSeconds,effectiveRuntimeStop:result.effectiveRuntimeStop,
         completedAt: new Date().toISOString(),
         batch: storedBatch?cloneJson(storedBatch):undefined,shifts:result.shifts,replicationStatus:cloneJson(result.replicationStatus||null),
         detailCoverage:cloneJson(result.detailCoverage||{}),
@@ -234,7 +234,7 @@
         replay: {
           caseId: result.caseId, unitOfFlow: result.unitOfFlow, engineVersion: result.engineVersion,
           inputSignature:result.inputSignature,engineId:result.engineId||'ST_CURRENT',engine:result.engine,limitations:result.limitations,diagnostics:result.diagnostics,
-          seed: result.seed, durationSeconds: result.durationSeconds,
+          seed: result.seed, durationSeconds: result.durationSeconds,effectiveRuntimeStop:result.effectiveRuntimeStop,
           plantCalendar:cloneJson(result.plantCalendar||null),products:cloneJson(result.products||null),
           summary: cloneJson(result.summary), equipmentMetrics: cloneJson(result.equipmentMetrics),
           zoneDefinitions:cloneJson(result.zoneDefinitions||{}),
@@ -493,7 +493,7 @@
       if(choice==='replace')state.run.commands=[];state.run.plannedStops=merged;state.run.eventPage=0;
       var simulation=activePersistentSimulation(),calendar=Object.assign({},simulation.dynamicConfig.plantCalendar);delete calendar.appliedCalendar;
       simulation.dynamicConfig.plantCalendar=Object.assign({},calendar,{application:'EVENTS',appliedHorizonSeconds:schedule.horizonSeconds,appliedCalendar:calendar});
-      setControlEventsExpanded(true);document.getElementById('run-events-enabled').checked=true;STRunOptions.setSeconds(Math.ceil(schedule.horizonSeconds/.25)*.25);simulation.results=null;state.run.result=null;state.run.representative=null;state.run.configuration=null;renderControlEvents();markCaseDirty();renderSimulationAnalysis();syncRunControls();shell.sync();return true;
+      setControlEventsExpanded(true);document.getElementById('run-events-enabled').checked=true;STRunOptions.setSeconds(Math.ceil(schedule.horizonSeconds/.25)*.25,true);simulation.results=null;state.run.result=null;state.run.representative=null;state.run.configuration=null;renderControlEvents();markCaseDirty();renderSimulationAnalysis();syncRunControls();shell.sync();return true;
     }
 
     function createControlEventRow(command, index) {
@@ -543,7 +543,7 @@
       if(index===0)state.run.result=first;
       else {
         var row=batch.rows[index],replay=expandStoredReplay(batch.replays?.[index-1]||batch.representativeReplay);
-        state.run.result={...first,products:row.products,plantCalendar:row.plantCalendar,caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:first.durationSeconds,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
+        state.run.result={...first,products:row.products,plantCalendar:row.plantCalendar,caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:row.durationSeconds??first.durationSeconds,effectiveRuntimeStop:row.effectiveRuntimeStop,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
       }
       state.run.sampleIndex=0;document.getElementById('playback-round').value=String(index);
       renderResultJsonPreview(state.run.result);
@@ -596,7 +596,10 @@
         syncPlaybackRounds();toggle('simulation-results',true);renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
         if(session.resolveFirst){session.resolveFirst(true);session.resolveFirst=null;}
         else persistRoundResult(session,result,'PENDING');
-      },progress:function(value,round,total){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;document.getElementById('batch-status').textContent=Math.round(value*100)+'% · '+Math.round(value*session.run.durationSeconds/60).toLocaleString()+' simulated min'+(value>.01?' · ~'+Math.max(0,Math.ceil((Date.now()-startedAt)/1000*(1-value)/value))+' s remaining':'');}}).then(function(response){
+      },progress:function(value,round,total,detail){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;if(detail){
+        document.getElementById('batch-status').textContent='Ronda '+detail.round+' / '+total+' · Effective Runtime '+(Number.isFinite(detail.accumulatedSeconds)?formatMinutes(detail.accumulatedSeconds):'—')+' / '+formatMinutes(session.run.effectiveRuntimeTargetSeconds)+' · Calendario '+formatMinutes(detail.elapsedSeconds)+' · Producción '+formatNumber(detail.outputCount);
+        return;
+      }document.getElementById('batch-status').textContent=Math.round(value*100)+'% · '+Math.round(value*session.run.durationSeconds/60).toLocaleString()+' simulated min'+(value>.01?' · ~'+Math.max(0,Math.ceil((Date.now()-startedAt)/1000*(1-value)/value))+' s remaining':'');}}).then(function(response){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         session.pending=false;syncRunControls();
         if(!response.ok){state.run.active=false;syncRunControls();showError(response.error);session.resolveFirst?.(false);toggle('batch-dialog',false);return;}

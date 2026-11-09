@@ -45,6 +45,10 @@ window.STResults=(function(){
     const calendar=simulation?.dynamicConfig?.plantCalendar,source=calendar?.appliedCalendar||calendar;
     function measured(row){
       if(result?.engineId==='DES_SIMPY_EXPERIMENTAL')return null;
+      if(row.effectiveRuntimeStop&&Number.isFinite(row.effectiveRuntimeStop.accumulatedSeconds)){
+        const run=row.summary?.lineRunSeconds,loss=row.summary?.lineRateLossSeconds,available=(row.durationSeconds??result.durationSeconds)-(row.plantCalendar?.observedStopSeconds||0);
+        return {available:available/60,unplanned:Number.isFinite(run)?Math.max(0,available-run)/60:null,rateLoss:Number.isFinite(loss)?loss/60:null,minutes:row.effectiveRuntimeStop.accumulatedSeconds/60};
+      }
       const summary=row.summary||{},duration=row.durationSeconds??result?.durationSeconds;
       let available=Number.isFinite(duration)&&duration>0?duration:null;
       if(calendar?.enabled){
@@ -84,7 +88,7 @@ window.STResults=(function(){
   window.addEventListener('st-calculation-activity',event=>{calculationCount=Math.max(0,calculationCount+(event.detail.active?1:-1));if(!calculationCount)idleLossTasks.splice(0).forEach(start=>start());});
   function resultMean(result){return result?.batch?.statistics?.lineOeePercent?.mean??result?.summary?.lineOeePercent;}
   function lossInput(equipment,result,simulation){
-    if(!result||result.provisional||!(result.durationSeconds>0)||['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state))return null;
+    if(!result||result.effectiveRuntimeStop||result.provisional||!(result.durationSeconds>0)||['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state))return null;
     var provenance;try{provenance=JSON.parse(result.inputSignature||result.replay?.inputSignature||'null');}catch(ignore){}
     if(!provenance?.equipment||!provenance?.run)return null;
     var run=Object.assign({},provenance.run,{durationSeconds:result.durationSeconds,rounds:result.batch?.rounds||result.rounds||1});
@@ -251,6 +255,8 @@ window.STResults=(function(){
     renderEfficiency(document.getElementById('results-loss-breakdown'),simulation?.equipment||activeCase?.equipment||[],ready?result:null,simulation);
     if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+__ST_TEXT__('results.s_seed')+result.seed;
+    const effectiveStop=result.effectiveRuntimeStop;
+    if(effectiveStop)document.getElementById('results-meta').textContent+=' · Effective Runtime '+number(Number.isFinite(effectiveStop.accumulatedSeconds)?effectiveStop.accumulatedSeconds/60:null,2)+' / '+number(effectiveStop.targetSeconds/60,2)+' min · '+(effectiveStop.status==='BATCH'?effectiveStop.reachedRounds+' / '+effectiveStop.totalRounds+' rondas alcanzaron el objetivo':effectiveStop.status==='REACHED'?'Objetivo alcanzado':'Objetivo no alcanzado al límite');
     if(result.detailCoverage?.aggregated)document.getElementById('results-meta').textContent+=' · bounded history / '+number(result.detailCoverage.effectiveSampleSeconds)+' s buckets';
     if(result.detailCoverage?.omittedEvents)document.getElementById('results-meta').textContent+=' · '+result.detailCoverage.omittedEvents+' detailed events omitted; totals retained';
     document.getElementById('results-meta').textContent+=result.resultView?.mode==='average'?' · Mean of '+result.resultView.rounds+' rounds':result.resultView?.mode==='round'?' · Round '+result.resultView.round:'';

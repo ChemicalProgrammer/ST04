@@ -22,6 +22,7 @@ export function simulateLine(input) {
   initializeInitialMaterialStates(runtime);
   addSample(runtime);
   executeTicks(runtime);
+  if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
   updatePlantCalendar(runtime,false);
   return { ok: true, result: createResult(runtime) };
 }
@@ -51,12 +52,12 @@ export async function simulateLineAsync(input, options = {}) {
   const shifts = []; let previous = {outputCount:0,idealBottleOutput:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
   const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
   let nextShift = shiftSeconds;
-  while (runtime.virtualSecond < input.run.durationSeconds) {
+  while (runtime.virtualSecond < input.run.durationSeconds && !effectiveRuntimeTargetReached(runtime)) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
     const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:input.run.calculationMode==='FAST'||input.run.calculationMode==='SUMMARY'?5000:1000;
     const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
-    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
+    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds || effectiveRuntimeTargetReached(runtime)) {
       const summary = createSummary(runtime);
       const duration = Math.min(shiftSeconds, runtime.virtualSecond - shifts.length * shiftSeconds);
       const output = summary.outputCount - previous.outputCount;
@@ -65,7 +66,12 @@ export async function simulateLineAsync(input, options = {}) {
         starvedSeconds:summary.totalStarvedSeconds-previous.totalStarvedSeconds,blockedSeconds:summary.totalBlockedSeconds-previous.totalBlockedSeconds,failureSeconds:summary.totalFailureSeconds-previous.totalFailureSeconds});
       previous=summary; nextShift+=shiftSeconds;
     }
-    options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    options.progress?.(effectiveRuntimeTargetReached(runtime)?1:runtime.virtualSecond/input.run.durationSeconds,
+      runtime.run.effectiveRuntimeTargetSeconds===undefined?undefined:{
+        elapsedSeconds:runtime.virtualSecond,
+        accumulatedSeconds:runtime.lineRateReferenceValid?round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds):null,
+        outputCount:round(runtime.outputCount)
+      });
     publishPartial();
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
@@ -343,8 +349,13 @@ function normalizePhysicalZone(definition) {
   };
 }
 
+function effectiveRuntimeTargetReached(runtime) {
+  return runtime.run.effectiveRuntimeTargetSeconds !== undefined && runtime.lineRateReferenceValid &&
+    runtime.lineRunSeconds-runtime.lineRateShortfallSeconds+1e-8 >= runtime.run.effectiveRuntimeTargetSeconds;
+}
+
 function executeTicks(runtime, until = runtime.run.durationSeconds) {
-  while (runtime.virtualSecond < until) {
+  while (runtime.virtualSecond < until && !effectiveRuntimeTargetReached(runtime)) {
     applyDueCommands(runtime);
     updatePlantCalendar(runtime);
     updateReliabilityFailures(runtime);
@@ -1191,6 +1202,7 @@ function addSample(runtime) {
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     productId:runtime.product?.id,
+    effectiveRuntimeSeconds:runtime.run.effectiveRuntimeTargetSeconds===undefined?undefined:round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds),
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
     accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),
@@ -1302,21 +1314,28 @@ function createZoneSample(zone) {
 }
 
 function createResult(runtime,partial=false) {
+  const target=runtime.run.effectiveRuntimeTargetSeconds;
+  const duration=target===undefined||partial?runtime.run.durationSeconds:runtime.virtualSecond;
   return {
+    effectiveRuntimeStop:target===undefined?undefined:{
+      targetSeconds:target,limitSeconds:runtime.run.durationSeconds,
+      accumulatedSeconds:runtime.lineRateReferenceValid?round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds):null,
+      status:partial?'RUNNING':effectiveRuntimeTargetReached(runtime)?'REACHED':'LIMIT_REACHED'
+    },
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
     engineVersion: '0.17.9',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
-    plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
+    plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(duration-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
     seed: runtime.run.seed,
-    durationSeconds: runtime.run.durationSeconds,
+    durationSeconds: duration,
     summary: createSummary(runtime),
-    equipmentMetrics: Object.fromEntries(runtime.equipment.map((item) => [item.id, createEquipmentMetrics(item, runtime.run.durationSeconds)])),
+    equipmentMetrics: Object.fromEntries(runtime.equipment.map((item) => [item.id, createEquipmentMetrics(item, duration)])),
     accumulationZoneMetrics: Object.fromEntries(runtime.zones.filter((zone) => zone.visible).map((zone) => [
       zone.id,
-      createZoneMetrics(zone, runtime.run.durationSeconds)
+      createZoneMetrics(zone, duration)
     ])),
     events: partial?[]:runtime.events.slice(),
     samples: runtime.samples
@@ -1324,10 +1343,11 @@ function createResult(runtime,partial=false) {
 }
 
 function createSummary(runtime) {
+  const duration=runtime.run.effectiveRuntimeTargetSeconds===undefined?runtime.run.durationSeconds:runtime.virtualSecond;
   const lineEffectiveness = createLineEffectiveness(runtime);
   const rateLoss=runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds;
   const validRate=runtime.lineRateReferenceValid;
-  const idealOutput=runtime.product?runtime.idealBottleOutput:(lineEffectiveness.reference?.nominalRatePerSecond||0)*runtime.run.durationSeconds;
+  const idealOutput=runtime.product?runtime.idealBottleOutput:(lineEffectiveness.reference?.nominalRatePerSecond||0)*duration;
   const lossOutput=runtime.lineRateShortfallOutputEquivalents,recoveryOutput=runtime.lineRateRecoveryOutputEquivalents;
   const impactAvailable=validRate&&idealOutput>0;
   return {
@@ -1359,7 +1379,7 @@ function createSummary(runtime) {
       residualUnits: round(runtime.product?runtime.inputBottleEquivalents-runtime.outputCount-runtime.clearoutBottleEquivalents-runtime.overflowBottleEquivalents-sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1))):(runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
         sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
     },
-    averageOutputRatePerSecond: round(runtime.outputCount / runtime.run.durationSeconds),
+    averageOutputRatePerSecond: round(duration>0?runtime.outputCount / duration:0),
     totalBlockedSeconds: round(sum(runtime.equipment.map((item) => item.blockedSeconds))),
     totalStarvedSeconds: round(sum(runtime.equipment.map((item) => item.starvedSeconds))),
     totalPartialStarvationLossSeconds: round(sum(runtime.equipment.map((item) => item.partialStarvationLossSeconds))),
@@ -1372,7 +1392,7 @@ function createSummary(runtime) {
     lineOeePercent: round(lineEffectiveness.oee * 100),
     lineOeePacemakerEquipmentId: lineEffectiveness.reference?.id || null,
     lineOeePacemakerName: lineEffectiveness.reference?.name || null,
-    lineOeePacemakerRatePerSecond: runtime.product ? runtime.idealBottleOutput/runtime.run.durationSeconds : lineEffectiveness.reference?.nominalRatePerSecond || null,
+    lineOeePacemakerRatePerSecond: runtime.product ? duration>0?runtime.idealBottleOutput/duration:null : lineEffectiveness.reference?.nominalRatePerSecond || null,
     lineOeeReference: runtime.product?'PRODUCT_WEIGHTED_IDEAL_OUTPUT':lineEffectiveness.referenceMethod,
     idealBottleOutput:runtime.product?runtime.idealBottleOutput:undefined,
     repairRestartPolicy: 'MTTR_STOP_TO_REPAIR_END_REPAIR_RAMP_OPT_IN',
@@ -1449,7 +1469,7 @@ function createEquipmentEffectiveness(equipment, elapsedSeconds) {
 function createLineEffectiveness(runtime) {
   const reference = resolveLineOeeReference(runtime.equipment);
   const idealOutput = runtime.product ? runtime.idealBottleOutput : reference
-    ? reference.nominalRatePerSecond * runtime.run.durationSeconds
+    ? reference.nominalRatePerSecond * (runtime.run.effectiveRuntimeTargetSeconds===undefined?runtime.run.durationSeconds:runtime.virtualSecond)
     : 0;
   return {
     reference,

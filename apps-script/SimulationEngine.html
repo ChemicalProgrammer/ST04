@@ -1225,6 +1225,7 @@ function validateRun(run, details) {
   if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
+  if(run.effectiveRuntimeTargetSeconds!==undefined&&(!positiveNumber(run.effectiveRuntimeTargetSeconds)||run.effectiveRuntimeTargetSeconds>run.durationSeconds||Math.abs(run.durationSeconds/run.tickSeconds-Math.round(run.durationSeconds/run.tickSeconds))>1e-8))details.push(invalid('run.effectiveRuntimeTargetSeconds','must be positive and at most the tick-aligned time limit'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));
   if (!Number.isInteger(run.seed)) details.push(invalid('run.seed', 'must be an integer'));
   if (run.sampleEverySeconds !== undefined && !positiveNumber(run.sampleEverySeconds)) {
@@ -1328,6 +1329,7 @@ function simulateLine(input) {
   initializeInitialMaterialStates(runtime);
   addSample(runtime);
   executeTicks(runtime);
+  if(runtime.samples.at(-1)?.virtualSecond!==runtime.virtualSecond)addSample(runtime);
   updatePlantCalendar(runtime,false);
   return { ok: true, result: createResult(runtime) };
 }
@@ -1357,12 +1359,12 @@ async function simulateLineAsync(input, options = {}) {
   const shifts = []; let previous = {outputCount:0,idealBottleOutput:0,totalStarvedSeconds:0,totalBlockedSeconds:0,totalFailureSeconds:0};
   const shiftSeconds = input.run.shiftSeconds || input.run.durationSeconds;
   let nextShift = shiftSeconds;
-  while (runtime.virtualSecond < input.run.durationSeconds) {
+  while (runtime.virtualSecond < input.run.durationSeconds && !effectiveRuntimeTargetReached(runtime)) {
     if (options.cancelled?.()) throw new Error('BATCH_CANCELLED');
     const chunkTicks=options.onPartial&&runtime.virtualSecond===0?32:input.run.calculationMode==='FAST'||input.run.calculationMode==='SUMMARY'?5000:1000;
     const until = Math.min(runtime.virtualSecond + input.run.tickSeconds * chunkTicks, nextShift, input.run.durationSeconds);
     executeTicks(runtime, until);
-    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds) {
+    if (runtime.virtualSecond >= nextShift || runtime.virtualSecond >= input.run.durationSeconds || effectiveRuntimeTargetReached(runtime)) {
       const summary = createSummary(runtime);
       const duration = Math.min(shiftSeconds, runtime.virtualSecond - shifts.length * shiftSeconds);
       const output = summary.outputCount - previous.outputCount;
@@ -1371,7 +1373,12 @@ async function simulateLineAsync(input, options = {}) {
         starvedSeconds:summary.totalStarvedSeconds-previous.totalStarvedSeconds,blockedSeconds:summary.totalBlockedSeconds-previous.totalBlockedSeconds,failureSeconds:summary.totalFailureSeconds-previous.totalFailureSeconds});
       previous=summary; nextShift+=shiftSeconds;
     }
-    options.progress?.(runtime.virtualSecond/input.run.durationSeconds);
+    options.progress?.(effectiveRuntimeTargetReached(runtime)?1:runtime.virtualSecond/input.run.durationSeconds,
+      runtime.run.effectiveRuntimeTargetSeconds===undefined?undefined:{
+        elapsedSeconds:runtime.virtualSecond,
+        accumulatedSeconds:runtime.lineRateReferenceValid?round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds):null,
+        outputCount:round(runtime.outputCount)
+      });
     publishPartial();
     if(options.yieldBetweenChunks!==false)await new Promise(resolve=>setTimeout(resolve,0));
   }
@@ -1649,8 +1656,13 @@ function normalizePhysicalZone(definition) {
   };
 }
 
+function effectiveRuntimeTargetReached(runtime) {
+  return runtime.run.effectiveRuntimeTargetSeconds !== undefined && runtime.lineRateReferenceValid &&
+    runtime.lineRunSeconds-runtime.lineRateShortfallSeconds+1e-8 >= runtime.run.effectiveRuntimeTargetSeconds;
+}
+
 function executeTicks(runtime, until = runtime.run.durationSeconds) {
-  while (runtime.virtualSecond < until) {
+  while (runtime.virtualSecond < until && !effectiveRuntimeTargetReached(runtime)) {
     applyDueCommands(runtime);
     updatePlantCalendar(runtime);
     updateReliabilityFailures(runtime);
@@ -2497,6 +2509,7 @@ function addSample(runtime) {
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     productId:runtime.product?.id,
+    effectiveRuntimeSeconds:runtime.run.effectiveRuntimeTargetSeconds===undefined?undefined:round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds),
     outputCount: round(runtime.outputCount),
     buffers: visibleZones.map((zone) => round(getZoneInventory(zone))),
     accumulationZones: visibleZones.map(zone=>createRecordedZoneSample(runtime,zone)),
@@ -2608,21 +2621,28 @@ function createZoneSample(zone) {
 }
 
 function createResult(runtime,partial=false) {
+  const target=runtime.run.effectiveRuntimeTargetSeconds;
+  const duration=target===undefined||partial?runtime.run.durationSeconds:runtime.virtualSecond;
   return {
+    effectiveRuntimeStop:target===undefined?undefined:{
+      targetSeconds:target,limitSeconds:runtime.run.durationSeconds,
+      accumulatedSeconds:runtime.lineRateReferenceValid?round(runtime.lineRunSeconds-runtime.lineRateShortfallSeconds):null,
+      status:partial?'RUNNING':effectiveRuntimeTargetReached(runtime)?'REACHED':'LIMIT_REACHED'
+    },
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
     engineVersion: '0.17.9',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
-    plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(runtime.run.durationSeconds-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
+    plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(duration-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,
     seed: runtime.run.seed,
-    durationSeconds: runtime.run.durationSeconds,
+    durationSeconds: duration,
     summary: createSummary(runtime),
-    equipmentMetrics: Object.fromEntries(runtime.equipment.map((item) => [item.id, createEquipmentMetrics(item, runtime.run.durationSeconds)])),
+    equipmentMetrics: Object.fromEntries(runtime.equipment.map((item) => [item.id, createEquipmentMetrics(item, duration)])),
     accumulationZoneMetrics: Object.fromEntries(runtime.zones.filter((zone) => zone.visible).map((zone) => [
       zone.id,
-      createZoneMetrics(zone, runtime.run.durationSeconds)
+      createZoneMetrics(zone, duration)
     ])),
     events: partial?[]:runtime.events.slice(),
     samples: runtime.samples
@@ -2630,10 +2650,11 @@ function createResult(runtime,partial=false) {
 }
 
 function createSummary(runtime) {
+  const duration=runtime.run.effectiveRuntimeTargetSeconds===undefined?runtime.run.durationSeconds:runtime.virtualSecond;
   const lineEffectiveness = createLineEffectiveness(runtime);
   const rateLoss=runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds;
   const validRate=runtime.lineRateReferenceValid;
-  const idealOutput=runtime.product?runtime.idealBottleOutput:(lineEffectiveness.reference?.nominalRatePerSecond||0)*runtime.run.durationSeconds;
+  const idealOutput=runtime.product?runtime.idealBottleOutput:(lineEffectiveness.reference?.nominalRatePerSecond||0)*duration;
   const lossOutput=runtime.lineRateShortfallOutputEquivalents,recoveryOutput=runtime.lineRateRecoveryOutputEquivalents;
   const impactAvailable=validRate&&idealOutput>0;
   return {
@@ -2665,7 +2686,7 @@ function createSummary(runtime) {
       residualUnits: round(runtime.product?runtime.inputBottleEquivalents-runtime.outputCount-runtime.clearoutBottleEquivalents-runtime.overflowBottleEquivalents-sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1))):(runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
         sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
     },
-    averageOutputRatePerSecond: round(runtime.outputCount / runtime.run.durationSeconds),
+    averageOutputRatePerSecond: round(duration>0?runtime.outputCount / duration:0),
     totalBlockedSeconds: round(sum(runtime.equipment.map((item) => item.blockedSeconds))),
     totalStarvedSeconds: round(sum(runtime.equipment.map((item) => item.starvedSeconds))),
     totalPartialStarvationLossSeconds: round(sum(runtime.equipment.map((item) => item.partialStarvationLossSeconds))),
@@ -2678,7 +2699,7 @@ function createSummary(runtime) {
     lineOeePercent: round(lineEffectiveness.oee * 100),
     lineOeePacemakerEquipmentId: lineEffectiveness.reference?.id || null,
     lineOeePacemakerName: lineEffectiveness.reference?.name || null,
-    lineOeePacemakerRatePerSecond: runtime.product ? runtime.idealBottleOutput/runtime.run.durationSeconds : lineEffectiveness.reference?.nominalRatePerSecond || null,
+    lineOeePacemakerRatePerSecond: runtime.product ? duration>0?runtime.idealBottleOutput/duration:null : lineEffectiveness.reference?.nominalRatePerSecond || null,
     lineOeeReference: runtime.product?'PRODUCT_WEIGHTED_IDEAL_OUTPUT':lineEffectiveness.referenceMethod,
     idealBottleOutput:runtime.product?runtime.idealBottleOutput:undefined,
     repairRestartPolicy: 'MTTR_STOP_TO_REPAIR_END_REPAIR_RAMP_OPT_IN',
@@ -2755,7 +2776,7 @@ function createEquipmentEffectiveness(equipment, elapsedSeconds) {
 function createLineEffectiveness(runtime) {
   const reference = resolveLineOeeReference(runtime.equipment);
   const idealOutput = runtime.product ? runtime.idealBottleOutput : reference
-    ? reference.nominalRatePerSecond * runtime.run.durationSeconds
+    ? reference.nominalRatePerSecond * (runtime.run.effectiveRuntimeTargetSeconds===undefined?runtime.run.durationSeconds:runtime.virtualSecond)
     : 0;
   return {
     reference,
@@ -2901,7 +2922,7 @@ function summarizeReplications(values) {
 async function simulateBatch(input, options={}) {
   const count=input.run.rounds||1;
   if(!Number.isInteger(count)||count<1||count>100)throw new Error('INVALID_BATCH_ROUNDS');
-  if(options.firstResult&&(options.firstResult.seed!==(input.run.seed>>>0)||options.firstResult.durationSeconds!==input.run.durationSeconds))throw new Error('BATCH_FIRST_RESULT_MISMATCH');
+  if(options.firstResult&&(options.firstResult.seed!==(input.run.seed>>>0)||(options.firstResult.effectiveRuntimeStop?.limitSeconds??options.firstResult.durationSeconds)!==input.run.durationSeconds||options.firstResult.effectiveRuntimeStop?.targetSeconds!==input.run.effectiveRuntimeTargetSeconds))throw new Error('BATCH_FIRST_RESULT_MISMATCH');
   const baseSeed=input.run.seed>>>0,rows=new Array(count),replays=[];let representative,failed=false;
   const fractions=new Array(count).fill(0);
   async function calculate(index){
@@ -2911,15 +2932,16 @@ async function simulateBatch(input, options={}) {
     if(index>0&&!summaryOnly)run.sampleEverySeconds=Math.max(run.sampleEverySeconds||run.tickSeconds,Math.ceil(run.durationSeconds/120/run.tickSeconds)*run.tickSeconds);
     const runner=options.runRound&&(index>0||summaryOnly||options.workerFirstRound)?options.runRound:simulateLineAsync;
     const caseModel=runner===options.runRound?{id:input.case.id,unitOfFlow:input.case.unitOfFlow,equipment:input.case.equipment}:input.case;
-    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:f=>{
+    const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:(f,detail)=>{
       fractions[index]=Math.max(fractions[index],f);
-      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count);
+      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count,detail?{...detail,round:index+1}:undefined);
     }});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok){failed=true;return response;}
     if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
     rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts,products:result.products,plantCalendar:result.plantCalendar};
+    if(result.effectiveRuntimeStop)Object.assign(rows[index],{durationSeconds:result.durationSeconds,effectiveRuntimeStop:result.effectiveRuntimeStop});
     const conveyorRows=Object.values(result.accumulationZoneMetrics||{}).filter(zone=>Number.isFinite(zone.conveyorSpeedMmPerSecond));
     if(conveyorRows.length)rows[index].conveyorResults=conveyorRows.map(zone=>({
       id:zone.id,ownerEquipmentId:zone.ownerEquipmentId,conveyorSpeedMmPerSecond:zone.conveyorSpeedMmPerSecond,
@@ -2944,7 +2966,7 @@ async function simulateBatch(input, options={}) {
   for(const key of Object.keys(rows[0].summary)) {
     if(typeof rows[0].summary[key]==='number'&&rows.every(r=>Number.isFinite(r.summary[key])))statistics[key]=summarizeReplications(rows.map(r=>r.summary[key]));
   }
-  statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/input.run.durationSeconds*60));
+  statistics.throughputPerMinute=summarizeReplications(rows.map(r=>r.summary.outputCount/(r.durationSeconds??input.run.durationSeconds)*60));
   const equipmentStatistics={};
   for(const [id,metrics] of Object.entries(rows[0].equipmentMetrics)) {
     equipmentStatistics[id]={};
@@ -2981,6 +3003,12 @@ function replicationView(result,selection='average'){
     return {...result,...row,batch:undefined,inputSignature:signature,products:row.products,plantCalendar:row.plantCalendar,samples:replay?.samples||[],accumulationZoneMetrics:replay?.accumulationZoneMetrics||{},resultView:{mode:'round',round:row.round}};
   }
   const view={...result,summary:averageRoundValues(rows.map(r=>r.summary)),equipmentMetrics:averageRoundValues(rows.map(r=>r.equipmentMetrics)),plantCalendar:averageRoundValues(rows.map(r=>r.plantCalendar)),resultView:{mode:'average',rounds:rows.length}};
+  if(result.effectiveRuntimeStop){
+    view.durationSeconds=averageRoundValues(rows.map(r=>r.durationSeconds));
+    view.effectiveRuntimeStop={...result.effectiveRuntimeStop,status:'BATCH',
+      reachedRounds:rows.filter(r=>r.effectiveRuntimeStop?.status==='REACHED').length,totalRounds:rows.length,
+      accumulatedSeconds:rows.every(r=>Number.isFinite(r.effectiveRuntimeStop?.accumulatedSeconds))?averageRoundValues(rows.map(r=>r.effectiveRuntimeStop.accumulatedSeconds)):null};
+  }
   for(const key of ['lineRunSeconds','lineEffectiveRuntimeSeconds','lineRateLossSeconds','lineRateRecoverySeconds','lineNetRateBalanceSeconds','lineRateLossOutputEquivalents','lineRateRecoveryOutputEquivalents','lineNetRateBalanceOutputEquivalents','lineRateLossEfficiencyPp','lineRateRecoveryEfficiencyPp','lineNetRateBalanceEfficiencyPp','lineRateImpactDenominatorOutput']){
     const values=rows.map(r=>r.summary[key]);
     view.summary[key]=values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0)/values.length:null;
@@ -3019,7 +3047,7 @@ function createSimulationWorkerPool(factory, size) {
         const message=event.data;
         if(message.type==='ready'){clearTimeout(slot.startup);slot.ready=true;dispatch(slot);return;}
         const job=slot.job;if(!job||message.id!==job.id)return;
-        if(message.type==='progress'){job.options.progress?.(message.value);return;}
+        if(message.type==='progress'){job.options.progress?.(message.value,message.detail);return;}
         if(message.type==='partial'){job.options.onPartial?.(message.result);return;}
         slot.job=null;
         if(message.type==='error')job.reject(new Error(message.message));else job.resolve(message.response);
@@ -3956,7 +3984,7 @@ self.onmessage=async function(event){
     const task=event.data;
     try {
       let lastProgressAt=0;
-      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>self.postMessage({type:'partial',id:task.id,result}):undefined,progress:value=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value});}}});
+      const response=await simulateLineAsync(task.input,{detail:task.detail,summaryOnly:task.summaryOnly,yieldBetweenChunks:false,onPartial:task.stream?result=>self.postMessage({type:'partial',id:task.id,result}):undefined,progress:(value,detail)=>{const now=Date.now();if(value===0||value===1||now-lastProgressAt>=50){lastProgressAt=now;self.postMessage({type:'progress',id:task.id,value,detail});}}});
       self.postMessage({type:'result',id:task.id,response});
     }catch(error){self.postMessage({type:'error',id:task.id,message:error.message});}
   };
@@ -3971,9 +3999,13 @@ function selectedEngine(input){
   return id;
 }
 async function simulateSelectedLine(input,options={}){
-  return selectedEngine(input)===SIMPY_ENGINE_ID?simPyRuntime.run(input,options):simulateLineAsync(input,options);
+  return selectedEngine(input)===SIMPY_ENGINE_ID?input.run.effectiveRuntimeTargetSeconds!==undefined?effectiveRuntimeUnsupported():simPyRuntime.run(input,options):simulateLineAsync(input,options);
+}
+function effectiveRuntimeUnsupported(){
+  return {ok:false,error:{code:'EFFECTIVE_RUNTIME_ENGINE',message:'Effective Runtime targets require the continuous simulation engine.'}};
 }
 async function calculateBrowserBatch(input,options={}){
+  if(input.run.effectiveRuntimeTargetSeconds!==undefined&&selectedEngine(input)===SIMPY_ENGINE_ID)return effectiveRuntimeUnsupported();
   if(selectedEngine(input)===SIMPY_ENGINE_ID)return simulateBatch(input,{...options,runRound:simPyRuntime.run,workerFirstRound:true,concurrency:options.parallel===false?1:simPyRuntime.size,laterSummaryOnly:options.laterSummaryOnly!==false});
   let published=false;
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
@@ -4001,7 +4033,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.9/DES:0.4.0/cache:21',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.17.9/DES:0.4.0/cache:22',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);

@@ -81,7 +81,16 @@
 
     function renderPlaybackFrame() {
       syncRunControls();
-      var progress=document.getElementById('playback-progress');
+      var progress=document.getElementById('playback-progress'),effective=document.getElementById('run-effective-progress');
+      if(effective){
+        var result=state.run.result,stop=result?.effectiveRuntimeStop,frame=result?.samples?.[state.run.sampleIndex];
+        effective.hidden=!stop;
+        if(stop){
+          var finished=!result.provisional&&(!frame||frame.virtualSecond>=result.durationSeconds);
+          var observed=finished?stop.accumulatedSeconds:frame?.effectiveRuntimeSeconds;
+          effective.textContent='Effective Runtime: '+(Number.isFinite(observed)?formatMinutes(observed):'—')+' / '+formatMinutes(stop.targetSeconds)+' · Calendario: '+formatMinutes(finished?result.durationSeconds:frame?.virtualSecond||0)+' · Producción: '+formatNumber(finished?result.summary.outputCount:frame?.outputCount||0)+(finished?(stop.status==='REACHED'?' · Objetivo alcanzado':' · Objetivo no alcanzado al límite'):'');
+        }
+      }
       if (!state.run.result || !state.run.result.samples.length){if(progress)progress.textContent='0%';return;}
       var scrollAnchor = captureLiveEquipmentScrollAnchor();
       var sample = state.run.result.samples[state.run.sampleIndex];

@@ -74,3 +74,27 @@ test('batch concurrency includes the first worker round and serial mode starts o
  assert(actual.ok);assert.equal(peak,concurrency);
  }
 });
+
+test('effective runtime target uses gross speed loss and records actual calendar duration',async()=>{
+ const data=input();data.run={...data.run,durationSeconds:600,effectiveRuntimeTargetSeconds:30,reliabilityEnabled:false,rounds:2};
+ const response=await simulateBatch(data,{laterSummaryOnly:true});
+ assert(response.ok,JSON.stringify(response.error));
+ const first=response.result;
+ assert.equal(first.effectiveRuntimeStop.status,'REACHED');
+ assert(first.durationSeconds<600);
+ assert(first.effectiveRuntimeStop.accumulatedSeconds>=30&&first.effectiveRuntimeStop.accumulatedSeconds<30.25);
+ assert(Math.abs(first.summary.lineRunSeconds-first.summary.lineRateLossSeconds-first.effectiveRuntimeStop.accumulatedSeconds)<.001);
+ assert.equal(first.samples.at(-1).virtualSecond,first.durationSeconds);
+ assert.equal(first.shifts.at(-1).durationSeconds,first.durationSeconds);
+ for(const row of first.batch.rows){
+   assert.equal(row.effectiveRuntimeStop.status,'REACHED');
+   assert(row.durationSeconds<600);
+ }
+ const reused=await simulateBatch(data,{firstResult:first,laterSummaryOnly:true});
+ assert.equal(reused.result.batch.rows[0].durationSeconds,first.durationSeconds);
+ const stopped=simulateLine({...data,run:{...data.run,durationSeconds:60,commands:[{atVirtualSecond:0,equipmentId:data.case.equipment[0].id,action:'STOP'}]}});
+ assert(stopped.ok);
+ assert.equal(stopped.result.durationSeconds,60);
+ assert.equal(stopped.result.effectiveRuntimeStop.status,'LIMIT_REACHED');
+ assert.equal(stopped.result.effectiveRuntimeStop.accumulatedSeconds,0);
+});

@@ -21,7 +21,7 @@ export function createSimulationWorkerPool(factory, size) {
         const message=event.data;
         if(message.type==='ready'){clearTimeout(slot.startup);slot.ready=true;dispatch(slot);return;}
         const job=slot.job;if(!job||message.id!==job.id)return;
-        if(message.type==='progress'){job.options.progress?.(message.value);return;}
+        if(message.type==='progress'){job.options.progress?.(message.value,message.detail);return;}
         if(message.type==='partial'){job.options.onPartial?.(message.result);return;}
         slot.job=null;
         if(message.type==='error')job.reject(new Error(message.message));else job.resolve(message.response);
