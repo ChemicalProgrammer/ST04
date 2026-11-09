@@ -79,6 +79,10 @@
       }
     });
     window.addEventListener('resize', function() { renderPlaybackFrame(); });
+    // Redibuja las gráficas cuando el bloque vuelve a tener dimensiones visibles.
+    document.getElementById('results-history-group').addEventListener('toggle',function(){
+      if(this.open){drawSimulationChart();drawEquipmentSpeedChart();}
+    });
     window.addEventListener('scroll', function() {
       if (Date.now() >= state.scrollRestoreUntil) state.lastUserScrollAt = Date.now();
     }, { passive: true });

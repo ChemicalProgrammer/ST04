@@ -235,9 +235,37 @@
       <section id="results-panel" class="card hidden" aria-labelledby="results-title">
         <div class="section-heading"><div><p class="eyebrow"><?= __ST_TEXT__('view.performance') ?></p><h2 id="results-title"><?= __ST_TEXT__('view.run_results') ?></h2><p id="results-meta"><?= __ST_TEXT__('results.complete_a_simulation_to_inspect_the_results') ?></p></div><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-ai" class="ghost" disabled>JSON</button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details></div>
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
-        <div id="results-body" class="hidden"><section id="batch-results" class="hidden"></section><section id="results-products" class="comparison-section hidden"></section>
-<div id="results-kpis" class="result-kpis"></div><p id="results-reference" class="chart-note"></p><section id="results-loss-breakdown"></section><section id="results-plant-comparison"></section><div id="results-insight" class="result-insight"></div>
-        <h3 class="subsection-title"><?= __ST_TEXT__('view.equipment_comparison') ?></h3><div id="results-table" class="table-scroll"></div>
+        <div id="results-body" class="hidden">
+          <!-- Resumen principal y bloques de consulta del resultado seleccionado. -->
+          <div id="results-overview">
+            <div id="results-kpis" class="result-kpis"></div>
+            <p id="results-reference" class="chart-note"></p>
+            <section id="results-rate-loss-highlights"></section>
+          </div>
+          <details id="results-production-group" class="results-group">
+            <summary>Producción y calendario</summary>
+            <div class="results-group-content">
+              <section id="results-products" class="hidden"></section>
+              <section id="results-plant-comparison"></section>
+              <section id="batch-results" class="hidden"></section>
+            </div>
+          </details>
+          <details class="results-group">
+            <summary>Pérdidas y transiciones</summary>
+            <div class="results-group-content">
+              <section id="results-loss-breakdown"></section>
+              <section id="results-ramp-accounting"></section>
+            </div>
+          </details>
+          <details class="results-group">
+            <summary>Desempeño por equipo</summary>
+            <div class="results-group-content">
+              <div id="results-insight" class="result-insight"></div>
+              <div id="results-table" class="table-scroll"></div>
+              <section id="results-equipment-operation"></section>
+            </div>
+          </details>
+          <!-- V-Graph conserva su vista de navegación independiente. -->
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
           <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
           <div class="vgraph-legend"><span class="vgraph-key vgraph-key-normal"><?= __ST_TEXT__('performance.normal') ?></span><span class="vgraph-key vgraph-key-recommended"><?= __ST_TEXT__('performance.recommended') ?></span></div>
@@ -246,21 +274,35 @@
           <div class="table-scroll"><table><thead><tr><th><?= __ST_TEXT__('performance.machine') ?></th><th class="numeric"><?= __ST_TEXT__('performance.normal_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.maximum_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.recommended_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.headroom') ?></th><th class="numeric"><?= __ST_TEXT__('performance.availability') ?></th><th class="numeric"><?= __ST_TEXT__('performance.efficiency') ?></th><th class="numeric"><?= __ST_TEXT__('performance.effective_bpm') ?></th></tr></thead><tbody id="performance-rows"></tbody></table></div>
           <p id="throughput-method" class="chart-note"></p>
         </section>
-        <div class="chart-layout"><section class="chart-panel"><h3><?= __ST_TEXT__('view.cumulative_production') ?></h3><p class="chart-note"><?= __ST_TEXT__('view.complete_simulated_duration_output_units') ?></p>          <canvas id="simulation-chart" height="210" aria-label="<?= __ST_TEXT__('view.cumulative_output_chart') ?>"></canvas>
-</section><section class="equipment-speed-chart-panel" aria-labelledby="equipment-speed-chart-title">
-            <div class="equipment-speed-chart-heading">
-              <div>
-                <h3 id="equipment-speed-chart-title"><?= __ST_TEXT__('view.actual_speed_by_equipment') ?></h3>
-                <p><?= __ST_TEXT__('view.full_simulated_duration_series_colors_match_the_live_equipment_trends') ?></p>
+          <!-- El historial de las gráficas corresponde a la ronda de reproducción. -->
+          <details id="results-history-group" class="results-group" open>
+            <summary>Gráficas e historial</summary>
+            <div class="results-group-content">
+              <p class="chart-note">Las gráficas muestran el historial de la ronda que está seleccionada para reproducción en Simulación.</p>
+              <div class="chart-layout">
+                <section class="chart-panel">
+                  <h3><?= __ST_TEXT__('view.cumulative_production') ?></h3>
+                  <p class="chart-note"><?= __ST_TEXT__('view.complete_simulated_duration_output_units') ?></p>
+                  <canvas id="simulation-chart" height="210" aria-label="<?= __ST_TEXT__('view.cumulative_output_chart') ?>"></canvas>
+                </section>
+                <section class="equipment-speed-chart-panel" aria-labelledby="equipment-speed-chart-title">
+                  <div class="equipment-speed-chart-heading">
+                    <div>
+                      <h3 id="equipment-speed-chart-title"><?= __ST_TEXT__('view.actual_speed_by_equipment') ?></h3>
+                      <p><?= __ST_TEXT__('view.full_simulated_duration_series_colors_match_the_live_equipment_trends') ?></p>
+                    </div>
+                  </div>
+                  <canvas id="equipment-speed-chart" height="270" aria-label="<?= __ST_TEXT__('view.rolling_actual_speed_chart_for_all_equipment') ?>"></canvas>
+                  <div id="equipment-speed-legend" class="equipment-speed-legend" aria-label="<?= __ST_TEXT__('view.equipment_speed_chart_legend') ?>"></div>
+                </section>
               </div>
+              <details class="raw-viewer">
+                <summary><?= __ST_TEXT__('view.raw_simulation_result') ?></summary>
+                <textarea id="simulation-json-preview" readonly spellcheck="false"></textarea>
+              </details>
             </div>
-            <canvas id="equipment-speed-chart" height="270" aria-label="<?= __ST_TEXT__('view.rolling_actual_speed_chart_for_all_equipment') ?>"></canvas>
-            <div id="equipment-speed-legend" class="equipment-speed-legend" aria-label="<?= __ST_TEXT__('view.equipment_speed_chart_legend') ?>"></div>
-          </section>
-</div>          <details class="raw-viewer">
-            <summary><?= __ST_TEXT__('view.raw_simulation_result') ?></summary>
-            <textarea id="simulation-json-preview" readonly spellcheck="false"></textarea>
-          </details></div>
+          </details>
+        </div>
       </section>
       <?!= include_('RealDataPanel'); ?>
       <section id="whatif-panel" class="card hidden" aria-labelledby="whatif-title">

@@ -7,6 +7,7 @@ window.STCharts=function(state,formatNumber){
       var canvas = document.getElementById('simulation-chart');
       if (!canvas || !state.run.result || state.uiView !== 'results') return;
       var bounds = canvas.getBoundingClientRect();
+      if (!bounds.width) return;
       var width = Math.max(1, Math.floor(bounds.width));
       var height = parseFloat(token('--chart-height'));
       var ratio = window.devicePixelRatio || 1;
@@ -50,7 +51,7 @@ window.STCharts=function(state,formatNumber){
     function drawEquipmentSpeedChart() {
       var canvas = document.getElementById('equipment-speed-chart');
       var legend = document.getElementById('equipment-speed-legend');
-      if (!canvas || !legend || !state.run.result || !state.activeCase || state.uiView !== 'results') return;
+      if (!canvas || !legend || !state.run.result || !state.activeCase || state.uiView !== 'results' || !canvas.getBoundingClientRect().width) return;
 
       var samples = getRollingSpeedSamples();
       var models = state.activeCase.equipment || [];
