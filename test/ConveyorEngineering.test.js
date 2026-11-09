@@ -203,7 +203,7 @@ test('target Overspeed sets active belt speed and pitch and rejects conflicting 
  acc.targetOverspeedPercent=20;acc.targetPopulationPercent=50;assert.equal(simulateLine({case:line,run:{durationSeconds:1,tickSeconds:.25,sampleEverySeconds:1,seed:17}}).ok,false);
 });
 
-test('measured Sheet conveyors preserve discharge pitch and derive belt pitch from machine cadence', () => {
+test('Sheet conveyors use the design pitch during transport and the package length when packed', () => {
   const model = createFlowPilotLine();
   const conveyor = model.equipment[1];
   Object.assign(conveyor.processData.accumulation, {
@@ -217,12 +217,12 @@ test('measured Sheet conveyors preserve discharge pitch and derive belt pitch fr
     id: 'sheet-format-test', name: 'Sheet format', bottlesPerCase: 12, bottleLengthMm: 85,
     equipment: { conveyor: { dischargeGapMm: 65, movingGapMm: 65 } }
   };
-  const simulate = () => {
+  const simulate = (withFormat = true) => {
     const result = simulateLine({
       case: model,
       run: {
         durationSeconds: 150, tickSeconds: 0.25, sampleEverySeconds: 1, seed: 17,
-        initialFormatId: product.id, productCatalog: [product]
+        ...(withFormat ? {initialFormatId: product.id, productCatalog: [product]} : {})
       }
     });
     assert.equal(result.ok, true, JSON.stringify(result.error));
@@ -231,8 +231,8 @@ test('measured Sheet conveyors preserve discharge pitch and derive belt pitch fr
   };
 
   const legacy = simulate();
-  closeTo(legacy.movingPitchMm, 110.5333333333334);
-  closeTo(legacy.transferCapacityPerSecond, 5);
+  closeTo(legacy.movingPitchMm, 150);
+  closeTo(legacy.transferCapacityPerSecond, 552.666666666667 / 150);
   assert.equal(legacy.accumulatedPitchMm, 85);
   assert.equal(legacy.engineering.input.upstreamDischargePitchMm, 150);
   assert.equal(product.equipment.conveyor.movingGapMm, 65);
@@ -246,6 +246,13 @@ test('measured Sheet conveyors preserve discharge pitch and derive belt pitch fr
   delete product.equipment.conveyor.movingGapMm;
   conveyor.processData.accumulation.conveyorSpeedMmPerSecond = 300;
   const slower = simulate();
-  assert.equal(slower.movingPitchMm, 85);
-  closeTo(slower.transferCapacityPerSecond, 300 / 85);
+  assert.equal(slower.movingPitchMm, 150);
+  assert.equal(slower.accumulatedPitchMm, 85);
+  closeTo(slower.transferCapacityPerSecond, 300 / 150);
+
+  conveyor.characteristics = {...conveyor.characteristics, sourceSheetLayout: 'plant-sheet-v2'};
+  Object.assign(conveyor.processData.upstream, {packageLengthMm: 85, dischargePitchMm: 150});
+  const rawImport = simulate(false);
+  assert.equal(rawImport.movingPitchMm, 150);
+  assert.equal(rawImport.accumulatedPitchMm, 85);
 });

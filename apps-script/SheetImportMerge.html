@@ -187,11 +187,7 @@ window.STSheetPackingImport=(function(){
         var length=output==='CASES'?draft.caseLengthMm:draft.bottleLengthMm,sourceLength=e.processData.upstream?.packageLengthMm??e.processData.accumulation?.productLengthMm;
         if(length===undefined){result.packingWarnings.push(e.name+': no common '+output.toLowerCase()+' length; using its conveyor default. Check Sheet cell '+STSheetImportMerge.cellReference(e,['package'],result.sourceImport)+', or enter the shared length in the packing proposal.');length=sourceLength;}
         [['dischargeGapMm',e.processData.upstream?.dischargePitchMm],['infeedGapMm',e.processData.downstream?.infeedPitchMm]].forEach(function(pair){if(pair[1]==null||length==null)return;var gap=pair[1]-length;if(gap<0)issues.push(e.name+': '+pair[0]+' would be negative. Check Sheet cells '+STSheetImportMerge.cellReference(e,['package',pair[0]==='infeedGapMm'?'infeed':'pitch'],result.sourceImport)+' and the length in the packing proposal.');else profile[pair[0]]=gap;});
-        var measuredHandoff=e.processData.accumulation?.speedMode==='MANUAL'&&i>0&&!belt(equipment[i-1])&&
-          e.processData.accumulation?.movingGapMm===undefined&&e.processData.accumulation?.gapMm===undefined&&
-          e.processData.accumulation?.productPitchMm===undefined&&e.processData.accumulation?.targetPopulationPercent===undefined&&
-          e.processData.accumulation?.targetOverspeedPercent===undefined;
-        if(!measuredHandoff&&profile.dischargeGapMm!==undefined)profile.movingGapMm=profile.dischargeGapMm;
+        if(profile.dischargeGapMm!==undefined)profile.movingGapMm=profile.dischargeGapMm;
       }
       if(output==='BOTTLES')product.equipment[e.id]=profile;
       format.equipment[e.id]=output==='BOTTLES'?{inputUnit:input,outputUnit:output}:Object.assign(profile,{inputUnit:input,outputUnit:output});

@@ -63,17 +63,14 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   definition.accumulatedPitchMm = format.accumulatedPitchMm ??
     (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
   resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
-  const precedingMachine = equipment[ownerIndex - 1];
-  const dischargeRate = precedingMachine?.nominalRatePerSecond;
-  const beltSpeed = definition.conveyorSpeedMmPerSecond;
-  if (format.useDischargeCadence && format.speedMode === 'MANUAL' &&
-      !isConveyorEquipment(precedingMachine) && dischargeRate > 0 && beltSpeed > 0 &&
-      definition.accumulatedPitchMm > 0) {
-    // Preserve the spacing in time at the handoff as belt speed changes the
-    // spacing in space. The accumulated pitch sets the maximum belt density.
-    definition.productPitchMm = Math.max(definition.accumulatedPitchMm, beltSpeed / dischargeRate);
-    definition.gapMm = definition.productPitchMm - definition.productLengthMm;
-    resolved.sources.productPitchMm = 'measured belt speed / upstream nominal discharge rate, bounded by accumulated pitch';
+  const sheetPitch = owner.processData?.upstream?.dischargePitchMm;
+  if ((format.useSheetDesignPitch || owner.characteristics?.sourceSheetLayout === 'plant-sheet-v2') &&
+      format.movingGapMm === undefined && format.gapMm === undefined && format.productPitchMm === undefined &&
+      format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined &&
+      Number.isFinite(sheetPitch) && sheetPitch >= definition.productLengthMm) {
+    definition.productPitchMm = sheetPitch;
+    definition.gapMm = sheetPitch - definition.productLengthMm;
+    resolved.sources.productPitchMm = 'Sheet conveyor design pitch';
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
   }
   if (definition.engineering) {

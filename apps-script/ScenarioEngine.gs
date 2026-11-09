@@ -183,15 +183,8 @@ function applyProductProfile(equipment, product) {
       if(accumulation.productPitchMm!==undefined&&profile.movingGapMm!==undefined)accumulation.productPitchMm=length+profile.movingGapMm;
       if(profile.movingGapMm!==undefined)accumulation.productSpacingOverride=true;
       for(const key of ['movingGapMm','accumulatedGapMm'])if(profile[key]!==undefined)accumulation[key]=profile[key];
-      // Earlier Sheet imports copied the discharge gap into the moving gap.
-      // A separately specified belt gap or engineering target still takes precedence.
-      const importedFormat = (product.formatId ?? product.id)?.startsWith('sheet-format-');
-      const legacyDischargeGap = profile.movingGapMm === undefined || profile.movingGapMm === profile.dischargeGapMm;
-      if (importedFormat && Number.isFinite(profile.dischargeGapMm) && legacyDischargeGap &&
-          item.processData.accumulation?.movingGapMm === undefined &&
-          accumulation.gapMm === undefined && item.processData.accumulation?.productPitchMm === undefined &&
-          accumulation.targetPopulationPercent === undefined && accumulation.targetOverspeedPercent === undefined) {
-        accumulation.useDischargeCadence = true;
+      if ((product.formatId ?? product.id)?.startsWith('sheet-format-') && Number.isFinite(profile.dischargeGapMm)) {
+        accumulation.useSheetDesignPitch = true;
       }
       if(profile.dischargeGapMm!==undefined)upstream.dischargePitchMm=length+profile.dischargeGapMm;
       const downstream={...item.processData.downstream};
@@ -711,17 +704,14 @@ function resolveConveyorZone(equipment, owner, ownerIndex) {
   definition.accumulatedPitchMm = format.accumulatedPitchMm ??
     (definition.productLengthMm !== undefined ? definition.productLengthMm + (format.accumulatedGapMm ?? 0) : definition.productPitchMm);
   resolved.sources.accumulatedPitchMm = format.accumulatedPitchMm !== undefined ? 'processData.accumulation.accumulatedPitchMm' : 'product length + accumulated gap (default 0 mm)';
-  const precedingMachine = equipment[ownerIndex - 1];
-  const dischargeRate = precedingMachine?.nominalRatePerSecond;
-  const beltSpeed = definition.conveyorSpeedMmPerSecond;
-  if (format.useDischargeCadence && format.speedMode === 'MANUAL' &&
-      !isConveyorEquipment(precedingMachine) && dischargeRate > 0 && beltSpeed > 0 &&
-      definition.accumulatedPitchMm > 0) {
-    // Preserve the spacing in time at the handoff as belt speed changes the
-    // spacing in space. The accumulated pitch sets the maximum belt density.
-    definition.productPitchMm = Math.max(definition.accumulatedPitchMm, beltSpeed / dischargeRate);
-    definition.gapMm = definition.productPitchMm - definition.productLengthMm;
-    resolved.sources.productPitchMm = 'measured belt speed / upstream nominal discharge rate, bounded by accumulated pitch';
+  const sheetPitch = owner.processData?.upstream?.dischargePitchMm;
+  if ((format.useSheetDesignPitch || owner.characteristics?.sourceSheetLayout === 'plant-sheet-v2') &&
+      format.movingGapMm === undefined && format.gapMm === undefined && format.productPitchMm === undefined &&
+      format.targetPopulationPercent === undefined && format.targetOverspeedPercent === undefined &&
+      Number.isFinite(sheetPitch) && sheetPitch >= definition.productLengthMm) {
+    definition.productPitchMm = sheetPitch;
+    definition.gapMm = sheetPitch - definition.productLengthMm;
+    resolved.sources.productPitchMm = 'Sheet conveyor design pitch';
     for (const key of ['packagePassSensorSeconds', 'sensorClearGapSeconds', 'sensorCycleSeconds']) delete definition[key];
   }
   if (definition.engineering) {
