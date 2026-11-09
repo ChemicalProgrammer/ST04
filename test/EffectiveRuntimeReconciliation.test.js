@@ -14,7 +14,7 @@ test('tree uses subtraction while comparison requires reported Effective Runtime
   d=w.STRealData.compare(f.record,f.simulation,f.result);
   assert.equal(d.rows.find(r=>r.id==='effective').real,600);
   assert.equal(d.rows.find(r=>r.id==='effective').realSource,'reportado');
-  assert(Math.abs(d.rows.find(r=>r.id==='au').real-600/1440*100)<1e-10);
+  assert.equal(d.rows.find(r=>r.id==='au').real,null);
   f.record.effectiveRuntimeSeconds=0;
   assert.equal(w.STRealData.compare(f.record,f.simulation,f.result).rows.find(r=>r.id==='effective').real,0);
  }finally{w.close();}
@@ -38,5 +38,22 @@ test('reported input updates comparison immediately, persists once and leaves ba
   assert.equal(w.document.querySelector('[data-calibration="G"]').textContent,'728');
   input.value='';input.dispatchEvent(new w.Event('input'));assert.equal(effective().real,null);
   assert.equal(JSON.stringify(f.result),saved);
+ }finally{w.close();}
+});
+
+test('Real AU and UPDT follow reported percentages immediately, including zero and clearing',()=>{
+ const w=setup();try{
+  const f=fixture();
+  Object.assign(f.record,{reportedEfficiencyPercent:null,reportedUpdtPercent:null,effectiveRuntimeSeconds:600*60});
+  mount(w,f);
+  for(const [id,field] of [['au','reportedEfficiencyPercent'],['updt','reportedUpdtPercent']]){
+   const cell=()=>w.document.querySelector('[data-metric="'+id+'"] td:nth-of-type(2)').textContent;
+   const input=w.document.querySelector('[data-real-field="'+field+'"]');
+   assert.equal(cell(),'—');
+   for(const [value,expected] of [['55','55'],['0','0'],['','—']]){
+    input.value=value;input.dispatchEvent(new w.Event('input'));
+    assert.equal(cell(),expected);
+   }
+  }
  }finally{w.close();}
 });

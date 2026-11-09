@@ -241,11 +241,11 @@ window.STRealDataModel=(function(){
 
     const realPct=(den)=>percent(realEffective,den),simPct=den=>percent(times.effective,den);
     add('ae','Asset Effectiveness (AE)','%',realPct(finite(real.durationSeconds)?real.durationSeconds/60:null),simPct(times.total),'AE = 100 × Effective Runtime / Total Time.','Indicadores');
-    add('au','Asset Utilization (AU)','%',realPct(actualPlant),simPct(times.plant),'AU = 100 × Effective Runtime / Plant Available Time. El dato reportado se conserva en Registro; se muestra en el detalle del indicador.','Indicadores',real.reportedEfficiencyPercent);
+    add('au','Asset Utilization (AU)','%',null,simPct(times.plant),'Real: AU reportado (%) capturado en Registro. Simulado: 100 × Effective Runtime / Plant Available Time.','Indicadores',real.reportedEfficiencyPercent);
     const realOe=realPct(actualAvailable),simOe=simPct(times.available);
     add('oe','Operating Efficiency (OE)','%',realOe,simOe,'OE = 100 × Effective Runtime / Production Available Time. No equivale automáticamente al OEE global.','Indicadores',real.validation.reportedOeePercent);
     add('rte','Runtime Efficiency (RTE)','%',realPct(t4),simPct(times.run),'RTE = 100 × Effective Runtime / Runtime.','Indicadores');
-    add('updt','UPDT','%',percent(actualDowntime,finite(actualAvailable)?actualAvailable*60:null),percent(finite(times.available)&&finite(times.run)?times.available-times.run:null,times.available),'UPDT = 100 × Unplanned Downtime / (Runtime + Unplanned Downtime).','Indicadores',real.reportedUpdtPercent);
+    add('updt','UPDT','%',null,percent(finite(times.available)&&finite(times.run)?times.available-times.run:null,times.available),'Real: UPDT reportado (%) capturado en Registro. Simulado: 100 × Unplanned Downtime / (Runtime + Unplanned Downtime).','Indicadores',real.reportedUpdtPercent);
     add('globalOee','OEE global guardado','%',null,sim?.oee,'Indicador guardado: producción / producción ideal de toda la simulación × 100. Se distingue de OE y AU por su base.','Indicadores');
     // This section uses the user's validation balance, independently of reported runtime and quality.
     const calibrationEffective=finite(actualAvailable)&&finite(actualDowntime)&&finite(real.rateLossSeconds)?actualAvailable-actualDowntime/60-real.rateLossSeconds/60:null;
@@ -295,7 +295,11 @@ window.STRealDataModel=(function(){
     const downtime={rows:equipmentRows,totalReal,totalSim,knownReal:sumKnown(equipmentRows.map(e=>e.real).filter(finite)),knownSim:sumKnown(equipmentRows.map(e=>e.simulated).filter(finite)),delta:finite(totalReal)&&finite(totalSim)?totalSim-totalReal:null,note:'Minutos simulados = tiempo efectivamente registrado en estado de falla propia, generado por MTBF/MTTR. Participación (%) = minutos del equipo / suma de minutos de equipos × 100. Indisponibilidad teórica (%) = MTTR / (MTBF + MTTR) × 100; es otra magnitud y no se usa para inventar minutos de línea. Las fallas simultáneas se suman. Si falta un dato, el total correspondiente queda pendiente. Los transportadores sin fallas propias configuradas se excluyen salvo que exista una falla real registrada. Los registros antiguos con clase UNKNOWN no se reclasifican automáticamente como fallas.'};
     if(equipmentRows.some(e=>e.real==null&&real.equipment.some(r=>r.equipmentId===e.equipmentId&&r.downtimeSeconds!=null)))warnings.push('Hay downtime anterior con clase de paro sin confirmar: clasifícalo como FAILURES para compararlo con MTBF/MTTR.');
     if(sim?.rateRecoverySeconds>1e-6)warnings.push('Existe recuperación por encima de la referencia. El rate loss bruto y el neto se mantienen separados.');
-    for(const r of rows)if(finite(r.reported)&&finite(r.real)&&Math.abs(r.reported-r.real)>.05)warnings.push(r.metric+': el valor reportado difiere del calculado; ambos se conservan.');
+    const calculatedIndicators={au:realPct(actualPlant),updt:percent(actualDowntime,finite(actualAvailable)?actualAvailable*60:null)};
+    for(const r of rows){
+      const calculated=Object.hasOwn(calculatedIndicators,r.id)?calculatedIndicators[r.id]:r.real;
+      if(finite(r.reported)&&finite(calculated)&&Math.abs(r.reported-calculated)>.05)warnings.push(r.metric+': el valor reportado difiere del calculado ('+Number(calculated.toFixed(2))+' '+r.unit+').');
+    }
     return {schema:'st-real-comparison-v2',observation:original,timeHierarchy:timeHierarchy(original),case:{id:caseRecord?.id,name:caseRecord?.name},simulation:{id:simulation?.id,name:simulation?.name},run:sim,rows,calibration,downtime,aemComparison:aem,warnings:[...new Set(warnings)],stale,exportedAt:new Date().toISOString()};
   }
   return {VERSION,MAX_RECORDS,empty,normalize,template,importRecords,snapshot,build,fieldGroups,timeCategories,timeSectionIds,timeMode,timeHierarchy,at,set};
