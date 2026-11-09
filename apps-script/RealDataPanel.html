@@ -1,6 +1,7 @@
 <section id="realdata-panel" class="card hidden" aria-labelledby="real-data-title">
   <h2 id="real-data-title" class="sr-only">Real Data</h2>
   <section class="real-data-block" aria-labelledby="real-data-register-title">
+    <!-- Encabezado de Registro, selector de observación y acciones de intercambio. -->
     <div class="real-data-block-heading">
       <h3 class="real-data-section-title" id="real-data-register-title">Registro</h3>
       <div class="real-data-toolbar">
@@ -23,8 +24,10 @@
     </div>
     <p id="real-data-simulation" class="chart-note"></p>
     <p id="real-data-status" class="chart-note" role="status" aria-live="polite"></p>
+    <!-- El controlador monta aquí el árbol y los campos de captura. -->
     <div id="real-data-editor"><p>Selecciona o crea un registro para capturar los datos de planta.</p></div>
   </section>
+  <!-- Comparación de la observación seleccionada con los resultados de la ronda o del lote. -->
   <section class="real-data-block" aria-labelledby="real-data-compare-title">
     <div class="real-data-block-heading">
       <h3 class="real-data-section-title" id="real-data-compare-title">Comparación de parámetros</h3>
@@ -32,6 +35,7 @@
     </div>
     <div id="real-data-comparison"></div>
   </section>
+  <!-- Ajuste de Rate Loss calculado a partir de los datos disponibles. -->
   <section class="real-data-block" aria-labelledby="real-data-calibration-title">
     <div class="real-data-block-heading"><h3 class="real-data-section-title" id="real-data-calibration-title">Ajuste calibrado de rate loss</h3></div>
     <div id="real-data-calibration"></div>
