@@ -1254,6 +1254,7 @@ function recordingCoverage(runtime){return {omittedEvents:runtime.omittedEvents,
 
 function createRecordedZoneSample(runtime,zone){
   const frame=createZoneSample(zone);
+  if(zone.physicalModelEnabled)frame.beltRunning=isTransportAvailable(getEquipment(runtime,zone.ownerEquipmentId));
   if(runtime.run.historyFormat==='COMPACT'&&!runtime.product){
     const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
     for(const key of ['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry']){if(!definition[key])definition[key]=frame[key];delete frame[key];}

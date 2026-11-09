@@ -45,6 +45,9 @@ test('a stopped conveyor freezes transport and prevents discharge of queued inve
   const result=run(line({sinkRate:1}),{commands:[{atVirtualSecond:35,equipmentId:'belt',action:'STOP'},{atVirtualSecond:50,equipmentId:'belt',action:'RUN'}]});
   const before=result.samples.find(s=>s.virtualSecond===35),after=result.samples.find(s=>s.virtualSecond===50);
   assert.ok(before.accumulationZones[0].waitingUnits>0);
+  assert.equal(before.accumulationZones[0].beltRunning,true);
+  assert.equal(after.accumulationZones[0].beltRunning,false);
+  assert.equal(result.samples.at(-1).accumulationZones[0].beltRunning,true);
   assert.equal(after.outputCount,before.outputCount);
   assert.equal(after.accumulationZones[0].inventoryUnits,before.accumulationZones[0].inventoryUnits);
   assert.ok(result.samples.at(-1).outputCount>after.outputCount);conserved(result);

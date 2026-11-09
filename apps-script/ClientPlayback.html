@@ -193,12 +193,12 @@
         var equipmentId = unit.id || ('unit-' + index);
         var card = cardsByEquipmentId[equipmentId] || createLiveEquipmentCard(equipmentId);
         displayedEquipmentIds[equipmentId] = true;
-        updateLiveEquipmentCard(card, unit, model, index, sample);
+        var chartModel=updateLiveEquipmentCard(card, unit, model, index, sample);
         if (card.parentNode !== target || card.previousElementSibling !== previousElement) {
           target.insertBefore(card, previousElement.nextElementSibling);
         }
         previousElement = card;
-        drawEquipmentSpeedSparkline(card.querySelector('.equipment-speed-sparkline'), index, model);
+        drawEquipmentSpeedSparkline(card.querySelector('.equipment-speed-sparkline'), index, chartModel);
       });
       Array.prototype.forEach.call(target.querySelectorAll('.live-equipment-card'), function(card) {
         if (!displayedEquipmentIds[card.getAttribute('data-equipment-id')]) card.remove();
@@ -251,23 +251,36 @@
       card.querySelector('.live-flow-label').textContent = index === 0 ? 'Produced' : 'Processed';
       card.querySelector('.live-processed').textContent = formatNumber(unit.processedUnits === undefined ? unit.outputCount : unit.processedUnits);
       card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 && Number.isFinite(unit.oeePercent) ? formatPercent(unit.oeePercent / 100) : '—';
-      card.querySelector('.live-rate').textContent = formatRatePerMinute(unit.actualRatePerSecond);
+      var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
+        return (candidate.ownerEquipmentId||state.run.result?.zoneDefinitions?.[candidate.id]?.ownerEquipmentId) === unit.id;
+      }) : null;
+      if(zone)zone=Object.assign({},state.run.result?.zoneDefinitions?.[zone.id],zone);
+      var belt=conveyorCardRates(zone,model,availabilityState);
+      var rate=card.querySelector('.live-rate');
+      rate.textContent=belt?formatNumber(belt.speedMmPerSecond*0.06)+' m/min de banda · '+formatNumber((unit.actualRatePerSecond??0)*60)+' unid/min de flujo':formatRatePerMinute(unit.actualRatePerSecond);
+      rate.title=belt?'Velocidad de banda y flujo de producto procesado. La banda puede moverse aunque reciba menos producto o esté vacía.':'';
+
       card.querySelector('.live-starved').textContent = formatMinutes(unit.starvedSeconds);
       card.querySelector('.live-blocked').textContent = formatMinutes(unit.blockedSeconds);
       card.querySelector('.live-waiting-prime').textContent = formatMinutes(unit.waitingForPrimeSeconds);
       card.querySelector('.live-backup-stop').textContent = formatMinutes(unit.backupStopSeconds);
       card.querySelector('.live-failure').textContent = formatMinutes(unit.failureSeconds);
       card.querySelector('.live-emergency').textContent = formatMinutes(unit.emergencyStopSeconds);
-      card.querySelector('.live-nominal-rate').textContent = __ST_TEXT__('client.nominal') + formatRatePerMinute(model.nominalRatePerSecond) + (model.processData?.equipment?.maximumSpeedBpm ? __ST_TEXT__('client.max') + formatNumber(model.processData.equipment.maximumSpeedBpm) + __ST_TEXT__('client.min_2') : '');
-      card.querySelector('.live-sparkline-nominal-rate').textContent = formatRatePerMinute(model.nominalRatePerSecond);
+      card.querySelector('.live-nominal-rate').textContent = belt?'Capacidad de banda: '+formatNumber(belt.capacityPerSecond*60)+' unid/min a '+formatNumber(belt.pitchMm)+' mm de pitch':__ST_TEXT__('client.nominal') + formatRatePerMinute(model.nominalRatePerSecond) + (model.processData?.equipment?.maximumSpeedBpm ? __ST_TEXT__('client.max') + formatNumber(model.processData.equipment.maximumSpeedBpm) + __ST_TEXT__('client.min_2') : '');
+      card.querySelector('.live-sparkline-nominal-rate').textContent = formatRatePerMinute(belt?belt.capacityPerSecond:model.nominalRatePerSecond);
       card.querySelector('.equipment-speed-sparkline-heading span').textContent=state.run.result?.detailCoverage?.recordingMode==='SUMMARY'?'Summary · endpoint snapshots':STRunOptions.windowLabel()+(state.run.result?.detailCoverage?.aggregated?' · aggregated':'');
       Array.prototype.forEach.call(card.querySelectorAll('.live-equipment-controls button:not(.loss-toggle)'), updateLiveEquipmentControl);
 
-      var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
-        return (candidate.ownerEquipmentId||state.run.result?.zoneDefinitions?.[candidate.id]?.ownerEquipmentId) === unit.id;
-      }) : null;
-      if(zone)zone=Object.assign({},state.run.result?.zoneDefinitions?.[zone.id],zone);
       updateAccumulationZoneDetails(card.querySelector('.live-equipment-zone'), zone);
+      return belt?{...model,nominalRatePerSecond:belt.capacityPerSecond}:model;
+    }
+
+    function conveyorCardRates(zone,model,availabilityState){
+      if(!zone?.physicalModelEnabled||!(model.type==='CONVEYOR'||model.processData?.role==='CONVEYOR'))return null;
+      const speed=zone.geometry?.conveyorSpeedMmPerSecond,pitch=zone.geometry?.productPitchMm;
+      if(!(speed>0)||!(pitch>0))return null;
+      const running=zone.beltRunning??!['STOPPED','PAUSED','EMERGENCY_STOP','PLANNED_STOP','FAILED','FAILURE','MICRO_STOP','STARTING'].includes(availabilityState);
+      return {speedMmPerSecond:running?speed:0,capacityPerSecond:speed/pitch,pitchMm:pitch};
     }
 
     function createAccumulationZoneDetails(zone) {
