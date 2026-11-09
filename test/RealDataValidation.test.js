@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {set
 test('calibration applies the agreed spreadsheet formulas without changing the simulated output',()=>{
  const w=setup();try{const f=fixture(),saved=JSON.stringify(f.result),d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{});
  assert.equal(calibration(d,'realLoss'),10.625);assert.equal(calibration(d,'simLoss'),.99);assert(Math.abs(calibration(d,'lossDifference')-9.635)<1e-9);
- assert(Math.abs(calibration(d,'adjusted')-55.635)<1e-9);assert(Math.abs(calibration(d,'residual')-(55.635-775/1440*100))<1e-9);assert.equal(JSON.stringify(f.result),saved);
+ assert(Math.abs(calibration(d,'adjusted')-55.635)<1e-9);assert.equal(calibration(d,'actualEfficiency'),null);assert.equal(calibration(d,'residual'),null);assert.equal(JSON.stringify(f.result),saved);
  }finally{w.close();}
 });
 test('spreadsheet calibration uses gross loss even when the general comparison selects negative net loss',()=>{
@@ -44,7 +44,7 @@ test('only calibration uses available minus unplanned downtime minus rate loss, 
  assert.equal(cell('G').textContent,'787');
  const loss=w.document.querySelector('[data-real-field="rateLossSeconds"]');loss.value='150';loss.dispatchEvent(new w.Event('input'));
  assert.equal(cell('G').textContent,'790');assert.equal(JSON.stringify(f.result),saved);
- setUnplannedMinutes(w,null);assert.equal(cell('G').textContent.replaceAll(',',''),'1290');
+ setUnplannedMinutes(w,null);assert.equal(cell('G').textContent,'—');
  }finally{w.close();}
 });
 test('calibration formula does not overwrite the general AEM effective time',()=>{
@@ -66,11 +66,34 @@ test('calibration formula does not overwrite the general AEM effective time',()=
   assert.equal(cell(),'928');
   const input=w.document.querySelector('[data-real-field="timeBreakdown.unplanned.processShortagesSeconds"]');
   input.value='120';input.dispatchEvent(new w.Event('input'));
+  assert.equal(cell(),'—');
+  for(const key of ['laborShortagesSeconds','plantOperationsSeconds','unscheduledMaintenanceSeconds']){const field=w.document.querySelector('[data-real-field="timeBreakdown.unplanned.'+key+'"]');field.value='0';field.dispatchEvent(new w.Event('input'));}
   assert.equal(cell(),'1320');
   assert.equal(owner.metadata.realData.records[0].runTimeSeconds,null);
   input.value='0';input.dispatchEvent(new w.Event('input'));assert.equal(cell(),'1440');
   const toggle=w.document.querySelector('[data-time-toggle="runtime"]');toggle.checked=true;toggle.dispatchEvent(new w.Event('change'));
   const runtime=w.document.querySelector('[data-real-field="timeOverrides.runtime.valueSeconds"]');runtime.value='800';runtime.dispatchEvent(new w.Event('input'));assert.equal(cell(),'800');
   assert.equal(JSON.stringify(f.result),saved);
+ }finally{w.close();}
+});
+
+test('calibration leaves missing inputs pending and preserves explicit zero from Opera',()=>{
+ const w=setup();try{
+  const f=fixture(),compare=record=>w.STRealData.compare(record,f.simulation,f.result);
+  let result=compare(w.STRealDataModel.empty());
+  for(const key of ['realLoss','actualEfficiency','lossDifference','adjusted','residual'])assert.equal(calibration(result,key),null);
+  f.record.rateLossSeconds=null;f.record.validation.reportedOeePercent=0;
+  result=compare(f.record);
+  assert.equal(calibration(result,'actualEfficiency'),0);
+  assert.equal(calibration(result,'realLoss'),null);
+  assert.equal(calibration(result,'residual'),null);
+  f.record.rateLossSeconds=0;
+  result=compare(f.record);
+  assert.equal(calibration(result,'realLoss'),0);
+  assert.equal(calibration(result,'residual'),calibration(result,'adjusted'));
+  delete f.result.summary.lineEffectiveRuntimeSeconds;
+  result=compare(f.record);
+  assert.equal(calibration(result,'baseline'),null);
+  assert.equal(calibration(result,'adjusted'),null);
  }finally{w.close();}
 });

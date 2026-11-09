@@ -54,7 +54,7 @@ window.STRealData=(function(){
     if(type==='number'){
       input.min=['referenceSpeedBpm','bottlesPerCase','exposureSeconds'].includes(path)?'0.000001':'0';
       input.step=['failureCount','bottlesPerCase'].includes(path)?'1':'any';if(/Percent$/.test(path))input.max='100';
-      input.value=value==null?(zeroDefault?'0':''):value/scale;
+      input.value=value==null?'':value/scale;if(zeroDefault)input.placeholder='0';
     }else input.value=value??'';
     if(type==='text')input.maxLength=path==='source'?2000:160;
     if(type==='textarea')input.maxLength=equipmentId?4000:8000;
@@ -63,7 +63,7 @@ window.STRealData=(function(){
     if(path==='operatingSeconds')tip(input,'Tiempo operativo interno medido, no el período calendario. Se usa para calcular MTBF = tiempo operativo / número de fallas.');
     if(path==='exposureSeconds')tip(input,'Período de observación del equipo. Debe coincidir con el período de la simulación para una comparación equivalente.');
     if(path==='validation.rateLossBasis')tip(input,'La pérdida bruta no resta recuperación. El balance neto es pérdida bruta − recuperación. La selección solo cambia la comparación, no el motor.');
-    input.oninput=()=>{if(input.readOnly||input.disabled)return;if(!input.checkValidity()){status('Revisa el valor de '+label+'.',true);return;}edit(path,type==='number'?(input.value===''?(zeroDefault?0:null):Number(input.value)*scale):input.value,equipmentId);};
+    input.oninput=()=>{if(input.readOnly||input.disabled)return;if(!input.checkValidity()){status('Revisa el valor de '+label+'.',true);return;}edit(path,type==='number'?(input.value===''?null:Number(input.value)*scale):input.value,equipmentId);};
     wrapper.append(input);parent.append(wrapper);
     if(parent.tagName==='SUMMARY'){input.addEventListener('click',e=>e.stopPropagation());input.addEventListener('keydown',e=>e.stopPropagation());}
     return input;
@@ -77,9 +77,9 @@ window.STRealData=(function(){
         value.type='number';value.min='0';value.step='any';value.dataset.timeValue=id;value.dataset.realField='timeOverrides.'+id+'.valueSeconds';value.setAttribute('aria-label',label+' (min)');tip(value,formula+' Marcado: valor manual. Desmarcado: valor calculado.');
         for(const input of [toggle,value]){input.addEventListener('click',e=>e.stopPropagation());input.addEventListener('keydown',e=>e.stopPropagation());}
         toggle.onchange=()=>{
-          try{const draft=M.normalize(current()),h=M.timeHierarchy(draft),previous=draft.timeOverrides[id];draft.timeOverrides[id]={enabled:toggle.checked,valueSeconds:previous?.valueSeconds??Math.max(0,h.values[id]||0)};draft.timeHierarchyEnabled=true;if(M.timeCategories[id])draft.timeBreakdown[id].enabled=!toggle.checked;persist(M.normalize(draft));refresh();status('Modo de captura actualizado.');}catch(error){status(error.message,true);}
+          try{const draft=M.normalize(current()),h=M.timeHierarchy(draft,true),previous=draft.timeOverrides[id];draft.timeOverrides[id]={enabled:toggle.checked,valueSeconds:previous?.valueSeconds??(finite(h.values[id])?Math.max(0,h.values[id]):null)};draft.timeHierarchyEnabled=true;if(M.timeCategories[id])draft.timeBreakdown[id].enabled=!toggle.checked;persist(M.normalize(draft));refresh();status('Modo de captura actualizado.');}catch(error){status(error.message,true);}
         };
-        value.oninput=()=>{if(value.readOnly||!value.checkValidity())return;edit(value.dataset.realField,value.value===''?0:Number(value.value)*60);};
+        value.oninput=()=>{if(value.readOnly||!value.checkValidity())return;edit(value.dataset.realField,value.value===''?null:Number(value.value)*60);};
         group.append(toggle,value,el('span','min'));summary.append(group);
       }
       details.open=['total','plant','production','runtime'].includes(id);details.append(summary,body);parent.append(details);return {details,summary,body};
@@ -116,7 +116,7 @@ window.STRealData=(function(){
     for(const output of document.querySelectorAll('[data-time-value]')){
       const id=output.dataset.timeValue;if(output.tagName==='INPUT'){
         const manual=M.timeMode(record,id),wasManual=output.dataset.inputMode==='true';output.readOnly=!manual;output.classList.toggle('calculated-value',!manual);output.dataset.inputMode=String(manual);
-        if(document.activeElement!==output||!manual||manual!==wasManual)output.value=finite(h.values[id])?Number((h.values[id]/60).toFixed(6)):'';
+        if(document.activeElement!==output||!manual||manual!==wasManual)output.value=manual&&record.timeOverrides?.[id]?.valueSeconds===null?'':finite(h.values[id])?Number((h.values[id]/60).toFixed(6)):'';
         const toggle=document.querySelector('[data-time-toggle="'+id+'"]');toggle.checked=manual;
       }else output.textContent=fmt(h.values[id]==null?null:h.values[id]/60)+' min';
     }
