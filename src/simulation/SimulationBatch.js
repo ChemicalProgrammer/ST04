@@ -27,6 +27,12 @@ export async function simulateBatch(input, options={}) {
     if(options.firstResult&&index===0){fractions[index]=1;options.progress?.(1/count,1,count);}
     const result=response.result;
     rows[index]={round:index+1,seed:run.seed,summary:result.summary,equipmentMetrics:result.equipmentMetrics,shifts:result.shifts,products:result.products,plantCalendar:result.plantCalendar};
+    const conveyorRows=Object.values(result.accumulationZoneMetrics||{}).filter(zone=>Number.isFinite(zone.conveyorSpeedMmPerSecond));
+    if(conveyorRows.length)rows[index].conveyorResults=conveyorRows.map(zone=>({
+      id:zone.id,ownerEquipmentId:zone.ownerEquipmentId,conveyorSpeedMmPerSecond:zone.conveyorSpeedMmPerSecond,
+      movingPitchMm:zone.movingPitchMm,accumulatedPitchMm:zone.accumulatedPitchMm,
+      averageInventoryUnits:zone.averageInventoryUnits,maximumInventoryUnits:zone.maximumInventoryUnits
+    }));
     if(index===0){representative=result;options.onFirstRound?.(result);}
     else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
     return response;

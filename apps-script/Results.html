@@ -181,6 +181,44 @@ window.STResults=(function(){
     table.className='ramp-accounting-table';STReports.rampHeaders.forEach((text,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=text;th.title=STReports.rampHeaderTips[i];th.setAttribute('aria-description',th.title);th.tabIndex=0;if(i)th.className='numeric';head.append(th);});thead.append(head);table.append(thead);
     STReports.rampRows(result,equipment).forEach(row=>{const tr=document.createElement('tr');row.forEach((v,i)=>{const td=document.createElement(i?'td':'th');td.textContent=i?number(v,2):v;if(i)td.className='numeric';else td.scope='row';tr.append(td);});body.append(tr);});table.append(body);scroll.append(table);target.append(scroll);
   }
+  function renderEquipmentOperatingResults(target,result,source,equipment){
+    target.replaceChildren();target.hidden=!result;if(!result)return;
+    const allRounds=source?.batch?.rows,selectedRound=result.resultView?.round;
+    const rounds=allRounds?.length?(selectedRound?allRounds.filter(row=>row.round===selectedRound):allRounds):[result];
+    const zones=rounds.map(row=>row.conveyorResults??Object.values(
+      (row.round===1||!row.round?source?.accumulationZoneMetrics:
+        source.batch?.replays?.[row.round-2]?.accumulationZoneMetrics??
+        (source.batch?.representativeReplay?.round===row.round?source.batch.representativeReplay.accumulationZoneMetrics:null))||{}));
+    function mean(values){return values.length&&values.every(Number.isFinite)?values.reduce((sum,value)=>sum+value,0)/values.length:null;}
+    function ratio(a,b,scale){return Number.isFinite(a)&&b>0?a/b*scale:null;}
+    const heading=document.createElement('h3'),note=document.createElement('p'),scroll=document.createElement('div');
+    heading.id='results-equipment-operation-title';heading.textContent='Operación por equipo';heading.className='subsection-title';
+    target.setAttribute('aria-labelledby',heading.id);
+    note.className='chart-note';
+    note.textContent='La velocidad productiva divide la salida entre el tiempo con flujo. La velocidad de banda y los pitches corresponden a la geometría al cierre de cada ronda. La acumulación muestra el inventario total en banda, incluyendo producto en tránsito. En vista promedio, el máximo es el promedio de los máximos por ronda. MTBF = exposición operativa / fallas. MTTR = tiempo en falla / fallas iniciadas y puede incluir una reparación parcial al cierre. — indica que el dato no aplica o que faltan registros.';
+    scroll.className='table-scroll';
+    const table=document.createElement('table'),head=table.createTHead().insertRow(),body=table.createTBody();
+    ['Equipo','Velocidad productiva','Banda (m/min)','Pitch transporte (mm)','Pitch acumulado (mm)','Inventario medio','Inventario máximo','Fallas','MTBF observado (min)','MTTR observado (min)'].forEach((label,index)=>{
+      const cell=document.createElement('th');cell.scope='col';cell.textContent=label;if(index)cell.className='numeric';head.append(cell);
+    });
+    for(const model of equipment){
+      const m=result.equipmentMetrics?.[model.id]||{};
+      const unit=unitLabel(m.unitOfFlow||model.unitOfFlow||result.unitOfFlow);
+      const speed=ratio(m.outputCount,m.runningSeconds,60);
+      const conveyor=model.type==='CONVEYOR'||model.processData?.role==='CONVEYOR';
+      const equipmentZones=zones.map(round=>conveyor?round.find(zone=>zone.ownerEquipmentId===model.id&&Number.isFinite(zone.conveyorSpeedMmPerSecond)):null);
+      const belt=mean(equipmentZones.map(zone=>zone?.conveyorSpeedMmPerSecond));
+      const cellWithUnit=(value,suffix)=>Number.isFinite(value)?number(value,2)+' '+suffix:'—';
+      const values=[model.name||model.id,cellWithUnit(speed,unit+'/min'),number(belt===null?null:belt*0.06,2),
+        number(mean(equipmentZones.map(zone=>zone?.movingPitchMm)),2),number(mean(equipmentZones.map(zone=>zone?.accumulatedPitchMm)),2),
+        cellWithUnit(mean(equipmentZones.map(zone=>zone?.averageInventoryUnits)),unit),
+        cellWithUnit(mean(equipmentZones.map(zone=>zone?.maximumInventoryUnits)),unit),number(m.failureCount,2),
+        number(ratio(m.reliabilityExposureSeconds,m.failureCount,1/60),2),number(ratio(m.failureSeconds,m.failureCount,1/60),2)];
+      const row=body.insertRow();
+      values.forEach((value,index)=>{const cell=document.createElement(index?'td':'th');cell.textContent=value;if(index)cell.className='numeric';else cell.scope='row';row.append(cell);});
+    }
+    scroll.append(table);target.append(heading,note,scroll);
+  }
   function render(result,activeCase,simulation){
     var source=result,toolbar=document.getElementById('results-round-view');
     if(!toolbar){toolbar=document.createElement('div');toolbar.id='results-round-view';toolbar.className='button-row results-round-toolbar';document.getElementById('results-meta').closest('.section-heading').after(toolbar);}
@@ -199,6 +237,9 @@ window.STResults=(function(){
     var rateHighlights=document.getElementById('results-rate-loss-highlights');if(!rateHighlights){rateHighlights=document.createElement('section');rateHighlights.id='results-rate-loss-highlights';document.getElementById('results-kpis').after(rateHighlights);}
     renderRateLossHighlights(rateHighlights,ready?result:null);
     var ramps=document.getElementById('results-ramp-accounting');if(!ramps){ramps=document.createElement('section');ramps.id='results-ramp-accounting';ramps.className='comparison-section';document.getElementById('results-table').after(ramps);}
+    var operating=document.getElementById('results-equipment-operation');
+    if(!operating){operating=document.createElement('section');operating.id='results-equipment-operation';operating.className='comparison-section';document.getElementById('results-table').after(operating);}
+    renderEquipmentOperatingResults(operating,ready?result:null,source,simulation?.equipment||activeCase?.equipment||[]);
     renderRamps(ramps,ready?result:null,simulation?.equipment||activeCase?.equipment||[]);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     STProducts.results(document.getElementById('results-products'),ready?result:null);

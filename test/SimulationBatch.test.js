@@ -42,6 +42,15 @@ test('summary-only batches preserve every numerical output and omit replay and e
  const full=await simulateBatch(data),compact=await simulateBatch(data,{summaryOnly:true});
  for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts'])assert.deepEqual(compact.result[key],full.result[key]);
  for(const key of ['statistics','equipmentStatistics','rows'])assert.deepEqual(compact.result.batch[key],full.result.batch[key]);
+ const zone=Object.values(full.result.accumulationZoneMetrics).find(zone=>Number.isFinite(zone.conveyorSpeedMmPerSecond));
+ assert(zone);
+ for(const row of compact.result.batch.rows){
+   const conveyor=row.conveyorResults.find(item=>item.id===zone.id);
+   assert.equal(conveyor.movingPitchMm,zone.movingPitchMm);
+   const metrics=(row.round===1?full.result:full.result.batch.replays[row.round-2]).accumulationZoneMetrics[zone.id];
+   assert.equal(conveyor.averageInventoryUnits,metrics.averageInventoryUnits);
+   assert.equal(conveyor.maximumInventoryUnits,metrics.maximumInventoryUnits);
+ }
  assert.equal(compact.result.samples.length,0);assert.equal(compact.result.events.length,0);assert.equal(compact.result.batch.replays.length,0);
  let cancel=false;await assert.rejects(simulateBatch(data,{summaryOnly:true,cancelled:()=>cancel,progress:()=>cancel=true}),/BATCH_CANCELLED/);
 });
