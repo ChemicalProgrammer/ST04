@@ -39,9 +39,6 @@
       var samples = state.run.result.samples;
       if (state.run.sampleIndex >= samples.length - 1) {
         if(roundSession?.streaming){state.run.timer=window.setTimeout(function(){if(state.run.playing)schedulePlaybackStep();},50);return;}
-        if(state.run.representative?.batch?.replays?.[state.run.roundIndex]){
-          selectPlaybackRound(state.run.roundIndex+1,true);return;
-        }
         state.run.playing = false;
         state.run.active=false;syncRunControls();
         setPlaybackStatus('Completed');

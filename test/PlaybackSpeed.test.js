@@ -22,13 +22,13 @@ test('1000x playback skips display samples and reaches the final frame without c
 });
 
 
-test('completing a target batch keeps the final playback frame and saves that view',()=>{
+test('completing a batch keeps the final playback frame and saves that view',()=>{
  const code=readClientSource(),samples=[{virtualSecond:0,outputCount:0},{virtualSecond:42,outputCount:77}];
  const state={run:{result:{samples},sampleIndex:1,roundIndex:0}};
- const result={samples,effectiveRuntimeStop:{status:'REACHED'},batch:{representativeRound:2}};
+ const result={samples,batch:{representativeRound:2}};
  const tab={};
  const context={state,result,session:{run:{rounds:3,calculationMode:'LIVE'}},roundSessionActive:()=>true,
-   syncPlaybackRounds(){},selectPlaybackRound(){assert.fail('target completion switched the playback round');},
+   syncPlaybackRounds(){},selectPlaybackRound(){assert.fail('completion switched the playback round');},
    toggle(){},renderResultJsonPreview(){},shell:{sync(){}},renderPlaybackFrame(){},
    activePersistentSimulation:()=>tab,cloneJson:value=>JSON.parse(JSON.stringify(value)),
    createStoredSimulationResult:()=>({}),captureSimulationView(){tab.results.view={virtualSecond:state.run.result.samples[state.run.sampleIndex].virtualSecond};},
@@ -41,4 +41,27 @@ test('completing a target batch keeps the final playback frame and saves that vi
  vm.runInContext("persistRoundResult(session,result,'COMPLETE')",context);
  assert.equal(state.run.result.samples[state.run.sampleIndex].outputCount,77);
  assert.equal(tab.results.view.virtualSecond,42);
+ state.run.sampleIndex=0;context.session.run.calculationMode='FAST';
+ vm.runInContext("persistRoundResult(session,result,'COMPLETE')",context);
+ assert.equal(state.run.sampleIndex,1);
+ result.effectiveRuntimeStop={status:'REACHED'};
+ context.session.run.calculationMode='LIVE';
+ vm.runInContext("persistRoundResult(session,result,'COMPLETE')",context);
+ assert.equal(state.run.sampleIndex,1);
+});
+
+test('starting a new run clears the previous round and replay before calculation',()=>{
+ const code=readClientSource(),tab={results:{summary:{outputCount:77}}},preview={value:'old'};
+ const state={run:{result:tab.results,representative:tab.results,configuration:{},sampleIndex:42,roundIndex:2}};
+ const context={state,activePersistentSimulation:()=>tab,cancelRoundSession(){},stopPlaybackTimer(){},
+   document:{getElementById:()=>preview},toggle(id,visible){assert.equal(id,'simulation-results');assert.equal(visible,false);}};
+ vm.createContext(context);
+ const start=code.indexOf('    function invalidateActiveResult('),end=code.indexOf('\n    function ',start+10);
+ vm.runInContext(code.slice(start,end)+'\ninvalidateActiveResult();',context);
+ assert.equal(tab.results,null);
+ assert.equal(state.run.result,null);
+ assert.equal(state.run.representative,null);
+ assert.equal(state.run.sampleIndex,0);
+ assert.equal(state.run.roundIndex,0);
+ assert.equal(preview.value,'');
 });

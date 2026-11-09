@@ -309,7 +309,7 @@ async function openCase(caseId, initialView) {
     }
     function invalidateActiveResult() {
       var simulation=activePersistentSimulation();if(!simulation)return;
-      cancelRoundSession();simulation.results=null;state.run.result=null;state.run.configuration=null;stopPlaybackTimer();
+      cancelRoundSession();simulation.results=null;state.run.result=null;state.run.representative=null;state.run.configuration=null;state.run.sampleIndex=0;state.run.roundIndex=0;stopPlaybackTimer();
       document.getElementById('simulation-json-preview').value='';
       toggle('simulation-results',false);
     }
