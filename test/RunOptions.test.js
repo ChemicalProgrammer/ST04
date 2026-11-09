@@ -21,3 +21,18 @@ test('simulation failure toggle restores independent run values and locks during
   assert.equal(a.reliabilityEnabled,false);assert.equal(b.reliabilityEnabled,undefined);
  }finally{w.close();}
 });
+
+test('automatic long batches stream round one while explicit calculation modes are honored',()=>{
+ const dom=new JSDOM(fs.readFileSync('apps-script/WebApp.html','utf8'),{runScripts:'outside-only'}),w=dom.window;
+ try{
+  w.eval(fs.readFileSync('apps-script/RunOptions.html','utf8').replace(/<\/?script>/g,''));
+  const el=id=>w.document.getElementById(id);
+  el('duration-mode').value='FIXED';el('run-duration').value='24';el('run-duration-unit').value='HOURS';
+  el('run-calculation-mode').value='AUTO';el('run-rounds').value='1';
+  assert.equal(w.STRunOptions.read().calculationMode,'FAST');
+  el('run-rounds').value='20';
+  assert.equal(w.STRunOptions.read().calculationMode,'LIVE');
+  el('run-calculation-mode').value='SUMMARY';
+  assert.equal(w.STRunOptions.read().calculationMode,'SUMMARY');
+ }finally{w.close();}
+});

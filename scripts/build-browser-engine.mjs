@@ -75,6 +75,9 @@ async function simulateSelectedLine(input,options={}){
 function effectiveRuntimeUnsupported(){
   return {ok:false,error:{code:'EFFECTIVE_RUNTIME_ENGINE',message:'Effective Runtime targets require the continuous simulation engine.'}};
 }
+function canUseSimulationWorkers(){
+  return !workersUnavailable&&typeof window.Worker==='function'&&!!window.Blob&&!!window.URL?.createObjectURL;
+}
 async function calculateBrowserBatch(input,options={}){
   if(input.run.effectiveRuntimeTargetSeconds!==undefined&&selectedEngine(input)===SIMPY_ENGINE_ID)return effectiveRuntimeUnsupported();
   if(selectedEngine(input)===SIMPY_ENGINE_ID)return simulateBatch(input,{...options,runRound:simPyRuntime.run,workerFirstRound:true,concurrency:options.parallel===false?1:simPyRuntime.size,laterSummaryOnly:options.laterSummaryOnly!==false});
@@ -82,7 +85,7 @@ async function calculateBrowserBatch(input,options={}){
   const onFirstRound=options.onFirstRound?result=>{if(!published){published=true;options.onFirstRound(result);}}:undefined;
   const settings={...options,onFirstRound,laterSummaryOnly:options.laterSummaryOnly!==false};
   const count=input.run.rounds||1;
-  if((count<2&&!options.summaryOnly&&(!input.run.calculationMode||input.run.calculationMode==='LIVE'))||options.parallel===false||workersUnavailable||typeof window.Worker!=='function'||!window.Blob||!window.URL?.createObjectURL)return simulateBatch(input,settings);
+  if((count<2&&!options.summaryOnly&&(!input.run.calculationMode||input.run.calculationMode==='LIVE'))||options.parallel===false||!canUseSimulationWorkers())return simulateBatch(input,settings);
   if(!workerPool){
     const size=simulationWorkerCapacity(window.navigator);
     workerSource=workerSource||["'use strict';\\n",engineRuntime.toString().split('/* WORKER_MODEL_START */')[1].split('/* WORKER_MODEL_END */')[0],'('+simulationWorkerMain.toString()+')();'].join('');
@@ -118,7 +121,7 @@ window.SimulatorEngine = {
   simulateBatch: simulateBrowserBatch,
   replicationView:replicationView,
   inputSignature: simulationInputSignature,
-  concurrency: function(engineId){return engineId===SIMPY_ENGINE_ID?simPyRuntime.size:workersUnavailable||typeof window.Worker!=='function'?1:simulationWorkerCapacity(window.navigator);},
+  concurrency: function(engineId){return engineId===SIMPY_ENGINE_ID?simPyRuntime.size:canUseSimulationWorkers()?simulationWorkerCapacity(window.navigator):1;},
   simulateLineAsync: simulateSelectedLine,
   validateSimulationInput: validateSimulationInput,
   plantCalendarSchedule: plantCalendarSchedule,

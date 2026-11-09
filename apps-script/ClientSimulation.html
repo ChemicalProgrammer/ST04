@@ -576,8 +576,8 @@
       var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);captureSimulationView();state.isDirty=true;saveActiveCase();}
     }
     function computeRoundSession(session,firstResult){
-      var generation=++session.generation,version=session.version,startedAt=Date.now();
-      session.pending=true;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
+      var generation=++session.generation,version=session.version;
+      session.pending=true;session.firstProgress=null;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
       window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
       var input={case:cloneJson(session.caseModel),run:cloneJson(session.run)};
       SimulatorEngine.simulateBatch(input,{onRepresentative:function(round){if(roundSessionActive(session))document.getElementById('batch-status').textContent='Preparing representative round '+round+'…';},firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult||session.run.calculationMode!=='LIVE'?undefined:function(partial){
@@ -600,10 +600,16 @@
         syncPlaybackRounds();toggle('simulation-results',true);renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
         if(session.resolveFirst){session.resolveFirst(true);session.resolveFirst=null;}
         else persistRoundResult(session,result,'PENDING');
-      },progress:function(value,round,total,detail){if(!roundSessionActive(session)||generation!==session.generation)return;document.getElementById('batch-progress').value=value;if(detail){
-        document.getElementById('batch-status').textContent='Ronda '+detail.round+' / '+total+' · Effective Runtime '+(Number.isFinite(detail.accumulatedSeconds)?formatMinutes(detail.accumulatedSeconds):'—')+' / '+formatMinutes(session.run.effectiveRuntimeTargetSeconds)+' · Calendario '+formatMinutes(detail.elapsedSeconds)+' · Producción '+formatNumber(detail.outputCount);
-        return;
-      }document.getElementById('batch-status').textContent=Math.round(value*100)+'% · '+Math.round(value*session.run.durationSeconds/60).toLocaleString()+' simulated min'+(value>.01?' · ~'+Math.max(0,Math.ceil((Date.now()-startedAt)/1000*(1-value)/value))+' s remaining':'');}}).then(function(response){
+      },progress:function(value,completed,total,detail){
+        if(!roundSessionActive(session)||generation!==session.generation)return;
+        document.getElementById('batch-progress').value=value;
+        var slots=Math.min(total,SimulatorEngine.concurrency?.(session.run.engineId)||1);
+        var message=completed+' / '+total+' rondas completas · '+(slots>1?'Hasta '+slots+' rondas en paralelo':'Cálculo secuencial')+' · '+Math.round(value*100)+'%';
+        if(detail?.round===1)session.firstProgress=detail;
+        detail=session.firstProgress;
+        if(detail)message+=' · Effective Runtime '+(Number.isFinite(detail.accumulatedSeconds)?formatMinutes(detail.accumulatedSeconds):'—')+' / '+formatMinutes(session.run.effectiveRuntimeTargetSeconds)+' · Calendario '+formatMinutes(detail.elapsedSeconds)+' · Producción '+formatNumber(detail.outputCount);
+        document.getElementById('batch-status').textContent=message;
+      }}).then(function(response){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         session.pending=false;syncRunControls();
         if(!response.ok){state.run.active=false;syncRunControls();showError(response.error);session.resolveFirst?.(false);toggle('batch-dialog',false);return;}

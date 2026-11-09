@@ -20,7 +20,7 @@ export async function simulateBatch(input, options={}) {
     const caseModel=runner===options.runRound?{id:input.case.id,unitOfFlow:input.case.unitOfFlow,equipment:input.case.equipment}:input.case;
     const response=index===0&&options.firstResult?{ok:true,result:options.firstResult}:await runner({case:caseModel,run},{detail:index===0&&!summaryOnly,summaryOnly,onPartial:index===0&&!summaryOnly?options.onFirstProgress:undefined,cancelled:()=>failed||options.cancelled?.(),progress:(f,detail)=>{
       fractions[index]=Math.max(fractions[index],f);
-      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,options.runRound?fractions.filter(value=>value===1).length:index+1,count,detail?{...detail,round:index+1}:undefined);
+      options.progress?.(fractions.reduce((sum,value)=>sum+value,0)/count,fractions.filter(value=>value===1).length,count,detail?{...detail,round:index+1}:undefined);
     }});
     if(options.cancelled?.())throw new Error('BATCH_CANCELLED');
     if(!response.ok){failed=true;return response;}
