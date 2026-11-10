@@ -13,10 +13,12 @@ function exportEquipmentSheet_(request, user) {
     STScenarioEngine_.validateFormatCatalog(catalog);
     var hasCatalog=catalog.products.length||catalog.formats.length;
     stage='VALIDATE_EQUIPMENT';
+    var date=sheetAnalysisDate_(data.metadata[5])||sheetAnalysisDate_(data.metadata[6]);
+    data.metadata[5]=date||'';
     if(hasCatalog)data.metadata.splice(2,3,'','','');
     data.metadata[6]=sheetResponsibleName_(data.metadata[6])||'';
     // Validate the same contract as Preview before creating a spreadsheet.
-    var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:11,metadataColumn:'B',allowEmpty:true});
+    var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:8,metadataCells:compactEquipmentMetadataCells_(),allowEmpty:true});
     if (!review.canImport) throw createSimulatorError_('INVALID_SHEET_EXPORT','Some values cannot be represented in the import format.',review.errors.map(function(issue){return issue.cell+': '+issue.message;}));
     stage='OPEN_EXPORTS_FOLDER';
     var folder=getWorkspaceFolders_().exports;
@@ -24,67 +26,76 @@ function exportEquipmentSheet_(request, user) {
     var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
     var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50));
     stage='CREATE_SPREADSHEET';
-    book=SpreadsheetApp.create(name,slots+10,width);
+    book=SpreadsheetApp.create(name,slots+7,width);
     stage='MOVE_TO_EXPORTS';
     file=DriveApp.getFileById(book.getId());
     file.moveTo(folder);
     stage='WRITE_VALUES';
     var sheet=book.getSheets()[0];sheet.setName('Equipment');
 
-    var values=Array.from({length:slots+10},function(){return Array(width).fill('');});
+    var values=Array.from({length:slots+7},function(){return Array(width).fill('');});
     var labels=['Site','Packaging line','Format','Container size','Bottles per case','Date of analysis','By'];
-    if(hasCatalog)labels.splice(2,3,'','','');
-    sheet.getRange(7,2).setNumberFormat('@');
-    labels.forEach(function(label,index){values[index][0]=label;values[index][1]=sheetExportLiteral_(data.metadata[index]);});
-    values[0][25]='st-equipment-metadata-b-v2';
+    var cells=compactEquipmentMetadataCells_();
+    labels.forEach(function(label,index){
+      var value=data.metadata[index],cell=cells[index],row=Number(cell.slice(1))-1,column=cell.charCodeAt(0)-65;
+      if(index>=2&&index<=4&&(hasCatalog||value==='NA'||value===''))return;
+      values[row][column-1]=label;
+      values[row][column]=index===5&&date?'=DATE('+date.split('-').map(Number).join(',')+')':sheetExportLiteral_(value);
+    });
+    sheet.getRange(3,2).setNumberFormat('dd mmm yyyy');
+    sheet.getRange(4,2).setNumberFormat('@');
+    values[0][25]='st-equipment-metadata-b-v3';
     var groups=[['Equipment',1,8],['Geometry',9,4],['Upstream',13,4],['Downstream',17,2],['Speed & Sensors',19,7]];
-    groups.forEach(function(group){values[8][group[1]-1]=group[0];});
-    values[9]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[2]);}).concat(['Equipment ID']);
-    data.rows.forEach(function(row,index){values[index+10]=row.map(sheetExportLiteral_).concat([sheetExportLiteral_(equipment[index].id)]);});
-    for(var i=equipment.length;i<slots;i++)values[i+10][25]='slot-'+book.getId()+'-'+(i+1);
-    sheet.getRange(11,26,slots,1).setNumberFormat('@');
+    groups.forEach(function(group){values[5][group[1]-1]=group[0];});
+    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[2]);}).concat(['Equipment ID']);
+    data.rows.forEach(function(row,index){values[index+7]=row.map(sheetExportLiteral_).concat([sheetExportLiteral_(equipment[index].id)]);});
+    for(var i=equipment.length;i<slots;i++)values[i+7][25]='slot-'+book.getId()+'-'+(i+1);
+    sheet.getRange(8,26,slots,1).setNumberFormat('@');
     sheet.getRange(1,1,values.length,width).setValues(values).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
     stage='WRITE_CATALOG';
     writeSheetCatalog_(book.insertSheet('Products & Formats',1),catalog,primary,secondary);
     stage='WRITE_REAL_DATA';
-    writeSheetActuals_(book.insertSheet('Real Data',2),values.slice(10),primary,secondary,11);
+    writeSheetActuals_(book.insertSheet('Real Data',2),values.slice(7),primary,8);
     book.setActiveSheet(sheet);
     stage='FORMAT_SHEET';
-    sheet.getRange(1,1,7,1).setFontWeight('bold').setBackground(sheetExportTint_(secondary));
-    sheet.getRange(1,2,7,1).setBackground('#f3f6f8');
+    cells.forEach(function(cell){
+      var row=Number(cell.slice(1)),column=cell.charCodeAt(0)-64;
+      if(values[row-1][column-2])sheet.getRange(row,column-1,1,2).setBackground(sheetExportTint_(primary));
+      sheet.getRange(row,column-1).setFontWeight('bold');
+    });
     groups.forEach(function(group){
-      var band=sheet.getRange(9,group[1],1,group[2]);
+      var band=sheet.getRange(6,group[1],1,group[2]);
       // Equipment spans the frozen-column boundary, so use one continuous unmerged band.
       if(group[1]>2)band.merge().setHorizontalAlignment('center');
       band.setBackground(sheetExportTint_(secondary)).setFontWeight('bold').setHorizontalAlignment('center');
       if(group[1]>1){
-        [band,sheet.getRange(10,group[1],slots+1,1)].forEach(function(range){
+        [band,sheet.getRange(7,group[1],slots+1,1)].forEach(function(range){
           range.setBorder(null,true,null,null,null,null,secondary,SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
         });
       }
     });
     sheet.hideColumns(26);
     var types=SpreadsheetApp.newDataValidation().requireValueInList(supportedEquipmentTypes_(),true).setAllowInvalid(false).build();
-    sheet.getRange(11,1,slots,1).setDataValidation(types);
-    sheet.getRange(10,1,1,width).setBackground(sheetExportTint_(primary)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(8,1,slots,1).setDataValidation(types);
+    sheet.getRange(7,1,1,width).setBackground(sheetExportTint_(primary)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center').setVerticalAlignment('middle');
     if(data.rows.length){
-      var body=sheet.getRange(11,1,data.rows.length,25);
+      var body=sheet.getRange(8,1,data.rows.length,25);
       body.setBackground('#ffffff').setWrap(true);
       body.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY,false,false);
-      sheet.getRange(11,4,data.rows.length,22).setNumberFormat('0.########').setHorizontalAlignment('right');
-      sheet.getRange(11,2,data.rows.length,1).setFontWeight('bold');
-      sheet.setRowHeights(11,data.rows.length,28);
+      sheet.getRange(8,4,data.rows.length,22).setNumberFormat('0.########').setHorizontalAlignment('right');
+      sheet.getRange(8,2,data.rows.length,1).setFontWeight('bold');
+      sheet.setRowHeights(8,data.rows.length,28);
     }
-    stage='FREEZE_HEADERS';sheet.setFrozenRows(10);sheet.setFrozenColumns(2);
+    stage='FREEZE_HEADERS';sheet.setFrozenRows(7);sheet.setFrozenColumns(2);
     stage='SIZE_COLUMNS';
     sheet.setColumnWidths(1,width,130);sheet.setColumnWidth(2,220);sheet.setColumnWidth(3,170);
-    sheet.setRowHeights(1,7,42);sheet.setRowHeight(8,16);sheet.setRowHeight(9,28);sheet.setRowHeight(10,68);
-    stage='CREATE_FILTER';sheet.getRange(10,1,slots+1,width).createFilter();
+    sheet.setRowHeights(1,4,32);sheet.setRowHeight(5,16);sheet.setRowHeight(6,28);sheet.setRowHeight(7,68);
+    stage='CREATE_FILTER';sheet.getRange(7,1,slots+1,width).createFilter();
     stage='FLUSH';
     SpreadsheetApp.flush();
     return {spreadsheetId:book.getId(),url:book.getUrl(),sheetName:sheet.getName(),equipmentCount:data.rows.length};
   } catch (error) {
-    var details=['Exporter: equipment-actuals-catalog-v2','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
+    var details=['Exporter: equipment-actuals-catalog-v3','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
     // Only the new export belongs to this operation; clean up an incomplete export.
     if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){details.push('The incomplete export could not be removed.');}
     if(error?.simulatorError){
@@ -96,7 +107,7 @@ function exportEquipmentSheet_(request, user) {
   }
 }
 
-function writeSheetActuals_(sheet,equipmentRows,primary,secondary,equipmentStart) {
+function writeSheetActuals_(sheet,equipmentRows,primary,equipmentStart) {
   var count=equipmentRows.length,height=count+15,width=10;
   if(sheet.getMaxRows()<height)sheet.insertRowsAfter(sheet.getMaxRows(),height-sheet.getMaxRows());
   var rows=Array.from({length:height},function(){return Array(width).fill('');});
@@ -133,10 +144,10 @@ function writeSheetActuals_(sheet,equipmentRows,primary,secondary,equipmentStart
     });
   sheet.getRange(1,1,height,width).setValues(rows).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
   [[1,1,2],[1,4,2],[8,4,2],[14,1,3],[14,4,6]].forEach(function(group){
-    sheet.getRange(group[0],group[1],1,group[2]).merge().setFontWeight('bold').setBackground(sheetExportTint_(secondary)).setHorizontalAlignment('center');
+    sheet.getRange(group[0],group[1],1,group[2]).merge().setFontWeight('bold').setBackground(sheetExportTint_(primary)).setHorizontalAlignment('center');
   });
   [sheet.getRange(2,1,9,1),sheet.getRange(2,4,5,1),sheet.getRange(9,4,4,1)].forEach(function(range){
-    range.setBackground(sheetExportTint_(secondary,.14)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center');
+    range.setBackground(sheetExportTint_(primary,.14)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center');
   });
   sheet.getRange(15,1,1,9).setFontWeight('bold').setBackground(sheetExportTint_(primary)).setWrap(true).setHorizontalAlignment('center');
   [sheet.getRange(2,2,2,1),sheet.getRange(5,2),sheet.getRange(7,2,3,1),sheet.getRange(2,5,5,1),sheet.getRange(9,5,3,1),sheet.getRange(16,2,count,2)].forEach(function(range){range.setBackground('#fff2cc');});
@@ -199,12 +210,12 @@ function writeSheetCatalog_(sheet,catalog,primary,secondary){
   var units=STScenarioEngine_.productVolumeUnits,width=9;
   var rows=[['st-material-sheet-v2','','','','','','','',''],
     ['Catalog','','','Volume','','Dimensions','','','Packing'],
-    ['Type','Name','Product','Volume','Volume Unit','Length\n(mm)','Width\n(mm)','Height\n(mm)','Bottles per Case']];
+    ['Type','Name','Linked product','Volume','Volume Unit','Length\n(mm)','Width\n(mm)','Height\n(mm)','Bottles per Case']];
   var products=new Map(catalog.products.map(function(product){return [product.id,product.name];}));
   ['products','formats'].forEach(function(kind){
     catalog[kind].forEach(function(record){
       var product=kind==='products',unit=record.volumeUnit||'mL',shape=(product?record.bottle:record.case)||{};
-      rows.push([product?'Product':'Format',record.name,product?'':products.get(record.productId),
+      rows.push([product?'Product':'Format',record.name,product||catalog.products.length===1?'':products.get(record.productId),
         product&&record.volumeMl!==undefined?record.volumeMl/units[unit]:'',product?unit:'',
         shape.lengthMm,shape.widthMm,shape.heightMm,product?'N/A':record.bottlesPerCase].map(function(value){return sheetExportLiteral_(value??'');}));
     });

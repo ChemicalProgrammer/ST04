@@ -117,7 +117,7 @@ window.STProducts=(function(){
       if(!current){note(main,isFormat?'Add a product first, then create its packing format.':'Add a product to configure its properties and equipment behavior.');return;}
       var grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';main.append(grid);
       field(grid,isFormat?'Format name':'Product name',current,'name',{text:true,required:true});
-      if(isFormat){selectField(grid,'Product',current.productId,draft.products,function(value){current.productId=value;commit();});field(grid,'Bottles per case',current,'bottlesPerCase',{min:'1',step:'1',required:true});current.case=current.case||{};}else{current.bottle=current.bottle||{};var units=SimulatorEngine.productVolumeUnits,unit=current.volumeUnit||'mL';
+      if(isFormat){if(draft.products.length>1)selectField(grid,'Linked product',current.productId,draft.products,function(value){current.productId=value;commit();});field(grid,'Bottles per case',current,'bottlesPerCase',{min:'1',step:'1',required:true});current.case=current.case||{};}else{current.bottle=current.bottle||{};var units=SimulatorEngine.productVolumeUnits,unit=current.volumeUnit||'mL';
         field(grid,'Volume',current,'volumeMl',{scale:1/units[unit]});
         selectField(grid,'Volume unit',unit,Object.keys(units).map(u=>({id:u,name:u})),function(value){
           if(!value)return;

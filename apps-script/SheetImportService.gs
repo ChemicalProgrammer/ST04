@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261110-2';}
+function sheetImportContractVersion_(){return 'sheet-import-20261110-3';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -72,27 +72,37 @@ function previewSheetImport_(request, user) {
   if (!sheet) throw createSimulatorError_('SHEET_TAB_NOT_FOUND','The worksheet was not found. Enter its exact tab name.');
   var lastRow=sheet.getLastRow();
   var marker=sheet.getMaxColumns()>=26?sheet.getRange(1,26).getValues()[0][0]:'';
-  var start=marker==='st-equipment-metadata-b-v2'?11:10,limit=start+999;
+  var compact=marker==='st-equipment-metadata-b-v3',start=compact?8:marker==='st-equipment-metadata-b-v2'?11:10,limit=start+999;
   if(lastRow>limit)throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows '+start+'–'+limit+'). Remove extra content below the equipment table or use a dedicated worksheet.');
-  if(sheet.getMaxColumns()<23||sheet.getMaxRows()<start)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected metadata in B1:B7 or legacy C1:C7 and equipment starting at A'+start+'.');
+  if(sheet.getMaxColumns()<23||sheet.getMaxRows()<start)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected an Equipment header and data starting at A'+start+'.');
   var layout=detectSheetImportLayout_(sheet.getRange(start-2,7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=String.fromCharCode(64+width);
   if(sheet.getMaxColumns()<width)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected equipment in A'+start+':'+lastColumn+'.');
-  var metadataColumn=['st-equipment-metadata-b-v1','st-equipment-metadata-b-v2'].includes(marker)?'B':'C';
-  var metadataRange = sheet.getRange(1,metadataColumn==='B'?2:3,7,1);
-  var metadata = metadataRange.getValues().map(function(row){return row[0];});
-  if(typeof metadata[3]==='number'&&typeof metadataRange.getDisplayValues==='function'){
-    var display=String(metadataRange.getDisplayValues()[3]?.[0]||''),unit=display.match(/^[\d\s.,+]+\s*([^\d\s][^\r\n]*)$/);
-    if(unit&&/^[\p{L}µμ°%(]/u.test(unit[1]))metadata[3]=metadata[3]+' '+unit[1].trim();
+  var metadataColumn=compact||['st-equipment-metadata-b-v1','st-equipment-metadata-b-v2'].includes(marker)?'B':'C';
+  var metadata,containerUnit,metadataCells=compact?compactEquipmentMetadataCells_():null;
+  if(compact){
+    var grid=sheet.getRange(1,1,4,5).getValues();
+    metadata=metadataCells.map(function(cell){return grid[Number(cell.slice(1))-1][cell.charCodeAt(0)-65];});
+    containerUnit='';
+  }else{
+    var metadataRange = sheet.getRange(1,metadataColumn==='B'?2:3,7,1);
+    metadata = metadataRange.getValues().map(function(row){return row[0];});
+    if(typeof metadata[3]==='number'&&typeof metadataRange.getDisplayValues==='function'){
+      var display=String(metadataRange.getDisplayValues()[3]?.[0]||''),unit=display.match(/^[\d\s.,+]+\s*([^\d\s][^\r\n]*)$/);
+      if(unit&&/^[\p{L}µμ°%(]/u.test(unit[1]))metadata[3]=metadata[3]+' '+unit[1].trim();
+    }
+    containerUnit=sheetContainerUnit_(sheet.getRange(4,1,1,metadataColumn==='B'?1:2).getValues()[0]);
   }
-  if (Object.prototype.toString.call(metadata[5]) === '[object Date]') metadata[5] = Utilities.formatDate(metadata[5],book.getSpreadsheetTimeZone(),'yyyy-MM-dd');
-  var containerUnit=sheetContainerUnit_(sheet.getRange(4,1,1,metadataColumn==='B'?1:2).getValues()[0]);
+  [5,6].forEach(function(index){
+    if(Object.prototype.toString.call(metadata[index])==='[object Date]')metadata[index]=Utilities.formatDate(metadata[index],book.getSpreadsheetTimeZone(),'yyyy-MM-dd');
+  });
   var count = Math.max(0,lastRow-start+1), rows = [], formats = [];
   if (count) {var range=sheet.getRange(start,1,count,width);rows=range.getValues();formats=range.getNumberFormats();}
   // The plant template may include shift-time summaries below the equipment table.
   var footer=rows.findIndex(function(row){return !String(row[0]||'').trim()&&!String(row[1]||'').trim()&&row.some(function(value){return /^total\s+time$/i.test(String(value||'').trim());});});
   if(footer>=0){rows=rows.slice(0,footer);formats=formats.slice(0,footer);count=rows.length;}
-  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,start:start,allowEmpty:marker==='st-equipment-metadata-b-v2'});
+  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A'+start+':'+lastColumn+(count?count+start-1:start)};
+  if(compact)result.source.metadataCells=metadataCells;
   var catalogTab=sheet.getName()==='Equipment'?sheets.find(function(tab){return tab.getName()==='Products & Formats';}):null;
   var catalogMarker=catalogTab?.getRange(1,1).getValues()[0][0];
   if(['st-material-sheet-v1','st-material-sheet-v2'].includes(catalogMarker)){
@@ -173,12 +183,15 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     return number;
   }
   var metaColumn=options?.metadataColumn||'C',metadata={},metaFields=['site','packagingLine','formatName','containerSize','bottlesPerCase','dateOfAnalysis','by'];
-  metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=i===4?numeric(v,metaColumn+'5'):missing(v)?null:typeof v==='number'?v:String(v).trim();});
+  var metaCell=function(index){return options?.metadataCells?.[index]||metaColumn+(index+1);};
+  metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=i===4?numeric(v,metaCell(4)):missing(v)?null:typeof v==='number'?v:String(v).trim();});
+  var misplacedDate=sheetAnalysisDate_(metadataCells[6]);
+  metadata.dateOfAnalysis=sheetAnalysisDate_(metadataCells[5])||(!metadata.dateOfAnalysis?misplacedDate:metadata.dateOfAnalysis);
   metadata.by=sheetResponsibleName_(metadataCells[6]);
-  if(!missing(metadataCells[6])&&!metadata.by)issue(errors,metaColumn+'7','Enter the name of the person who recorded the data.');
-  var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,metaColumn+'4',size.error);
-  if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,metaColumn+'5','Must be greater than zero when provided.');
-  if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,metaColumn+'5','Bottles per case must be a whole number.');
+  if(!missing(metadataCells[6])&&!metadata.by&&!misplacedDate)issue(errors,metaCell(6),'Enter the name of the person who recorded the data.');
+  var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,metaCell(3),size.error);
+  if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,metaCell(4),'Must be greater than zero when provided.');
+  if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,metaCell(4),'Bottles per case must be a whole number.');
   var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
   rows.forEach(function(row,offset){
     var rowNumber=offset+(options?.start||10);
@@ -493,7 +506,7 @@ function readLegacySheetCatalog_(sheet){
 function sheetResponsibleName_(value){
   if(typeof value!=='string')return null;
   var name=value.trim();
-  return name&&/[\p{L}]/u.test(name)&&!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/i.test(name)&&!/^(NA|N\/A)$/i.test(name)?name:null;
+  return name&&/[\p{L}]/u.test(name)&&!sheetAnalysisDate_(name)&&!/^(NA|N\/A)$/i.test(name)?name:null;
 }
 
 function readSheetCatalog_(sheet,marker){
@@ -542,4 +555,17 @@ function readSheetCatalog_(sheet,marker){
   });
   if(!errors.length)try{STScenarioEngine_.validateFormatCatalog(catalog);}catch(error){errors.push('Products & Formats · '+error.message);}
   return {catalog:catalog,errors:errors,matchByName:true};
+}
+
+function compactEquipmentMetadataCells_(){return ['B1','B2','E1','E2','E3','B3','B4'];}
+
+function sheetAnalysisDate_(value){
+  if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value.getTime()))return value.toISOString().slice(0,10);
+  if(typeof value!=='string')return null;
+  var text=value.trim(),iso=/^(\d{4}-\d{2}-\d{2})(?:T.*)?$/.exec(text);
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var legacy=/^(?:[A-Za-z]{3} )?([A-Za-z]{3}) (\d{1,2}) (\d{4})(?: \d{2}:\d{2}:\d{2} GMT[+-]\d{4}.*)?$/.exec(text);
+  var month=legacy?months.indexOf(legacy[1])+1:0;
+  var date=iso?iso[1]:month?legacy[3]+'-'+String(month).padStart(2,'0')+'-'+legacy[2].padStart(2,'0'):null;
+  return date&&new Date(date+'T00:00:00Z').toJSON()?.slice(0,10)===date?date:null;
 }

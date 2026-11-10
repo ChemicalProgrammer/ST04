@@ -74,3 +74,14 @@ test('product volume displays in the chosen unit and keeps the canonical volume 
  assert.equal(w.SimulatorEngine.readMaterialConfiguration(JSON.stringify(payload),'products','product',state.activeCase.equipment).volumeUnit,'fl oz (US)');
  input(w,'Volume unit','mL');assert.equal(shown(),750);assert.equal(product().volumeUnit,undefined);
 });
+
+test('format shows the product association only when the catalog contains a choice',()=>{
+ const {w,state}=setup();seed({w});
+ const selector=()=>w.document.querySelector('[aria-label="Linked product"]');
+ assert.equal(selector(),null);
+ tab(w,'products');click(w,'Add product');
+ const second=state.activeCase.metadata.formatCatalog.products[1].id;
+ tab(w,'formats');assert(selector());
+ input(w,'Linked product',second);
+ assert.equal(state.activeCase.metadata.formatCatalog.formats[0].productId,second);
+});
