@@ -67,7 +67,10 @@
 #realdata-panel .real-data-equipment-table input { width:100%;min-width:70px;box-sizing:border-box; }
 #realdata-panel .real-data-equipment-table :is(th,td) { vertical-align:middle; }
 #realdata-panel .real-data-downtime-table { width:100%;min-width:1040px; }
-#realdata-panel .real-data-downtime-table :is(thead,tfoot,tbody) th:first-child { position:sticky;inset-inline-start:0;background:var(--surface); }
+#realdata-panel :is(.real-data-downtime-table,.real-data-equipment-table) :is(th[scope="row"],thead tr:first-child th:first-child) { position:sticky;inset-inline-start:0;background:var(--surface);z-index:1; }
+#realdata-panel .real-data-downtime-table thead th { white-space:nowrap; }
+#realdata-panel .real-data-downtime-table th[scope="colgroup"] { text-align:center; }
+#realdata-panel .real-data-downtime-table :is(th[scope="colgroup"],thead tr:nth-child(2) th:nth-child(3n+1),tbody td:nth-child(3n+2),tfoot td:nth-child(3n+2)) { border-inline-start:var(--border-width) solid var(--line); }
 /* Reserve the same marker column for folders and leaves at every depth. */
 #real-data-editor .real-data-explorer-entry > summary,
 #real-data-editor div.real-data-explorer-entry {

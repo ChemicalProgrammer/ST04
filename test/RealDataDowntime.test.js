@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {setup,fixture} from './helpers/RealDataHarness.js';
 test('failure minutes, shares and MTBF/MTTR theoretical percentage are distinct and totals exclude normal conveyors',()=>{
  const w=setup();try{const f=fixture(),d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;
- assert.equal(d.rows.length,2);assert.equal(d.totalReal,20);assert.equal(d.totalSim,30);assert.equal(d.delta,10);
+ assert.equal(d.rows.length,2);assert(Math.abs(d.rows[0].comparison.failure.difference-100/3)<1e-9);assert.equal(d.rows[0].comparison.failureCount.simulated,5);assert.equal(d.totalReal,20);assert.equal(d.totalSim,30);assert.equal(d.delta,10);
  assert.equal(d.rows[0].realShare,75);assert(Math.abs(d.rows[0].simulatedShare-100*20/30)<1e-9);
  assert.equal(d.rows[0].unavailabilityPercent,100*5/105);assert.equal(d.rows[0].simulated,20);
  }finally{w.close();}
@@ -11,7 +11,7 @@ test('unknown general downtime is not silently interpreted as MTBF failure and m
  let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.rows[0].real,null);assert.equal(d.rows[0].realReported,100);assert.equal(d.totalReal,null);assert.equal(d.rows[1].realShare,null);assert.equal(d.totalSim,30);
  f.record.equipment[0].stopClass='FAILURES';d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.totalReal,105);
  f.record.equipment.forEach(r=>{r.failureSeconds=0;});f.result.equipmentMetrics.f.failureSeconds=0;f.result.equipmentMetrics.l.failureSeconds=0;
- d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.totalReal,0);assert.equal(d.totalSim,0);assert(d.rows.every(r=>r.realShare===0&&r.simulatedShare===0));
+ d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.totalReal,0);assert.equal(d.totalSim,0);assert(d.rows.every(r=>r.realShare===0&&r.simulatedShare===0&&r.comparison.failure.difference===null));
  }finally{w.close();}
 });
 
@@ -37,11 +37,15 @@ test('theoretical reliability uses saved simulation inputs when configuration ha
 test('total no-flow downtime separates own failures and other causes without counting overlapping stop counters',()=>{
  const w=setup();try{
   const f=fixture(),id='f',metrics=f.result.equipmentMetrics;
+  f.simulation.equipment[1].noiseProfile={reliability:{mtbfMinutes:10,mttrMinutes:1}};
+  f.record.equipment.push({equipmentId:'belt',failureSeconds:60});
   f.record.equipment[0].stopClass='ALL';f.record.equipment[0].downtimeSeconds=3000;
   const first={...metrics[id],runningSeconds:81000,starvedSeconds:600,blockedSeconds:300,backupStopSeconds:900,waitingForPrimeSeconds:600,plannedStopSeconds:600,microStopSeconds:300,pausedSeconds:600,stoppedSeconds:2700};
   const second={...first,runningSeconds:81900,starvedSeconds:300,backupStopSeconds:0,pausedSeconds:300};
   f.result.batch={rows:[{round:1,summary:f.result.summary,equipmentMetrics:{...metrics,[id]:first}},{round:2,durationSeconds:85800,summary:f.result.summary,equipmentMetrics:{...metrics,[id]:second}}]};
-  const average=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime.rows[0];
+  const downtime=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;
+  assert(!downtime.rows.some(row=>row.equipmentId==='belt'));
+  const average=downtime.rows[0];
   assert.equal(average.realTotal,50);assert.equal(average.real,15);assert.equal(average.simulated,20);
   assert.equal(average.simulatedTotal,77.5);assert.equal(average.simulatedBreakdown.starved,7.5);assert.equal(average.simulatedBreakdown.other,5);
   const selected=w.STRealData.compare(f.record,f.simulation,f.result,'2',{}).downtime.rows[0];

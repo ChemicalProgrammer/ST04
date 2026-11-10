@@ -16,8 +16,8 @@ test('saved engine results remain unchanged after all real calculations and repo
 });
 test('template includes zero time defaults, input/output modes and unmeasured equipment fields',()=>{
  const w=setup();try{const f=fixture(),t=w.STRealData.template(f.simulation.equipment),r=t.records[0];
- assert.equal(r.equipment.length,3);assert.equal(r.aem.scrapSeconds,0);assert.equal(r.equipment[0].failureSeconds,null);assert.equal(r.equipment[0].operatingSeconds,null);
+ assert.equal(r.equipment.length,2);assert.equal(r.aem.scrapSeconds,0);assert.equal(r.equipment[0].failureSeconds,null);assert.equal(r.equipment[0].operatingSeconds,null);
  assert.equal(w.STRealData.normalize({...r,durationSeconds:0}).durationSeconds,0);assert.equal(r.timeOverrides.external.enabled,false);
- const copy=w.STRealData.importRecords(t)[0];assert.equal(copy.equipment[1].equipmentId,'belt');
+ const copy=w.STRealData.importRecords(t)[0];assert.equal(copy.equipment[1].equipmentId,'l');assert.equal(copy.equipment[1].starvedSeconds,null);assert.equal(copy.equipment[1].totalDowntimeSeconds,null);
  }finally{w.close();}
 });

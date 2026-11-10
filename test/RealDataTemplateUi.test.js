@@ -21,7 +21,18 @@ test('failure inputs persist separately from general downtime and existing UNKNO
  w.document.querySelector('[data-comparison-select="equipment-downtime"]').click();
  const comparison=w.document.querySelector('[data-comparison-group="equipment-downtime"]');
  assert.equal(comparison.hidden,false);
- assert.deepEqual([...comparison.querySelectorAll('thead th')].map(cell=>cell.textContent),['Equipo','Otro paro real reportado (min)','Paro total real (min)','Paro total simulado (min)','Fallas reales (min)','Fallas MTBF/MTTR simuladas (min)','Starving (min)','Blocking (min)','Back-up (min)','Espera de Prime (min)','Paro planificado (min)','Microparos (min)','Pausa (min)','Otros sin producción (min)','Fallas reales (%)','Fallas simuladas (%)']);
+ const [groups,labels]=comparison.querySelector('thead').rows;
+ assert.deepEqual([...groups.cells].map(cell=>cell.textContent),['Equipo','Paro total [min]','Fallas por MTTR/MTBF [min]','Número de fallas [fallas]','Starving [min]','Blocking [min]','Back-up [min]','Espera de Prime [min]','Paro planificado [min]','Microparos [min]','Pausa [min]','Otros sin producción [min]','Paro reportado sin desglose comparable [min]']);
+ assert.equal(groups.cells[0].rowSpan,2);
+ assert([...groups.cells].slice(1).every(cell=>cell.colSpan===3));
+ assert.deepEqual([...labels.cells].slice(0,3).map(cell=>cell.textContent),['Real','Simulated','Difference [%]']);
+ assert.equal(labels.cells.length,3*(groups.cells.length-1));
+ assert.deepEqual([...w.document.querySelectorAll('.real-data-equipment-table thead th')].map(cell=>cell.textContent),[...groups.cells].map(cell=>cell.textContent));
+ assert.equal(w.document.querySelector('.real-data-equipment-table [data-equipment-id="belt"]'),null);
+ assert.equal(comparison.querySelector('tbody').rows.length,2);
+ const starving=w.document.querySelector('[data-real-equipment-field="starvedSeconds"][data-equipment-id="f"]');
+ starving.value='8';starving.dispatchEvent(new w.Event('input'));
+ assert.equal(owner.metadata.realData.records[0].equipment[0].starvedSeconds,480);
  assert.match(comparison.querySelector('tbody tr').textContent,/500/);
  assert(comparison.textContent.includes('Total de equipos'));
  }finally{w.close();}
