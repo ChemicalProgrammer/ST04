@@ -56,12 +56,14 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,2);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,41]);
+  assert.equal(writes.length,2);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,12,26]);
   assert.deepEqual(calls.find(call=>call[0]==='insertSheet'),['insertSheet','Datos reales',1]);
-  const actuals=writes[1].values;assert.equal(actuals[0][22],'st-real-inputs-v2');assert.equal(actuals[19][0],values[9][1]);assert.equal(actuals[20][0],'Packer');assert.match(actuals[19][18],/R20\*Q20\/\(P20\+Q20\)/);
+  const actuals=writes[1].values;assert.equal(actuals[0][22],'st-real-inputs-v3');assert.equal(actuals[19][0],values[9][1]);assert.equal(actuals[20][0],'Packer');assert.match(actuals[19][18],/R20\*Q20\/\(P20\+Q20\)/);
   assert.equal(values[0][2],"'=1+1");assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[8][24],'Overspeed vs infeed screw (%)');assert.equal(values[10][18],100);
-  assert.equal(values[7][0],'');assert(values[7][2].startsWith('Import layout:'));assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
+  assert.deepEqual([0,8,12,16,18].map(i=>values[7][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
+  for(const group of [[8,1,1,8],[8,9,1,4],[8,13,1,4],[8,17,1,2],[8,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
+  assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[1][0],'');assert.equal(actuals[18][14],'');
   assert(calls.some(call=>call[0]==='setBackground'&&call[2]==='#123456'));
   assert(calls.some(call=>call[0]==='setFontColor'&&call[2]==='#778899'));
   assert.equal(calls.filter(call=>call[0]==='create').length,1);assert(!calls.some(call=>call[0]==='trash'));
@@ -121,13 +123,13 @@ test('container size exports and reimports its declared unit and preserves legac
 test('two-tab export previews equipment and filled observations via the same spreadsheet URL',()=>{
  const h=runtime(),request=fixture(h.c);assert(h.c.exportEquipmentSheet(request).ok);
  const values=h.writes[0].values,actuals=h.writes[1].values;
- assert.equal(values[0][17],'st-real-sheet-v1');assert.equal(values[6][17],'st-real-equipment-v2');
- assert.equal(values[9][30],request.equipment[0].id);assert.match(values[9][31],/Datos reales.*MATCH/);
- assert.equal(values[10][25],'','conveyors do not receive actuals links');
- // Emulate getValues after Sheets has evaluated cross-tab formulas, including blank and zero.
- for(const row of values)for(let i=0;i<row.length;i++)if(typeof row[i]==='string'&&row[i].startsWith('='))row[i]='';
- values[0][5]='2026-10-08';values[5][5]=100;values[0][9]=1440;values[1][9]=0;values[4][9]=1344;values[0][13]=.633;values[3][21]=1200;
- values[9][25]=12;values[9][26]=4;values[9][27]='FAILURES';values[9][31]=100;values[9][32]=0;values[9][40]=17;
+ assert.equal(values[0][17],'');assert.equal(values[6][17],'');
+ assert.equal(values[9][25],request.equipment[0].id);assert.equal(values[8][25],'Equipment ID');
+ assert(values.every(row=>row.every(value=>typeof value!=='string'||!value.startsWith('='))));
+ // Inputs and computed values returned by the dedicated tab, including blank and zero.
+ actuals[4][1]='2026-10-08';actuals[7][5]=100;actuals[6][1]=1440;actuals[7][1]=0;
+ actuals[8][1]=1440;actuals[10][1]=1344;actuals[8][5]=.633;actuals[15][5]=1200;
+ actuals[19][2]=12;actuals[19][3]=4;actuals[19][4]=100;actuals[19][5]=0;actuals[19][13]=17;
  const mock=(grid,name,id)=>({getLastRow:()=>grid.length,getMaxRows:()=>100,getMaxColumns:()=>grid[0].length,getSheetId:()=>id,getName:()=>name,getRange:(r,col,count=1,width=1)=>({getValues:()=>grid.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00%'))})});
  const equipment=mock(values,'Equipment',1),real=mock(actuals,'Datos reales',2);
  h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,real],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
@@ -137,7 +139,8 @@ test('two-tab export previews equipment and filled observations via the same spr
   assert.equal(result.equipment.length,3);assert.equal(result.source.sheetName,'Equipment');
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,4);assert.equal(e.stopClass,'FAILURES');
-  assert.equal(e.totalDowntimeSeconds,6000);assert.equal(e.starvedSeconds,0);assert.equal(e.reportedDowntimeSeconds,1020);assert.equal(e.blockedSeconds,undefined);
+  assert.equal(e.totalDowntimeSeconds,6000);assert.equal(e.starvedSeconds,0);assert.equal(e.reportedDowntimeSeconds,1020);assert.equal(e.blockedSeconds,undefined);assert.equal(e.observationRow,20);
+  assert(result.realData.fields.some(f=>f.cell==='Datos reales!B7'));
  }
  assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===26));
 });
