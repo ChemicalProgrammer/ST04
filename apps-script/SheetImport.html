@@ -1,7 +1,7 @@
 <script>
 window.STSheetImport=function(state,actions){
   var preview=null,plan=null,snapshot=null,sequence=0,context=null,lastFocus,packingDraft=null,inheritedTab=null,observationDraft=null;
-  var merge=STSheetImportMerge,importVersion='sheet-import-20261110-4';
+  var merge=STSheetImportMerge,importVersion='sheet-import-20261110-5';
   function el(id){return document.getElementById(id);}
   function validContext(){return context&&state.activeCase?.id===context.caseId&&state.activeSimulationId===context.simulationId&&state.requestEpoch===context.epoch;}
   function clear(){preview=null;plan=null;packingDraft=null;observationDraft=null;el('sheet-import-readiness')?.setAttribute('hidden','');el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}
@@ -11,7 +11,7 @@ window.STSheetImport=function(state,actions){
   function updateRowIndicators(result,validation){
     plan.records.forEach(function(record){
       var section=el('sheet-import-preview').querySelector('[data-source-index="'+record.index+'"]');if(!section)return;
-      function rowIssues(items){return (items||[]).filter(function(issue){return merge.fieldsFor(preview).some(function(field){return merge.errorsFor({errors:[issue]},field.col,record.row).length;});});}
+      function rowIssues(items){return (items||[]).filter(function(issue){return merge.fieldsFor(preview).some(function(field){return merge.errorsFor({source:preview.source,errors:[issue]},field.col,record.row).length;});});}
       var errors=rowIssues(preview.errors),notes=rowIssues(preview.warnings),warnings=notes.filter(issue=>issue.severity!=='info'),information=notes.filter(issue=>issue.severity==='info'),applied=(result.sourceImport?.lastApplied?.equipment||[]).find(function(change){return change.row===record.row;});
       var targetId=applied?.equipmentId||record.target,modelIssues=(validation.error?.details||[]).filter(function(detail){var match=String(detail.path||'').match(/equipment\[(\d+)\]/);return match&&result.equipment[Number(match[1])]?.id===targetId;});
       var messages=errors.map(function(issue){return 'Error · '+issue.cell+': '+issue.message;}).concat(warnings.map(function(issue){return 'Warning · '+issue.cell+': '+issue.message;}),information.map(function(issue){return 'Info · '+issue.cell+': '+issue.message;}),modelIssues.map(function(issue){return 'Model review · '+merge.physicalIssue(issue,result.equipment,result.sourceImport);}));

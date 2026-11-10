@@ -7,36 +7,73 @@ var STReliabilityControls = (function(){
     [['enabled',__ST_TEXT__('reliability.enabled')],['mtbfMinutes',__ST_TEXT__('reliability.mtbf')],['mttrMinutes',__ST_TEXT__('reliability.mttr')]].forEach(function(spec){
       var label=document.createElement('label'),input=document.createElement('input');label.textContent=spec[1];label.title=spec[1]+' — positive minutes when failures are enabled; disabling failures retains these values.';input.className='reliability-'+spec[0];input.type=spec[0]==='enabled'?'checkbox':'number';if(input.type==='number'){input.min='0';input.step='any';}label.appendChild(input);group.appendChild(label);controls[spec[0]]=input;
     });
+    var modeLabel=document.createElement('label'),mode=document.createElement('select');
+    modeLabel.textContent='Stop inputs';
+    mode.setAttribute('aria-label','Stop inputs');
+    mode.add(new Option('General','general'));mode.add(new Option('Minor and major','split'));
+    modeLabel.append(mode);group.prepend(modeLabel);
+    var splitControls={};
+    ['minor','major'].forEach(function(kind){
+      splitControls[kind]={};
+      ['mtbfMinutes','mttrMinutes'].forEach(function(key){
+        var label=document.createElement('label'),input=document.createElement('input');
+        label.textContent=(kind==='minor'?'Minor':'Major')+' '+(key==='mtbfMinutes'?'MTBF':'MTTR')+' [min]';
+        input.type='number';input.min='0';input.step='any';input.placeholder='0 if no stops';
+        label.append(input);group.append(label);splitControls[kind][key]=input;
+      });
+    });
     var assumption=document.createElement('p');assumption.className='chart-note conveyor-reliability-assumption';assumption.style.gridColumn='1 / -1';group.append(assumption);
     function visibility(){
       var conveyor=fields.querySelector('.equipment-type').value==='CONVEYOR';
       controls.enabled.parentElement.firstChild.nodeValue=conveyor?'Model own conveyor failures (exception)':__ST_TEXT__('reliability.enabled');
       controls.enabled.parentElement.title=conveyor?'Default assumption: no own random conveyor failures. Enable only for a documented exception with MTBF and MTTR. Existing enabled profiles are preserved.':__ST_TEXT__('reliability.enabled');
-      ['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].parentElement.hidden=conveyor&&!controls.enabled.checked;controls[key].parentElement.style.display=controls[key].parentElement.hidden?'none':'';});
+      ['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].parentElement.hidden=mode.value==='split'||conveyor&&!controls.enabled.checked;controls[key].parentElement.style.display=controls[key].parentElement.hidden?'none':'';});
+      Object.values(splitControls).forEach(function(pair){Object.values(pair).forEach(function(input){
+        input.parentElement.hidden=mode.value!=='split';
+        input.parentElement.style.display=input.parentElement.hidden?'none':'';
+      });});
       assumption.hidden=!conveyor;assumption.textContent=controls.enabled.checked?'Exception active: this conveyor has its own failure model. Existing configured values are preserved; disable the exception to use the no-own-failures assumption.':'Model assumption: conveyors have no own random failures. MTBF and MTTR are not required. Material shortage, blocking, sensors and scheduled or manual stops still affect operation.';
     }
     fields.querySelector('.equipment-grid').after(group);
     fields.querySelector('.equipment-type').addEventListener('change',visibility);
-    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}visibility();}
+    function refresh(){try{var noise=JSON.parse(profile.value),data=JSON.parse(process.value),rel=noise.reliability||data.equipment||{};controls.enabled.checked=!!noise.reliability;
+      mode.value=data.equipment?.stopInputs?'split':'general';
+      Object.entries(splitControls).forEach(function(entry){Object.keys(entry[1]).forEach(function(key){
+        entry[1][key].value=data.equipment?.stopInputs?.[entry[0]]?.[key]??'';
+      });});['mtbfMinutes','mttrMinutes'].forEach(function(key){controls[key].value=rel[key]??'';});}catch(e){/* Keep unfinished advanced JSON intact. */}visibility();}
     function update(){
       try{
         var noise=JSON.parse(profile.value),data=JSON.parse(process.value);
         if(!noise||Array.isArray(noise)||typeof noise!=='object'||!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid JSON');
         var rel={mtbfMinutes:Number(controls.mtbfMinutes.value),mttrMinutes:Number(controls.mttrMinutes.value)};
-        if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR')controls.enabled.checked=true;
-        if(controls.enabled.checked)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
-        if(controls.enabled.checked||controls.mtbfMinutes.value!==''||controls.mttrMinutes.value!=='')data.equipment=Object.assign({},data.equipment,rel);
+        data.equipment=Object.assign({},data.equipment);
+        if(mode.value==='split'){
+          var split={};
+          Object.entries(splitControls).forEach(function(entry){
+            var pair=entry[1],bf=pair.mtbfMinutes.value,tr=pair.mttrMinutes.value;
+            if(bf===''||tr===''||!(Number(bf)>0&&Number(tr)>0)&&!(Number(bf)===0&&Number(tr)===0))throw Error('Incomplete stop pair');
+            split[entry[0]]={mtbfMinutes:Number(bf),mttrMinutes:Number(tr)};
+          });
+          var minor=split.minor,major=split.major,m=minor.mtbfMinutes>0?1/minor.mtbfMinutes:0,M=major.mtbfMinutes>0?1/major.mtbfMinutes:0;
+          rel={mtbfMinutes:m+M>0?1/(m+M):null,mttrMinutes:m+M>0?(m*minor.mttrMinutes+M*major.mttrMinutes)/(m+M):null};
+          data.equipment.stopInputs=split;
+          Object.keys(rel).forEach(function(key){controls[key].value=rel[key]??'';});
+        }else delete data.equipment.stopInputs;
+        if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR')controls.enabled.checked=mode.value==='general'||rel.mtbfMinutes>0;
+        if(mode.value==='split'&&rel.mtbfMinutes===null)controls.enabled.checked=false;
+        if(controls.enabled.checked&&rel.mtbfMinutes>0&&rel.mttrMinutes>0)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
+        if(mode.value==='split'||controls.enabled.checked||controls.mtbfMinutes.value!==''||controls.mttrMinutes.value!=='')Object.assign(data.equipment,rel);
         profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
       }catch(e){group.dataset.invalid='true';}
       visibility();
     }
-    Object.values(controls).forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
+    [mode,...Object.values(splitControls.minor),...Object.values(splitControls.major),...Object.values(controls)].forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
     profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();
     if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR'){
       controls.enabled.checked=true;update();
     }
   }
-  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
+  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(group.querySelector('select').value==='split'||!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
   return attach;
 })();
 var STConfigurationEditor=(function(){

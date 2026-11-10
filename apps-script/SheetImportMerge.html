@@ -40,6 +40,9 @@ window.STSheetImportMerge=(function(){
     if((preview.layout||preview.source?.schemaVersion)!=='plant-sheet-v2')return fields;
     var mapped=fields.map(function(f){return Object.assign({},f,{col:f.col>='G'?String.fromCharCode(f.col.charCodeAt(0)+2):f.col});}).concat([beltField,accumulationField]).sort(function(a,b){return a.col.localeCompare(b.col);});
     if(preview.stopBreakdown||preview.source?.stopBreakdown)mapped.splice(3,2,stopField);
+    if(preview.source?.inlineStops)return mapped.map(function(f){
+      return {...f,col:f.id==='stopInputs'?'D':f.col>='D'?String.fromCharCode(f.col.charCodeAt(0)+4):f.col};
+    });
     return mapped;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});
@@ -55,6 +58,7 @@ window.STSheetImportMerge=(function(){
   function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){
     var m=String(e.cell).match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d*)?)?$/);if(!m)return false;
     if(row<Number(m[2])||row>Number(m[4]||m[2]))return false;
+    if(col==='D'&&preview.source?.inlineStops)return ['D','E','F','G','H','I'].includes(m[1]);
     if(col==='AA')return ['D','E','AA','AB','AC','AD'].some(function(c){return c===m[1]||c===m[3];});
     function index(cell){return cell.split('').reduce((n,c)=>n*26+c.charCodeAt(0)-64,0);}
     return index(col)>=index(m[1])&&index(col)<=index(m[3]||m[1]);
