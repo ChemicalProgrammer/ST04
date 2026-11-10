@@ -233,7 +233,8 @@ window.STSheetRealData={
         if(target==='new')target=result.sourceImport.lastApplied.equipment.find(function(c){return c.row===e.sourceRow;})?.equipmentId;
         var unit=result.equipment.find(function(u){return u.id===target;});
         if(!unit)throw Error('Row '+e.sourceRow+': select an observation equipment target, or Skip observation.');
-        return [{equipmentId:unit.id,name:unit.name,downtimeSeconds:e.downtimeSeconds,failureSeconds:e.stopClass==='FAILURES'?e.downtimeSeconds:null,failureCount:e.failureCount,stopClass:e.stopClass,exposureSeconds:e.exposureSeconds,notes:e.notes}];
+        var {sourceRow,sourceEquipmentId,...observation}=e;
+        return [{...observation,equipmentId:unit.id,name:unit.name,failureSeconds:e.stopClass==='FAILURES'?e.downtimeSeconds:null}];
       });
       var record=window.STRealData.normalize(raw),records=(snapshot.metadata?.realData?.records||[]).slice(),index=records.findIndex(function(r){return r.id===draft.recordId;});
       if(draft.recordId&&index<0)throw Error('Observation no longer exists. Preview again.');

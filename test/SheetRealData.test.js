@@ -100,3 +100,14 @@ test('simple worksheet imports only the supplied summary and downtime; blank fie
  top[6][1]='';const cases=c.parseSimpleSheetRealData_(top,formats,[],preview).record;assert.equal(cases.production,14198);assert.equal(cases.productionUnit,'CASES');
  top[0][5]='bad';assert(c.parseSimpleSheetRealData_(top,formats,[],preview).errors.some(e=>e.cell==='J1'));
 });
+
+test('extended equipment observations retain the same breakdown fields in Real Data',()=>{
+ const c=runtime(),f=setup(c),api=c.window.STSheetRealData,merge=c.window.STSheetImportMerge;
+ f.preview.realData=c.parseSheetRealData_(f.top,f.formats,[[12,4,'FAILURES',1440,'','filler',80,0,23,4,5,6,7,8,9,10]],f.preview,true);
+ const snapshot={equipment:[f.unit],metadata:{},sourceImport:{}},plan=merge.create(f.preview,snapshot.equipment,{});
+ const draft=api.create(f.preview,plan,snapshot.equipment);draft.enabled=true;
+ const result=api.apply(merge.build(f.preview,plan,snapshot.equipment,{}),f.preview,draft,snapshot);
+ assert.equal(result.errors.length,0,JSON.stringify(result.errors));
+ const e=result.realData.records[0].equipment[0];
+ assert.equal(e.failureSeconds,720);assert.equal(e.totalDowntimeSeconds,4800);assert.equal(e.starvedSeconds,0);assert.equal(e.blockedSeconds,1380);assert.equal(e.reportedDowntimeSeconds,600);
+});

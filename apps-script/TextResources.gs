@@ -3,7 +3,7 @@ var ST_TEXT_RESOURCES = {
   "brand.motion_label":"Bottles moving along a conveyor",
   "brand.motion_keys":"Hold a bottle to accumulate; drag away to remove; click for domino; double-click for robot. − / + speed; ← / → direction. Focus here: Space hold/release, Delete remove, R robot, D domino, Esc reset.",
   "exports.sheet_title":"Equipment exported",
-  "exports.sheet_message":"A new spreadsheet was created in your workspace Exports folder, using the import layout. It includes the current Equipment inputs. Column F is installed maximum speed (configured speed when no maximum is defined); importing it initializes running speed from F. Use JSON to retain all simulator settings.",
+  "exports.sheet_message":"A new spreadsheet was created in your workspace Exports folder, using the import layout. Equipment includes the current line inputs. Enter observations and review MTBF/MTTR in Datos reales. Enable Real Data observation on import to include those entries. Column F is installed maximum speed (configured speed when no maximum is defined); importing it initializes running speed from F. Use JSON to retain all simulator settings.",
   "exports.sheet_open":"Open spreadsheet",
   "exports.sheet_invalid":"Review the Equipment inputs before exporting.",
   "assistant.general_history":"Messages are saved with this simulation. No case data is sent while Case context is unchecked.",
