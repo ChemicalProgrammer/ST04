@@ -2699,7 +2699,11 @@ test('UI: enabling events exposes the editor and its calendar dialog in Basic an
   assert.equal(h.d.querySelector('#settings-page-simulation #settings-plant-calendar'),null);
   const enable=h.d.getElementById('run-events-enabled');enable.click();await h.w.STSettings.close();
   const section=h.d.getElementById('simulation-event-section');assert(!section.classList.contains('hidden'));assert.equal(section.closest('#run-config'),null);assert.notEqual(h.w.getComputedStyle(h.d.getElementById('control-events')).display,'none');
-  await h.click('#toggle-control-events');assert(h.d.getElementById('simulation-event-content').hidden);assert.equal(h.d.getElementById('toggle-control-events').getAttribute('aria-expanded'),'false');await h.click('#toggle-control-events');assert(!h.d.getElementById('simulation-event-content').hidden);
+  for(const selector of ['#simulation-event-section','#simulation-duration-controls','#simulation-results > section','#vgraph-profile','#results-production-group','#realdata-panel .real-data-block']){
+   assert(h.d.querySelector(selector)?.classList.contains('fold-card'),selector);
+  }
+  await h.click('#toggle-control-events');assert(h.d.getElementById('simulation-event-content').hidden);
+  assert(!h.d.getElementById('open-plant-calendar').closest('[hidden]'));assert.equal(h.d.getElementById('toggle-control-events').getAttribute('aria-expanded'),'false');await h.click('#toggle-control-events');assert(!h.d.getElementById('simulation-event-content').hidden);
   await h.click('#open-plant-calendar');assert(h.d.getElementById('plant-calendar-dialog').open);assert(h.d.querySelector('#plant-calendar-dialog .plant-calendar-inputs'));await h.click('#plant-calendar-done');assert(!h.d.getElementById('plant-calendar-dialog').open);
   enable.click();assert(section.classList.contains('hidden'));assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}

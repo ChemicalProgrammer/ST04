@@ -1,6 +1,6 @@
 <section id="realdata-panel" class="card hidden" aria-labelledby="real-data-title">
   <h2 id="real-data-title" class="sr-only">Real Data</h2>
-  <section class="real-data-block" aria-labelledby="real-data-register-title">
+  <section class="real-data-block fold-card" aria-labelledby="real-data-register-title">
     <!-- Encabezado de Registro, selector de observación y acciones de intercambio. -->
     <div class="real-data-block-heading fold-heading">
       <h3 class="real-data-section-title" id="real-data-register-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="real-data-register-content">Registro</button></h3>
@@ -30,7 +30,7 @@
     </div>
   </section>
   <!-- Comparación de la observación seleccionada con los resultados de la ronda o del lote. -->
-  <section class="real-data-block" aria-labelledby="real-data-compare-title">
+  <section class="real-data-block fold-card" aria-labelledby="real-data-compare-title">
     <div class="real-data-block-heading fold-heading">
       <h3 class="real-data-section-title" id="real-data-compare-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="real-data-comparison">Comparación de parámetros</button></h3>
       <select id="real-data-view" aria-label="Resultados guardados"><option value="average">Promedio de rondas</option></select>
@@ -38,7 +38,7 @@
     <div id="real-data-comparison" class="fold-content"></div>
   </section>
   <!-- Ajuste de Rate Loss calculado a partir de los datos disponibles. -->
-  <section class="real-data-block" aria-labelledby="real-data-calibration-title">
+  <section class="real-data-block fold-card" aria-labelledby="real-data-calibration-title">
     <div class="real-data-block-heading fold-heading"><h3 class="real-data-section-title" id="real-data-calibration-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="real-data-calibration">Ajuste calibrado de rate loss</button></h3></div>
     <div id="real-data-calibration" class="fold-content"></div>
   </section>

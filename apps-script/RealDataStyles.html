@@ -2,9 +2,7 @@
 #realdata-panel .real-data-toolbar { display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-width:0;margin-inline-start:auto; }
 #realdata-panel .real-data-toolbar > select { width:auto;min-width:min(100%,180px);max-width:100%; }
 #realdata-panel .real-data-block { margin-block:var(--space-4);min-width:0; }
-#realdata-panel .real-data-block h3 { margin:0 0 var(--space-3); }
-#realdata-panel .real-data-block-heading { display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;padding-bottom:var(--space-3);margin-bottom:var(--space-3);border-bottom:1px solid var(--elegant-border,var(--secondary,var(--line))); }
-#realdata-panel .real-data-block-heading > .real-data-section-title { color:var(--secondary-text,var(--secondary));margin:0;border-bottom:0;background-image:none; }
+#realdata-panel .real-data-block h3:not(:has(> .fold-toggle)) { margin:0 0 var(--space-3); }
 #realdata-panel .real-data-section-title::before,
 #realdata-panel .real-data-section-title::after { content:none; }
 #realdata-panel > .real-data-block[aria-labelledby="real-data-register-title"] { margin-block-start:0; }
@@ -39,8 +37,6 @@
 #realdata-panel .real-data-calibration-table thead { background:#24599a;color:#fff; }
 #realdata-panel .real-data-calibration-table th { text-align:center;min-width:90px;font-weight:500; }
 #realdata-panel .real-data-calibration-table th small { display:block; }
-#realdata-panel .real-data-comparison-group { border-bottom:var(--border-width) solid var(--line);padding-block:var(--space-2); }
-#realdata-panel .real-data-comparison-group > summary { padding:var(--space-2); }
 #realdata-panel .real-data-comparison-scroll { max-width:100%;overflow-x:auto; }
 #realdata-panel details.real-data-input-group { border:var(--border-width) solid var(--line);border-radius:var(--radius-md);margin-block:var(--space-2);padding:var(--space-3); }
 #realdata-panel .real-data-time-switch { display:inline-flex;align-items:center;gap:var(--space-2);float:right;margin-left:var(--space-2); }

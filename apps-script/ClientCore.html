@@ -151,7 +151,6 @@
       document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
-      document.getElementById('toggle-control-events').addEventListener('click',function(){setControlEventsExpanded(this.getAttribute('aria-expanded')!=='true');});
       document.getElementById('add-control-event').addEventListener('click', addControlEvent);
       document.getElementById('open-event-generator').onclick=openEventGenerator;
       document.getElementById('delete-selected-control-events').onclick=function(){deleteControlEventSelection(false);};

@@ -271,12 +271,12 @@ window.STRealData=(function(){
       buckets[groups.findIndex(([, ,matches])=>matches(r))].rows.push(r);
     }
     return buckets.filter(g=>g.rows.length).map(g=>{
-      return '<details class="real-data-comparison-group fold-native" data-comparison-group="'+g.id+'" open><summary>'+esc(g.label)+'</summary><div class="real-data-comparison-scroll"><table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+g.rows.map(r=>{
+      return '<details class="real-data-comparison-group fold-card fold-native" data-comparison-group="'+g.id+'" open><summary>'+esc(g.label)+'</summary><div class="real-data-comparison-scroll"><table class="real-data-main-table"><thead><tr><th>Parámetro</th><th>Unidad</th><th class="numeric">Real</th><th class="numeric">Simulado</th><th class="numeric">Diferencia</th></tr></thead><tbody>'+g.rows.map(r=>{
         const text=displayText(r.formula)+' Real mostrado: '+r.realSource+'. '+(r.reported!=null?' Reportado en planta: '+fmt(r.reported)+' '+r.unit+'.':'')+' Diferencia = simulado − real.'+(r.unit==='%'?' La diferencia se expresa en pp.':'');
         const attrs=' title="'+esc(text)+'" aria-description="'+esc(text)+'" tabindex="0"';
         return '<tr data-metric="'+esc(r.id)+'"><th scope="row"'+attrs+'>'+esc(displayText(r.metric))+(r.reported!=null&&r.realSource!=='reportado'?'<small class="real-data-reported">Reportado: '+fmt(r.reported)+' '+esc(r.unit)+'</small>':'')+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'</tr>';
       }).join('')+'</tbody></table></div></details>';
-    }).join('')+'<details class="real-data-comparison-group fold-native" data-comparison-group="equipment-downtime" open><summary>Downtime por equipo</summary><div class="real-data-comparison-scroll">'+downtimeHtml(result.downtime)+'</div></details>';
+    }).join('')+'<details class="real-data-comparison-group fold-card fold-native" data-comparison-group="equipment-downtime" open><summary>Downtime por equipo</summary><div class="real-data-comparison-scroll">'+downtimeHtml(result.downtime)+'</div></details>';
   }
   function calibrationHtml(result){
     const columns=result.calibration.columns;

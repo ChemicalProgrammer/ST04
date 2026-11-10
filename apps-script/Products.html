@@ -67,7 +67,7 @@ window.STProducts=(function(){
     // Crea un bloque plegable y devuelve su cuerpo y su barra de herramientas.
     function section(text){
       var group=document.createElement('section'),heading=document.createElement('div'),title=document.createElement('h3'),toggle=document.createElement('button'),content=document.createElement('div'),tools=document.createElement('div');
-      group.className='settings-section product-subsection';heading.className='fold-heading';tools.className='fold-tools product-selector-row';
+      group.className='settings-section product-subsection fold-card';heading.className='fold-heading';tools.className='fold-tools product-selector-row';
       content.className='fold-content';content.id=id('formats-subsection');content.hidden=collapsedSections.has(text);
       toggle.type='button';toggle.className='fold-toggle';toggle.textContent=text;toggle.dataset.subsectionToggle='';toggle.setAttribute('aria-expanded',String(!content.hidden));toggle.setAttribute('aria-controls',content.id);
       toggle.addEventListener('click',function(){if(content.hidden)collapsedSections.delete(text);else collapsedSections.add(text);});
