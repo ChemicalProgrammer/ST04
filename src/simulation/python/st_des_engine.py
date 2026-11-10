@@ -30,6 +30,22 @@ STATES = ("RUNNING", "STARVED", "BLOCKED", "FAILED", "PAUSED", "STOPPED", "START
 ACTIONS = ("RUN", "AUTO", "MANUAL", "PAUSE", "STOP", "EMERGENCY_STOP", "RESET")
 
 
+def select_failure_category(profile, rng):
+    categories = (profile or {}).get("stopClasses")
+    if not categories:
+        return None
+    if len(categories) == 1:
+        return categories[0]
+    total = sum(1 / category["mtbfMinutes"] for category in categories)
+    threshold = rng.uniform() * total
+    cumulative = 0.0
+    for category in categories:
+        cumulative += 1 / category["mtbfMinutes"]
+        if threshold < cumulative:
+            return category
+    return categories[-1]
+
+
 class InputError(ValueError):
     pass
 
@@ -101,9 +117,28 @@ def validate(payload):
                 raise InputError(p + ".microStop: maximum duration must be at least minimum")
         rel = model.get("reliability")
         if rel is not None:
-            keys(rel, ("mtbfMinutes", "mttrMinutes"), p + ".reliability")
+            keys(rel, ("mtbfMinutes", "mttrMinutes", "stopClasses", "repairRampEnabled"), p + ".reliability")
             number(rel.get("mtbfMinutes"), p + ".mtbfMinutes", positive=True)
             number(rel.get("mttrMinutes"), p + ".mttrMinutes", positive=True)
+            classes = rel.get("stopClasses")
+            if classes is not None:
+                if not isinstance(classes, list) or not 1 <= len(classes) <= 2:
+                    raise InputError(p + ".reliability.stopClasses: one or two categories required")
+                used = set()
+                for category in classes:
+                    keys(category, ("stopClass", "mtbfMinutes", "mttrMinutes", "rate"), p + ".stopClass")
+                    kind = category.get("stopClass")
+                    if kind not in ("MINOR", "MAJOR") or kind in used:
+                        raise InputError(p + ".stopClass: unique MINOR or MAJOR required")
+                    used.add(kind)
+                    number(category.get("mtbfMinutes"), p + ".category.mtbfMinutes", positive=True)
+                    number(category.get("mttrMinutes"), p + ".category.mttrMinutes", positive=True)
+                total = sum(1 / category["mtbfMinutes"] for category in classes)
+                mean_repair = sum(category["mttrMinutes"] / category["mtbfMinutes"] for category in classes) / total
+                if not math.isclose(rel["mtbfMinutes"], 1 / total, rel_tol=1e-9) or not math.isclose(rel["mttrMinutes"], mean_repair, rel_tol=1e-9):
+                    raise InputError(p + ".reliability: aggregate must match stop categories")
+                if not isinstance(rel.get("repairRampEnabled", False), bool):
+                    raise InputError(p + ".repairRampEnabled: boolean required")
         windows = model.get("failures", [])
         if not isinstance(windows, list):
             raise InputError(p + ".failures: array required")
@@ -189,6 +224,10 @@ class Machine:
     output: int = 0
     processed: int = 0
     failure_count: int = 0
+    failure_category: str = "GENERAL"
+    failure_counts: dict = field(default_factory=lambda: {kind: 0 for kind in ("MINOR", "MAJOR", "GENERAL")})
+    failure_seconds: dict = field(default_factory=lambda: {kind: 0.0 for kind in ("MINOR", "MAJOR", "GENERAL")})
+    recovery_ramp: float | None = None
     micro_stopped: bool = False
     micro_started_at: float = 0
     micro_profile_origin: float = 0
@@ -259,6 +298,7 @@ class Simulation:
         self.item_sequence = 0
         self.wakes = set()
         self.machines = [Machine(m, i, RandomStream(self.run.get("seed", 1), m["id"]), mode=m.get("initialMode", "AUTO")) for i, m in enumerate(payload["machines"])]
+        self.class_rng = {m.index: RandomStream(self.run.get("seed", 1), m.model["id"] + ":failure-class") for m in self.machines}
         self.micro_rng = {m.index: RandomStream(self.run.get("seed", 1), m.model["id"] + ":microstop") for m in self.machines}
         self.conveyors = [Conveyor(c, i) for i, c in enumerate(payload["conveyors"])]
         for belt in self.conveyors:
@@ -331,7 +371,7 @@ class Simulation:
             machine.process_token += 1
 
     def service_work(self, machine, start, end):
-        ramp = machine.model.get("rampUpSeconds", 0)
+        ramp = machine.model.get("rampUpSeconds", 0) if machine.recovery_ramp is None else machine.recovery_ramp
         origin = machine.startup_until
         def integral(at):
             elapsed = max(0.0, at - origin)
@@ -342,7 +382,7 @@ class Simulation:
 
     def resume_service(self, machine):
         machine.process_token += 1
-        ramp = machine.model.get("rampUpSeconds", 0)
+        ramp = machine.model.get("rampUpSeconds", 0) if machine.recovery_ramp is None else machine.recovery_ramp
         elapsed = max(0.0, self.now - machine.startup_until)
         work_seconds = machine.remaining / machine.rate
         if ramp > EPS and elapsed < ramp:
@@ -394,6 +434,7 @@ class Simulation:
                 self.suspend_failure(machine)
                 self.suspend_service(machine)
             elif not was_enabled and machine.enabled:
+                machine.recovery_ramp = None
                 machine.startup_until = self.now + machine.model.get("startupSeconds", 0)
                 self.wake(machine.startup_until)
                 self.arm_failure(machine)
@@ -407,21 +448,31 @@ class Simulation:
                 return
             machine.failure_due = None
             machine.failure_remaining = None
+            category = select_failure_category(machine.model.get("reliability"), self.class_rng[index]) if token is not None else None
+            machine.failure_category = category["stopClass"] if category else "GENERAL"
+            if category:
+                repair_seconds = category["mttrMinutes"] * 60
             machine.failed = True
             self.suspend_microstop_clock(machine)
             machine.failure_count += 1
+            machine.failure_counts[machine.failure_category] += 1
             self.suspend_service(machine)
             self.schedule(self.now + repair_seconds, 1, "REPAIR", index)
-            self.log("FAILURE_STARTED", machine.model["id"], durationSeconds=repair_seconds)
+            self.log("FAILURE_STARTED", machine.model["id"], durationSeconds=repair_seconds, stopClass=machine.failure_category)
         elif kind == "REPAIR":
             machine = self.machines[data]
             machine.failed = False
-            machine.startup_until = self.now + machine.model.get("startupSeconds", 0)
+            profile = machine.model.get("reliability") or {}
+            if profile.get("stopClasses"):
+                machine.startup_until = self.now
+                machine.recovery_ramp = machine.model.get("rampUpSeconds", 0) if profile.get("repairRampEnabled") else 0
+            else:
+                machine.startup_until = self.now + machine.model.get("startupSeconds", 0)
             self.wake(machine.startup_until)
             if machine.model.get("reliability"):
                 machine.failure_remaining = machine.rng.exponential(machine.model["reliability"]["mtbfMinutes"] * 60)
                 self.arm_failure(machine)
-            self.log("REPAIR_COMPLETED", machine.model["id"])
+            self.log("REPAIR_COMPLETED", machine.model["id"], stopClass=machine.failure_category, repairRampSeconds=machine.recovery_ramp)
             self.arm_microstop(machine)
         elif kind == "MICRO_STOP":
             index, token = data
@@ -559,6 +610,8 @@ class Simulation:
         elapsed = max(0.0, at - self.now)
         for machine in self.machines:
             machine.state_seconds[machine.state] += elapsed
+            if machine.state == "FAILED":
+                machine.failure_seconds[machine.failure_category] += elapsed
         for belt in self.conveyors:
             belt.integral += belt.inventory * elapsed
         self.now = at
@@ -566,7 +619,8 @@ class Simulation:
     def sample(self):
         self.samples.append({"virtualSecond": self.now, "outputCount": self.output,
                              "equipment": [{"id": m.model["id"], "mode": m.mode, "state": m.state, "outputCount": m.output,
-                                            "stateSeconds": dict(m.state_seconds)} for m in self.machines],
+                                            "stateSeconds": dict(m.state_seconds),
+                                            **{kind.lower()+"FailureSeconds": value for kind, value in m.failure_seconds.items()}} for m in self.machines],
                              "zones": [{"id": b.model["id"], "inventoryUnits": b.inventory, "readyUnits": len(b.ready),
                                         "movingUnits": len(b.moving), "releasedUnits": b.released} for b in self.conveyors]})
 
@@ -607,6 +661,8 @@ class Simulation:
                 "runningSeconds": machine.state_seconds["RUNNING"], "starvedSeconds": machine.state_seconds["STARVED"],
                 "blockedSeconds": machine.state_seconds["BLOCKED"], "failureSeconds": machine.state_seconds["FAILED"],
                 "failureCount": machine.failure_count,
+                **{kind.lower()+"FailureCount": value for kind, value in machine.failure_counts.items()},
+                **{kind.lower()+"FailureSeconds": value for kind, value in machine.failure_seconds.items()},
                 "microStopCount": machine.micro_count, "microStopSeconds": machine.state_seconds["MICRO_STOP"],
                 "startupSeconds": machine.state_seconds["STARTING"],
                 "processingUtilizationPercent": 100 * machine.state_seconds["RUNNING"] / self.duration,

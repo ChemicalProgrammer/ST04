@@ -244,6 +244,27 @@ window.STResults=(function(){
       values.forEach((value,index)=>{const cell=document.createElement(index?'td':'th');cell.textContent=value;if(index)cell.className='numeric';else cell.scope='row';row.append(cell);});
     }
     scroll.append(table);target.append(heading,note,scroll);
+    const breakdown=document.createElement('table'),breakdownHead=breakdown.createTHead(),groups=breakdownHead.insertRow(),columns=breakdownHead.insertRow();
+    const equipmentHeader=document.createElement('th');equipmentHeader.rowSpan=2;equipmentHeader.scope='col';equipmentHeader.textContent='Equipment';groups.append(equipmentHeader);
+    ['Minor stops','Major stops','General / unclassified'].forEach(function(label){
+      const group=document.createElement('th');group.colSpan=4;group.scope='colgroup';group.textContent=label;groups.append(group);
+      ['Count','Downtime [min]','Observed MTBF [min]','Observed MTTR [min]'].forEach(function(text){const header=document.createElement('th');header.scope='col';header.textContent=text;columns.append(header);});
+    });
+    const breakdownBody=breakdown.createTBody();
+    equipment.filter(model=>model.type!=='CONVEYOR').forEach(function(model){
+      const metric=result.equipmentMetrics?.[model.id]||{},row=breakdownBody.insertRow(),label=document.createElement('th');
+      label.scope='row';label.textContent=model.name||model.id;row.append(label);
+      ['minor','major','general'].forEach(function(kind){
+        const count=metric[kind+'FailureCount'],seconds=metric[kind+'FailureSeconds'];
+        [number(count,2),number(Number.isFinite(seconds)?seconds/60:null,2),
+          number(ratio(metric.reliabilityExposureSeconds,count,1/60),2),number(ratio(seconds,count,1/60),2)].forEach(function(value){const cell=row.insertCell();cell.className='numeric';cell.textContent=value;});
+      });
+    });
+    const stopHeading=document.createElement('h3'),stopNote=document.createElement('p'),stopScroll=document.createElement('div');
+    stopHeading.textContent='Own stop breakdown';stopNote.className='chart-note';
+    stopNote.textContent='Minor and Major identify the supplied own-stop profiles. General is used when only a combined profile is available. Durations include the portion of each stop observed in the run. The repair-ramp option applies to both categories. Starvation, blocking and sensor stops retain their own counters.';
+    stopScroll.className='table-scroll';stopScroll.append(breakdown);target.append(stopHeading,stopNote,stopScroll);
+
   }
   function render(result,activeCase,simulation){
     var source=result,toolbar=document.getElementById('results-round-view');

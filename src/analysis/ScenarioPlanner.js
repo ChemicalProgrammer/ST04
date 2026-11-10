@@ -126,6 +126,11 @@ export function applyScenarioChanges(simulation,changes){
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
     if(change.replacementMaximumBpm!==undefined){if(change.path!=='nominalRatePerSecond')throw Error('SCENARIO_INVALID_FIELD');scenarioSet(unit,'processData.equipment.maximumSpeedBpm',change.replacementMaximumBpm);}
+    if(change.path.startsWith('noiseProfile.reliability.')&&unit.processData?.equipment?.stopInputs){
+      const field=change.path.split('.').at(-1),factor=change.after/change.before;
+      for(const category of Object.values(unit.processData.equipment.stopInputs))category[field]*=factor;
+      unit.processData.equipment[field]=change.after;
+    }
     seen.add(key);scenarioSet(unit,change.path,change.after);
   });
   if(changes.every(c=>c.before===c.after))throw new Error('SCENARIO_NO_CHANGE');

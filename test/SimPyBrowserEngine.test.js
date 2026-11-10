@@ -25,7 +25,7 @@ test('SimPy bounds replay frames and shift count',()=>{
 test('Generated dispatch defaults to the current engine and refuses unknown engines or synchronous DES',()=>{
  const code=fs.readFileSync(new URL('../apps-script/SimulationEngine.html',import.meta.url),'utf8').replace(/^<script>/,'').replace(/<\/script>\s*$/,'');
  const host={addEventListener(){}};vm.runInNewContext(code,{window:host,setTimeout,clearTimeout});
- const input=fixture(),response=host.SimulatorEngine.simulateLine(input);assert.equal(response.ok,true);assert.equal(response.result.engineVersion,'0.15.0');
+ const input=fixture(),response=host.SimulatorEngine.simulateLine(input);assert.equal(response.ok,true);assert.equal(response.result.engineVersion,'0.18.0');
  input.run.engineId=SIMPY_ENGINE_ID;assert.equal(host.SimulatorEngine.simulateLine(input).error.code,'ASYNC_ENGINE_REQUIRED');
  input.run.engineId='TYPO';assert.throws(()=>host.SimulatorEngine.simulateLine(input),/Unknown simulation engine/);
 });
@@ -61,7 +61,7 @@ test('Spatial adapter and actual SimPy result preserve physical metrics and fini
  const reduced=normalizeSimPyResult(compact.result,input,payload);
  const result=normalizeSimPyResult(response.result,input,payload);
  for(const key of ['summary','equipmentMetrics','accumulationZoneMetrics','shifts','diagnostics'])assert.deepEqual(reduced[key],result[key],key);
- assert.equal(result.engineVersion,'0.4.0-experimental');
+ assert.equal(result.engineVersion,'0.5.0-experimental');
  assert.equal(result.summary.materialBalance.residualUnits,0);assert.equal(result.summary.totalOverflowUnits,0);assert.equal(result.summary.lineOeePercent,null);assert.equal(result.shifts.length,3);
  assert(result.summary.totalMicroStopSeconds>0);const zone=result.samples.at(-1).accumulationZones[0];assert.equal(zone.physicalModelEnabled,true);assert.equal(zone.prime.configured,true);assert(Array.isArray(zone.positionsMm));assert.equal(zone.overflowUnits,0);
  function finite(value){if(typeof value==='number')assert(Number.isFinite(value));if(value&&typeof value==='object')Object.values(value).forEach(finite);}finite(result);assert.doesNotThrow(()=>JSON.parse(JSON.stringify(result)));

@@ -190,6 +190,15 @@ function validateStartProfile(equipment, path, details) {
   ['actualDischargeMm','actualCodingMm'].forEach(key=>validateOptionalNonNegative(equipment.processData?.geometry?.[key],path+'.processData.geometry.'+key,details));
   validateOptionalNonNegative(equipment.processData?.upstream?.startupTimeSeconds, path + '.processData.upstream.startupTimeSeconds', details);
   validateOptionalNonNegative(equipment.processData?.downstream?.rampUpTimeSeconds, path + '.processData.downstream.rampUpTimeSeconds', details);
+  const split=equipment.processData?.equipment?.stopInputs;
+  if(split!==undefined){
+    const splitPath=path+'.processData.equipment.stopInputs';
+    if(!split||typeof split!=='object'||Array.isArray(split))details.push(invalid(splitPath,'must be an object'));
+    else for(const kind of ['minor','major']){
+      const pair=split[kind],valid=pair&&((positiveNumber(pair.mtbfMinutes)&&positiveNumber(pair.mttrMinutes))||(pair.mtbfMinutes===0&&pair.mttrMinutes===0));
+      if(!valid)details.push(invalid(splitPath+'.'+kind,'supply positive MTBF/MTTR minutes or 0 and 0 for an absent category'));
+    }
+  }
   const repairRamp=equipment.processData?.downstream?.rampAfterRepair;
   if(repairRamp!==undefined&&typeof repairRamp!=='boolean')details.push(invalid(path+'.processData.downstream.rampAfterRepair','must be a boolean'));
 }

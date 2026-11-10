@@ -1168,6 +1168,15 @@ function validateStartProfile(equipment, path, details) {
   ['actualDischargeMm','actualCodingMm'].forEach(key=>validateOptionalNonNegative(equipment.processData?.geometry?.[key],path+'.processData.geometry.'+key,details));
   validateOptionalNonNegative(equipment.processData?.upstream?.startupTimeSeconds, path + '.processData.upstream.startupTimeSeconds', details);
   validateOptionalNonNegative(equipment.processData?.downstream?.rampUpTimeSeconds, path + '.processData.downstream.rampUpTimeSeconds', details);
+  const split=equipment.processData?.equipment?.stopInputs;
+  if(split!==undefined){
+    const splitPath=path+'.processData.equipment.stopInputs';
+    if(!split||typeof split!=='object'||Array.isArray(split))details.push(invalid(splitPath,'must be an object'));
+    else for(const kind of ['minor','major']){
+      const pair=split[kind],valid=pair&&((positiveNumber(pair.mtbfMinutes)&&positiveNumber(pair.mttrMinutes))||(pair.mtbfMinutes===0&&pair.mttrMinutes===0));
+      if(!valid)details.push(invalid(splitPath+'.'+kind,'supply positive MTBF/MTTR minutes or 0 and 0 for an absent category'));
+    }
+  }
   const repairRamp=equipment.processData?.downstream?.rampAfterRepair;
   if(repairRamp!==undefined&&typeof repairRamp!=='boolean')details.push(invalid(path+'.processData.downstream.rampAfterRepair','must be a boolean'));
 }
@@ -1532,6 +1541,11 @@ function applyScenarioChanges(simulation,changes){
       if(change.path.endsWith('mtbfMinutes')?change.after<change.before:change.after>change.before)throw new Error('SCENARIO_RELIABILITY_DIRECTION');
     }
     if(change.replacementMaximumBpm!==undefined){if(change.path!=='nominalRatePerSecond')throw Error('SCENARIO_INVALID_FIELD');scenarioSet(unit,'processData.equipment.maximumSpeedBpm',change.replacementMaximumBpm);}
+    if(change.path.startsWith('noiseProfile.reliability.')&&unit.processData?.equipment?.stopInputs){
+      const field=change.path.split('.').at(-1),factor=change.after/change.before;
+      for(const category of Object.values(unit.processData.equipment.stopInputs))category[field]*=factor;
+      unit.processData.equipment[field]=change.after;
+    }
     seen.add(key);scenarioSet(unit,change.path,change.after);
   });
   if(changes.every(c=>c.before===c.after))throw new Error('SCENARIO_NO_CHANGE');

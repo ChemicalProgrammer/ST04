@@ -4,10 +4,10 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import math
 
-from st_des_engine import EPS, Conveyor, InputError, RandomStream, STATES, number, integer, keys, validate as validate_fifo
+from st_des_engine import EPS, Conveyor, InputError, RandomStream, STATES, number, integer, keys, select_failure_category, validate as validate_fifo
 from st_simpy_engine import SimPySimulation
 
-SPATIAL_VERSION = '0.4.0-experimental'
+SPATIAL_VERSION = '0.5.0-experimental'
 
 
 def validate(payload):
@@ -82,6 +82,9 @@ class SpatialConveyor(Conveyor):
     remaining_noise: dict = field(default_factory=dict)
     noise_tokens: dict = field(default_factory=lambda: {'failure': 0, 'micro': 0})
     failure_count: int = 0
+    failure_category: str = "GENERAL"
+    failure_counts: dict = field(default_factory=lambda: {kind: 0 for kind in ("MINOR", "MAJOR", "GENERAL")})
+    failure_seconds: dict = field(default_factory=lambda: {kind: 0.0 for kind in ("MINOR", "MAJOR", "GENERAL")})
     micro_count: int = 0
     overflow: int = 0
     queued_cache: list | None = field(default=None, init=False, repr=False)
@@ -156,7 +159,7 @@ class SpatialSimulation(SimPySimulation):
                     machine.startup_until = machine.model['startupSeconds']; self.wake(machine.startup_until)
             if 'downstreamRampUpSeconds' in belt.model:
                 self.machines[belt.index+1].model['rampUpSeconds'] = belt.model['downstreamRampUpSeconds']
-            self.belt_rng[belt.index] = {kind: RandomStream(self.run.get('seed', 1), belt.model['id'] + ':' + kind) for kind in ('failure', 'micro')}
+            self.belt_rng[belt.index] = {kind: RandomStream(self.run.get('seed', 1), belt.model['id'] + ':' + kind) for kind in ('failure', 'micro', 'failure-class')}
             for i in range(belt.model.get('initialReadyUnits', 0)):
                 item = self.new_item(); belt.items.append(item); belt.positions[item] = belt.model['lengthMm'] - i * belt.pitch; self.initial_inventory += 1
             belt.refresh(); belt.maximum = belt.inventory
@@ -204,14 +207,18 @@ class SpatialSimulation(SimPySimulation):
             if token != belt.noise_tokens[noise]: return
             belt.timers.pop(noise, None); profile = belt.model['reliability' if noise == 'failure' else 'microStop']
             length = profile['mttrMinutes']*60 if noise == 'failure' else profile.get('minDurationSeconds', 0) + (profile.get('maxDurationSeconds', profile.get('minDurationSeconds', 0))-profile.get('minDurationSeconds', 0))*self.belt_rng[index]['micro'].uniform()
-            if noise == 'failure': self.dispatch('BELT_FAIL', (index, None, length))
+            if noise == 'failure':
+                category = select_failure_category(profile, self.belt_rng[index]['failure-class'])
+                belt.failure_category = category["stopClass"] if category else "GENERAL"
+                if category: length = category["mttrMinutes"] * 60
+                self.dispatch('BELT_FAIL', (index, None, length))
             else:
                 belt.micro_stopped = True; belt.micro_count += 1; self.suspend_belt_noise(belt)
                 self.schedule(self.now+length, 1, 'BELT_MICRO_END', index); self.log('MICRO_STOP_STARTED', belt.model['id'], durationSeconds=length)
         elif kind == 'BELT_FAIL':
             index, _, length = data; belt = self.conveyors[index]
-            belt.failed = True; belt.failure_count += 1; self.suspend_belt_noise(belt)
-            self.schedule(self.now+length, 1, 'BELT_REPAIR', index); self.log('FAILURE_STARTED', belt.model['id'], durationSeconds=length)
+            belt.failed = True; belt.failure_count += 1; belt.failure_counts[belt.failure_category] += 1; self.suspend_belt_noise(belt)
+            self.schedule(self.now+length, 1, 'BELT_REPAIR', index); self.log('FAILURE_STARTED', belt.model['id'], durationSeconds=length, stopClass=belt.failure_category)
         elif kind in ('BELT_REPAIR', 'BELT_MICRO_END'):
             belt = self.conveyors[data]
             if kind == 'BELT_REPAIR': belt.failed = False
@@ -238,7 +245,7 @@ class SpatialSimulation(SimPySimulation):
             belt.backup_latched = False; belt.stop_token += 1
             machine = self.machines[belt.index]
             if machine.backup_stopped:
-                machine.backup_stopped = False; machine.runout_remaining = 0; machine.startup_until = self.now + machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
+                machine.backup_stopped = False; machine.runout_remaining = 0; machine.recovery_ramp = None; machine.startup_until = self.now + machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
             self.log('BACKUP_SENSOR_CLEARED', belt.model['id'])
         else:
             super().dispatch(kind, data)
@@ -246,9 +253,12 @@ class SpatialSimulation(SimPySimulation):
     def advance(self, at):
         dt = max(0., at-self.now)
         if dt == 0: self.now=at;return
-        for machine in self.machines: machine.state_seconds[machine.state] += dt
+        for machine in self.machines:
+            machine.state_seconds[machine.state] += dt
+            if machine.state == 'FAILED': machine.failure_seconds[machine.failure_category] += dt
         for belt in self.conveyors:
             belt.integral += belt.inventory*dt; belt.state_seconds[belt.state] += dt
+            if belt.state == 'FAILED': belt.failure_seconds[belt.failure_category] += dt
             limit = belt.model['lengthMm']
             travel=belt.velocity*dt;pitch=belt.pitch
             for item in belt.items:
@@ -306,7 +316,7 @@ class SpatialSimulation(SimPySimulation):
             changed = False
             for machine in reversed(self.machines):
                 if machine.index > 0 and machine.await_prime and self.conveyors[machine.index-1].prime_latched:
-                    machine.await_prime = False; machine.startup_until = self.now+machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
+                    machine.await_prime = False; machine.recovery_ramp = None; machine.startup_until = self.now+machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
                 operating = machine.enabled and not machine.failed and not machine.micro_stopped and self.now >= machine.startup_until-EPS
                 if not operating or machine.backup_stopped and machine.runout_remaining <= 0: continue
                 if machine.completed:
@@ -362,6 +372,7 @@ class SpatialSimulation(SimPySimulation):
         if not self.should_sample(): return
         super().sample()
         for frame, belt in zip(self.samples[-1]['zones'], self.conveyors):
+            frame.update(**{kind.lower()+'FailureSeconds': value for kind,value in belt.failure_seconds.items()})
             frame.update(readyUnits=len(belt.queued),movingUnits=belt.inventory-len(belt.queued),positionsMm=list(belt.positions.values()),overflowUnits=belt.overflow, queueTailPositionMm=belt.positions[belt.queued[-1]]-belt.product_length if belt.queued else belt.model['lengthMm'], prime={'configured':belt.model.get('primeSensorPositionMm') is not None,'detected':belt.prime_latched,'occupied':belt.prime_occupied},backup={'configured':belt.model.get('backupSensorPositionMm') is not None,'occupied':belt.backup_occupied,'blocked':belt.backup_latched},state=belt.state,stateSeconds=dict(belt.state_seconds))
 
     def result(self):
@@ -372,6 +383,7 @@ class SpatialSimulation(SimPySimulation):
         for value,m in zip(result['equipment'],self.machines):
             value.update(waitingForPrimeSeconds=m.state_seconds['WAITING_PRIME'],backupStopSeconds=m.state_seconds['BACKUP_STOP'])
         for value,b in zip(result['zones'],self.conveyors):
+            value.update(**{kind.lower()+'FailureCount': value for kind,value in b.failure_counts.items()}, **{kind.lower()+'FailureSeconds': value for kind,value in b.failure_seconds.items()})
             value.update(readyUnits=len(b.queued),movingUnits=b.inventory-len(b.queued),stateSeconds=b.state_seconds,failureCount=b.failure_count,microStopCount=b.micro_count,physicalModelEnabled=True,overflowUnits=b.overflow)
         result['limitations'] = ['Serial single-item machines; no batches, merges, splits, conversion ratios or rejects.', 'Spatial discrete products differ from the current fluid packet model; stochastic schedules are not paired.', 'Conveyor speed is constant while enabled; no conveyor acceleration ramp.', 'Residual discharge after Back-up stop spills at a full inlet, recorded as material loss; this requires plant calibration.', 'OEE remains unavailable pending a validated plant reference and reject/quality model.']
         result['diagnostics'].update(spatialCoordinates='product leading edges in mm; head stops at length, followers at packed pitch',photoeyes='per-product leading/trailing edge crossings, sustained occupancy debounce',overflowModel='counted residual discharge after response delay; full inlet spills')

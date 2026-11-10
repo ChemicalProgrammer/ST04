@@ -1,3 +1,4 @@
+import { stopReliabilityProfile } from './StopReliability.js';
 import { resolveAccumulationZoneDefinition, isConveyorEquipment } from './FormatGeometryAdapter.js';
 import { validateSimulationInput } from './SimulationValidation.js';
 
@@ -17,7 +18,8 @@ export function adaptSimPyInput(input) {
   if(equipment.length<3 || equipment.length%2!==1 || equipment.some((e,i)=>isConveyorEquipment(e)!==(i%2===1)))
     throw new Error('SimPy supports alternating machine–conveyor serial lines with at least two machines.');
   for(let i=0;i<equipment.length;i++) {
-    const model=equipment[i];
+    const model=equipment[i],reliability=stopReliabilityProfile(model);
+    if(reliability?.stopClasses)reliability.repairRampEnabled=model.processData?.downstream?.rampAfterRepair===true;
     if(isConveyorEquipment(model)) {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('Unsupported conveyor noise profile: '+model.name);
       const {definition:d}=resolveAccumulationZoneDefinition(equipment,i);
@@ -27,7 +29,7 @@ export function adaptSimPyInput(input) {
         ...(d.primeSensorPositionMm!=null?{primeSensorPositionMm:d.primeSensorPositionMm}:{}),...(d.backupSensorPositionMm!=null?{backupSensorPositionMm:d.backupSensorPositionMm}:{}),
         ...(d.backupRestartPositionMm!=null?{backupRestartPositionMm:d.backupRestartPositionMm}:{}),...(d.upstreamRestartDelaySeconds!=null?{upstreamRestartDelaySeconds:d.upstreamRestartDelaySeconds}:{}),...(d.downstreamRampUpSeconds!=null?{downstreamRampUpSeconds:d.downstreamRampUpSeconds}:{}),
         blockedTimeDelaySeconds:d.blockedTimeDelaySeconds??0,clearTimeDelaySeconds:d.clearTimeDelaySeconds??0,upstreamStopResponseSeconds:d.upstreamStopResponseSeconds??0,
-        bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(input.run.reliabilityEnabled !== false && model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
+        bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(input.run.reliabilityEnabled !== false && reliability?{reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
     } else {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       machines.push({id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
@@ -35,7 +37,7 @@ export function adaptSimPyInput(input) {
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
         rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,
         ...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{}),
-        ...(input.run.reliabilityEnabled !== false && model.noiseProfile?.reliability?{reliability:model.noiseProfile.reliability}:{})});
+        ...(input.run.reliabilityEnabled !== false && reliability?{reliability}:{})});
     }
   }
   const ids=new Set(equipment.map(m=>m.id));
@@ -62,7 +64,9 @@ export function normalizeSimPyResult(raw, input, payload) {
       partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
   }
   const equipmentMetrics=Object.fromEntries(input.case.equipment.map(e=>[e.id,machineById.has(e.id)?machineMetrics(machineById.get(e.id)):
-    {outputCount:raw.samples.at(-1).zones.find(z=>z.id===e.id).releasedUnits,oeePercent:null,stateSeconds:zoneById.get(e.id).stateSeconds||{},failureSeconds:zoneById.get(e.id).stateSeconds?.FAILED??0,microStopSeconds:zoneById.get(e.id).stateSeconds?.MICRO_STOP??0,processingCapacityPercent:null}]));
+    {outputCount:raw.samples.at(-1).zones.find(z=>z.id===e.id).releasedUnits,oeePercent:null,stateSeconds:zoneById.get(e.id).stateSeconds||{},failureSeconds:zoneById.get(e.id).stateSeconds?.FAILED??0,microStopSeconds:zoneById.get(e.id).stateSeconds?.MICRO_STOP??0,processingCapacityPercent:null,
+      failureCount:zoneById.get(e.id).failureCount??null,
+      ...Object.fromEntries(['minor','major','general'].flatMap(kind=>['FailureCount','FailureSeconds'].map(field=>[kind+field,zoneById.get(e.id)[kind+field]??null])))}]));
   function zoneFrame(z) {
     const totals=zoneById.get(z.id),belt=beltById.get(z.id),index=payload.conveyors.findIndex(b=>b.id===z.id);
     return {id:z.id,name:belt.name,ownerEquipmentId:z.id,upstreamControlEquipmentId:payload.machines[index].id,
@@ -82,6 +86,7 @@ export function normalizeSimPyResult(raw, input, payload) {
         return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,
           actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
           microStopSeconds:m?.stateSeconds.MICRO_STOP??z?.stateSeconds?.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??z?.stateSeconds?.FAILED??null,
+          ...Object.fromEntries(['minor','major','general'].map(kind=>[kind+'FailureSeconds',m?.[kind+'FailureSeconds']??z?.[kind+'FailureSeconds']??null])),
           waitingForPrimeSeconds:m?.stateSeconds.WAITING_PRIME??null,backupStopSeconds:m?.stateSeconds.BACKUP_STOP??null,emergencyStopSeconds:null,partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
       })};
   });
@@ -89,6 +94,7 @@ export function normalizeSimPyResult(raw, input, payload) {
   const beltLoss=state=>raw.zones.reduce((sum,z)=>sum+(z.stateSeconds?.[state]??0),0);
   const summary={...raw.summary,averageOutputRatePerSecond:raw.summary.outputCount/duration,
     totalMicroStopSeconds:total('microStopSeconds')+beltLoss('MICRO_STOP'),totalStartupSeconds:total('startupSeconds'),totalBlockedSeconds:total('blockedSeconds'),totalStarvedSeconds:total('starvedSeconds'),totalFailureSeconds:total('failureSeconds')+beltLoss('FAILED'),
+    ...Object.fromEntries(['Minor','Major','General'].map(kind=>['total'+kind+'FailureSeconds',total(kind.toLowerCase()+'FailureSeconds')+raw.zones.reduce((sum,zone)=>sum+(zone[kind.toLowerCase()+'FailureSeconds']||0),0)])),
     totalOverflowUnits:raw.summary.overflowUnits??0,totalEmergencyStopSeconds:null,totalBackupStopSeconds:total('backupStopSeconds'),totalWaitingForPrimeSeconds:total('waitingForPrimeSeconds'),
     totalPartialStarvationLossSeconds:null,totalPartialBlockingLossSeconds:null,
     lineOeePacemakerEquipmentId:null,lineOeePacemakerRatePerSecond:null,lineOeeReference:'NOT_VALIDATED_DES',qualityAssumption:'NO_REJECT_MODEL_ASSUMES_100_PERCENT'};

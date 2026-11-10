@@ -1,3 +1,4 @@
+import { stopReliabilityProfile, selectReliabilityStop } from './StopReliability.js';
 import { applyProductProfile, productUnitFactor, productFlowUnit, productPackSize } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
@@ -153,7 +154,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
   const failureRandom=createEquipmentRandom(seed,model.id,"failure");
   const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
   const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
-  const reliability = reliabilityEnabled ? model.noiseProfile?.reliability : null;
+  const reliability = reliabilityEnabled ? stopReliabilityProfile(model) : null;
   return {
     ...model,
     mode: model.initialMode,
@@ -164,6 +165,12 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
     failureRemainingSeconds: 0,
     failureSeconds: 0,
     failureCount: 0,
+    stopReliability:reliability,
+    stopClassRandom:createEquipmentRandom(seed,model.id,'failure-class'),
+    activeStopClass:null,
+    repairStopClass:null,
+    minorFailureCount:0,majorFailureCount:0,generalFailureCount:0,
+    minorFailureSeconds:0,majorFailureSeconds:0,generalFailureSeconds:0,
     reliabilityExposureSeconds: 0,
     repairRestartPending: false,
     repairRestartCount: 0,
@@ -667,7 +674,7 @@ function updateReliabilityFailures(runtime) {
   if (runtime.run.reliabilityEnabled === false) return;
   runtime.equipment.forEach((equipment) => {
     if (equipment.emergencyStopLatched) return;
-    const profile = equipment.noiseProfile?.reliability;
+    const profile = equipment.stopReliability;
     if (!profile) return;
 
     if (equipment.failureRemainingSeconds > 0) {
@@ -677,7 +684,9 @@ function updateReliabilityFailures(runtime) {
         // Recovery has no extra startup delay; repair ramps are explicitly opt-in.
         cancelEquipmentStart(equipment);
         equipment.repairRestartPending = true;
-        runtime.events.push({ type: 'REPAIR_COMPLETED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id });
+        equipment.repairStopClass=equipment.activeStopClass;
+        runtime.events.push({ type: 'REPAIR_COMPLETED', atVirtualSecond: runtime.virtualSecond, equipmentId: equipment.id, stopClass:equipment.activeStopClass });
+        equipment.activeStopClass=null;
         equipment.timeToFailureRemainingSeconds = randomExponentialSeconds(equipment.failureRandom, profile.mtbfMinutes * 60);
       }
       return;
@@ -691,15 +700,19 @@ function updateReliabilityFailures(runtime) {
     // A threshold crossed in the previous productive tick fails at this tick boundary.
     if (equipment.timeToFailureRemainingSeconds > 0) return;
 
-    equipment.failureRemainingSeconds = profile.mttrMinutes * 60;
+    const category=selectReliabilityStop(profile,equipment.stopClassRandom);
+    equipment.activeStopClass=category.stopClass;
+    equipment.failureRemainingSeconds = category.mttrMinutes * 60;
+    equipment[category.stopClass.toLowerCase()+'FailureCount']+=1;
     equipment.failureCount += 1;
     runtime.events.push({
       type: 'FAILURE_STARTED',
       atVirtualSecond: runtime.virtualSecond,
       equipmentId: equipment.id,
       durationSeconds: equipment.failureRemainingSeconds,
-      mtbfMinutes: profile.mtbfMinutes,
-      mttrMinutes: profile.mttrMinutes
+      mtbfMinutes: category.mtbfMinutes??profile.mtbfMinutes,
+      mttrMinutes: category.mttrMinutes,
+      stopClass:category.stopClass
     });
   });
 }
@@ -926,7 +939,8 @@ function requestEquipmentStart(runtime, equipment, reason, options = {}) {
     equipmentId: equipment.id,
     reason,
     delaySeconds,
-    rampUpSeconds
+    rampUpSeconds,
+    ...(repairRestart?{stopClass:equipment.repairStopClass}: {})
   });
   return true;
 }
@@ -1151,6 +1165,7 @@ function recordUnavailable(equipment, tickSeconds) {
   } else if (equipment.failureRemainingSeconds > 0) {
     equipment.stoppedSeconds += tickSeconds;
     equipment.failureSeconds += tickSeconds;
+    equipment[(equipment.activeStopClass||'GENERAL').toLowerCase()+'FailureSeconds']+=tickSeconds;
     equipment.availabilityState = 'FAILURE';
   } else if (equipment.microStopRemainingSeconds > 0) {
     equipment.stoppedSeconds += tickSeconds;
@@ -1240,6 +1255,7 @@ function addSample(runtime) {
         partialStarvationLossSeconds: round(item.partialStarvationLossSeconds),
         partialBlockingLossSeconds: round(item.partialBlockingLossSeconds),
         failureSeconds: round(item.failureSeconds),
+        minorFailureSeconds:round(item.minorFailureSeconds),majorFailureSeconds:round(item.majorFailureSeconds),generalFailureSeconds:round(item.generalFailureSeconds),
         emergencyStopSeconds: round(item.emergencyStopSeconds),
         waitingForPrimeSeconds: round(item.waitingForPrimeSeconds),
         backupStopSeconds: round(item.backupStopSeconds),
@@ -1343,7 +1359,7 @@ function createResult(runtime,partial=false) {
     },
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.17.9',
+    engineVersion: '0.18.0',
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
@@ -1407,6 +1423,9 @@ function createSummary(runtime) {
     totalPartialStarvationLossSeconds: round(sum(runtime.equipment.map((item) => item.partialStarvationLossSeconds))),
     totalPartialBlockingLossSeconds: round(sum(runtime.equipment.map((item) => item.partialBlockingLossSeconds))),
     totalFailureSeconds: round(sum(runtime.equipment.map((item) => item.failureSeconds))),
+    totalMinorFailureSeconds:round(sum(runtime.equipment.map(item=>item.minorFailureSeconds))),
+    totalMajorFailureSeconds:round(sum(runtime.equipment.map(item=>item.majorFailureSeconds))),
+    totalGeneralFailureSeconds:round(sum(runtime.equipment.map(item=>item.generalFailureSeconds))),
     totalEmergencyStopSeconds: round(sum(runtime.equipment.map((item) => item.emergencyStopSeconds))),
     totalBackupStopSeconds: round(sum(runtime.equipment.map((item) => item.backupStopSeconds))),
     totalWaitingForPrimeSeconds: round(sum(runtime.equipment.map((item) => item.waitingForPrimeSeconds))),
@@ -1448,6 +1467,8 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     stoppedSeconds: round(equipment.stoppedSeconds),
     failureSeconds: round(equipment.failureSeconds),
     failureCount: equipment.failureCount,
+    minorFailureCount:equipment.minorFailureCount,majorFailureCount:equipment.majorFailureCount,generalFailureCount:equipment.generalFailureCount,
+    minorFailureSeconds:round(equipment.minorFailureSeconds),majorFailureSeconds:round(equipment.majorFailureSeconds),generalFailureSeconds:round(equipment.generalFailureSeconds),
     plannedStopSeconds: round(equipment.plannedStopSeconds||0),
     microStopSeconds: round(equipment.microStopSeconds),
     emergencyStopSeconds: round(equipment.emergencyStopSeconds),
