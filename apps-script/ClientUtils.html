@@ -54,6 +54,7 @@
     function toggle(id, visible) { document.getElementById(id).classList.toggle('hidden', !visible); }
     function setStatus(message) { var target = document.getElementById('status'); target.className = 'status'; target.textContent = message; }
     function showError(error) {
+      state.lastInputError=error;
       var message = (error.code || 'ERROR') + ': ' + (error.message || __ST_TEXT__('client.the_request_failed'));
       var target = document.getElementById('status'); target.className = 'status error'; target.textContent = message;
       if(error.code==='INVALID_SIMULATION_INPUT'&&Array.isArray(error.details)){

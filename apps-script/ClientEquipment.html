@@ -558,7 +558,15 @@ function numericInputValue(input) {
           equipmentField(card,'.reliability-enabled').checked=true;
           noiseProfile.reliability=Object.assign({},noiseProfile.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
         }
-        if(!STReliabilityControls.valid(card)){showError({message:'Enter a positive general MTBF/MTTR pair or complete the minor and major pairs. Use 0 and 0 for a category with no stops.'});return false;}
+        if(!STReliabilityControls.valid(card)){
+          var group=equipmentField(card,'.reliability-controls'),equipmentName=equipmentField(card,'.equipment-name').value||'Equipment '+(index+1);
+          showError({code:'INVALID_EQUIPMENT_RELIABILITY',message:equipmentName+' · '+(group.dataset.validationMessage||'General stops: enter both MTBF and MTTR as positive minutes when failures are enabled.')});
+          return false;
+        }
+        // Validation commits any values entered by browser autofill before JSON was read above.
+        noiseProfile=JSON.parse(equipmentField(card,'.equipment-noise-profile').value);
+        var reliabilityData=JSON.parse(equipmentField(card,'.equipment-process-data').value);
+        processData.equipment=reliabilityData.equipment;
         if(!STEquipmentRoles.read(card,characteristics,processData,type)){showError({message:__ST_TEXT__('equipment.design_invalid')});return false;}
         if (type === 'CONVEYOR') {
           processData = mergeFormatZoneData(processData, readFormatZoneInputs(card));

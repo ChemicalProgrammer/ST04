@@ -51,7 +51,7 @@ var STReliabilityControls = (function(){
           var split={};
           Object.entries(splitControls).forEach(function(entry){
             var pair=entry[1],bf=pair.mtbfMinutes.value,tr=pair.mttrMinutes.value;
-            if(bf===''||tr===''||!(Number(bf)>0&&Number(tr)>0)&&!(Number(bf)===0&&Number(tr)===0))throw Error('Incomplete stop pair');
+            if(bf===''||tr===''||!Number.isFinite(Number(bf))||!Number.isFinite(Number(tr))||!(Number(bf)>0&&Number(tr)>0)&&!(Number(bf)===0&&Number(tr)===0))throw Error((entry[0]==='minor'?'Minor':'Major')+' stops: enter both MTBF and MTTR as positive minutes, or 0 and 0 if there were no stops.');
             split[entry[0]]={mtbfMinutes:Number(bf),mttrMinutes:Number(tr)};
           });
           var minor=split.minor,major=split.major,m=minor.mtbfMinutes>0?1/minor.mtbfMinutes:0,M=major.mtbfMinutes>0?1/major.mtbfMinutes:0;
@@ -63,17 +63,18 @@ var STReliabilityControls = (function(){
         if(mode.value==='split'&&rel.mtbfMinutes===null)controls.enabled.checked=false;
         if(controls.enabled.checked&&rel.mtbfMinutes>0&&rel.mttrMinutes>0)noise.reliability=Object.assign({},noise.reliability,rel);else delete noise.reliability;
         if(mode.value==='split'||controls.enabled.checked||controls.mtbfMinutes.value!==''||controls.mttrMinutes.value!=='')Object.assign(data.equipment,rel);
-        profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';
-      }catch(e){group.dataset.invalid='true';}
+        profile.value=JSON.stringify(noise,null,2);process.value=JSON.stringify(data,null,2);group.dataset.invalid='';delete group.dataset.validationMessage;
+      }catch(e){group.dataset.invalid='true';group.dataset.validationMessage=e.message;}
       visibility();
     }
     [mode,...Object.values(splitControls.minor),...Object.values(splitControls.major),...Object.values(controls)].forEach(function(input){input.addEventListener('input',update);input.addEventListener('change',update);});
+    card._validateReliability=update;
     profile.addEventListener('change',refresh);process.addEventListener('change',refresh);refresh();
     if(window.STBasicMode?.isBasic()&&fields.querySelector('.equipment-type').value!=='CONVEYOR'){
       controls.enabled.checked=true;update();
     }
   }
-  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');return !group.dataset.invalid&&(group.querySelector('select').value==='split'||!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
+  attach.valid=function(card){var fields=card._fields,group=fields.querySelector('.reliability-controls');card._validateReliability?.();return !group.dataset.invalid&&(group.querySelector('select').value==='split'||!fields.querySelector('.reliability-enabled').checked||['mtbfMinutes','mttrMinutes'].every(function(key){return Number(fields.querySelector('.reliability-'+key).value)>0;}));};
   return attach;
 })();
 var STConfigurationEditor=(function(){
