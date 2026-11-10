@@ -532,7 +532,7 @@
       var batch=state.run.representative?.batch,selector=document.getElementById('playback-round');
       var available=[0];if(batch?.rows)batch.rows.forEach(function(row,index){if(index>0&&(batch.replays?.[index-1]||batch.representativeReplay?.round===index+1))available.push(index);});
       toggle('playback-round-control',available.length>1);selector.replaceChildren();
-      available.forEach(function(i){var option=document.createElement('option');option.value=String(i);option.textContent=String(i+1)+(i===(batch?.representativeRound||1)-1?' · Representative':'');selector.append(option);});
+      available.forEach(function(i){var option=document.createElement('option');option.value=String(i);option.textContent='Round '+(i+1)+(i===(batch?.representativeRound||1)-1?' · Representative':'');selector.append(option);});
       selector.value=String(available.includes(state.run.roundIndex)?state.run.roundIndex:0);
     }
 

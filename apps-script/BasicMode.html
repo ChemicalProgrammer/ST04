@@ -39,7 +39,14 @@ window.STBasicMode=(function(){
     sync(current);
   }
   function mount(){if(mounted)return;sectionRow.appendChild(headerActions);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;document.getElementById('run-config').before(document.getElementById('simulation-duration-controls'));document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function unmount(){if(!mounted)return;placeEfficiencies(false);document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  // Reubica las eficiencias sin cambiar el estado del panel plegable de Equipment.
+  function placeEfficiencies(inSimulation){
+    var host=inSimulation?document.getElementById('simulation-playback-efficiencies'):runOptions;
+    if(efficiencies.parentNode===host)return;
+    host.insertBefore(efficiencies,inSimulation?null:setupControls);
+    efficiencies.hidden=!inSimulation&&runOptions.querySelector('.fold-toggle').getAttribute('aria-expanded')==='false';
+  }
   function sync(current){
     state=current;if(!initialized)return;
     var enabled=basic(),root=document.documentElement;if(!enabled&&state.basicView==='conveyors')state.basicView='equipment';root.dataset.uiMode=enabled?'basic':'advance';
@@ -53,7 +60,6 @@ window.STBasicMode=(function(){
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
-    document.getElementById('results-title').textContent=section==='vgraph'?'Speed profile':'Performance summary';
     nav.querySelector('[data-basic-view=realdata]').classList.toggle('hidden',!STPreferences.caseOptions().showRealData);
     nav.querySelector('[data-basic-view=comparison]').classList.toggle('hidden',(state.activeCase?.simulations||[]).length<2);
     nav.querySelector('[data-basic-view=conveyors]').classList.toggle('hidden',!enabled);
@@ -80,13 +86,15 @@ window.STBasicMode=(function(){
       document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');
       STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);
     }
-    if(active){var runButton=document.getElementById('run-simulation'),buttonHost=section==='simulation'?document.getElementById('basic-run-options-title').parentElement:document.querySelector('#run-panel > .section-heading > .button-row');if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);var host=section==='simulation'?document.getElementById('run-panel'):document.getElementById('editor-panel');
-      var before=section==='simulation'?document.getElementById('run-config'):host.querySelector('.editor-subheading');
-      // Moving an already positioned subtree blurs its focused number input.
-      if(runOptions.parentNode!==host||runOptions.nextSibling!==before)host.insertBefore(runOptions,before);
-    }
-    if(enabled){var duration=document.getElementById('simulation-duration-controls'),durationAnchor=section==='simulation'?setupControls:document.getElementById('run-config');if(duration.parentNode!==durationAnchor.parentNode||duration.nextSibling!==durationAnchor)durationAnchor.before(duration);}
-    if(enabled){var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label,roundsHost=section==='simulation'?document.querySelector('.simulation-duration-grid'):roundsGroup;if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);setupControls.classList.toggle('hidden',section==='simulation');}
+    // Simulation setup permanece en su propia tarjeta y usa los mismos campos que Equipment.
+    var inSimulation=active&&section==='simulation';
+    var runButton=document.getElementById('run-simulation');
+    var buttonHost=inSimulation?document.getElementById('simulation-setup-tools'):document.querySelector('#run-panel > .section-heading > .button-row');
+    if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);
+    placeEfficiencies(inSimulation);
+    var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label;
+    var roundsHost=inSimulation?document.querySelector('.simulation-duration-grid'):roundsGroup;
+    if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
   }

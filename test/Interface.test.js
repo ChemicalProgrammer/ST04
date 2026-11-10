@@ -2698,6 +2698,8 @@ test('UI: enabling events exposes the editor and its calendar dialog in Basic an
   await h.click('.open-case');await h.click('[data-basic-view=simulation]');h.w.STSettings.open();await h.click('#settings-tab-simulation');
   assert.equal(h.d.querySelector('#settings-page-simulation #settings-plant-calendar'),null);
   const enable=h.d.getElementById('run-events-enabled');enable.click();await h.w.STSettings.close();
+  assert.equal(h.d.getElementById('simulation-duration-controls').parentElement.id,'run-panel');
+  assert.equal(h.d.getElementById('run-rounds').closest('.fold-card').id,'simulation-duration-controls');
   const section=h.d.getElementById('simulation-event-section');assert(!section.classList.contains('hidden'));assert.equal(section.closest('#run-config'),null);assert.notEqual(h.w.getComputedStyle(h.d.getElementById('control-events')).display,'none');
   for(const selector of ['#simulation-event-section','#simulation-duration-controls','#simulation-results > section','#vgraph-profile','#results-production-group','#realdata-panel .real-data-block']){
    assert(h.d.querySelector(selector)?.classList.contains('fold-card'),selector);
@@ -2935,7 +2937,12 @@ test('UI: Results switches all production tables between means and actual rounds
   const stats=h.w.JSON.parse(JSON.stringify({outputCount:{mean:300,min:100,max:600},lineOeePercent:{mean:30,min:10,max:60},throughputPerMinute:{mean:300,min:100,max:600}}));
   const result={...rows[0],durationSeconds:60,unitOfFlow:'BOTTLES',samples:[],batch:{rounds:3,rows,baseSeed:10,representativeRound:2,statistics:stats,equipmentStatistics:{[model.id]:{failureSeconds:{mean:10}}}}};
   h.w.STResults.render(result,record,record.simulations[0]);assert.match(h.d.getElementById('results-kpis').textContent,/300 bottles/i);assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Average of all rounds \(3\)/);assert(!h.d.getElementById('results-products').textContent.includes('Mean of 3 rounds'));assert(h.d.getElementById('results-products').closest('.results-group'));assert.match(h.d.getElementById('results-products').textContent,/300/);assert.match(h.d.getElementById('results-kpis').textContent,/Min 100 · Max 600/);
-  const select=h.d.getElementById('results-round-select');select.value='representative';select.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/200 bottles/i);assert(!h.d.getElementById('results-kpis').textContent.includes('mean of'));assert.match(h.d.getElementById('results-products').textContent,/200/);assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Representative round \(2\)/);
+  const select=h.d.getElementById('results-round-select'),heading=h.d.querySelector('#results-overview .fold-heading');
+  assert.equal(heading.querySelector('h3').textContent,'Performance summary');
+  assert.equal(heading.querySelector('select'),select);assert.equal(select.labels.length,0);
+  assert.equal(heading.querySelector('#export-ai').closest('.fold-tools'),select.closest('.fold-tools'));
+  await h.click('#results-title .fold-toggle');assert(h.d.getElementById('results-overview-content').hidden);assert(!select.closest('[hidden]'));
+  select.value='representative';select.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/200 bottles/i);assert(!h.d.getElementById('results-kpis').textContent.includes('mean of'));assert.match(h.d.getElementById('results-products').textContent,/200/);assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Representative round \(2\)/);
   h.d.getElementById('results-round-select').value='average';h.d.getElementById('results-round-select').dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/300 bottles/i);assert.equal(result.summary.outputCount,100);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}}
 });
@@ -2966,13 +2973,20 @@ test('UI: event units, date origin and generated groups survive saving and can b
  }finally{h.dom.window.close();}}
 });
 
-test('UI: completed batches default playback to the chosen representative and retain its replay after reopening',async()=>{
+test('UI: completed batches keep round one visible and offer the representative replay after reopening',async()=>{
  const h=await setup({remember:true,uiMode:'BASIC',autosaveSeconds:180});try{
   await h.click('.open-case');await h.click('[data-basic-view=simulation]');h.d.getElementById('duration-mode').value='FIXED';h.d.getElementById('run-duration').value=30;h.d.getElementById('run-rounds').value=3;h.d.getElementById('run-sample-interval').value=1;
   const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);if(response.ok){response.result.batch.representativeRound=2;if(!response.result.batch.replays?.[0]){const replay=await h.w.SimulatorEngine.simulateLineAsync({case:args[0].case,run:{...args[0].run,seed:response.result.batch.rows[1].seed}},{detail:true});response.result.batch.representativeReplay={...replay.result,round:2};}}return response;};
-  await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===3);assert.equal(h.d.getElementById('playback-round').value,'1');assert.match(h.d.getElementById('playback-round').selectedOptions[0].textContent,/Representative/);
+  await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===3);const playback=h.d.getElementById('playback-round');assert.equal(playback.value,'0');assert.equal(playback.selectedOptions[0].textContent,'Round 1');
+  assert.match(playback.querySelector('option[value="1"]').textContent,/^Round 2 · Representative$/);
+  playback.value='1';playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(playback.value,'1');
+  assert.equal(h.d.getElementById('playback-round').labels.length,0);
+  assert.equal(h.d.getElementById('basic-efficiencies').closest('#simulation-playback-content').id,'simulation-playback-content');
+  await h.click('[aria-controls=simulation-playback-content]');assert(h.d.getElementById('simulation-playback-content').hidden);assert(!h.d.getElementById('playback-round').closest('[hidden]'));
   await h.click('[data-basic-view=results]');assert.equal(h.d.getElementById('results-round-select').value,'average');assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Average of all rounds \(3\)/);
-  await h.click('#save-case');await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');assert.equal(h.d.getElementById('playback-round').value,'1');assert.deepEqual(h.errors,[]);
+  await h.click('#save-case');await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');
+  assert.match(playback.querySelector('option[value="1"]').textContent,/^Round 2 · Representative$/);
+  playback.value='1';playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(playback.value,'1');assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
