@@ -63,7 +63,17 @@ window.STProducts=(function(){
     dialog.addEventListener('input',commit);dialog.addEventListener('change',commit);
     var error=document.createElement('p');error.className='notice product-error hidden';error.setAttribute('role','alert');
     function showError(message){error.textContent=message;error.classList.remove('hidden');}
-    function section(text){var section=document.createElement('section');section.className='settings-section product-subsection';var heading=document.createElement('div');heading.className='editor-subheading compact-heading';var h=document.createElement('h3');h.textContent=text;heading.append(h);section.append(heading);body.append(section);return section;}
+    var collapsedSections=new Set();
+    // Crea un bloque plegable y devuelve su cuerpo y su barra de herramientas.
+    function section(text){
+      var group=document.createElement('section'),heading=document.createElement('div'),title=document.createElement('h3'),toggle=document.createElement('button'),content=document.createElement('div'),tools=document.createElement('div');
+      group.className='settings-section product-subsection';heading.className='fold-heading';tools.className='fold-tools product-selector-row';
+      content.className='fold-content';content.id=id('formats-subsection');content.hidden=collapsedSections.has(text);
+      toggle.type='button';toggle.className='fold-toggle';toggle.textContent=text;toggle.dataset.subsectionToggle='';toggle.setAttribute('aria-expanded',String(!content.hidden));toggle.setAttribute('aria-controls',content.id);
+      toggle.addEventListener('click',function(){if(content.hidden)collapsedSections.delete(text);else collapsedSections.add(text);});
+      title.append(toggle);heading.append(title,tools);group.append(heading,content);body.append(group);
+      return {content:content,tools:tools};
+    }
     function note(parent,text){var n=document.createElement('p');n.className='chart-note format-guidance';n.textContent=text;parent.append(n);return n;}
     function control(obj,key,label,options){
       options=options||{};var input=document.createElement('input');input.type=options.text?'text':'number';input.setAttribute('aria-label',label);input.value=obj[key]??'';
@@ -93,7 +103,7 @@ window.STProducts=(function(){
     }
     function renderMaterial(kind){
       var isFormat=kind==='formats',singular=isFormat?'format':'product',records=draft[kind],current=records.find(r=>r.id===(selection[kind]||(isFormat?selectedFormatId:null)))||records[0];selection[kind]=current?.id;
-      var main=section(isFormat?'Formats':'Products'),tools=document.createElement('div');tools.className='product-selector-row';main.append(tools);
+      var group=section(isFormat?'Formats':'Products'),main=group.content,tools=group.tools;
       selectField(tools,isFormat?'Current format':'Current product',current?.id,records,function(value){selection[kind]=value||records[0]?.id;if(isFormat)selectedFormatId=selection[kind];draw();});
       var add=icon(tools,'plus','Add '+singular,function(){var r={id:id(singular),name:(isFormat?'Format ':'Product ')+(records.length+1),equipment:{}};if(isFormat){r.productId=draft.products[0]?.id;r.bottlesPerCase=12;r.case={};}else r.bottle={};records.push(r);selection[kind]=r.id;alignCatalog(draft);draw();});add.disabled=isFormat&&!draft.products.length;
       var remove=icon(tools,'trash','Delete '+singular,function(){
@@ -124,7 +134,7 @@ window.STProducts=(function(){
       record.equipment=record.equipment||{};var all=state.activeCase.equipment||[];
       function localLegacy(e){return kind==='formats'&&unit(e,'output')==='BOTTLES'&&Object.keys(record.equipment[e.id]||{}).some(k=>!['inputUnit','outputUnit','enabled','applies'].includes(k));}
       var filtered=all.filter(function(e){return kind==='products'?unit(e,'input')==='BOTTLES'&&unit(e,'output')==='BOTTLES':unit(e,'output')==='CASES'||e.type==='CASE_PACKER'||e.type==='PALLETIZER'||localLegacy(e);});
-      var inputs=section('Equipment behavior');
+      var inputs=section('Equipment behavior').content;
       note(inputs,kind==='formats'?'Case Packer, case-processing machines and case conveyors. Select Bottle → Case / Case → Case in Equipment and Case in Conveyors. Unchecked rows inherit installed defaults.':'Bottle-processing machines and conveyors. Unchecked rows inherit installed defaults. Geometry, sensors and MTBF / MTTR remain equipment settings.');
       function profile(e){return record.equipment[e.id]||(record.equipment[e.id]={});}
       function name(row,e){var cell=document.createElement('th');cell.scope='row';cell.textContent=e.name;row.append(cell);}

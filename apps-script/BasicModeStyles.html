@@ -45,7 +45,7 @@ html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { disp
 html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:calc(100vh - var(--header-height) - var(--space-8)); }
 html[data-ui-mode=basic] #basic-conveyor-panel h3 { margin:0 0 var(--space-3); }
 html[data-ui-mode=basic][data-basic-view=vgraph] #results-body > :not(#line-performance),
-html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance > :not(.section-heading):not(.vgraph-legend):not(.vgraph-plot) { display:none !important; }
+html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance > :not(.fold-heading):not(#vgraph-content) { display:none !important; }
 html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance { margin-top:0; border-top:0; }
 html[data-ui-mode=basic] .equipment-speed-chart-heading p,
 html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
@@ -197,7 +197,7 @@ html[data-ui-mode=basic] .basic-conveyor-heading .basic-conveyor-tabs { margin:0
 .switchable-value > input[type=checkbox],html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input[type=checkbox] { width:16px; height:16px; min-height:16px; padding:0; flex:0 0 16px; }
 .switchable-value > .calculated-value { background:var(--surface-soft); border-color:transparent; text-align:right; }
 html[data-ui-mode=advance][data-header-view=vgraph] #results-body > :not(#line-performance),
-html[data-ui-mode=advance][data-header-view=vgraph] #line-performance > :not(.section-heading):not(.vgraph-legend):not(.vgraph-plot) { display:none; }
+html[data-ui-mode=advance][data-header-view=vgraph] #line-performance > :not(.fold-heading):not(#vgraph-content) { display:none; }
 html[data-ui-mode=advance][data-header-view=results] #line-performance { display:none; }
 
 html[data-ui-mode=basic] .equipment-options-button { display:none !important; }

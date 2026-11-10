@@ -424,6 +424,38 @@ html[data-ui-mode=basic][data-events-enabled=true] .live-controls-help { display
 
 .subsection-title { display:flex; align-items:center; min-height:var(--control-height); box-sizing:border-box; margin:var(--section-gap) 0 var(--space-3); padding:0 0 var(--space-3); border-bottom:var(--border-width) solid var(--line); font-size:var(--font-card); font-weight:var(--weight-semibold); line-height:var(--leading-tight); }
 html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text); border-bottom-color:var(--elegant-border); }
+
+/* Patrón de Equipment control events para encabezados plegables. */
+.fold-heading, .fold-native > summary {
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:var(--space-3); padding:var(--space-3) 0;
+  border-block-end:var(--border-width) solid var(--info); color:var(--info);
+  font-size:var(--font-card); font-weight:var(--weight-semibold);
+}
+.fold-heading h3, #realdata-panel .fold-heading .real-data-section-title { margin:0; color:var(--info); }
+.fold-heading .fold-tools, .fold-heading .button-row { margin:0 0 0 auto; padding:0; }
+.fold-heading .playback-toolbar { flex-wrap:wrap; }
+.fold-heading .product-selector-row > label { flex:0 1 auto; min-width:0; }
+.fold-heading .fold-toggle {
+  display:inline-flex; align-items:center; gap:var(--space-2); min-height:0; margin:0; padding:0;
+  border:0; background:transparent; box-shadow:none; color:inherit; font:inherit; text-align:start;
+}
+.fold-native > summary { cursor:pointer; list-style:none; justify-content:flex-start; }
+.fold-native > summary::-webkit-details-marker { display:none; }
+.fold-heading .fold-toggle:not(#toggle-control-events)::before, .fold-native > summary::before {
+  content:""; flex:none; width:.45em; height:.45em;
+  border-inline-end:2px solid currentColor; border-block-end:2px solid currentColor;
+  transform:rotate(45deg);
+}
+.fold-heading .fold-toggle[aria-expanded=false]:not(#toggle-control-events)::before,
+.fold-native:not([open]) > summary::before { transform:rotate(-45deg); }
+.fold-toggle:focus-visible, .fold-native > summary:focus-visible { outline:var(--focus-width) solid var(--accent); outline-offset:var(--space-1); }
+.fold-content { margin-block-start:var(--space-3); min-width:0; }
+.fold-content[hidden] { display:none !important; }
+.results-group.fold-native > summary { padding-inline:var(--space-4); }
+html #simulation-event-section .compact-heading.fold-heading, #realdata-panel .real-data-block-heading.fold-heading { border-block-end-color:var(--info); }
+html[data-visual-style=elegant] :is(#equipment-control-events-title,#vgraph-title,#basic-run-options-title):has(> .fold-toggle) { color:var(--info); }
+.product-subsection + .product-subsection, #simulation-results > .fold-content + .fold-heading { margin-block-start:var(--space-4); }
 </style>
 
 

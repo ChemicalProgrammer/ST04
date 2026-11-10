@@ -163,16 +163,16 @@
 
         <div id="run-not-ready" class="notice hidden"><?= __ST_TEXT__('view.save_a_valid_physical_line_before_running_machine_conveyor_machine_with_geo') ?></div>
 
-        <section id="simulation-duration-controls" aria-label="Simulation duration"><div class="field-grid simulation-duration-grid"><label>Initial format<select id="run-initial-format"><option value="">Base equipment settings</option></select></label><label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option><option value="10000">10,000×</option><option value="1000000">1,000,000×</option></select></label><label>Duration method<select id="duration-mode"><option value="FIXED">Elapsed time</option><option value="SHIFTS">Number of shifts</option><option value="DATES">Date and time range</option><option value="EFFECTIVE_RUNTIME">Until Effective Runtime target</option><option value="INDEFINITE">Time limit (legacy)</option></select></label>
+        <section id="simulation-duration-controls" aria-label="Simulation duration"><div class="fold-heading"><h3><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-duration-content">Simulation setup</button></h3></div><div id="simulation-duration-content" class="fold-content"><div class="field-grid simulation-duration-grid"><label>Initial format<select id="run-initial-format"><option value="">Base equipment settings</option></select></label><label><?= __ST_TEXT__('view.playback_speed_virtual_real') ?><select id="run-playback-rate"><option value="1">1×</option><option value="5">5×</option><option value="10">10×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option><option value="10000">10,000×</option><option value="1000000">1,000,000×</option></select></label><label>Duration method<select id="duration-mode"><option value="FIXED">Elapsed time</option><option value="SHIFTS">Number of shifts</option><option value="DATES">Date and time range</option><option value="EFFECTIVE_RUNTIME">Until Effective Runtime target</option><option value="INDEFINITE">Time limit (legacy)</option></select></label>
 <label data-duration-method="FIXED INDEFINITE EFFECTIVE_RUNTIME"><span id="run-duration-label">Duration</span><input id="run-duration" type="number" min="0.001" step="any" value="300"></label>
 <label data-duration-method="FIXED INDEFINITE EFFECTIVE_RUNTIME">Unit<select id="run-duration-unit"><option value="SECONDS">Seconds</option><option value="MINUTES">Minutes</option><option value="HOURS">Hours</option><option value="DAYS">Days</option><option value="WEEKS">Weeks</option></select></label>
 <label data-duration-method="EFFECTIVE_RUNTIME" class="hidden">Effective Runtime target (min)<input id="run-effective-target" type="number" min="0.001" step="any" value="978"></label>
 <label data-duration-method="DATES" class="hidden">Start<input id="run-start-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">End<input id="run-end-at" type="datetime-local" step="1"></label><label data-duration-method="DATES" class="hidden">Time zone<input id="run-time-zone" value="America/Mexico_City"></label>
 <label data-duration-method="SHIFTS">Number of shifts<input id="settings-shift-count" type="number" min="1" max="10000" step="1" value="1"></label>
 <label>Hours per shift<input id="run-shift-hours" type="number" min="0.25" max="24" step="0.25" value="8"></label>
-<label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label></div><label class="checkbox-label" for="run-reliability-enabled" title="Aplica solo a esta simulación. Al desmarcar, se desactivan las fallas y reparaciones por MTBF/MTTR; los microparos y perfiles de arranque configurados permanecen activos."><input id="run-reliability-enabled" type="checkbox" checked><span>Enable failures and repairs (MTBF / MTTR)</span></label><p id="run-duration-summary" class="chart-note"></p><p id="run-effective-progress" class="chart-note" hidden></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events.</p></section>
+<label><?= __ST_TEXT__('batch.rounds') ?><input id="run-rounds" type="number" min="1" max="100" step="1" value="1"></label></div><label class="checkbox-label" for="run-reliability-enabled" title="Aplica solo a esta simulación. Al desmarcar, se desactivan las fallas y reparaciones por MTBF/MTTR; los microparos y perfiles de arranque configurados permanecen activos."><input id="run-reliability-enabled" type="checkbox" checked><span>Enable failures and repairs (MTBF / MTTR)</span></label><p id="run-duration-summary" class="chart-note"></p><p id="run-effective-progress" class="chart-note" hidden></p><p class="chart-note">Shifts are reporting boundaries, not stop/start events.</p></div></section>
 
-        <details id="run-config" class="run-config" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
+        <details id="run-config" class="run-config fold-native" open><summary><?= __ST_TEXT__('view.run_configuration_scheduled_events') ?></summary>
           <div class="field-grid run-fields">
 
 
@@ -183,14 +183,14 @@
 
           </div>
 
-          <details class="notice model-boundary"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>
+          <details class="notice model-boundary fold-native"><summary><?= __ST_TEXT__('view.model_assumptions_timing') ?></summary><p>
             <?= __ST_TEXT__('view.at_1_one_virtual_second_takes_one_real_second_the_engine_integrates_at_0_25') ?></p></details>
 
 
         </details>
-<section id="simulation-event-section" class="hidden" aria-labelledby="equipment-control-events-title">          <div class="editor-subheading compact-heading">
+<section id="simulation-event-section" class="hidden" aria-labelledby="equipment-control-events-title">          <div class="editor-subheading compact-heading fold-heading">
             <div>
-              <h3 id="equipment-control-events-title"><button id="toggle-control-events" type="button" aria-expanded="true" aria-controls="simulation-event-content"><?= __ST_TEXT__('view.equipment_control_events') ?></button></h3>
+              <h3 id="equipment-control-events-title"><button id="toggle-control-events" class="fold-toggle" type="button" aria-expanded="true" aria-controls="simulation-event-content"><?= __ST_TEXT__('view.equipment_control_events') ?></button></h3>
               <p><?= __ST_TEXT__('view.schedule_a_pause_planned_stop_emergency_stop_reset_run_manual_or_automatic_') ?></p>
             </div>
             <div class="button-row"><button id="open-plant-calendar" type="button" class="secondary" aria-haspopup="dialog" aria-controls="plant-calendar-dialog">Plant calendar</button><button id="add-product-changeover" type="button" class="secondary">+ Changeover</button><button id="open-event-generator" type="button" class="secondary" aria-haspopup="dialog">Distribute pauses</button><button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button></div>
@@ -199,7 +199,9 @@
 
     <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
         <div id="simulation-results" class="hidden">
-          <div class="playback-toolbar">
+          <div class="fold-heading">
+            <h3><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-playback-metrics">Simulation playback</button></h3>
+            <div class="playback-toolbar fold-tools">
             <label id="playback-round-control" class="hidden"><?= __ST_TEXT__('batch.round') ?> <select id="playback-round" aria-label="<?= __ST_TEXT__('batch.round') ?>"></select></label>
             <button id="play-simulation" class="secondary icon-button" type="button" data-icon="play" aria-label="<?= __ST_TEXT__('view.play') ?>" title="<?= __ST_TEXT__('view.play') ?>"></button>
             <button id="pause-simulation" class="secondary icon-button" type="button" data-icon="pause" aria-label="<?= __ST_TEXT__('client.pause') ?>" title="<?= __ST_TEXT__('client.pause') ?>"></button>
@@ -212,8 +214,8 @@
                 <button id="export-live-charts-csv" class="ghost" type="button" disabled>Datos de gráficas (CSV)</button>
               </div>
             </details>
-          </div>
-          <div class="metrics-grid">
+          </div></div>
+          <div id="simulation-playback-metrics" class="metrics-grid fold-content">
             <article><span><?= __ST_TEXT__('view.virtual_time') ?></span><strong id="metric-time">—</strong></article>
             <article><span><?= __ST_TEXT__('view.output') ?></span><strong id="metric-output">—</strong></article>
             <article><span title="Tiempo acumulado con salida menos la pérdida bruta de velocidad. Cada minuto de reloj aporta como máximo un minuto efectivo.">Effective Runtime</span><strong id="metric-effective-runtime">—</strong></article>
@@ -225,9 +227,10 @@
             <article><span><?= __ST_TEXT__('view.back_up_control_time') ?></span><strong id="metric-backup-stop">—</strong></article>
             <article><span title="<?= __ST_TEXT__('view.line_oee_is_final_output_divided_by_the_maximum_output_of_the_selected_pace') ?>"><?= __ST_TEXT__('results.global_oee') ?></span><strong id="metric-line-oee">—</strong></article>
           </div>
-          <h3 class="subsection-title" id="simulation-equipment-title">Equipment performance</h3>
+          <div class="fold-heading"><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3></div>
+          <div id="simulation-equipment-content" class="fold-content">
           <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p>
-          <div id="live-equipment" class="live-equipment" aria-labelledby="simulation-equipment-title"></div>
+          <div id="live-equipment" class="live-equipment" aria-labelledby="simulation-equipment-title"></div></div>
 
         </div>
       </section>
@@ -237,12 +240,12 @@
         <div id="results-empty" class="empty"><h3><?= __ST_TEXT__('view.no_results_yet') ?></h3><p><?= __ST_TEXT__('view.run_this_simulation_to_inspect_production_losses_and_equipment_performance') ?></p><button data-view="simulation" data-icon="play"><?= __ST_TEXT__('view.go_to_simulation') ?></button></div>
         <div id="results-body" class="hidden">
           <!-- Resumen principal y bloques de consulta del resultado seleccionado. -->
-          <div id="results-overview">
+          <details id="results-overview" class="fold-native" open><summary>Resumen</summary><div class="fold-content">
             <div id="results-kpis" class="result-kpis"></div>
             <p id="results-reference" class="chart-note"></p>
             <section id="results-rate-loss-highlights"></section>
-          </div>
-          <details id="results-production-group" class="results-group">
+          </div></details>
+          <details id="results-production-group" class="results-group fold-native">
             <summary>Producción y calendario</summary>
             <div class="results-group-content">
               <section id="results-products" class="hidden"></section>
@@ -250,14 +253,14 @@
               <section id="batch-results" class="hidden"></section>
             </div>
           </details>
-          <details class="results-group">
+          <details class="results-group fold-native">
             <summary>Pérdidas y transiciones</summary>
             <div class="results-group-content">
               <section id="results-loss-breakdown"></section>
               <section id="results-ramp-accounting"></section>
             </div>
           </details>
-          <details class="results-group">
+          <details class="results-group fold-native">
             <summary>Desempeño por equipo</summary>
             <div class="results-group-content">
               <div id="results-insight" class="result-insight"></div>
@@ -267,15 +270,18 @@
           </details>
           <!-- V-Graph conserva su vista de navegación independiente. -->
         <section id="line-performance" class="line-performance" aria-labelledby="vgraph-title">
-          <div class="section-heading"><div><h3 id="vgraph-title"><?= __ST_TEXT__('performance.title') ?></h3><p id="vgraph-context" class="chart-note"></p></div></div>
+          <div class="fold-heading"><h3 id="vgraph-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="vgraph-content"><?= __ST_TEXT__('performance.title') ?></button></h3></div>
+          <div id="vgraph-content" class="fold-content">
+          <p id="vgraph-context" class="chart-note"></p>
           <div class="vgraph-legend"><span class="vgraph-key vgraph-key-normal"><?= __ST_TEXT__('performance.normal') ?></span><span class="vgraph-key vgraph-key-recommended"><?= __ST_TEXT__('performance.recommended') ?></span></div>
           <div id="vgraph-plot" class="vgraph-plot"></div><p id="vgraph-caveat" class="chart-note"></p>
-          <h3 class="subsection-title"><?= __ST_TEXT__('performance.throughput_by_machine') ?></h3>
+          </div>
+          <details class="fold-native" open><summary><?= __ST_TEXT__('performance.throughput_by_machine') ?></summary><div class="fold-content">
           <div class="table-scroll"><table><thead><tr><th><?= __ST_TEXT__('performance.machine') ?></th><th class="numeric"><?= __ST_TEXT__('performance.normal_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.maximum_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.recommended_bpm') ?></th><th class="numeric"><?= __ST_TEXT__('performance.headroom') ?></th><th class="numeric"><?= __ST_TEXT__('performance.availability') ?></th><th class="numeric"><?= __ST_TEXT__('performance.efficiency') ?></th><th class="numeric"><?= __ST_TEXT__('performance.effective_bpm') ?></th></tr></thead><tbody id="performance-rows"></tbody></table></div>
-          <p id="throughput-method" class="chart-note"></p>
+          <p id="throughput-method" class="chart-note"></p></div></details>
         </section>
           <!-- El historial de las gráficas corresponde a la ronda de reproducción. -->
-          <details id="results-history-group" class="results-group" open>
+          <details id="results-history-group" class="results-group fold-native" open>
             <summary>Gráficas e historial</summary>
             <div class="results-group-content">
               <p class="chart-note">Las gráficas muestran el historial de la ronda que está seleccionada para reproducción en Simulación.</p>
