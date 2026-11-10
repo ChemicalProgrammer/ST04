@@ -57,18 +57,21 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
   assert.equal(writes.length,2);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,109,26]);
-  assert.deepEqual(calls.find(call=>call[0]==='insertSheet'),['insertSheet','Datos reales',1]);
+  assert.deepEqual(calls.find(call=>call[0]==='insertSheet'),['insertSheet','Real Data',1]);
   const actuals=writes[1].values;assert.equal(actuals[0][9],'st-real-inputs-v4');assert.match(actuals[19][0],/Equipment.*MATCH/);assert.equal(actuals[19][9],values[9][25]);assert.equal(actuals[20][9],values[11][25]);assert.match(actuals[19][5],/E20\/\(D20\+E20\)/);
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
   assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[10,1,100,1]'));
   assert.equal(actuals[22][9],values[12][25]);assert.match(actuals[22][0],/COUNTIFS/);
-  assert.equal(values[0][2],"'=1+1");assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
+  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v1');assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[8][24],'Overspeed vs infeed screw (%)');assert.equal(values[10][18],100);
   assert.deepEqual([0,8,12,16,18].map(i=>values[7][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
-  for(const group of [[8,1,1,8],[8,9,1,4],[8,13,1,4],[8,17,1,2],[8,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
-  assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[1][0],'');assert(!actuals[18].some(label=>/notas/i.test(label)));
-  assert(calls.some(call=>call[0]==='setBackground'&&call[2]==='#123456'));
-  assert(calls.some(call=>call[0]==='setFontColor'&&call[2]==='#778899'));
+  for(const group of [[8,9,1,4],[8,13,1,4],[8,17,1,2],[8,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
+  assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'');assert.equal(actuals[3][0],'Line Time');assert.equal(actuals[17][3],'MTBF/MTTR Check');assert(!actuals[18].some(label=>/notas/i.test(label)));
+  assert(calls.some(call=>call[0]==='setBackground'&&call[2]===c.sheetExportTint_('#123456')));
+  assert(calls.some(call=>call[0]==='setBackground'&&JSON.stringify(call[1])==='[7,1,9,1]'));
+  assert(calls.filter(call=>call[0]==='setFontColor').every(call=>call[2]==='#000000'));
+  assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
+  assert(!calls.some(call=>call[0]==='mergeAcross'||call[0]==='merge'&&JSON.stringify(call[1])==='[8,1,1,8]'));
   assert.equal(calls.filter(call=>call[0]==='create').length,1);assert(!calls.some(call=>call[0]==='trash'));
 });
 
@@ -136,17 +139,17 @@ test('two-tab export previews equipment and filled observations via the same spr
  values[12].splice(0,6,'CUSTOM','Nueva máquina','N',200,5,300);
  actuals[22][1]=0;actuals[22][2]=0;
  const mock=(grid,name,id)=>({getLastRow:()=>grid.length,getMaxRows:()=>100,getMaxColumns:()=>grid[0].length,getSheetId:()=>id,getName:()=>name,getRange:(r,col,count=1,width=1)=>({getValues:()=>grid.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00%'))})});
- const equipment=mock(values,'Equipment',1),real=mock(actuals,'Datos reales',2);
+ const equipment=mock(values,'Equipment',1),real=mock(actuals,'Real Data',2);
  h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,real],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
  for(const spreadsheet of ['new-sheet-id','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=2']){
   const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet},{email:'owner@test'}),r=result.realData.record,e=r.equipment[0];
   assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));
-  assert.equal(result.equipment.length,4);assert.equal(result.source.sheetName,'Equipment');
+  assert.equal(result.equipment.length,4);assert.equal(result.source.sheetName,'Equipment');assert.equal(result.source.metadataColumn,'B');assert.equal(result.metadata.bottlesPerCase,24);
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,null);assert.equal(e.stopClass,'UNKNOWN');
   assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,20);
   assert.equal(r.equipment[1].sourceRow,13);assert.equal(r.equipment[1].observationRow,23);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
-  assert(result.realData.fields.some(f=>f.cell==='Datos reales!B7'));
+  assert(result.realData.fields.some(f=>f.cell==='Real Data!B7'));
  }
  assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===26));
 });

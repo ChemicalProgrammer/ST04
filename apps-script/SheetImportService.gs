@@ -67,29 +67,30 @@ function previewSheetImport_(request, user) {
   var name = typeof request.sheetName === 'string' ? request.sheetName.trim() : '';
   var sheets = book.getSheets();
   var sheet = name ? book.getSheetByName(name) : reference.gid !== null ? sheets.filter(function(s){return String(s.getSheetId()) === reference.gid;})[0] : sheets[0];
-  if(sheet?.getName()==='Datos reales'&&(photoActualsTab_(sheet)||sheet.getMaxColumns()>=23&&['st-real-inputs-v2','st-real-inputs-v3'].includes(sheet.getRange(1,23).getValues()[0][0])))sheet=book.getSheetByName('Equipment');
+  if(sheet&&(['Real Data','Datos reales'].includes(sheet.getName()))&&(photoActualsTab_(sheet)||sheet.getMaxColumns()>=23&&['st-real-inputs-v2','st-real-inputs-v3'].includes(sheet.getRange(1,23).getValues()[0][0])))sheet=book.getSheetByName('Equipment');
   if (!sheet) throw createSimulatorError_('SHEET_TAB_NOT_FOUND','The worksheet was not found. Enter its exact tab name.');
   var lastRow = sheet.getLastRow();
   if (lastRow > 1009) throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows 10–1009). Remove extra content below the equipment table or use a dedicated worksheet.');
-  if (sheet.getMaxColumns() < 23 || sheet.getMaxRows() < 10) throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected metadata in C1:C7 and equipment in A10:W.');
+  if (sheet.getMaxColumns() < 23 || sheet.getMaxRows() < 10) throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected metadata in B1:B7 or legacy C1:C7 and equipment starting at A10.');
   var layout=detectSheetImportLayout_(sheet.getRange(8,7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=String.fromCharCode(64+width);
   if(sheet.getMaxColumns()<width)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected equipment in A10:'+lastColumn+'.');
-  var metadataRange = sheet.getRange(1,3,7,1);
+  var metadataColumn=sheet.getMaxColumns()>=26&&sheet.getRange(1,26).getValues()[0][0]==='st-equipment-metadata-b-v1'?'B':'C';
+  var metadataRange = sheet.getRange(1,metadataColumn==='B'?2:3,7,1);
   var metadata = metadataRange.getValues().map(function(row){return row[0];});
   if(typeof metadata[3]==='number'&&typeof metadataRange.getDisplayValues==='function'){
     var display=String(metadataRange.getDisplayValues()[3]?.[0]||''),unit=display.match(/^[\d\s.,+]+\s*([^\d\s][^\r\n]*)$/);
     if(unit&&/^[\p{L}µμ°%(]/u.test(unit[1]))metadata[3]=metadata[3]+' '+unit[1].trim();
   }
   if (Object.prototype.toString.call(metadata[5]) === '[object Date]') metadata[5] = Utilities.formatDate(metadata[5],book.getSpreadsheetTimeZone(),'yyyy-MM-dd');
-  var containerUnit=sheetContainerUnit_(sheet.getRange(4,1,1,2).getValues()[0]);
+  var containerUnit=sheetContainerUnit_(sheet.getRange(4,1,1,metadataColumn==='B'?1:2).getValues()[0]);
   var count = Math.max(0,lastRow-9), rows = [], formats = [];
   if (count) {var range=sheet.getRange(10,1,count,width);rows=range.getValues();formats=range.getNumberFormats();}
   // The plant template may include shift-time summaries below the equipment table.
   var footer=rows.findIndex(function(row){return !String(row[0]||'').trim()&&!String(row[1]||'').trim()&&row.some(function(value){return /^total\s+time$/i.test(String(value||'').trim());});});
   if(footer>=0){rows=rows.slice(0,footer);formats=formats.slice(0,footer);count=rows.length;}
-  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit});
-  result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),readAt:new Date().toISOString(),equipmentRange:'A10:'+lastColumn+(count?count+9:10)};
-  var actuals=sheet.getName()==='Equipment'?sheets.find(function(tab){return tab.getName()==='Datos reales';}):null;
+  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn});
+  result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A10:'+lastColumn+(count?count+9:10)};
+  var actuals=sheet.getName()==='Equipment'?sheets.find(function(tab){return ['Real Data','Datos reales'].includes(tab.getName());}):null;
   var photoActuals=photoActualsTab_(actuals);
   if(photoActuals||actuals&&actuals.getMaxColumns()>=23&&actuals.getRange(1,23).getValues()[0][0]==='st-real-inputs-v3'){
     result.realData=readDedicatedSheetActuals_(actuals,sheet,count,result,photoActuals);
@@ -161,11 +162,11 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     if(!isFinite(number)||number<0){issue(errors,cell,'Must be a finite number greater than or equal to zero.');return null;}
     return number;
   }
-  var metadata={},metaFields=['site','packagingLine','formatName','containerSize','bottlesPerCase','dateOfAnalysis','by'];
-  metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=i===4?numeric(v,'C5'):missing(v)?null:typeof v==='number'?v:String(v).trim();});
-  var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,'C4',size.error);
-  if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,'C5','Must be greater than zero when provided.');
-  if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,'C5','Bottles per case must be a whole number.');
+  var metaColumn=options?.metadataColumn||'C',metadata={},metaFields=['site','packagingLine','formatName','containerSize','bottlesPerCase','dateOfAnalysis','by'];
+  metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=i===4?numeric(v,metaColumn+'5'):missing(v)?null:typeof v==='number'?v:String(v).trim();});
+  var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,metaColumn+'4',size.error);
+  if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,metaColumn+'5','Must be greater than zero when provided.');
+  if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,metaColumn+'5','Bottles per case must be a whole number.');
   var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
   rows.forEach(function(row,offset){
     var rowNumber=offset+10;
@@ -261,7 +262,7 @@ function photoActualsTab_(sheet){
 }
 // Adapt the dedicated tab to the observation contract used by legacy sheets.
 function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals){
-  var daily=actuals.getRange(5,2,12,5),values=daily.getValues(),numberFormats=daily.getNumberFormats();
+  var tabName=actuals.getName(),daily=actuals.getRange(5,2,12,5),values=daily.getValues(),numberFormats=daily.getNumberFormats();
   var top=Array.from({length:7},function(){return Array(19).fill('');}),formats=top.map(function(row){return row.slice();});
   var links={F1:'B5',F2:'B6',F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F9',N2:'F10',N4:'B16',N5:'B14',N6:'F11',V1:'F14',V2:'F15',V4:'F16'};
   if(photoActuals)links={F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F11',N2:'F12',N5:'B14',V4:'F9'};
@@ -276,7 +277,7 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals
   var rows=ids.map(function(){return [];});
   var machineRows=new Set(preview.equipment.filter(function(e){return e.type!=='CONVEYOR';}).map(function(e){return e.characteristics.sourceSheetRow;}));
   var inputCount=Math.max(0,actuals.getLastRow()-19),errors=[],mapped=new Map();
-  if(inputCount>1000)throw createSimulatorError_('SHEET_TOO_LARGE','Datos reales supports up to 1,000 equipment observations.');
+  if(inputCount>1000)throw createSimulatorError_('SHEET_TOO_LARGE',tabName+' supports up to 1,000 equipment observations.');
   var hasValue=function(value){return value!=null&&String(value).trim()!==''&&!/^(NA|N\/A)$/i.test(String(value).trim());};
   var input=inputCount?actuals.getRange(20,1,inputCount,photoActuals?10:23):null;
   var inputFormats=photoActuals&&input?input.getNumberFormats():[];
@@ -284,7 +285,7 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals
     if(!row.slice(1,photoActuals?3:14).some(hasValue))return;
     var id=String(row[photoActuals?9:22]??''),target=byId.get(id),line=index+20;
     if(target===undefined||!machineRows.has(target+10)||mapped.has(target)||ids.indexOf(id)!==ids.lastIndexOf(id)){
-      errors.push({cell:'Datos reales!A'+line,message:'Equipment ID must match exactly one observation and one Equipment row.'});return;
+      errors.push({cell:tabName+'!A'+line,message:'Equipment ID must match exactly one observation and one Equipment row.'});return;
     }
     mapped.set(target,line);
     if(photoActuals){
@@ -297,16 +298,17 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals
   });
   var result=parseSheetRealData_(top,formats,rows,preview,true);
   result.errors=result.errors.map(function(error){
-    if(links[error.cell])return {...error,cell:'Datos reales!'+links[error.cell]};
+    if(links[error.cell])return {...error,cell:tabName+'!'+links[error.cell]};
     var m=/^([A-Z]+)(\d+)$/.exec(error.cell),line=m&&mapped.get(Number(m[2])-10);
     if(!line)return error;
     var columns=photoActuals?{Z:'B',AP:'C'}:{Z:'C',AA:'D',AC:'B'};
     sheetEquipmentActuals_().forEach(function(spec,index){columns['A'+String.fromCharCode(70+index)]=spec[0];});
-    return columns[m[1]]?{...error,cell:'Datos reales!'+columns[m[1]]+line}:error;
+    return columns[m[1]]?{...error,cell:tabName+'!'+columns[m[1]]+line}:error;
   }).concat(errors);
-  result.fields=result.fields.filter(function(field){return links[field.cell];}).map(function(field){return {...field,cell:'Datos reales!'+links[field.cell]};});
+  result.fields=result.fields.filter(function(field){return links[field.cell];}).map(function(field){return {...field,cell:tabName+'!'+links[field.cell]};});
+  result.sheetName=tabName;
   result.record.equipment.forEach(function(entry){entry.observationRow=mapped.get(entry.sourceRow-10);});
-  if(photoActuals)result.equipmentFields=[{key:'reportedDowntimePercent',label:'% reportado',unit:'%'}];
+  if(photoActuals)result.equipmentFields=[{key:'reportedDowntimePercent',label:'Reported downtime',unit:'%'}];
   result.hasData=result.hasData||errors.length>0;
   return result;
 }
