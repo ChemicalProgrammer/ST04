@@ -199,14 +199,16 @@ function sheetExportTint_(hex,weight){
 }
 
 function sheetColumnHeading_(label){
-  return label.replace(/\s+(\([^()]+\)|\[[^\[\]]+\])$/, '\n$1');
+  return label.replace(/\s+(?:\(([^()]+)\)|\[([^\[\]]+)\])$/, function(match,parenthesized,bracketed){
+    return '\n['+(parenthesized||bracketed)+']';
+  });
 }
 
 function writeSheetCatalog_(sheet,catalog,primary){
   var units=STScenarioEngine_.productVolumeUnits,width=9;
   var rows=[['st-material-sheet-v2','','','','','','','',''],
     ['Catalog','','','Volume','','Dimensions','','','Packing'],
-    ['Type','Name','Linked product','Volume','Volume Unit','Length\n(mm)','Width\n(mm)','Height\n(mm)','Bottles per Case']];
+    ['Type','Name','Linked product','Volume','Volume Unit','Length\n[mm]','Width\n[mm]','Height\n[mm]','Bottles per Case']];
   var products=new Map(catalog.products.map(function(product){return [product.id,product.name];}));
   ['products','formats'].forEach(function(kind){
     catalog[kind].forEach(function(record){

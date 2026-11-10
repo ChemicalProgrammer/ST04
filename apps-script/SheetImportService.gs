@@ -42,7 +42,7 @@ function sheetImportColumns_(layout) {
 function detectSheetImportLayout_(headers){
   var g=headers.map(function(row){return String(row[0]||'');}).join(' ').toLowerCase(),h=headers.map(function(row){return String(row[1]||'');}).join(' ').toLowerCase();
   var speed=/conveyor\s*speed/.test(g),accumulation=/accumulation/.test(h);
-  if(speed&&accumulation&&/m\s*\/\s*min\b/.test(g)&&/(?:\(\s*s\s*\)|\bseconds?\b|\bsec\b)/.test(h))return 'plant-sheet-v2';
+  if(speed&&accumulation&&/m\s*\/\s*min\b/.test(g)&&/(?:\(\s*s\s*\)|\[\s*s\s*\]|\bseconds?\b|\bsec\b)/.test(h))return 'plant-sheet-v2';
   if(speed||accumulation)throw createSimulatorError_('INVALID_SHEET_LAYOUT','The updated layout requires G = Conveyor Speed (m/min) and H = Accumulation (s).');
   return 'plant-sheet-v1';
 }

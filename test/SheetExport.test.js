@@ -62,11 +62,16 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,107,26]);
   assert.deepEqual(calls.filter(call=>call[0]==='insertSheet'),[['insertSheet','Products & Formats',1],['insertSheet','Real Data',2]]);
   const actuals=writes[2].values;assert.equal(actuals[0][9],'st-real-inputs-v5');assert.match(actuals[15][0],/Equipment.*MATCH/);assert.equal(actuals[15][9],values[7][25]);assert.equal(actuals[16][9],values[9][25]);assert.match(actuals[15][5],/E16\/\(D16\+E16\)/);
+  const catalog=writes[1].values;
+  assert.equal(catalog[2][5],'Length\n[mm]');
+  assert.equal(values[6][6],'Conveyor Speed\n[m/min]');
+  assert.equal(values[6][7],'Accumulation\n[s]');
+  for(const heading of [...values[6],...catalog[2],...actuals[14]])assert(!heading.includes('\n('));
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
   assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[8,1,100,1]'));
   assert.equal(actuals[18][9],values[10][25]);assert.match(actuals[18][0],/COUNTIFS/);
   assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v3');assert.equal(values[7][1],"'=HYPERLINK(\"https://example.test\")");
-  assert.equal(values[6][24],'Overspeed vs infeed screw\n(%)');assert.equal(values[8][18],100);
+  assert.equal(values[6][24],'Overspeed vs infeed screw\n[%]');assert.equal(values[8][18],100);
   assert.deepEqual([0,8,12,16,18].map(i=>values[5][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
   for(const group of [[6,9,1,4],[6,13,1,4],[6,17,1,2],[6,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
   assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'Line Time');assert.equal(actuals[1][0],'Total time\n[min]');assert.equal(actuals[1][2],'');assert.equal(actuals[13][3],'MTBF/MTTR Check');assert.equal(actuals[14][1],'Reported downtime\n[min]');assert(actuals[12].every(value=>value===''));
