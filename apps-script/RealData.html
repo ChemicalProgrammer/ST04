@@ -276,7 +276,7 @@ window.STRealData=(function(){
         const attrs=' title="'+esc(text)+'" aria-description="'+esc(text)+'" tabindex="0"';
         return '<tr data-metric="'+esc(r.id)+'"><th scope="row"'+attrs+'>'+esc(displayText(r.metric))+(r.reported!=null&&r.realSource!=='reportado'?'<small class="real-data-reported">Reportado: '+fmt(r.reported)+' '+esc(r.unit)+'</small>':'')+'</th><td>'+esc(r.unit)+'</td>'+[r.real,r.simulated,r.delta].map(v=>'<td class="numeric"'+attrs+'>'+fmt(v)+'</td>').join('')+'</tr>';
       }).join('')+'</tbody></table></div></details>';
-    }).join('')+'<details class="real-data-comparison-group fold-card fold-native" data-comparison-group="equipment-downtime" open><summary>Downtime por equipo</summary><div class="real-data-comparison-scroll">'+downtimeHtml(result.downtime)+'</div></details>';
+    }).join('')+'<details class="real-data-comparison-group fold-card fold-native" data-comparison-group="equipment-downtime" open><summary>Downtime por equipo</summary><div class="real-data-comparison-scroll" role="region" aria-label="Tabla de downtime por equipo" tabindex="0">'+downtimeHtml(result.downtime)+'</div></details>';
   }
   function calibrationHtml(result){
     const columns=result.calibration.columns;
@@ -286,13 +286,24 @@ window.STRealData=(function(){
   }
   function downtimeHtml(d){
     const rows=d.rows;
-    if(!rows.length)return '<p class="empty">Sin minutos de falla registrados para los equipos.</p>';
-    const cells=values=>values.map(value=>'<td class="numeric">'+fmt(value)+'</td>').join('');
+    if(!rows.length)return '<p class="empty">Sin equipos para comparar.</p>';
+    const columns=[
+      ['Paro total real (min)',row=>row.realTotal,'Disponible cuando el paro real del equipo está registrado como ALL (todas las causas).'],
+      ['Paro total simulado (min)',row=>row.simulatedTotal,'Duración de la ronda menos el tiempo en que el equipo produjo, incluso a velocidad reducida.'],
+      ['Fallas reales (min)',row=>row.real],
+      ['Fallas MTBF/MTTR simuladas (min)',row=>row.simulated,'Tiempo registrado en falla propia durante la simulación.'],
+      ...d.categories.map(({id,label})=>[label+' (min)',row=>row.simulatedBreakdown[id],id==='other'?'Tiempo sin producción restante, por ejemplo espera de arranque, paro manual o de emergencia.':undefined]),
+      ['Fallas reales (%)',row=>row.realShare,'Participación del equipo en la suma de minutos de falla real.'],
+      ['Fallas simuladas (%)',row=>row.simulatedShare,'Participación del equipo en la suma de minutos de falla simulada.']
+    ];
+    const cells=row=>columns.map(([,get])=>'<td class="numeric">'+fmt(get(row))+'</td>').join('');
     const totalShare=total=>finite(total)?(total>0?100:0):null;
-    return '<p class="chart-note">Cada porcentaje indica la participación del equipo en el total de minutos de falla de su columna.</p>'+
-      '<table class="real-data-downtime-table"><thead><tr><th scope="col">Equipo</th><th scope="col" class="numeric">Real (min)</th><th scope="col" class="numeric">Simulado (min)</th><th scope="col" class="numeric">Real (%)</th><th scope="col" class="numeric">Simulado (%)</th></tr></thead><tbody>'+
-      rows.map(row=>'<tr><th scope="row">'+esc(row.name)+'</th>'+cells([row.real,row.simulated,row.realShare,row.simulatedShare])+'</tr>').join('')+
-      '</tbody><tfoot><tr><th scope="row">Total de equipos</th>'+cells([d.totalReal,d.totalSim,totalShare(d.totalReal),totalShare(d.totalSim)])+'</tr></tfoot></table>';
+    const totals={...d.totals,real:d.totalReal,simulated:d.totalSim,realShare:totalShare(d.totalReal),simulatedShare:totalShare(d.totalSim)};
+    return '<p class="chart-note">Las causas en minutos son simuladas, salvo las columnas marcadas como reales. Los porcentajes muestran participación en los minutos de falla. La suma de equipos puede incluir paros simultáneos. — indica datos no disponibles.</p>'+
+      '<table class="real-data-downtime-table"><thead><tr><th scope="col">Equipo</th>'+
+      columns.map(([label,,tip])=>'<th scope="col" class="numeric"'+(tip?' tabindex="0" title="'+esc(tip)+'"':'')+'>'+esc(label)+'</th>').join('')+'</tr></thead><tbody>'+
+      rows.map(row=>'<tr><th scope="row">'+esc(row.name)+'</th>'+cells(row)+'</tr>').join('')+
+      '</tbody><tfoot><tr><th scope="row">Total de equipos</th>'+cells(totals)+'</tr></tfoot></table>';
   }
   function showComparisonExplorer(target,selectedGroup){
     const groups=[...target.querySelectorAll('[data-comparison-group]')];

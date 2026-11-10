@@ -132,6 +132,21 @@ window.STRealDataModel=(function(){
     const loss=summary?.lineRateLossSeconds,recovery=summary?.lineRateRecoverySeconds,net=summary?.lineNetRateBalanceSeconds;
     return [loss,recovery,net].every(Number.isFinite)&&loss>=0&&recovery>=0&&Math.abs(loss-recovery-net)<=1e-5;
   }
+  const downtimeCategories=[
+    ['starved','Starving','starvedSeconds'],
+    ['blocked','Blocking','blockedSeconds'],
+    ['backup','Back-up','backupStopSeconds'],
+    ['prime','Espera de Prime','waitingForPrimeSeconds'],
+    ['planned','Paro planificado','plannedStopSeconds'],
+    ['micro','Microparos','microStopSeconds'],
+    ['paused','Pausa','pausedSeconds']
+  ];
+  const equipmentMetricKeys=['failureCount','failureSeconds','runningSeconds',...downtimeCategories.map(([,,key])=>key)];
+  function downtimeDifference(total,components){
+    const sum=sumKnown(components);
+    if(!finite(total)||!finite(sum)||sum>total+1e-5)return null;
+    return Math.max(0,total-sum);
+  }
   function snapshot(result,view,outputId){
     if(!result?.summary||result.provisional||!(result.durationSeconds>0))return null;
     if(result.replicationStatus?.state&&result.replicationStatus.state!=='COMPLETE')return null;
@@ -141,14 +156,24 @@ window.STRealDataModel=(function(){
     const key=k=>average?mean(rows.map(r=>r.summary?.[k])):statsOnly?result.batch.statistics[k]?.mean??null:row.summary?.[k]??null;
     const output=key('outputCount'),duration=result.durationSeconds;
     const outputRunSeconds=outputId?(average?mean(rows.map(r=>r.equipmentMetrics?.[outputId]?.runningSeconds)):statsOnly?result.batch.equipmentStatistics?.[outputId]?.runningSeconds?.mean??null:row.equipmentMetrics?.[outputId]?.runningSeconds??null):null;
-    const metrics=statsOnly?Object.fromEntries(Object.entries(result.batch.equipmentStatistics||{}).map(([id,m])=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds','runningSeconds'].map(k=>[k,m[k]?.mean??null]))])):average?Object.fromEntries([...new Set(rows.flatMap(r=>Object.keys(r.equipmentMetrics||{})))].map(id=>[id,Object.fromEntries(['failureCount','failureSeconds','microStopSeconds','runningSeconds'].map(k=>[k,mean(rows.map(r=>r.equipmentMetrics?.[id]?.[k]))]))])):row.equipmentMetrics||{};
+    const engine=result.engineId||result.replay?.engineId;
+    const noFlow=(seconds,running)=>engine==='DES_SIMPY_EXPERIMENTAL'?null:downtimeDifference(seconds,[running]);
+    const metrics=statsOnly?Object.fromEntries(Object.entries(result.batch.equipmentStatistics||{}).map(([id,m])=>{
+      const entry=Object.fromEntries(equipmentMetricKeys.map(k=>[k,m[k]?.mean??null]));
+      entry.noFlowSeconds=result.effectiveRuntimeStop?null:noFlow(duration,entry.runningSeconds);
+      return [id,entry];
+    })):average?Object.fromEntries([...new Set(rows.flatMap(r=>Object.keys(r.equipmentMetrics||{})))].map(id=>{
+      const entry=Object.fromEntries(equipmentMetricKeys.map(k=>[k,mean(rows.map(r=>r.equipmentMetrics?.[id]?.[k]))]));
+      entry.noFlowSeconds=mean(rows.map(r=>noFlow(r.durationSeconds??duration,r.equipmentMetrics?.[id]?.runningSeconds)));
+      return [id,entry];
+    })):Object.fromEntries(Object.entries(row.equipmentMetrics||{}).map(([id,m])=>[id,{...m,noFlowSeconds:noFlow(row.durationSeconds??duration,m.runningSeconds)}]));
     const products=average?rows.every(r=>r.products)?rows.flatMap(r=>r.products.rows||[]):null:row.products?.rows||null;
     const factors=products?[...new Set(products.map(p=>p.bottlesPerCase).filter(v=>Number.isFinite(v)&&v>0))]:[];
     const statistics=rows.length?{n:rows.length,mean:mean(rows.map(r=>r.summary?.outputCount))}:statsOnly?{...result.batch.statistics.outputCount}:null;
     if(rows.length&&statistics&&statistics.n>1&&statistics.mean!==null){statistics.standardDeviation=Math.sqrt(rows.reduce((v,r)=>v+(r.summary.outputCount-statistics.mean)**2,0)/(rows.length-1));statistics.min=Math.min(...rows.map(r=>r.summary.outputCount));statistics.max=Math.max(...rows.map(r=>r.summary.outputCount));}
     const shiftRows=average?rows:statsOnly?[]:[row];
     const shifts=shiftRows.length&&shiftRows.every(r=>Array.isArray(r.shifts))?Array.from({length:Math.max(0,...shiftRows.map(r=>r.shifts.length))},(_,i)=>({outputCount:mean(shiftRows.map(r=>r.shifts[i]?.outputCount)),durationSeconds:mean(shiftRows.map(r=>r.shifts[i]?.durationSeconds))})):[];
-    return {output,duration,shifts,measuredRunSeconds:key('lineRunSeconds'),measuredEffectiveSeconds:key('lineEffectiveRuntimeSeconds'),measuredRateLossSeconds:key('lineRateLossSeconds'),rateRecoverySeconds:key('lineRateRecoverySeconds'),netRateBalanceSeconds:key('lineNetRateBalanceSeconds'),rateLossMeasured:average?rows.every(r=>hasMeasuredRateLoss(r.summary)):statsOnly?hasMeasuredRateLoss({...result.summary,...Object.fromEntries(Object.entries(result.batch.statistics).map(([k,v])=>[k,v.mean]))}):hasMeasuredRateLoss(row.summary),multiFormat:!!result.products,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine:result.engineId||result.replay?.engineId,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
+    return {output,duration,shifts,measuredRunSeconds:key('lineRunSeconds'),measuredEffectiveSeconds:key('lineEffectiveRuntimeSeconds'),measuredRateLossSeconds:key('lineRateLossSeconds'),rateRecoverySeconds:key('lineRateRecoverySeconds'),netRateBalanceSeconds:key('lineNetRateBalanceSeconds'),rateLossMeasured:average?rows.every(r=>hasMeasuredRateLoss(r.summary)):statsOnly?hasMeasuredRateLoss({...result.summary,...Object.fromEntries(Object.entries(result.batch.statistics).map(([k,v])=>[k,v.mean]))}):hasMeasuredRateLoss(row.summary),multiFormat:!!result.products,nominalRate:key('lineOeePacemakerRatePerSecond'),outputRunSeconds,outputEquipmentId:outputId||null,unit:String(result.unitOfFlow||result.replay?.unitOfFlow||'units').toUpperCase(),oee:key('lineOeePercent'),idealOutput:key('idealBottleOutput'),equipment:metrics,packFactor:factors.length===1?factors[0]:null,view:average?'Average of '+rows.length+' rounds':statsOnly?'Average of '+statistics.n+' saved rounds':row.round?'Round '+row.round:'Saved run',seed:row?.seed??result.batch?.baseSeed??result.seed,statistics,engine,engineVersion:result.replay?.engineVersion||null,completedAt:result.completedAt||null,inputSignature:result.inputSignature||result.replay?.inputSignature||null,qualityAssumption:result.summary.qualityAssumption||null,detailCoverage:result.detailCoverage||null};
   }
   const percent=(n,d)=>Number.isFinite(n)&&Number.isFinite(d)&&d>0?100*n/d:null;
   const sumKnown=values=>values.length&&values.every(Number.isFinite)?values.reduce((a,b)=>a+b,0):null;
@@ -301,11 +326,16 @@ window.STRealDataModel=(function(){
       const seconds=finite(r.failureSeconds)?r.failureSeconds:r.stopClass==='FAILURES'?r.downtimeSeconds:null;
       const mtbf=e.noiseProfile?.reliability?.mtbfMinutes,mttr=e.noiseProfile?.reliability?.mttrMinutes,enabled=e.noiseProfile?.reliability?.enabled!==false;
       const realMtbf=r.failureCount>0&&finite(r.operatingSeconds)?r.operatingSeconds/r.failureCount/60:r.mtbfMinutes,realMttr=r.failureCount>0&&finite(seconds)?seconds/r.failureCount/60:r.mttrMinutes;
-      return {equipmentId:e.id,name:e.name||e.id,real:finite(seconds)?seconds/60:null,simulated:finite(s.failureSeconds)?s.failureSeconds/60:null,delta:finite(seconds)&&finite(s.failureSeconds)?(s.failureSeconds-seconds)/60:null,configuredMtbf:enabled?mtbf??null:null,configuredMttr:enabled?mttr??null:null,unavailabilityPercent:enabled?percent(mttr,finite(mtbf)&&finite(mttr)?mtbf+mttr:null):null,sourceClass:r.stopClass||'UNKNOWN',realMtbf:finite(realMtbf)?realMtbf:null,realMttr:finite(realMttr)?realMttr:null,realUnavailabilityPercent:percent(realMttr,finite(realMtbf)&&finite(realMttr)?realMtbf+realMttr:null)};
+      const categories=Object.fromEntries(downtimeCategories.map(([id,,key])=>[id,finite(s[key])?s[key]/60:null]));
+      const other=downtimeDifference(s.noFlowSeconds,[s.failureSeconds,...downtimeCategories.map(([,,key])=>s[key])]);
+      return {equipmentId:e.id,name:e.name||e.id,realTotal:r.stopClass==='ALL'&&finite(r.downtimeSeconds)?r.downtimeSeconds/60:null,simulatedTotal:finite(s.noFlowSeconds)?s.noFlowSeconds/60:null,simulatedBreakdown:{...categories,other:finite(other)?other/60:null},real:finite(seconds)?seconds/60:null,simulated:finite(s.failureSeconds)?s.failureSeconds/60:null,delta:finite(seconds)&&finite(s.failureSeconds)?(s.failureSeconds-seconds)/60:null,configuredMtbf:enabled?mtbf??null:null,configuredMttr:enabled?mttr??null:null,unavailabilityPercent:enabled?percent(mttr,finite(mtbf)&&finite(mttr)?mtbf+mttr:null):null,sourceClass:r.stopClass||'UNKNOWN',realMtbf:finite(realMtbf)?realMtbf:null,realMttr:finite(realMttr)?realMttr:null,realUnavailabilityPercent:percent(realMttr,finite(realMtbf)&&finite(realMttr)?realMtbf+realMttr:null)};
     });
     const totalReal=sumKnown(equipmentRows.map(e=>e.real)),totalSim=sumKnown(equipmentRows.map(e=>e.simulated));
     for(const e of equipmentRows){e.realShare=finite(totalReal)&&finite(e.real)?totalReal>0?100*e.real/totalReal:0:null;e.simulatedShare=finite(totalSim)&&finite(e.simulated)?totalSim>0?100*e.simulated/totalSim:0:null;}
-    const downtime={rows:equipmentRows,totalReal,totalSim,knownReal:sumKnown(equipmentRows.map(e=>e.real).filter(finite)),knownSim:sumKnown(equipmentRows.map(e=>e.simulated).filter(finite)),delta:finite(totalReal)&&finite(totalSim)?totalSim-totalReal:null,note:'Minutos simulados = tiempo efectivamente registrado en estado de falla propia, generado por MTBF/MTTR. Participación (%) = minutos del equipo / suma de minutos de equipos × 100. Indisponibilidad teórica (%) = MTTR / (MTBF + MTTR) × 100; es otra magnitud y no se usa para inventar minutos de línea. Las fallas simultáneas se suman. Si falta un dato, el total correspondiente queda pendiente. Los transportadores sin fallas propias configuradas se excluyen salvo que exista una falla real registrada. Los registros antiguos con clase UNKNOWN no se reclasifican automáticamente como fallas.'};
+    const categories=[...downtimeCategories.map(([id,label])=>({id,label})),{id:'other',label:'Otros sin producción'}];
+    const totals={realTotal:sumKnown(equipmentRows.map(e=>e.realTotal)),simulatedTotal:sumKnown(equipmentRows.map(e=>e.simulatedTotal)),
+      simulatedBreakdown:Object.fromEntries(categories.map(({id})=>[id,sumKnown(equipmentRows.map(e=>e.simulatedBreakdown[id]))]))};
+    const downtime={rows:equipmentRows,categories,totals,totalReal,totalSim,knownReal:sumKnown(equipmentRows.map(e=>e.real).filter(finite)),knownSim:sumKnown(equipmentRows.map(e=>e.simulated).filter(finite)),delta:finite(totalReal)&&finite(totalSim)?totalSim-totalReal:null,note:'Paro total simulado = duración de la ronda menos el tiempo con producción del equipo. Fallas MTBF/MTTR = minutos en falla propia. Participación (%) = minutos de falla del equipo / suma de minutos de falla de equipos × 100. Los paros simultáneos se suman entre equipos. Los totales requieren datos de todos los equipos incluidos. El paro total real requiere clase ALL. Los transportadores sin fallas propias configuradas se excluyen salvo que exista una falla real registrada. Los registros con clase UNKNOWN conservan su clasificación.'};
     if(equipmentRows.some(e=>e.real==null&&real.equipment.some(r=>r.equipmentId===e.equipmentId&&r.downtimeSeconds!=null)))warnings.push('Hay downtime anterior con clase de paro sin confirmar: clasifícalo como FAILURES para compararlo con MTBF/MTTR.');
     if(sim?.rateRecoverySeconds>1e-6)warnings.push('Existe recuperación por encima de la referencia. El rate loss bruto y el neto se mantienen separados.');
     const calculatedIndicators={au:realPct(actualPlant),updt:percent(actualDowntime,finite(actualAvailable)?actualAvailable*60:null)};

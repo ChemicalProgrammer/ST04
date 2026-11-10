@@ -33,3 +33,21 @@ test('theoretical reliability uses saved simulation inputs when configuration ha
   assert.equal(d.rows[0].configuredMtbf,200);assert.equal(d.rows[0].unavailabilityPercent,100*5/205);assert.equal(d.rows[0].simulated,20);assert.equal(JSON.stringify(f.simulation),before);
  }finally{w.close();}
 });
+
+test('total no-flow downtime separates own failures and other causes without counting overlapping stop counters',()=>{
+ const w=setup();try{
+  const f=fixture(),id='f',metrics=f.result.equipmentMetrics;
+  f.record.equipment[0].stopClass='ALL';f.record.equipment[0].downtimeSeconds=3000;
+  const first={...metrics[id],runningSeconds:81000,starvedSeconds:600,blockedSeconds:300,backupStopSeconds:900,waitingForPrimeSeconds:600,plannedStopSeconds:600,microStopSeconds:300,pausedSeconds:600,stoppedSeconds:2700};
+  const second={...first,runningSeconds:81900,starvedSeconds:300,backupStopSeconds:0,pausedSeconds:300};
+  f.result.batch={rows:[{round:1,summary:f.result.summary,equipmentMetrics:{...metrics,[id]:first}},{round:2,durationSeconds:85800,summary:f.result.summary,equipmentMetrics:{...metrics,[id]:second}}]};
+  const average=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime.rows[0];
+  assert.equal(average.realTotal,50);assert.equal(average.real,15);assert.equal(average.simulated,20);
+  assert.equal(average.simulatedTotal,77.5);assert.equal(average.simulatedBreakdown.starved,7.5);assert.equal(average.simulatedBreakdown.other,5);
+  const selected=w.STRealData.compare(f.record,f.simulation,f.result,'2',{}).downtime.rows[0];
+  assert.equal(selected.simulatedTotal,65);assert.equal(selected.simulatedBreakdown.starved,5);assert.equal(selected.simulatedBreakdown.other,5);
+  delete first.plannedStopSeconds;
+  const legacy=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime.rows[0];
+  assert.equal(legacy.simulatedTotal,77.5);assert.equal(legacy.simulatedBreakdown.planned,null);assert.equal(legacy.simulatedBreakdown.other,null);
+ }finally{w.close();}
+});

@@ -21,7 +21,7 @@ test('failure inputs persist separately from general downtime and existing UNKNO
  w.document.querySelector('[data-comparison-select="equipment-downtime"]').click();
  const comparison=w.document.querySelector('[data-comparison-group="equipment-downtime"]');
  assert.equal(comparison.hidden,false);
- assert.deepEqual([...comparison.querySelectorAll('thead th')].map(cell=>cell.textContent),['Equipo','Real (min)','Simulado (min)','Real (%)','Simulado (%)']);
+ assert.deepEqual([...comparison.querySelectorAll('thead th')].map(cell=>cell.textContent),['Equipo','Paro total real (min)','Paro total simulado (min)','Fallas reales (min)','Fallas MTBF/MTTR simuladas (min)','Starving (min)','Blocking (min)','Back-up (min)','Espera de Prime (min)','Paro planificado (min)','Microparos (min)','Pausa (min)','Otros sin producción (min)','Fallas reales (%)','Fallas simuladas (%)']);
  assert(comparison.textContent.includes('Total de equipos'));
  }finally{w.close();}
 });
