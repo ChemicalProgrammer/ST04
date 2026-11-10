@@ -36,7 +36,7 @@ window.STSheetImport=function(state,actions){
       var select=document.createElement('select');select.dataset.observationRow=e.sourceRow;
       [['','Select equipment'],['skip','Skip observation'],['new','Use equipment added from this row']].concat(snapshot.equipment.map(function(u){return [u.id,u.name+' ('+u.id+')'];})).forEach(function(o){select.add(new Option(o[1],o[0]));});
       select.value=observationDraft.targets[e.sourceRow]||'';select.onchange=function(){observationDraft.targets[e.sourceRow]=select.value;el('sheet-import-ack').checked=false;refresh();};label.append(select);section.append(label);
-      var breakdown=(data.equipmentFields||[]).filter(function(field){return Number.isFinite(e[field.key]);}).map(function(field){return field.label+': '+e[field.key]/60+' min';});
+      var breakdown=(data.equipmentFields||[]).filter(function(field){return Number.isFinite(e[field.key]);}).map(function(field){return field.label+': '+(field.unit==='%'?e[field.key]+'%':e[field.key]/60+' min');});
       if(breakdown.length)section.append(node('p',breakdown.join(' · ')));
       if(e.notes)section.append(node('p','AD'+e.sourceRow+' · '+e.notes));
     });

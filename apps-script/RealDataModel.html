@@ -102,6 +102,7 @@ window.STRealDataModel=(function(){
       if(!Object.hasOwn(e,'reportedDowntimeSeconds')&&['UNKNOWN','MINOR'].includes(out.stopClass))out.reportedDowntimeSeconds=out.downtimeSeconds;
       if(out.failureSeconds==null&&out.stopClass==='FAILURES')out.failureSeconds=out.downtimeSeconds;
       if(out.downtimeSeconds!=null&&out.exposureSeconds!=null&&out.downtimeSeconds>out.exposureSeconds)throw Error('Equipment downtime exceeds exposure.');
+      if(e.reportedDowntimePercent!=null){out.reportedDowntimePercent=numeric(e.reportedDowntimePercent,'reportedDowntimePercent',false);if(out.reportedDowntimePercent>100)throw Error('Reported equipment downtime cannot exceed 100%.');}
       if(out.failureCount!==null&&!Number.isInteger(out.failureCount))throw Error('Stop count must be an integer.');return out;
     });
     if(new Set(result.equipment.map(e=>e.equipmentId)).size!==result.equipment.length)throw Error('Equipment IDs must be unique within an observation. Use another record for another period.');

@@ -13,25 +13,26 @@ function exportEquipmentSheet_(request, user) {
   var folder=getWorkspaceFolders_().exports;
   var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
   var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
-  var width=26,book,file,stage='CREATE_SPREADSHEET';
+  var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50)),book,file,stage='CREATE_SPREADSHEET';
   try {
-    book=SpreadsheetApp.create(name,Math.max(100,data.rows.length+9),width);
+    book=SpreadsheetApp.create(name,slots+9,width);
     stage='MOVE_TO_EXPORTS';
     file=DriveApp.getFileById(book.getId());
     file.moveTo(folder);
     stage='WRITE_VALUES';
     var sheet=book.getSheets()[0];sheet.setName('Equipment');
     var actuals=book.insertSheet('Datos reales',1);
-    var values=Array.from({length:data.rows.length+9},function(){return Array(width).fill('');});
+    var values=Array.from({length:slots+9},function(){return Array(width).fill('');});
     var labels=['Site','Packaging line','Format','Container size','Bottles per case','Date of analysis','By'];
     labels.forEach(function(label,index){values[index][0]=label;values[index][2]=sheetExportLiteral_(data.metadata[index]);});
     var groups=[['Equipment',1,8],['Geometry',9,4],['Upstream',13,4],['Downstream',17,2],['Speed & Sensors',19,7]];
     groups.forEach(function(group){values[7][group[1]-1]=group[0];});
     values[8]=sheetImportColumns_(data.layout).map(function(column){return column[2];}).concat(['Equipment ID']);
     data.rows.forEach(function(row,index){values[index+9]=row.map(sheetExportLiteral_).concat([sheetExportLiteral_(equipment[index].id)]);});
+    for(var i=equipment.length;i<slots;i++)values[i+9][25]='slot-'+book.getId()+'-'+(i+1);
     sheet.getRange(1,1,values.length,width).setValues(values).setFontFamily('Arial').setFontSize(10).setVerticalAlignment('middle');
     stage='WRITE_REAL_DATA';
-    writeSheetActuals_(actuals,equipment,primary,secondary);
+    writeSheetActuals_(actuals,values.slice(9),primary,secondary);
     book.setActiveSheet(sheet);
     stage='FORMAT_SHEET';
     sheet.getRange(1,1,7,2).mergeAcross().setFontWeight('bold').setFontColor(secondary);
@@ -40,6 +41,8 @@ function exportEquipmentSheet_(request, user) {
       sheet.getRange(8,group[1],1,group[2]).merge().setBackground(secondary).setFontColor(sheetExportInk_(secondary)).setFontWeight('bold').setHorizontalAlignment('center');
     });
     sheet.hideColumns(26);
+    var types=SpreadsheetApp.newDataValidation().requireValueInList(supportedEquipmentTypes_(),true).setAllowInvalid(false).build();
+    sheet.getRange(10,1,slots,1).setDataValidation(types);
     sheet.getRange(9,1,1,width).setBackground(primary).setFontColor(sheetExportInk_(primary)).setFontWeight('bold').setWrap(true);
     var body=sheet.getRange(10,1,data.rows.length,25);
     body.setBackground('#ffffff');
@@ -50,12 +53,12 @@ function exportEquipmentSheet_(request, user) {
     stage='SIZE_COLUMNS';
     sheet.setColumnWidths(1,width,130);sheet.setColumnWidth(2,220);sheet.setColumnWidth(3,170);
     sheet.setRowHeights(1,7,42);sheet.setRowHeight(8,28);sheet.setRowHeight(9,64);sheet.setRowHeights(10,data.rows.length,28);
-    stage='CREATE_FILTER';body.setWrap(true);sheet.getRange(9,1,data.rows.length+1,width).createFilter();
+    stage='CREATE_FILTER';body.setWrap(true);sheet.getRange(9,1,slots+1,width).createFilter();
     stage='FLUSH';
     SpreadsheetApp.flush();
     return {spreadsheetId:book.getId(),url:book.getUrl(),sheetName:sheet.getName(),equipmentCount:data.rows.length};
   } catch (error) {
-    var details=['Exporter: equipment-and-actuals-v3','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
+    var details=['Exporter: equipment-and-actuals-v4','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
     // Only the new export belongs to this operation; clean up an incomplete export.
     if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){details.push('The incomplete export could not be removed.');}
     if(error?.simulatorError)throw error;
@@ -64,44 +67,53 @@ function exportEquipmentSheet_(request, user) {
   }
 }
 
-function writeSheetActuals_(sheet,equipment,primary,secondary) {
-  var machines=equipment.filter(function(e){return e.type!=='CONVEYOR'&&e.processData?.role!=='CONVEYOR';});
-  var count=Math.max(1,machines.length),height=count+19;
+function writeSheetActuals_(sheet,equipmentRows,primary,secondary) {
+  var count=equipmentRows.length,height=count+19,width=10;
   if(sheet.getMaxRows()<height)sheet.insertRowsAfter(sheet.getMaxRows(),height-sheet.getMaxRows());
-  var rows=Array.from({length:height},function(){return Array(23).fill('');});
-  rows[0][0]='Datos reales · Balance y coherencia de paros';rows[0][22]='st-real-inputs-v3';
-  ['Inicio del periodo (ISO)','Fin del periodo (ISO)','Tiempo total [min]','Tiempo externo [min]','Tiempo disponible de planta [min]','Paro planificado de planta [min]','Tiempo disponible para producción [min]','Paro no planificado de línea [min]','Run Time reportado [min]','Rate Loss de línea [min]','Balance de tiempo [min]','Effective Runtime reportado [min]'].forEach(function(label,i){rows[i+4][0]=label;});
-  ['Turno 1 [cajas]','Turno 2 [cajas]','Turno 3 [cajas]','Producción [cajas]','AU [%]','UPDT [%]','Velocidad estándar [botellas/min]','Tolerancia de desvío [%]','Resultado de equipos','Nombre del registro','Fuente','Producción [botellas]'].forEach(function(label,i){rows[i+4][4]=label;});
+  var rows=Array.from({length:height},function(){return Array(width).fill('');});
+  rows[0][0]='Datos reales';rows[0][9]='st-real-inputs-v4';
+  rows[3][0]='Tiempos de línea';rows[3][4]='Producción';
+  rows[9][4]='Indicadores';
+  ['Tiempo total [min]','Tiempo externo [min]','Tiempo disponible de planta [min]','Paro planificado de planta [min]','Tiempo disponible para producción [min]','Paro no planificado de línea [min]','Run Time reportado [min]','Rate Loss de línea [min]','Balance de tiempo [min]'].forEach(function(label,i){rows[i+6][0]=label;});
+  ['Turno 1 [cajas]','Turno 2 [cajas]','Turno 3 [cajas]','Producción [cajas]','Producción [botellas]'].forEach(function(label,i){rows[i+4][4]=label;});
+  rows[10][4]='AU [%]';rows[11][4]='UPDT [%]';rows[12][4]='Tolerancia [%]';rows[12][5]=.25;rows[13][4]='Resultado de equipos';
+  rows[13][5]='=IF(COUNTIF(I20:I'+height+',"REVISAR DESVÍO")+COUNTIF(I20:I'+height+',"REVISAR MINUTOS")>0,"REVISAR",IF(COUNTIF(I20:I'+height+',"DENTRO DE MARGEN")=0,"PENDIENTE",IF(COUNTIF(I20:I'+height+',"PENDIENTE")>0,"VALIDACIÓN PARCIAL","DENTRO DE MARGEN")))';
   rows[8][1]='=IF(COUNT(B7:B8)=2,B7-B8,"")';
   rows[10][1]='=IF(COUNT(B9:B10)=2,B9-B10,"")';
   rows[14][1]='=IF(COUNT(B11:B13)=3,B11-B12-B13,"")';
-  rows[11][5]=.25;
-  rows[12][5]='=IF(COUNTIF(V20:V'+height+',"REVISAR*")>0,"REVISAR",IF(COUNTIF(V20:V'+height+',"DENTRO DE MARGEN")=0,"PENDIENTE",IF(COUNTIF(V20:V'+height+',"PENDIENTE")>0,"VALIDACIÓN PARCIAL","DENTRO DE MARGEN")))';
-  rows[18]=['Equipo','Periodo del equipo [min]','Fallas MTBF/MTTR [min]','Número de fallas',...sheetEquipmentActuals_().map(function(spec){return spec[2]+' [min]';}),'','MTBF [min]','MTTR [min]','Base aplicada [min]','Paro esperado [min]','Esperado − real [min]','Desvío [%]','Coherencia','Equipment ID'];
-  machines.forEach(function(e,i){
-    var line=i+20,row=rows[i+19],key='MATCH(W'+line+',Equipment!$Z$10:$Z$'+(9+equipment.length)+',0)';
-    row[0]=sheetExportLiteral_(e.name);row[22]=sheetExportLiteral_(e.id);
-    ['D','E'].forEach(function(col,j){
-      var ref='INDEX(Equipment!$'+col+'$10:$'+col+'$'+(9+equipment.length)+','+key+')';
-      row[15+j]='=IFERROR(IF(AND(ISNUMBER('+ref+'),'+ref+'>0),'+ref+',"") ,"")';
+  rows[17][0]='Paros por equipo';rows[17][3]='Coherencia MTBF/MTTR';
+  rows[18]=['Equipo','Paro reportado [min]','% reportado','MTBF [min]','MTTR [min]','Paro esperado [min]','Esperado − real [min]','Desvío [%]','Coherencia','Equipment ID'];
+  // Bind editable actuals to stable slots so sorting Equipment cannot reassign captured values.
+  equipmentRows.filter(function(row){return row[0]&&row[0]!=='CONVEYOR';})
+    .concat(equipmentRows.filter(function(row){return row[0]==='CONVEYOR'||!row[0];}))
+    .forEach(function(e,i){
+      var line=i+20,row=rows[i+19],last=9+count,key='MATCH(J'+line+',Equipment!$Z$10:$Z$'+last+',0)';
+      var lookup=function(column){return 'INDEX(Equipment!$'+column+'$10:$'+column+'$'+last+','+key+')';};
+      row[9]=e[25];
+      var present='COUNTIFS(Equipment!$Z$10:$Z$'+last+',J'+line+',Equipment!$A$10:$A$'+last+',"<>",Equipment!$B$10:$B$'+last+',"<>")=1';
+      row[0]='=IFERROR(IF(AND('+present+','+lookup('A')+'<>"CONVEYOR"),'+lookup('B')+',"") ,"")';
+      ['D','E'].forEach(function(column,j){
+        var value=lookup(column);
+        row[3+j]='=IFERROR(IF(AND(LEN(A'+line+')>0,ISNUMBER('+value+'),'+value+'>0),'+value+',"") ,"")';
+      });
+      row[5]='=IF(AND(COUNT(D'+line+':E'+line+')=2,ISNUMBER($B$11),$B$11>0),$B$11*E'+line+'/(D'+line+'+E'+line+'),"")';
+      row[6]='=IF(COUNT(B'+line+',F'+line+')=2,F'+line+'-B'+line+',"")';
+      row[7]='=IF(AND(ISNUMBER(G'+line+'),B'+line+'>0),G'+line+'/B'+line+',"")';
+      row[8]='=IF(LEN(A'+line+')=0,"",IF(OR(COUNT(B'+line+',F'+line+')<2,NOT(ISNUMBER($F$13)),$F$13<0),"PENDIENTE",IF(OR(B'+line+'<0,B'+line+'>$B$11),"REVISAR MINUTOS",IF(AND(ISNUMBER(H'+line+'),ABS(H'+line+')<=$F$13),"DENTRO DE MARGEN","REVISAR DESVÍO"))))';
     });
-    row[17]='=IF(ISNUMBER(B'+line+'),B'+line+',IF(ISNUMBER($B$11),$B$11,""))';
-    row[18]='=IF(AND(COUNT(P'+line+':R'+line+')=3,R'+line+'>0),R'+line+'*Q'+line+'/(P'+line+'+Q'+line+'),"")';
-    row[19]='=IF(COUNT(C'+line+',S'+line+')=2,S'+line+'-C'+line+',"")';
-    row[20]='=IF(AND(ISNUMBER(T'+line+'),C'+line+'>0),T'+line+'/C'+line+',"")';
-    row[21]='=IF(OR(COUNT(C'+line+',S'+line+')<2,NOT(ISNUMBER($F$12)),$F$12<0),"PENDIENTE",IF(OR(C'+line+'<0,C'+line+'>R'+line+'),"REVISAR MINUTOS",IF(AND(ISNUMBER(U'+line+'),ABS(U'+line+')<=$F$12),"DENTRO DE MARGEN","REVISAR DESVÍO")))';
+  sheet.getRange(1,1,height,width).setValues(rows).setFontFamily('Arial').setFontSize(10).setVerticalAlignment('middle');
+  sheet.getRange(1,1,1,9).merge().setFontWeight('bold').setFontSize(16).setFontColor(secondary);
+  [[4,1,2],[4,5,2],[10,5,2],[18,1,3],[18,4,6]].forEach(function(group){
+    sheet.getRange(group[0],group[1],1,group[2]).merge().setFontWeight('bold').setBackground(secondary).setFontColor(sheetExportInk_(secondary));
   });
-  sheet.getRange(1,1,height,23).setValues(rows).setFontFamily('Arial').setFontSize(10).setVerticalAlignment('middle');
-  sheet.getRange(1,1,1,9).merge().setWrap(true);
-  sheet.getRange(1,1,1,9).setFontWeight('bold').setFontSize(16).setFontColor(secondary);
-  sheet.getRange(19,1,1,22).setFontWeight('bold').setBackground(primary).setFontColor(sheetExportInk_(primary)).setWrap(true);
-  [sheet.getRange(5,2,4,1),sheet.getRange(10,2),sheet.getRange(12,2,3,1),sheet.getRange(5,6,8,1),sheet.getRange(14,6,3,1),sheet.getRange(16,2),sheet.getRange(20,2,count,13)].forEach(function(range){range.setBackground('#fff2cc');});
-  sheet.getRange(5,2,2,1).setNumberFormat('@');
-  sheet.getRange(9,6,2,1).setNumberFormat('0.00%');sheet.getRange(12,6).setNumberFormat('0.0%');
-  sheet.getRange(20,16,count,5).setNumberFormat('0.00');sheet.getRange(20,21,count,1).setNumberFormat('0.0%');
-  sheet.getRange(20,16,count,7).setBackground('#eef3f6');
-  sheet.setColumnWidths(1,23,135);sheet.setColumnWidth(1,270);sheet.setColumnWidth(5,185);sheet.setColumnWidth(15,24);sheet.setColumnWidth(22,175);
-  sheet.setRowHeight(1,29);sheet.setRowHeight(19,48);sheet.setFrozenRows(19);sheet.hideColumns(23);
+  sheet.getRange(19,1,1,9).setFontWeight('bold').setBackground(primary).setFontColor(sheetExportInk_(primary)).setWrap(true);
+  [sheet.getRange(7,2,2,1),sheet.getRange(10,2),sheet.getRange(12,2,3,1),sheet.getRange(5,6,5,1),sheet.getRange(11,6,3,1),sheet.getRange(20,2,count,2)].forEach(function(range){range.setBackground('#fff2cc');});
+  sheet.getRange(11,6,3,1).setNumberFormat('0.00%');
+  sheet.getRange(20,3,count,1).setNumberFormat('0.00%');
+  sheet.getRange(20,4,count,4).setNumberFormat('0.00');sheet.getRange(20,8,count,1).setNumberFormat('0.0%');
+  sheet.getRange(20,4,count,6).setBackground('#eef3f6');
+  sheet.setColumnWidths(1,width,135);sheet.setColumnWidth(1,270);sheet.setColumnWidth(5,220);sheet.setColumnWidth(9,175);
+  sheet.setRowHeight(1,29);sheet.setRowHeight(19,48);sheet.setFrozenRows(19);sheet.hideColumns(10);
 }
 
 function equipmentSheetData_(equipment, metadata) {

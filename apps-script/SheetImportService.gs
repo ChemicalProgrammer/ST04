@@ -67,7 +67,7 @@ function previewSheetImport_(request, user) {
   var name = typeof request.sheetName === 'string' ? request.sheetName.trim() : '';
   var sheets = book.getSheets();
   var sheet = name ? book.getSheetByName(name) : reference.gid !== null ? sheets.filter(function(s){return String(s.getSheetId()) === reference.gid;})[0] : sheets[0];
-  if(sheet?.getName()==='Datos reales'&&sheet.getMaxColumns()>=23&&['st-real-inputs-v2','st-real-inputs-v3'].includes(sheet.getRange(1,23).getValues()[0][0]))sheet=book.getSheetByName('Equipment');
+  if(sheet?.getName()==='Datos reales'&&(photoActualsTab_(sheet)||sheet.getMaxColumns()>=23&&['st-real-inputs-v2','st-real-inputs-v3'].includes(sheet.getRange(1,23).getValues()[0][0])))sheet=book.getSheetByName('Equipment');
   if (!sheet) throw createSimulatorError_('SHEET_TAB_NOT_FOUND','The worksheet was not found. Enter its exact tab name.');
   var lastRow = sheet.getLastRow();
   if (lastRow > 1009) throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows 10–1009). Remove extra content below the equipment table or use a dedicated worksheet.');
@@ -90,8 +90,9 @@ function previewSheetImport_(request, user) {
   var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),readAt:new Date().toISOString(),equipmentRange:'A10:'+lastColumn+(count?count+9:10)};
   var actuals=sheet.getName()==='Equipment'?sheets.find(function(tab){return tab.getName()==='Datos reales';}):null;
-  if(actuals&&actuals.getMaxColumns()>=23&&actuals.getRange(1,23).getValues()[0][0]==='st-real-inputs-v3'){
-    result.realData=readDedicatedSheetActuals_(actuals,sheet,count,result);
+  var photoActuals=photoActualsTab_(actuals);
+  if(photoActuals||actuals&&actuals.getMaxColumns()>=23&&actuals.getRange(1,23).getValues()[0][0]==='st-real-inputs-v3'){
+    result.realData=readDedicatedSheetActuals_(actuals,sheet,count,result,photoActuals);
     return result;
   }
   if (sheet.getMaxColumns() >= 31 && sheet.getRange(1,18).getValues()[0][0] === 'st-real-sheet-v1') {
@@ -255,11 +256,15 @@ function sheetEquipmentActuals_(){
     ['M','otherStopSeconds','Otros sin producción'],['N','reportedDowntimeSeconds','Paro sin clasificar']
   ];
 }
+function photoActualsTab_(sheet){
+  return !!sheet&&sheet.getMaxColumns()>=10&&sheet.getRange(1,10).getValues()[0][0]==='st-real-inputs-v4';
+}
 // Adapt the dedicated tab to the observation contract used by legacy sheets.
-function readDedicatedSheetActuals_(actuals,equipment,count,preview){
+function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals){
   var daily=actuals.getRange(5,2,12,5),values=daily.getValues(),numberFormats=daily.getNumberFormats();
   var top=Array.from({length:7},function(){return Array(19).fill('');}),formats=top.map(function(row){return row.slice();});
   var links={F1:'B5',F2:'B6',F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F9',N2:'F10',N4:'B16',N5:'B14',N6:'F11',V1:'F14',V2:'F15',V4:'F16'};
+  if(photoActuals)links={F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F11',N2:'F12',N5:'B14',V4:'F9'};
   Object.keys(links).forEach(function(cell){
     var source=links[cell],r=Number(source.slice(1))-5,c=source.charCodeAt(0)-66;
     var row=Number(cell.slice(1))-1,col=cell.charCodeAt(0)-69;
@@ -272,14 +277,22 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview){
   var machineRows=new Set(preview.equipment.filter(function(e){return e.type!=='CONVEYOR';}).map(function(e){return e.characteristics.sourceSheetRow;}));
   var inputCount=Math.max(0,actuals.getLastRow()-19),errors=[],mapped=new Map();
   if(inputCount>1000)throw createSimulatorError_('SHEET_TOO_LARGE','Datos reales supports up to 1,000 equipment observations.');
-  if(inputCount)actuals.getRange(20,1,inputCount,23).getValues().forEach(function(row,index){
-    var hasValue=function(value){return value!=null&&String(value).trim()!==''&&!/^(NA|N\/A)$/i.test(String(value).trim());};
-    if(!row.slice(1,14).some(hasValue))return;
-    var id=String(row[22]??''),target=byId.get(id),line=index+20;
+  var hasValue=function(value){return value!=null&&String(value).trim()!==''&&!/^(NA|N\/A)$/i.test(String(value).trim());};
+  var input=inputCount?actuals.getRange(20,1,inputCount,photoActuals?10:23):null;
+  var inputFormats=photoActuals&&input?input.getNumberFormats():[];
+  if(input)input.getValues().forEach(function(row,index){
+    if(!row.slice(1,photoActuals?3:14).some(hasValue))return;
+    var id=String(row[photoActuals?9:22]??''),target=byId.get(id),line=index+20;
     if(target===undefined||!machineRows.has(target+10)||mapped.has(target)||ids.indexOf(id)!==ids.lastIndexOf(id)){
       errors.push({cell:'Datos reales!A'+line,message:'Equipment ID must match exactly one observation and one Equipment row.'});return;
     }
     mapped.set(target,line);
+    if(photoActuals){
+      var percentage=row[2];
+      if(typeof percentage==='number'&&/%/.test(inputFormats[index]?.[2]||''))percentage*=100;
+      rows[target]=[row[1],'','UNKNOWN','','',id,...Array(10).fill(''),percentage];
+      return;
+    }
     rows[target]=[row[2],row[3],hasValue(row[2])||hasValue(row[3])?'FAILURES':'UNKNOWN',row[1],'',id,...row.slice(4,14)];
   });
   var result=parseSheetRealData_(top,formats,rows,preview,true);
@@ -287,12 +300,13 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview){
     if(links[error.cell])return {...error,cell:'Datos reales!'+links[error.cell]};
     var m=/^([A-Z]+)(\d+)$/.exec(error.cell),line=m&&mapped.get(Number(m[2])-10);
     if(!line)return error;
-    var columns={Z:'C',AA:'D',AC:'B'};
+    var columns=photoActuals?{Z:'B',AP:'C'}:{Z:'C',AA:'D',AC:'B'};
     sheetEquipmentActuals_().forEach(function(spec,index){columns['A'+String.fromCharCode(70+index)]=spec[0];});
     return columns[m[1]]?{...error,cell:'Datos reales!'+columns[m[1]]+line}:error;
   }).concat(errors);
   result.fields=result.fields.filter(function(field){return links[field.cell];}).map(function(field){return {...field,cell:'Datos reales!'+links[field.cell]};});
   result.record.equipment.forEach(function(entry){entry.observationRow=mapped.get(entry.sourceRow-10);});
+  if(photoActuals)result.equipmentFields=[{key:'reportedDowntimePercent',label:'% reportado',unit:'%'}];
   result.hasData=result.hasData||errors.length>0;
   return result;
 }
@@ -351,6 +365,10 @@ function parseSheetRealData_(top,formats,rows,preview,extended){
       var minutes=number(row[index+6],'A'+String.fromCharCode(70+index)+line,false);
       if(minutes!=null)e[spec[1]]=minutes*60;
     });
+    if(extended&&row.length>16){
+      var reported=number(row[16],'AP'+line,true);
+      if(reported!=null)e.reportedDowntimePercent=reported;
+    }
     raw.equipment.push(e);
   });
   ['V1','V2','V3'].forEach(function(cell){fields.push({cell:cell,label:cell==='V1'?'Observation name':cell==='V2'?'Source / reference':'Notes',value:text(value(cell)),unit:''});});
