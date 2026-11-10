@@ -43,13 +43,11 @@ window.STRunOptions=(function(){
     if(el('run-effective-target'))el('run-effective-target').value=run.effectiveRuntimeTargetSeconds!==undefined?run.effectiveRuntimeTargetSeconds/60:run.durationOptions?.effectiveTargetMinutes??978;
     el('run-reliability-enabled').checked=run.reliabilityEnabled!==false;var c=run.durationOptions||{};if(c.method&&c.method!==run.durationMode)c={amount:run.durationSeconds,unit:'SECONDS'};el('run-duration-unit').value=c.unit||'SECONDS';el('run-duration').value=c.amount??run.durationSeconds??300;el('run-start-at').value=c.start||'';el('run-end-at').value=c.end||'';el('run-time-zone').value=c.timeZone||'America/Mexico_City';el('run-track-shifts').checked=run.trackShifts??run.durationMode==='SHIFTS';el('run-calculation-mode').value=run.calculationPreference||run.calculationMode||'AUTO';el('run-chart-window').value=run.chartWindow||'AUTO';el('run-events-enabled').checked=run.eventsEnabled??Boolean(run.commands?.length||run.plannedStops?.length||run.plantCalendar?.enabled&&run.plantCalendar.mode==='SCHEDULED');sync(false);
   }
-  // Carga una duración en segundos. Conserva el método por objetivo cuando se solicita.
-  function setSeconds(seconds,preserveEffectiveTarget){if(!preserveEffectiveTarget||el('duration-mode').value!=='EFFECTIVE_RUNTIME')el('duration-mode').value='FIXED';el('run-duration-unit').value='SECONDS';el('run-duration').value=seconds;el('run-duration').step='any';sync(false);}
   // Resuelve el ancho de la gráfica en segundos a partir del tiempo visible y la duración del turno.
   function windowSeconds(end,shift){var value=el('run-chart-window').value;if(value==='FULL')return Infinity;if(value==='SHIFT')return shift||28800;if(value!=='AUTO')return Number(value);return end<=300?60:end<=3600?900:end<=86400?3600:end<=604800?86400:Math.min(end,604800);}
   // Devuelve el texto de la ventana seleccionada para la leyenda de la gráfica.
   function windowLabel(){var s=el('run-chart-window'),text=s.options[s.selectedIndex]?.textContent||'Auto';return 'Actual · '+text;}
-  return {read:read,apply:apply,sync:sync,resolve:resolve,zonedTimestamp:zonedTimestamp,setSeconds:setSeconds,windowSeconds:windowSeconds,windowLabel:windowLabel};
+  return {read:read,apply:apply,sync:sync,resolve:resolve,zonedTimestamp:zonedTimestamp,durationSeconds:function(){return resolve(config());},windowSeconds:windowSeconds,windowLabel:windowLabel};
 })();
 </script>
 

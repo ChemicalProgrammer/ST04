@@ -1,14 +1,17 @@
 <script>
 window.STPlantCalendar=(function(){
   var applyEvents;
-  var fields=[['totalMinutes','Total time'],['externalMinutes','Business external time'],['changeoverMinutes','Changeover'],['coReportingErrorMinutes','CO reporting error'],['cleaningMinutes','Cleaning and sanitization'],['autonomousMaintenanceMinutes','Autonomous maintenance'],['plannedMaintenanceMinutes','Planned maintenance'],['breakMinutes','Lunch and break'],['trainingMinutes','Meeting and training'],['experimentationMinutes','Plant experimentation']];
+  var fields=[['externalMinutes','Business external time'],['changeoverMinutes','Changeover'],['coReportingErrorMinutes','CO reporting error'],['cleaningMinutes','Cleaning and sanitization'],['autonomousMaintenanceMinutes','Autonomous maintenance'],['plannedMaintenanceMinutes','Planned maintenance'],['breakMinutes','Lunch and break'],['trainingMinutes','Meeting and training'],['experimentationMinutes','Plant experimentation']];
   function calculate(data){
     data=data||{};var errors=[];
     fields.forEach(function(f){var v=data[f[0]];if(v!==undefined&&v!==null&&v!==''&&(!Number.isFinite(v)||v<0))errors.push(f[1]+' must be a nonnegative number.');});
-    var total=data.totalMinutes,external=data.externalMinutes||0,decision=fields.slice(2).reduce(function(sum,f){return sum+(data[f[0]]||0);},0),available=total-external,production=available-decision;
-    if(!(total>0))errors.push('Enter a positive total time.');
+    var total=data.totalMinutes,external=data.externalMinutes||0,decision=fields.slice(1).reduce(function(sum,f){return sum+(data[f[0]]||0);},0),available=total-external,production=available-decision;
+    if(!(total>0))errors.push('Set a positive duration in Simulation Setup.');
     if(!(production>0))errors.push('Calendar exclusions must leave positive production time.');
     return {errors:errors,total:total,available:available,decision:decision,production:production};
+  }
+  function withDuration(data,seconds){
+    return {...data,totalMinutes:Number.isFinite(seconds)&&seconds>0?seconds/60:null};
   }
   function format(v){return Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function mount(target,provider,changed,locked){
@@ -30,18 +33,42 @@ window.STPlantCalendar=(function(){
       tables(content,fields,['Category','min'],'plant-calendar-inputs',function(row,f){var input=numericCell(row,{label:f[1]+' (min)',value:data[f[0]]});input.onchange=function(){if(!input.reportValidity())return;save(f[0],input.value===''?null:Number(input.value));};});
       var planning=document.createElement('div');planning.className='plant-calendar-planning';content.append(planning);
       var guidance=document.createElement('p');guidance.className='chart-note';guidance.textContent='Use 0 events for categories with 0 minutes. Categories with positive minutes require at least 1 event. Total category minutes are divided by the number of events. Defined times start at minute 0 of plant available time minus CO reporting error. Events must not overlap. Repairs may continue during a planned stop; no new failures are generated while stopped.';planning.append(guidance);
-      var stopFields=fields.filter(function(f){return !['totalMinutes','externalMinutes','coReportingErrorMinutes'].includes(f[0]);});
+      var stopFields=fields.filter(function(f){return !['externalMinutes','coReportingErrorMinutes'].includes(f[0]);});
       var planGrid=tables(planning,stopFields,['Category','Events','Start (min)','Interval (min)'],'plant-calendar-events',function(row,f){
         [['count','Number of events',1],['firstStartMinutes','First start (min)',0],['intervalMinutes','Start interval (min)',null]].forEach(function(def){var input=numericCell(row,{label:f[1]+' · '+def[1],value:data.plans?.[f[0]]?.[def[0]]??def[2],min:'0',step:def[0]==='count'?'1':'any'});if(def[0]==='count')input.max='1000';else input.closest('td').classList.add('plant-calendar-timed');input.dataset.planField=def[0];input.onchange=function(){if(!input.reportValidity())return;var plans=Object.assign({},data.plans);plans[f[0]]=Object.assign({},plans[f[0]],{[def[0]]:input.value===''?null:Number(input.value)});save('plans',plans);};});
       });
       var planTables=Array.from(planGrid.querySelectorAll('table')),planRows=planTables.flatMap(function(table){return Array.from(table.tBodies[0].rows);}),planSplit=Math.ceil(planRows.length/2);
       var useDuration=document.createElement('button');useDuration.type='button';useDuration.className='ghost';useDuration.textContent='Apply plant calendar';planning.append(useDuration);
-      useDuration.onclick=async function(){try{var schedule=window.SimulatorEngine.plantCalendarSchedule(data,.25);if(!applyEvents)throw Error('Event editor is unavailable.');useDuration.disabled=true;await applyEvents(schedule);data=sim.dynamicConfig.plantCalendar;update();}catch(error){summary.textContent=error.message;summary.setAttribute('role','alert');}finally{useDuration.disabled=!checkbox.checked||!!locked();}};
+      function preview(){
+        var seconds=window.STRunOptions?window.STRunOptions.durationSeconds():sim.dynamicConfig?.durationSeconds;
+        var calendar=withDuration(data,seconds),totals=calculate(calendar);
+        if(totals.errors.length)throw Error(totals.errors.join(' '));
+        var schedule=data.enabled&&data.mode==='SCHEDULED'?window.SimulatorEngine.plantCalendarSchedule(calendar,.25):null;
+        return {totals,calendar,schedule:schedule&&{...schedule,horizonSeconds:seconds}};
+      }
+      useDuration.onclick=async function(){
+        try{
+          var current=preview();
+          if(!applyEvents)throw Error('Event editor is unavailable.');
+          useDuration.disabled=true;
+          await applyEvents(current.schedule,current.calendar);
+          data=sim.dynamicConfig.plantCalendar;
+          update();
+        }catch(error){summary.textContent=error.message;summary.setAttribute('role','alert');useDuration.disabled=!checkbox.checked||!!locked();}
+      };
       function refreshPlan(){var scheduled=mode.value==='SCHEDULED';planning.classList.toggle('hidden',!scheduled);distribution.disabled=restart.disabled=!checkbox.checked||!!locked()||!scheduled;content.querySelectorAll('input,button').forEach(function(input){input.disabled=!checkbox.checked||!!locked();});mode.disabled=!checkbox.checked||!!locked();var timed=distribution.value==='TIMED';planGrid.classList.toggle('plant-calendar-events-timed',timed);planTables[1].classList.toggle('hidden',timed);planRows.forEach(function(row,index){var body=planTables[timed||index<planSplit?0:1].tBodies[0];if(row.parentNode!==body)body.append(row);});planGrid.querySelectorAll('.plant-calendar-timed').forEach(function(cell){cell.classList.toggle('hidden',!timed);});}
 
       var summary=document.createElement('p');summary.className='chart-note';content.append(summary);
-      function update(){var c=calculate(data);summary.textContent='Plant available: '+format(c.available)+' min · Plant decision: '+format(c.decision)+' min · Production available: '+format(c.production)+' min'+(c.errors.length?' · '+c.errors.join(' '):'');summary.setAttribute('role',c.errors.length?'alert':'status');if(data.enabled&&data.mode==='SCHEDULED'){try{var schedule=window.SimulatorEngine.plantCalendarSchedule(data,.25);summary.textContent+=' · '+schedule.events.length+' scheduled stops · '+format(schedule.horizonSeconds/60)+' min full duration';}catch(error){summary.textContent+=' · '+error.message;summary.setAttribute('role','alert');}}}
-      function save(key,value){if(locked())return;var wasScheduled=data.enabled&&data.mode==='SCHEDULED';data=Object.assign({},data,{[key]:value});sim.dynamicConfig=Object.assign({},sim.dynamicConfig,{plantCalendar:data});changed({physical:wasScheduled||data.enabled&&data.mode==='SCHEDULED'});update();}
+      function update(){
+        useDuration.disabled=true;
+        try{
+          var current=preview(),c=current.totals;
+          summary.textContent='Simulation Setup: '+format(c.total)+' min · Plant available: '+format(c.available)+' min · Plant decision: '+format(c.decision)+' min · Production available: '+format(c.production)+' min';
+          if(data.enabled&&current.schedule){summary.textContent+=' · '+current.schedule.events.length+' scheduled stops';useDuration.disabled=!!locked();}
+          summary.setAttribute('role','status');
+        }catch(error){summary.textContent=error.message;summary.setAttribute('role',data.enabled?'alert':'status');}
+      }
+      function save(key,value){if(locked())return;var wasScheduled=data.enabled&&data.mode==='SCHEDULED';data=Object.assign({},data,{[key]:value});if(data.mode==='SCHEDULED')data.needsApply=true;sim.dynamicConfig=Object.assign({},sim.dynamicConfig,{plantCalendar:data});changed({physical:wasScheduled||data.enabled&&data.mode==='SCHEDULED'});update();}
       checkbox.disabled=!!locked();checkbox.onchange=function(){save('enabled',checkbox.checked);refreshPlan();};refreshPlan();update();
     }return render;
   }
@@ -59,9 +86,9 @@ window.STPlantCalendar=(function(){
     var au=supported?(scheduled?(complete?efficiency*(audit.horizonSeconds/60)/c.available:null):efficiency*c.production/c.available):null;
     var rows=[['Total time (min)',c.total],['Plant available time (min)',c.available],['Plant decision time (min)',c.decision],['Production available time (min)',c.production],['Projected effective runtime (min)',effective],['Projected asset utilization / plant available (%)',au]];
     var table=document.createElement('table'),head=document.createElement('thead'),hr=document.createElement('tr');['Metric','Value'].forEach(function(t,i){var th=document.createElement('th');th.scope='col';th.textContent=t;if(i)th.className='numeric';hr.append(th);});head.append(hr);table.append(head);var body=document.createElement('tbody');rows.forEach(function(r){var tr=document.createElement('tr');[r[0],format(r[1])].forEach(function(v,i){var td=document.createElement('td');td.textContent=v;if(i)td.className='numeric';tr.append(td);});body.append(tr);});table.append(body);var wrap=document.createElement('div');wrap.className='table-scroll';wrap.append(table);target.append(wrap);
-    if(scheduled){rows.push(['Observed planned line stops (min)',audit.observedStopSeconds/60]);var row=document.createElement('tr');rows[rows.length-1].forEach(function(value,i){var cell=document.createElement('td');cell.textContent=i?format(value):value;if(i)cell.className='numeric';row.append(cell);});body.append(row);note.textContent=(complete?'Scheduled stops are already included in simulated production; no additional downtime discount is applied.':'Run duration differs from the full calendar: only scheduled stops within the configured run occurred. Apply the plant calendar to use its full duration for period metrics.')+(result?.products?' Destination-product changes record remaining inventory as clear-out.':' Conveyor inventory is retained.')+' Restart policy: '+audit.restartPolicy+'.';return;}
+    if(scheduled){rows.push(['Observed planned line stops (min)',audit.observedStopSeconds/60]);var row=document.createElement('tr');rows[rows.length-1].forEach(function(value,i){var cell=document.createElement('td');cell.textContent=i?format(value):value;if(i)cell.className='numeric';row.append(cell);});body.append(row);note.textContent=(complete?'Scheduled stops are already included in simulated production; no additional downtime discount is applied.':'Run duration differs from the full calendar: only scheduled stops within the configured run occurred. Reapply Plant Calendar after changing the duration in Simulation Setup.')+(result?.products?' Destination-product changes record remaining inventory as clear-out.':' Conveyor inventory is retained.')+' Restart policy: '+audit.restartPolicy+'.';return;}
     note.textContent='Projection from '+format(result?.durationSeconds/60)+' simulated minutes using the nominal line reference. Calendar exclusions are applied once, outside the engine. Quality assumes 100%; startup effects and product mix may make a short run unrepresentative.';
   }
-  return {connectApply:function(fn){applyEvents=fn;},calculate:calculate,mount:mount,renderResults:renderResults};
+  return {connectApply:function(fn){applyEvents=fn;},calculate:calculate,withDuration:withDuration,mount:mount,renderResults:renderResults};
 })();
 </script>
