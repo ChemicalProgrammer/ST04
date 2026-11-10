@@ -5,20 +5,25 @@ function exportEquipmentSheet_(request, user) {
   if (!Array.isArray(request.equipment) || request.equipment.length > 1000) {
     throw createSimulatorError_('INVALID_SHEET_REQUEST','Export at most 1,000 equipment rows.');
   }
-  var equipment=normalizeEquipmentList_(request.equipment),metadata=normalizeCaseMetadata_(request.metadata);
-  var data=equipmentSheetData_(equipment,metadata),catalog=STScenarioEngine_.normalizeFormatCatalog(metadata,equipment);
-  STScenarioEngine_.validateFormatCatalog(catalog);
-  var hasCatalog=catalog.products.length||catalog.formats.length;
-  if(hasCatalog)data.metadata.splice(2,3,'','','');
-  data.metadata[6]=sheetResponsibleName_(data.metadata[6])||'';
-  // Validate the same contract as Preview before creating a spreadsheet.
-  var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:11,metadataColumn:'B',allowEmpty:true});
-  if (!review.canImport) throw createSimulatorError_('INVALID_SHEET_EXPORT','Some values cannot be represented in the import format.',review.errors.map(function(issue){return issue.cell+': '+issue.message;}));
-  var folder=getWorkspaceFolders_().exports;
-  var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
-  var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
-  var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50)),book,file,stage='CREATE_SPREADSHEET';
+  var book,file,stage='PREPARE_EQUIPMENT';
   try {
+    var equipment=normalizeEquipmentList_(request.equipment),metadata=normalizeCaseMetadata_(request.metadata);
+    stage='PREPARE_CATALOG';
+    var data=equipmentSheetData_(equipment,metadata),catalog=STScenarioEngine_.normalizeFormatCatalog(metadata,equipment);
+    STScenarioEngine_.validateFormatCatalog(catalog);
+    var hasCatalog=catalog.products.length||catalog.formats.length;
+    stage='VALIDATE_EQUIPMENT';
+    if(hasCatalog)data.metadata.splice(2,3,'','','');
+    data.metadata[6]=sheetResponsibleName_(data.metadata[6])||'';
+    // Validate the same contract as Preview before creating a spreadsheet.
+    var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:11,metadataColumn:'B',allowEmpty:true});
+    if (!review.canImport) throw createSimulatorError_('INVALID_SHEET_EXPORT','Some values cannot be represented in the import format.',review.errors.map(function(issue){return issue.cell+': '+issue.message;}));
+    stage='OPEN_EXPORTS_FOLDER';
+    var folder=getWorkspaceFolders_().exports;
+    var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
+    var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
+    var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50));
+    stage='CREATE_SPREADSHEET';
     book=SpreadsheetApp.create(name,slots+10,width);
     stage='MOVE_TO_EXPORTS';
     file=DriveApp.getFileById(book.getId());
@@ -82,7 +87,10 @@ function exportEquipmentSheet_(request, user) {
     var details=['Exporter: equipment-actuals-catalog-v2','Stage: '+stage,'Service: '+safeSheetErrorDetail_(error)];
     // Only the new export belongs to this operation; clean up an incomplete export.
     if(book)try{(file||DriveApp.getFileById(book.getId())).setTrashed(true);}catch(cleanupError){details.push('The incomplete export could not be removed.');}
-    if(error?.simulatorError)throw error;
+    if(error?.simulatorError){
+      error.simulatorError.details=[...details.slice(0,2),...(error.simulatorError.details||[]),...details.slice(3)];
+      throw error;
+    }
     console.error(JSON.stringify({event:'SHEET_EXPORT_FAILED',stage:stage,message:safeSheetErrorDetail_(error)}));
     throw createSimulatorError_('SHEET_EXPORT_FAILED','Spreadsheet export could not be completed. See the technical details below.',details);
   }

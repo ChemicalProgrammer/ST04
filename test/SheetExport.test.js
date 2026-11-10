@@ -207,3 +207,21 @@ test('a new case with no equipment still exports all headings, validations and b
  assert(c.exportEquipmentSheet(request).ok);
  assert.equal(writes[3].values[6][1],'María García');
 });
+
+test('catalog and workspace errors identify the export stage before any spreadsheet is created',()=>{
+ const invalid=runtime(),request=fixture(invalid.c);
+ request.metadata.formatCatalog={version:3,products:[],formats:[{id:'format',name:'Incomplete format'}]};
+ const catalogFailure=invalid.c.exportEquipmentSheet(request);
+ assert.equal(catalogFailure.error.code,'SHEET_EXPORT_FAILED');
+ assert(catalogFailure.error.details.includes('Stage: PREPARE_CATALOG'));
+ assert(catalogFailure.error.details.some(detail=>detail.includes('Select a product')));
+ assert(!invalid.calls.some(call=>call[0]==='create'));
+
+ const unavailable=runtime();
+ unavailable.c.getWorkspaceFolders_=()=>{throw Error('Exports folder is unavailable');};
+ const workspaceFailure=unavailable.c.exportEquipmentSheet(fixture(unavailable.c));
+ assert.equal(workspaceFailure.error.code,'SHEET_EXPORT_FAILED');
+ assert(workspaceFailure.error.details.includes('Stage: OPEN_EXPORTS_FOLDER'));
+ assert(workspaceFailure.error.details.includes('Service: Exports folder is unavailable'));
+ assert(!unavailable.calls.some(call=>call[0]==='create'));
+});

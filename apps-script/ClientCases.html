@@ -373,12 +373,22 @@ async function openCase(caseId, initialView) {
       var editor=collectCaseEditor(),simulation=activePersistentSimulation();
       if(!editor||!simulation){showError({message:__ST_TEXT__('exports.sheet_invalid')});return;}
       var colors=getComputedStyle(document.documentElement);
+      var source=Object.assign({},editor.metadata,simulation.sourceImport?.metadata||{});
+      var metadata=Object.fromEntries(['site','packagingLine','formatName','containerSize','containerSizeOz','bottlesPerCase','dateOfAnalysis','by','formatCatalog','products']
+        .filter(function(key){return Object.prototype.hasOwnProperty.call(source,key);})
+        .map(function(key){return [key,source[key]];}));
       var request={caseId:editor.id,caseName:editor.name,simulationName:simulation.name,equipment:cloneJson(editor.equipment),
-        metadata:cloneJson(Object.assign({},editor.metadata,simulation.sourceImport?.metadata||{})),
+        metadata:cloneJson(metadata),
         theme:{primary:colors.getPropertyValue('--accent').trim(),secondary:colors.getPropertyValue('--secondary').trim()}};
       button.disabled=true;button.dataset.busy='true';
       callServer('exportEquipmentSheet',[request],function(response){
-        if(!response?.ok){showError(response?.error||{message:__ST_TEXT__('client.the_request_failed')});return;}
+        if(!response?.ok||!response.data?.url){
+          var error=response?.error||{code:'SHEET_EXPORT_NO_RESPONSE',message:__ST_TEXT__('client.the_request_failed')};
+          var details=[error.code,...(Array.isArray(error.details)?error.details:[])].filter(Boolean).join('\n');
+          showError(error);
+          STDialog.open({title:__ST_TEXT__('exports.sheet_failed'),message:error.message,details:details,error:true});
+          return;
+        }
         STDialog.open({title:__ST_TEXT__('exports.sheet_title'),message:__ST_TEXT__('exports.sheet_message'),link:{url:response.data.url,label:__ST_TEXT__('exports.sheet_open')}});
       },function(){button.disabled=false;delete button.dataset.busy;});
     }

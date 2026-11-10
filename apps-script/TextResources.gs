@@ -2,6 +2,7 @@
 var ST_TEXT_RESOURCES = {
   "brand.motion_label":"Bottles moving along a conveyor",
   "brand.motion_keys":"Hold a bottle to accumulate; drag away to remove; click for domino; double-click for robot. − / + speed; ← / → direction. Focus here: Space hold/release, Delete remove, R robot, D domino, Esc reset.",
+  "exports.sheet_failed":"Google Sheets export failed",
   "exports.sheet_title":"Google Sheets template exported",
   "exports.sheet_message":"A new spreadsheet was created in your workspace Exports folder, using the import layout. Equipment includes the current line inputs. Products & Formats lists products once and links formats by product name. Enter observations and review MTBF/MTTR in Real Data. Enable Real Data observation on import to include those entries. Column F is installed maximum speed (configured speed when no maximum is defined); importing it initializes running speed from F. Use JSON to retain all simulator settings.",
   "exports.sheet_open":"Open spreadsheet",

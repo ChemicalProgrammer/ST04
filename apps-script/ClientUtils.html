@@ -44,7 +44,7 @@
             document.querySelectorAll('[data-busy="true"]').forEach(function(button){button.disabled=false;delete button.dataset.busy;});
             shell.sync();
           }
-          var detail=name==='saveCase'&&typeof error?.message==='string'?error.message.slice(0,300):'';
+          var detail=['saveCase','exportEquipmentSheet'].includes(name)&&typeof error?.message==='string'?error.message.slice(0,300):'';
           onSuccess({ok:false,error:{ code: 'NETWORK_ERROR', message: __ST_TEXT__('client.the_server_request_could_not_be_completed_please_try_again')+(detail?' '+detail:'') }});
         })
         .withSuccessHandler(function(response) { done(); if(epoch === state.requestEpoch) onSuccess(response); });
