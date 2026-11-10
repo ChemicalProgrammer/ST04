@@ -1,7 +1,7 @@
 <script>
 window.STSheetImport=function(state,actions){
   var preview=null,plan=null,snapshot=null,sequence=0,context=null,lastFocus,packingDraft=null,inheritedTab=null,observationDraft=null;
-  var merge=STSheetImportMerge,importVersion='sheet-import-20261023-2';
+  var merge=STSheetImportMerge,importVersion='sheet-import-20261110-1';
   function el(id){return document.getElementById(id);}
   function validContext(){return context&&state.activeCase?.id===context.caseId&&state.activeSimulationId===context.simulationId&&state.requestEpoch===context.epoch;}
   function clear(){preview=null;plan=null;packingDraft=null;observationDraft=null;el('sheet-import-readiness')?.setAttribute('hidden','');el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}
@@ -21,7 +21,20 @@ window.STSheetImport=function(state,actions){
       list.replaceChildren();messages.forEach(function(message){list.appendChild(node('li',message));});list.hidden=!messages.length;
     });
   }
-  function buildResult(){return STSheetRealData.apply(STSheetPackingImport.apply(merge.build(preview,plan,snapshot.equipment,snapshot.sourceImport),packingDraft,snapshot,plan),preview,observationDraft,snapshot);}
+  function buildResult(){
+    var result=merge.build(preview,plan,snapshot.equipment,snapshot.sourceImport);
+    if(packingDraft.catalog){
+      if(packingDraft.enabled)result=STSheetCatalogImport(result,preview.materialCatalog,snapshot,plan,preview);
+    }else result=STSheetPackingImport.apply(result,packingDraft,snapshot,plan);
+    return STSheetRealData.apply(result,preview,observationDraft,snapshot);
+  }
+  function createPackingDraft(data){
+    var source=data.materialCatalog;
+    if(source&&(source.errors.length||source.catalog.products.length||source.catalog.formats.length))return {catalog:true,enabled:true};
+    var draft=STSheetPackingImport.create(merge.build(data,plan,snapshot.equipment,snapshot.sourceImport),snapshot);
+    if(source&&data.metadata.bottlesPerCase==null)draft.enabled=false;
+    return draft;
+  }
   function observationPanel(host){
     if(!preview.realData)return;
     var data=preview.realData,section=node('section','');section.className='settings-section';section.id='sheet-real-data';
@@ -44,19 +57,39 @@ window.STSheetImport=function(state,actions){
     toggle.onchange=function(){observationDraft.enabled=toggle.checked;el('sheet-import-ack').checked=false;refresh();};host.append(section);
   }
   function packingPanel(host,result){
+    if(packingDraft.catalog){
+      var source=preview.materialCatalog,section=node('section',''),label=node('label',''),checkbox=document.createElement('input');
+      section.className='settings-section';label.className='remember';checkbox.type='checkbox';checkbox.checked=packingDraft.enabled;
+      var catalog=source.catalog;
+      label.append(checkbox,document.createTextNode('Import Products & Formats ('+catalog.products.length+' products, '+catalog.formats.length+' formats)'));
+      section.append(label);
+      if(catalog.products.length||catalog.formats.length){
+        var details=node('details',''),list=node('ul','');details.append(node('summary','Review catalog records'),list);
+        catalog.products.forEach(function(product){list.append(node('li','Product · '+product.name+' ('+product.id+')'));});
+        catalog.formats.forEach(function(format){list.append(node('li','Format · '+format.name+' ('+format.id+') · Product ID '+format.productId+(format.id===source.initialFormatId?' · Initial format':'')));});
+        section.append(details);
+      }
+      source.errors.forEach(function(error){section.append(node('p',error,'sheet-packing-field-error'));});
+      checkbox.onchange=function(){packingDraft.enabled=checkbox.checked;el('sheet-import-ack').checked=false;refresh();};
+      host.append(section);return;
+    }
     var section=document.createElement('section');section.className='settings-section sheet-packing-proposal';section.id='sheet-packing-proposal';
     var heading=node('div','');heading.className='editor-subheading compact-heading';heading.append(node('h3','Product and packing format'));section.append(heading);
     var label=node('label',''),enabled=document.createElement('input');enabled.type='checkbox';enabled.id='sheet-packing-enabled';enabled.checked=packingDraft.enabled;label.className='remember';label.append(enabled,document.createTextNode('Create product and format from the selected line'));section.append(label);
     section.append(node('p','A Case Packer marks the bottle → case conversion. Review line order, package lengths and the source speed basis. Applying selects this format as the initial format and uses the ST engine; it does not prefill the conveyors.'));
     var fields=document.createElement('fieldset');fields.className='field-grid sheet-packing-fields';fields.id='sheet-packing-fields';fields.disabled=!packingDraft.enabled;var legend=node('legend','Packing proposal');legend.className='sr-only';fields.append(legend);
     function changed(){el('sheet-import-ack').checked=false;refresh();}
-    function input(key,text,numeric,options){var label=node('label',text),control=document.createElement('input');control.id='sheet-packing-'+key;control.setAttribute('aria-label',text);control.type=numeric?'number':'text';control.value=packingDraft[key]??'';if(numeric){control.min=options?.min||'0.000001';control.step=options?.step||'any';if(options?.max)control.max=options.max;}else control.maxLength=120;control.oninput=function(){packingDraft[key]=numeric?(control.value===''?undefined:Number(control.value)):control.value;changed();};label.append(control);fields.append(label);}
-    function select(key,text,choices){var label=node('label',text),control=document.createElement('select');control.id='sheet-packing-'+key;control.setAttribute('aria-label',text);choices.forEach(item=>control.add(new Option(item[1],item[0])));control.value=packingDraft[key]||'';control.onchange=function(){packingDraft[key]=control.value;changed();};label.append(control);fields.append(label);}
+    function input(key,text,numeric,options){var label=node('label',text),control=document.createElement('input');control.id='sheet-packing-'+key;control.setAttribute('aria-label',text);control.type=numeric?'number':'text';control.value=packingDraft[key]??'';if(numeric){control.min=options?.min||'0.000001';control.step=options?.step||'any';if(options?.max)control.max=options.max;}else control.maxLength=120;control.oninput=function(){packingDraft[key]=numeric?(control.value===''?undefined:Number(control.value)):control.value;changed();};label.append(control);fields.append(label);return control;}
+    function select(key,text,choices){var label=node('label',text),control=document.createElement('select');control.id='sheet-packing-'+key;control.setAttribute('aria-label',text);choices.forEach(item=>control.add(new Option(item[1],item[0])));control.value=packingDraft[key]||'';control.onchange=function(){packingDraft[key]=control.value;changed();};label.append(control);fields.append(label);return control;}
     select('packerId','Bottle → case machine',[['','Select Case Packer']].concat(STSheetPackingImport.candidates(result.equipment).map(e=>[e.id,e.name])));
     input('bottlesPerCase','Bottles per case',true,{min:'1',step:'1',max:'10000'});
     input('productName','Product name',false);input('formatName','Format name',false);
     input('bottleLengthMm','Bottle length along conveyor (mm)',true);input('caseLengthMm','Case length along conveyor (mm)',true);
-    input('volumeMl','Bottle volume (ml)',true);
+    var volumeUnits=window.SimulatorEngine.productVolumeUnits,volumeControl=input('volumeMl','Bottle volume',true);
+    function renderVolume(){volumeControl.value=packingDraft.volumeMl==null?'':Number((packingDraft.volumeMl/volumeUnits[packingDraft.volumeUnit]).toPrecision(15));}
+    renderVolume();
+    volumeControl.oninput=function(){packingDraft.volumeMl=volumeControl.value===''?undefined:Number(volumeControl.value)*volumeUnits[packingDraft.volumeUnit];changed();};
+    select('volumeUnit','Volume unit',Object.keys(volumeUnits).map(unit=>[unit,unit])).onchange=function(event){if(!event.target.value){event.target.value=packingDraft.volumeUnit;return;}packingDraft.volumeUnit=event.target.value;renderVolume();changed();};
     select('sourceRateBasis','Source machine speeds',[['','Confirm speed units'],['BOTTLES','Bottle equivalents/min (worksheet bpm)'],['NATIVE','Native output/min (bottles or cases)']]);
     section.append(fields);var note=node('p','Optional lengths: blanks retain each conveyor’s defaults. Width and height are not inferred. Machine speeds inherit the installed defaults. Conveyor lengths, sensors, manual belt speeds and MTBF/MTTR remain installation settings. Existing product/format overrides are retained on reload; review them if the measurements change.');note.className='chart-note';section.append(note);
     var review=node('div','');review.id='sheet-packing-review';section.append(review);host.append(section);
@@ -94,7 +127,7 @@ window.STSheetImport=function(state,actions){
   }
   function refresh(){
     if(!preview||!plan)return;var result=buildResult();updatePackingReview(result);
-    el('sheet-import-summary').textContent=result.added+__ST_TEXT__('sheetimport.to_add')+result.updated+__ST_TEXT__('sheetimport.to_update')+result.metadataChanges+__ST_TEXT__('sheetimport.metadata_changes')+(result.realData?' · 1 Real Data observation':'')+(result.initialFormatId?' · 1 product + 1 format; initial format selected':'')+(result.equipmentChanged?__ST_TEXT__('sheetimport.existing_results_will_be_cleared_run_again'):'');
+    el('sheet-import-summary').textContent=result.added+__ST_TEXT__('sheetimport.to_add')+result.updated+__ST_TEXT__('sheetimport.to_update')+result.metadataChanges+__ST_TEXT__('sheetimport.metadata_changes')+(result.realData?' · 1 Real Data observation':'')+(result.formatCatalog?' · Product and format catalog updated':'')+(result.equipmentChanged?__ST_TEXT__('sheetimport.existing_results_will_be_cleared_run_again'):'');
     el('sheet-import-error').textContent=result.errors.join('\n');
     var validation=window.SimulatorEngine.validateSimulationInput({case:{equipment:result.equipment},run:{durationSeconds:1,tickSeconds:1,seed:1,...(result.initialFormatId?{initialFormatId:result.initialFormatId,initialProductId:result.initialFormatId,productCatalog:SimulatorEngine.resolvePackingFormats(result.formatCatalog)}:{})}});updateRowIndicators(result,validation);
     var review=el('sheet-import-model-review');if(review){review.textContent='';review.classList.toggle('hidden',validation.ok);if(!validation.ok){review.open=true;review.appendChild(node('summary',__ST_TEXT__('sheetimport.physical_model_review_drafts_can_be_saved')+' · '+validation.error.details.length));var list=document.createElement('ul');validation.error.details.forEach(function(detail){list.appendChild(node('li',merge.physicalIssue(detail,result.equipment,result.sourceImport)));});review.appendChild(list);}}
@@ -112,9 +145,9 @@ window.STSheetImport=function(state,actions){
     host.appendChild(node('h3',data.equipment.length+__ST_TEXT__('sheetimport.source_equipment')+data.source.sheetName));
     host.appendChild(node('p',__ST_TEXT__('sheetimport.choose_what_to_apply_to_this_simulation_existing_equipment_keeps_its_id_and')));
     var toolbar=document.createElement('div');toolbar.className='button-row';
-    [[__ST_TEXT__('sheetimport.select_differences'),function(){plan.records.forEach(function(r){merge.defaults(data,r,snapshot.equipment);});merge.metadataFields.forEach(function(f,i){plan.metadata[f[0]]=!merge.errorsFor(data,'C',i+1).length&&merge.metadataValue(data.metadata,f[0])!=null&&!merge.equal(merge.metadataValue(snapshot.sourceImport?.metadata,f[0]),merge.metadataValue(data.metadata,f[0]));});render();}],[__ST_TEXT__('sheetimport.deselect_all_fields'),function(){plan.records.forEach(function(r){Object.keys(r.selected).forEach(function(k){r.selected[k]=false;});});Object.keys(plan.metadata).forEach(function(k){plan.metadata[k]=false;});packingDraft.enabled=false;if(observationDraft)observationDraft.enabled=false;render();}]].forEach(function(item){var b=node('button',item[0]);b.type='button';b.className='secondary';b.onclick=item[1];toolbar.appendChild(b);});host.appendChild(toolbar);
+    [[__ST_TEXT__('sheetimport.select_differences'),function(){plan.records.forEach(function(r){merge.defaults(data,r,snapshot.equipment);});if(packingDraft.catalog)packingDraft.enabled=true;merge.metadataFields.forEach(function(f,i){plan.metadata[f[0]]=!merge.errorsFor(data,data.source.metadataColumn||'C',i+1).length&&merge.metadataValue(data.metadata,f[0])!=null&&!merge.equal(merge.metadataValue(snapshot.sourceImport?.metadata,f[0]),merge.metadataValue(data.metadata,f[0]));});render();}],[__ST_TEXT__('sheetimport.deselect_all_fields'),function(){plan.records.forEach(function(r){Object.keys(r.selected).forEach(function(k){r.selected[k]=false;});});Object.keys(plan.metadata).forEach(function(k){plan.metadata[k]=false;});packingDraft.enabled=false;if(observationDraft)observationDraft.enabled=false;render();}]].forEach(function(item){var b=node('button',item[0]);b.type='button';b.className='secondary';b.onclick=item[1];toolbar.appendChild(b);});host.appendChild(toolbar);
     var meta=document.createElement('details');meta.open=!snapshot.equipment.length;meta.appendChild(node('summary',__ST_TEXT__('sheetimport.case_format_information_select_metadata_to_update')));
-    var mt=header();merge.metadataFields.forEach(function(f,i){var before=merge.metadataValue(snapshot.sourceImport?.metadata,f[0]),after=merge.metadataValue(data.metadata,f[0]);choice(mt.body,'C'+(i+1)+' · '+f[1],before,after,plan.metadata[f[0]],Boolean(merge.errorsFor(data,'C',i+1).length),!merge.equal(before,after),function(v){plan.metadata[f[0]]=v;},null,merge.errorsFor(data,'C',i+1));});meta.appendChild(mt.table);host.appendChild(meta);packingPanel(host,merge.build(data,plan,snapshot.equipment,snapshot.sourceImport));observationPanel(host);
+    var mt=header();merge.metadataFields.forEach(function(f,i){var before=merge.metadataValue(snapshot.sourceImport?.metadata,f[0]),after=merge.metadataValue(data.metadata,f[0]);choice(mt.body,(data.source.metadataColumn||'C')+(i+1)+' · '+f[1],before,after,plan.metadata[f[0]],Boolean(merge.errorsFor(data,data.source.metadataColumn||'C',i+1).length),!merge.equal(before,after),function(v){plan.metadata[f[0]]=v;},null,merge.errorsFor(data,data.source.metadataColumn||'C',i+1));});meta.appendChild(mt.table);host.appendChild(meta);packingPanel(host,merge.build(data,plan,snapshot.equipment,snapshot.sourceImport));observationPanel(host);
     plan.records.forEach(function(record){
       var unit=data.equipment[record.index],current=snapshot.equipment.find(function(e){return e.id===record.target;}),section=document.createElement('details');section.className='sheet-equipment-choice';section.dataset.sourceIndex=record.index;
       var summary=node('summary',''),summaryText=node('span',__ST_TEXT__('sheetimport.row')+record.row+' · '+unit.name+' · '+(record.target==='skip'?'Skipped':record.target==='new'?__ST_TEXT__('sheetimport.add_equipment'):__ST_TEXT__('sheetimport.update')+current.name)),indicator=node('span',''),issues=node('ul','');summaryText.className='sheet-equipment-summary-text';indicator.className='sheet-import-row-status';indicator.setAttribute('role','img');issues.className='sheet-equipment-issues';issues.id='sheet-import-row-issues-'+record.index;indicator.setAttribute('aria-describedby',issues.id);summary.append(summaryText,indicator);section.append(summary,issues);
@@ -153,7 +186,7 @@ window.STSheetImport=function(state,actions){
       e.preventDefault();if(!validContext())return close();clear();snapshot=actions.capture();if(!snapshot)return;busy(true);el('sheet-import-error').textContent='';var ticket=++sequence,finishActivity=STDialog.beginActivity(el('sheet-import-dialog'));
       function finish(response){finishActivity?.();if(ticket!==sequence||!validContext())return;busy(false);if(response?.ok&&(response.importVersion!==importVersion||response.data?.contractVersion&&response.data.contractVersion!==importVersion)){
         el('sheet-import-error').textContent='The import client and server versions do not match. Update Main.gs, SheetImportService.gs and the import interface files together, update the deployment, then reopen the app. Client: '+importVersion+'; server: '+(response.importVersion||'unavailable')+'. No changes were applied.';return;
-      }if(!response||!response.ok){var error=response?.error||{message:__ST_TEXT__('sheetimport.no_response_received_from_apps_script')};var details=(error.details||[]).map(function(d){return typeof d==='string'?d:JSON.stringify(d);});el('sheet-import-error').textContent=[error.message,...details,!response?.importVersion?'Client '+importVersion+': server version unavailable. Update Main.gs, SheetImportService.gs and the import interface files together.':''].filter(Boolean).join('\n');STErrors.capture('sheet-import-error',error);return;}preview=response.data;plan=merge.create(preview,snapshot.equipment,snapshot.sourceImport);packingDraft=STSheetPackingImport.create(merge.build(preview,plan,snapshot.equipment,snapshot.sourceImport),snapshot);observationDraft=STSheetRealData.create(preview,plan,snapshot.equipment);render();}
+      }if(!response||!response.ok){var error=response?.error||{message:__ST_TEXT__('sheetimport.no_response_received_from_apps_script')};var details=(error.details||[]).map(function(d){return typeof d==='string'?d:JSON.stringify(d);});el('sheet-import-error').textContent=[error.message,...details,!response?.importVersion?'Client '+importVersion+': server version unavailable. Update Main.gs, SheetImportService.gs and the import interface files together.':''].filter(Boolean).join('\n');STErrors.capture('sheet-import-error',error);return;}preview=response.data;plan=merge.create(preview,snapshot.equipment,snapshot.sourceImport);packingDraft=createPackingDraft(preview);observationDraft=STSheetRealData.create(preview,plan,snapshot.equipment);render();}
       google.script.run.withFailureHandler(function(error){finish({ok:false,error:{message:__ST_TEXT__('sheetimport.apps_script_request_failed')+String(error?.message||error||__ST_TEXT__('sheetimport.unknown_transport_error')).slice(0,500)}});}).withSuccessHandler(finish).previewSheetImport({caseId:context.caseId,spreadsheet:el('sheet-import-url').value,sheetName:el('sheet-import-tab').value});
     };
     el('sheet-import-apply').onclick=function(){if(!validContext()||!preview||!plan||!el('sheet-import-ack').checked)return;var result=buildResult();if(result.errors.length||!result.hasChanges)return;var current=actions.capture();if(!current||!merge.equal(current,snapshot)){el('sheet-import-error').textContent=__ST_TEXT__('sheetimport.the_simulation_changed_after_preview_preview_again_before_applying');return;}if(actions.apply(result))close();};

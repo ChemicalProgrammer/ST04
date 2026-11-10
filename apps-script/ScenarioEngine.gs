@@ -1,4 +1,6 @@
 var STScenarioEngine_ = (function(){
+const productVolumeUnits = Object.freeze({mL:1,L:1000,'fl oz (US)':29.5735295625,'fl oz (UK)':28.4130625});
+
 // Relational authoring catalog; simulation receives immutable resolved format snapshots.
 function legacyCatalog(metadata={},equipment) {
   const clone=value=>JSON.parse(JSON.stringify(value));
@@ -120,6 +122,7 @@ function validateMaterialRecord(record,kind){
   const shape=kind==='formats'?record.case||{}:kind==='boxes'?record:record.bottle||{};
   for(const key of ['lengthMm','widthMm','heightMm'])if(shape[key]!==undefined&&(!Number.isFinite(shape[key])||shape[key]<=0))throw Error(record.name+': dimensions must be positive.');
   if(kind==='formats'&&(typeof record.productId!=='string'||!record.productId||!Number.isInteger(record.bottlesPerCase)||record.bottlesPerCase<1||record.bottlesPerCase>10000))throw Error('Select a product and a whole number of bottles per case from 1 to 10,000.');
+  if(record.volumeUnit!==undefined&&!Object.hasOwn(productVolumeUnits,record.volumeUnit))throw Error(record.name+': select a valid volume unit.');
   if(record.volumeMl!==undefined&&(!Number.isFinite(record.volumeMl)||record.volumeMl<0))throw Error(record.name+': volume must be nonnegative.');
 }
 function materialConfiguration(kind,record,equipment=[]){
@@ -131,7 +134,7 @@ function readMaterialConfiguration(text,kind,currentId,equipment=[]){
   if(text.length>1048576)throw Error('Configuration exceeds 1 MB.');
   const payload=JSON.parse(text,(key,value)=>{if(['__proto__','constructor','prototype'].includes(key))throw Error('Unsafe configuration key.');return value;});
   if(!['st-material-configuration-v1','st-material-configuration-v2'].includes(payload.schema)||payload.kind!==kind||!payload.record)throw Error('Import a matching '+(kind==='formats'?'format':kind==='boxes'?'box':'product')+' configuration.');
-  const source=payload.record,allowed=kind==='formats'?['id','name','productId','bottlesPerCase','case','equipment','legacyBoxId','legacyBoxName','packPattern']:kind==='boxes'?['id','name','lengthMm','widthMm','heightMm','equipment']:['id','name','volumeMl','bottle','equipment'];
+  const source=payload.record,allowed=kind==='formats'?['id','name','productId','bottlesPerCase','case','equipment','legacyBoxId','legacyBoxName','packPattern']:kind==='boxes'?['id','name','lengthMm','widthMm','heightMm','equipment']:['id','name','volumeMl','volumeUnit','bottle','equipment'];
   for(const key of Object.keys(source))if(!allowed.includes(key))throw Error('Unsupported material field: '+key);
   if(source.case)for(const key of Object.keys(source.case))if(!['lengthMm','widthMm','heightMm'].includes(key))throw Error('Unsupported case field: '+key);
   if(source.bottle)for(const key of Object.keys(source.bottle))if(!['lengthMm','widthMm','heightMm'].includes(key))throw Error('Unsupported bottle field: '+key);
@@ -1685,5 +1688,5 @@ function planScenarios(simulation){
 
 
 
-return {plan:planScenarios,efficiency:diagnoseLineEfficiency,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
+return {productVolumeUnits,normalizeFormatCatalog:normalizeFormatCatalog,validateFormatCatalog:validateFormatCatalog,plan:planScenarios,efficiency:diagnoseLineEfficiency,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};
 })();

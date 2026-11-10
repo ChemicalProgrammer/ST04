@@ -50,7 +50,9 @@ window.STSheetImportMerge=(function(){
     if(!bindings.length&&sourceImport?.source){(sourceImport.rows||[]).forEach(function(r){var id='sheet-row-'+r.row;if(current.some(function(e){return e.id===id;}))bindings.push({equipmentId:id,sourceKey:key(sourceImport.source),sourceName:r.values.name,row:r.row});});}
     var records=preview.equipment.map(function(unit,index){
       var incomingName=name(unit.name),candidates=new Set();
-      current.forEach(function(e){if(name(e.name)===incomingName)candidates.add(e.id);});
+      var stableId=preview.sourceRows?.find(function(row){return row.row===unit.characteristics?.sourceSheetRow;})?.equipmentId;
+      if(stableId&&current.some(function(e){return e.id===stableId;}))candidates.add(stableId);
+      else current.forEach(function(e){if(name(e.name)===incomingName)candidates.add(e.id);});
       bindings.forEach(function(b){if(b.sourceKey===sourceKey&&name(b.sourceName)===incomingName&&current.some(function(e){return e.id===b.equipmentId;}))candidates.add(b.equipmentId);});
       var ambiguous=candidates.size>1||preview.equipment.filter(function(e){return name(e.name)===incomingName;}).length>1;
       var row=unit.characteristics?.sourceSheetRow||index+10;
@@ -62,7 +64,7 @@ window.STSheetImportMerge=(function(){
       var packing=sourceImport?.packingSetup,divisors={};if(packing?.sourceKey===sourceKey&&packing.sourceRateBasis==='BOTTLES')(packing.caseEquipmentIds||[]).forEach(function(id){divisors[id]=packing.bottlesPerCase;});
       return defaults(preview,{index:index,row:row,target:target,rateDivisors:divisors,reason:rowErrors.length?__ST_TEXT__('sheetimport.source_row_errors')+' '+rowErrors.map(function(e){return e.cell+': '+e.message;}).join(' '):ambiguous?__ST_TEXT__('sheetimportmerge.ambiguous_name_choose_the_equipment_to_update'):renamed&&!candidates.size?__ST_TEXT__('sheetimportmerge.name_changed_at_this_source_row_choose_an_existing_equipment_or_add_new'):target==='new'?__ST_TEXT__('sheetimportmerge.new_equipment_appended_to_the_line'):__ST_TEXT__('sheetimportmerge.matched_by_a_unique_name_or_previous_import'),selected:{}},current);
     });
-    var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,'C',i+1).length&&metadataValue(preview.metadata,f[0])!=null&&!equal(metadataValue(sourceImport?.metadata,f[0]),metadataValue(preview.metadata,f[0]));});
+    var metadata={};metadataFields.forEach(function(f,i){metadata[f[0]]=!errorsFor(preview,preview.source?.metadataColumn||'C',i+1).length&&metadataValue(preview.metadata,f[0])!=null&&!equal(metadataValue(sourceImport?.metadata,f[0]),metadataValue(preview.metadata,f[0]));});
     return {records:records,metadata:metadata,bindings:bindings};
   }
   function build(preview,plan,current,previous){
@@ -91,7 +93,7 @@ window.STSheetImportMerge=(function(){
       changes.push({equipmentId:unit.id,sourceName:incoming.name,row:record.row,sourceKey:key(preview.source),added:isNew,fields:applied});
     });
     if(equipment.filter(isReference).length>1)issues.push('Select only one machine as the critical machine. Import N for the previous selection or deselect conflicting rows.');
-    metadataFields.forEach(function(f,i){if(!plan.metadata[f[0]])return;if(errorsFor(preview,'C',i+1).length){issues.push('C'+(i+1)+__ST_TEXT__('sheetimportmerge.fix_or_deselect_the_metadata_field'));return;}var value=metadataValue(preview.metadata,f[0]);if(!equal(metadata[f[0]],value))metadataChanges.push({field:f[0],before:metadata[f[0]]??null,after:value??null});metadata[f[0]]=value??null;if(f[0]==='containerSize')metadata.containerSizeOz=preview.metadata.containerSizeOz??null;});
+    metadataFields.forEach(function(f,i){if(!plan.metadata[f[0]])return;if(errorsFor(preview,preview.source?.metadataColumn||'C',i+1).length){issues.push((preview.source?.metadataColumn||'C')+(i+1)+__ST_TEXT__('sheetimportmerge.fix_or_deselect_the_metadata_field'));return;}var value=metadataValue(preview.metadata,f[0]);if(!equal(metadata[f[0]],value))metadataChanges.push({field:f[0],before:metadata[f[0]]??null,after:value??null});metadata[f[0]]=value??null;if(f[0]==='containerSize')metadata.containerSizeOz=preview.metadata.containerSizeOz??null;});
     var effective=added+updated+metadataChanges.length>0;
     sourceImport.source=copy(preview.source);sourceImport.metadata=metadata;sourceImport.rows=copy(preview.sourceRows||[]);sourceImport.warnings=copy(preview.warnings||[]);sourceImport.notes=copy(preview.notes||[]);
     var bindings=copy(plan.bindings);changes.forEach(function(c){bindings=bindings.filter(function(b){return !(b.equipmentId===c.equipmentId&&b.sourceKey===c.sourceKey);});bindings.push({equipmentId:c.equipmentId,sourceKey:c.sourceKey,sourceName:c.sourceName,row:c.row});});sourceImport.bindings=bindings;
@@ -136,8 +138,9 @@ window.STSheetPackingImport=(function(){
   function commonLength(equipment){var values=equipment.filter(belt).map(e=>e.processData?.upstream?.packageLengthMm??e.processData?.accumulation?.productLengthMm);return values.length&&values.every(v=>Number.isFinite(v)&&v>0&&Math.abs(v-values[0])<1e-6)?values[0]:undefined;}
   function create(result,snapshot){
     var catalog=engine().normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment),choices=candidates(result.equipment),packer=choices.length===1?choices[0]:null,index=result.equipment.indexOf(packer),metadata=result.sourceImport.metadata||{};
-    var token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),size=String(metadata.containerSize||'').trim(),volume=/^(\d+(?:\.\d+)?)\s*(ml|l|oz)$/i.exec(size);
-    return {enabled:!!packer&&!catalog.products.length&&!catalog.formats.length,packerId:packer?.id||'',productId:'sheet-product-'+token,formatId:'sheet-format-'+token,productName:'Imported product'+(size?' · '+size:''),formatName:metadata.formatName||'Imported format',bottlesPerCase:metadata.bottlesPerCase??'',bottleLengthMm:index>=0?commonLength(result.equipment.slice(0,index)):undefined,caseLengthMm:index>=0?commonLength(result.equipment.slice(index+1)):undefined,volumeMl:volume?Number(volume[1])*({ml:1,l:1000,oz:29.5735295625}[volume[2].toLowerCase()]):undefined,sourceRateBasis:snapshot.sourceImport?.packingSetup?.sourceKey===sourceKey(result.sourceImport.source)?snapshot.sourceImport.packingSetup.sourceRateBasis:''};
+    var token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),size=String(metadata.containerSize||'').trim(),volume=/^(\d+(?:\.\d+)?)\s*(ml|l|(?:fl\.?\s*)?oz(?: \(US\)| \(UK\))?)$/i.exec(size);
+    var volumeUnit=!volume?'mL':/^l$/i.test(volume[2])?'L':/^ml$/i.test(volume[2])?'mL':/UK/i.test(volume[2])?'fl oz (UK)':'fl oz (US)';
+    return {enabled:!!packer&&!catalog.products.length&&!catalog.formats.length,packerId:packer?.id||'',productId:'sheet-product-'+token,formatId:'sheet-format-'+token,productName:'Imported product'+(size?' · '+size:''),formatName:metadata.formatName||'Imported format',bottlesPerCase:metadata.bottlesPerCase??'',bottleLengthMm:index>=0?commonLength(result.equipment.slice(0,index)):undefined,caseLengthMm:index>=0?commonLength(result.equipment.slice(index+1)):undefined,volumeUnit:volumeUnit,volumeMl:volume?Number(volume[1])*engine().productVolumeUnits[volumeUnit]:undefined,sourceRateBasis:snapshot.sourceImport?.packingSetup?.sourceKey===sourceKey(result.sourceImport.source)?snapshot.sourceImport.packingSetup.sourceRateBasis:''};
   }
   function apply(base,draft,snapshot,plan){
     if(!draft?.enabled)return base;
@@ -159,7 +162,7 @@ window.STSheetPackingImport=(function(){
     var catalog=engine().normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment),product={id:draft.productId,name:draft.productName.trim(),bottle:{},equipment:{}},format={id:draft.formatId,name:draft.formatName.trim(),productId:draft.productId,bottlesPerCase:draft.bottlesPerCase,case:{},equipment:{}};
     if(draft.bottleLengthMm!==undefined)product.bottle.lengthMm=draft.bottleLengthMm;
     if(draft.caseLengthMm!==undefined)format.case.lengthMm=draft.caseLengthMm;
-    if(draft.volumeMl!==undefined)product.volumeMl=draft.volumeMl;
+    if(draft.volumeMl!==undefined){product.volumeMl=draft.volumeMl;if(draft.volumeUnit&&draft.volumeUnit!=='mL')product.volumeUnit=draft.volumeUnit;}
     if(catalog.products.some(p=>p.id===product.id)||catalog.formats.some(f=>f.id===format.id)){issues.push('Packing proposal already exists. Preview again.');return result;}
     if(catalog.products.length||catalog.formats.length)result.packingWarnings.push('Creates an additional product and format. Existing records are retained; the new format becomes the initial format of this simulation.');
     var previous=snapshot.sourceImport?.packingSetup,oldFormat=catalog.formats.find(f=>f.id===(snapshot.initialFormatId||previous?.formatId));
@@ -247,5 +250,39 @@ window.STSheetRealData={
     }catch(error){result.errors.push('Real Data: '+error.message);}
     return result;
   }
+};
+</script>
+<script>
+window.STSheetCatalogImport=function(result,source,snapshot,plan,preview){
+  if(source.errors.length){result.errors.push(...source.errors);return result;}
+  var engine=window.SimulatorEngine,catalog=engine.normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment);
+  var canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+  var before=JSON.stringify(canonical(catalog)),idMap=new Map();
+  plan.records.forEach(function(record){
+    if(record.target==='skip')return;
+    var id=preview.sourceRows.find(row=>row.row===record.row)?.equipmentId;
+    var target=result.sourceImport.lastApplied.equipment.find(change=>change.row===record.row)?.equipmentId||record.target;
+    if(id&&result.equipment.some(unit=>unit.id===target))idMap.set(id,target);
+  });
+  var mappedTargets=new Set(idMap.values());
+  for(var kind of ['products','formats'])for(var record of source.catalog[kind]){
+    var index=catalog[kind].findIndex(item=>item.id===record.id),old=catalog[kind][index];
+    var profiles=Object.fromEntries(Object.entries(old?.equipment||{}).filter(([id])=>!idMap.has(id)&&!mappedTargets.has(id)));
+    for(var [id,profile] of Object.entries(record.equipment||{})){
+      var target=idMap.get(id)||(result.equipment.some(unit=>unit.id===id)?id:null);
+      if(!target){result.errors.push(record.name+': map Equipment ID '+id+' before importing its profile.');continue;}
+      Object.defineProperty(profiles,target,{value:profile,enumerable:true,configurable:true,writable:true});
+    }
+    var next={...record,equipment:profiles};
+    if(index<0)catalog[kind].push(next);else catalog[kind][index]=next;
+  }
+  if(result.errors.length)return result;
+  try{engine.validateFormatCatalog(catalog);}catch(error){result.errors.push(error.message);return result;}
+  var initialFormatId=source.initialFormatId||snapshot.initialFormatId;
+  if(before!==JSON.stringify(canonical(catalog))||initialFormatId!==snapshot.initialFormatId){
+    result.formatCatalog=catalog;result.initialFormatId=initialFormatId;
+    result.hasChanges=true;result.equipmentChanged=true;
+  }
+  return result;
 };
 </script>

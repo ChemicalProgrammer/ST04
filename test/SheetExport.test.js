@@ -18,7 +18,7 @@ function runtime() {
   book.getSheets=()=>[sheet];
   book.insertSheet=(name,index)=>{calls.push(['insertSheet',name,index]);return new Proxy({getMaxRows:()=>1000,getRange:(...coordinates)=>makeRange(false,...coordinates)},{get:(target,key)=>target[key]||((...args)=>calls.push([key,...args]))});};
   book.setActiveSheet=value=>{assert.equal(value,sheet);calls.push(['setActiveSheet']);};
-  const c=vm.createContext({console,SpreadsheetApp:{create:(...args)=>{calls.push(['create',...args]);return book;},flush:()=>calls.push(['flush']),newDataValidation:()=>({requireValueInList(values,dropdown){calls.push(['requireValueInList',Array.from(values),dropdown]);return this;},setAllowInvalid(){return this;},build(){return 'types-validation';}}),BandingTheme:{LIGHT_GREY:'grey'}},DriveApp:{getFileById:id=>{calls.push(['file',id]);return file;}}});
+  const c=vm.createContext({console,SpreadsheetApp:{create:(...args)=>{calls.push(['create',...args]);return book;},flush:()=>calls.push(['flush']),newDataValidation:()=>({requireValueInList(values,dropdown){calls.push(['requireValueInList',Array.from(values),dropdown]);return this;},setAllowInvalid(){return this;},build(){return 'types-validation';}}),BorderStyle:{SOLID_MEDIUM:'solid_medium'},BandingTheme:{LIGHT_GREY:'grey'}},DriveApp:{getFileById:id=>{calls.push(['file',id]);return file;}}});
   for(const name of ['TextResources.gs','ApiResponse.gs','CaseService.gs','ScenarioEngine.gs','SheetImportService.gs','SheetExportService.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),c);
   c.requireCurrentUser_=()=>({email:'owner@test'});
   c.getOwnedCaseFile_=(id,user,metadataOnly)=>{assert.equal(id,'mine');assert.equal(user.email,'owner@test');assert.equal(metadataOnly,true);calls.push(['owned']);return {};};
@@ -51,27 +51,27 @@ test('Sheets export uses every import column and current overrides, preserves ze
   roundtrip.sourceRows.forEach((row,i)=>c.sheetImportColumns_(data.layout).forEach((column,j)=>assert.equal(row.values[column[1]],data.rows[i][j]==='NA'?null:data.rows[i][j])));
 });
 
-test('authenticated export creates one new themed Sheet in Exports with batched C1:C7 / A10:Y layout and literal names',()=>{
+test('authenticated export creates one new themed Sheet in Exports with batched B1:B7 / A11:Y layout and literal names',()=>{
   const {c,calls,writes}=runtime(),request=fixture(c);request.equipment[0].name='=HYPERLINK("https://example.test")';request.metadata.site='=1+1';
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,2);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,109,26]);
+  assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,110,26]);
   assert.deepEqual(calls.find(call=>call[0]==='insertSheet'),['insertSheet','Real Data',1]);
-  const actuals=writes[1].values;assert.equal(actuals[0][9],'st-real-inputs-v4');assert.match(actuals[19][0],/Equipment.*MATCH/);assert.equal(actuals[19][9],values[9][25]);assert.equal(actuals[20][9],values[11][25]);assert.match(actuals[19][5],/E20\/\(D20\+E20\)/);
+  const actuals=writes[1].values;assert.equal(actuals[0][9],'st-real-inputs-v4');assert.match(actuals[19][0],/Equipment.*MATCH/);assert.equal(actuals[19][9],values[10][25]);assert.equal(actuals[20][9],values[12][25]);assert.match(actuals[19][5],/E20\/\(D20\+E20\)/);
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
-  assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[10,1,100,1]'));
-  assert.equal(actuals[22][9],values[12][25]);assert.match(actuals[22][0],/COUNTIFS/);
-  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v1');assert.equal(values[9][1],"'=HYPERLINK(\"https://example.test\")");
-  assert.equal(values[8][24],'Overspeed vs infeed screw (%)');assert.equal(values[10][18],100);
-  assert.deepEqual([0,8,12,16,18].map(i=>values[7][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
-  for(const group of [[8,9,1,4],[8,13,1,4],[8,17,1,2],[8,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
+  assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[11,1,100,1]'));
+  assert.equal(actuals[22][9],values[13][25]);assert.match(actuals[22][0],/COUNTIFS/);
+  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v2');assert.equal(values[10][1],"'=HYPERLINK(\"https://example.test\")");
+  assert.equal(values[9][24],'Overspeed vs infeed screw\n(%)');assert.equal(values[11][18],100);
+  assert.deepEqual([0,8,12,16,18].map(i=>values[8][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
+  for(const group of [[9,9,1,4],[9,13,1,4],[9,17,1,2],[9,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
   assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'');assert.equal(actuals[3][0],'Line Time');assert.equal(actuals[17][3],'MTBF/MTTR Check');assert(!actuals[18].some(label=>/notas/i.test(label)));
   assert(calls.some(call=>call[0]==='setBackground'&&call[2]===c.sheetExportTint_('#123456')));
   assert(calls.some(call=>call[0]==='setBackground'&&JSON.stringify(call[1])==='[7,1,9,1]'));
   assert(calls.filter(call=>call[0]==='setFontColor').every(call=>call[2]==='#000000'));
   assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
-  assert(!calls.some(call=>call[0]==='mergeAcross'||call[0]==='merge'&&JSON.stringify(call[1])==='[8,1,1,8]'));
+  assert(!calls.some(call=>call[0]==='mergeAcross'||call[0]==='merge'&&JSON.stringify(call[1])==='[9,1,1,8]'));
   assert.equal(calls.filter(call=>call[0]==='create').length,1);assert(!calls.some(call=>call[0]==='trash'));
 });
 
@@ -126,30 +126,69 @@ test('container size exports and reimports its declared unit and preserves legac
 });
 
 
-test('two-tab export previews equipment and filled observations via the same spreadsheet URL',()=>{
+test('three-tab export previews equipment and filled observations via the same spreadsheet URL',()=>{
  const h=runtime(),request=fixture(h.c);assert(h.c.exportEquipmentSheet(request).ok);
  const values=h.writes[0].values,actuals=h.writes[1].values;
  assert.equal(values[0][17],'');assert.equal(values[6][17],'');
- assert.equal(values[9][25],request.equipment[0].id);assert.equal(values[8][25],'Equipment ID');
+ assert.equal(values[10][25],request.equipment[0].id);assert.equal(values[9][25],'Equipment ID');
  assert(values.every(row=>row.every(value=>typeof value!=='string'||!value.startsWith('='))));
  // Inputs and computed values returned by the dedicated tab, including blank and zero.
  actuals[7][5]=100;actuals[6][1]=1440;actuals[7][1]=0;
  actuals[8][1]=1440;actuals[10][1]=1344;actuals[10][5]=.633;actuals[8][5]=1200;
  actuals[19][1]=12;actuals[19][2]=.121;
- values[12].splice(0,6,'CUSTOM','Nueva máquina','N',200,5,300);
+ values[13].splice(0,6,'CUSTOM','Nueva máquina','N',200,5,300);
  actuals[22][1]=0;actuals[22][2]=0;
  const mock=(grid,name,id)=>({getLastRow:()=>grid.length,getMaxRows:()=>100,getMaxColumns:()=>grid[0].length,getSheetId:()=>id,getName:()=>name,getRange:(r,col,count=1,width=1)=>({getValues:()=>grid.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00%'))})});
- const equipment=mock(values,'Equipment',1),real=mock(actuals,'Real Data',2);
- h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,real],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
- for(const spreadsheet of ['new-sheet-id','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=2']){
+ const equipment=mock(values,'Equipment',1),real=mock(actuals,'Real Data',2),catalog=mock(h.writes[2].values,'Products & Formats',3);
+ h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,real,catalog],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
+ for(const spreadsheet of ['new-sheet-id','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=2','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=3']){
   const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet},{email:'owner@test'}),r=result.realData.record,e=r.equipment[0];
   assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));
   assert.equal(result.equipment.length,4);assert.equal(result.source.sheetName,'Equipment');assert.equal(result.source.metadataColumn,'B');assert.equal(result.metadata.bottlesPerCase,24);
+  assert.equal(result.source.equipmentRange,'A11:Y110');assert.equal(result.materialCatalog.errors.length,0);
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,null);assert.equal(e.stopClass,'UNKNOWN');
   assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,20);
-  assert.equal(r.equipment[1].sourceRow,13);assert.equal(r.equipment[1].observationRow,23);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
+  assert.equal(r.equipment[1].sourceRow,14);assert.equal(r.equipment[1].observationRow,23);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
   assert(result.realData.fields.some(f=>f.cell==='Real Data!B7'));
  }
  assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===26));
+});
+
+test('catalog exports a product once, resolves shared formats and remaps equipment overrides on import',()=>{
+ const {c,calls,writes}=runtime(),request=fixture(c),equipmentId=request.equipment[0].id;
+ request.metadata.formatCatalog={version:3,products:[{id:'shared',name:'Drink',volumeMl:355,volumeUnit:'fl oz (US)',bottle:{lengthMm:60},equipment:{[equipmentId]:{ratePerMinute:300}}}],
+   formats:[{id:'six',name:'Six pack',productId:'shared',bottlesPerCase:6,case:{lengthMm:180}},{id:'twelve',name:'Twelve pack',productId:'shared',bottlesPerCase:12,case:{lengthMm:280}}]};
+ request.initialFormatId='twelve';
+ const response=c.exportEquipmentSheet(request);
+ assert.equal(response.ok,true,JSON.stringify(response));
+ const equipment=writes[0].values,catalog=writes[2].values;
+ assert(equipment[7].every(value=>value===''));
+ assert(equipment.slice(2,5).every(row=>row[0]===''&&row[1]===''));
+ assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].join(',')==='Product,Format'));
+ assert.equal(calls.filter(call=>call[0]==='setBorder').length,8);
+ assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='10,1,1,26'&&call[2]==='center'));
+ assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,5)),[
+   ['Product','shared','Drink','',''],['Format','six','Six pack','shared',''],['Format','twelve','Twelve pack','shared','Y']
+ ]);
+ assert.equal(catalog[3][6],'fl oz (US)');
+ const source=c.readSheetCatalog_({getLastRow:()=>catalog.length,getRange:()=>({getValues:()=>catalog.slice(3)})});
+ assert.deepEqual(Array.from(source.errors),[]);
+ assert.equal(source.catalog.products[0].volumeMl,355);
+ assert.equal(source.initialFormatId,'twelve');
+
+ c.window={SimulatorEngine:c.STScenarioEngine_};
+ vm.runInContext(fs.readFileSync('apps-script/SheetImportMerge.html','utf8').replace(/<\/?script>/g,''),c);
+ const preview={sourceRows:[{row:11,equipmentId}]},plan={records:[{row:11,target:'local-filler'}]};
+ const snapshot={equipment:[],metadata:{formatCatalog:{version:3,products:[{id:'other',name:'Other'}],formats:[]}}};
+ function base(){return {equipment:[{id:'local-filler'}],sourceImport:{lastApplied:{equipment:[]}},errors:[]};}
+ const result=c.window.STSheetCatalogImport(base(),source,snapshot,plan,preview);
+ assert.deepEqual(Array.from(result.errors),[]);
+ assert.deepEqual(Array.from(result.formatCatalog.products,p=>p.id),['other','shared']);
+ assert.equal(result.formatCatalog.products[1].equipment['local-filler'].ratePerMinute,300);
+ assert.equal(result.initialFormatId,'twelve');
+ assert.equal(c.window.STSheetCatalogImport(base(),source,{...snapshot,metadata:{formatCatalog:result.formatCatalog},initialFormatId:'twelve'},plan,preview).hasChanges,undefined);
+ catalog[3][6]='kg';
+ const invalid=c.readSheetCatalog_({getLastRow:()=>catalog.length,getRange:()=>({getValues:()=>catalog.slice(3)})});
+ assert.match(invalid.errors[0],/row 4.*volume unit/);
 });

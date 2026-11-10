@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {JSDOM} from 'jsdom';
-import {normalizeFormatCatalog} from '../src/simulation/FormatCatalog.js';
+import {normalizeFormatCatalog,productVolumeUnits} from '../src/simulation/FormatCatalog.js';
 
-function setup({importVersion='sheet-import-20261023-2',informational=false,rememberedTab=null}={}){
+function setup({importVersion='sheet-import-20261110-1',informational=false,rememberedTab=null}={}){
  const dom=new JSDOM(`<button id="open-sheet-import"></button><dialog id="sheet-import-dialog"><form id="sheet-import-form"><input id="sheet-import-url"><input id="sheet-import-tab"><button id="sheet-import-read"></button></form><div id="sheet-import-preview"></div><p id="sheet-import-error"></p><p id="sheet-import-summary"></p><input type="checkbox" id="sheet-import-ack"><button id="sheet-import-apply"></button><button id="sheet-import-close"></button><button id="sheet-import-cancel"></button></dialog>`,{runScripts:'outside-only'}),w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.eval(fs.readFileSync('apps-script/TextResources.gs','utf8'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
@@ -13,7 +13,7 @@ function setup({importVersion='sheet-import-20261023-2',informational=false,reme
  const preview={equipment:units,source:{sheetName:'Test',spreadsheetId:'test',sheetId:0},sourceRows:units.map((u,i)=>({row:10+i,values:{}})),metadata:{},notes:[],errors:[{cell:'D12:E12',message:'Invalid reliability values.'}],warnings:[{cell:'F11',message:'Confirm the speed unit.'}]};
  if(informational){preview.errors=[];preview.warnings=[{cell:'D10:E10',severity:'info',code:'NO_RELIABILITY_DATA',message:'Random failures disabled.'},{cell:'F10',severity:'info',code:'INHERITED_CONVEYOR_RATE',message:'Using upstream machine rate.'}];}
  let modelReview=!informational;
- w.SimulatorEngine={normalizeFormatCatalog,validateSimulationInput(input){const index=input.case.equipment.findIndex(e=>e.name==='Machine 3');return modelReview&&index>=0?{ok:false,error:{details:[{path:'case.equipment['+index+'].nominalRatePerSecond',reason:'Check installed speed.'}]}}:{ok:true};}};
+ w.SimulatorEngine={normalizeFormatCatalog,productVolumeUnits,validateSimulationInput(input){const index=input.case.equipment.findIndex(e=>e.name==='Machine 3');return modelReview&&index>=0?{ok:false,error:{details:[{path:'case.equipment['+index+'].nominalRatePerSecond',reason:'Check installed speed.'}]}}:{ok:true};}};
  w.STSheetCorrections={render(){}};w.STDialog={beginActivity(){return ()=>{};}};w.STErrors={capture(){}};
  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(request){this.lastRequest=request;this.success({ok:true,data:preview,importVersion});}}}};
  const state={activeCase:{id:'test'},activeSimulationId:'sim',requestEpoch:1},snapshot={equipment:[],sourceImport:rememberedTab?{source:{spreadsheetId:'previous-book',sheetName:rememberedTab}}:{}};

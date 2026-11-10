@@ -60,3 +60,17 @@ test('two tabs navigate by keyboard and new formats need only a product; convert
 test('format JSON import preserves ID, product, count and packaging and rejects a missing linked product',async()=>{
  const s=setup(),w=s.w;seed(s);const c=s.state.activeCase.metadata.formatCatalog,f=JSON.parse(JSON.stringify(c.formats[0])),id=f.id;f.case.lengthMm=400;f.bottlesPerCase=24;const payload=w.SimulatorEngine.materialConfiguration('formats',f,s.state.activeCase.equipment);button(w,'Import configuration');let dialog=w.document.querySelector('dialog');dialog.querySelector('textarea').value=JSON.stringify(payload);button(w,'Import');await tick();let current=s.state.activeCase.metadata.formatCatalog.formats[0];assert.equal(current.id,id);assert.equal(current.case.lengthMm,400);assert.equal(current.bottlesPerCase,24);payload.record.productId='missing';const before=JSON.stringify(s.state.activeCase.metadata);button(w,'Import configuration');dialog=w.document.querySelector('dialog');dialog.querySelector('textarea').value=JSON.stringify(payload);button(w,'Import');await tick();assert(dialog.open);assert.equal(JSON.stringify(s.state.activeCase.metadata),before);assert.match(dialog.querySelector('.notice').textContent,/product not present/);
 });
+
+test('product volume displays in the chosen unit and keeps the canonical volume on unit changes',()=>{
+ const {w,state}=setup();
+ click(w,'Add product');input(w,'Volume',500);input(w,'Volume unit','L');
+ const product=()=>state.activeCase.metadata.formatCatalog.products[0];
+ const shown=()=>Number(w.document.querySelector('[aria-label="Volume"]').value);
+ assert.equal(shown(),.5);assert.equal(product().volumeMl,500);assert.equal(product().volumeUnit,'L');
+ input(w,'Volume',.75);assert.equal(product().volumeMl,750);
+ input(w,'Volume unit','fl oz (US)');
+ assert(Math.abs(shown()-750/w.SimulatorEngine.productVolumeUnits['fl oz (US)'])<1e-12);
+ const payload=w.SimulatorEngine.materialConfiguration('products',product());
+ assert.equal(w.SimulatorEngine.readMaterialConfiguration(JSON.stringify(payload),'products','product',state.activeCase.equipment).volumeUnit,'fl oz (US)');
+ input(w,'Volume unit','mL');assert.equal(shown(),750);assert.equal(product().volumeUnit,undefined);
+});

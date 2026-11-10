@@ -78,7 +78,7 @@ window.STProducts=(function(){
     function note(parent,text){var n=document.createElement('p');n.className='chart-note format-guidance';n.textContent=text;parent.append(n);return n;}
     function control(obj,key,label,options){
       options=options||{};var input=document.createElement('input');input.type=options.text?'text':'number';input.setAttribute('aria-label',label);input.value=obj[key]??'';
-      if(options.text)input.maxLength=120;else{input.min=options.min??'0';input.step=options.step||'any';if(options.scale&&obj[key]!==undefined)input.value=obj[key]*options.scale;}
+      if(options.text)input.maxLength=120;else{input.min=options.min??'0';input.step=options.step||'any';if(options.scale&&obj[key]!==undefined)input.value=Number((obj[key]*options.scale).toPrecision(15));}
       input.required=!!options.required;input.oninput=function(){if(options.text)obj[key]=input.value;else if(input.value==='')delete obj[key];else obj[key]=Number(input.value)/(options.scale||1);if(key==='name'&&obj.id)dialog.querySelectorAll('select option').forEach(function(option){if(option.value===obj.id)option.textContent=input.value||'(Unnamed)';});options.changed?.();};return input;
     }
     function field(parent,labelText,obj,key,options){var label=document.createElement('label');label.textContent=labelText;var input=control(obj,key,labelText,options);label.append(input);parent.append(label);return input;}
@@ -117,7 +117,12 @@ window.STProducts=(function(){
       if(!current){note(main,isFormat?'Add a product first, then create its packing format.':'Add a product to configure its properties and equipment behavior.');return;}
       var grid=document.createElement('div');grid.className='settings-simulation-grid product-general-grid';main.append(grid);
       field(grid,isFormat?'Format name':'Product name',current,'name',{text:true,required:true});
-      if(isFormat){selectField(grid,'Product',current.productId,draft.products,function(value){current.productId=value;commit();});field(grid,'Bottles per case',current,'bottlesPerCase',{min:'1',step:'1',required:true});current.case=current.case||{};}else{current.bottle=current.bottle||{};field(grid,'Volume (mL)',current,'volumeMl');}
+      if(isFormat){selectField(grid,'Product',current.productId,draft.products,function(value){current.productId=value;commit();});field(grid,'Bottles per case',current,'bottlesPerCase',{min:'1',step:'1',required:true});current.case=current.case||{};}else{current.bottle=current.bottle||{};var units=SimulatorEngine.productVolumeUnits,unit=current.volumeUnit||'mL';
+        field(grid,'Volume',current,'volumeMl',{scale:1/units[unit]});
+        selectField(grid,'Volume unit',unit,Object.keys(units).map(u=>({id:u,name:u})),function(value){
+          if(!value)return;
+          if(value==='mL')delete current.volumeUnit;else current.volumeUnit=value;commit();draw();
+        }).firstChild.remove();}
       var dimensions=isFormat?current.case:current.bottle;
       [['lengthMm',isFormat?'Case length along travel (mm)':'Length along travel (mm)'],['widthMm',isFormat?'Case width (mm)':'Width (mm)'],['heightMm',isFormat?'Case height (mm)':'Height (mm)']].forEach(spec=>field(grid,spec[1],dimensions,spec[0],{min:'0.001'}));
       behaviorTables(current,kind);

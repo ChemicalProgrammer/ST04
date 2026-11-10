@@ -127,6 +127,7 @@ window.SimulatorEngine = {
   plantCalendarSchedule: plantCalendarSchedule,
   resolvePlannedStops:resolvePlannedStops,
   resolveProductConveyor:function(equipment,index){return resolveAccumulationZoneDefinition(equipment,index).definition;},
+  productVolumeUnits,
   normalizeFormatCatalog:normalizeFormatCatalog,
   resolvePackingFormats:resolvePackingFormats,
   validateFormatCatalog:validateFormatCatalog,
@@ -154,7 +155,7 @@ const scenarioSources = ['src/simulation/FormatCatalog.js','src/simulation/Produ
 fs.writeFileSync(path.join(repositoryRoot,'apps-script','ScenarioEngine.gs'),
   'var STScenarioEngine_ = (function(){\n'+
   scenarioSources.map(file=>removeModuleSyntax(fs.readFileSync(path.join(repositoryRoot,file),'utf8'))).join('\n')+
-  '\nreturn {plan:planScenarios,efficiency:diagnoseLineEfficiency,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};\n})();\n');
+  '\nreturn {productVolumeUnits,normalizeFormatCatalog:normalizeFormatCatalog,validateFormatCatalog:validateFormatCatalog,plan:planScenarios,efficiency:diagnoseLineEfficiency,diagnose:diagnoseScenarioLosses,apply:applyScenarioChanges,signature:scenarioSignature,audit:scenarioAudit,fields:SCENARIO_FIELDS,catalog:scenarioVariableCatalog,definitions:SCENARIO_DEFINITIONS,interventions:SCENARIO_INTERVENTIONS,categoryAllows:scenarioCategoryAllows,reliabilitySensitivity:reliabilitySensitivityCandidates};\n})();\n');
 
 function removeModuleSyntax(moduleSource) {
   return moduleSource
