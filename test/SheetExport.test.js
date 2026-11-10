@@ -7,6 +7,9 @@ function runtime() {
   const calls=[],writes=[],merges=[],book={getId:()=> 'new-sheet-id',getUrl:()=> 'https://docs.google.com/spreadsheets/d/new-sheet-id/edit'};
   const file={moveTo:folder=>calls.push(['move',folder]),setTrashed:value=>calls.push(['trash',value])};
   const makeRange=(trackMerges,...coordinates)=>new Proxy({}, {get:(_,method)=>(...args)=>{
+    if(method==='protect'){
+      calls.push([method,coordinates]);return {setDescription(){return this;},addEditor(){},getEditors(){return [];},canDomainEdit(){return false;}};
+    }
     if(method==='setValues')writes.push({coordinates,values:JSON.parse(JSON.stringify(args[0]))});
     if(trackMerges&&method==='merge')merges.push(coordinates);
     if(trackMerges&&method==='mergeAcross')for(let row=0;row<coordinates[2];row++)merges.push([coordinates[0]+row,coordinates[1],1,coordinates[3]]);
@@ -18,7 +21,7 @@ function runtime() {
   book.getSheets=()=>[sheet];
   book.insertSheet=(name,index)=>{calls.push(['insertSheet',name,index]);return new Proxy({getMaxRows:()=>1000,getRange:(...coordinates)=>makeRange(false,...coordinates)},{get:(target,key)=>target[key]||((...args)=>calls.push([key,...args]))});};
   book.setActiveSheet=value=>{assert.equal(value,sheet);calls.push(['setActiveSheet']);};
-  const c=vm.createContext({console,SpreadsheetApp:{create:(...args)=>{calls.push(['create',...args]);return book;},flush:()=>calls.push(['flush']),newDataValidation:()=>({requireValueInList(values,dropdown){calls.push(['requireValueInList',Array.from(values),dropdown]);return this;},setAllowInvalid(){return this;},build(){return 'types-validation';}}),BorderStyle:{SOLID_MEDIUM:'solid_medium'},BandingTheme:{LIGHT_GREY:'grey'}},DriveApp:{getFileById:id=>{calls.push(['file',id]);return file;}}});
+  const c=vm.createContext({console,Session:{getEffectiveUser:()=>({getEmail:()=> 'owner@test'})},SpreadsheetApp:{create:(...args)=>{calls.push(['create',...args]);return book;},flush:()=>calls.push(['flush']),newDataValidation:()=>({requireValueInList(values,dropdown){calls.push(['requireValueInList',Array.from(values),dropdown]);return this;},setAllowInvalid(){return this;},build(){return 'types-validation';}}),BorderStyle:{SOLID_MEDIUM:'solid_medium'},BandingTheme:{LIGHT_GREY:'grey'}},DriveApp:{getFileById:id=>{calls.push(['file',id]);return file;}}});
   for(const name of ['TextResources.gs','ApiResponse.gs','CaseService.gs','ScenarioEngine.gs','SheetImportService.gs','SheetExportService.gs','Main.gs'])vm.runInContext(fs.readFileSync('apps-script/'+name,'utf8'),c);
   c.requireCurrentUser_=()=>({email:'owner@test'});
   c.getOwnedCaseFile_=(id,user,metadataOnly)=>{assert.equal(id,'mine');assert.equal(user.email,'owner@test');assert.equal(metadataOnly,true);calls.push(['owned']);return {};};
@@ -69,6 +72,8 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'Line Time');assert.equal(actuals[1][0],'Total time\n[min]');assert.equal(actuals[1][2],'');assert.equal(actuals[13][3],'MTBF/MTTR Check');assert.equal(actuals[14][1],'Reported downtime\n[min]');assert(actuals[12].every(value=>value===''));
   assert(calls.some(call=>call[0]==='setBackground'&&call[2]===c.sheetExportTint_('#123456')));
   assert(calls.some(call=>call[0]==='setBackground'&&JSON.stringify(call[1])==='[2,1,9,1]'));
+  assert(!calls.some(call=>call[0]==='applyRowBanding'||call[0]==='setBackground'&&call[2]==='#fff2cc'));
+  assert.deepEqual(calls.filter(call=>call[0]==='protect').map(call=>call[1]),[[4,2],[6,2],[10,2],[12,5],[16,1,100,1],[16,4,100,6]]);
   assert(calls.filter(call=>call[0]==='setFontColor').every(call=>call[2]==='#000000'));
   assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
   assert(!calls.some(call=>call[0]==='mergeAcross'||call[0]==='merge'&&JSON.stringify(call[1])==='[6,1,1,8]'));
@@ -131,7 +136,7 @@ test('three-tab export previews equipment and filled observations via the same s
  const values=h.writes[0].values,actuals=h.writes[2].values;
  assert.equal(values[0][17],'');assert.equal(values[4][17],'');
  assert.equal(values[7][25],request.equipment[0].id);assert.equal(values[6][25],'Equipment ID');
- assert.equal(values[2][1],'=DATE(2026,10,8)');values[2][1]='2026-10-08';
+ assert.equal(values[2][1],46303);values[2][1]='2026-10-08';
  // Inputs and computed values returned by the dedicated tab, including blank and zero.
  actuals[4][4]=100;actuals[1][1]=1440;actuals[2][1]=0;
  actuals[3][1]=1440;actuals[5][1]=1344;actuals[8][4]=.633;actuals[5][4]=1200;
@@ -166,7 +171,7 @@ test('catalog uses product names and preserves internal IDs, format selection an
  assert(equipment.slice(0,3).every(row=>row[3]===''&&row[4]===''));
  assert.equal(catalog[2][2],'Linked product');
  assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].join(',')==='Product,Format'));
- assert.equal(calls.filter(call=>call[0]==='setBorder').length,8);
+ assert.equal(calls.filter(call=>call[0]==='setBorder').length,14);
  assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='7,1,1,26'&&call[2]==='center'));
  assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,3)),[
    ['Product','Drink',''],['Format','Six pack',''],['Format','Twelve pack','']
@@ -199,7 +204,7 @@ test('a new case with no equipment still exports all headings, validations and b
  const response=c.exportEquipmentSheet(request);
  assert.equal(response.ok,true,JSON.stringify(response));assert.equal(response.data.equipmentCount,0);
  const grid=writes[0].values;
- assert.equal(grid[2][1],'=DATE(2025,12,15)');assert.equal(grid[3][0],'By');assert.equal(grid[3][1],'');
+ assert.equal(grid[2][1],46006);assert.equal(grid[3][0],'By');assert.equal(grid[3][1],'');
  assert.equal(grid[6].length,26);assert(grid[6].every(Boolean));
  assert(grid[7].slice(0,25).every(value=>value===''));assert.match(grid[7][25],/^slot-/);
  assert(calls.some(call=>call[0]==='setNumberFormat'&&String(call[1])==='4,2'&&call[2]==='@'));

@@ -23,7 +23,7 @@ function exportEquipmentSheet_(request, user) {
     stage='OPEN_EXPORTS_FOLDER';
     var folder=getWorkspaceFolders_().exports;
     var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
-    var primary=sheetExportColor_(request.theme?.primary,'#5485a4'),secondary=sheetExportColor_(request.theme?.secondary,'#71818a');
+    var primary=sheetExportColor_(request.theme?.primary,'#5485a4');
     var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50));
     stage='CREATE_SPREADSHEET';
     book=SpreadsheetApp.create(name,slots+7,width);
@@ -40,7 +40,7 @@ function exportEquipmentSheet_(request, user) {
       var value=data.metadata[index],cell=cells[index],row=Number(cell.slice(1))-1,column=cell.charCodeAt(0)-65;
       if(index>=2&&index<=4&&(hasCatalog||value==='NA'||value===''))return;
       values[row][column-1]=label;
-      values[row][column]=index===5&&date?'=DATE('+date.split('-').map(Number).join(',')+')':sheetExportLiteral_(value);
+      values[row][column]=index===5&&date?(Date.parse(date+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000:sheetExportLiteral_(value);
     });
     sheet.getRange(3,2).setNumberFormat('dd mmm yyyy');
     sheet.getRange(4,2).setNumberFormat('@');
@@ -53,35 +53,29 @@ function exportEquipmentSheet_(request, user) {
     sheet.getRange(8,26,slots,1).setNumberFormat('@');
     sheet.getRange(1,1,values.length,width).setValues(values).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
     stage='WRITE_CATALOG';
-    writeSheetCatalog_(book.insertSheet('Products & Formats',1),catalog,primary,secondary);
+    writeSheetCatalog_(book.insertSheet('Products & Formats',1),catalog,primary);
     stage='WRITE_REAL_DATA';
     writeSheetActuals_(book.insertSheet('Real Data',2),values.slice(7),primary,8);
     book.setActiveSheet(sheet);
     stage='FORMAT_SHEET';
     cells.forEach(function(cell){
       var row=Number(cell.slice(1)),column=cell.charCodeAt(0)-64;
-      if(values[row-1][column-2])sheet.getRange(row,column-1,1,2).setBackground(sheetExportTint_(primary));
+      if(values[row-1][column-2])sheet.getRange(row,column-1).setBackground(sheetExportTint_(primary));
       sheet.getRange(row,column-1).setFontWeight('bold');
     });
     groups.forEach(function(group){
       var band=sheet.getRange(6,group[1],1,group[2]);
       // Equipment spans the frozen-column boundary, so use one continuous unmerged band.
       if(group[1]>2)band.merge().setHorizontalAlignment('center');
-      band.setBackground(sheetExportTint_(secondary)).setFontWeight('bold').setHorizontalAlignment('center');
-      if(group[1]>1){
-        [band,sheet.getRange(7,group[1],slots+1,1)].forEach(function(range){
-          range.setBorder(null,true,null,null,null,null,secondary,SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-        });
-      }
+      band.setBackground(sheetExportTint_(primary,.38)).setFontWeight('bold').setHorizontalAlignment('center');
+      if(group[1]>1)sheetExportGroupDivider_(band,sheet.getRange(7,group[1],slots+1,1),primary);
     });
     sheet.hideColumns(26);
     var types=SpreadsheetApp.newDataValidation().requireValueInList(supportedEquipmentTypes_(),true).setAllowInvalid(false).build();
     sheet.getRange(8,1,slots,1).setDataValidation(types);
     sheet.getRange(7,1,1,width).setBackground(sheetExportTint_(primary)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center').setVerticalAlignment('middle');
     if(data.rows.length){
-      var body=sheet.getRange(8,1,data.rows.length,25);
-      body.setBackground('#ffffff').setWrap(true);
-      body.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY,false,false);
+      sheet.getRange(8,1,data.rows.length,25).setWrap(true);
       sheet.getRange(8,4,data.rows.length,22).setNumberFormat('0.########').setHorizontalAlignment('right');
       sheet.getRange(8,2,data.rows.length,1).setFontWeight('bold');
       sheet.setRowHeights(8,data.rows.length,28);
@@ -144,17 +138,19 @@ function writeSheetActuals_(sheet,equipmentRows,primary,equipmentStart) {
     });
   sheet.getRange(1,1,height,width).setValues(rows).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
   [[1,1,2],[1,4,2],[8,4,2],[14,1,3],[14,4,6]].forEach(function(group){
-    sheet.getRange(group[0],group[1],1,group[2]).merge().setFontWeight('bold').setBackground(sheetExportTint_(primary)).setHorizontalAlignment('center');
+    sheet.getRange(group[0],group[1],1,group[2]).merge().setFontWeight('bold').setBackground(sheetExportTint_(primary,.38)).setHorizontalAlignment('center');
   });
   [sheet.getRange(2,1,9,1),sheet.getRange(2,4,5,1),sheet.getRange(9,4,4,1)].forEach(function(range){
-    range.setBackground(sheetExportTint_(primary,.14)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center');
+    range.setBackground(sheetExportTint_(primary)).setFontWeight('bold').setWrap(true).setHorizontalAlignment('center');
   });
   sheet.getRange(15,1,1,9).setFontWeight('bold').setBackground(sheetExportTint_(primary)).setWrap(true).setHorizontalAlignment('center');
-  [sheet.getRange(2,2,2,1),sheet.getRange(5,2),sheet.getRange(7,2,3,1),sheet.getRange(2,5,5,1),sheet.getRange(9,5,3,1),sheet.getRange(16,2,count,2)].forEach(function(range){range.setBackground('#fff2cc');});
+  [sheet.getRange(4,2),sheet.getRange(6,2),sheet.getRange(10,2),sheet.getRange(12,5),
+    sheet.getRange(16,1,count,1),sheet.getRange(16,4,count,6)].forEach(function(range){
+    sheetExportProtectFormula_(range,primary);
+  });
   sheet.getRange(9,5,3,1).setNumberFormat('0.00%');
   sheet.getRange(16,3,count,1).setNumberFormat('0.00%');
   sheet.getRange(16,4,count,4).setNumberFormat('0.00');sheet.getRange(16,8,count,1).setNumberFormat('0.0%');
-  sheet.getRange(16,4,count,6).setBackground('#eef3f6');
   sheet.setColumnWidths(1,width,135);sheet.setColumnWidth(1,250);sheet.setColumnWidth(9,175);
   sheet.setRowHeights(2,11,36);sheet.setRowHeight(15,50);sheet.setFrozenRows(15);sheet.hideColumns(10);
 }
@@ -206,7 +202,7 @@ function sheetColumnHeading_(label){
   return label.replace(/\s+(\([^()]+\)|\[[^\[\]]+\])$/, '\n$1');
 }
 
-function writeSheetCatalog_(sheet,catalog,primary,secondary){
+function writeSheetCatalog_(sheet,catalog,primary){
   var units=STScenarioEngine_.productVolumeUnits,width=9;
   var rows=[['st-material-sheet-v2','','','','','','','',''],
     ['Catalog','','','Volume','','Dimensions','','','Packing'],
@@ -225,7 +221,10 @@ function writeSheetCatalog_(sheet,catalog,primary,secondary){
   sheet.getRange(1,1,rows.length,width).setValues(rows);
   sheet.getRange(2,1,202,width).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
   [[1,3],[4,2],[6,3]].forEach(function(group){sheet.getRange(2,group[0],1,group[1]).merge();});
-  sheet.getRange(2,1,1,width).setBackground(sheetExportTint_(secondary)).setFontWeight('bold').setHorizontalAlignment('center');
+  sheet.getRange(2,1,1,width).setBackground(sheetExportTint_(primary,.38)).setFontWeight('bold').setHorizontalAlignment('center');
+  [[4,2],[6,3],[9,1]].forEach(function(group){
+    sheetExportGroupDivider_(sheet.getRange(2,group[0],1,group[1]),sheet.getRange(3,group[0],201,1),primary);
+  });
   sheet.getRange(3,1,1,width).setBackground(sheetExportTint_(primary)).setFontWeight('bold').setHorizontalAlignment('center').setWrap(true);
   [[1,['Product','Format']],[5,Object.keys(units)]].forEach(function(column){
     var validation=SpreadsheetApp.newDataValidation().requireValueInList(column[1],true).setAllowInvalid(false).build();
@@ -234,4 +233,19 @@ function writeSheetCatalog_(sheet,catalog,primary,secondary){
   sheet.setColumnWidths(1,width,120);sheet.setColumnWidths(2,2,200);
   sheet.setRowHeight(3,50);sheet.setFrozenRows(3);
   sheet.getRange(3,1,201,width).createFilter();
+}
+
+function sheetExportGroupDivider_(band,columns,primary){
+  var color=sheetExportTint_(primary,.65);
+  [band,columns].forEach(function(range){
+    range.setBorder(null,true,null,null,null,null,color,SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  });
+}
+
+function sheetExportProtectFormula_(range,primary){
+  var protection=range.setBackground(sheetExportTint_(primary,.1)).protect().setDescription('Calculated values');
+  protection.addEditor(Session.getEffectiveUser());
+  var editors=protection.getEditors();
+  if(editors.length)protection.removeEditors(editors);
+  if(protection.canDomainEdit())protection.setDomainEdit(false);
 }
