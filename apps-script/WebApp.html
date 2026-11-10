@@ -193,22 +193,27 @@
               <h3 id="equipment-control-events-title"><button id="toggle-control-events" class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-event-content"><?= __ST_TEXT__('view.equipment_control_events') ?></button></h3>
               <p><?= __ST_TEXT__('view.schedule_a_pause_planned_stop_emergency_stop_reset_run_manual_or_automatic_') ?></p>
             </div>
-            <div class="button-row"><button id="open-plant-calendar" type="button" class="secondary" aria-haspopup="dialog" aria-controls="plant-calendar-dialog">Plant calendar</button><button id="add-product-changeover" type="button" class="secondary">+ Changeover</button><button id="open-event-generator" type="button" class="secondary" aria-haspopup="dialog">Distribute pauses</button><button id="add-control-event" data-icon="plus" class="secondary" type="button"><?= __ST_TEXT__('view.add_event') ?></button></div>
+            <div class="fold-tools button-row">
+              <button id="open-plant-calendar" type="button" class="secondary icon-button" data-icon="calendar" aria-label="Plant calendar" title="Plant calendar" aria-haspopup="dialog" aria-controls="plant-calendar-dialog"></button>
+              <button id="add-product-changeover" type="button" class="secondary icon-button" data-icon="refresh" aria-label="Add changeover" title="Add changeover"></button>
+              <button id="open-event-generator" type="button" class="secondary icon-button" data-icon="distribute" aria-label="Distribute pauses" title="Distribute pauses" aria-haspopup="dialog"></button>
+              <button id="add-control-event" type="button" class="secondary icon-button" data-icon="plus" aria-label="<?= __ST_TEXT__('view.add_event') ?>" title="<?= __ST_TEXT__('view.add_event') ?>"></button>
+            </div>
           </div>
-          <div id="simulation-event-content" class="fold-content"><div id="event-time-tools" class="event-time-tools"></div><div class="event-selection-toolbar button-row"><label class="checkbox-label"><input id="select-all-control-events" type="checkbox">Select all events</label><button id="delete-selected-control-events" type="button" class="ghost" data-icon="trash" disabled>Delete selected</button><button id="delete-all-control-events" type="button" class="ghost" data-icon="trash" disabled>Delete all events</button><span id="control-event-selection-status" class="chart-note" role="status" aria-live="polite"></span></div><p class="chart-note event-selection-hint">Click a row to select it. Ctrl/Cmd adds or removes rows; Shift selects a range. Checkboxes also allow multiple selection.</p><div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></div></section>
+          <div id="simulation-event-content" class="fold-content"><div id="event-time-tools" class="event-time-tools"></div><div class="event-selection-toolbar button-row"><label class="checkbox-label"><input id="select-all-control-events" type="checkbox">Select all events</label><button id="delete-selected-control-events" type="button" class="ghost icon-button" data-icon="trash" aria-label="Delete selected events" title="Delete selected events" disabled></button><button id="delete-all-control-events" type="button" class="ghost icon-button" data-icon="trashAll" aria-label="Delete all events" title="Delete all events" disabled></button><span id="control-event-selection-status" class="chart-note" role="status" aria-live="polite"></span></div><p class="chart-note event-selection-hint">Click a row to select it. Ctrl/Cmd adds or removes rows; Shift selects a range. Checkboxes also allow multiple selection.</p><div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></div></section>
 
         <div id="simulation-results" class="hidden">
           <section id="simulation-playback" class="fold-card">
           <div class="fold-heading">
             <div><h3><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-playback-content">Simulation playback</button></h3>
             <p id="simulation-playback-status"><span id="playback-status"><?= __ST_TEXT__('casegallery.ready') ?></span><output id="playback-progress" aria-label="Simulation progress">0%</output></p></div>
-            <div class="playback-toolbar fold-tools">
+            <div class="playback-toolbar fold-tools button-row">
             <div id="playback-round-control" class="hidden"><select id="playback-round" aria-label="Playback round"></select></div>
             <button id="play-simulation" class="secondary icon-button" type="button" data-icon="play" aria-label="<?= __ST_TEXT__('view.play') ?>" title="<?= __ST_TEXT__('view.play') ?>"></button>
             <button id="pause-simulation" class="secondary icon-button" type="button" data-icon="pause" aria-label="<?= __ST_TEXT__('client.pause') ?>" title="<?= __ST_TEXT__('client.pause') ?>"></button>
             <button id="reset-playback" class="secondary icon-button" type="button" data-icon="refresh" aria-label="<?= __ST_TEXT__('client.reset') ?>" title="<?= __ST_TEXT__('client.reset') ?>"></button>
             <details class="export-menu">
-              <summary class="icon-button" data-icon="upload" aria-label="Exportar gráficas" title="Exportar gráficas de la ronda seleccionada"></summary>
+              <summary class="secondary icon-button" data-icon="upload" aria-label="Exportar gráficas" title="Exportar gráficas de la ronda seleccionada"></summary>
               <div>
                 <button id="export-live-charts-html" class="ghost" type="button" disabled>Gráficas (HTML)</button>
                 <button id="export-live-charts-csv" class="ghost" type="button" disabled>Datos de gráficas (CSV)</button>
@@ -253,7 +258,7 @@
               <h3 id="results-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="results-overview-content">Performance summary</button></h3>
               <div class="fold-tools button-row">
                 <div id="results-round-view" hidden></div>
-                <details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-ai" class="ghost" disabled>JSON</button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
+                <details class="export-menu"><summary class="secondary icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-ai" class="ghost" disabled>JSON</button><button id="export-results-html" class="ghost" disabled><?= __ST_TEXT__('exports.html') ?></button><button id="export-results-pdf" class="ghost" disabled><?= __ST_TEXT__('exports.pdf') ?></button></div></details>
               </div>
             </div>
             <div id="results-overview-content" class="fold-content">
@@ -271,12 +276,22 @@
               <section id="batch-results" class="hidden"></section>
             </div>
           </details>
-          <details class="results-group fold-card fold-native">
-            <summary>Losses and transitions</summary>
-            <div class="results-group-content">
-              <section id="results-loss-breakdown"></section>
-              <section id="results-ramp-accounting"></section>
+          <section class="fold-card" aria-labelledby="results-loss-title">
+            <div class="fold-heading">
+              <h3 id="results-loss-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="false" aria-controls="results-loss-breakdown">Loss diagnostics</button></h3>
+              <div class="fold-tools button-row">
+                <button id="calculate-matched-loss" type="button" class="secondary icon-button" data-icon="search" aria-label="Calculate matched loss diagnostics" title="Calculate matched loss diagnostics" hidden></button>
+              </div>
             </div>
+            <div id="results-loss-breakdown" class="fold-content" hidden></div>
+          </section>
+          <details class="results-group fold-card fold-native">
+            <summary>Rate loss</summary>
+            <div id="results-rate-loss" class="results-group-content"></div>
+          </details>
+          <details class="results-group fold-card fold-native">
+            <summary>Start ramps and stop transitions</summary>
+            <div id="results-ramp-accounting" class="results-group-content"></div>
           </details>
           <details class="results-group fold-card fold-native">
             <summary>Equipment performance</summary>
@@ -284,6 +299,7 @@
               <div id="results-insight" class="result-insight"></div>
               <div id="results-table" class="table-scroll"></div>
               <section id="results-equipment-operation"></section>
+              <section id="results-equipment-times"></section>
             </div>
           </details>
           <!-- V-Graph conserva su vista de navegación independiente. -->

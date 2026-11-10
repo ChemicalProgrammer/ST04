@@ -18,7 +18,7 @@ test('equipment rate total sums net equivalent seconds and does not substitute l
   const d=w.STReports.equipmentRateLoss(result,equipment);
   assert.equal(d.rows[0].rateLossSeconds,30);assert.equal(d.rows[1].rateLossSeconds,60);
   assert.equal(d.total.rateLossSeconds,90);assert.equal(result.summary.lineRateLossSeconds,3);
-  w.STResults.renderRamps(w.document.getElementById('target'),result,equipment);
+  w.STResults.renderRateLoss(w.document.getElementById('target'),result,equipment);
   const table=w.document.querySelector('.equipment-rate-loss-table');assert.equal(table.tBodies[0].rows.length,2);
   assert.equal(table.tFoot.rows[0].cells[3].textContent,'1.5');assert(table.tFoot.rows[0].cells[0].title.includes('Filler: 0.5'));assert(table.tFoot.rows[0].cells[0].title.includes('Conveyor <one>: 1'));assert.equal(table.querySelectorAll('one').length,0);
   const html=w.STReports.equipmentRateLossHtml(result,equipment);
@@ -58,7 +58,9 @@ test('above-reference equipment balance stays signed rather than hiding recovery
 test('both Results tables explain every header and report tooltips use the same definitions',()=>{
  const w=setup();try{
   const result={summary:{},equipmentMetrics:{a:metrics(120,90),b:metrics(120,60)}};
-  w.STResults.renderRamps(w.document.getElementById('target'),result,equipment);
+  w.STResults.renderRateLoss(w.document.getElementById('target'),result,equipment);
+  const transitions=w.document.createElement('section');w.document.body.append(transitions);
+  w.STResults.renderRamps(transitions,result,equipment);
   for(const [selector,tips] of [['.equipment-rate-loss-table',w.STReports.equipmentRateLossHeaderTips],['.ramp-accounting-table',w.STReports.rampHeaderTips]]){
    const headers=[...w.document.querySelectorAll(selector+' thead th')];assert.equal(headers.length,tips.length);
    headers.forEach((th,i)=>{assert.equal(th.title,tips[i]);assert(th.title.length>30);assert.equal(th.getAttribute('aria-description'),th.title);assert.equal(th.tabIndex,0);});

@@ -95,7 +95,7 @@ window.STResults=(function(){
     if(run.engineId==='DES_SIMPY_EXPERIMENTAL')return null;
     return {case:{id:simulation?.id||'results-loss',unitOfFlow:provenance.unitOfFlow||result.unitOfFlow||'units',equipment:provenance.equipment},run:run};
   }
-  function matchedLoss(target,equipment,result,simulation){
+  function matchedLoss(target,equipment,result,simulation,action){
     var input=lossInput(equipment,result,simulation);if(!input||!SimulatorEngine.inputSignature)return null;
     var key='RESULTS_LOSS_V1:'+SimulatorEngine.inputSignature(input),saved=simulation?.whatIf?.lossDiagnostic;
     target._lossKey=key;
@@ -115,18 +115,19 @@ window.STResults=(function(){
         Object.assign(job,{status:'COMPLETE',baselineOee:resultMean(result),failureFreeOee:value,run:input.run});
         if(simulation&&current()){simulation.whatIf=simulation.whatIf||{};simulation.whatIf.lossDiagnostic=Object.assign({},job);window.dispatchEvent(new CustomEvent('st-whatif-change',{detail:{simulation:simulation}}));}
       }catch(error){if(!current()){lossJobs.delete(key);return;}job.status='ERROR';job.error=error.message;}
-      finally{window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));if(current())renderEfficiency(target,equipment,result,simulation);while(lossJobs.size>8){var old=Array.from(lossJobs).find(([k,v])=>v.status!=='PENDING'&&k!==key);if(!old)break;lossJobs.delete(old[0]);}}
+      finally{window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:false}}));if(current())renderEfficiency(target,equipment,result,simulation,action);while(lossJobs.size>8){var old=Array.from(lossJobs).find(([k,v])=>v.status!=='PENDING'&&k!==key);if(!old)break;lossJobs.delete(old[0]);}}
     }
     if(calculationCount)idleLossTasks.push(start);else Promise.resolve().then(start);
     return job;
   }
-  function renderEfficiency(target,equipment,result,simulation){
+  function renderEfficiency(target,equipment,result,simulation,action){
     target._lossKey=null;target.replaceChildren();
+    if(action){action.hidden=true;action.onclick=null;}
     var formatted=Boolean(result?.products);
     var d=SimulatorEngine.diagnoseLineEfficiency(equipment,result);
     function add(tag,text,parent){var node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
-    if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','Loss breakdown unavailable for the experimental engine.');return;}
-    var diagnostic=matchedLoss(target,equipment,result,simulation);
+    if(result?.engineId==='DES_SIMPY_EXPERIMENTAL'){add('p','Loss breakdown unavailable for the experimental engine.');return null;}
+    var diagnostic=matchedLoss(target,equipment,result,simulation,action);
     var legacyReady=result&&!result.provisional&&!result.inputSignature&&!['PENDING','CALCULATING','INTERRUPTED'].includes(result.replicationStatus?.state);
     var counter=legacyReady?(simulation?.whatIf?.evaluations||[]).filter(e=>{var c=e.reliabilityCounterfactual;return e.sourceSignature===window.STScenarios?.signature(simulation)&&c&&Math.abs(c.baseline.oee-resultMean(result))<1e-6&&c.run.durationSeconds===result.durationSeconds&&(!Number.isFinite(result.seed)||c.run.seed===result.seed);}).slice(-1)[0]?.reliabilityCounterfactual:null;
     var failuresDisabled=simulation?.dynamicConfig?.reliabilityEnabled===false;
@@ -139,13 +140,32 @@ window.STResults=(function(){
     [['Conditional MTBF / MTTR loss',conditional],['Nominal machine-speed gap',capacityGap],['Remaining loss without failures',remaining]].forEach(([label,value])=>{var card=add('article','',cards);card.className='result-kpi';if(diagnostic?.error)card.title=diagnostic.error;add('span',label,card);add('strong',Number.isFinite(value)?number(value,2)+'%':'—',card);});
     if(formatted)add('p',Number.isFinite(capacityGap)?'Nominal machine-speed gap uses saved format speeds, bottles per case and active durations, weighted in bottle equivalents. Remaining loss covers transport, planned stops and other flow effects.':'Format-aware losses use the same product schedule, units and seeds. Remaining loss includes speed, transport, planned stops and other flow effects. Run the simulation again to restore the format snapshots and durations needed to separate the nominal machine-speed gap.').className='chart-note';
     if(diagnostic?.status==='PENDING')add('p','Calculating matched loss diagnostics…').className='chart-note';
-    if(diagnostic?.status==='DEFERRED'){var calculate=add('button','Calculate matched loss diagnostics');calculate.type='button';calculate.className='secondary';calculate.title='Runs the full period again without random failures; may take several minutes.';calculate.onclick=function(){target._longLossKey=diagnostic.key;renderEfficiency(target,equipment,result,simulation);};}
-    if(diagnostic?.status==='ERROR'){var retry=add('button','Recalculate losses');retry.type='button';retry.className='secondary';retry.onclick=()=>{lossJobs.delete(diagnostic.key);renderEfficiency(target,equipment,result,simulation);};}
-    if(!result)return;
+    if(action && ['DEFERRED','ERROR'].includes(diagnostic?.status)){
+      const retry=diagnostic.status==='ERROR';
+      action.hidden=false;
+      action.setAttribute('aria-label',retry?'Recalculate losses':'Calculate matched loss diagnostics');
+      action.title=retry?'Recalculate losses: '+diagnostic.error:'Calculate matched loss diagnostics. Runs the full period again without random failures.';
+      action.onclick=function(){
+        if(retry)lossJobs.delete(diagnostic.key);
+        else target._longLossKey=diagnostic.key;
+        const toggle=action.closest('.fold-heading')?.querySelector('[data-subsection-toggle]');
+        if(toggle){
+          if(target.hidden)toggle.click();
+          if(document.activeElement===action)toggle.focus();
+        }
+        renderEfficiency(target,equipment,result,simulation,action);
+      };
+    }
+    return d;
+  }
+  function renderEquipmentTimes(target,diagnosis){
+    target.replaceChildren();
+    if(!diagnosis)return;
+    function add(tag,text,parent){const node=document.createElement(tag);node.textContent=text;(parent||target).append(node);return node;}
     add('h3','Equipment time breakdown').className='subsection-title';
     add('p','Observed times can overlap; they are not additive OEE losses.').className='chart-note';
     var labels={plannedStopSeconds:'Planned line stop',failureSeconds:'Failure / repair',microStopSeconds:'Microstop',pausedSeconds:'Pause',emergencyStopSeconds:'Emergency stop',starvedSeconds:'Starvation',blockedSeconds:'Blocking',waitingForPrimeSeconds:'Waiting for Prime',backupStopSeconds:'Back-up stop'};
-    var observed=d.equipmentTime.flatMap(e=>Object.entries(e.percent).filter(([key,value])=>Number.isFinite(value)&&value>0).map(([key,value])=>({name:e.name,label:labels[key],value:value})));
+    var observed=diagnosis.equipmentTime.flatMap(e=>Object.entries(e.percent).filter(([key,value])=>Number.isFinite(value)&&value>0).map(([key,value])=>({name:e.name,label:labels[key],value:value})));
     observed.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name)||a.label.localeCompare(b.label));
     var columns=add('div','');columns.className='observed-equipment-columns';
     var midpoint=Math.ceil(observed.length/2),groups=observed.length>1?[observed.slice(0,midpoint),observed.slice(midpoint)]:[observed];
@@ -172,15 +192,16 @@ window.STResults=(function(){
     data.rows.forEach(value=>row(value,tbody));row(data.total,tfoot);table.append(thead,tbody,tfoot);scroll.append(table);target.append(scroll);
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.equipmentRateLossHelp;target.append(note);
   }
-  function renderRamps(target,result,equipment,rateLossCategories){
+  function renderRateLoss(target,result,equipment,rateLossCategories){
     target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
-    const rateHeading=document.createElement('h3');rateHeading.textContent='Line Rate Loss';target.append(rateHeading);
     const values=document.createElement('p');values.className='chart-note';values.textContent=STReports.rateLossRows(result).map(([label,n])=>label+': '+number(n,2)+' min').join(' · ');target.append(values);
     const help=document.createElement('details'),summary=document.createElement('summary'),explanation=document.createElement('p');summary.textContent='How rate loss is calculated';explanation.textContent=STReports.rateLossHelp;help.append(summary,explanation);target.append(help);
     renderRateLossImpact(target,result);
     const breakdown=document.createElement('section');breakdown.innerHTML=STReports.rateLossAttributionHtml(result,equipment,rateLossCategories);target.append(breakdown);
     renderEquipmentRateLoss(target,result,equipment);
-    const heading=document.createElement('h3');heading.textContent='Start ramps and stop transitions';target.append(heading);
+  }
+  function renderRamps(target,result,equipment){
+    target.replaceChildren();target.hidden=!result?.summary;if(target.hidden)return;
     const note=document.createElement('p');note.className='chart-note';note.textContent=STReports.rampNote;target.append(note);
     const scroll=document.createElement('div');scroll.className='table-scroll';const table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');
     table.className='ramp-accounting-table';STReports.rampHeaders.forEach((text,i)=>{const th=document.createElement('th');th.scope='col';th.textContent=text;th.title=STReports.rampHeaderTips[i];th.setAttribute('aria-description',th.title);th.tabIndex=0;if(i)th.className='numeric';head.append(th);});thead.append(head);table.append(thead);
@@ -240,9 +261,10 @@ window.STResults=(function(){
     }
     var ready=Boolean(result&&result.summary&&!result.provisional);
     renderRateLossHighlights(document.getElementById('results-rate-loss-highlights'),ready?result:null);
-    var ramps=document.getElementById('results-ramp-accounting'),operating=document.getElementById('results-equipment-operation');
-    renderEquipmentOperatingResults(operating,ready?result:null,source,simulation?.equipment||activeCase?.equipment||[]);
-    renderRamps(ramps,ready?result:null,simulation?.equipment||activeCase?.equipment||[],activeCase?.metadata?.consoleOptions?.rateLossCategories);
+    const resultEquipment=simulation?.equipment||activeCase?.equipment||[];
+    renderEquipmentOperatingResults(document.getElementById('results-equipment-operation'),ready?result:null,source,resultEquipment);
+    renderRateLoss(document.getElementById('results-rate-loss'),ready?result:null,resultEquipment,activeCase?.metadata?.consoleOptions?.rateLossCategories);
+    renderRamps(document.getElementById('results-ramp-accounting'),ready?result:null,resultEquipment);
     STPlantCalendar.renderResults(document.getElementById('results-plant-comparison'),ready?result:null,simulation);
     STProducts.results(document.getElementById('results-products'),ready?result:null);
     var designReady=Boolean(activeCase?.equipment?.length);
@@ -252,7 +274,8 @@ window.STResults=(function(){
 
     document.getElementById('results-empty').classList.toggle('hidden',ready||designReady);document.getElementById('results-body').classList.toggle('hidden',!ready&&!designReady);document.getElementById('results-body').classList.toggle('results-design-only',!ready);
     STReports.bindResults(ready?result:null,activeCase,simulation);
-    renderEfficiency(document.getElementById('results-loss-breakdown'),simulation?.equipment||activeCase?.equipment||[],ready?result:null,simulation);
+    const diagnosis=renderEfficiency(document.getElementById('results-loss-breakdown'),resultEquipment,ready?result:null,simulation,document.getElementById('calculate-matched-loss'));
+    renderEquipmentTimes(document.getElementById('results-equipment-times'),ready?diagnosis:null);
     if(!ready){document.getElementById('results-meta').textContent=result?.provisional?__ST_TEXT__('batch.calculating_first'):__ST_TEXT__('results.complete_a_simulation_to_inspect_the_results');STLinePerformance.render(null,activeCase?.equipment||[]);return;}
     document.getElementById('results-meta').textContent=activeCase.name+__ST_TEXT__('results.full_run')+result.durationSeconds+(result.resultView?.mode==='average'?' s':__ST_TEXT__('results.s_seed')+result.seed);
     const effectiveStop=result.effectiveRuntimeStop;
@@ -310,7 +333,7 @@ window.STResults=(function(){
     ids.forEach(function(id){var e=(a.equipment||[]).concat(b.equipment||[]).find(e=>e.id===id);function value(sim){return sim.results.batch?.equipmentStatistics?.[id]?.oeePercent?.mean??sim.results.equipmentMetrics?.[id]?.oeePercent;}row(e.name||id,value(a),value(b));});
     table.append(body);scroll.append(table);section.append(scroll);target.append(section);
   }
-  return {effectiveRunTime:effectiveRunTime,renderEffectiveRunTimeCard:renderEffectiveRunTimeCard,failureBreakdown:failureBreakdown,renderFailureCard:renderFailureCard,renderRateLossHighlights:renderRateLossHighlights,renderRamps:renderRamps,renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
+  return {effectiveRunTime:effectiveRunTime,renderEffectiveRunTimeCard:renderEffectiveRunTimeCard,failureBreakdown:failureBreakdown,renderFailureCard:renderFailureCard,renderRateLossHighlights:renderRateLossHighlights,renderRamps:renderRamps,renderRateLoss:renderRateLoss,renderEquipmentTimes:renderEquipmentTimes,renderEfficiency:renderEfficiency,render:render,compare:compare,compareEquipmentOee:compareEquipmentOee};
 })();
 </script>
 

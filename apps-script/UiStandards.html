@@ -159,7 +159,6 @@ html[data-ui-mode=advance] :is(.analysis-attention,.scenario-audit-warnings,.rou
 #basic-run-options > h3 { display:flex; align-items:center; min-height:var(--control-height); margin-bottom:var(--section-gap); }
 .section-heading .export-menu,.editor-subheading .export-menu,.simulation-analysis-heading .export-menu { margin:0; vertical-align:middle; }
 .editor-subheading > .button-row { align-items:center; }
-.export-menu > summary.icon-button { box-sizing:border-box; width:var(--control-height); height:var(--control-height); min-height:var(--control-height); padding:var(--space-2); }
 html[data-ui-mode=basic] .scenario-tier-grid { grid-template-columns:repeat(4,minmax(210px,1fr)); align-items:stretch; overflow-x:auto; padding-bottom:var(--space-2); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation { min-width:0; display:flex; flex-direction:column; padding:var(--space-3); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > .analysis-capex,
@@ -169,11 +168,9 @@ html[data-ui-mode=basic] .scenario-tier-grid .scenario-actions .icon-button { wi
 html[data-ui-mode=basic] .scenario-current { border-left:var(--state-border-width) solid var(--muted); }
 html[data-ui-mode=basic] .scenario-current .scenario-basic-metrics { padding:var(--space-3) 0; }
 
-/* Match file-menu triggers to neighboring icon buttons. */
-.editor-subheading .icon-button,.json-section-heading .icon-button,.export-menu > summary.icon-button,.cases-toolbar > .icon-button { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:var(--control-height); height:var(--control-height); min-height:var(--control-height); margin:0; padding:var(--space-2); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:transparent; color:var(--muted); }
-.export-menu > summary.icon-button { list-style:none; }
-.export-menu > summary.icon-button::-webkit-details-marker { display:none; }
-.editor-subheading .icon-button:hover,.export-menu > summary.icon-button:hover,.cases-toolbar > .icon-button:hover { background:var(--surface-hover); color:var(--ink); }
+/* Outlined icon buttons in editor and case toolbars. */
+.editor-subheading .icon-button,.json-section-heading .icon-button,.cases-toolbar > .icon-button { border-color:var(--line); background:transparent; color:var(--muted); }
+.editor-subheading .icon-button:hover,.cases-toolbar > .icon-button:hover { background:var(--surface-hover); color:var(--ink); }
 .scenario-activity { width:100%; height:var(--state-border-width); margin:var(--space-3) 0; }
 .scenario-activity[hidden] { display:none; }
 html[data-ui-mode=basic] .scenario-search-progress { display:none; }
@@ -394,11 +391,8 @@ html[data-ui-mode=basic][data-events-enabled=true] .live-controls-help { display
 #results-plant-comparison table { margin:0; }
 #results-plant-comparison :is(th,td), .observed-equipment-times :is(th,td) { padding:var(--space-3); }
 #results-plant-comparison td:first-child { white-space:normal; }
-#results-loss-breakdown .observed-equipment-columns { margin-block:var(--space-4); }
-/* Separa los bloques de Rate Loss, su desglose y las transiciones con los espacios compartidos. */
-#results-ramp-accounting > :is(h3,section):not(:first-child),
-#results-ramp-accounting > section > h3:not(:first-child) { margin-block-start:var(--section-gap); }
-#results-ramp-accounting h3 { margin-block-end:var(--space-3); }
+#results-equipment-times .observed-equipment-columns { margin-block:var(--space-4); }
+#results-rate-loss > section > h3:not(:first-child) { margin-block-start:var(--section-gap); }
 
 /* Encabezados y ritmo compartidos de los grupos de Resultados. */
 .results-group-content { display:grid; gap:var(--space-4); min-width:0; margin-block-start:var(--space-3); }
@@ -423,9 +417,12 @@ html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text);
   font-size:var(--font-card); font-weight:var(--weight-semibold); line-height:var(--leading-tight);
 }
 .fold-heading h3, #realdata-panel .fold-heading .real-data-section-title { margin:0; color:var(--info); font:inherit; line-height:var(--leading-tight); }
-.fold-heading p { margin:var(--space-2) 0 0; }
+.fold-heading p {
+  margin:var(--space-2) 0 0;
+  color:var(--muted); font-size:var(--font-secondary); font-weight:var(--weight-regular); line-height:var(--leading-body);
+}
 .fold-heading .fold-tools, .fold-heading .button-row { margin:0 0 0 auto; padding:0; }
-.fold-heading .playback-toolbar { flex-wrap:wrap; }
+.button-row > .export-menu, .fold-tools > .export-menu { display:flex; flex-shrink:0; margin:0; }
 .fold-heading .fold-toggle {
   display:inline-flex; align-items:center; gap:var(--space-2); min-height:0; margin:0; padding:0;
   border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--info); font:inherit; text-align:start;
