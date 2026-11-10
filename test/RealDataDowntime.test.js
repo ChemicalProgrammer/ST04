@@ -8,7 +8,7 @@ test('failure minutes, shares and MTBF/MTTR theoretical percentage are distinct 
 });
 test('unknown general downtime is not silently interpreted as MTBF failure and missing real totals are honest',()=>{
  const w=setup();try{const f=fixture();f.record.equipment[0]={equipmentId:'f',stopClass:'UNKNOWN',downtimeSeconds:6000};
- let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.rows[0].real,null);assert.equal(d.totalReal,null);assert.equal(d.rows[1].realShare,null);assert.equal(d.totalSim,30);
+ let d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.rows[0].real,null);assert.equal(d.rows[0].realReported,100);assert.equal(d.totalReal,null);assert.equal(d.rows[1].realShare,null);assert.equal(d.totalSim,30);
  f.record.equipment[0].stopClass='FAILURES';d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.totalReal,105);
  f.record.equipment.forEach(r=>{r.failureSeconds=0;});f.result.equipmentMetrics.f.failureSeconds=0;f.result.equipmentMetrics.l.failureSeconds=0;
  d=w.STRealData.compare(f.record,f.simulation,f.result,'average',{}).downtime;assert.equal(d.totalReal,0);assert.equal(d.totalSim,0);assert(d.rows.every(r=>r.realShare===0&&r.simulatedShare===0));

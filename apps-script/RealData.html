@@ -288,6 +288,7 @@ window.STRealData=(function(){
     const rows=d.rows;
     if(!rows.length)return '<p class="empty">Sin equipos para comparar.</p>';
     const columns=[
+      ...(rows.some(row=>finite(row.realReported))?[['Otro paro real reportado (min)',row=>row.realReported,'Paro real con clase UNKNOWN o MINOR. Su alcance se conserva tal como fue importado.']]:[]),
       ['Paro total real (min)',row=>row.realTotal,'Disponible cuando el paro real del equipo está registrado como ALL (todas las causas).'],
       ['Paro total simulado (min)',row=>row.simulatedTotal,'Duración de la ronda menos el tiempo en que el equipo produjo, incluso a velocidad reducida.'],
       ['Fallas reales (min)',row=>row.real],
