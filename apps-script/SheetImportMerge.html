@@ -29,9 +29,18 @@ window.STSheetImportMerge=(function(){
   beltField.read=function(e){return get(e,'processData.accumulation.speedMode')==='MANUAL'?get(e,beltField.paths[0]):null;};
   var writeBelt=beltField.write;beltField.write=function(e,value){writeBelt(e,value);put(e,'processData.accumulation.speedMode',value>0?'MANUAL':'AUTO');if(value>0){delete e.processData.accumulation.targetPopulationPercent;delete e.processData.accumulation.targetOverspeedPercent;}};
   var accumulationField=field('declaredAccumulation','H','Declared accumulation (s) · reference',['processData.accumulation.declaredAccumulationSeconds']);
+  var stopField=field('stopInputs','AA','Stop inputs [min]',[]);
+  stopField.read=function(e){
+    var split=e.processData?.equipment?.stopInputs;
+    if(split)return {minor:split.minor,major:split.major};
+    var bf=fields[3].read(e),tr=fields[4].read(e);
+    return bf==null&&tr==null?null:{general:{mtbfMinutes:bf,mttrMinutes:tr}};
+  };
   function fieldsFor(preview){
     if((preview.layout||preview.source?.schemaVersion)!=='plant-sheet-v2')return fields;
-    return fields.map(function(f){return Object.assign({},f,{col:f.col>='G'?String.fromCharCode(f.col.charCodeAt(0)+2):f.col});}).concat([beltField,accumulationField]).sort(function(a,b){return a.col.localeCompare(b.col);});
+    var mapped=fields.map(function(f){return Object.assign({},f,{col:f.col>='G'?String.fromCharCode(f.col.charCodeAt(0)+2):f.col});}).concat([beltField,accumulationField]).sort(function(a,b){return a.col.localeCompare(b.col);});
+    if(preview.stopBreakdown||preview.source?.stopBreakdown)mapped.splice(3,2,stopField);
+    return mapped;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});
   function isReference(e){return e.type==='PACEMAKER'||e.processData?.role==='PACEMAKER'||e.characteristics?.isPacemaker===true;}
@@ -43,7 +52,13 @@ window.STSheetImportMerge=(function(){
   function metadataValue(metadata,key){if(key==='containerSize'&&metadata&&!Object.prototype.hasOwnProperty.call(metadata,key)&&metadata.containerSizeOz!=null)return metadata.containerSizeOz+' oz';return metadata?.[key];}
   function metadataCell(source,index){return source?.metadataCells?.[index]||(source?.metadataColumn||'C')+(index+1);}
   function metadataErrors(preview,index){var cell=metadataCell(preview.source,index);return errorsFor(preview,cell[0],Number(cell.slice(1)));}
-  function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){var m=String(e.cell).match(/^([A-Y])(\d+)(?::([A-Y])(\d*)?)?$/);if(!m)return false;return row>=Number(m[2])&&row<=Number(m[4]||m[2])&&col>=m[1]&&col<=(m[3]||m[1]);});}
+  function errorsFor(preview,col,row){return (preview.errors||[]).filter(function(e){
+    var m=String(e.cell).match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d*)?)?$/);if(!m)return false;
+    if(row<Number(m[2])||row>Number(m[4]||m[2]))return false;
+    if(col==='AA')return ['D','E','AA','AB','AC','AD'].some(function(c){return c===m[1]||c===m[3];});
+    function index(cell){return cell.split('').reduce((n,c)=>n*26+c.charCodeAt(0)-64,0);}
+    return index(col)>=index(m[1])&&index(col)<=index(m[3]||m[1]);
+  });}
   function incomingValue(preview,record,f){if(record.adjustments?.[f.id])return record.adjustments[f.id].value;var raw=(preview.sourceRows||[]).find(function(r){return r.row===record.row;});if(f.id==='critical'&&raw?.values?.critical===null)return null;var value=f.read(preview.equipment[record.index]);return value!=null&&record.rateDivisor&&['maxSpeed','nominalSpeed'].includes(f.id)?value/record.rateDivisor:value;}
   function defaults(preview,record,equipment){record.rateDivisor=record.rateDivisors?.[record.target];var current=equipment.find(function(e){return e.id===record.target;}),incoming=preview.equipment[record.index];record.selected={};fieldsFor(preview).forEach(function(f){var v=incomingValue(preview,record,f);record.selected[f.id]=!errorsFor(preview,f.col,record.row).length&&(!current||v!=null&&(!equal(f.read(current),v)||f.id==='critical'&&v===true&&!isReference(current)));});return record;}
   function create(preview,current,sourceImport){
@@ -83,8 +98,19 @@ window.STSheetImportMerge=(function(){
       if(isNew){var suffix=2,base=unit.id;while(equipment.some(function(e){return e.id===unit.id;}))unit.id=base+'-'+suffix++;}
       var applied=[];
       selected.forEach(function(f){var errs=errorsFor(preview,f.col,record.row);if(errs.length){issues.push(f.col+record.row+__ST_TEXT__('sheetimportmerge.fix_this_cell_or_deselect_the_field'));return;}var value=incomingValue(preview,record,f),before=f.read(unit);f.write(unit,value);applied.push({field:f.id,cell:f.col+record.row,before:before==null?null:before,after:value==null?null:value,adjustment:record.adjustments?.[f.id]?copy(record.adjustments[f.id]):undefined});});
+      if(record.selected.stopInputs){
+        var breakdown=incoming.processData.equipment.stopInputs,profile=incoming.noiseProfile.reliability;
+        unit.processData.equipment=unit.processData.equipment||{};
+        if(breakdown)unit.processData.equipment.stopInputs=copy(breakdown);
+        else delete unit.processData.equipment.stopInputs;
+        unit.processData.equipment.mtbfMinutes=profile?.mtbfMinutes??null;
+        unit.processData.equipment.mttrMinutes=profile?.mttrMinutes??null;
+        unit.noiseProfile=unit.noiseProfile||{};
+        if(profile)unit.noiseProfile.reliability={...unit.noiseProfile.reliability,...profile};
+        else delete unit.noiseProfile.reliability;
+      }
       var reliability=selected.some(function(f){return ['mtbf','mttr'].includes(f.id);});
-      if(reliability){var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+' · D'+record.row+' (MTBF), E'+record.row+' (MTTR): '+__ST_TEXT__('sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection'));}
+      if(reliability){if(unit.processData.equipment)delete unit.processData.equipment.stopInputs;var bf=record.selected.mtbf?fields[3].read(incoming):fields[3].read(currentUnit||{}),tr=record.selected.mttr?fields[4].read(incoming):fields[4].read(currentUnit||{});unit.noiseProfile=unit.noiseProfile||{};if(bf==null&&tr==null)delete unit.noiseProfile.reliability;else if(bf>0&&tr>0)unit.noiseProfile.reliability=Object.assign({},unit.noiseProfile.reliability,{mtbfMinutes:bf,mttrMinutes:tr});else issues.push(unit.name+' · D'+record.row+' (MTBF), E'+record.row+' (MTTR): '+__ST_TEXT__('sheetimportmerge.mtbf_and_mttr_must_both_be_positive_or_both_na_adjust_the_field_selection'));}
       if(isNew||record.selected.type||record.selected.critical){unit.processData.role=unit.type==='CONVEYOR'?'CONVEYOR':unit.characteristics.isPacemaker||!record.selected.critical&&(unit.processData.role==='PACEMAKER'||incoming.processData?.role==='PACEMAKER')?'PACEMAKER':unit.characteristics.criticalMachine?'CRITICAL_MACHINE':'MACHINE';unit.processData.machineType=unit.type;}
       if(preview.layout==='plant-sheet-v2'){unit.characteristics=unit.characteristics||{};unit.characteristics.sourceSheetLayout=preview.layout;}
       if(unit.type!=='CONVEYOR')delete unit.processData.accumulation;
@@ -102,7 +128,9 @@ window.STSheetImportMerge=(function(){
     sourceImport.lastApplied={at:new Date().toISOString(),equipment:changes,metadata:metadataChanges};
     return {equipment:equipment,sourceImport:sourceImport,errors:issues,added:added,updated:updated,metadataChanges:metadataChanges.length,equipmentChanged:added+updated>0,hasChanges:effective};
   }
-  function display(v,f){if(v==null)return 'NA';if(f?.id==='nominalSpeed')v=Number(v)*60;if(f?.id==='beltSpeed')v=Number(v)*.06;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
+  function display(v,f){if(v==null)return 'NA';if(f?.id==='stopInputs')return Object.entries(v).map(function(entry){
+    return entry[0]+': '+display(entry[1].mtbfMinutes)+' / '+display(entry[1].mttrMinutes);
+  }).join(' · ');if(f?.id==='nominalSpeed')v=Number(v)*60;if(f?.id==='beltSpeed')v=Number(v)*.06;if(typeof v==='boolean')return v?'Y':'N';return typeof v==='number'?Number(v.toPrecision(12)).toString():String(v);}
   function sourceRow(unit,sourceImport){
     return sourceImport?.lastApplied?.equipment?.find(change=>change.equipmentId===unit?.id)?.row||unit?.characteristics?.sourceSheetRow||(/^sheet-row-(\d+)$/.exec(unit?.id||'')||[])[1];
   }

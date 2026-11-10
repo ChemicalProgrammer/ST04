@@ -18,13 +18,20 @@ function exportEquipmentSheet_(request, user) {
     if(hasCatalog)data.metadata.splice(2,3,'','','');
     data.metadata[6]=sheetResponsibleName_(data.metadata[6])||'';
     // Validate the same contract as Preview before creating a spreadsheet.
-    var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:8,metadataCells:compactEquipmentMetadataCells_(),allowEmpty:true});
+    var stopRows=equipment.map(function(unit){
+      var inputs=unit.processData?.equipment?.stopInputs;
+      return ['minor','major'].flatMap(function(kind){
+        return ['mtbfMinutes','mttrMinutes'].map(function(field){return inputs?.[kind]?.[field]??'';});
+      });
+    });
+    stopRows.forEach(function(row,index){if(row.some(function(value){return value!=='';}))data.rows[index].splice(3,2,'','');});
+    var review=parseEquipmentSheet_(data.metadata,data.rows,[],data.layout,{start:8,stopRows:stopRows,metadataCells:compactEquipmentMetadataCells_(),allowEmpty:true});
     if (!review.canImport) throw createSimulatorError_('INVALID_SHEET_EXPORT','Some values cannot be represented in the import format.',review.errors.map(function(issue){return issue.cell+': '+issue.message;}));
     stage='OPEN_EXPORTS_FOLDER';
     var folder=getWorkspaceFolders_().exports;
     var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
     var primary=sheetExportColor_(request.theme?.primary,'#5485a4');
-    var width=26,slots=Math.min(1000,Math.max(100,equipment.length+50));
+    var width=30,slots=Math.min(1000,Math.max(100,equipment.length+50));
     stage='CREATE_SPREADSHEET';
     book=SpreadsheetApp.create(name,slots+7,width);
     stage='MOVE_TO_EXPORTS';
@@ -44,14 +51,16 @@ function exportEquipmentSheet_(request, user) {
     });
     sheet.getRange(3,2).setNumberFormat('dd mmm yyyy');
     sheet.getRange(4,2).setNumberFormat('@');
-    values[0][25]='st-equipment-metadata-b-v3';
-    var groups=[['Equipment',1,8],['Geometry',9,4],['Upstream',13,4],['Downstream',17,2],['Speed & Sensors',19,7]];
+    values[0][25]='st-equipment-metadata-b-v4';
+    var groups=[['Equipment',1,8],['Geometry',9,4],['Upstream',13,4],['Downstream',17,2],['Speed & Sensors',19,7],['Minor Stops',27,2],['Major Stops',29,2]];
     groups.forEach(function(group){values[5][group[1]-1]=group[0];});
-    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[2]);}).concat(['Equipment ID']);
-    data.rows.forEach(function(row,index){values[index+7]=row.map(sheetExportLiteral_).concat([sheetExportLiteral_(equipment[index].id)]);});
+    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[0]==='D'||column[0]==='E'?'General '+column[2]:column[2]);}).concat(['Equipment ID','MTBF\n[min]','MTTR\n[min]','MTBF\n[min]','MTTR\n[min]']);
+    data.rows.forEach(function(row,index){values[index+7]=row.map(sheetExportLiteral_).concat([sheetExportLiteral_(equipment[index].id)],stopRows[index].map(sheetExportLiteral_));});
     for(var i=equipment.length;i<slots;i++)values[i+7][25]='slot-'+book.getId()+'-'+(i+1);
+    values[3][5]='Own stops only. Enter the General pair in D:E, or fill Minor Stops and Major Stops. Use 0 and 0 for a category with no stops. Split inputs take precedence.';
     sheet.getRange(8,26,slots,1).setNumberFormat('@');
     sheet.getRange(1,1,values.length,width).setValues(values).setFontFamily('Arial').setFontSize(10).setFontColor('#000000').setVerticalAlignment('middle');
+    sheet.getRange(4,6,1,10).merge().setWrap(true);
     stage='WRITE_CATALOG';
     writeSheetCatalog_(book.insertSheet('Products & Formats',1),catalog,primary);
     stage='WRITE_REAL_DATA';
@@ -127,9 +136,15 @@ function writeSheetActuals_(sheet,equipmentRows,primary,equipmentStart) {
       row[9]=e[25];
       var present='COUNTIFS(Equipment!$Z$'+equipmentStart+':$Z$'+last+',J'+line+',Equipment!$A$'+equipmentStart+':$A$'+last+',"<>",Equipment!$B$'+equipmentStart+':$B$'+last+',"<>")=1';
       row[0]='=IFERROR(IF(AND('+present+','+lookup('A')+'<>"CONVEYOR"),'+lookup('B')+',"") ,"")';
-      ['D','E'].forEach(function(column,j){
-        var value=lookup(column);
-        row[3+j]='=IFERROR(IF(AND(LEN(A'+line+')>0,ISNUMBER('+value+'),'+value+'>0),'+value+',"") ,"")';
+      var minorBf=lookup('AA'),minorTr=lookup('AB'),majorBf=lookup('AC'),majorTr=lookup('AD');
+      var rate=function(bf){return 'IF('+bf+'>0,1/'+bf+',0)';};
+      var total='('+rate(minorBf)+'+'+rate(majorBf)+')';
+      var valid=function(bf,tr){return 'AND(NOT(ISBLANK('+bf+')),NOT(ISBLANK('+tr+')),ISNUMBER('+bf+'),ISNUMBER('+tr+'),OR(AND('+bf+'>0,'+tr+'>0),AND('+bf+'=0,'+tr+'=0)))';};
+      var split='OR('+[minorBf,minorTr,majorBf,majorTr].map(function(cell){return 'AND(NOT(ISBLANK('+cell+')),ISNUMBER('+cell+'))';}).join(',')+')';
+      var usable='AND('+valid(minorBf,minorTr)+','+valid(majorBf,majorTr)+','+total+'>0)';
+      ['1/'+total,'('+rate(minorBf)+'*'+minorTr+'+'+rate(majorBf)+'*'+majorTr+')/'+total].forEach(function(aggregate,j){
+        var general=lookup(j?'E':'D');
+        row[3+j]='=IFERROR(IF(LEN(A'+line+')=0,"",IF('+split+',IF('+usable+','+aggregate+',"") ,IF(AND(ISNUMBER('+general+'),'+general+'>0),'+general+',""))),"")';
       });
       row[5]='=IF(AND(COUNT(D'+line+':E'+line+')=2,ISNUMBER($B$6),$B$6>0),$B$6*E'+line+'/(D'+line+'+E'+line+'),"")';
       row[6]='=IF(COUNT(B'+line+',F'+line+')=2,F'+line+'-B'+line+',"")';

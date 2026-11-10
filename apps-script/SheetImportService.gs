@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261110-3';}
+function sheetImportContractVersion_(){return 'sheet-import-20261110-4';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -72,7 +72,7 @@ function previewSheetImport_(request, user) {
   if (!sheet) throw createSimulatorError_('SHEET_TAB_NOT_FOUND','The worksheet was not found. Enter its exact tab name.');
   var lastRow=sheet.getLastRow();
   var marker=sheet.getMaxColumns()>=26?sheet.getRange(1,26).getValues()[0][0]:'';
-  var compact=marker==='st-equipment-metadata-b-v3',start=compact?8:marker==='st-equipment-metadata-b-v2'?11:10,limit=start+999;
+  var stopBreakdown=marker==='st-equipment-metadata-b-v4',compact=stopBreakdown||marker==='st-equipment-metadata-b-v3',start=compact?8:marker==='st-equipment-metadata-b-v2'?11:10,limit=start+999;
   if(lastRow>limit)throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows '+start+'–'+limit+'). Remove extra content below the equipment table or use a dedicated worksheet.');
   if(sheet.getMaxColumns()<23||sheet.getMaxRows()<start)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected an Equipment header and data starting at A'+start+'.');
   var layout=detectSheetImportLayout_(sheet.getRange(start-2,7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=String.fromCharCode(64+width);
@@ -100,9 +100,11 @@ function previewSheetImport_(request, user) {
   // The plant template may include shift-time summaries below the equipment table.
   var footer=rows.findIndex(function(row){return !String(row[0]||'').trim()&&!String(row[1]||'').trim()&&row.some(function(value){return /^total\s+time$/i.test(String(value||'').trim());});});
   if(footer>=0){rows=rows.slice(0,footer);formats=formats.slice(0,footer);count=rows.length;}
-  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
+  var stopRows=stopBreakdown&&count?sheet.getRange(start,27,count,4).getValues():null;
+  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,stopRows:stopRows,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A'+start+':'+lastColumn+(count?count+start-1:start)};
   if(compact)result.source.metadataCells=metadataCells;
+  if(stopBreakdown)result.source.stopBreakdown=result.stopBreakdown=true;
   var catalogTab=sheet.getName()==='Equipment'?sheets.find(function(tab){return tab.getName()==='Products & Formats';}):null;
   var catalogMarker=catalogTab?.getRange(1,1).getValues()[0][0];
   if(['st-material-sheet-v1','st-material-sheet-v2'].includes(catalogMarker)){
@@ -195,7 +197,8 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
   rows.forEach(function(row,offset){
     var rowNumber=offset+(options?.start||10);
-    if(row.every(missing))return;
+    var stopRow=options?.stopRows?.[offset]||[];
+    if(row.every(missing)&&stopRow.every(missing))return;
     var rawType=missing(row[0])?'':String(row[0]).trim(),type=aliases[rawType.toUpperCase().replace(/[\s_-]+/g,'')];
     if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pucker, Filler, De-pucker, Sleever, Case packer, Palletizer or Other.');
     var name=missing(row[1])?'':String(row[1]).trim();
@@ -211,7 +214,21 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     var conveyor=type==='CONVEYOR';
     if(values.maximumSpeedBpm===0||values.maximumSpeedBpm===null&&!conveyor)issue(errors,'F'+rowNumber,'Machine maximum speed must be greater than zero.');
     var mtbf=values.mtbfMinutes,mttr=values.mttrMinutes;
-    if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or mark both NA.');
+    var stopInputs;
+    if(stopRow.some(function(value){return !missing(value);})){
+      var pairs=['minor','major'].map(function(kind,index){
+        var first=index*2,bf=numeric(stopRow[first],['AA','AC'][index]+rowNumber),tr=numeric(stopRow[first+1],['AB','AD'][index]+rowNumber);
+        if(!(bf>0&&tr>0)&&!(bf===0&&tr===0))issue(errors,['AA','AC'][index]+rowNumber+':'+['AB','AD'][index]+rowNumber,'Enter both values as positive minutes, or 0 and 0 if this category had no stops.');
+        return {mtbfMinutes:bf,mttrMinutes:tr};
+      });
+      var rates=pairs.map(function(pair){return pair.mtbfMinutes>0?1/pair.mtbfMinutes:0;});
+      var total=rates[0]+rates[1];
+      mtbf=total>0?1/total:null;
+      mttr=total>0?(rates[0]*pairs[0].mttrMinutes+rates[1]*pairs[1].mttrMinutes)/total:null;
+      stopInputs={minor:pairs[0],major:pairs[1]};
+      values.stopInputs=stopInputs;
+      if(values.mtbfMinutes!==null||values.mttrMinutes!==null)issue(warnings,'D'+rowNumber+':E'+rowNumber,'Minor and major inputs take precedence over the general pair.');
+    }else if(mtbf===0||mttr===0||((mtbf===null)!==(mttr===null)))issue(errors,'D'+rowNumber+':E'+rowNumber,'Supply both MTBF and MTTR as positive minutes, or leave both blank.');
     if(mtbf===null&&mttr===null)issue(warnings,'D'+rowNumber+':E'+rowNumber,conveyor?'Conveyor model assumption: no own random failures. MTBF/MTTR are not required; material and control stops remain active.':'No reliability data: random failures are disabled for this equipment.',conveyor?'info':'warning',conveyor?'CONVEYOR_FAILURES_EXCLUDED':'NO_RELIABILITY_DATA');
     if(conveyor&&flag==='Y')issue(errors,'C'+rowNumber,'A conveyor cannot be the critical machine. Use Y for one machine only.');
     var unit={id:'sheet-row-'+rowNumber,type:type||'CUSTOM',name:name,nominalRatePerSecond:values.maximumSpeedBpm===null?null:values.maximumSpeedBpm/60,initialMode:'AUTO',characteristics:{criticalMachine:flag==='Y',isPacemaker:flag==='Y'&&!conveyor,rateBasis:'bottles per minute',sourceSheetRow:rowNumber,sourceSheetLayout:layout},noiseProfile:{},processData:{
@@ -222,6 +239,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
       downstream:{infeedPitchMm:values.infeedPitchMm,rampUpTimeSeconds:values.rampUpTimeSeconds},
       speedAndSensors:{conveyorSpeedFactorVsDischargeVelocityPercent:values.conveyorSpeedFactorVsDischargeVelocityPercent,codingConveyorSpeedFactorVsPreviousConveyorPercent:values.codingConveyorSpeedFactorVsPreviousConveyorPercent,conveyorSpeedFactorVsPreviousConveyorPercent:values.conveyorSpeedFactorVsPreviousConveyorPercent,blockedTimeDelaySeconds:values.blockedTimeDelaySeconds,clearTimeDelaySeconds:values.clearTimeDelaySeconds,insuranceFactorUnits:values.insuranceFactorUnits,overspeedVsInfeedScrewPercent:values.overspeedVsInfeedScrewPercent}
     }};
+    if(stopInputs)unit.processData.equipment.stopInputs=stopInputs;
     if(mtbf>0&&mttr>0)unit.noiseProfile.reliability={mtbfMinutes:mtbf,mttrMinutes:mttr};
     if(conveyor){
       unit.processData.accumulation={blockedTimeDelaySeconds:values.blockedTimeDelaySeconds,clearTimeDelaySeconds:values.clearTimeDelaySeconds,insuranceFactorUnits:values.insuranceFactorUnits,bottlesDischargedAtStop:values.bottlesDischargedAtStop,downstreamRampUpSeconds:values.rampUpTimeSeconds};

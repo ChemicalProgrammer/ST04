@@ -59,7 +59,7 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,107,26]);
+  assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,107,30]);
   assert.deepEqual(calls.filter(call=>call[0]==='insertSheet'),[['insertSheet','Products & Formats',1],['insertSheet','Real Data',2]]);
   const actuals=writes[2].values;assert.equal(actuals[0][9],'st-real-inputs-v5');assert.match(actuals[15][0],/Equipment.*MATCH/);assert.equal(actuals[15][9],values[7][25]);assert.equal(actuals[16][9],values[9][25]);assert.match(actuals[15][5],/E16\/\(D16\+E16\)/);
   const catalog=writes[1].values;
@@ -70,7 +70,7 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
   assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[8,1,100,1]'));
   assert.equal(actuals[18][9],values[10][25]);assert.match(actuals[18][0],/COUNTIFS/);
-  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v3');assert.equal(values[7][1],"'=HYPERLINK(\"https://example.test\")");
+  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v4');assert.equal(values[7][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[6][24],'Overspeed vs infeed screw\n[%]');assert.equal(values[8][18],100);
   assert.deepEqual([0,8,12,16,18].map(i=>values[5][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
   for(const group of [[6,9,1,4],[6,13,1,4],[6,17,1,2],[6,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
@@ -146,6 +146,7 @@ test('three-tab export previews equipment and filled observations via the same s
  actuals[4][4]=100;actuals[1][1]=1440;actuals[2][1]=0;
  actuals[3][1]=1440;actuals[5][1]=1344;actuals[8][4]=.633;actuals[5][4]=1200;
  actuals[15][1]=12;actuals[15][2]=.121;
+ values[7].splice(26,4,10,2,40,17);
  values[10].splice(0,6,'CUSTOM','Nueva máquina','N',200,5,300);
  actuals[18][1]=0;actuals[18][2]=0;
  const mock=(grid,name,id)=>({getLastRow:()=>grid.length,getMaxRows:()=>100,getMaxColumns:()=>grid[0].length,getSheetId:()=>id,getName:()=>name,getRange:(r,col,count=1,width=1)=>({getValues:()=>grid.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00%'))})});
@@ -155,7 +156,7 @@ test('three-tab export previews equipment and filled observations via the same s
   const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet},{email:'owner@test'}),r=result.realData.record,e=r.equipment[0];
   assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));
   assert.equal(result.equipment.length,4);assert.equal(result.source.sheetName,'Equipment');assert.equal(result.source.metadataColumn,'B');assert.equal(result.metadata.bottlesPerCase,24);
-  assert.equal(result.source.equipmentRange,'A8:Y107');assert.equal(result.materialCatalog.errors.length,0);
+  assert.equal(result.source.equipmentRange,'A8:Y107');assert.equal(result.equipment[0].noiseProfile.reliability.mttrMinutes,5);assert.equal(result.materialCatalog.errors.length,0);
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,null);assert.equal(e.stopClass,'UNKNOWN');
   assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,16);
@@ -176,8 +177,8 @@ test('catalog uses product names and preserves internal IDs, format selection an
  assert(equipment.slice(0,3).every(row=>row[3]===''&&row[4]===''));
  assert.equal(catalog[2][2],'Linked product');
  assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].join(',')==='Product,Format'));
- assert.equal(calls.filter(call=>call[0]==='setBorder').length,14);
- assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='7,1,1,26'&&call[2]==='center'));
+ assert.equal(calls.filter(call=>call[0]==='setBorder').length,18);
+ assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='7,1,1,30'&&call[2]==='center'));
  assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,3)),[
    ['Product','Drink',''],['Format','Six pack',''],['Format','Twelve pack','']
  ]);
@@ -210,10 +211,10 @@ test('a new case with no equipment still exports all headings, validations and b
  assert.equal(response.ok,true,JSON.stringify(response));assert.equal(response.data.equipmentCount,0);
  const grid=writes[0].values;
  assert.equal(grid[2][1],46006);assert.equal(grid[3][0],'By');assert.equal(grid[3][1],'');
- assert.equal(grid[6].length,26);assert(grid[6].every(Boolean));
+ assert.equal(grid[6].length,30);assert(grid[6].every(Boolean));
  assert(grid[7].slice(0,25).every(value=>value===''));assert.match(grid[7][25],/^slot-/);
  assert(calls.some(call=>call[0]==='setNumberFormat'&&String(call[1])==='4,2'&&call[2]==='@'));
- assert(calls.some(call=>call[0]==='createFilter'&&String(call[1])==='7,1,101,26'));
+ assert(calls.some(call=>call[0]==='createFilter'&&String(call[1])==='7,1,101,30'));
  request.metadata.by='María García';
  assert(c.exportEquipmentSheet(request).ok);
  assert.equal(writes[3].values[3][1],'María García');
@@ -235,4 +236,39 @@ test('catalog and workspace errors identify the export stage before any spreadsh
  assert(workspaceFailure.error.details.includes('Stage: OPEN_EXPORTS_FOLDER'));
  assert(workspaceFailure.error.details.includes('Service: Exports folder is unavailable'));
  assert(!unavailable.calls.some(call=>call[0]==='create'));
+});
+
+test('split stop pairs take precedence, preserve the original inputs and feed the engine one weighted profile',()=>{
+ const {c,writes}=runtime(),request=fixture(c);
+ const input=c.equipmentSheetData_(request.equipment,request.metadata);
+ const options={start:8,stopRows:[[10,2,40,17],[],[]]};
+ const preview=c.parseEquipmentSheet_(input.metadata,input.rows,[],input.layout,options);
+ assert(preview.canImport);
+ assert(preview.warnings.some(warning=>warning.cell==='D8:E8'&&warning.message.includes('precedence')));
+ assert.equal(preview.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
+ assert.equal(preview.equipment[0].noiseProfile.reliability.mttrMinutes,5);
+ assert.deepEqual(JSON.parse(JSON.stringify(preview.equipment[0].processData.equipment.stopInputs)),{
+  minor:{mtbfMinutes:10,mttrMinutes:2},major:{mtbfMinutes:40,mttrMinutes:17}
+ });
+ c.window={};
+ vm.runInContext(fs.readFileSync('apps-script/SheetImportMerge.html','utf8').replace(/<\/?script>/g,''),c);
+ const merge=c.window.STSheetImportMerge;
+ preview.source={stopBreakdown:true};preview.stopBreakdown=true;
+ const plan=merge.create(preview,request.equipment,{});
+ const merged=merge.build(preview,plan,request.equipment,{});
+ assert.equal(merged.errors.length,0);
+ assert.equal(merged.equipment[0].noiseProfile.reliability.mtbfMinutes,8);
+ assert.equal(merged.equipment[0].processData.equipment.stopInputs.major.mttrMinutes,17);
+ const response=c.exportEquipmentSheet({...request,equipment:merged.equipment});
+ assert.equal(response.ok,true,JSON.stringify(response));
+ assert.deepEqual(writes[0].values[7].slice(26),[10,2,40,17]);
+ assert.deepEqual(writes[0].values[7].slice(3,5),['','']);
+ assert.match(writes[2].values[15][3],/Equipment!\$AA\$8/);
+ const incomplete=c.parseEquipmentSheet_(input.metadata,input.rows,[],input.layout,{...options,stopRows:[[10,2,40,'']]});
+ assert(!incomplete.canImport);
+ assert(incomplete.errors.some(error=>error.cell==='AC8:AD8'));
+ assert.equal(merge.create({...incomplete,source:{stopBreakdown:true}},request.equipment,{}).records[0].target,'skip');
+ const noMajor=c.parseEquipmentSheet_(input.metadata,input.rows,[],input.layout,{...options,stopRows:[[10,2,0,0]]});
+ assert(noMajor.canImport);
+ assert.equal(noMajor.equipment[0].noiseProfile.reliability.mtbfMinutes,10);
 });
