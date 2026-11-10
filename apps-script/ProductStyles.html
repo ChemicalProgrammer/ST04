@@ -1,6 +1,5 @@
 <style>
 .product-selector-row { display:flex; align-items:flex-end; gap:var(--space-3); flex-wrap:wrap; }
-.product-selector-row > label { flex:1 1 16rem; }
 #products-workspace { min-width:0; }
 #products-workspace h3,.products-dialog h3,.products-editor h3 { color:var(--secondary-text); font-size:var(--font-card); font-weight:600; margin:0 0 var(--space-3); }
 .products-dialog { width:min(76rem,calc(100vw - 2rem)); max-width:76rem; }
@@ -19,12 +18,10 @@
 .equipment-flow-controls [hidden] { display:none !important; }
 html[data-ui-mode=basic] .basic-machine .equipment-flow-controls { grid-template-columns:1fr; }
 .product-subsection .chart-note { margin:var(--space-2) 0; }
-.product-selector-row > label { flex:0 1 28rem; min-width:min(100%,12rem); }
+.product-selector-row > select { flex:0 1 auto; min-width:0; max-width:100%; }
 .product-selector-row .icon-button { flex-shrink:0; }
 .product-initial-choice { margin-top:var(--space-3); }
 .product-general-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:var(--space-3); }
-.product-settings-table caption { text-align:left; color:var(--secondary-text); font-weight:600; padding:var(--space-3); background:var(--surface-soft); }
-.product-subsection .table-scroll + .table-scroll { margin-top:var(--space-3); }
 .product-settings-table input { text-align:right; }
 .product-settings-table td:nth-child(2) { white-space:nowrap; }
 .product-settings-table th:first-child { min-width:10rem; }

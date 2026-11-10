@@ -2940,6 +2940,8 @@ test('UI: Results switches all production tables between means and actual rounds
   const select=h.d.getElementById('results-round-select'),heading=h.d.querySelector('#results-overview .fold-heading');
   assert.equal(heading.querySelector('h3').textContent,'Performance summary');
   assert.equal(heading.querySelector('select'),select);assert.equal(select.labels.length,0);
+  assert.equal(h.d.querySelector('#results-rate-loss-highlights h3'),null);
+  assert.equal(h.d.querySelector('#results-products h3'),null);
   assert.equal(heading.querySelector('#export-ai').closest('.fold-tools'),select.closest('.fold-tools'));
   await h.click('#results-title .fold-toggle');assert(h.d.getElementById('results-overview-content').hidden);assert(!select.closest('[hidden]'));
   select.value='representative';select.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.match(h.d.getElementById('results-kpis').textContent,/200 bottles/i);assert(!h.d.getElementById('results-kpis').textContent.includes('mean of'));assert.match(h.d.getElementById('results-products').textContent,/200/);assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Representative round \(2\)/);
@@ -2981,7 +2983,11 @@ test('UI: completed batches keep round one visible and offer the representative 
   assert.match(playback.querySelector('option[value="1"]').textContent,/^Round 2 · Representative$/);
   playback.value='1';playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(playback.value,'1');
   assert.equal(h.d.getElementById('playback-round').labels.length,0);
-  assert.equal(h.d.getElementById('basic-efficiencies').closest('#simulation-playback-content').id,'simulation-playback-content');
+  assert.equal(h.d.getElementById('basic-efficiencies').closest('#simulation-playback-content').firstElementChild.id,'simulation-playback-efficiencies');
+  assert.equal(h.d.getElementById('playback-status').closest('.fold-heading').querySelector('h3').textContent,'Simulation playback');
+  assert.equal(h.d.getElementById('playback-progress').parentElement,h.d.getElementById('playback-status').parentElement);
+  assert.equal(h.d.querySelector('.live-controls-help').previousElementSibling.id,'simulation-equipment-title');
+  assert.equal(h.d.getElementById('batch-dialog').parentElement.id,'simulation-playback');
   await h.click('[aria-controls=simulation-playback-content]');assert(h.d.getElementById('simulation-playback-content').hidden);assert(!h.d.getElementById('playback-round').closest('[hidden]'));
   await h.click('[data-basic-view=results]');assert.equal(h.d.getElementById('results-round-select').value,'average');assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Average of all rounds \(3\)/);
   await h.click('#save-case');await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');

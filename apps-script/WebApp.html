@@ -197,17 +197,16 @@
           </div>
           <div id="simulation-event-content" class="fold-content"><div id="event-time-tools" class="event-time-tools"></div><div class="event-selection-toolbar button-row"><label class="checkbox-label"><input id="select-all-control-events" type="checkbox">Select all events</label><button id="delete-selected-control-events" type="button" class="ghost" data-icon="trash" disabled>Delete selected</button><button id="delete-all-control-events" type="button" class="ghost" data-icon="trash" disabled>Delete all events</button><span id="control-event-selection-status" class="chart-note" role="status" aria-live="polite"></span></div><p class="chart-note event-selection-hint">Click a row to select it. Ctrl/Cmd adds or removes rows; Shift selects a range. Checkboxes also allow multiple selection.</p><div id="control-events" class="control-events"></div><div id="planned-line-events" class="table-scroll"></div></div></section>
 
-    <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
         <div id="simulation-results" class="hidden">
-          <section class="fold-card">
+          <section id="simulation-playback" class="fold-card">
           <div class="fold-heading">
-            <h3><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-playback-content">Simulation playback</button></h3>
+            <div><h3><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-playback-content">Simulation playback</button></h3>
+            <p id="simulation-playback-status"><span id="playback-status"><?= __ST_TEXT__('casegallery.ready') ?></span><output id="playback-progress" aria-label="Simulation progress">0%</output></p></div>
             <div class="playback-toolbar fold-tools">
             <div id="playback-round-control" class="hidden"><select id="playback-round" aria-label="Playback round"></select></div>
             <button id="play-simulation" class="secondary icon-button" type="button" data-icon="play" aria-label="<?= __ST_TEXT__('view.play') ?>" title="<?= __ST_TEXT__('view.play') ?>"></button>
             <button id="pause-simulation" class="secondary icon-button" type="button" data-icon="pause" aria-label="<?= __ST_TEXT__('client.pause') ?>" title="<?= __ST_TEXT__('client.pause') ?>"></button>
             <button id="reset-playback" class="secondary icon-button" type="button" data-icon="refresh" aria-label="<?= __ST_TEXT__('client.reset') ?>" title="<?= __ST_TEXT__('client.reset') ?>"></button>
-            <span id="playback-status"><?= __ST_TEXT__('casegallery.ready') ?></span><output id="playback-progress" aria-label="Simulation progress">0%</output>
             <details class="export-menu">
               <summary class="icon-button" data-icon="upload" aria-label="Exportar gráficas" title="Exportar gráficas de la ronda seleccionada"></summary>
               <div>
@@ -218,6 +217,7 @@
           </div></div>
           <!-- Las eficiencias de Basic se muestran junto a las métricas de reproducción. -->
           <div id="simulation-playback-content" class="fold-content">
+          <div id="simulation-playback-efficiencies"></div>
           <div id="simulation-playback-metrics" class="metrics-grid">
             <article><span><?= __ST_TEXT__('view.virtual_time') ?></span><strong id="metric-time">—</strong></article>
             <article><span><?= __ST_TEXT__('view.output') ?></span><strong id="metric-output">—</strong></article>
@@ -230,13 +230,14 @@
             <article><span><?= __ST_TEXT__('view.back_up_control_time') ?></span><strong id="metric-backup-stop">—</strong></article>
             <article><span title="<?= __ST_TEXT__('view.line_oee_is_final_output_divided_by_the_maximum_output_of_the_selected_pace') ?>"><?= __ST_TEXT__('results.global_oee') ?></span><strong id="metric-line-oee">—</strong></article>
           </div>
-          <div id="simulation-playback-efficiencies"></div>
           </div>
+          <!-- El avance y la cancelación de las rondas quedan disponibles al plegar la reproducción. -->
+          <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
           </section>
-          <section class="fold-card">
-          <div class="fold-heading"><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3></div>
+          <section id="simulation-equipment" class="fold-card">
+          <div class="fold-heading"><div><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3>
+          <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p></div></div>
           <div id="simulation-equipment-content" class="fold-content">
-          <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p>
           <div id="live-equipment" class="live-equipment" aria-labelledby="simulation-equipment-title"></div></div>
           </section>
 

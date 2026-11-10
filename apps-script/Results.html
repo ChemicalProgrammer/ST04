@@ -154,7 +154,7 @@ window.STResults=(function(){
     });
   }
   function renderRateLossHighlights(target,result){
-    target.hidden=!result?.summary;target.innerHTML=target.hidden?'':STReports.rateLossHighlightsHtml(result);
+    target.hidden=!result?.summary;target.innerHTML=target.hidden?'':STReports.rateLossHighlightsHtml(result,false);
   }
   function renderRateLossImpact(target,result){
     const data=STReports.rateLossImpact(result),heading=document.createElement('h3'),scroll=document.createElement('div'),table=document.createElement('table'),head=document.createElement('tr'),thead=document.createElement('thead'),body=document.createElement('tbody');
