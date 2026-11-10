@@ -57,18 +57,18 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
   assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,110,26]);
-  assert.deepEqual(calls.find(call=>call[0]==='insertSheet'),['insertSheet','Real Data',1]);
-  const actuals=writes[1].values;assert.equal(actuals[0][9],'st-real-inputs-v4');assert.match(actuals[19][0],/Equipment.*MATCH/);assert.equal(actuals[19][9],values[10][25]);assert.equal(actuals[20][9],values[12][25]);assert.match(actuals[19][5],/E20\/\(D20\+E20\)/);
+  assert.deepEqual(calls.filter(call=>call[0]==='insertSheet'),[['insertSheet','Products & Formats',1],['insertSheet','Real Data',2]]);
+  const actuals=writes[2].values;assert.equal(actuals[0][9],'st-real-inputs-v5');assert.match(actuals[15][0],/Equipment.*MATCH/);assert.equal(actuals[15][9],values[10][25]);assert.equal(actuals[16][9],values[12][25]);assert.match(actuals[15][5],/E16\/\(D16\+E16\)/);
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
   assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[11,1,100,1]'));
-  assert.equal(actuals[22][9],values[13][25]);assert.match(actuals[22][0],/COUNTIFS/);
+  assert.equal(actuals[18][9],values[13][25]);assert.match(actuals[18][0],/COUNTIFS/);
   assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][25],'st-equipment-metadata-b-v2');assert.equal(values[10][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[9][24],'Overspeed vs infeed screw\n(%)');assert.equal(values[11][18],100);
   assert.deepEqual([0,8,12,16,18].map(i=>values[8][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
   for(const group of [[9,9,1,4],[9,13,1,4],[9,17,1,2],[9,19,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
-  assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'');assert.equal(actuals[3][0],'Line Time');assert.equal(actuals[17][3],'MTBF/MTTR Check');assert(!actuals[18].some(label=>/notas/i.test(label)));
+  assert(!calls.some(call=>call[0]==='setNote'));assert.equal(actuals[0][0],'Line Time');assert.equal(actuals[1][0],'Total time\n[min]');assert.equal(actuals[1][2],'');assert.equal(actuals[13][3],'MTBF/MTTR Check');assert.equal(actuals[14][1],'Reported downtime\n[min]');assert(actuals[12].every(value=>value===''));
   assert(calls.some(call=>call[0]==='setBackground'&&call[2]===c.sheetExportTint_('#123456')));
-  assert(calls.some(call=>call[0]==='setBackground'&&JSON.stringify(call[1])==='[7,1,9,1]'));
+  assert(calls.some(call=>call[0]==='setBackground'&&JSON.stringify(call[1])==='[2,1,9,1]'));
   assert(calls.filter(call=>call[0]==='setFontColor').every(call=>call[2]==='#000000'));
   assert(calls.some(call=>call[0]==='setFrozenColumns'&&call[1]===2));
   assert(!calls.some(call=>call[0]==='mergeAcross'||call[0]==='merge'&&JSON.stringify(call[1])==='[9,1,1,8]'));
@@ -79,7 +79,7 @@ test('denied ownership and non-importable inputs cannot create a spreadsheet',()
   const h=runtime(),request=fixture(h.c);h.c.getOwnedCaseFile_=()=>{throw Error('Denied');};
   assert.equal(h.c.exportEquipmentSheet(request).ok,false);assert(!h.calls.some(call=>call[0]==='create'));
   const h2=runtime(),invalid=fixture(h2.c);invalid.equipment[0].noiseProfile.reliability.mtbfMinutes=0;
-  const response=h2.c.exportEquipmentSheet(invalid);assert.equal(response.error.code,'INVALID_SHEET_EXPORT');assert(response.error.details.some(detail=>detail.includes('D10:E10')));
+  const response=h2.c.exportEquipmentSheet(invalid);assert.equal(response.error.code,'INVALID_SHEET_EXPORT');assert(response.error.details.some(detail=>detail.includes('D11:E11')));
   assert(!h2.calls.some(call=>call[0]==='create'));
   assert.equal(h2.c.exportEquipmentSheet({...invalid,equipment:Array(1001).fill(invalid.equipment[0])}).error.code,'INVALID_SHEET_REQUEST');
 });
@@ -128,19 +128,19 @@ test('container size exports and reimports its declared unit and preserves legac
 
 test('three-tab export previews equipment and filled observations via the same spreadsheet URL',()=>{
  const h=runtime(),request=fixture(h.c);assert(h.c.exportEquipmentSheet(request).ok);
- const values=h.writes[0].values,actuals=h.writes[1].values;
+ const values=h.writes[0].values,actuals=h.writes[2].values;
  assert.equal(values[0][17],'');assert.equal(values[6][17],'');
  assert.equal(values[10][25],request.equipment[0].id);assert.equal(values[9][25],'Equipment ID');
  assert(values.every(row=>row.every(value=>typeof value!=='string'||!value.startsWith('='))));
  // Inputs and computed values returned by the dedicated tab, including blank and zero.
- actuals[7][5]=100;actuals[6][1]=1440;actuals[7][1]=0;
- actuals[8][1]=1440;actuals[10][1]=1344;actuals[10][5]=.633;actuals[8][5]=1200;
- actuals[19][1]=12;actuals[19][2]=.121;
+ actuals[4][4]=100;actuals[1][1]=1440;actuals[2][1]=0;
+ actuals[3][1]=1440;actuals[5][1]=1344;actuals[8][4]=.633;actuals[5][4]=1200;
+ actuals[15][1]=12;actuals[15][2]=.121;
  values[13].splice(0,6,'CUSTOM','Nueva máquina','N',200,5,300);
- actuals[22][1]=0;actuals[22][2]=0;
+ actuals[18][1]=0;actuals[18][2]=0;
  const mock=(grid,name,id)=>({getLastRow:()=>grid.length,getMaxRows:()=>100,getMaxColumns:()=>grid[0].length,getSheetId:()=>id,getName:()=>name,getRange:(r,col,count=1,width=1)=>({getValues:()=>grid.slice(r-1,r-1+count).map(row=>row.slice(col-1,col-1+width)),getNumberFormats:()=>Array.from({length:count},()=>Array(width).fill('0.00%'))})});
- const equipment=mock(values,'Equipment',1),real=mock(actuals,'Real Data',2),catalog=mock(h.writes[2].values,'Products & Formats',3);
- h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,real,catalog],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
+ const equipment=mock(values,'Equipment',1),real=mock(actuals,'Real Data',3),catalog=mock(h.writes[1].values,'Products & Formats',2);
+ h.c.getCase_=()=>({});h.c.SpreadsheetApp.openById=()=>({getSheets:()=>[equipment,catalog,real],getSheetByName:()=>equipment,getSpreadsheetTimeZone:()=> 'America/Mexico_City'});
  for(const spreadsheet of ['new-sheet-id','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=2','https://docs.google.com/spreadsheets/d/new-sheet-id/edit#gid=3']){
   const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet},{email:'owner@test'}),r=result.realData.record,e=r.equipment[0];
   assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));
@@ -148,47 +148,62 @@ test('three-tab export previews equipment and filled observations via the same s
   assert.equal(result.source.equipmentRange,'A11:Y110');assert.equal(result.materialCatalog.errors.length,0);
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,null);assert.equal(e.stopClass,'UNKNOWN');
-  assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,20);
-  assert.equal(r.equipment[1].sourceRow,14);assert.equal(r.equipment[1].observationRow,23);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
-  assert(result.realData.fields.some(f=>f.cell==='Real Data!B7'));
+  assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,16);
+  assert.equal(r.equipment[1].sourceRow,14);assert.equal(r.equipment[1].observationRow,19);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
+  assert(result.realData.fields.some(f=>f.cell==='Real Data!B2'));
  }
  assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===26));
 });
 
-test('catalog exports a product once, resolves shared formats and remaps equipment overrides on import',()=>{
+test('catalog uses product names and preserves internal IDs, format selection and overrides in an existing case',()=>{
  const {c,calls,writes}=runtime(),request=fixture(c),equipmentId=request.equipment[0].id;
  request.metadata.formatCatalog={version:3,products:[{id:'shared',name:'Drink',volumeMl:355,volumeUnit:'fl oz (US)',bottle:{lengthMm:60},equipment:{[equipmentId]:{ratePerMinute:300}}}],
    formats:[{id:'six',name:'Six pack',productId:'shared',bottlesPerCase:6,case:{lengthMm:180}},{id:'twelve',name:'Twelve pack',productId:'shared',bottlesPerCase:12,case:{lengthMm:280}}]};
- request.initialFormatId='twelve';
  const response=c.exportEquipmentSheet(request);
  assert.equal(response.ok,true,JSON.stringify(response));
- const equipment=writes[0].values,catalog=writes[2].values;
+ const equipment=writes[0].values,catalog=writes[1].values;
  assert(equipment[7].every(value=>value===''));
  assert(equipment.slice(2,5).every(row=>row[0]===''&&row[1]===''));
  assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].join(',')==='Product,Format'));
  assert.equal(calls.filter(call=>call[0]==='setBorder').length,8);
  assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='10,1,1,26'&&call[2]==='center'));
- assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,5)),[
-   ['Product','shared','Drink','',''],['Format','six','Six pack','shared',''],['Format','twelve','Twelve pack','shared','Y']
+ assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,3)),[
+   ['Product','Drink',''],['Format','Six pack','Drink'],['Format','Twelve pack','Drink']
  ]);
- assert.equal(catalog[3][6],'fl oz (US)');
+ assert.equal(catalog[3][4],'fl oz (US)');assert.equal(catalog[3][8],'N/A');assert.equal(catalog[2].length,9);
  const source=c.readSheetCatalog_({getLastRow:()=>catalog.length,getRange:()=>({getValues:()=>catalog.slice(3)})});
  assert.deepEqual(Array.from(source.errors),[]);
  assert.equal(source.catalog.products[0].volumeMl,355);
- assert.equal(source.initialFormatId,'twelve');
+ assert.equal(source.initialFormatId,undefined);
 
  c.window={SimulatorEngine:c.STScenarioEngine_};
  vm.runInContext(fs.readFileSync('apps-script/SheetImportMerge.html','utf8').replace(/<\/?script>/g,''),c);
  const preview={sourceRows:[{row:11,equipmentId}]},plan={records:[{row:11,target:'local-filler'}]};
- const snapshot={equipment:[],metadata:{formatCatalog:{version:3,products:[{id:'other',name:'Other'}],formats:[]}}};
+ const snapshot={equipment:[],metadata:{formatCatalog:{version:3,products:[{id:'other',name:'Other'},request.metadata.formatCatalog.products[0]],formats:[]}},initialFormatId:null};
  function base(){return {equipment:[{id:'local-filler'}],sourceImport:{lastApplied:{equipment:[]}},errors:[]};}
  const result=c.window.STSheetCatalogImport(base(),source,snapshot,plan,preview);
  assert.deepEqual(Array.from(result.errors),[]);
  assert.deepEqual(Array.from(result.formatCatalog.products,p=>p.id),['other','shared']);
- assert.equal(result.formatCatalog.products[1].equipment['local-filler'].ratePerMinute,300);
- assert.equal(result.initialFormatId,'twelve');
- assert.equal(c.window.STSheetCatalogImport(base(),source,{...snapshot,metadata:{formatCatalog:result.formatCatalog},initialFormatId:'twelve'},plan,preview).hasChanges,undefined);
- catalog[3][6]='kg';
+ assert.equal(result.formatCatalog.products[1].equipment[equipmentId].ratePerMinute,300);
+ assert.equal(result.formatCatalog.formats[0].productId,'shared');
+ assert.equal(result.initialFormatId,null);
+ assert.equal(c.window.STSheetCatalogImport(base(),source,{...snapshot,metadata:{formatCatalog:result.formatCatalog},initialFormatId:null},plan,preview).hasChanges,undefined);
+ catalog[3][4]='kg';
  const invalid=c.readSheetCatalog_({getLastRow:()=>catalog.length,getRange:()=>({getValues:()=>catalog.slice(3)})});
  assert.match(invalid.errors[0],/row 4.*volume unit/);
+});
+
+test('a new case with no equipment still exports all headings, validations and blank slots',()=>{
+ const {c,calls,writes}=runtime(),request={...fixture(c),equipment:[],metadata:{by:'2026-11-10',dateOfAnalysis:'2026-11-10'}};
+ const response=c.exportEquipmentSheet(request);
+ assert.equal(response.ok,true,JSON.stringify(response));assert.equal(response.data.equipmentCount,0);
+ const grid=writes[0].values;
+ assert.equal(grid[5][1],'2026-11-10');assert.equal(grid[6][0],'By');assert.equal(grid[6][1],'');
+ assert.equal(grid[9].length,26);assert(grid[9].every(Boolean));
+ assert(grid[10].slice(0,25).every(value=>value===''));assert.match(grid[10][25],/^slot-/);
+ assert(calls.some(call=>call[0]==='setNumberFormat'&&String(call[1])==='7,2'&&call[2]==='@'));
+ assert(calls.some(call=>call[0]==='createFilter'&&String(call[1])==='10,1,101,26'));
+ request.metadata.by='María García';
+ assert(c.exportEquipmentSheet(request).ok);
+ assert.equal(writes[3].values[6][1],'María García');
 });

@@ -375,7 +375,6 @@ async function openCase(caseId, initialView) {
       var colors=getComputedStyle(document.documentElement);
       var request={caseId:editor.id,caseName:editor.name,simulationName:simulation.name,equipment:cloneJson(editor.equipment),
         metadata:cloneJson(Object.assign({},editor.metadata,simulation.sourceImport?.metadata||{})),
-        initialFormatId:simulation.dynamicConfig?.initialFormatId||simulation.dynamicConfig?.initialProductId,
         theme:{primary:colors.getPropertyValue('--accent').trim(),secondary:colors.getPropertyValue('--secondary').trim()}};
       button.disabled=true;button.dataset.busy='true';
       callServer('exportEquipmentSheet',[request],function(response){

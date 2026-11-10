@@ -257,24 +257,43 @@ window.STSheetCatalogImport=function(result,source,snapshot,plan,preview){
   if(source.errors.length){result.errors.push(...source.errors);return result;}
   var engine=window.SimulatorEngine,catalog=engine.normalizeFormatCatalog(snapshot.metadata||{},snapshot.equipment);
   var canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
-  var before=JSON.stringify(canonical(catalog)),idMap=new Map();
-  plan.records.forEach(function(record){
-    if(record.target==='skip')return;
-    var id=preview.sourceRows.find(row=>row.row===record.row)?.equipmentId;
-    var target=result.sourceImport.lastApplied.equipment.find(change=>change.row===record.row)?.equipmentId||record.target;
-    if(id&&result.equipment.some(unit=>unit.id===target))idMap.set(id,target);
-  });
-  var mappedTargets=new Set(idMap.values());
-  for(var kind of ['products','formats'])for(var record of source.catalog[kind]){
-    var index=catalog[kind].findIndex(item=>item.id===record.id),old=catalog[kind][index];
-    var profiles=Object.fromEntries(Object.entries(old?.equipment||{}).filter(([id])=>!idMap.has(id)&&!mappedTargets.has(id)));
-    for(var [id,profile] of Object.entries(record.equipment||{})){
-      var target=idMap.get(id)||(result.equipment.some(unit=>unit.id===id)?id:null);
-      if(!target){result.errors.push(record.name+': map Equipment ID '+id+' before importing its profile.');continue;}
-      Object.defineProperty(profiles,target,{value:profile,enumerable:true,configurable:true,writable:true});
+  var before=JSON.stringify(canonical(catalog));
+  if(source.matchByName){
+    var productIds=new Map();
+    for(var kind of ['products','formats'])for(var record of source.catalog[kind]){
+      var matches=catalog[kind].filter(item=>item.name.trim().toLowerCase()===record.name.toLowerCase());
+      if(matches.length>1){result.errors.push('More than one '+kind.slice(0,-1)+' in this case is named '+record.name+'. Rename the duplicates before importing.');continue;}
+      var existing=matches[0],id=existing?.id||record.id,suffix=2;
+      if(!existing)while(catalog[kind].some(item=>item.id===id))id=record.id+'-'+suffix++;
+      var next={...existing,...record,id:id};
+      if(kind==='products'){
+        delete next.volumeMl;delete next.volumeUnit;
+        if(record.volumeMl!==undefined)next.volumeMl=record.volumeMl;
+        if(record.volumeUnit!==undefined)next.volumeUnit=record.volumeUnit;
+        productIds.set(record.id,id);
+      }else next.productId=productIds.get(record.productId);
+      if(existing)catalog[kind][catalog[kind].indexOf(existing)]=next;else catalog[kind].push(next);
     }
-    var next={...record,equipment:profiles};
-    if(index<0)catalog[kind].push(next);else catalog[kind][index]=next;
+  }else{
+    var idMap=new Map();
+    plan.records.forEach(function(record){
+      if(record.target==='skip')return;
+      var id=preview.sourceRows.find(row=>row.row===record.row)?.equipmentId;
+      var target=result.sourceImport.lastApplied.equipment.find(change=>change.row===record.row)?.equipmentId||record.target;
+      if(id&&result.equipment.some(unit=>unit.id===target))idMap.set(id,target);
+    });
+    var mappedTargets=new Set(idMap.values());
+    for(var kind of ['products','formats'])for(var record of source.catalog[kind]){
+      var index=catalog[kind].findIndex(item=>item.id===record.id),old=catalog[kind][index];
+      var profiles=Object.fromEntries(Object.entries(old?.equipment||{}).filter(([id])=>!idMap.has(id)&&!mappedTargets.has(id)));
+      for(var [id,profile] of Object.entries(record.equipment||{})){
+        var target=idMap.get(id)||(result.equipment.some(unit=>unit.id===id)?id:null);
+        if(!target){result.errors.push(record.name+': map Equipment ID '+id+' before importing its profile.');continue;}
+        Object.defineProperty(profiles,target,{value:profile,enumerable:true,configurable:true,writable:true});
+      }
+      var next={...record,equipment:profiles};
+      if(index<0)catalog[kind].push(next);else catalog[kind][index]=next;
+    }
   }
   if(result.errors.length)return result;
   try{engine.validateFormatCatalog(catalog);}catch(error){result.errors.push(error.message);return result;}

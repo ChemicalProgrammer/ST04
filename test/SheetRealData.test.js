@@ -70,7 +70,7 @@ test('browser preview imports only Real Data, rejects bad optional cells, and ca
   w.eval(fs.readFileSync('apps-script/TextResources.gs','utf8'));w.__ST_TEXT__=key=>w.ST_TEXT_RESOURCES[key]||key;
   for(const p of ['Icons.html','AemComparison.html','RealDataModel.html','RealData.html','SheetImportMerge.html','SheetImport.html'])w.eval(fs.readFileSync('apps-script/'+p,'utf8').replace(/<\/?script>/g,''));
   w.SimulatorEngine={productVolumeUnits,normalizeFormatCatalog:()=>({products:[],formats:[]}),validateSimulationInput:()=>({ok:true})};w.STSheetCorrections={render(){}};w.STDialog={beginActivity(){return ()=>{};}};w.STErrors={capture(){}};
-  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:plain(f.preview),importVersion:'sheet-import-20261110-1'});}}}};
+  w.google={script:{run:{withFailureHandler(){return this;},withSuccessHandler(fn){this.success=fn;return this;},previewSheetImport(){this.success({ok:true,data:plain(f.preview),importVersion:'sheet-import-20261110-2'});}}}};
   const state={activeCase:{id:'case'},activeSimulationId:'s',requestEpoch:1},snapshot={equipment:[plain(f.unit)],sourceImport:{},metadata:{realData:{schema:'st-real-data-v1',records:[{id:'old',name:'Previous observation'}]}}};let applied;
   w.STSheetImport(state,{capture:()=>snapshot,apply:r=>{applied=r;return true;}}).init();d.getElementById('open-sheet-import').click();d.getElementById('sheet-import-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   assert(d.getElementById('sheet-real-data'));assert.match(d.getElementById('sheet-real-data').textContent,/57.4/);

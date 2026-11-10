@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261110-1';}
+function sheetImportContractVersion_(){return 'sheet-import-20261110-2';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -91,11 +91,12 @@ function previewSheetImport_(request, user) {
   // The plant template may include shift-time summaries below the equipment table.
   var footer=rows.findIndex(function(row){return !String(row[0]||'').trim()&&!String(row[1]||'').trim()&&row.some(function(value){return /^total\s+time$/i.test(String(value||'').trim());});});
   if(footer>=0){rows=rows.slice(0,footer);formats=formats.slice(0,footer);count=rows.length;}
-  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,start:start});
+  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,start:start,allowEmpty:marker==='st-equipment-metadata-b-v2'});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A'+start+':'+lastColumn+(count?count+start-1:start)};
   var catalogTab=sheet.getName()==='Equipment'?sheets.find(function(tab){return tab.getName()==='Products & Formats';}):null;
-  if(catalogTab&&catalogTab.getRange(1,1).getValues()[0][0]==='st-material-sheet-v1'){
-    result.materialCatalog=readSheetCatalog_(catalogTab);
+  var catalogMarker=catalogTab?.getRange(1,1).getValues()[0][0];
+  if(['st-material-sheet-v1','st-material-sheet-v2'].includes(catalogMarker)){
+    result.materialCatalog=readSheetCatalog_(catalogTab,catalogMarker);
     var ids=count&&sheet.getMaxColumns()>=26?sheet.getRange(start,26,count,1).getValues():[];
     result.sourceRows.forEach(function(row){row.equipmentId=String(ids[row.row-start]?.[0]||'');});
   }
@@ -173,6 +174,8 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   }
   var metaColumn=options?.metadataColumn||'C',metadata={},metaFields=['site','packagingLine','formatName','containerSize','bottlesPerCase','dateOfAnalysis','by'];
   metaFields.forEach(function(key,i){var v=metadataCells[i];metadata[key]=i===4?numeric(v,metaColumn+'5'):missing(v)?null:typeof v==='number'?v:String(v).trim();});
+  metadata.by=sheetResponsibleName_(metadataCells[6]);
+  if(!missing(metadataCells[6])&&!metadata.by)issue(errors,metaColumn+'7','Enter the name of the person who recorded the data.');
   var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,metaColumn+'4',size.error);
   if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,metaColumn+'5','Must be greater than zero when provided.');
   if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,metaColumn+'5','Bottles per case must be a whole number.');
@@ -225,7 +228,7 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     equipment.push(unit);sourceRows.push({row:rowNumber,values:values});
   });
   equipment.forEach(function(unit,index){if(unit.type==='CONVEYOR'&&unit.nominalRatePerSecond===null){var upstream=equipment[index-1];if(upstream&&upstream.type!=='CONVEYOR'&&upstream.nominalRatePerSecond>0){unit.nominalRatePerSecond=upstream.nominalRatePerSecond;issue(warnings,'F'+unit.characteristics.sourceSheetRow,'Conveyor has no bpm value: using upstream machine bpm as its nominal reference. Physical belt speed uses G when provided in the updated layout; otherwise it is derived from geometry and the speed factor.','info','INHERITED_CONVEYOR_RATE');}else issue(errors,'F'+unit.characteristics.sourceSheetRow,'Missing conveyor bpm and no valid upstream machine reference.');}});
-  if(!equipment.length)issue(errors,'A'+(options?.start||10)+':'+columns[columns.length-1][0],'No equipment rows found.');
+  if(!equipment.length&&!options?.allowEmpty)issue(errors,'A'+(options?.start||10)+':'+columns[columns.length-1][0],'No equipment rows found.');
   if(equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).length>1)equipment.filter(function(unit){return unit.characteristics.isPacemaker;}).forEach(function(unit){issue(errors,'C'+unit.characteristics.sourceSheetRow,'Use Y for only one critical machine; mark the other machines N.');});
   var notes=[
     'Maximum speed F initializes nominal running speed. The optional packing proposal uses a reviewed Case Packer to assign bottle/case units, create a product and format, and translate bottle-equivalent machine speeds to cases/min. Without that proposal, existing unit settings are retained.',
@@ -267,17 +270,21 @@ function sheetEquipmentActuals_(){
   ];
 }
 function photoActualsTab_(sheet){
-  return !!sheet&&sheet.getMaxColumns()>=10&&sheet.getRange(1,10).getValues()[0][0]==='st-real-inputs-v4';
+  if(!sheet||sheet.getMaxColumns()<10)return null;
+  var marker=sheet.getRange(1,10).getValues()[0][0];
+  return ['st-real-inputs-v4','st-real-inputs-v5'].includes(marker)?marker:null;
 }
 // Adapt the dedicated tab to the observation contract used by legacy sheets.
 function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals,start){
   start=start||10;
-  var tabName=actuals.getName(),daily=actuals.getRange(5,2,12,5),values=daily.getValues(),numberFormats=daily.getNumberFormats();
+  var compact=photoActuals==='st-real-inputs-v5',topStart=compact?2:5,firstObservation=compact?16:20;
+  var tabName=actuals.getName(),daily=actuals.getRange(topStart,2,compact?10:12,compact?4:5),values=daily.getValues(),numberFormats=daily.getNumberFormats();
   var top=Array.from({length:7},function(){return Array(19).fill('');}),formats=top.map(function(row){return row.slice();});
   var links={F1:'B5',F2:'B6',F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F9',N2:'F10',N4:'B16',N5:'B14',N6:'F11',V1:'F14',V2:'F15',V4:'F16'};
   if(photoActuals)links={F3:'F5',F4:'F6',F5:'F7',F6:'F8',J1:'B7',J2:'B8',J3:'B9',J4:'B10',J5:'B11',J6:'B12',J7:'B13',N1:'F11',N2:'F12',N5:'B14',V4:'F9'};
+  if(compact)links={F3:'E2',F4:'E3',F5:'E4',F6:'E5',J1:'B2',J2:'B3',J3:'B4',J4:'B5',J5:'B6',J6:'B7',J7:'B8',N1:'E9',N2:'E10',N5:'B9',V4:'E6'};
   Object.keys(links).forEach(function(cell){
-    var source=links[cell],r=Number(source.slice(1))-5,c=source.charCodeAt(0)-66;
+    var source=links[cell],r=Number(source.slice(1))-topStart,c=source.charCodeAt(0)-66;
     var row=Number(cell.slice(1))-1,col=cell.charCodeAt(0)-69;
     top[row][col]=values[r][c];formats[row][col]=numberFormats[r][c];
   });
@@ -286,14 +293,14 @@ function readDedicatedSheetActuals_(actuals,equipment,count,preview,photoActuals
   var byId=new Map(ids.flatMap(function(id,index){return id?[[id,index]]:[];}));
   var rows=ids.map(function(){return [];});
   var machineRows=new Set(preview.equipment.filter(function(e){return e.type!=='CONVEYOR';}).map(function(e){return e.characteristics.sourceSheetRow;}));
-  var inputCount=Math.max(0,actuals.getLastRow()-19),errors=[],mapped=new Map();
+  var inputCount=Math.max(0,actuals.getLastRow()-firstObservation+1),errors=[],mapped=new Map();
   if(inputCount>1000)throw createSimulatorError_('SHEET_TOO_LARGE',tabName+' supports up to 1,000 equipment observations.');
   var hasValue=function(value){return value!=null&&String(value).trim()!==''&&!/^(NA|N\/A)$/i.test(String(value).trim());};
-  var input=inputCount?actuals.getRange(20,1,inputCount,photoActuals?10:23):null;
+  var input=inputCount?actuals.getRange(firstObservation,1,inputCount,photoActuals?10:23):null;
   var inputFormats=photoActuals&&input?input.getNumberFormats():[];
   if(input)input.getValues().forEach(function(row,index){
     if(!row.slice(1,photoActuals?3:14).some(hasValue))return;
-    var id=String(row[photoActuals?9:22]??''),target=byId.get(id),line=index+20;
+    var id=String(row[photoActuals?9:22]??''),target=byId.get(id),line=index+firstObservation;
     if(target===undefined||!machineRows.has(target+start)||mapped.has(target)||ids.indexOf(id)!==ids.lastIndexOf(id)){
       errors.push({cell:tabName+'!A'+line,message:'Equipment ID must match exactly one observation and one Equipment row.'});return;
     }
@@ -427,7 +434,7 @@ function parseSimpleSheetRealData_(top,formats,rows,preview){
   return {schema:'st-real-sheet-simple-v1',record:raw,fields:fields,errors:errors,hasData:hasData};
 }
 
-function readSheetCatalog_(sheet){
+function readLegacySheetCatalog_(sheet){
   var catalog={version:3,products:[],formats:[]},errors=[],initialFormatId;
   var units=STScenarioEngine_.productVolumeUnits,count=sheet.getLastRow()-3;
   if(count>200)return {catalog:catalog,errors:['Products & Formats supports up to 200 rows.']};
@@ -481,4 +488,58 @@ function readSheetCatalog_(sheet){
   });
   if(!errors.length)try{STScenarioEngine_.validateFormatCatalog(catalog);}catch(error){errors.push('Products & Formats · '+error.message);}
   return {catalog:catalog,initialFormatId:initialFormatId,errors:errors};
+}
+
+function sheetResponsibleName_(value){
+  if(typeof value!=='string')return null;
+  var name=value.trim();
+  return name&&/[\p{L}]/u.test(name)&&!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/i.test(name)&&!/^(NA|N\/A)$/i.test(name)?name:null;
+}
+
+function readSheetCatalog_(sheet,marker){
+  if(marker==='st-material-sheet-v1')return readLegacySheetCatalog_(sheet);
+  var catalog={version:3,products:[],formats:[]},errors=[],formats=[],productIds=new Map(),formatNames=new Set();
+  var units=STScenarioEngine_.productVolumeUnits,count=sheet.getLastRow()-3;
+  if(count>200)return {catalog:catalog,errors:['Products & Formats supports up to 200 rows.'],matchByName:true};
+  if(count>0)sheet.getRange(4,1,count,9).getValues().forEach(function(row,index){
+    var line=index+4;
+    function text(col){return String(row[col]??'').trim();}
+    function missing(col){return !text(col)||/^N\/?A$/i.test(text(col));}
+    function number(col,minimum,allowZero){
+      if(missing(col))return undefined;
+      var value=row[col];
+      if(typeof value!=='number'||!Number.isFinite(value)||value<minimum||(!allowZero&&value===0))throw Error(String.fromCharCode(65+col)+' must be a valid number.');
+      return value;
+    }
+    if(row.every(function(value){return value==='';}))return;
+    try{
+      var type=text(0),name=text(1),key=name.toLowerCase(),product=type==='Product';
+      if(!product&&type!=='Format')throw Error('Select Product or Format.');
+      if(!name)throw Error('Enter a name.');
+      var names=product?productIds:formatNames;
+      if(names.has(key))throw Error(type+' names must be unique.');
+      var shape={lengthMm:number(5,0,false),widthMm:number(6,0,false),heightMm:number(7,0,false)};
+      var record={id:'sheet-'+type.toLowerCase()+'-'+line,name:name};
+      if(product){
+        if(!missing(2)||!missing(8))throw Error('Product and Bottles per Case apply to Format rows.');
+        var unit=missing(4)?'mL':text(4),volume=number(3,0,true);
+        if(!Object.hasOwn(units,unit))throw Error('Select a valid volume unit.');
+        if(volume!==undefined)record.volumeMl=volume*units[unit];
+        if(unit!=='mL')record.volumeUnit=unit;
+        record.bottle=shape;catalog.products.push(record);productIds.set(key,record.id);
+      }else{
+        if(!missing(3)||!missing(4))throw Error('Volume applies to Product rows.');
+        record.case=shape;record.bottlesPerCase=number(8,1,false);
+        if(!Number.isInteger(record.bottlesPerCase)||record.bottlesPerCase>10000)throw Error('Enter a whole number of bottles per case from 1 to 10,000.');
+        catalog.formats.push(record);formatNames.add(key);formats.push({record:record,product:missing(2)?'':text(2).toLowerCase(),line:line});
+      }
+    }catch(error){errors.push('Products & Formats · row '+line+': '+error.message);}
+  });
+  formats.forEach(function(format){
+    var productId=format.product?productIds.get(format.product):catalog.products.length===1?catalog.products[0].id:null;
+    if(productId)format.record.productId=productId;
+    else errors.push('Products & Formats · row '+format.line+': enter the name of a Product in this sheet.');
+  });
+  if(!errors.length)try{STScenarioEngine_.validateFormatCatalog(catalog);}catch(error){errors.push('Products & Formats · '+error.message);}
+  return {catalog:catalog,errors:errors,matchByName:true};
 }
