@@ -13,8 +13,7 @@
 .line-layout-belt > small { position:absolute; inset-inline:0; bottom:0; }
 .line-layout-rail { position:absolute; inset:38px 0 auto; height:25px; border-block:2px solid var(--line-strong); background:var(--surface); }
 .line-layout-rail.line-belt-stopped { border-block-color:var(--line-state); }
-.line-layout-product { position:absolute; top:50%; width:var(--product-width); max-width:10px; height:10px; border-radius:50%; background:var(--accent); transform:translate(-50%,-50%); }
-.line-layout-product.is-queued { background:var(--line-state); }
+.line-layout-products { display:block; width:100%; height:100%; }
 .line-layout-sensor { position:absolute; top:0; z-index:1; display:grid; place-items:center; width:20px; height:20px; transform:translate(-50%,-65%); border:1px solid var(--line-strong); border-radius:50%; background:var(--surface); color:var(--ink); font-size:11px; }
 .line-layout-sensor.is-active { border:2px solid var(--line-state); font-weight:700; }
 .line-layout-legend span::before { content:""; display:inline-block; width:.6em; height:.6em; margin-inline-end:.4em; border-radius:50%; background:var(--line-state); }
@@ -26,7 +25,7 @@
 </style>
 <script>
 window.STLinePlayback=(function(){
-  var current;
+  var current,animationFrame;
   function element(tag,className,text){
     var node=document.createElement(tag);
     if(className)node.className=className;
@@ -42,37 +41,83 @@ window.STLinePlayback=(function(){
     if(['FAILED','FAILURE','STOPPED','EMERGENCY_STOP','PLANNED_STOP','PAUSED','MICRO_STOP'].includes(state))return 'line-stopped';
     return '';
   }
-  function product(rail,position,length,width,queued){
-    var dot=element('span','line-layout-product'+(queued?' is-queued line-blocked':''));
-    dot.style.left=(100*position/length)+'%';
-    dot.style.setProperty('--product-width',width+'px');
-    rail.append(dot);
-  }
-  function drawProducts(rail,zone,length,width){
-    var geometry=zone.geometry,packageWidth=geometry.productLengthMm>0?geometry.productLengthMm:geometry.accumulatedPitchMm;
-    if(!(packageWidth>0))return;
-    var diameter=packageWidth/length*width;
-    var tail=Math.min(length,Math.max(0,zone.queueTailPositionMm??length));
-    var queuePitch=geometry.accumulatedPitchMm;
-    if(queuePitch>0){
-      var queued=Math.min(Math.floor(zone.waitingUnits||0),Math.floor(length/queuePitch));
-      var stride=Math.max(1,Math.ceil(queued/100),Math.ceil(2*length/width/queuePitch));
-      for(var i=0;i<queued;i+=stride)product(rail,length-(i+.5)*queuePitch,length,diameter,true);
-    }
-    var bands=zone.transitBands,pitch=geometry.productPitchMm;
-    if(!bands?.length||!(pitch>0))return;
-    var minimumGap=Math.max(pitch,length/width*2),last=-Infinity;
-    var start=packageWidth/2,end=tail-packageWidth/2;
+  function transitPositions(bands,length,width,geometry,tail){
+    var pitch=geometry.productPitchMm;
+    if(!bands?.length||!(pitch>0))return [];
+    var gap=Math.max(pitch,length/width*2,length/400),last=-Infinity,positions=[];
+    var edge=geometry.productLengthMm/2||pitch/2;
+    var end=tail-edge;
     for(var index=0;index<bands.length;index+=2){
       var count=Math.max(1,Math.round(bands[index]));
-      var center=bands[index+1];
-      var visible=Math.min(count,Math.max(1,Math.ceil(length/24/minimumGap)));
-      var first=Math.max(start,last+minimumGap,Math.min(end-(visible-1)*minimumGap,center-(visible-1)*minimumGap/2));
-      for(var position=first;visible>0&&position<=end;visible--,position+=minimumGap){
-        product(rail,position,length,diameter,false);
+      var visible=Math.min(count,Math.max(1,Math.ceil(length/24/gap)));
+      var first=Math.max(edge,last+gap,Math.min(end-(visible-1)*gap,bands[index+1]-(visible-1)*gap/2));
+      for(var position=first;visible>0&&position<=end;visible--,position+=gap){
+        positions.push(position);
         last=position;
       }
     }
+    return positions;
+  }
+  function prepareProducts(rail,zone,nextZone,length,width,seconds){
+    if(width<1)return null;
+    var geometry=zone.geometry,packageWidth=geometry.productLengthMm||geometry.accumulatedPitchMm;
+    if(!(packageWidth>0))return null;
+    var canvas=element('canvas','line-layout-products');
+    canvas.setAttribute('aria-hidden','true');
+    var resolution=Math.min(window.devicePixelRatio||1,8192/width);
+    canvas.width=Math.max(1,Math.round(width*resolution));
+    canvas.height=Math.max(1,Math.round(21*resolution));
+    rail.append(canvas);
+    var context=canvas.getContext('2d');
+    if(!context)return null;
+    var tail=Math.min(length,Math.max(0,zone.queueTailPositionMm??length));
+    var pitch=geometry.accumulatedPitchMm,queued=[];
+    if(pitch>0){
+      var count=Math.min(Math.floor(zone.waitingUnits||0),Math.floor(length/pitch));
+      var stride=Math.max(1,Math.ceil(count/100),Math.ceil(2*length/width/pitch));
+      for(var i=0;i<count;i+=stride)queued.push(length-(i+.5)*pitch);
+    }
+    var moving=transitPositions(zone.transitBands,length,width,geometry,tail);
+    var speed=zone.beltRunning===false||!zone.transitBands?0:Math.max(0,geometry.conveyorSpeedMmPerSecond||0);
+    // Reconstruct visible entries from the next recorded frame, using the
+    // same belt speed as product already on the belt.
+    var entering=[];
+    if(speed>0&&nextZone?.beltRunning!==false&&nextZone?.transitBands&&seconds>0){
+      entering=transitPositions(nextZone.transitBands,length,width,geometry,nextZone.queueTailPositionMm??length)
+        .map(function(position){return position-speed*seconds;})
+        .filter(function(position){return position<0;});
+    }
+    var style=getComputedStyle(rail);
+    var movingColor=style.getPropertyValue('--accent').trim()||'#267cc8';
+    var queueColor=style.getPropertyValue('--line-queue-color').trim()||'#b16931';
+    var diameter=Math.min(10,packageWidth*width/length)*resolution;
+    var pixelsPerMm=canvas.width/length,mid=canvas.height/2;
+    function paint(positions,offset,color,min,max){
+      context.fillStyle=color;
+      context.beginPath();
+      positions.forEach(function(origin){
+        var position=origin+offset;
+        if(position<min||position>max)return;
+        var x=position*pixelsPerMm,r=diameter/2,y=Math.min(5*resolution,mid);
+        context.moveTo(x+r,mid);
+        context.ellipse(x,mid,r,y,0,0,Math.PI*2);
+      });
+      context.fill();
+    }
+    return function(elapsed){
+      context.clearRect(0,0,canvas.width,canvas.height);
+      paint(queued,0,queueColor,0,length);
+      var offset=speed*elapsed;
+      paint(moving,offset,movingColor,0,tail-packageWidth/2);
+      var entryLimit=moving.length?moving[0]+offset-(geometry.productPitchMm||packageWidth):Infinity;
+      paint(entering,offset,movingColor,packageWidth/2,Math.min(entryLimit,tail-packageWidth/2));
+    };
+  }
+  function zonesByOwner(frame,definitions){
+    return new Map((frame?.accumulationZones||[]).map(function(item){
+      var zone={...definitions?.[item.id],...item};
+      return [zone.ownerEquipmentId,zone];
+    }));
   }
   function addSensor(rail,sensor,name,length,active){
     if(!sensor?.configured||!Number.isFinite(sensor.positionMm))return;
@@ -83,18 +128,19 @@ window.STLinePlayback=(function(){
     rail.append(indicator);
   }
   function draw(){
+    if(animationFrame!==undefined)window.cancelAnimationFrame(animationFrame);
+    animationFrame=undefined;
     var track=document.getElementById('line-layout-track');
     if(!track||!current)return;
-    var {equipment,frame,definitions}=current;
+    var {equipment,frame,definitions,next,clock}=current;
     var time=document.getElementById('line-layout-time'),note=document.getElementById('line-layout-note');
     time.textContent=frame?'Playback · '+number(frame.virtualSecond)+' s':'';
     track.replaceChildren();
     if(!frame){note.textContent='Run a simulation with playback history to see the line layout.';return;}
     var units=new Map((frame.equipment||[]).map(item=>[item.id,item]));
-    var zones=new Map((frame.accumulationZones||[]).map(item=>{
-      var zone={...definitions?.[item.id],...item};
-      return [zone.ownerEquipmentId,zone];
-    }));
+    var zones=zonesByOwner(frame,definitions),nextZones=zonesByOwner(next,definitions);
+    var seconds=next?Math.max(0,next.virtualSecond-frame.virtualSecond):0;
+    var painters=[];
     var beltLength=equipment.reduce((sum,item)=>sum+(item.type==='CONVEYOR'?(zones.get(item.id)?.geometry?.usableLengthMm||0):0),0);
     var machines=equipment.filter(item=>item.type!=='CONVEYOR').length;
     var zoom=Number(document.getElementById('line-layout-zoom').value);
@@ -120,18 +166,29 @@ window.STLinePlayback=(function(){
       belt.title=(item.name||item.id)+' · '+(usable?number(length/1000)+' m · '+number(zone.waitingUnits)+' queued · '+number(zone.inTransitUnits)+' in transit':'Length unavailable');
       if(usable){
         if(zone.beltRunning===false)rail.classList.add('line-belt-stopped','line-stopped');
-        drawProducts(rail,zone,length,width);
+        var paint=prepareProducts(rail,zone,nextZones.get(item.id),length,width,seconds);
+        if(paint)painters.push(paint);
         addSensor(rail,zone.prime,'Prime',length,zone.prime?.latched);
         addSensor(rail,zone.backup,'Back-up',length,zone.backup?.controlActive);
         if(zone.transitBands===undefined&&zone.inTransitUnits>0)missingTransit=true;
       }else missingLength=true;
       track.append(belt);
     });
-    note.textContent='Conveyors use a shared length scale. B = Back-up, P = Prime. Product markers follow recorded samples; dense flows are condensed.'
+    function animate(){
+      animationFrame=undefined;
+      if(track.closest('[hidden], .hidden'))return;
+      var timing=clock?.()||{};
+      var elapsed=Math.max(0,Math.min(seconds,timing.elapsed||0));
+      painters.forEach(function(paint){paint(elapsed);});
+      time.textContent='Playback · '+number(frame.virtualSecond+elapsed)+' s';
+      if(timing.playing&&seconds>0&&elapsed<seconds&&painters.length)animationFrame=window.requestAnimationFrame(animate);
+    }
+    animate();
+    note.textContent='Conveyors use a shared length scale. B = Back-up, P = Prime. Product moves at belt speed between samples; dense flows are condensed.'
       +(missingLength?' Conveyors without recorded geometry use a placeholder.':'')
       +(missingTransit?' This replay has no positions for product in transit.':'');
   }
   document.addEventListener('input',function(event){if(event.target.id==='line-layout-zoom')draw();});
-  return {render:function(equipment,frame,definitions){current={equipment,frame,definitions};draw();}};
+  return {render:function(equipment,frame,definitions,next,clock){current={equipment,frame,definitions,next,clock};draw();}};
 })();
 </script>

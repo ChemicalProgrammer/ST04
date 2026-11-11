@@ -1,3 +1,5 @@
+    var playbackClock;
+
     function startPlayback() {
       if (!state.run.result || state.run.playing) return;
       state.run.active=true;syncRunControls();
@@ -6,9 +8,8 @@
     }
 
     function pausePlayback() {
-      state.run.playing = false;
       if(roundSession?.firstUpdating)roundSession.resumeAfterEdit=false;
-      stopPlaybackTimer();
+      stopPlaybackTimer(true);
       setPlaybackStatus('Paused');
       if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}
     }
@@ -35,9 +36,14 @@
     }
 
     function schedulePlaybackStep() {
-      renderPlaybackFrame();
       var samples = state.run.result.samples;
-      if (state.run.sampleIndex >= samples.length - 1) {
+      var frame=samples[state.run.sampleIndex],next=samples[state.run.sampleIndex+1];
+      var offset=playbackElapsed(frame);
+      var rate=Number(document.getElementById('run-playback-rate').value||1);
+      playbackClock={frame,offset,rate,started:performance.now()};
+      renderPlaybackFrame();
+      if (!next) {
+        playbackClock=null;
         if(roundSession?.streaming){state.run.timer=window.setTimeout(function(){if(state.run.playing)schedulePlaybackStep();},50);return;}
         state.run.playing = false;
         state.run.active=false;syncRunControls();
@@ -47,31 +53,27 @@
         finishRoundSession();
         return;
       }
-      var started=performance.now(),delay=playbackDelayMilliseconds();
-      var rate=Number(document.getElementById('run-playback-rate').value||1);
-      var virtualStart=samples[state.run.sampleIndex].virtualSecond;
+      var delay=Math.max(35,(next.virtualSecond-frame.virtualSecond-offset)*1000/rate);
       state.run.timer = window.setTimeout(function() {
         if (!state.run.playing) return;
-        var target=virtualStart+(performance.now()-started)*rate/1000;
+        var target=frame.virtualSecond+playbackElapsed(frame);
+        playbackClock=null;
         var currentSamples=state.run.result.samples;
         state.run.sampleIndex=Math.min(currentSamples.length-1,Math.max(state.run.sampleIndex+1,findSampleIndexAtOrBefore(currentSamples,target)));
         schedulePlaybackStep();
       }, delay);
     }
 
-    function playbackDelayMilliseconds() {
-      var samples = state.run.result ? state.run.result.samples : [];
-      var current = samples[state.run.sampleIndex];
-      var next = samples[state.run.sampleIndex + 1];
-      if (!current || !next) return 0;
-      var virtualSeconds = Math.max(0, next.virtualSecond - current.virtualSecond);
-      var playbackRate = Number(document.getElementById('run-playback-rate').value || 1);
-      // At 1×, virtual and wall-clock seconds match. A higher multiplier only
-      // speeds up playback; it never changes the deterministic calculation.
-      return Math.max(35, virtualSeconds * 1000 / playbackRate);
+    function playbackElapsed(frame){
+      if(!frame||playbackClock?.frame!==frame)return 0;
+      return playbackClock.offset+(playbackClock.started===null?0:(performance.now()-playbackClock.started)*playbackClock.rate/1000);
     }
 
-    function stopPlaybackTimer() {
+    function stopPlaybackTimer(preservePosition) {
+      if(preservePosition&&playbackClock){
+        playbackClock.offset=playbackElapsed(playbackClock.frame);
+        playbackClock.started=null;
+      }else playbackClock=null;
       if (state.run.timer) window.clearTimeout(state.run.timer);
       state.run.timer = null;
       state.run.playing = false;
@@ -83,7 +85,10 @@
       if(content?.hidden||content?.inert)return;
       var result=state.run.result;
       var frame=result?.samples?.[state.run.sampleIndex];
-      STLinePlayback.render(state.activeCase?.equipment||[],frame,result?.zoneDefinitions);
+      var next=result?.samples?.[state.run.sampleIndex+1];
+      STLinePlayback.render(state.activeCase?.equipment||[],frame,result?.zoneDefinitions,next,function(){
+        return {elapsed:playbackElapsed(frame),playing:state.run.playing};
+      });
     }
 
     function renderPlaybackFrame() {
