@@ -433,6 +433,19 @@ html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text);
   content:""; flex:none; width:.45em; height:.45em; margin-inline-end:var(--space-1);
   border-inline-end:2px solid currentColor; border-block-end:2px solid currentColor;
   transform:rotate(45deg);
+  transition:transform 180ms ease-in-out;
+}
+@supports (interpolate-size:allow-keywords) and selector(details::details-content) {
+  .fold-native { interpolate-size:allow-keywords; }
+  .fold-native::details-content {
+    block-size:0; overflow:clip;
+    transition:block-size 180ms ease-in-out, content-visibility 180ms allow-discrete;
+  }
+  .fold-native[open]::details-content { block-size:auto; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .fold-heading .fold-toggle::before, .fold-native > summary::before { transition:none; }
+  .fold-native::details-content { transition:none; }
 }
 .fold-heading .fold-toggle[aria-expanded=false]::before,
 .fold-native:not([open]) > summary::before { transform:rotate(-45deg); }

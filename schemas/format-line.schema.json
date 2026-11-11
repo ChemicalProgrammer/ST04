@@ -67,6 +67,7 @@
             "CONVEYOR",
             "PUCKER",
             "FILLER",
+            "FEEDER",
             "DEPUCKER",
             "SLEEVER",
             "CASE_PACKER",

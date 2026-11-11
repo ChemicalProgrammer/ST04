@@ -464,7 +464,7 @@
       var remove=new Set(events);state.run.commands=state.run.commands.filter(e=>!remove.has(e));if(state.run.plannedStops!==undefined)state.run.plannedStops=state.run.plannedStops.filter(e=>!remove.has(e));
       state.run.eventPage=Math.min(state.run.eventPage||0,Math.max(0,Math.ceil((state.run.plannedStops||[]).length/100)-1));renderControlEvents();markCaseDirty();syncRunControls();
     }
-    function setControlEventsExpanded(expanded){document.getElementById('toggle-control-events').setAttribute('aria-expanded',String(expanded));document.getElementById('simulation-event-content').hidden=!expanded;}
+    function setControlEventsExpanded(expanded){setSubsectionExpanded(document.getElementById('toggle-control-events'),expanded);}
 
     function addControlEvent() {
       if (runControlsLocked()||!state.activeCase || !state.activeCase.equipment.length) return;

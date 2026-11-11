@@ -72,6 +72,9 @@
 .sidebar .nav-item .icon { flex-shrink:0; }
 .sidebar .nav-label { min-width:0; }
 #breadcrumb-case { font-size:var(--font-page); font-weight:var(--weight-semibold); color:var(--ink); letter-spacing:var(--tracking-tight); }
+button#breadcrumb-case { min-width:0; padding:0 var(--space-1); border:1px solid transparent; background:transparent; box-shadow:none; opacity:1; }
+.case-open button#breadcrumb-case:hover { border-color:var(--line); }
+#header-case-name { min-width:0; width:min(32ch, 100%); font-size:var(--font-page); font-weight:var(--weight-semibold); }
 #breadcrumb-view { font-size:var(--font-secondary); color:var(--muted); }
 .case-open .breadcrumb > span:not(#breadcrumb-case):not(#header-case-icon) { display:none; }
 #header-case-icon { display:grid; place-items:center; color:var(--accent); flex:0 0 28px; }

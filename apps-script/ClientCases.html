@@ -212,7 +212,7 @@ function createDemoCase() {
         if (!response?.ok || !response.data?.id) {
           var error=response?.error||{code:'DEMO_EMPTY_RESPONSE',message:'The server did not return the created demo. Refresh the case list before retrying.'};
           showError(error);
-          STDialog.open({title:'Demo creation failed',message:error.message,details:[error.code].concat(error.details||[]).join('\n'),error:true});
+          STDialog.open({title:'Demo creation failed',message:error.message,details:[error.code].concat(error.details||[]).join('\n'),error:true,clearError:STErrors.clearAction('status')});
           return;
         }
         var summary=response.data;
@@ -320,7 +320,11 @@ async function openCase(caseId, initialView) {
     function markCaseDirty(event) {
       if (!state.activeCase) return;
       if(runControlsLocked()&&['duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count'].includes(event?.target?.id)){applyScenarioRunInputs(state.run.configuration);return;}
-      if(event?.target?.id==='case-name')state.activeCase.name=event.target.value;
+      if(event?.target?.id==='case-name'){
+        state.activeCase.name=event.target.value;
+        var simulation=activePersistentSimulation();
+        document.getElementById('editor-title').textContent=state.activeCase.name+(simulation?' · '+simulation.name:'');
+      }
       else invalidateActiveResult();
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);STRunOptions.sync(runControlsLocked());
       refreshDesignGraph();
@@ -390,7 +394,7 @@ async function openCase(caseId, initialView) {
           var error=response?.error||{code:'SHEET_EXPORT_NO_RESPONSE',message:__ST_TEXT__('client.the_request_failed')};
           var details=[error.code,...(Array.isArray(error.details)?error.details:[])].filter(Boolean).join('\n');
           showError(error);
-          STDialog.open({title:__ST_TEXT__('exports.sheet_failed'),message:error.message,details:details,error:true});
+          STDialog.open({title:__ST_TEXT__('exports.sheet_failed'),message:error.message,details:details,error:true,clearError:STErrors.clearAction('status')});
           return;
         }
         STDialog.open({title:__ST_TEXT__('exports.sheet_title'),message:__ST_TEXT__('exports.sheet_message'),link:{url:response.data.url,label:__ST_TEXT__('exports.sheet_open')}});

@@ -61,6 +61,32 @@
       return true;
     }
 
+    const subsectionAnimations=new WeakMap();
+    function setSubsectionExpanded(button,expanded){
+      const content=document.getElementById(button.getAttribute('aria-controls'));
+      if(!content||button.getAttribute('aria-expanded')===String(expanded))return;
+      const previous=subsectionAnimations.get(content);
+      const from=content.hidden?0:content.getBoundingClientRect().height;
+      previous?.cancel();
+      subsectionAnimations.delete(content);
+      button.setAttribute('aria-expanded',String(expanded));
+      if(!expanded&&content.contains(document.activeElement))button.focus();
+      content.inert=!expanded;
+      content.hidden=false;
+      const to=expanded?content.getBoundingClientRect().height:0;
+      if(STMotion.reduced()||!content.animate||from===to){content.hidden=!expanded;return;}
+      const animation=content.animate([
+        {height:from+'px',overflow:'clip'},
+        {height:to+'px',overflow:'clip'}
+      ],{duration:180,easing:'ease-in-out',fill:'both'});
+      subsectionAnimations.set(content,animation);
+      animation.finished.then(function(){
+        if(subsectionAnimations.get(content)!==animation)return;
+        content.hidden=!expanded;
+        subsectionAnimations.delete(content);
+        animation.cancel();
+      },function(){});
+    }
     document.addEventListener('DOMContentLoaded', function() {
       bindEvents();
       STEquipmentInspector.init(state,markCaseDirty);
@@ -79,14 +105,9 @@
       }
     });
     window.addEventListener('resize', function() { renderPlaybackFrame(); });
-    // Alterna el contenido sin mover ni bloquear los controles de su encabezado.
     document.addEventListener('click',function(event){
       const button=event.target.closest?.('[data-subsection-toggle]');
-      if(!button)return;
-      const content=document.getElementById(button.getAttribute('aria-controls'));
-      if(!content)return;
-      const expanded=button.getAttribute('aria-expanded')!=='true';
-      button.setAttribute('aria-expanded',String(expanded));content.hidden=!expanded;
+      if(button)setSubsectionExpanded(button,button.getAttribute('aria-expanded')!=='true');
     });
     // Redibuja las gráficas cuando el bloque vuelve a tener dimensiones visibles.
     document.getElementById('results-history-group').addEventListener('toggle',function(){

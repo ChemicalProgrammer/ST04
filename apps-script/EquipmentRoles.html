@@ -1,6 +1,6 @@
 <script>
 window.STEquipmentRoles=(function(){
-  function machineType(e){var types=['BLOWER','BLOWMOLDER','PUCKER','FILLER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'];return e.type==='PACEMAKER'?(types.includes(e.processData?.machineType)?e.processData.machineType:'CUSTOM'):e.type||'CUSTOM';}
+  function machineType(e){var types=['BLOWER','BLOWMOLDER','PUCKER','FILLER','FEEDER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'];return e.type==='PACEMAKER'?(types.includes(e.processData?.machineType)?e.processData.machineType:'CUSTOM'):e.type||'CUSTOM';}
   function attach(card,equipment){
     var fields=card._fields,grid=fields.querySelector('.equipment-grid');
     var selected=equipment.type==='PACEMAKER'||equipment.processData?.role==='PACEMAKER'||equipment.characteristics?.isPacemaker===true;

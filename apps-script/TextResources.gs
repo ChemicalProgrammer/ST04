@@ -23,6 +23,7 @@ var ST_TEXT_RESOURCES = {
   "info.description":"SimuLine simulates packaging lines to analyze throughput, accumulation and equipment behavior, compare simulations, and explore improvement scenarios with Gemini.",
   "info.developers_label":"Developers",
 
+  "errors.clear": "Clear error",
   "errors.copy":"Copy error",
   "errors.copied":"Error copied",
   "errors.copy_failed":"Clipboard unavailable. Select and copy the error details manually.",
@@ -751,6 +752,7 @@ var ST_TEXT_RESOURCES = {
   "client.filler": "Filler",
   "client.de_pucker": "De-pucker",
   "client.sleever": "Sleever",
+  "client.feeder": "Feeder",
   "client.case_packer": "Case packer",
   "client.palletizer": "Palletizer",
   "client.other_custom": "Other / custom",

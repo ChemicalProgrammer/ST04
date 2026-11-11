@@ -2,6 +2,36 @@
 window.STShell = function(state,actions) {
   var collapsed=STPreferences.read('sidebar')==='collapsed', toastTimer,lastMotionView;
   var simulationToolbar=document.getElementById('simulation-toolbar');
+  var caseTitle=document.getElementById('breadcrumb-case'), titleInput=document.getElementById('header-case-name');
+  var editingCase=null;
+  function finishTitle(commit,restoreFocus){
+    if(!editingCase)return;
+    var owner=editingCase,name=titleInput.value.trim();
+    editingCase=null;
+    titleInput.classList.add('hidden');
+    caseTitle.classList.remove('hidden');
+    if(commit&&state.activeCase===owner&&name&&name!==owner.name){
+      var field=document.getElementById('case-name');
+      field.value=name;
+      field.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    if(restoreFocus)caseTitle.focus();
+  }
+  caseTitle.onclick=function(){
+    if(!state.activeCase)return;
+    editingCase=state.activeCase;
+    titleInput.value=editingCase.name;
+    caseTitle.classList.add('hidden');
+    titleInput.classList.remove('hidden');
+    titleInput.focus();
+    titleInput.select();
+  };
+  titleInput.onblur=function(){finishTitle(true,false);};
+  titleInput.onkeydown=function(event){
+    if(event.isComposing||!['Enter','Escape'].includes(event.key))return;
+    event.preventDefault();
+    finishTitle(event.key==='Enter',true);
+  };
   function sync() {
     STSettings.applyCaseCharts();
     var active=Boolean(state.activeCase);if(active&&state.uiView==='realdata'&&!STPreferences.caseOptions().showRealData){state.uiView=state.run.result?.summary?'results':'simulation';state.basicView=state.uiView;}var view=active?(state.uiView||'simulation'):'cases';
@@ -20,7 +50,10 @@ window.STShell = function(state,actions) {
     document.getElementById('workspace-tabs').classList.toggle('hidden',!active);
     document.getElementById('home-cases').setAttribute('aria-current',view==='cases'?'page':'false');
     document.querySelectorAll('.sidebar [data-view]').forEach(function(button){button.classList.toggle('hidden',button.dataset.view==='realdata'&&!STPreferences.caseOptions().showRealData);button.disabled=!active;button.setAttribute('aria-current',button.dataset.view===view?'page':'false');button.title=active?button.getAttribute('aria-label'):__ST_TEXT__('shell.open_a_case_first');});
-    document.getElementById('breadcrumb-case').textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
+    if(editingCase&&editingCase!==state.activeCase)finishTitle(false,false);
+    caseTitle.textContent=active?state.activeCase.name:__ST_TEXT__('shell.workspace');
+    caseTitle.disabled=!active;
+    caseTitle.title=active?__ST_TEXT__('view.case_name'):'';
     document.getElementById('breadcrumb-view').textContent={cases:__ST_TEXT__('shell.cases'),editor:__ST_TEXT__('shell.line_setup'),simulation:__ST_TEXT__('shell.simulation'),products:'Formats',results:__ST_TEXT__('shell.results'),realdata:'Real data',whatif:__ST_TEXT__('shell.what_if'),comparison:__ST_TEXT__('client.compare_simulations')}[view];
     document.getElementById('save-case').classList.toggle('hidden',!active||(['ADVANCE','ADVANCED'].includes(String(state.bootstrap?.uiMode).toUpperCase())&&STPreferences.caseOptions().autosaveEnabled));
     document.getElementById('autosave-indicator').classList.toggle('hidden',!active);
