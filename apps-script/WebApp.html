@@ -53,6 +53,7 @@
           <p id="simulation-nav-caption" class="nav-caption"><?= __ST_TEXT__('view.selected_simulation_2') ?></p>
           <button class="nav-item" data-view="editor" data-icon="edit" aria-label="<?= __ST_TEXT__('shell.line_setup') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.line_setup') ?></span></button>
           <button class="nav-item" data-view="products" data-icon="box" aria-label="Formats" disabled><span class="nav-label">Formats</span></button>
+          <button class="nav-item" data-view="simulation2d" data-icon="play" aria-label="Simulation 2D" disabled><span class="nav-label">Simulation 2D</span></button>
           <button class="nav-item" data-view="simulation" data-icon="play" aria-label="<?= __ST_TEXT__('shell.simulation') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.simulation') ?></span></button>
           <button class="nav-item" data-view="results" data-icon="chart" aria-label="<?= __ST_TEXT__('shell.results') ?>" disabled><span class="nav-label"><?= __ST_TEXT__('shell.results') ?></span></button>
           <button class="nav-item" data-view="realdata" data-icon="chart" aria-label="Real data" disabled><span class="nav-label">Real data</span></button>
@@ -148,6 +149,22 @@
       </section>
 
       <section id="products-panel" class="card hidden" aria-label="Formats"><div id="products-workspace"></div></section>
+      <section id="simulation2d-panel" class="card hidden" aria-labelledby="simulation2d-title">
+        <div class="section-heading"><h2 id="simulation2d-title">Simulation 2D</h2>
+          <div class="button-row">
+            <button id="simulation2d-play" type="button">Play</button>
+            <button id="simulation2d-pause" type="button" class="secondary">Pause</button>
+            <button id="simulation2d-reset" type="button" class="secondary">Reset</button>
+            <label>Speed <select id="simulation2d-speed"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option></select></label>
+            <button id="simulation2d-zoom-out" type="button" class="secondary" aria-label="Zoom out">−</button>
+            <button id="simulation2d-zoom-in" type="button" class="secondary" aria-label="Zoom in">+</button>
+            <button id="simulation2d-fit" type="button" class="secondary">Fit to view</button>
+          </div>
+        </div>
+        <p id="simulation2d-status" class="chart-note" role="status"></p>
+        <canvas id="simulation2d-canvas" tabindex="0" aria-label="Top-down line drawing. Drag to pan, use Control or Command and the wheel to zoom."></canvas>
+        <details id="simulation2d-config"><summary>Dimensions and sensors</summary><div id="simulation2d-dimensions" class="table-scroll"></div></details>
+      </section>
       <section id="run-panel" class="card hidden" aria-labelledby="run-title">
         <p id="simulation-engine-notice" class="notice hidden" role="status">DES · SimPy (experimental). FIFO item conveyors; spatial queues, sensors, ramps and runout are omitted. OEE is not validated.</p>
         <div class="section-heading">
@@ -513,6 +530,8 @@
     <?!= include_('ScenarioExplorer'); ?>
     <?!= include_('RunOptions'); ?>
     <?!= include_('LinePlayback'); ?>
+    <?!= include_('Simulation2DEngine'); ?>
+    <?!= include_('Simulation2D'); ?>
     <?!= include_('PlantCalendar'); ?>
     <?!= include_('Products'); ?>
     <?!= include_('ProductStyles'); ?>

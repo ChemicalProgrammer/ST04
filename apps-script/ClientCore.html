@@ -35,12 +35,16 @@
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
     var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
-    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview});
+    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:function(visible){
+      if(!visible){STSimulation2D.pause();return;}
+      var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
+      STSimulation2D.load([state.activeCase.id,simulation?.id,format?.id],state.activeCase.equipment,format);
+    }});
     function caseViewKey(caseId) {
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
     }
     function rememberCaseView(view) {
-      if(!state.activeCase||state.restoringCaseView||!['editor','products','simulation','results','realdata','whatif','comparison'].includes(view))return;
+      if(!state.activeCase||state.restoringCaseView||!['editor','products','simulation','simulation2d','results','realdata','whatif','comparison'].includes(view))return;
       var key=caseViewKey(state.activeCase.id);
       var basicView=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':state.basicView==='vgraph'?'vgraph':null):view;
       var saved=JSON.stringify({view:view,basicView:basicView});

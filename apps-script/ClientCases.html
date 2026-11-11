@@ -260,7 +260,7 @@ async function openCase(caseId, initialView) {
         var preference=null;
         try{preference=JSON.parse(STPreferences.read(caseViewKey(caseId)));}catch(ignore){}
         var rememberedView=initialView||preference?.view;
-        if(!['editor','products','simulation','results','realdata','whatif','comparison'].includes(rememberedView))rememberedView='simulation';
+        if(!['editor','products','simulation','simulation2d','results','realdata','whatif','comparison'].includes(rememberedView))rememberedView='simulation';
         if(rememberedView==='comparison'&&(response.data.simulations||[]).length<2)rememberedView='editor';
         state.restoringCaseView=true;
         state.activeCase = response.data;

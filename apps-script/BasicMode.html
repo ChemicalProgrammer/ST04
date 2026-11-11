@@ -5,6 +5,7 @@ window.STBasicMode=(function(){
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Formats','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['results',__ST_TEXT__('shell.results'),'chart','results'],['realdata','Real data','chart','realdata'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
+  sections.push(['simulation2d','Simulation 2D','play','simulation2d']);
   function inline(card){return basic()&&type(card)!=='CONVEYOR';}
   function button(label,icon,click){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=label;if(icon)b.dataset.icon=icon;b.onclick=click;return b;}
   function init(current,callbacks){
@@ -56,7 +57,7 @@ window.STBasicMode=(function(){
     if(enabled)mount();else{unmount();if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);}
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='products'?'products':view==='whatif'?'whatif':'simulation';
-    if(view==='comparison')section='comparison';if(view==='realdata')section='realdata';
+    if(view==='simulation2d')section='simulation2d';if(view==='comparison')section='comparison';if(view==='realdata')section='realdata';
     if(!enabled&&view==='results')section=state.basicView==='vgraph'?'vgraph':'results';
     document.getElementById('editor-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');

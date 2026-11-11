@@ -1,0 +1,88 @@
+<script>
+window.STSimulation2DEngine=(function(){
+  const epsilon=1e-6;
+  function create(definitions){
+    const line=definitions.map(definition=>definition.kind==='belt'
+      ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false}
+      : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting'});
+    let time=0;
+    function moveBelt(belt,seconds){
+      const travel=belt.speed*seconds;
+      let limit=belt.length-belt.packageLength/2;
+      let primeCrossed=false;
+      for(const item of belt.items){
+        const previous=item.x;
+        item.x=Math.min(limit,item.x+travel);
+        if(belt.prime!==null&&previous-belt.packageLength/2<=belt.prime&&item.x+belt.packageLength/2>=belt.prime)primeCrossed=true;
+        limit=item.x-belt.packageLength-belt.packedGap;
+      }
+      const beam=position=>position!==null&&belt.items.some(item=>Math.abs(item.x-position)<=belt.packageLength/2);
+      belt.primeBeam=beam(belt.prime);
+      if(belt.primeBeam||primeCrossed)belt.primeSeen=true;
+      belt.backupBeam=beam(belt.backup);
+      if(belt.backupBeam===belt.backupBlocked){belt.backupElapsed=0;return;}
+      belt.backupElapsed+=seconds;
+      if(belt.backupElapsed+epsilon>=(belt.backupBeam?belt.blockDelay:belt.clearDelay)){
+        belt.backupBlocked=belt.backupBeam;
+        belt.backupElapsed=0;
+      }
+    }
+    function discharge(machine,downstream){
+      if(downstream?.kind==='belt'){
+        const entry=downstream.packageLength/2;
+        const last=downstream.items.at(-1);
+        if(last&&last.x-entry+epsilon<downstream.pitch)return false;
+        downstream.items.push({x:entry});
+      }else if(downstream){
+        if(downstream.input>=downstream.batch||downstream.ready||downstream.remaining!==null||downstream.backupSince!==null)return false;
+        downstream.input++;
+      }
+      machine.ready=false;
+      machine.input=0;
+      machine.produced++;
+      return true;
+    }
+    function stepMachine(machine,upstream,downstream,seconds){
+      if(downstream?.backupBlocked){
+        if(machine.backupSince===null){machine.backupSince=time;machine.residual=downstream.residual;}
+      }else machine.backupSince=null;
+      const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
+      if(braking&&machine.residual<=0){machine.state='Back-up stop';return;}
+      if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
+      if(machine.remaining!==null){
+        machine.remaining-=seconds;
+        if(machine.remaining<=epsilon){machine.remaining=null;machine.ready=true;}
+      }
+      if(machine.ready){
+        if(!discharge(machine,downstream)){machine.state='Blocked';return;}
+        if(braking)machine.residual--;
+      }
+      if(braking&&machine.input===0){machine.state='Back-up stop';return;}
+      if(machine.remaining!==null){machine.state=braking?'Discharging':'Running';return;}
+      if(machine.input<machine.batch&&!braking){
+        if(!upstream)machine.input=machine.batch;
+        if(upstream?.kind==='belt'){
+          if(upstream.prime!==null&&!upstream.primeSeen){machine.state='Waiting for Prime';return;}
+          const first=upstream.items[0];
+          if(first&&first.x+upstream.packageLength/2>=upstream.length-epsilon){
+            upstream.items.shift();
+            machine.input++;
+          }else if(!upstream.items.length)upstream.primeSeen=false;
+        }
+      }
+      if(machine.input<machine.batch){machine.state=braking?'Back-up stop':'Starved';return;}
+      machine.remaining=1/machine.rate;
+      machine.state=braking?'Discharging':'Running';
+    }
+    return {line,get time(){return time;},step(seconds){
+      time+=seconds;
+      line.forEach(item=>{if(item.kind==='belt')moveBelt(item,seconds);});
+      for(let index=line.length-1;index>=0;index--){
+        const item=line[index];
+        if(item.kind==='machine')stepMachine(item,line[index-1],line[index+1],seconds);
+      }
+    }};
+  }
+  return {create};
+})();
+</script>

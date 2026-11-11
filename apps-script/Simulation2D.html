@@ -1,0 +1,206 @@
+<style>
+#simulation2d-canvas { display:block; width:100%; height:clamp(320px,52vh,620px); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); cursor:grab; touch-action:none; }
+#simulation2d-canvas:active { cursor:grabbing; }
+#simulation2d-config { margin-top:var(--space-3); }
+#simulation2d-dimensions input { min-width:7rem; width:100%; }
+#simulation2d-panel .section-heading .button-row { flex-wrap:wrap; align-items:center; }
+</style>
+<script>
+window.STSimulation2D=(function(){
+  const el=id=>document.getElementById('simulation2d-'+id);
+  const canvas=el('canvas'),panel=el('panel');
+  const drafts=new Map();
+  const step=1/120;
+  let key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='';
+  let camera={scale:1,x:0,y:0,fit:true};
+  function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
+  function prepare(equipment,format){
+    const geometry=window.SimulatorEngine;
+    const configured=format?geometry.applyProductProfile(equipment,format):equipment;
+    return configured.map((item,index)=>{
+      const data=item.processData||{};
+      const unit=data.flowUnits?.output==='CASES'||String(item.unitOfFlow).toUpperCase()==='CASES'?'CASES':'BOTTLES';
+      if(item.type!=='CONVEYOR'){
+        const batch=unit==='CASES'&&data.flowUnits?.input==='BOTTLES'
+          ? (format?geometry.productPackSize(format):NaN) : 1;
+        return {id:item.id,name:item.name||item.id,kind:'machine',unit,length:650,rate:item.nominalRatePerSecond,
+          startDelay:item.startupDelaySeconds??data.upstream?.startupTimeSeconds??0,batch};
+      }
+      const zone=geometry.resolveProductConveyor(configured,index)||{};
+      const presentation=format?geometry.productPresentation(format,unit):{};
+      return {id:item.id,name:item.name||item.id,kind:'belt',unit,
+        length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
+        packageLength:zone.productLengthMm??presentation.lengthMm,
+        packageWidth:presentation.widthMm??data.upstream?.packageWidthMm??null,
+        pitch:zone.productPitchMm,packedGap:Math.max(0,(zone.accumulatedPitchMm??zone.productLengthMm)-zone.productLengthMm)||0,
+        prime:zone.primeSensorPositionMm??null,backup:zone.backupSensorPositionMm??null,
+        blockDelay:zone.blockedTimeDelaySeconds??.5,clearDelay:zone.clearTimeDelaySeconds??.5,
+        responseDelay:zone.upstreamStopResponseSeconds??0,residual:Math.max(0,Math.floor(zone.bottlesDischargedAtStop??0))};
+    });
+  }
+  function validate(){
+    if(!definitions.length)return 'Add equipment in Equipment to start.';
+    if(definitions[0].kind==='belt'||definitions.at(-1).kind==='belt'||definitions.some((item,index)=>item.kind==='belt'&&definitions[index-1]?.kind==='belt'))
+      return 'This 2D model requires a machine at each end and at most one conveyor between two machines.';
+    for(const item of definitions){
+      if(item.kind==='machine'){
+        if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
+        continue;
+      }
+      if(![item.length,item.speed,item.packageLength,item.packageWidth,item.pitch].every(value=>Number.isFinite(value)&&value>0))
+        return item.name+': set its speed and physical dimensions before starting.';
+      if(item.beltWidth!==null&&(!(item.beltWidth>0)||item.beltWidth<item.packageWidth))return item.name+': conveyor width must accommodate the product width.';
+      if(item.length<item.packageLength||item.pitch<item.packageLength+item.packedGap)return item.name+': check conveyor length and package pitch.';
+      if([item.prime,item.backup].some(value=>value!==null&&(!Number.isFinite(value)||value<0||value>item.length)))
+        return item.name+': sensor positions must be within the conveyor length.';
+    }
+    return '';
+  }
+  function table(){
+    const target=el('dimensions');
+    target.replaceChildren();
+    const fields=[['length','Conveyor length [mm]'],['beltWidth','Conveyor width [mm]'],['speed','Belt speed [mm/s]'],['packageLength','Product length [mm]'],['packageWidth','Product width [mm]'],['pitch','Moving pitch [mm]'],['backup','Back-up [mm]'],['prime','Prime [mm]']];
+    const table=document.createElement('table');
+    const head=table.createTHead().insertRow();
+    ['Conveyor',...fields.map(field=>field[1])].forEach(label=>{const th=document.createElement('th');th.textContent=label;head.append(th);});
+    const body=table.createTBody();
+    for(const item of definitions.filter(item=>item.kind==='belt')){
+      const row=body.insertRow();
+      row.insertCell().textContent=item.name;
+      for(const [property,label] of fields){
+        const input=document.createElement('input');
+        input.type='number';input.min='0';input.step='any';input.value=item[property]??'';
+        input.setAttribute('aria-label',item.name+' · '+label);
+        if(property==='prime'||property==='backup')input.placeholder='Off';
+        input.addEventListener('change',()=>{
+          item[property]=input.value===''?null:input.valueAsNumber;
+          let draft=drafts.get(key);
+          if(!draft){draft={};drafts.set(key,draft);}
+          draft[item.id]={...draft[item.id],[property]:item[property]};
+          reset();
+        });
+        row.insertCell().append(input);
+      }
+    }
+    const note=document.createElement('p');
+    note.className='chart-note';
+    note.textContent='Distances are measured from the conveyor inlet. Clear a sensor position to switch it off. Edits apply to this 2D session.';
+    target.append(note,table);
+  }
+  function fit(){
+    const length=definitions.reduce((total,item)=>total+(item.length||0),0);
+    camera.scale=Math.max(.0001,Math.min((canvas.clientWidth-52)/Math.max(1,length),.32));
+    camera.x=(canvas.clientWidth-length*camera.scale)/2;
+    camera.y=canvas.clientHeight/2;
+    camera.fit=true;
+    draw();
+  }
+  function draw(){
+    if(panel.classList.contains('hidden'))return;
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    if(!w||!h)return;
+    const dpr=window.devicePixelRatio||1;
+    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){
+      canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+    }
+    const context=canvas.getContext('2d');
+    if(!context)return;
+    const style=getComputedStyle(canvas),ink=style.getPropertyValue('--ink').trim(),line=style.getPropertyValue('--line').trim(),accent=style.getPropertyValue('--accent').trim();
+    context.setTransform(dpr,0,0,dpr,0,0);
+    context.clearRect(0,0,w,h);
+    context.font='12px system-ui';context.textAlign='center';
+    const scale=camera.scale,y=camera.y;
+    let x=camera.x;
+    for(const item of model?.line||definitions){
+      const width=(item.length||0)*scale;
+      if(item.kind==='belt'){
+        const span=Math.max(0,(item.beltWidth??(item.packageWidth||0)*1.4)*scale);
+        context.fillStyle=line;context.fillRect(x,y-span/2,width,span);
+        context.fillStyle=accent;
+        for(const product of item.items||[]){
+          const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
+          if(item.unit==='CASES')context.fillRect(px-length/2,y-across/2,length,across);
+          else {context.beginPath();context.ellipse(px,y,length/2,across/2,0,0,Math.PI*2);context.fill();}
+        }
+        for(const [label,position,beam] of [['B',item.backup,item.backupBeam],['P',item.prime,item.primeBeam]]){
+          if(position===null)continue;
+          const sx=x+position*scale;
+          context.strokeStyle=beam?'#d26d31':accent;
+          context.beginPath();context.moveTo(sx,y-span/2-7);context.lineTo(sx,y+span/2+7);context.stroke();
+          context.fillStyle=ink;context.fillText(label,sx,y-span/2-12);
+        }
+      }else{
+        const height=380*scale;
+        context.fillStyle=item.state==='Running'?'#25835e':item.state==='Back-up stop'||item.state==='Blocked'?'#b15f35':line;
+        context.fillRect(x,y-height/2,width,height);
+        context.fillStyle=ink;
+        context.fillText(item.state||'Waiting',x+width/2,y+height/2+15);
+      }
+      if(width>=30){context.fillStyle=ink;context.fillText(item.name,x+width/2,y-55,Math.max(1,width-4));}
+      x+=width;
+    }
+  }
+  function status(){
+    if(validation){el('status').textContent=validation;return;}
+    const output=model?.line.at(-1)?.produced??0;
+    el('status').textContent=num(model?.time??0)+' s · Output '+output+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'units');
+  }
+  function pause(){
+    if(frame!==undefined)window.cancelAnimationFrame(frame);
+    frame=undefined;previous=0;
+    el('play').disabled=!!validation;
+    el('pause').disabled=true;
+  }
+  function reset(){
+    pause();lag=0;validation=validate();
+    el('play').disabled=!!validation;
+    el('config').open=!!validation;
+    model=validation?null:STSimulation2DEngine.create(definitions);
+    status();if(camera.fit)fit();else draw();
+  }
+  function animate(now){
+    if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
+    previous=now;
+    for(let count=0;lag>=step&&count<240;count++){model.step(step);lag-=step;}
+    status();draw();
+    frame=window.requestAnimationFrame(animate);
+  }
+  el('play').onclick=function(){
+    if(!model||frame!==undefined)return;
+    el('play').disabled=true;el('pause').disabled=false;
+    frame=window.requestAnimationFrame(animate);
+  };
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+  el('pause').onclick=pause;el('reset').onclick=reset;el('fit').onclick=fit;
+  function zoom(factor,x,y){
+    const scale=Math.max(.0001,Math.min(4,camera.scale*factor));
+    const ratio=scale/camera.scale;
+    camera={scale,x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,fit:false};draw();
+  }
+  el('zoom-in').onclick=()=>zoom(1.25,canvas.clientWidth/2,canvas.clientHeight/2);
+  el('zoom-out').onclick=()=>zoom(.8,canvas.clientWidth/2,canvas.clientHeight/2);
+  canvas.addEventListener('wheel',event=>{
+    if(!event.ctrlKey&&!event.metaKey)return;
+    event.preventDefault();
+    const rect=canvas.getBoundingClientRect();
+    zoom(Math.exp(-event.deltaY/350),event.clientX-rect.left,event.clientY-rect.top);
+  },{passive:false});
+  canvas.addEventListener('pointerdown',event=>{
+    if(event.button!==0)return;
+    drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove',event=>{
+    if(drag?.id!==event.pointerId)return;
+    camera={...camera,x:event.clientX-drag.x,y:event.clientY-drag.y,fit:false};draw();
+  });
+  canvas.addEventListener('lostpointercapture',()=>{drag=null;});
+  if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')){if(camera.fit)fit();else draw();}}).observe(canvas);
+  return {pause,load(identity,equipment,format){
+    const next=JSON.stringify(identity);
+    const revised=prepare(equipment,format).map(item=>({...item,...drafts.get(next)?.[item.id]}));
+    if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
+    key=next;definitions=revised;camera.fit=true;table();reset();
+  }};
+})();
+</script>
