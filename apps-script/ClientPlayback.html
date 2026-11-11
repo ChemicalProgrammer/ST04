@@ -511,7 +511,7 @@ function summarizeGeometrySources(sources, assumptions) {
         var active=activePersistentSimulation();if(active)active.results=null;
         stopPlaybackTimer();renderPlaybackFrame();
         try{
-          var first=await SimulatorEngine.simulateLineAsync({case:cloneJson(session.caseModel),run:run},{detail:true,cancelled:function(){return !roundSessionActive(session);}});
+          var first=await SimulatorEngine.simulateLineAsync({case:cloneJson(session.caseModel),run:prepareCalendarRun(run)},{detail:true,cancelled:function(){return !roundSessionActive(session);}});
           if(!roundSessionActive(session))return;
           if(!first.ok){showError(first.error);return;}
           session.first=first.result;state.run.sampleIndex=findSampleIndexAtOrBefore(first.result.samples,sample.virtualSecond);persistRoundResult(session,first.result,run.rounds>1?'STALE':'PENDING');

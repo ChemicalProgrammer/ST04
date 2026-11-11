@@ -112,7 +112,9 @@
       toggle('comparison-panel', false);
       state.activeCase.equipment = cloneJson(simulation.equipment || []);
       state.run.commands = cloneJson(simulation.dynamicConfig?.commands || []);
-      state.run.plannedStops=simulation.dynamicConfig?.plannedStops===undefined?undefined:cloneJson(simulation.dynamicConfig.plannedStops);state.run.eventPage=0;
+      state.run.plannedStops=simulation.dynamicConfig?.plannedStops===undefined?undefined:
+        cloneJson(simulation.dynamicConfig.plannedStops.filter(function(event){return event?.source!=='PLANT_CALENDAR';}));
+      state.run.eventPage=0;
       applyScenarioRunInputs(simulation.dynamicConfig);
       state.run.configuration=simulation.results?copyRunConfiguration(simulation.dynamicConfig||{}):null;
       document.getElementById('run-playback-rate').value=String([1,5,10,50,100,200,500,1000,10000,1000000].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
@@ -496,38 +498,28 @@
         var cell=document.createElement('td'),policy=document.createElement('select');['RESTART','RESUME'].forEach(function(value){var option=document.createElement('option');option.value=value;option.textContent=value==='RESTART'?'Restart':'Resume';policy.append(option);});policy.value=event.restartPolicy||'RESTART';policy.setAttribute('aria-label',name.textContent+' after stop');policy.onchange=function(){event.restartPolicy=policy.value;markCaseDirty();};cell.append(policy);row.append(cell);var removeCell=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.className='ghost icon-button';remove.innerHTML=STIcons.svg('trash');remove.title='Remove line stop';remove.setAttribute('aria-label',remove.title);remove.onclick=function(){if(runControlsLocked())return;events.splice(index,1);state.run.eventPage=Math.min(page,Math.max(0,Math.ceil(events.length/100)-1));renderPlannedStops();markCaseDirty();};removeCell.append(remove);row.append(removeCell);body.append(row);
       });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);syncEventSelection();
     }
-    function validateCalendarProgram(calendar,plannedStops,durationSeconds){
-      var verified=SimulatorEngine.resolvePlannedStops({plannedStops,tickSeconds:.25,eventsEnabled:true,durationSeconds,plantCalendar:{application:'EVENTS',appliedHorizonSeconds:durationSeconds}});
-      var deductions=((calendar.externalMinutes||0)+(calendar.coReportingErrorMinutes||0))*60;
-      if(verified.plannedStopSeconds+deductions>=durationSeconds)throw Error('Calendar exclusions and line stops must leave positive production time.');
-    }
+    function prepareCalendarRun(run){
+      var calendar=run.plantCalendar;
+      var manualStops=run.plannedStops?.filter(function(event){return event?.source!=='PLANT_CALENDAR';});
+      if(!calendar?.enabled)return {...run,plannedStops:manualStops};
+      var totals=STPlantCalendar.calculate(calendar);
+      if(totals.errors.length)throw Error(totals.errors.join(' '));
+      if(calendar.mode!=='SCHEDULED')return {...run,plannedStops:manualStops};
 
-    async function applyPlantCalendar(schedule,sourceCalendar){
-      var simulation=activePersistentSimulation();
-      if(runControlsLocked())throw Error('Stop the current calculation or playback before applying a calendar.');
-      var plannedStops=state.run.plannedStops||[];
-      var existing=state.run.commands.length+plannedStops.length,choice='replace';
-      if(existing){
-        var buttons=[{id:'cancel',label:'Cancel'}];
-        if(plannedStops.some(function(event){return event.source==='PLANT_CALENDAR';})){
-          buttons.push({id:'refresh',label:'Replace calendar stops'});
-        }
-        buttons.push({id:'add',label:'Add'},{id:'replace',label:'Replace all'});
-        choice=(await STDialog.open({title:'Apply plant calendar',message:'Choose which existing events to keep. Replace calendar stops keeps equipment events and manually added line stops.',buttons:buttons})).action;
-        if(!['replace','refresh','add'].includes(choice))return false;
-      }
-      if(simulation!==activePersistentSimulation()||runControlsLocked()||STRunOptions.durationSeconds()!==schedule.horizonSeconds)throw Error('Simulation Setup changed. Reopen Plant Calendar and apply it again.');
-      var generated=schedule.events.map(function(e){return {category:e.category,targetProductId:e.targetProductId,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};});
-      var retained=choice==='replace'?[]:plannedStops.filter(function(event){return choice==='add'||event.source!=='PLANT_CALENDAR';});
-      var merged=retained.concat(generated);
-      var seen=new Set();merged=merged.filter(function(e){var key=JSON.stringify([e.category,e.startSeconds,e.endSeconds,e.restartPolicy]);if(seen.has(key))return false;seen.add(key);return true;});
-      validateCalendarProgram(sourceCalendar,merged,schedule.horizonSeconds);
-      if(choice==='replace')state.run.commands=[];state.run.plannedStops=merged;state.run.eventPage=0;
-      var calendar={...sourceCalendar};
-      delete calendar.appliedCalendar;
-      delete calendar.needsApply;
-      simulation.dynamicConfig.plantCalendar=Object.assign({},calendar,{application:'EVENTS',durationSource:'SIMULATION_SETUP',appliedHorizonSeconds:schedule.horizonSeconds,appliedCalendar:calendar});
-      setControlEventsExpanded(true);document.getElementById('run-events-enabled').checked=true;simulation.results=null;state.run.result=null;state.run.representative=null;state.run.configuration=null;renderControlEvents();markCaseDirty();renderSimulationAnalysis();syncRunControls();shell.sync();return true;
+      var schedule=SimulatorEngine.plantCalendarSchedule(calendar,run.tickSeconds);
+      var calendarStops=schedule.events.map(function(event){
+        return {...event,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};
+      });
+      var manualEnabled=run.eventsEnabled!==false;
+      var plannedStops=(manualEnabled?(manualStops||[]):[]).concat(calendarStops);
+      var execution={
+        ...run,eventsEnabled:true,commands:manualEnabled?run.commands:[],plannedStops:plannedStops,
+        plantCalendar:{...calendar,application:'EVENTS',appliedHorizonSeconds:run.durationSeconds}
+      };
+      var verified=SimulatorEngine.resolvePlannedStops(execution);
+      var deductions=((calendar.externalMinutes||0)+(calendar.coReportingErrorMinutes||0))*60;
+      if(verified.plannedStopSeconds+deductions>=run.durationSeconds)throw Error('Calendar exclusions and line stops must leave positive production time.');
+      return execution;
     }
 
     function createControlEventRow(command, index) {
@@ -641,11 +633,12 @@
       renderResultJsonPreview(result);shell.sync();renderPlaybackFrame();
       var tab=activePersistentSimulation();if(tab){tab.dynamicConfig=cloneJson(session.run);tab.run=cloneJson(session.run);tab.results=createStoredSimulationResult(result,session.run);captureSimulationView();state.isDirty=true;saveActiveCase();}
     }
-    function computeRoundSession(session,firstResult){
+    function computeRoundSession(session,firstResult,execution){
+      execution=execution||prepareCalendarRun(session.run);
       var generation=++session.generation,version=session.version;
       session.pending=true;session.firstProgress=null;syncRunControls();toggle('batch-dialog',true);document.getElementById('batch-progress').value=0;
       window.dispatchEvent(new CustomEvent('st-calculation-activity',{detail:{active:true}}));
-      var input={case:cloneJson(session.caseModel),run:cloneJson(session.run)};
+      var input={case:cloneJson(session.caseModel),run:cloneJson(execution)};
       SimulatorEngine.simulateBatch(input,{onRepresentative:function(round){if(roundSessionActive(session))document.getElementById('batch-status').textContent='Preparing representative round '+round+'…';},firstResult:firstResult,cancelled:function(){return !roundSessionActive(session)||generation!==session.generation;},onFirstProgress:firstResult||session.run.calculationMode!=='LIVE'?undefined:function(partial){
         if(!roundSessionActive(session)||generation!==session.generation)return;
         if(session.first&&!session.streaming)return;
@@ -696,7 +689,7 @@
       document.getElementById('rounds-warning').textContent=__ST_TEXT__('batch.events_changed');toggle('rounds-warning',true);
       computeRoundSession(session,session.first);
     }
-    function calculateBatch(run){
+    function calculateBatch(run,execution){
       cancelRoundSession();stopPlaybackTimer();
       return new Promise(function(resolve){
         var session={caseId:state.activeCase.id,simulationId:state.activeSimulationId,caseModel:cloneJson({id:state.activeCase.id,unitOfFlow:state.activeCase.unitOfFlow,equipment:state.activeCase.equipment}),run:cloneJson(run),generation:0,version:0,cancelled:false,dirty:false,finishing:false,resolveFirst:resolve};roundSession=session;
@@ -707,7 +700,7 @@
           if(session.first&&state.run.result){delete state.run.result.batch;persistRoundResult(session,state.run.result,'CANCELLED');}
           cancelRoundSession();state.run.active=playing;syncRunControls();setStatus(session.first?__ST_TEXT__('batch.background_cancelled'):__ST_TEXT__('batch.cancelled'));
         };
-        computeRoundSession(session);
+        computeRoundSession(session,undefined,execution);
       });
     }
 
@@ -716,31 +709,15 @@
       if ((state.isDirty || window.STBasicMode?.isBasic()) && !collectCaseEditor()) return;
       var run = readRunConfiguration();
       if (!run) return;
-      var calendar=run.plantCalendar;
-      if(calendar?.enabled&&(calendar.mode!=='SCHEDULED'||run.eventsEnabled)){
-        var totals=STPlantCalendar.calculate(calendar);
-        if(totals.errors.length){showError(Error(totals.errors.join(' ')));return;}
-        if(calendar.mode==='SCHEDULED'){
-          var durationChanged=calendar.durationSource==='SIMULATION_SETUP'&&calendar.appliedHorizonSeconds!==run.durationSeconds;
-          if(calendar.application!=='EVENTS'||calendar.needsApply||durationChanged){
-            var message=durationChanged&&Number.isFinite(calendar.appliedHorizonSeconds)
-              ?'The calendar was applied for '+(calendar.appliedHorizonSeconds/60).toLocaleString()+' min. The simulation is set to '+(run.durationSeconds/60).toLocaleString()+' min.'
-              :'The scheduled line stops have not been applied for the current calendar settings.';
-            var review=await STDialog.open({title:'Plant Calendar needs to be applied',message:message+' Open Plant Calendar, select Apply plant calendar, then start the simulation again.',buttons:[{id:'cancel',label:'Cancel'},{id:'calendar',label:'Open Plant Calendar'}]});
-            if(review.action==='calendar')document.getElementById('open-plant-calendar').click();
-            return;
-          }
-          if(calendar.durationSource==='SIMULATION_SETUP'){
-            try{validateCalendarProgram(calendar,run.plannedStops,run.durationSeconds);}catch(error){showError(error);return;}
-          }
-        }
-      }
+      var execution;
+      try{execution=prepareCalendarRun(run);}catch(error){showError(error);return;}
       if(STPreferences.caseOptions().seedPolicy==='RANDOM'){var seedArray=new Uint32Array(1);if(window.crypto?.getRandomValues)window.crypto.getRandomValues(seedArray);else seedArray[0]=Math.floor(Math.random()*4294967296);run.seed=seedArray[0];document.getElementById('run-seed').value=run.seed;}
       invalidateActiveResult();
       shell.sync();
       state.run.configuration = copyRunConfiguration(run);
       state.run.active=true;syncRunControls();
-      var calculation=calculateBatch(run),session=roundSession;
+      execution.seed=run.seed;
+      var calculation=calculateBatch(run,execution),session=roundSession;
       var ready=await calculation;
       if(!roundSessionActive(session))return;
       if(!ready){state.run.active=false;syncRunControls();return;}
@@ -775,6 +752,11 @@
         return null;
       }
       var calendar=cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{});
+      delete calendar.appliedCalendar;
+      delete calendar.appliedHorizonSeconds;
+      delete calendar.application;
+      delete calendar.durationSource;
+      delete calendar.needsApply;
       return {
         ...extras,...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:calendar.enabled?{...calendar,totalMinutes:durationSeconds/60}:calendar,
@@ -840,6 +822,7 @@
       };
       var response;
       try{
+        input.run=prepareCalendarRun(run);
         response=await window.SimulatorEngine.simulateLineAsync(input,{cancelled:function(){return generation!==runGeneration;}});
       }catch(error){if(generation!==runGeneration||error.message==='BATCH_CANCELLED')return false;throw error;}
       if(generation!==runGeneration)return false;

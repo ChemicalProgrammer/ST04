@@ -120,7 +120,6 @@
       window.addEventListener('st-rate-loss-reporting-change',function(){shell.sync();});
       STSettings.connectCase(function(){return state.activeCase;},function(){autosave.change();});
       STScenarioExplorer.connectCase(function(){return state.activeCase;},function(){autosave.change();});
-      STPlantCalendar.connectApply(applyPlantCalendar);
       STSettings.connectCalendar(function(detail){if(detail?.physical){var simulation=activePersistentSimulation();if(simulation)simulation.results=null;cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;toggle('simulation-results',false);}markCaseDirty();renderSimulationAnalysis();shell.sync();});
       STSettings.connectCaseFlush(function(){return prepareCaseDraft();});
       STSettings.connectInterfaceMode(function(mode){
