@@ -2622,13 +2622,30 @@ function recordingCoverage(runtime){return {omittedEvents:runtime.omittedEvents,
 
 function createRecordedZoneSample(runtime,zone){
   const frame=createZoneSample(zone);
-  if(zone.physicalModelEnabled)frame.beltRunning=isTransportAvailable(getEquipment(runtime,zone.ownerEquipmentId));
+  if(zone.physicalModelEnabled){
+    frame.beltRunning=isTransportAvailable(getEquipment(runtime,zone.ownerEquipmentId));
+    if(runtime.run.spatialPlayback===true)frame.transitBands=recordTransitBands(zone,runtime.virtualSecond);
+  }
   if(runtime.run.historyFormat==='COMPACT'&&!runtime.product){
     const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
     for(const key of ['name','ownerEquipmentId','upstreamControlEquipmentId','downstreamControlEquipmentId','physicalModelEnabled','modelOrigin','geometrySources','formatAssumptions','geometry']){if(!definition[key])definition[key]=frame[key];delete frame[key];}
   }
   return frame;
 }
+// Record a bounded spatial distribution from the engine's moving packets.
+function recordTransitBands(zone, time){
+  if(!zone.transit.length||!(zone.usableLengthMm>0))return [];
+  const bands=Array.from({length:24},()=>[0,0]);
+  for(const packet of zone.transit){
+    const remainingEntryOffset=packet.entryDurationSeconds*(1+packet.arrivedFraction)/2;
+    const distance=Math.max(0,Math.min(zone.usableLengthMm,zone.usableLengthMm+(time-packet.arrivesAtVirtualSecond-remainingEntryOffset)*zone.conveyorSpeedMmPerSecond));
+    const index=Math.max(0,Math.min(bands.length-1,Math.floor(distance/zone.usableLengthMm*bands.length)));
+    bands[index][0]+=packet.units;
+    bands[index][1]+=packet.units*distance;
+  }
+  return bands.filter(([units])=>units>0).flatMap(([units,weightedDistance])=>[round(units),Math.round(weightedDistance/units)]);
+}
+
 function createZoneSample(zone) {
   const inventoryUnits = getZoneInventory(zone);
   return {

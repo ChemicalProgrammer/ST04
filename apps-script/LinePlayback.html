@@ -1,0 +1,137 @@
+<style>
+.line-layout-toolbar,.line-layout-legend { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); }
+.line-layout-toolbar { justify-content:space-between; }
+.line-layout-toolbar label { display:flex; align-items:center; gap:var(--space-2); }
+.line-layout-scroll { overflow-x:auto; padding:var(--space-3) 0; }
+.line-layout-track { display:flex; align-items:center; width:max-content; min-width:100%; }
+.line-layout-track > * { flex:none; box-sizing:border-box; }
+.line-layout-machine { display:grid; align-content:center; gap:var(--space-1); width:128px; min-height:92px; padding:var(--space-2); border:1px solid var(--line); border-inline-start:4px solid var(--line-state,var(--line)); border-radius:var(--radius-md); background:color-mix(in srgb,var(--line-state,var(--line)) 12%,var(--surface)); }
+.line-layout-machine strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.line-layout-machine small,.line-layout-belt small { color:var(--muted); font-size:var(--font-secondary); }
+.line-layout-belt { position:relative; height:94px; min-width:1px; text-align:center; }
+.line-layout-belt > strong,.line-layout-belt > small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.line-layout-belt > small { position:absolute; inset-inline:0; bottom:0; }
+.line-layout-rail { position:absolute; inset:38px 0 auto; height:25px; border-block:2px solid var(--line-strong); background:var(--surface); }
+.line-layout-rail.line-belt-stopped { border-block-color:var(--line-state); }
+.line-layout-product { position:absolute; top:50%; width:var(--product-width); max-width:10px; height:10px; border-radius:50%; background:var(--accent); transform:translate(-50%,-50%); }
+.line-layout-product.is-queued { background:var(--line-state); }
+.line-layout-sensor { position:absolute; top:0; z-index:1; display:grid; place-items:center; width:20px; height:20px; transform:translate(-50%,-65%); border:1px solid var(--line-strong); border-radius:50%; background:var(--surface); color:var(--ink); font-size:11px; }
+.line-layout-sensor.is-active { border:2px solid var(--line-state); font-weight:700; }
+.line-layout-legend span::before { content:""; display:inline-block; width:.6em; height:.6em; margin-inline-end:.4em; border-radius:50%; background:var(--line-state); }
+.line-running { --line-state:#259565; }
+.line-ramp { --line-state:#267cc8; }
+.line-waiting { --line-state:#b88925; }
+.line-blocked { --line-state:#b16931; }
+.line-stopped { --line-state:#c15362; }
+</style>
+<script>
+window.STLinePlayback=(function(){
+  var current;
+  function element(tag,className,text){
+    var node=document.createElement(tag);
+    if(className)node.className=className;
+    if(text!==undefined)node.textContent=text;
+    return node;
+  }
+  function number(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
+  function machineClass(state){
+    if(state==='RUNNING')return 'line-running';
+    if(['RAMPING_UP','STARTING'].includes(state))return 'line-ramp';
+    if(['STARVED','WAITING_FOR_PRIME'].includes(state))return 'line-waiting';
+    if(['BLOCKED','BACKUP_STOP','BACKUP_STOPPING'].includes(state))return 'line-blocked';
+    if(['FAILED','FAILURE','STOPPED','EMERGENCY_STOP','PLANNED_STOP','PAUSED','MICRO_STOP'].includes(state))return 'line-stopped';
+    return '';
+  }
+  function product(rail,position,length,width,queued){
+    var dot=element('span','line-layout-product'+(queued?' is-queued line-blocked':''));
+    dot.style.left=(100*position/length)+'%';
+    dot.style.setProperty('--product-width',width+'px');
+    rail.append(dot);
+  }
+  function drawProducts(rail,zone,length,width){
+    var geometry=zone.geometry,packageWidth=geometry.productLengthMm>0?geometry.productLengthMm:geometry.accumulatedPitchMm;
+    if(!(packageWidth>0))return;
+    var diameter=packageWidth/length*width;
+    var tail=Math.min(length,Math.max(0,zone.queueTailPositionMm??length));
+    var queuePitch=geometry.accumulatedPitchMm;
+    if(queuePitch>0){
+      var queued=Math.min(Math.floor(zone.waitingUnits||0),Math.floor(length/queuePitch));
+      var stride=Math.max(1,Math.ceil(queued/100),Math.ceil(2*length/width/queuePitch));
+      for(var i=0;i<queued;i+=stride)product(rail,length-(i+.5)*queuePitch,length,diameter,true);
+    }
+    var bands=zone.transitBands,pitch=geometry.productPitchMm;
+    if(!bands?.length||!(pitch>0))return;
+    var minimumGap=Math.max(pitch,length/width*2),last=-Infinity;
+    var start=packageWidth/2,end=tail-packageWidth/2;
+    for(var index=0;index<bands.length;index+=2){
+      var count=Math.max(1,Math.round(bands[index]));
+      var center=bands[index+1];
+      var visible=Math.min(count,Math.max(1,Math.ceil(length/24/minimumGap)));
+      var first=Math.max(start,last+minimumGap,Math.min(end-(visible-1)*minimumGap,center-(visible-1)*minimumGap/2));
+      for(var position=first;visible>0&&position<=end;visible--,position+=minimumGap){
+        product(rail,position,length,diameter,false);
+        last=position;
+      }
+    }
+  }
+  function addSensor(rail,sensor,name,length,active){
+    if(!sensor?.configured||!Number.isFinite(sensor.positionMm))return;
+    var indicator=element('span','line-layout-sensor'+(active?' is-active '+(name==='Prime'?'line-running':'line-blocked'):''),name==='Prime'?'P':'B');
+    indicator.style.left=(100*Math.max(0,Math.min(1,sensor.positionMm/length)))+'%';
+    indicator.title=name+' · '+number(sensor.positionMm/1000)+' m · '+String(sensor.state||'—');
+    indicator.setAttribute('aria-label',indicator.title);
+    rail.append(indicator);
+  }
+  function draw(){
+    var track=document.getElementById('line-layout-track');
+    if(!track||!current)return;
+    var {equipment,frame,definitions}=current;
+    var time=document.getElementById('line-layout-time'),note=document.getElementById('line-layout-note');
+    time.textContent=frame?'Playback · '+number(frame.virtualSecond)+' s':'';
+    track.replaceChildren();
+    if(!frame){note.textContent='Run a simulation with playback history to see the line layout.';return;}
+    var units=new Map((frame.equipment||[]).map(item=>[item.id,item]));
+    var zones=new Map((frame.accumulationZones||[]).map(item=>{
+      var zone={...definitions?.[item.id],...item};
+      return [zone.ownerEquipmentId,zone];
+    }));
+    var beltLength=equipment.reduce((sum,item)=>sum+(item.type==='CONVEYOR'?(zones.get(item.id)?.geometry?.usableLengthMm||0):0),0);
+    var machines=equipment.filter(item=>item.type!=='CONVEYOR').length;
+    var zoom=Number(document.getElementById('line-layout-zoom').value);
+    var available=Math.max(360,track.parentElement.clientWidth-machines*128);
+    var scale=beltLength>0?Math.min(4800,available)*zoom/beltLength:0;
+    var missingLength=false,missingTransit=false;
+    equipment.forEach(function(item){
+      var sample=units.get(item.id);
+      if(item.type!=='CONVEYOR'){
+        var state=sample?.availabilityState||sample?.mode||'UNKNOWN';
+        var card=element('div','line-layout-machine '+machineClass(state));
+        card.append(element('strong','',item.name||item.id),element('small','',state.replace(/_/g,' ')));
+        if(Number.isFinite(sample?.actualRatePerSecond))card.append(element('small','',number(sample.actualRatePerSecond*60)+' / min'));
+        card.title=item.name||item.id;
+        track.append(card);
+        return;
+      }
+      var zone=zones.get(item.id),length=zone?.geometry?.usableLengthMm;
+      var belt=element('div','line-layout-belt'),rail=element('div','line-layout-rail');
+      var usable=Number.isFinite(length)&&length>0,width=usable?length*scale:72;
+      belt.style.width=width+'px';
+      belt.append(element('strong','',item.name||item.id),rail,element('small','',usable?number(length/1000)+' m · '+number(zone.inventoryUnits)+' in belt':'Length unavailable'));
+      belt.title=(item.name||item.id)+' · '+(usable?number(length/1000)+' m · '+number(zone.waitingUnits)+' queued · '+number(zone.inTransitUnits)+' in transit':'Length unavailable');
+      if(usable){
+        if(zone.beltRunning===false)rail.classList.add('line-belt-stopped','line-stopped');
+        drawProducts(rail,zone,length,width);
+        addSensor(rail,zone.prime,'Prime',length,zone.prime?.latched);
+        addSensor(rail,zone.backup,'Back-up',length,zone.backup?.controlActive);
+        if(zone.transitBands===undefined&&zone.inTransitUnits>0)missingTransit=true;
+      }else missingLength=true;
+      track.append(belt);
+    });
+    note.textContent='Conveyors use a shared length scale. B = Back-up, P = Prime. Product markers follow recorded samples; dense flows are condensed.'
+      +(missingLength?' Conveyors without recorded geometry use a placeholder.':'')
+      +(missingTransit?' This replay has no positions for product in transit.':'');
+  }
+  document.addEventListener('input',function(event){if(event.target.id==='line-layout-zoom')draw();});
+  return {render:function(equipment,frame,definitions){current={equipment,frame,definitions};draw();}};
+})();
+</script>

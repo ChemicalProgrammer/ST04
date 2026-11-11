@@ -239,6 +239,18 @@
           <!-- El avance y la cancelación de las rondas quedan disponibles al plegar la reproducción. -->
           <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
           </section>
+          <section class="fold-card" aria-labelledby="line-playback-title">
+            <div class="fold-heading"><h3 id="line-playback-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="false" aria-controls="line-playback-content">Line layout</button></h3></div>
+            <div id="line-playback-content" class="fold-content" hidden>
+              <div class="line-layout-toolbar">
+                <label for="line-layout-zoom">Zoom <input id="line-layout-zoom" type="range" min="1" max="4" step="0.5" value="1"></label>
+                <span id="line-layout-time"></span>
+              </div>
+              <div class="line-layout-scroll" tabindex="0" role="region" aria-label="Scrollable line layout"><div id="line-layout-track" class="line-layout-track"></div></div>
+              <div class="line-layout-legend" aria-label="Equipment states"><span class="line-running">Running</span><span class="line-ramp">Ramp / starting</span><span class="line-waiting">Starved / Prime</span><span class="line-blocked">Blocked / Back-up</span><span class="line-stopped">Stopped / failed</span></div>
+              <p id="line-layout-note" class="chart-note"></p>
+            </div>
+          </section>
           <section id="simulation-equipment" class="fold-card">
           <div class="fold-heading"><div><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3>
           <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p></div></div>
@@ -496,6 +508,7 @@
     <?!= include_('WhatIf'); ?>
     <?!= include_('ScenarioExplorer'); ?>
     <?!= include_('RunOptions'); ?>
+    <?!= include_('LinePlayback'); ?>
     <?!= include_('PlantCalendar'); ?>
     <?!= include_('Products'); ?>
     <?!= include_('ProductStyles'); ?>
