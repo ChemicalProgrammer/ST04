@@ -118,12 +118,20 @@
       document.getElementById('run-playback-rate').value=String([1,5,10,50,100,200,500,1000,10000,1000000].includes(Number(simulation.playbackRate))?simulation.playbackRate:1);
       state.run.result = simulation.results?.replay ? expandStoredReplay(simulation.results.replay,simulation.results) : null;
       if(state.run.result&&simulation.results.batch)state.run.result.batch=cloneJson(simulation.results.batch);
-      state.run.representative=state.run.result;state.run.roundIndex=0;syncPlaybackRounds();
+      state.run.representative=state.run.result;
+      state.run.roundIndex=0;
+      state.run.active=false;
+      state.run.playing=false;
       var view=simulation.results?.view;
-      var initialRound=view?.roundIndex??((state.run.representative?.batch?.representativeRound||1)-1);if(initialRound>0&&(state.run.representative?.batch?.replays?.[initialRound-1]||state.run.representative?.batch?.representativeReplay?.round===initialRound+1))selectPlaybackRound(initialRound,false);
-      state.run.active=false;state.run.playing=false;
+      state.run.playbackPositions={result:state.run.representative,times:{...view?.roundTimes}};
+      if(Number.isFinite(view?.virtualSecond))state.run.playbackPositions.times[view.roundIndex||0]=view.virtualSecond;
       state.liveZoneDetails=cloneJson(view?.zoneDetails||{});
-      if(state.run.result?.samples.length)state.run.sampleIndex=view?findSampleIndexAtOrBefore(state.run.result.samples,view.virtualSecond):state.run.result.samples.length-1;
+      var initialRound=view?.roundIndex??((state.run.representative?.batch?.representativeRound||1)-1);
+      if(state.run.result?.samples.length){
+        state.run.sampleIndex=playbackRoundFrame(state.run.result.samples,state.run.playbackPositions.times[0]);
+        if(initialRound>0&&playbackReplay(state.run.representative.batch,initialRound))selectPlaybackRound(initialRound,false);
+      }
+      syncPlaybackRounds();
       state.isDirty = autosave.pending() || hadUnsavedChanges;
       document.querySelectorAll('.live-equipment-card').forEach(function(card){card.dataset.losses='closed';card.classList.remove('show-losses');card.querySelector('.loss-toggle').setAttribute('aria-expanded','false');});
       renderEditor();
@@ -190,21 +198,26 @@
       if(!simulation?.results||!result||result.provisional)return;
       var sample=result.samples?.[state.run.sampleIndex];if(!sample)return;
       // Keep the displayed frame and preceding frame exact even when history is sampled.
-      var replay=simulation.results.replay;if(replay&&state.run.roundIndex===0){
+      var positions=playbackRoundPositions();
+      positions[state.run.roundIndex]=sample.virtualSecond;
+      var replay=state.run.roundIndex===0?simulation.results.replay:playbackReplay(simulation.results.batch,state.run.roundIndex);
+      if(replay?.samples?.length){
         [result.samples[Math.max(0,state.run.sampleIndex-1)],sample].forEach(function(frame){if(!replay.samples.some(function(saved){return saved.virtualSecond===frame.virtualSecond;}))replay.samples.push(cloneJson(frame));});
         replay.samples.sort(function(a,b){return a.virtualSecond-b.virtualSecond;});
       }
-      simulation.results.view={virtualSecond:sample.virtualSecond,roundIndex:state.run.roundIndex,zoneDetails:cloneJson(state.liveZoneDetails),lossesOpen:Array.from(document.querySelectorAll('.live-equipment-card.show-losses')).map(function(card){return card.dataset.equipmentId;})};
+      simulation.results.view={virtualSecond:sample.virtualSecond,roundIndex:state.run.roundIndex,roundTimes:{...positions},zoneDetails:cloneJson(state.liveZoneDetails),lossesOpen:Array.from(document.querySelectorAll('.live-equipment-card.show-losses')).map(function(card){return card.dataset.equipmentId;})};
     }
     function compactStoredReplays(simulations) {
       (simulations||[]).forEach(function(simulation){
         var saved=simulation.results;if(!saved)return;
-        compactReplay(saved.replay,600,saved.view?.virtualSecond);
+        var view=saved.view,selected=view?.roundIndex||0;
+        var position=function(index){return view?.roundTimes?.[index]??(index===selected?view?.virtualSecond:undefined);};
+        compactReplay(saved.replay,600,position(0));
         ['summary','equipmentMetrics','accumulationZoneMetrics','products'].forEach(function(key){if(saved.replay&&saved[key]!==undefined&&JSON.stringify(saved[key])===JSON.stringify(saved.replay[key]))delete saved.replay[key];});
-        if(saved.batch?.representativeReplay)compactReplay(saved.batch.representativeReplay,120);
+        if(saved.batch?.representativeReplay)compactReplay(saved.batch.representativeReplay,120,position(saved.batch.representativeReplay.round-1));
         if(saved.batch?.replays){
           var laterLimit=Math.max(2,Math.min(120,Math.floor(600/Math.max(1,saved.batch.rounds-1))));
-          saved.batch.replays.forEach(function(replay){compactReplay(replay,laterLimit);});
+          saved.batch.replays.forEach(function(replay,index){compactReplay(replay,laterLimit,position(index+1));});
         }
       });
     }
@@ -538,9 +551,27 @@
       return row;
     }
 
+    function playbackReplay(batch,index){
+      var replay=batch?.replays?.[index-1];
+      if(replay?.samples?.length)return replay;
+      var representative=batch?.representativeReplay;
+      return representative?.round===index+1&&representative.samples?.length?representative:null;
+    }
+
+    function playbackRoundPositions(){
+      var first=state.run.representative;
+      if(!state.run.playbackPositions||state.run.playbackPositions.result!==first)state.run.playbackPositions={result:first,times:{}};
+      return state.run.playbackPositions.times;
+    }
+
+    function playbackRoundFrame(samples,time){
+      return Number.isFinite(time)?findSampleIndexAtOrBefore(samples,time):Math.max(0,samples.length-1);
+    }
+
     function syncPlaybackRounds(){
       var batch=state.run.representative?.batch,selector=document.getElementById('playback-round');
-      var available=[0];if(batch?.rows)batch.rows.forEach(function(row,index){if(index>0&&(batch.replays?.[index-1]||batch.representativeReplay?.round===index+1))available.push(index);});
+      var available=[0];
+      batch?.rows?.forEach(function(row,index){if(index>0&&row&&playbackReplay(batch,index))available.push(index);});
       toggle('playback-round-control',available.length>1);selector.replaceChildren();
       available.forEach(function(i){var option=document.createElement('option');option.value=String(i);option.textContent='Round '+(i+1)+(i===(batch?.representativeRound||1)-1?' · Representative':'');selector.append(option);});
       selector.value=String(available.includes(state.run.roundIndex)?state.run.roundIndex:0);
@@ -548,16 +579,30 @@
 
     function selectPlaybackRound(index,autoplay){
       var first=state.run.representative,batch=first?.batch;
-      if(!first||index<0||index>=batch?.rounds||index>0&&!batch.replays?.[index-1]&&batch.representativeReplay?.round!==index+1)return;
-      stopPlaybackTimer();state.run.roundIndex=index;
+      var row=batch?.rows?.[index],stored=index>0?playbackReplay(batch,index):null;
+      if(!first?.samples?.length||!Number.isInteger(index)||index<0||index>0&&(!row||!stored)){
+        syncPlaybackRounds();
+        return false;
+      }
+      var positions=playbackRoundPositions(),previous=state.run.result?.samples?.[state.run.sampleIndex];
+      if(previous)positions[state.run.roundIndex]=previous.virtualSecond;
+      stopPlaybackTimer();
+      state.run.active=false;
+      state.run.roundIndex=index;
       if(index===0)state.run.result=first;
       else {
-        var row=batch.rows[index],replay=expandStoredReplay(batch.replays?.[index-1]||batch.representativeReplay);
-        state.run.result={...first,products:row.products,plantCalendar:row.plantCalendar,caseId:first.caseId,unitOfFlow:first.unitOfFlow,engineVersion:first.engineVersion,engineId:first.engineId,engine:first.engine,limitations:first.limitations,seed:row.seed,durationSeconds:row.durationSeconds??first.durationSeconds,effectiveRuntimeStop:row.effectiveRuntimeStop,summary:row.summary,equipmentMetrics:row.equipmentMetrics,accumulationZoneMetrics:replay.accumulationZoneMetrics,shifts:row.shifts,detailCoverage:replay.detailCoverage,samples:replay.samples,events:[],batch:batch};
+        var replay=expandStoredReplay(stored);
+        state.run.result={...first,...replay,products:row.products??replay.products,plantCalendar:row.plantCalendar??replay.plantCalendar,
+          seed:row.seed,durationSeconds:row.durationSeconds??replay.durationSeconds??first.durationSeconds,
+          effectiveRuntimeStop:row.effectiveRuntimeStop??replay.effectiveRuntimeStop,summary:row.summary,equipmentMetrics:row.equipmentMetrics,
+          shifts:row.shifts??replay.shifts,events:replay.events||[],batch:batch};
       }
-      state.run.sampleIndex=0;document.getElementById('playback-round').value=String(index);
+      state.run.sampleIndex=autoplay?0:playbackRoundFrame(state.run.result.samples,positions[index]);
+      document.getElementById('playback-round').value=String(index);
       renderResultJsonPreview(state.run.result);
-      renderPlaybackFrame();if(autoplay)startPlayback();
+      renderPlaybackFrame();
+      if(autoplay)startPlayback();
+      return true;
     }
 
     function roundSessionActive(session){return roundSession===session&&!session.cancelled&&state.activeCase?.id===session.caseId&&state.activeSimulationId===session.simulationId;}

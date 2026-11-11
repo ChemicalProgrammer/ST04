@@ -2985,7 +2985,14 @@ test('UI: completed batches keep round one visible and offer the representative 
   const run=h.w.SimulatorEngine.simulateBatch;h.w.SimulatorEngine.simulateBatch=async(...args)=>{const response=await run(...args);if(response.ok){response.result.batch.representativeRound=2;if(!response.result.batch.replays?.[0]){const replay=await h.w.SimulatorEngine.simulateLineAsync({case:args[0].case,run:{...args[0].run,seed:response.result.batch.rows[1].seed}},{detail:true});response.result.batch.representativeReplay={...replay.result,round:2};}}return response;};
   await h.click('#run-simulation');await waitFor(()=>h.d.getElementById('simulation-json-preview').value.includes('st-replications'));await h.click('#pause-simulation');await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].results?.batch?.rounds===3);const playback=h.d.getElementById('playback-round');assert.equal(playback.value,'0');assert.equal(playback.selectedOptions[0].textContent,'Round 1');
   assert.match(playback.querySelector('option[value="1"]').textContent,/^Round 2 · Representative$/);
-  playback.value='1';playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(playback.value,'1');
+  const selectRound=value=>{playback.value=value;playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
+  const firstTime=h.d.getElementById('metric-time').textContent;
+  const firstOutput=h.d.getElementById('metric-output').textContent;
+  selectRound('1');assert.equal(playback.value,'1');assert.equal(h.d.getElementById('playback-progress').textContent,'100.0%');
+  const representativeOutput=h.d.getElementById('metric-output').textContent;
+  selectRound('0');assert.equal(h.d.getElementById('metric-time').textContent,firstTime);
+  assert.equal(h.d.getElementById('metric-output').textContent,firstOutput);
+  selectRound('1');assert.equal(h.d.getElementById('metric-output').textContent,representativeOutput);
   assert.equal(h.d.getElementById('playback-round').labels.length,0);
   assert.equal(h.d.getElementById('basic-efficiencies').closest('#simulation-playback-content').firstElementChild.id,'simulation-playback-efficiencies');
   assert.equal(h.d.getElementById('playback-status').closest('.fold-heading').querySelector('h3').textContent,'Simulation playback');
@@ -2996,7 +3003,9 @@ test('UI: completed batches keep round one visible and offer the representative 
   await h.click('[data-basic-view=results]');assert.equal(h.d.getElementById('results-round-select').value,'average');assert.match(h.d.getElementById('results-round-select').selectedOptions[0].textContent,/Average of all rounds \(3\)/);
   await h.click('#save-case');await h.click('#home-cases');await h.click('.open-case');await h.click('[data-basic-view=simulation]');
   assert.match(playback.querySelector('option[value="1"]').textContent,/^Round 2 · Representative$/);
-  playback.value='1';playback.dispatchEvent(new h.w.Event('change',{bubbles:true}));assert.equal(playback.value,'1');assert.deepEqual(h.errors,[]);
+  assert.equal(playback.value,'1');assert.equal(h.d.getElementById('metric-output').textContent,representativeOutput);
+  selectRound('0');assert.equal(h.d.getElementById('metric-time').textContent,firstTime);
+  assert.equal(h.d.getElementById('metric-output').textContent,firstOutput);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
