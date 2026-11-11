@@ -413,10 +413,10 @@ html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text);
 .fold-heading, .fold-native > summary {
   display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
   gap:var(--space-3); margin:0; padding:0 0 var(--space-3);
-  border-block-end:var(--border-width) solid var(--info); color:var(--info);
+  border-block-end:var(--border-width) solid var(--accent); color:var(--accent);
   font-size:var(--font-card); font-weight:var(--weight-semibold); line-height:var(--leading-tight);
 }
-.fold-heading h3, #realdata-panel .fold-heading .real-data-section-title { margin:0; color:var(--info); font:inherit; line-height:var(--leading-tight); }
+.fold-heading h3, #realdata-panel .fold-heading .real-data-section-title { margin:0; color:var(--accent); font:inherit; line-height:var(--leading-tight); }
 .fold-heading p {
   margin:var(--space-2) 0 0;
   color:var(--muted); font-size:var(--font-secondary); font-weight:var(--weight-regular); line-height:var(--leading-body);
@@ -425,7 +425,7 @@ html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text);
 .button-row > .export-menu, .fold-tools > .export-menu { display:flex; flex-shrink:0; margin:0; }
 .fold-heading .fold-toggle {
   display:inline-flex; align-items:center; gap:var(--space-2); min-height:0; margin:0; padding:0;
-  border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--info); font:inherit; text-align:start;
+  border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--accent); font:inherit; text-align:start;
 }
 .fold-native > summary { cursor:pointer; list-style:none; justify-content:flex-start; }
 .fold-native > summary::-webkit-details-marker { display:none; }
@@ -439,7 +439,7 @@ html[data-visual-style=elegant] .subsection-title { color:var(--secondary-text);
 .fold-toggle:focus-visible, .fold-native > summary:focus-visible { outline:var(--focus-width) solid var(--accent); outline-offset:var(--space-1); }
 .fold-content { margin-block-start:var(--space-3); min-width:0; }
 .fold-content[hidden] { display:none !important; }
-html[data-visual-style=elegant] :is(#equipment-control-events-title,#vgraph-title,#basic-run-options-title):has(> .fold-toggle) { color:var(--info); }
+html[data-visual-style=elegant] :is(#equipment-control-events-title,#vgraph-title,#basic-run-options-title):has(> .fold-toggle) { color:var(--accent); }
 </style>
 
 
