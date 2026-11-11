@@ -26,6 +26,8 @@
 <script>
 window.STLinePlayback=(function(){
   var current,animationFrame;
+  var bottle=window.Path2D?new Path2D('M0 30V17Q0 14 4 10V2H10V10Q14 14 14 17V30Q14 32 12 32H2Q0 32 0 30Z'):null;
+  var carton=window.Path2D?new Path2D('M1 6L5 2H13L15 6V12H1Z M1 6H15 M8 2V6'):null;
   function element(tag,className,text){
     var node=document.createElement(tag);
     if(className)node.className=className;
@@ -77,13 +79,16 @@ window.STLinePlayback=(function(){
       var stride=Math.max(1,Math.ceil(count/100),Math.ceil(2*length/width/pitch));
       for(var i=0;i<count;i+=stride)queued.push(length-(i+.5)*pitch);
     }
-    var moving=transitPositions(zone.transitBands,length,width,geometry,tail);
-    var speed=zone.beltRunning===false||!zone.transitBands?0:Math.max(0,geometry.conveyorSpeedMmPerSecond||0);
+    function positions(sample){
+      return sample.transitPositionsMm||transitPositions(sample.transitBands,length,width,geometry,sample.queueTailPositionMm??length);
+    }
+    var moving=positions(zone);
+    var speed=zone.beltRunning===false||!(zone.transitBands||zone.transitPositionsMm)?0:Math.max(0,geometry.conveyorSpeedMmPerSecond||0);
     // Reconstruct visible entries from the next recorded frame, using the
     // same belt speed as product already on the belt.
     var entering=[];
-    if(speed>0&&nextZone?.beltRunning!==false&&nextZone?.transitBands&&seconds>0){
-      entering=transitPositions(nextZone.transitBands,length,width,geometry,nextZone.queueTailPositionMm??length)
+    if(speed>0&&nextZone?.beltRunning!==false&&(nextZone?.transitBands||nextZone?.transitPositionsMm)&&seconds>0){
+      entering=positions(nextZone)
         .map(function(position){return position-speed*seconds;})
         .filter(function(position){return position<0;});
     }
@@ -94,15 +99,27 @@ window.STLinePlayback=(function(){
     var pixelsPerMm=canvas.width/length,mid=canvas.height/2;
     function paint(positions,offset,color,min,max){
       context.fillStyle=color;
-      context.beginPath();
+      var isCase=zone.packageUnit==='CASES';
+      var shape=isCase?carton:bottle;
       positions.forEach(function(origin){
         var position=origin+offset;
         if(position<min||position>max)return;
-        var x=position*pixelsPerMm,r=diameter/2,y=Math.min(5*resolution,mid);
-        context.moveTo(x+r,mid);
-        context.ellipse(x,mid,r,y,0,0,Math.PI*2);
+        var x=position*pixelsPerMm,r=diameter/2;
+        if(!shape||diameter<2){
+          context.fillRect(x-r,mid,diameter,Math.min(8*resolution,mid));
+          return;
+        }
+        context.save();
+        context.translate(x-r,isCase?mid*.55:mid*.18);
+        context.scale(diameter/(isCase?16:14),(isCase?mid*1.25:mid*1.45)/(isCase?12:32));
+        context.fill(shape);
+        if(isCase){
+          context.strokeStyle=style.getPropertyValue('--surface').trim()||'#fff';
+          context.lineWidth=.75;
+          context.stroke(shape);
+        }
+        context.restore();
       });
-      context.fill();
     }
     return function(elapsed){
       context.clearRect(0,0,canvas.width,canvas.height);
@@ -170,7 +187,7 @@ window.STLinePlayback=(function(){
         if(paint)painters.push(paint);
         addSensor(rail,zone.prime,'Prime',length,zone.prime?.latched);
         addSensor(rail,zone.backup,'Back-up',length,zone.backup?.controlActive);
-        if(zone.transitBands===undefined&&zone.inTransitUnits>0)missingTransit=true;
+        if(zone.transitBands===undefined&&zone.transitPositionsMm===undefined&&zone.inTransitUnits>0)missingTransit=true;
       }else missingLength=true;
       track.append(belt);
     });

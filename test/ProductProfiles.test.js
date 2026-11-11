@@ -86,3 +86,26 @@ test('real format changeovers retain enough provenance for weighted nominal gap 
  const d=diagnoseLineEfficiency(i.case.equipment,result),expected=result.products.rows.find(r=>r.productId==='a').durationSeconds*4/(100*12)*100;
  assert(Math.abs(d.capacityGapPp-expected)<1e-9);assert(d.accountingAvailable);assert(Math.abs(d.achievedPercent+d.capacityGapPp+d.residualLossPp-100)<1e-9);conserved(result);
 });
+
+test('Bottle Live ships whole packages, conserves material and records early spatial frames',()=>{
+ const i=input();
+ i.run={...i.run,calculationMode:'LIVE',discretePackages:true,rounds:1,sampleEverySeconds:5};
+ const r=run(i);
+ conserved(r);
+ assert.equal(r.samples[1].virtualSecond,.25);
+ assert(r.samples[1].equipment[0].outputCount>0);
+ assert(r.equipmentMetrics.sink.outputCount>0);
+ assert(Number.isInteger(r.equipmentMetrics.sink.outputCount));
+ assert.equal(r.summary.outputCount,12*r.equipmentMetrics.sink.outputCount);
+ assert(r.samples.some(s=>s.accumulationZones.some(z=>z.packageUnit==='CASES'&&z.transitPositionsMm?.length)));
+ for(const sample of r.samples)for(const zone of sample.accumulationZones){
+  assert(Number.isInteger(zone.inventoryUnits));
+  assert(Number.isInteger(zone.prime.passedUnits));
+  assert(Number.isInteger(zone.backup.passedUnits));
+  for(let index=1;index<zone.transitPositionsMm.length;index++){
+   assert(zone.transitPositionsMm[index]-zone.transitPositionsMm[index-1]>=zone.geometry.productPitchMm-1);
+  }
+ }
+ i.run.rounds=2;
+ assert.equal(simulateLine(i).ok,false);
+});

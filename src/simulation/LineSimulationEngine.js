@@ -444,6 +444,7 @@ function advanceAccumulationZones(runtime) {
       zone.transit.forEach((packet) => {
         delayTransitPacket(packet, runtime.run.tickSeconds);
       });
+      if(zone.transit.length&&zone.lastPackageEntry!==undefined)zone.lastPackageEntry+=runtime.run.tickSeconds;
       updateZonePhotoeyes(runtime, zone);
       return;
     }
@@ -493,7 +494,7 @@ function advanceAccumulationZones(runtime) {
 }
 
 function fractionPassed(second, start, duration) {
-  return Math.max(0, Math.min(1, (second - start) / duration));
+  return duration===0 ? Number(second+1e-8>=start) : Math.max(0, Math.min(1, (second - start) / duration));
 }
 
 function delayTransitPacket(packet, tickSeconds) {
@@ -879,12 +880,28 @@ function processEquipmentFlow(runtime, index) {
 
   const incomingZone = runtime.zones[index - 1];
   const ratio=equipment.inputPerOutput||1;
-  const inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
+  let inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
     incomingZone.physicalModelEnabled ? (isTransportAvailable(getEquipment(runtime, incomingZone.ownerEquipmentId))
       ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity) / ratio;
   const downstreamSpace = getDownstreamSpace(runtime, index);
-  const flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
-  recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge);
+  let flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
+  if(runtime.run.discretePackages){
+    const transportRate=incomingZone?.physicalModelEnabled
+      ? (isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
+        ? incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm : 0)
+      : Infinity;
+    inputAvailable=index===0?Infinity:(transportRate>0?incomingZone.waitingUnits/ratio:0);
+    const outgoingZone=runtime.zones[index];
+    const capacity=residualDischarge?Infinity:Math.min(downstreamSpace,packageEntrySlots(runtime,outgoingZone));
+    const canProcess=inputAvailable>=1&&(residualDischarge||downstreamSpace>=1);
+    const requestedPackages=Math.min(requestedFlow,transportRate*tickSeconds/ratio);
+    const service=canProcess?(equipment.packageRemainder||0)+requestedPackages:0;
+    const completed=Math.floor(service+1e-8);
+    equipment.packageRemainder=Math.max(0,service-completed);
+    flow=Math.max(0,Math.floor(Math.min(completed,inputAvailable,capacity,residualDischarge?control.residualRemainingUnits:Infinity)+1e-8));
+  }
+  const processingPackage=runtime.run.discretePackages&&equipment.packageRemainder>0&&inputAvailable>=1&&downstreamSpace>=1;
+  recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, processingPackage?Math.max(flow,requestedFlow):flow, tickSeconds, control, residualDischarge);
   const phase=control?'STOP':isRampingUp(equipment)?'RAMP':null;
   if(flow>0&&phase){
     const phaseLoss=Math.max(0,tickSeconds-requestedFlow/equipment.nominalRatePerSecond);
@@ -898,6 +915,7 @@ function processEquipmentFlow(runtime, index) {
 
   if (residualDischarge) {
     control.residualRemainingUnits = Math.max(0, control.residualRemainingUnits - flow);
+    if(runtime.run.discretePackages&&control.residualRemainingUnits<1)control.residualRemainingUnits=0;
   }
 }
 
@@ -1055,9 +1073,17 @@ function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvail
   addFlowToZone(runtime, runtime.zones[index], flow, allowOverflow);
 }
 
+function packageEntrySlots(runtime,zone) {
+  if(!zone?.physicalModelEnabled)return Infinity;
+  const headway=zone.productPitchMm/zone.conveyorSpeedMmPerSecond;
+  const earliest=Math.max(runtime.virtualSecond,(zone.lastPackageEntry??-Infinity)+headway);
+  return Math.max(0,1+Math.floor((runtime.virtualSecond+runtime.run.tickSeconds-earliest+1e-8)/headway));
+}
+
 function addFlowToZone(runtime, zone, flow, allowOverflow) {
   const availableSpace = getZoneEntrySpace(zone);
-  const accepted = Math.min(flow, availableSpace);
+  const accepted = Math.min(flow, runtime.run.discretePackages
+    ? Math.min(Math.floor(availableSpace+1e-8),packageEntrySlots(runtime,zone)) : availableSpace);
   const overflow = allowOverflow ? Math.max(0, flow - accepted) : 0;
 
   if (accepted > 0) {
@@ -1069,6 +1095,19 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
       if (zone.hasPrimeSensor && zone.primeTravelSeconds <= 0) {
         recordNormalPhotoeyePass(runtime, zone, 'prime', accepted);
         triggerPrimeSensor(runtime, zone);
+      }
+    } else if(runtime.run.discretePackages){
+      const headway=zone.productPitchMm/zone.conveyorSpeedMmPerSecond;
+      const end=runtime.virtualSecond+runtime.run.tickSeconds;
+      for(let index=0;index<accepted;index++){
+        const entry=end-(accepted-1-index)*headway;
+        zone.lastPackageEntry=entry;
+        zone.transit.push({
+          units:1,initialUnits:1,entryDurationSeconds:0,arrivedFraction:0,
+          backupAtVirtualSecond:zone.hasBackupSensor?entry+zone.backupSensorPositionMm/zone.conveyorSpeedMmPerSecond:null,
+          primeAtVirtualSecond:zone.hasPrimeSensor?entry+zone.primeTravelSeconds:null,
+          arrivesAtVirtualSecond:entry+zone.travelSeconds
+        });
       }
     } else {
       zone.transit.push({
@@ -1223,7 +1262,11 @@ function getTransitUnits(zone) {
 
 function addSampleIfDue(runtime) {
   if(runtime.summaryOnly)return;
-  if(runtime.virtualSecond+1e-8<runtime.nextSampleAt&&runtime.virtualSecond<runtime.run.durationSeconds)return;
+  const live=runtime.run.calculationMode==='LIVE';
+  const firstProduction=live&&!runtime.recordedFirstProduction&&runtime.equipment[0]?.outputCount>0;
+  if(firstProduction)runtime.recordedFirstProduction=true;
+  const startup=live&&runtime.virtualSecond<=2;
+  if(!firstProduction&&!startup&&runtime.virtualSecond+1e-8<runtime.nextSampleAt&&runtime.virtualSecond<runtime.run.durationSeconds)return;
   addSample(runtime);
 }
 
@@ -1272,7 +1315,17 @@ function createRecordedZoneSample(runtime,zone){
   const frame=createZoneSample(zone);
   if(zone.physicalModelEnabled){
     frame.beltRunning=isTransportAvailable(getEquipment(runtime,zone.ownerEquipmentId));
-    if(runtime.run.spatialPlayback===true)frame.transitBands=recordTransitBands(zone,runtime.virtualSecond);
+    if(runtime.run.spatialPlayback===true&&!runtime.run.discretePackages)frame.transitBands=recordTransitBands(zone,runtime.virtualSecond);
+    if(runtime.run.discretePackages){
+      const stride=Math.max(1,Math.ceil(zone.transit.length/256));
+      frame.transitPositionsMm=[];
+      for(let index=0;index<zone.transit.length;index+=stride){
+        const packet=zone.transit[index];
+        frame.transitPositionsMm.push(Math.round(Math.max(0,Math.min(zone.usableLengthMm,zone.usableLengthMm+(runtime.virtualSecond-packet.arrivesAtVirtualSecond)*zone.conveyorSpeedMmPerSecond))));
+      }
+      frame.transitPositionsMm.reverse();
+    }
+    if(runtime.product)frame.packageUnit=productFlowUnit(getEquipment(runtime,zone.ownerEquipmentId));
   }
   if(runtime.run.historyFormat==='COMPACT'&&!runtime.product){
     const definition=runtime.zoneDefinitions[zone.id]||(runtime.zoneDefinitions[zone.id]={});
@@ -1377,7 +1430,8 @@ function createResult(runtime,partial=false) {
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
     engineVersion: '0.18.0',
-    products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
+    discretePackages:runtime.run.discretePackages===true||undefined,
+    products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:runtime.run.discretePackages?'DISCRETE_PACKAGES':'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
     zoneDefinitions:runtime.zoneDefinitions,
     plantCalendar: runtime.calendar.horizonSeconds ? {mode:'SCHEDULED',horizonSeconds:runtime.calendar.horizonSeconds,plannedStopSeconds:runtime.calendar.plannedStopSeconds,observedStopSeconds:runtime.calendarStopSeconds,events:runtime.calendar.events,restartPolicy:runtime.calendar.restartPolicy,completePeriod:Math.abs(duration-runtime.calendar.horizonSeconds)<runtime.run.tickSeconds+1e-8} : undefined,

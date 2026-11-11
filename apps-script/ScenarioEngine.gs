@@ -1193,6 +1193,8 @@ function validateRun(run, details) {
     return;
   }
   if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
+  if(run.discretePackages!==undefined&&typeof run.discretePackages!=='boolean')details.push(invalid('run.discretePackages','must be a boolean'));
+  if(run.discretePackages&&(run.engineId==='DES_SIMPY_EXPERIMENTAL'||(run.rounds??1)!==1))details.push(invalid('run.discretePackages','Bottle Live requires the ST engine and one round'));
   if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
   if (run.reliabilityCategories !== undefined) {

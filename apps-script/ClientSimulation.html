@@ -338,6 +338,10 @@
     function runControlsLocked(){return Boolean(state.run.active||state.run.playing||roundSession?.pending||roundSession?.firstUpdating||roundSession?.dirty);}
     function syncRunControls(){
       var locked=runControlsLocked();
+      var bottleLive=state.run.configuration?.discretePackages===true||document.getElementById('run-calculation-mode').value==='BOTTLE_LIVE';
+      var rates=document.getElementById('run-playback-rate');
+      Array.from(rates.options).forEach(function(option){option.disabled=bottleLive&&Number(option.value)>10;});
+      if(bottleLive&&Number(rates.value)>10)rates.value='10';
       STReports.bindChartExports(state.run.result,state.activeCase,activePersistentSimulation(),state.run.roundIndex+1);
       ['run-initial-format','duration-mode','run-duration','run-sample-interval','run-seed','run-rounds','run-shift-hours','run-shift-count','add-control-event','open-event-generator'].forEach(function(id){document.getElementById(id).disabled=locked||(id==='run-duration'&&document.getElementById('duration-mode').value==='SHIFTS');});
       document.querySelectorAll('#event-time-tools input,#event-time-tools select,#event-time-tools button,#control-events input,#control-events select,#control-events button').forEach(function(control){control.disabled=locked;});
@@ -345,6 +349,7 @@
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
       if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
       document.querySelectorAll('#products-workspace input,#products-workspace select,#products-workspace button,#planned-line-events input,#planned-line-events select,#planned-line-events button,#add-product-changeover').forEach(function(control){control.disabled=locked||control.dataset.formatDisabled==='true';});
+      document.getElementById('run-rounds').disabled=locked||bottleLive;
       STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;syncEventSelection();
     }
     function applyScenarioRunInputs(run) {
@@ -744,7 +749,7 @@
       var sampleEverySeconds = Number(document.getElementById('run-sample-interval').value);
       var seed = Number(document.getElementById('run-seed').value);
       var durationMode=document.getElementById('duration-mode').value;
-      var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=Number(document.getElementById('run-rounds').value);
+      var shiftHours=Number(document.getElementById('run-shift-hours').value),shiftCount=Number(document.getElementById('run-shift-count').value),rounds=extras.discretePackages?1:Number(document.getElementById('run-rounds').value);
       if(!Number.isInteger(rounds)||rounds<1||rounds>100||durationMode==='SHIFTS'&&(!(shiftHours>=0.25&&shiftHours<=24)||!Number.isInteger(shiftHours*4)||(!Number.isInteger(shiftCount)||shiftCount<1||shiftCount>10000))){showError({message:__ST_TEXT__('batch.invalid')});return null;}
       if(durationMode==='SHIFTS')durationSeconds=shiftHours*3600*shiftCount;
       if (!(durationSeconds > 0) || !(sampleEverySeconds > 0) || !Number.isInteger(seed)) {
@@ -766,7 +771,7 @@
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:extras.shiftSeconds,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
-        sampleEverySeconds: sampleEverySeconds,
+        sampleEverySeconds: extras.discretePackages?Math.min(1,sampleEverySeconds):sampleEverySeconds,
         seed: seed,
         eventTimeUnit:activePersistentSimulation()?.dynamicConfig?.eventTimeUnit,eventTimeOrigin:activePersistentSimulation()?.dynamicConfig?.eventTimeOrigin,
         commands: state.run.commands.map(function(command) {
