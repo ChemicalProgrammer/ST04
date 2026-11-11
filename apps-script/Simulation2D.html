@@ -1,17 +1,19 @@
 <style>
 #simulation2d-canvas { display:block; width:100%; height:clamp(320px,52vh,620px); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); cursor:grab; touch-action:none; }
 #simulation2d-canvas:active { cursor:grabbing; }
-#simulation2d-config { margin-top:var(--space-3); }
-#simulation2d-dimensions input { min-width:7rem; width:100%; }
+#simulation2d-canvas { background-color:var(--surface); background-image:radial-gradient(var(--line) 1px,transparent 1px); background-size:18px 18px; }
+.simulation2d-metrics { display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0; }
+.simulation2d-metrics > div { flex:1 1 8rem; padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
+.simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
+.simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel .section-heading .button-row { flex-wrap:wrap; align-items:center; }
 </style>
 <script>
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const drafts=new Map();
   const step=1/120;
-  let key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='';
+  let key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function prepare(equipment,format){
@@ -47,45 +49,15 @@ window.STSimulation2D=(function(){
         if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
         continue;
       }
-      if(![item.length,item.speed,item.packageLength,item.packageWidth,item.pitch].every(value=>Number.isFinite(value)&&value>0))
-        return item.name+': set its speed and physical dimensions before starting.';
+      const missing=[['conveyor length',item.length],['belt speed',item.speed],['product length',item.packageLength],['product width',item.packageWidth],['moving pitch',item.pitch]]
+        .filter(([,value])=>!Number.isFinite(value)||value<=0).map(([label])=>label);
+      if(missing.length)return item.name+': '+missing.join(', ')+' required in the case. Check Equipment and Formats.';
       if(item.beltWidth!==null&&(!(item.beltWidth>0)||item.beltWidth<item.packageWidth))return item.name+': conveyor width must accommodate the product width.';
       if(item.length<item.packageLength||item.pitch<item.packageLength+item.packedGap)return item.name+': check conveyor length and package pitch.';
       if([item.prime,item.backup].some(value=>value!==null&&(!Number.isFinite(value)||value<0||value>item.length)))
         return item.name+': sensor positions must be within the conveyor length.';
     }
     return '';
-  }
-  function table(){
-    const target=el('dimensions');
-    target.replaceChildren();
-    const fields=[['length','Conveyor length [mm]'],['beltWidth','Conveyor width [mm]'],['speed','Belt speed [mm/s]'],['packageLength','Product length [mm]'],['packageWidth','Product width [mm]'],['pitch','Moving pitch [mm]'],['backup','Back-up [mm]'],['prime','Prime [mm]']];
-    const table=document.createElement('table');
-    const head=table.createTHead().insertRow();
-    ['Conveyor',...fields.map(field=>field[1])].forEach(label=>{const th=document.createElement('th');th.textContent=label;head.append(th);});
-    const body=table.createTBody();
-    for(const item of definitions.filter(item=>item.kind==='belt')){
-      const row=body.insertRow();
-      row.insertCell().textContent=item.name;
-      for(const [property,label] of fields){
-        const input=document.createElement('input');
-        input.type='number';input.min='0';input.step='any';input.value=item[property]??'';
-        input.setAttribute('aria-label',item.name+' · '+label);
-        if(property==='prime'||property==='backup')input.placeholder='Off';
-        input.addEventListener('change',()=>{
-          item[property]=input.value===''?null:input.valueAsNumber;
-          let draft=drafts.get(key);
-          if(!draft){draft={};drafts.set(key,draft);}
-          draft[item.id]={...draft[item.id],[property]:item[property]};
-          reset();
-        });
-        row.insertCell().append(input);
-      }
-    }
-    const note=document.createElement('p');
-    note.className='chart-note';
-    note.textContent='Distances are measured from the conveyor inlet. Clear a sensor position to switch it off. Edits apply to this 2D session.';
-    target.append(note,table);
   }
   function fit(){
     const length=definitions.reduce((total,item)=>total+(item.length||0),0);
@@ -94,6 +66,11 @@ window.STSimulation2D=(function(){
     camera.y=canvas.clientHeight/2;
     camera.fit=true;
     draw();
+  }
+  function strokeBox(context,x,y,width,height){
+    context.beginPath();
+    context.roundRect(x,y,width,height,Math.min(5,width/2,height/2));
+    context.fill();context.stroke();
   }
   function draw(){
     if(panel.classList.contains('hidden'))return;
@@ -105,80 +82,127 @@ window.STSimulation2D=(function(){
     }
     const context=canvas.getContext('2d');
     if(!context)return;
-    const style=getComputedStyle(canvas),ink=style.getPropertyValue('--ink').trim(),line=style.getPropertyValue('--line').trim(),accent=style.getPropertyValue('--accent').trim();
+    const style=getComputedStyle(canvas);
+    const ink=style.getPropertyValue('--ink').trim()||'#20252c';
+    const border=style.getPropertyValue('--line-strong').trim()||'#758497';
+    const accent=style.getPropertyValue('--accent').trim()||'#2473b5';
+    const surface=style.getPropertyValue('--surface').trim()||'#fff';
     context.setTransform(dpr,0,0,dpr,0,0);
     context.clearRect(0,0,w,h);
     context.font='12px system-ui';context.textAlign='center';
     const scale=camera.scale,y=camera.y;
-    let x=camera.x;
+    let x=camera.x,machineIndex=0;
     for(const item of model?.line||definitions){
-      const width=(item.length||0)*scale;
-      if(item.kind==='belt'){
-        const span=Math.max(0,(item.beltWidth??(item.packageWidth||0)*1.4)*scale);
-        context.fillStyle=line;context.fillRect(x,y-span/2,width,span);
+      const width=Math.max(0,item.length||0)*scale;
+      const lane=item.kind==='belt';
+      const labelRow=lane?0:(machineIndex++%2);
+      if(x+width<0||x>w){x+=width;continue;}
+      if(lane){
+        const span=Math.max(10,(item.beltWidth??(item.packageWidth||0)*1.4)*scale);
+        context.fillStyle=surface;context.strokeStyle=border;
+        strokeBox(context,x,y-span/2,width,span);
+        context.beginPath();context.moveTo(x,y);context.lineTo(x+width,y);
+        context.setLineDash([3,5]);context.stroke();context.setLineDash([]);
         context.fillStyle=accent;
         for(const product of item.items||[]){
           const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
-          if(item.unit==='CASES')context.fillRect(px-length/2,y-across/2,length,across);
-          else {context.beginPath();context.ellipse(px,y,length/2,across/2,0,0,Math.PI*2);context.fill();}
+          if(px+length/2<0||px-length/2>w)continue;
+          if(item.unit==='CASES'){
+            context.fillRect(px-length/2,y-across/2,length,across);
+            if(length>8&&across>5){
+              context.strokeStyle=surface;context.beginPath();context.moveTo(px,y-across/2);context.lineTo(px,y+across/2);context.stroke();
+            }
+          }else {context.beginPath();context.ellipse(px,y,length/2,across/2,0,0,Math.PI*2);context.fill();}
         }
-        for(const [label,position,beam] of [['B',item.backup,item.backupBeam],['P',item.prime,item.primeBeam]]){
+        for(const [label,position,active] of [['B',item.backup,item.backupBlocked],['P',item.prime,item.primeBeam]]){
           if(position===null)continue;
-          const sx=x+position*scale;
-          context.strokeStyle=beam?'#d26d31':accent;
-          context.beginPath();context.moveTo(sx,y-span/2-7);context.lineTo(sx,y+span/2+7);context.stroke();
-          context.fillStyle=ink;context.fillText(label,sx,y-span/2-12);
+          const sx=x+position*scale,sy=label==='P'?y-span/2-12:y+span/2+12;
+          if(sx<0||sx>w)continue;
+          context.strokeStyle=active?'#d26d31':accent;
+          context.beginPath();context.moveTo(sx,y-span/2);context.lineTo(sx,y+span/2);context.stroke();
+          context.beginPath();context.arc(sx,sy,8,0,Math.PI*2);
+          context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
+          context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
+        }
+        if(width>100){
+          const labelX=Math.max(55,Math.min(w-55,x+width/2));
+          context.fillStyle=ink;
+          context.fillText(item.name+' · '+num(item.length/1000)+' m',labelX,y-span/2-35,Math.min(width,w-16));
+          context.fillText(num(item.items?.length??0)+' on belt',labelX,y+span/2+37);
         }
       }else{
-        const height=380*scale;
-        context.fillStyle=item.state==='Running'?'#25835e':item.state==='Back-up stop'||item.state==='Blocked'?'#b15f35':line;
-        context.fillRect(x,y-height/2,width,height);
+        const height=Math.max(15,380*scale);
+        const running=item.state==='Running'||item.state==='Discharging';
+        const blocked=item.state==='Back-up stop'||item.state==='Blocked';
+        context.fillStyle=surface;context.strokeStyle=running?'#25835e':blocked?'#b15f35':border;
+        strokeBox(context,x,y-height/2,width,height);
+        context.fillStyle=context.strokeStyle;
+        context.fillRect(x,y-height/2,Math.min(4,width),height);
+        if(width>=36){
+          context.strokeRect(x+width*.25,y-height*.23,width*.5,height*.46);
+          context.beginPath();context.moveTo(x+width/2,y-height*.23);context.lineTo(x+width/2,y+height*.23);context.stroke();
+        }
+        const sx=x+width/2,sy=y+height/2+56+labelRow*34;
         context.fillStyle=ink;
-        context.fillText(item.state||'Waiting',x+width/2,y+height/2+15);
+        context.fillText(item.name,sx,sy,100);
+        context.fillText((item.state||'Waiting')+' · '+(item.produced||0),sx,sy+15,116);
       }
-      if(width>=30){context.fillStyle=ink;context.fillText(item.name,x+width/2,y-55,Math.max(1,width-4));}
       x+=width;
     }
   }
   function status(){
-    if(validation){el('status').textContent=validation;return;}
-    const output=model?.line.at(-1)?.produced??0;
-    el('status').textContent=num(model?.time??0)+' s · Output '+output+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'units');
+    el('status').textContent=validation||runState;
+    const line=model?.line||[];
+    el('time').textContent=num(model?.time??0)+' s';
+    el('output').textContent=num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
+    el('inventory').textContent=num(line.reduce((sum,item)=>sum+(item.items?.length||0),0));
+    el('running').textContent=num(line.filter(item=>item.state==='Running'||item.state==='Discharging').length);
+    el('backup').textContent=num(line.filter(item=>item.backupBlocked).length);
   }
-  function pause(){
+  function cancelFrame(){
     if(frame!==undefined)window.cancelAnimationFrame(frame);
     frame=undefined;previous=0;
-    el('play').disabled=!!validation;
-    el('pause').disabled=true;
+  }
+  function syncControls(){
+    el('play').disabled=!!validation||runState==='Running';
+    el('pause').disabled=runState!=='Running';
+    el('stop').disabled=runState!=='Running'&&runState!=='Paused';
+    el('reset').disabled=!!validation;
+    status();
+  }
+  function pause(){
+    if(runState!=='Running')return;
+    cancelFrame();runState='Paused';syncControls();
   }
   function reset(){
-    pause();lag=0;validation=validate();
-    el('play').disabled=!!validation;
-    el('config').open=!!validation;
+    cancelFrame();lag=0;lastMetrics=-Infinity;validation=validate();
     model=validation?null:STSimulation2DEngine.create(definitions);
-    status();if(camera.fit)fit();else draw();
+    runState='Ready';syncControls();
+    if(camera.fit)fit();else draw();
   }
   function animate(now){
-    if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
+    if(previous)lag+=(now-previous)/1000;
     previous=now;
     for(let count=0;lag>=step&&count<240;count++){model.step(step);lag-=step;}
-    status();draw();
+    if(now-lastMetrics>=125){status();lastMetrics=now;}
+    draw();
     frame=window.requestAnimationFrame(animate);
   }
   el('play').onclick=function(){
     if(!model||frame!==undefined)return;
-    el('play').disabled=true;el('pause').disabled=false;
+    if(runState==='Stopped')reset();
+    runState='Running';syncControls();
     frame=window.requestAnimationFrame(animate);
   };
+  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
-  el('pause').onclick=pause;el('reset').onclick=reset;el('fit').onclick=fit;
+  el('pause').onclick=pause;el('reset').onclick=reset;
+  canvas.addEventListener('dblclick',fit);
   function zoom(factor,x,y){
     const scale=Math.max(.0001,Math.min(4,camera.scale*factor));
     const ratio=scale/camera.scale;
     camera={scale,x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,fit:false};draw();
   }
-  el('zoom-in').onclick=()=>zoom(1.25,canvas.clientWidth/2,canvas.clientHeight/2);
-  el('zoom-out').onclick=()=>zoom(.8,canvas.clientWidth/2,canvas.clientHeight/2);
   canvas.addEventListener('wheel',event=>{
     if(!event.ctrlKey&&!event.metaKey)return;
     event.preventDefault();
@@ -198,9 +222,10 @@ window.STSimulation2D=(function(){
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')){if(camera.fit)fit();else draw();}}).observe(canvas);
   return {pause,load(identity,equipment,format){
     const next=JSON.stringify(identity);
-    const revised=prepare(equipment,format).map(item=>({...item,...drafts.get(next)?.[item.id]}));
+    const revised=prepare(equipment,format);
     if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
-    key=next;definitions=revised;camera.fit=true;table();reset();
+    key=next;definitions=revised;camera.fit=true;reset();
+    if(camera.scale<.055){camera={scale:.055,x:28,y:canvas.clientHeight/2-15,fit:false};draw();}
   }};
 })();
 </script>
