@@ -760,7 +760,7 @@
       var calendar=cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{});
       return {
         ...extras,...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
-        plantCalendar:calendar.enabled?STPlantCalendar.withDuration(calendar,durationSeconds):calendar,
+        plantCalendar:calendar.enabled?{...calendar,totalMinutes:durationSeconds/60}:calendar,
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:extras.shiftSeconds,rounds:rounds,
