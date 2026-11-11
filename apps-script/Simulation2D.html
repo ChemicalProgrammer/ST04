@@ -49,10 +49,10 @@ window.STSimulation2D=(function(){
         if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
         continue;
       }
-      const missing=[['conveyor length',item.length],['belt speed',item.speed],['product length',item.packageLength],['product width',item.packageWidth],['moving pitch',item.pitch]]
+      const missing=[['conveyor length',item.length],['belt speed',item.speed],['product length',item.packageLength],['moving pitch',item.pitch]]
         .filter(([,value])=>!Number.isFinite(value)||value<=0).map(([label])=>label);
       if(missing.length)return item.name+': '+missing.join(', ')+' required in the case. Check Equipment and Formats.';
-      if(item.beltWidth!==null&&(!(item.beltWidth>0)||item.beltWidth<item.packageWidth))return item.name+': conveyor width must accommodate the product width.';
+      if(item.beltWidth!==null&&(!(item.beltWidth>0)||(item.packageWidth>0&&item.beltWidth<item.packageWidth)))return item.name+': conveyor width must accommodate the product width.';
       if(item.length<item.packageLength||item.pitch<item.packageLength+item.packedGap)return item.name+': check conveyor length and package pitch.';
       if([item.prime,item.backup].some(value=>value!==null&&(!Number.isFinite(value)||value<0||value>item.length)))
         return item.name+': sensor positions must be within the conveyor length.';
@@ -107,7 +107,10 @@ window.STSimulation2D=(function(){
         for(const product of item.items||[]){
           const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
           if(px+length/2<0||px-length/2>w)continue;
-          if(item.unit==='CASES'){
+          if(!(across>0)){
+            // Width is only visual. Show a centreline marker without assuming a physical width.
+            context.fillRect(px-length/2,y-1,length,2);
+          }else if(item.unit==='CASES'){
             context.fillRect(px-length/2,y-across/2,length,across);
             if(length>8&&across>5){
               context.strokeStyle=surface;context.beginPath();context.moveTo(px,y-across/2);context.lineTo(px,y+across/2);context.stroke();
@@ -151,7 +154,8 @@ window.STSimulation2D=(function(){
     }
   }
   function status(){
-    el('status').textContent=validation||runState;
+    const unknownWidth=definitions.some(item=>item.kind==='belt'&&!(item.packageWidth>0));
+    el('status').textContent=validation||runState+(unknownWidth?' · Products without a width in Formats are shown as centreline markers.':'');
     const line=model?.line||[];
     el('time').textContent=num(model?.time??0)+' s';
     el('output').textContent=num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
@@ -195,7 +199,7 @@ window.STSimulation2D=(function(){
     frame=window.requestAnimationFrame(animate);
   };
   el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();};
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
   el('pause').onclick=pause;el('reset').onclick=reset;
   canvas.addEventListener('dblclick',fit);
   function zoom(factor,x,y){
@@ -209,16 +213,26 @@ window.STSimulation2D=(function(){
     const rect=canvas.getBoundingClientRect();
     zoom(Math.exp(-event.deltaY/350),event.clientX-rect.left,event.clientY-rect.top);
   },{passive:false});
+  function endDrag(event){
+    if(!drag||(event?.pointerId!==undefined&&event.pointerId!==drag.id))return;
+    const id=drag.id;
+    drag=null;
+    if(canvas.hasPointerCapture?.(id))canvas.releasePointerCapture(id);
+  }
   canvas.addEventListener('pointerdown',event=>{
-    if(event.button!==0)return;
+    if(event.button!==0||drag)return;
     drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
-    canvas.setPointerCapture(event.pointerId);
+    canvas.setPointerCapture?.(event.pointerId);
   });
-  canvas.addEventListener('pointermove',event=>{
+  window.addEventListener('pointermove',event=>{
     if(drag?.id!==event.pointerId)return;
+    if(event.buttons===0){endDrag(event);return;}
     camera={...camera,x:event.clientX-drag.x,y:event.clientY-drag.y,fit:false};draw();
   });
-  canvas.addEventListener('lostpointercapture',()=>{drag=null;});
+  window.addEventListener('pointerup',endDrag);
+  window.addEventListener('pointercancel',endDrag);
+  window.addEventListener('blur',()=>endDrag());
+  canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')){if(camera.fit)fit();else draw();}}).observe(canvas);
   return {pause,load(identity,equipment,format){
     const next=JSON.stringify(identity);
