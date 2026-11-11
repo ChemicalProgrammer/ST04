@@ -79,21 +79,8 @@
       state.run.playing = false;
     }
 
-    function renderLinePlayback(){
-      if(state.uiView!=='simulation')return;
-      var content=document.getElementById('line-playback-content');
-      if(content?.hidden||content?.inert)return;
-      var result=state.run.result;
-      var frame=result?.samples?.[state.run.sampleIndex];
-      var next=result?.samples?.[state.run.sampleIndex+1];
-      STLinePlayback.render(state.activeCase?.equipment||[],frame,result?.zoneDefinitions,next,function(){
-        return {elapsed:playbackElapsed(frame),playing:state.run.playing};
-      });
-    }
-
     function renderPlaybackFrame() {
       syncRunControls();
-      renderLinePlayback();
       var progress=document.getElementById('playback-progress'),effective=document.getElementById('run-effective-progress');
       if(effective){
         var result=state.run.result,stop=result?.effectiveRuntimeStop,frame=result?.samples?.[state.run.sampleIndex];

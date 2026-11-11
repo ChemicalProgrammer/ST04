@@ -256,22 +256,6 @@
           <!-- El avance y la cancelación de las rondas quedan disponibles al plegar la reproducción. -->
           <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
           </section>
-          <div class="button-row line-layout-tabs" role="group" aria-label="Simulation view">
-            <button id="line-view-performance" class="secondary" type="button" aria-pressed="true" aria-controls="simulation-equipment">Equipment performance</button>
-            <button id="line-view-layout" class="secondary" type="button" aria-pressed="false" aria-controls="line-playback-content">Line layout</button>
-          </div>
-          <section id="line-playback-content" class="fold-card" aria-label="Line layout" hidden>
-              <div class="line-layout-toolbar">
-                <label for="line-layout-zoom">Zoom <input id="line-layout-zoom" type="range" min="0.05" max="8" step="any" value="1"></label>
-                <button id="line-layout-fit" class="secondary" type="button">Fit to view</button>
-                <span id="line-layout-time"></span>
-              </div>
-              <div class="line-layout-scroll" tabindex="0" role="region" aria-label="Line layout. Drag to pan. Control or Command and scroll to zoom.">
-                <div class="line-layout-stage"><div id="line-layout-track" class="line-layout-track"></div></div>
-              </div>
-              <div class="line-layout-legend" aria-label="Equipment states"><span class="line-running">Running</span><span class="line-ramp">Ramp / starting</span><span class="line-waiting">Starved / Prime</span><span class="line-blocked">Blocked / Back-up</span><span class="line-stopped">Stopped / failed</span></div>
-              <p id="line-layout-note" class="chart-note"></p>
-          </section>
           <section id="simulation-equipment" class="fold-card">
           <div class="fold-heading"><div><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3>
           <p class="live-controls-help"><?= __ST_TEXT__('view.scenario_controls_apply_at_the_displayed_virtual_second_and_deterministical') ?></p></div></div>
@@ -463,7 +447,7 @@
         <div id="settings-page-simulation" class="hidden" role="tabpanel" aria-labelledby="settings-tab-simulation">
           <div id="settings-run-options" class="simulation-settings-groups">
 <section class="settings-section"><h3>Calculation</h3><div class="settings-simulation-grid">
-<div id="settings-engine-section" class="settings-option-group hidden"><label for="settings-simulation-engine">Simulation engine</label><select id="settings-simulation-engine"><option value="ST_CURRENT">Current engine (default)</option><option value="DES_SIMPY_EXPERIMENTAL">DES · Python / SimPy (experimental)</option></select></div><label>Calculation mode<select id="run-calculation-mode"><option value="AUTO">Automatic</option><option value="LIVE">Live</option><option value="BOTTLE_LIVE">Bottle Live · one round (experimental)</option><option value="FAST">Fast calculation</option><option value="SUMMARY">Summary only</option></select></label><div id="settings-seed-section" class="settings-option-group"><label for="settings-seed-policy">Seed policy</label><select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM" selected>Random — new base seed for each run</option></select></div></div><p id="settings-engine-note" class="chart-note">SimPy runs in this browser. Its first run downloads Pyodide over HTTPS from cdn.jsdelivr.net, with unpkg.com as a fallback. Supports alternating machine–conveyor lines; supports spatial products, packed queues, Prime/Back-up sensors, downtime, ramps and residual discharge. OEE and What-If are not validated for this engine. Changing the engine clears this simulation’s previous results.</p><div class="settings-simulation-grid simulation-toggle-grid"><label class="checkbox-label"><input id="run-events-enabled" type="checkbox">Enable events</label></div></section>
+<div id="settings-engine-section" class="settings-option-group hidden"><label for="settings-simulation-engine">Simulation engine</label><select id="settings-simulation-engine"><option value="ST_CURRENT">Current engine (default)</option><option value="DES_SIMPY_EXPERIMENTAL">DES · Python / SimPy (experimental)</option></select></div><label>Calculation mode<select id="run-calculation-mode"><option value="AUTO">Automatic</option><option value="LIVE">Live</option><option value="FAST">Fast calculation</option><option value="SUMMARY">Summary only</option></select></label><div id="settings-seed-section" class="settings-option-group"><label for="settings-seed-policy">Seed policy</label><select id="settings-seed-policy"><option value="FIXED">Fixed — repeatable runs</option><option value="RANDOM" selected>Random — new base seed for each run</option></select></div></div><p id="settings-engine-note" class="chart-note">SimPy runs in this browser. Its first run downloads Pyodide over HTTPS from cdn.jsdelivr.net, with unpkg.com as a fallback. Supports alternating machine–conveyor lines; supports spatial products, packed queues, Prime/Back-up sensors, downtime, ramps and residual discharge. OEE and What-If are not validated for this engine. Changing the engine clears this simulation’s previous results.</p><div class="settings-simulation-grid simulation-toggle-grid"><label class="checkbox-label"><input id="run-events-enabled" type="checkbox">Enable events</label></div></section>
 <section id="settings-reliability-categories" class="settings-section" aria-labelledby="settings-reliability-title">
   <h3 id="settings-reliability-title">Failure categories</h3>
   <p class="chart-note">Applies to this simulation. Unchecked categories generate no failures. Equipment MTBF and MTTR values are retained.</p>
@@ -529,7 +513,6 @@
     <?!= include_('WhatIf'); ?>
     <?!= include_('ScenarioExplorer'); ?>
     <?!= include_('RunOptions'); ?>
-    <?!= include_('LinePlayback'); ?>
     <?!= include_('Simulation2DEngine'); ?>
     <?!= include_('Simulation2D'); ?>
     <?!= include_('PlantCalendar'); ?>
