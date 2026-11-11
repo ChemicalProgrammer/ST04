@@ -217,6 +217,13 @@ function validateRun(run, details) {
   if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
   if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
+  if (run.reliabilityCategories !== undefined) {
+    const categories=run.reliabilityCategories;
+    if (!categories || typeof categories !== 'object' || Array.isArray(categories) ||
+        Object.entries(categories).some(([key,value])=>!['general','minor','major'].includes(key)||typeof value!=='boolean')) {
+      details.push(invalid('run.reliabilityCategories','must contain boolean general, minor or major settings'));
+    }
+  }
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if(run.effectiveRuntimeTargetSeconds!==undefined&&(!positiveNumber(run.effectiveRuntimeTargetSeconds)||run.effectiveRuntimeTargetSeconds>run.durationSeconds||Math.abs(run.durationSeconds/run.tickSeconds-Math.round(run.durationSeconds/run.tickSeconds))>1e-8))details.push(invalid('run.effectiveRuntimeTargetSeconds','must be positive and at most the tick-aligned time limit'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));

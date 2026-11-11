@@ -109,9 +109,14 @@
       document.getElementById('workspace-form').addEventListener('submit', function(event){event.preventDefault();});
       STSettings.connect(saveWorkspace);
       STSettings.connectReset(resetApplication);
-      STSettings.connectSimulation(activePersistentSimulation,function(engineId,reliabilityEnabled){
+      STSettings.connectSimulation(activePersistentSimulation,function(engineId,reliabilityEnabled,reliabilityCategories){
         var simulation=activePersistentSimulation();if(!simulation||runControlsLocked())return;
-        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});if(reliabilityEnabled!==undefined){if(reliabilityEnabled)delete simulation.dynamicConfig.reliabilityEnabled;else simulation.dynamicConfig.reliabilityEnabled=false;}simulation.results=null;
+        simulation.dynamicConfig=Object.assign({},simulation.dynamicConfig,{engineId:engineId});if(reliabilityEnabled!==undefined){if(reliabilityEnabled)delete simulation.dynamicConfig.reliabilityEnabled;else simulation.dynamicConfig.reliabilityEnabled=false;}
+        if(reliabilityCategories){
+          if(Object.keys(reliabilityCategories).length)simulation.dynamicConfig.reliabilityCategories=reliabilityCategories;
+          else delete simulation.dynamicConfig.reliabilityCategories;
+        }
+        simulation.results=null;
         cancelRoundSession();stopPlaybackTimer();state.run.result=null;state.run.representative=null;state.run.configuration=null;
         toggle('simulation-results',false);markCaseDirty();renderSimulationAnalysis();shell.sync();
       },runControlsLocked);

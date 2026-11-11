@@ -86,7 +86,7 @@ function createRuntime(input) {
   const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false, input.run.reliabilityCategories));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -150,11 +150,11 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
+function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabilityCategories) {
   const failureRandom=createEquipmentRandom(seed,model.id,"failure");
   const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
   const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
-  const reliability = reliabilityEnabled ? stopReliabilityProfile(model) : null;
+  const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
     mode: model.initialMode,

@@ -37,11 +37,11 @@ function createEquipmentRandom(seed,equipmentId,eventType) {
 
 // Category frequencies share the same operating exposure. Exponential clocks
 // superpose to a total rate, with event categories sampled by their rate share.
-function stopReliabilityProfile(model) {
+function stopReliabilityProfile(model, categories) {
   if (!model.noiseProfile?.reliability) return null;
   const split=model.processData?.equipment?.stopInputs;
-  if (!split) return {...model.noiseProfile.reliability,stopClasses:null};
-  const stopClasses=['minor','major'].filter(kind=>split[kind].mtbfMinutes>0)
+  if (!split) return categories?.general===false ? null : {...model.noiseProfile.reliability,stopClasses:null};
+  const stopClasses=['minor','major'].filter(kind=>categories?.[kind]!==false && split[kind].mtbfMinutes>0)
     .map(kind=>({stopClass:kind.toUpperCase(),...split[kind],rate:1/split[kind].mtbfMinutes}));
   const total=stopClasses.reduce((sum,profile)=>sum+profile.rate,0);
   if (!total) return null;
@@ -1263,6 +1263,13 @@ function validateRun(run, details) {
   if (run.eventsEnabled !== undefined && typeof run.eventsEnabled !== 'boolean') details.push(invalid('run.eventsEnabled','must be a boolean'));
   if(run.calculationMode!==undefined&&!['LIVE','FAST','SUMMARY'].includes(run.calculationMode))details.push(invalid('run.calculationMode','unsupported mode'));
   if (run.reliabilityEnabled !== undefined && typeof run.reliabilityEnabled !== 'boolean') details.push(invalid('run.reliabilityEnabled', 'must be a boolean'));
+  if (run.reliabilityCategories !== undefined) {
+    const categories=run.reliabilityCategories;
+    if (!categories || typeof categories !== 'object' || Array.isArray(categories) ||
+        Object.entries(categories).some(([key,value])=>!['general','minor','major'].includes(key)||typeof value!=='boolean')) {
+      details.push(invalid('run.reliabilityCategories','must contain boolean general, minor or major settings'));
+    }
+  }
   if (!positiveNumber(run.durationSeconds)) details.push(invalid('run.durationSeconds', 'must be a number greater than zero'));
   if(run.effectiveRuntimeTargetSeconds!==undefined&&(!positiveNumber(run.effectiveRuntimeTargetSeconds)||run.effectiveRuntimeTargetSeconds>run.durationSeconds||Math.abs(run.durationSeconds/run.tickSeconds-Math.round(run.durationSeconds/run.tickSeconds))>1e-8))details.push(invalid('run.effectiveRuntimeTargetSeconds','must be positive and at most the tick-aligned time limit'));
   if (!positiveNumber(run.tickSeconds)) details.push(invalid('run.tickSeconds', 'must be a number greater than zero'));
@@ -1431,7 +1438,7 @@ function createRuntime(input) {
   const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false, input.run.reliabilityCategories));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -1495,11 +1502,11 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, seed, reliabilityEnabled = true) {
+function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabilityCategories) {
   const failureRandom=createEquipmentRandom(seed,model.id,"failure");
   const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
   const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
-  const reliability = reliabilityEnabled ? stopReliabilityProfile(model) : null;
+  const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
     mode: model.initialMode,
@@ -3193,7 +3200,7 @@ function adaptSimPyInput(input) {
   if(equipment.length<3 || equipment.length%2!==1 || equipment.some((e,i)=>isConveyorEquipment(e)!==(i%2===1)))
     throw new Error('SimPy supports alternating machine–conveyor serial lines with at least two machines.');
   for(let i=0;i<equipment.length;i++) {
-    const model=equipment[i],reliability=stopReliabilityProfile(model);
+    const model=equipment[i],reliability=stopReliabilityProfile(model,input.run.reliabilityCategories);
     if(reliability?.stopClasses)reliability.repairRampEnabled=model.processData?.downstream?.rampAfterRepair===true;
     if(isConveyorEquipment(model)) {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('Unsupported conveyor noise profile: '+model.name);

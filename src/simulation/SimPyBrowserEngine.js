@@ -18,7 +18,7 @@ export function adaptSimPyInput(input) {
   if(equipment.length<3 || equipment.length%2!==1 || equipment.some((e,i)=>isConveyorEquipment(e)!==(i%2===1)))
     throw new Error('SimPy supports alternating machine–conveyor serial lines with at least two machines.');
   for(let i=0;i<equipment.length;i++) {
-    const model=equipment[i],reliability=stopReliabilityProfile(model);
+    const model=equipment[i],reliability=stopReliabilityProfile(model,input.run.reliabilityCategories);
     if(reliability?.stopClasses)reliability.repairRampEnabled=model.processData?.downstream?.rampAfterRepair===true;
     if(isConveyorEquipment(model)) {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('Unsupported conveyor noise profile: '+model.name);

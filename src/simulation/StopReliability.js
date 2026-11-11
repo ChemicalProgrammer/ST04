@@ -1,10 +1,10 @@
 // Category frequencies share the same operating exposure. Exponential clocks
 // superpose to a total rate, with event categories sampled by their rate share.
-export function stopReliabilityProfile(model) {
+export function stopReliabilityProfile(model, categories) {
   if (!model.noiseProfile?.reliability) return null;
   const split=model.processData?.equipment?.stopInputs;
-  if (!split) return {...model.noiseProfile.reliability,stopClasses:null};
-  const stopClasses=['minor','major'].filter(kind=>split[kind].mtbfMinutes>0)
+  if (!split) return categories?.general===false ? null : {...model.noiseProfile.reliability,stopClasses:null};
+  const stopClasses=['minor','major'].filter(kind=>categories?.[kind]!==false && split[kind].mtbfMinutes>0)
     .map(kind=>({stopClass:kind.toUpperCase(),...split[kind],rate:1/split[kind].mtbfMinutes}));
   const total=stopClasses.reduce((sum,profile)=>sum+profile.rate,0);
   if (!total) return null;

@@ -121,3 +121,25 @@ test('results render a grouped stop breakdown for new runs and show unknown valu
  assert.equal(target.querySelectorAll('table')[1].tBodies[0].rows[0].cells[1].textContent,'—');
  w.close();
 });
+
+test('run-level stop category controls preserve equipment inputs and work in both engines',()=>{
+ const value=input(),id=value.case.equipment[0].id;
+ const before=structuredClone(value.case.equipment);
+ for(const [disabled,enabled] of [['major','minor'],['minor','major']]){
+  const scenario={...value,run:{...value.run,reliabilityCategories:{[disabled]:false}}};
+  const metrics=run(scenario).equipmentMetrics[id];
+  assert.equal(metrics[disabled+'FailureCount'],0);
+  assert(metrics[enabled+'FailureCount']>0);
+  const profile=adaptSimPyInput(scenario).machines[0].reliability;
+  assert.deepEqual(profile.stopClasses.map(stop=>stop.stopClass),[enabled.toUpperCase()]);
+  assert.equal(profile.mtbfMinutes,before[0].processData.equipment.stopInputs[enabled].mtbfMinutes);
+ }
+ const allSplitDisabled={...value,run:{...value.run,reliabilityCategories:{minor:false,major:false}}};
+ assert.equal(run(allSplitDisabled).equipmentMetrics[id].failureCount,0);
+ assert.equal(adaptSimPyInput(allSplitDisabled).machines[0].reliability,undefined);
+ assert.deepEqual(value.case.equipment,before);
+ delete value.case.equipment[0].processData.equipment.stopInputs;
+ value.run.reliabilityCategories={general:false};
+ assert.equal(run(value).equipmentMetrics[id].failureCount,0);
+ assert.equal(adaptSimPyInput(value).machines[0].reliability,undefined);
+});

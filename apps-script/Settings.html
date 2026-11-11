@@ -33,7 +33,17 @@ window.STSettings = (function() {
   }
 
   var simulationProvider,engineChanged,engineLocked,calendarChanged,renderCalendar;
-  function renderEngine(){var simulation=simulationProvider?.();el('settings-engine-section').classList.toggle('hidden',!simulation);el('settings-simulation-engine').value=simulation?.dynamicConfig?.engineId||'ST_CURRENT';el('settings-simulation-engine').disabled=!simulation||!!engineLocked?.();el('run-reliability-enabled').checked=simulation?.dynamicConfig?.reliabilityEnabled!==false;el('run-reliability-enabled').disabled=!simulation||!!engineLocked?.();el('settings-run-options').classList.toggle('hidden',!simulation);STRunOptions.sync(!simulation||!!engineLocked?.());el('run-sample-interval').disabled=!simulation||!!engineLocked?.();}
+  var reliabilityCategories=['general','minor','major'];
+  function renderReliabilityCategories(simulation){
+    var config=simulation?.dynamicConfig;
+    el('settings-reliability-categories').classList.toggle('hidden',!simulation);
+    reliabilityCategories.forEach(function(category){
+      var input=el('settings-reliability-'+category);
+      input.checked=config?.reliabilityCategories?.[category]!==false;
+      input.disabled=!simulation||!!engineLocked?.()||config?.reliabilityEnabled===false;
+    });
+  }
+  function renderEngine(){var simulation=simulationProvider?.();renderReliabilityCategories(simulation);el('settings-engine-section').classList.toggle('hidden',!simulation);el('settings-simulation-engine').value=simulation?.dynamicConfig?.engineId||'ST_CURRENT';el('settings-simulation-engine').disabled=!simulation||!!engineLocked?.();el('run-reliability-enabled').checked=simulation?.dynamicConfig?.reliabilityEnabled!==false;el('run-reliability-enabled').disabled=!simulation||!!engineLocked?.();el('settings-run-options').classList.toggle('hidden',!simulation);STRunOptions.sync(!simulation||!!engineLocked?.());el('run-sample-interval').disabled=!simulation||!!engineLocked?.();}
   function promptOverrides(){var result={};promptDefinitions.forEach(function(def){var card=el('gemini-prompt-'+def.id),text=card.querySelector('textarea').value,enabled=card.querySelector('input').checked;if(!enabled||text!==def.defaultText)result[def.id]={enabled:enabled,text:text};});return result;}
   function request(){var gemini={model:el('gemini-model').value,apiKey:el('gemini-api-key').value};gemini.generation={temperature:el('gemini-temperature').value===''?null:Number(el('gemini-temperature').value),responseMode:el('gemini-response-mode').value,maxOutputTokens:Number(el('gemini-max-output').value),displayMode:el('gemini-display-mode').value};if(promptDefinitions.length)gemini.prompts=promptOverrides();return {workspaceRootFolderId:el('workspace-folder-id').value,gemini:gemini};}
   function selectTab(name,focus){if(el('settings-tab-'+name).classList.contains('hidden'))name='appearance';if(name==='case')renderCaseCharts();document.querySelectorAll('[data-settings-tab]').forEach(function(button){var selected=button.dataset.settingsTab===name,changed=button.getAttribute('aria-selected')!=='true';button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;el(button.getAttribute('aria-controls')).classList.toggle('hidden',!selected);if(selected&&changed)STMotion.reveal(el(button.getAttribute('aria-controls')));if(selected&&focus)button.focus();});if(name==='gemini')loadModels(false);}
@@ -170,6 +180,16 @@ window.STSettings = (function() {
     el('settings-interface-mode').onchange=changeMode;
     el('settings-show-real-data').onchange=function(){var options=STPreferences.caseOptions();options.showRealData=this.checked;STPreferences.setCaseOptions(options);};
     el('run-reliability-enabled').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(simulation.dynamicConfig?.engineId||'ST_CURRENT',this.checked);renderEngine();};
+    reliabilityCategories.forEach(function(category){
+      el('settings-reliability-'+category).onchange=function(){
+        var simulation=simulationProvider?.(),config=simulation?.dynamicConfig;
+        if(!simulation||engineLocked?.()||config?.reliabilityEnabled===false){renderEngine();return;}
+        var next={...config?.reliabilityCategories};
+        if(this.checked)delete next[category];else next[category]=false;
+        engineChanged?.(config?.engineId||'ST_CURRENT',undefined,next);
+        renderEngine();
+      };
+    });
     el('settings-simulation-engine').onchange=function(){var simulation=simulationProvider?.();if(!simulation||engineLocked?.()){renderEngine();return;}engineChanged?.(this.value);renderEngine();};
     document.querySelectorAll('[data-settings-tab]').forEach(function(button){button.onclick=function(){selectTab(button.dataset.settingsTab);};button.onkeydown=function(event){var tabs=Array.from(document.querySelectorAll('[data-settings-tab]')).filter(function(tab){return !tab.classList.contains('hidden');}),index=tabs.indexOf(button);if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();index=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;selectTab(tabs[index].dataset.settingsTab,true);};});
     el('series-color-hue').oninput=function(){colorHue=Number(this.value);mapColorDraft();};

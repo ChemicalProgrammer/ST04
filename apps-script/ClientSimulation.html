@@ -762,6 +762,7 @@
         plantCalendar:calendar.enabled?{...calendar,totalMinutes:durationSeconds/60}:calendar,
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,
+        reliabilityCategories:activePersistentSimulation()?.dynamicConfig?.reliabilityCategories,
         durationMode:durationMode,shiftHours:shiftHours,shiftCount:shiftCount,shiftSeconds:extras.shiftSeconds,rounds:rounds,
         durationSeconds: durationSeconds,
         tickSeconds: 0.25,
@@ -797,7 +798,7 @@
       return {
         ...cloneJson(configuration),...STRunOptions.read(),...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:cloneJson(activePersistentSimulation()?.dynamicConfig?.plantCalendar||{}),
-        engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,
+        engineId:configuration.engineId,reliabilityEnabled:configuration.reliabilityEnabled,reliabilityCategories:configuration.reliabilityCategories,
         durationMode:configuration.durationMode,shiftHours:configuration.shiftHours,shiftCount:configuration.shiftCount,shiftSeconds:configuration.shiftSeconds,rounds:configuration.rounds,
         durationSeconds: configuration.durationSeconds,
         tickSeconds: configuration.tickSeconds,
