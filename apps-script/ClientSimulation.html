@@ -505,10 +505,21 @@
     async function applyPlantCalendar(schedule,sourceCalendar){
       var simulation=activePersistentSimulation();
       if(runControlsLocked())throw Error('Stop the current calculation or playback before applying a calendar.');
-      var existing=state.run.commands.length+(state.run.plannedStops||[]).length,choice='replace';
-      if(existing){choice=(await STDialog.open({title:'Apply plant calendar',message:'Events already exist. Replace all existing events or add these line stops?',buttons:[{id:'cancel',label:'Cancel'},{id:'add',label:'Add'},{id:'replace',label:'Replace'}]})).action;if(!['replace','add'].includes(choice))return false;}
+      var plannedStops=state.run.plannedStops||[];
+      var existing=state.run.commands.length+plannedStops.length,choice='replace';
+      if(existing){
+        var buttons=[{id:'cancel',label:'Cancel'}];
+        if(plannedStops.some(function(event){return event.source==='PLANT_CALENDAR';})){
+          buttons.push({id:'refresh',label:'Replace calendar stops'});
+        }
+        buttons.push({id:'add',label:'Add'},{id:'replace',label:'Replace all'});
+        choice=(await STDialog.open({title:'Apply plant calendar',message:'Choose which existing events to keep. Replace calendar stops keeps equipment events and manually added line stops.',buttons:buttons})).action;
+        if(!['replace','refresh','add'].includes(choice))return false;
+      }
       if(simulation!==activePersistentSimulation()||runControlsLocked()||STRunOptions.durationSeconds()!==schedule.horizonSeconds)throw Error('Simulation Setup changed. Reopen Plant Calendar and apply it again.');
-      var generated=schedule.events.map(function(e){return {category:e.category,targetProductId:e.targetProductId,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};}),merged=choice==='add'?(state.run.plannedStops||[]).concat(generated):generated;
+      var generated=schedule.events.map(function(e){return {category:e.category,targetProductId:e.targetProductId,startSeconds:e.startSeconds,endSeconds:e.endSeconds,restartPolicy:schedule.restartPolicy,source:'PLANT_CALENDAR'};});
+      var retained=choice==='replace'?[]:plannedStops.filter(function(event){return choice==='add'||event.source!=='PLANT_CALENDAR';});
+      var merged=retained.concat(generated);
       var seen=new Set();merged=merged.filter(function(e){var key=JSON.stringify([e.category,e.startSeconds,e.endSeconds,e.restartPolicy]);if(seen.has(key))return false;seen.add(key);return true;});
       validateCalendarProgram(sourceCalendar,merged,schedule.horizonSeconds);
       if(choice==='replace')state.run.commands=[];state.run.plannedStops=merged;state.run.eventPage=0;
@@ -710,8 +721,14 @@
         var totals=STPlantCalendar.calculate(calendar);
         if(totals.errors.length){showError(Error(totals.errors.join(' ')));return;}
         if(calendar.mode==='SCHEDULED'){
-          if(calendar.application!=='EVENTS'||calendar.needsApply||calendar.durationSource==='SIMULATION_SETUP'&&calendar.appliedHorizonSeconds!==run.durationSeconds){
-            showError(Error('Apply Plant Calendar for the current settings and duration in Simulation Setup.'));return;
+          var durationChanged=calendar.durationSource==='SIMULATION_SETUP'&&calendar.appliedHorizonSeconds!==run.durationSeconds;
+          if(calendar.application!=='EVENTS'||calendar.needsApply||durationChanged){
+            var message=durationChanged&&Number.isFinite(calendar.appliedHorizonSeconds)
+              ?'The calendar was applied for '+(calendar.appliedHorizonSeconds/60).toLocaleString()+' min. The simulation is set to '+(run.durationSeconds/60).toLocaleString()+' min.'
+              :'The scheduled line stops have not been applied for the current calendar settings.';
+            var review=await STDialog.open({title:'Plant Calendar needs to be applied',message:message+' Open Plant Calendar, select Apply plant calendar, then start the simulation again.',buttons:[{id:'cancel',label:'Cancel'},{id:'calendar',label:'Open Plant Calendar'}]});
+            if(review.action==='calendar')document.getElementById('open-plant-calendar').click();
+            return;
           }
           if(calendar.durationSource==='SIMULATION_SETUP'){
             try{validateCalendarProgram(calendar,run.plannedStops,run.durationSeconds);}catch(error){showError(error);return;}
