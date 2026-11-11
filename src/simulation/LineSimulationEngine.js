@@ -1,3 +1,4 @@
+import { planDiscretePackages, addDiscretePackets } from './DiscretePackageEngine.js';
 import { stopReliabilityProfile, selectReliabilityStop } from './StopReliability.js';
 import { applyProductProfile, productUnitFactor, productFlowUnit, productPackSize } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
@@ -885,20 +886,18 @@ function processEquipmentFlow(runtime, index) {
       ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity) / ratio;
   const downstreamSpace = getDownstreamSpace(runtime, index);
   let flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
+  let entries;
   if(runtime.run.discretePackages){
     const transportRate=incomingZone?.physicalModelEnabled
       ? (isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
         ? incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm : 0)
       : Infinity;
     inputAvailable=index===0?Infinity:(transportRate>0?incomingZone.waitingUnits/ratio:0);
-    const outgoingZone=runtime.zones[index];
-    const capacity=residualDischarge?Infinity:Math.min(downstreamSpace,packageEntrySlots(runtime,outgoingZone));
-    const canProcess=inputAvailable>=1&&(residualDischarge||downstreamSpace>=1);
     const requestedPackages=Math.min(requestedFlow,transportRate*tickSeconds/ratio);
-    const service=canProcess?(equipment.packageRemainder||0)+requestedPackages:0;
-    const completed=Math.floor(service+1e-8);
-    equipment.packageRemainder=Math.max(0,service-completed);
-    flow=Math.max(0,Math.floor(Math.min(completed,inputAvailable,capacity,residualDischarge?control.residualRemainingUnits:Infinity)+1e-8));
+    const planned=planDiscretePackages(equipment,runtime.zones[index],runtime.virtualSecond,tickSeconds,
+      requestedPackages,inputAvailable,downstreamSpace,residualDischarge?control.residualRemainingUnits:undefined);
+    flow=planned.count;
+    entries=planned.entries;
   }
   const processingPackage=runtime.run.discretePackages&&equipment.packageRemainder>0&&inputAvailable>=1&&downstreamSpace>=1;
   recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, processingPackage?Math.max(flow,requestedFlow):flow, tickSeconds, control, residualDischarge);
@@ -908,7 +907,7 @@ function processEquipmentFlow(runtime, index) {
     if(phase==='STOP')equipment.stopTransitionRateLossSeconds+=phaseLoss;
     else equipment.rampRateLossSeconds+=phaseLoss;
   }
-  moveFlow(runtime, index, flow, residualDischarge, requestedFlow, inputAvailable, phase);
+  moveFlow(runtime, index, flow, residualDischarge, requestedFlow, inputAvailable, phase, entries);
   equipment.outputCount += flow;
   if(runtime.product)equipment.productiveNativeSeconds=(equipment.productiveNativeSeconds||0)+flow/equipment.nominalRatePerSecond;
   equipment.actualRatePerSecond = flow / tickSeconds;
@@ -1035,10 +1034,13 @@ function getDownstreamSpace(runtime, index) {
   return getZoneEntrySpace(zone);
 }
 
-function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvailable, phase) {
+function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvailable, phase, entries) {
   if(runtime.product&&index===0)runtime.inputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;
   if (index > 0) {
-    runtime.zones[index - 1].waitingUnits = Math.max(0, runtime.zones[index - 1].waitingUnits - flow*(runtime.equipment[index].inputPerOutput||1));
+    const incoming=runtime.zones[index-1];
+    const consumed=flow*(runtime.equipment[index].inputPerOutput||1);
+    incoming.waitingUnits=Math.max(0,incoming.waitingUnits-consumed);
+    incoming.dischargedUnits=(incoming.dischargedUnits||0)+consumed;
   }
   if (index === runtime.equipment.length - 1) {
     const output=flow*(runtime.equipment[index].outputBottleFactor||1);
@@ -1070,20 +1072,12 @@ function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvail
     if(runtime.product){const row=currentProductRow(runtime);row.outputNative+=flow;row.outputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;}
     return;
   }
-  addFlowToZone(runtime, runtime.zones[index], flow, allowOverflow);
+  addFlowToZone(runtime, runtime.zones[index], flow, allowOverflow, entries);
 }
 
-function packageEntrySlots(runtime,zone) {
-  if(!zone?.physicalModelEnabled)return Infinity;
-  const headway=zone.productPitchMm/zone.conveyorSpeedMmPerSecond;
-  const earliest=Math.max(runtime.virtualSecond,(zone.lastPackageEntry??-Infinity)+headway);
-  return Math.max(0,1+Math.floor((runtime.virtualSecond+runtime.run.tickSeconds-earliest+1e-8)/headway));
-}
-
-function addFlowToZone(runtime, zone, flow, allowOverflow) {
+function addFlowToZone(runtime, zone, flow, allowOverflow, entries) {
   const availableSpace = getZoneEntrySpace(zone);
-  const accepted = Math.min(flow, runtime.run.discretePackages
-    ? Math.min(Math.floor(availableSpace+1e-8),packageEntrySlots(runtime,zone)) : availableSpace);
+  const accepted = Math.min(flow, runtime.run.discretePackages?Math.floor(availableSpace+1e-8):availableSpace);
   const overflow = allowOverflow ? Math.max(0, flow - accepted) : 0;
 
   if (accepted > 0) {
@@ -1096,19 +1090,8 @@ function addFlowToZone(runtime, zone, flow, allowOverflow) {
         recordNormalPhotoeyePass(runtime, zone, 'prime', accepted);
         triggerPrimeSensor(runtime, zone);
       }
-    } else if(runtime.run.discretePackages){
-      const headway=zone.productPitchMm/zone.conveyorSpeedMmPerSecond;
-      const end=runtime.virtualSecond+runtime.run.tickSeconds;
-      for(let index=0;index<accepted;index++){
-        const entry=end-(accepted-1-index)*headway;
-        zone.lastPackageEntry=entry;
-        zone.transit.push({
-          units:1,initialUnits:1,entryDurationSeconds:0,arrivedFraction:0,
-          backupAtVirtualSecond:zone.hasBackupSensor?entry+zone.backupSensorPositionMm/zone.conveyorSpeedMmPerSecond:null,
-          primeAtVirtualSecond:zone.hasPrimeSensor?entry+zone.primeTravelSeconds:null,
-          arrivesAtVirtualSecond:entry+zone.travelSeconds
-        });
-      }
+    } else if(entries){
+      addDiscretePackets(zone,entries.slice(0,accepted));
     } else {
       zone.transit.push({
         units: accepted,
@@ -1375,6 +1358,7 @@ function createZoneSample(zone) {
     },
     inventoryUnits: round(inventoryUnits),
     waitingUnits: round(zone.waitingUnits),
+    dischargedUnits: round(zone.dischargedUnits||0),
     queueLengthMm: round(zone.waitingUnits * zone.accumulatedPitchMm),
     queueTailPositionMm: round(Math.max(0, zone.usableLengthMm - zone.waitingUnits * zone.accumulatedPitchMm)),
     inTransitUnits: round(getTransitUnits(zone)),

@@ -13,6 +13,7 @@ const sourceFiles = [
   'src/simulation/FormatGeometryAdapter.js',
   'src/simulation/PlantCalendarSchedule.js',
   'src/simulation/SimulationValidation.js',
+  'src/simulation/DiscretePackageEngine.js',
   'src/simulation/LineSimulationEngine.js',
   'src/simulation/SimulationBatch.js',
   'src/simulation/SimulationWorkers.js',

@@ -239,17 +239,21 @@
           <!-- El avance y la cancelación de las rondas quedan disponibles al plegar la reproducción. -->
           <section id="batch-dialog" class="round-background hidden" aria-labelledby="batch-title"><strong id="batch-title"><?= __ST_TEXT__('batch.title') ?></strong><progress id="batch-progress" max="1" value="0"></progress><span id="batch-status" role="status" aria-live="polite"></span><button id="batch-cancel" type="button" class="ghost icon-button" data-icon="stop" aria-label="<?= __ST_TEXT__('view.cancel') ?>" title="<?= __ST_TEXT__('view.cancel') ?>"></button></section><p id="rounds-warning" class="round-warning hidden" role="alert"></p>
           </section>
-          <section class="fold-card" aria-labelledby="line-playback-title">
-            <div class="fold-heading"><h3 id="line-playback-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="false" aria-controls="line-playback-content">Line layout</button></h3></div>
-            <div id="line-playback-content" class="fold-content" hidden>
+          <div class="button-row line-layout-tabs" role="group" aria-label="Simulation view">
+            <button id="line-view-performance" class="secondary" type="button" aria-pressed="true" aria-controls="simulation-equipment">Equipment performance</button>
+            <button id="line-view-layout" class="secondary" type="button" aria-pressed="false" aria-controls="line-playback-content">Line layout</button>
+          </div>
+          <section id="line-playback-content" class="fold-card" aria-label="Line layout" hidden>
               <div class="line-layout-toolbar">
-                <label for="line-layout-zoom">Zoom <input id="line-layout-zoom" type="range" min="1" max="4" step="0.5" value="1"></label>
+                <label for="line-layout-zoom">Zoom <input id="line-layout-zoom" type="range" min="0.05" max="8" step="any" value="1"></label>
+                <button id="line-layout-fit" class="secondary" type="button">Fit to view</button>
                 <span id="line-layout-time"></span>
               </div>
-              <div class="line-layout-scroll" tabindex="0" role="region" aria-label="Scrollable line layout"><div id="line-layout-track" class="line-layout-track"></div></div>
+              <div class="line-layout-scroll" tabindex="0" role="region" aria-label="Line layout. Drag to pan. Control or Command and scroll to zoom.">
+                <div class="line-layout-stage"><div id="line-layout-track" class="line-layout-track"></div></div>
+              </div>
               <div class="line-layout-legend" aria-label="Equipment states"><span class="line-running">Running</span><span class="line-ramp">Ramp / starting</span><span class="line-waiting">Starved / Prime</span><span class="line-blocked">Blocked / Back-up</span><span class="line-stopped">Stopped / failed</span></div>
               <p id="line-layout-note" class="chart-note"></p>
-            </div>
           </section>
           <section id="simulation-equipment" class="fold-card">
           <div class="fold-heading"><div><h3 id="simulation-equipment-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation-equipment-content">Equipment performance</button></h3>

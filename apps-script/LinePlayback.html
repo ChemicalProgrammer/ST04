@@ -2,8 +2,13 @@
 .line-layout-toolbar,.line-layout-legend { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); }
 .line-layout-toolbar { justify-content:space-between; }
 .line-layout-toolbar label { display:flex; align-items:center; gap:var(--space-2); }
-.line-layout-scroll { overflow-x:auto; padding:var(--space-3) 0; }
-.line-layout-track { display:flex; align-items:center; width:max-content; min-width:100%; }
+.line-layout-scroll { position:relative; height:clamp(210px,34vh,420px); overflow:hidden; touch-action:none; cursor:grab; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); }
+.line-layout-scroll:active { cursor:grabbing; }
+.line-layout-stage { position:absolute; inset:0 auto auto 0; transform-origin:0 0; }
+.line-layout-track { display:flex; align-items:center; width:max-content; }
+.line-layout-tabs [aria-pressed=true] { border-color:var(--accent); color:var(--accent); }
+.line-layout-toolbar { margin-bottom:var(--space-2); }
+.line-layout-legend { margin-top:var(--space-2); }
 .line-layout-track > * { flex:none; box-sizing:border-box; }
 .line-layout-machine { display:grid; align-content:center; gap:var(--space-1); width:128px; min-height:92px; padding:var(--space-2); border:1px solid var(--line); border-inline-start:4px solid var(--line-state,var(--line)); border-radius:var(--radius-md); background:color-mix(in srgb,var(--line-state,var(--line)) 12%,var(--surface)); }
 .line-layout-machine strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -25,7 +30,7 @@
 </style>
 <script>
 window.STLinePlayback=(function(){
-  var current,animationFrame;
+  var current,animationFrame,camera={x:0,y:0,scale:1,fit:true},drag;
   var bottle=window.Path2D?new Path2D('M0 30V17Q0 14 4 10V2H10V10Q14 14 14 17V30Q14 32 12 32H2Q0 32 0 30Z'):null;
   var carton=window.Path2D?new Path2D('M1 6L5 2H13L15 6V12H1Z M1 6H15 M8 2V6'):null;
   function element(tag,className,text){
@@ -46,19 +51,49 @@ window.STLinePlayback=(function(){
   function transitPositions(bands,length,width,geometry,tail){
     var pitch=geometry.productPitchMm;
     if(!bands?.length||!(pitch>0))return [];
-    var gap=Math.max(pitch,length/width*2,length/400),last=-Infinity,positions=[];
-    var edge=geometry.productLengthMm/2||pitch/2;
-    var end=tail-edge;
+    var runs=[],bandWidth=length/24;
     for(var index=0;index<bands.length;index+=2){
-      var count=Math.max(1,Math.round(bands[index]));
-      var visible=Math.min(count,Math.max(1,Math.ceil(length/24/gap)));
-      var first=Math.max(edge,last+gap,Math.min(end-(visible-1)*gap,bands[index+1]-(visible-1)*gap/2));
+      var count=bands[index],center=bands[index+1],run=runs.at(-1);
+      if(run&&center-run.last<=bandWidth*1.5){
+        run.count+=count;
+        run.weighted+=center*count;
+        run.last=center;
+      }else runs.push({count:count,weighted:center*count,first:center,last:center});
+    }
+    var positions=[],edge=(geometry.productLengthMm||pitch)/2,end=tail-edge,last=-Infinity;
+    runs.forEach(function(run){
+      var count=Math.max(1,Math.round(run.count));
+      var pitchInFlow=Math.max(pitch,(run.last-run.first+bandWidth)/Math.max(1,run.count));
+      if(run.first===run.last)pitchInFlow=pitch;
+      var stride=Math.max(1,Math.ceil(Math.max(length/400,2*length/width)/pitchInFlow));
+      var gap=pitchInFlow*stride,visible=Math.ceil(count/stride);
+      var first=Math.max(edge,last+gap,Math.min(end-(visible-1)*gap,run.weighted/run.count-(visible-1)*gap/2));
       for(var position=first;visible>0&&position<=end;visible--,position+=gap){
         positions.push(position);
         last=position;
       }
-    }
+    });
     return positions;
+  }
+  function applyCamera(){
+    var stage=document.querySelector('.line-layout-stage');
+    stage.style.transform='translate('+camera.x+'px,'+camera.y+'px) scale('+camera.scale+')';
+    document.getElementById('line-layout-zoom').value=camera.scale;
+  }
+  function fitCamera(){
+    var track=document.getElementById('line-layout-track'),viewport=track.closest('.line-layout-scroll');
+    if(!track.offsetWidth||!viewport.clientWidth)return;
+    camera.scale=Math.max(.05,Math.min(1,(viewport.clientWidth-24)/track.offsetWidth,(viewport.clientHeight-24)/track.offsetHeight));
+    camera.x=(viewport.clientWidth-track.offsetWidth*camera.scale)/2;
+    camera.y=(viewport.clientHeight-track.offsetHeight*camera.scale)/2;
+    camera.fit=true;
+    applyCamera();
+  }
+  function zoomAt(scale,x,y){
+    scale=Math.max(.05,Math.min(8,scale));
+    var ratio=scale/camera.scale;
+    camera={x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,scale:scale,fit:false};
+    applyCamera();
   }
   function prepareProducts(rail,zone,nextZone,length,width,seconds){
     if(width<1)return null;
@@ -73,12 +108,12 @@ window.STLinePlayback=(function(){
     var context=canvas.getContext('2d');
     if(!context)return null;
     var tail=Math.min(length,Math.max(0,zone.queueTailPositionMm??length));
-    var pitch=geometry.accumulatedPitchMm,queued=[];
-    if(pitch>0){
-      var count=Math.min(Math.floor(zone.waitingUnits||0),Math.floor(length/pitch));
-      var stride=Math.max(1,Math.ceil(count/100),Math.ceil(2*length/width/pitch));
-      for(var i=0;i<count;i+=stride)queued.push(length-(i+.5)*pitch);
-    }
+    var pitch=geometry.accumulatedPitchMm||packageWidth;
+    var queueCount=Math.min(Math.round(zone.waitingUnits||0),Math.floor(length/pitch));
+    var queueStride=Math.max(1,Math.ceil(queueCount/240));
+    var discharged=Number.isFinite(nextZone?.dischargedUnits)&&Number.isFinite(zone.dischargedUnits)
+      ? Math.max(0,nextZone.dischargedUnits-zone.dischargedUnits)
+      : Math.max(0,(zone.waitingUnits||0)-(nextZone?.waitingUnits??zone.waitingUnits??0));
     function positions(sample){
       return sample.transitPositionsMm||transitPositions(sample.transitBands,length,width,geometry,sample.queueTailPositionMm??length);
     }
@@ -123,11 +158,32 @@ window.STLinePlayback=(function(){
     }
     return function(elapsed){
       context.clearRect(0,0,canvas.width,canvas.height);
-      paint(queued,0,queueColor,0,length);
       var offset=speed*elapsed;
-      paint(moving,offset,movingColor,0,tail-packageWidth/2);
-      var entryLimit=moving.length?moving[0]+offset-(geometry.productPitchMm||packageWidth):Infinity;
-      paint(entering,offset,movingColor,packageWidth/2,Math.min(entryLimit,tail-packageWidth/2));
+      var release=speed>0&&seconds>0?Math.min(queueCount,discharged*elapsed/seconds):0;
+      var queued=[];
+      var edge=packageWidth/2;
+      for(var index=Math.floor(release);index<queueCount;index+=queueStride){
+        queued.push(Math.min(length-edge,length-(index+.5-release)*pitch));
+      }
+      var queueTail=queueCount>release?length-(queueCount-.5-release)*pitch:length-edge+pitch;
+      var projected=entering.concat(moving);
+      var rolling=[],arriving=[];
+      var minimumPitch=geometry.productPitchMm||pitch;
+      var nextPosition=queueTail;
+      for(var index=projected.length-1;index>=0;index--){
+        var free=projected[index]+offset;
+        var limit=nextPosition-pitch;
+        var joinsQueue=free>=limit&&queueCount>release||arriving.length>0&&free>=limit;
+        if(!joinsQueue&&free>length-edge&&seconds>0&&discharged>release)continue;
+        var position=joinsQueue?limit:Math.min(free,limit,length-edge);
+        if(position<edge)continue;
+        if(joinsQueue)arriving.push(position);
+        else rolling.push(position);
+        nextPosition=position-(joinsQueue?0:Math.max(0,minimumPitch-pitch));
+      }
+      paint(queued,0,queueColor,0,length);
+      paint(arriving,0,queueColor,0,length);
+      paint(rolling,0,movingColor,0,length);
     };
   }
   function zonesByOwner(frame,definitions){
@@ -158,11 +214,7 @@ window.STLinePlayback=(function(){
     var zones=zonesByOwner(frame,definitions),nextZones=zonesByOwner(next,definitions);
     var seconds=next?Math.max(0,next.virtualSecond-frame.virtualSecond):0;
     var painters=[];
-    var beltLength=equipment.reduce((sum,item)=>sum+(item.type==='CONVEYOR'?(zones.get(item.id)?.geometry?.usableLengthMm||0):0),0);
-    var machines=equipment.filter(item=>item.type!=='CONVEYOR').length;
-    var zoom=Number(document.getElementById('line-layout-zoom').value);
-    var available=Math.max(360,track.parentElement.clientWidth-machines*128);
-    var scale=beltLength>0?Math.min(4800,available)*zoom/beltLength:0;
+    var scale=.045; // Base scene scale, in pixels per millimetre.
     var missingLength=false,missingTransit=false;
     equipment.forEach(function(item){
       var sample=units.get(item.id);
@@ -179,7 +231,7 @@ window.STLinePlayback=(function(){
       var belt=element('div','line-layout-belt'),rail=element('div','line-layout-rail');
       var usable=Number.isFinite(length)&&length>0,width=usable?length*scale:72;
       belt.style.width=width+'px';
-      belt.append(element('strong','',item.name||item.id),rail,element('small','',usable?number(length/1000)+' m · '+number(zone.inventoryUnits)+' in belt':'Length unavailable'));
+      belt.append(element('strong','',item.name||item.id),rail,element('small','',usable?number(length/1000)+' m · '+number(zone.inventoryUnits)+' in belt · '+(zone.beltRunning===false?'Stopped':'Belt moving'):'Length unavailable'));
       belt.title=(item.name||item.id)+' · '+(usable?number(length/1000)+' m · '+number(zone.waitingUnits)+' queued · '+number(zone.inTransitUnits)+' in transit':'Length unavailable');
       if(usable){
         if(zone.beltRunning===false)rail.classList.add('line-belt-stopped','line-stopped');
@@ -200,12 +252,44 @@ window.STLinePlayback=(function(){
       time.textContent='Playback · '+number(frame.virtualSecond+elapsed)+' s';
       if(timing.playing&&seconds>0&&elapsed<seconds&&painters.length)animationFrame=window.requestAnimationFrame(animate);
     }
+    if(camera.fit)fitCamera();else applyCamera();
     animate();
-    note.textContent='Conveyors use a shared length scale. B = Back-up, P = Prime. Product moves at belt speed between samples; dense flows are condensed.'
+    note.textContent='Conveyors use a shared length scale. B = Back-up, P = Prime. Belt motion and queue discharge are interpolated between samples. Drag to pan; Ctrl/⌘ + scroll to zoom.'
       +(missingLength?' Conveyors without recorded geometry use a placeholder.':'')
       +(missingTransit?' This replay has no positions for product in transit.':'');
   }
-  document.addEventListener('input',function(event){if(event.target.id==='line-layout-zoom')draw();});
+  var viewport=document.querySelector('.line-layout-scroll');
+  document.getElementById('line-layout-fit').addEventListener('click',fitCamera);
+  document.getElementById('line-layout-zoom').addEventListener('input',function(){
+    zoomAt(Number(this.value),viewport.clientWidth/2,viewport.clientHeight/2);
+  });
+  viewport.addEventListener('wheel',function(event){
+    if(!event.ctrlKey&&!event.metaKey)return;
+    event.preventDefault();
+    var bounds=viewport.getBoundingClientRect();
+    zoomAt(camera.scale*Math.exp(-event.deltaY/350),event.clientX-bounds.left,event.clientY-bounds.top);
+  },{passive:false});
+  viewport.addEventListener('pointerdown',function(event){
+    if(event.button!==0&&event.button!==1)return;
+    drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
+    viewport.setPointerCapture(event.pointerId);
+  });
+  viewport.addEventListener('pointermove',function(event){
+    if(drag?.id!==event.pointerId)return;
+    camera={x:event.clientX-drag.x,y:event.clientY-drag.y,scale:camera.scale,fit:false};
+    applyCamera();
+  });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(function(name){
+    viewport.addEventListener(name,function(event){if(drag?.id===event.pointerId)drag=null;});
+  });
+  viewport.addEventListener('keydown',function(event){
+    var moves={ArrowLeft:[32,0],ArrowRight:[-32,0],ArrowUp:[0,32],ArrowDown:[0,-32]};
+    var move=moves[event.key];
+    if(!move)return;
+    event.preventDefault();
+    camera={x:camera.x+move[0],y:camera.y+move[1],scale:camera.scale,fit:false};
+    applyCamera();
+  });
   return {render:function(equipment,frame,definitions,next,clock){current={equipment,frame,definitions,next,clock};draw();}};
 })();
 </script>
