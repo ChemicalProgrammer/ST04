@@ -50,7 +50,8 @@ window.STSimulation2D=(function(){
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
-  const dimensionRowHeight=26,dimensionLevels=3;
+  const dimensionRowHeight=32,dimensionLevels=3,dimensionOffset=126;
+  let dimensionPointer=null;
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
@@ -62,6 +63,7 @@ window.STSimulation2D=(function(){
   showDimensions.checked=window.STPreferences?.read('simulation2dDimensions')==='yes';
   showDimensions.addEventListener('change',()=>{
     window.STPreferences?.write('simulation2dDimensions',showDimensions.checked?'yes':'no');
+    dimensionPointer=null;
     draw();
   });
   let camera={scale:1,x:0,y:0,fit:true};
@@ -239,7 +241,7 @@ window.STSimulation2D=(function(){
   function sceneTop(){
     const half=sceneHalfHeight();
     if(!conveyorDimensions.size)return half+26;
-    return half+110+dimensionLevels*dimensionRowHeight;
+    return half+dimensionOffset+dimensionLevels*dimensionRowHeight;
   }
   function telemetryLayout(line){
     let end=0;
@@ -401,50 +403,83 @@ window.STSimulation2D=(function(){
   function beltHalfHeight(item){
     return (productHeight(item)+beltInset+beltDepth)/2;
   }
-  function drawConveyorDimensions(context,item,x,y,width,ink,accent){
+  class CanvasDimension {
+    constructor(text,left,right,y,targetY,width){
+      Object.assign(this,{text,left,right,y,targetY,width});
+      this.anchor=(left+right)/2;
+      this.center=this.anchor;
+      this.inline=right-left>=width+16;
+    }
+    draw(context,pointer){
+      const {left,right,y,center,width,inline}=this;
+      const labelY=inline?y:y-10;
+      const hovered=pointer&&(
+        Math.abs(pointer.y-labelY)<=7&&Math.abs(pointer.x-center)<=width/2+4||
+        Math.abs(pointer.y-y)<=5&&pointer.x>=left-4&&pointer.x<=right+4
+      );
+      if(hovered&&right>left){
+        context.save();
+        context.setLineDash([3,4]);
+        context.beginPath();
+        for(const edge of [left,right]){
+          context.moveTo(edge,y);
+          context.lineTo(edge,this.targetY);
+        }
+        context.stroke();
+        context.restore();
+      }
+      if(right>left){
+        context.beginPath();
+        context.moveTo(left,y);
+        if(inline){
+          context.lineTo(center-width/2-4,y);
+          context.moveTo(center+width/2+4,y);
+        }
+        context.lineTo(right,y);
+        for(const edge of [left,right]){
+          context.moveTo(edge,y-3);
+          context.lineTo(edge,y+3);
+        }
+        if(!inline&&Math.abs(center-this.anchor)>1){
+          context.moveTo(this.anchor,y);
+          context.lineTo(center,y-4);
+        }
+        context.stroke();
+      }
+      context.fillText(this.text,center,labelY);
+    }
+  }
+  function drawConveyorDimensions(context,item,x,y,width,beltY,ink,accent,pointer){
     const rows=conveyorDimensions.get(item.id)?.rows||[];
     context.save();
-    context.font='11px system-ui';context.textAlign='center';
+    context.font='10px system-ui';
+    context.textAlign='center';
+    context.textBaseline='middle';
     context.strokeStyle=accent;context.fillStyle=ink;
     for(let tier=0;tier<dimensionLevels;tier++){
       const rowY=y-tier*dimensionRowHeight;
-      const labels=[];
-      for(const row of rows.filter(row=>row.tier===tier)){
+      const dimensions=rows.filter(row=>row.tier===tier).map(row=>{
         const {label,start,value}=row,end=row.end??start+value;
-        const hasPosition=Number.isFinite(start)&&Number.isFinite(end);
-        const midpoint=hasPosition?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
-        const anchor=x+midpoint*sceneScale;
+        const valid=value>0&&start>=0&&end<=item.length+.000001;
+        const midpoint=Number.isFinite(start)&&Number.isFinite(end)
+          ?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
         const text=Number.isFinite(value)?label+' · '+num(value)+' mm'+(row.partial?' (partial)':''):label+' · pending';
-        const textWidth=context.measureText(text).width;
-        const previous=labels.at(-1);
-        const center=previous?Math.max(anchor,previous.center+(previous.width+textWidth)/2+8):anchor;
-        labels.push({text,width:textWidth,center,anchor});
-
-        if(hasPosition&&value>0&&start>=0&&end<=item.length+.000001){
-          const left=x+start*sceneScale,right=x+end*sceneScale;
-          context.beginPath();
-          context.moveTo(left,rowY);context.lineTo(right,rowY);
-          for(const edge of [left,right]){
-            context.moveTo(edge,rowY-3);context.lineTo(edge,rowY+3);
-          }
-          context.stroke();
-        }
+        return new CanvasDimension(text,x+(valid?start:midpoint)*sceneScale,
+          x+(valid?end:midpoint)*sceneScale,rowY,beltY,context.measureText(text).width);
+      });
+      const callouts=dimensions.filter(dimension=>!dimension.inline);
+      for(let index=1;index<callouts.length;index++){
+        const previous=callouts[index-1],current=callouts[index];
+        current.center=Math.max(current.anchor,previous.center+(previous.width+current.width)/2+8);
       }
-      if(!labels.length)continue;
-      const first=labels[0],last=labels.at(-1);
-      const left=first.center-first.width/2,right=last.center+last.width/2;
-      const slack=(width-(right-left))/2;
-      const offset=slack<0?x+slack-left:Math.min(x+width-right,Math.max(x-left,0));
-      for(const label of labels){
-        const center=label.center+offset;
-        if(Math.abs(center-label.anchor)>1){
-          context.beginPath();
-          context.moveTo(label.anchor,rowY);
-          context.lineTo(center,rowY+7);
-          context.stroke();
-        }
-        context.fillText(label.text,center,rowY+17);
+      if(callouts.length){
+        const first=callouts[0],last=callouts.at(-1);
+        const left=first.center-first.width/2,right=last.center+last.width/2;
+        const slack=(width-(right-left))/2;
+        const offset=slack<0?x+slack-left:Math.min(x+width-right,Math.max(x-left,0));
+        for(const callout of callouts)callout.center+=offset;
       }
+      for(const dimension of dimensions)dimension.draw(context,pointer);
     }
     context.restore();
   }
@@ -577,7 +612,8 @@ window.STSimulation2D=(function(){
     let x=camera.x/factor;
     const line=model?.line||definitions;
     const {centers,positions}=telemetryLayout(line);
-    const half=sceneHalfHeight(),telemetryY=y+half+22,dimensionY=y-half-110;
+    const half=sceneHalfHeight(),telemetryY=y+half+22,dimensionY=y-half-dimensionOffset;
+    const pointer=dimensionPointer&&!drag?{x:dimensionPointer.x/factor,y:dimensionPointer.y/factor}:null;
     const origin=x;
     for(let index=0;index<line.length;index++){
       const item=line[index],width=displayWidth(item);
@@ -609,9 +645,9 @@ window.STSimulation2D=(function(){
         if(dimensions){
           for(const [label,position,offset] of [
             ['Max Run-Out point',dimensions.runout,24],
-            ['Rec Pt.',dimensions.recovery,40],
-            ['Design B',Number.isFinite(backup)&&Math.abs(dimensions.backup-backup)<1e-6?null:dimensions.backup,56],
-            ['Design P',Number.isFinite(prime)&&Math.abs(dimensions.prime-prime)<1e-6?null:dimensions.prime,72]
+            ['Rec Pt.',dimensions.recovery,44],
+            ['Design B',Number.isFinite(backup)&&Math.abs(dimensions.backup-backup)<1e-6?null:dimensions.backup,64],
+            ['Design P',Number.isFinite(prime)&&Math.abs(dimensions.prime-prime)<1e-6?null:dimensions.prime,84]
           ]){
             if(!Number.isFinite(position)||position<0||position>item.length)continue;
             const mx=x+position*scale,my=dimensionY+offset+10;
@@ -622,7 +658,7 @@ window.STSimulation2D=(function(){
             context.fillText(label,mx,my);
           }
         }
-        if(dimensions)drawConveyorDimensions(context,item,x,dimensionY,width,ink,accent);
+        if(dimensions)drawConveyorDimensions(context,item,x,dimensionY,width,beltY,ink,accent,pointer);
       }else{
         const height=displayHeight(item),top=y-height/2;
         const signal=machineSignal(item);
@@ -796,6 +832,17 @@ window.STSimulation2D=(function(){
     drag=null;
     if(canvas.hasPointerCapture?.(id))canvas.releasePointerCapture(id);
   }
+  canvas.addEventListener('pointermove',event=>{
+    if(!showDimensions.checked||drag||event.pointerType==='touch')return;
+    const rect=canvas.getBoundingClientRect();
+    dimensionPointer={x:event.clientX-rect.left-canvas.clientLeft,y:event.clientY-rect.top-canvas.clientTop};
+    draw();
+  });
+  canvas.addEventListener('pointerleave',()=>{
+    if(!dimensionPointer)return;
+    dimensionPointer=null;
+    if(showDimensions.checked&&!drag)draw();
+  });
   canvas.addEventListener('pointerdown',event=>{
     if(event.button!==0||drag)return;
     camera.fit=false;

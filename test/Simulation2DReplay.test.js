@@ -63,14 +63,19 @@ test('2D uses the representative seed to calculate new production and preserves 
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
     const labels=[],bottles=[];
-    let lastFrameOrigin;
+    let lastFrameOrigin,scale,dash,start;
+    const segments=[];
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
       measureText:text=>({width:text.length*5}),
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
       quadraticCurveTo:x=>bottles.push(x),
-      clearRect(){lastFrameOrigin=labels.length;}
+      setTransform(factor){scale=factor;},
+      setLineDash(pattern){dash=pattern.length>0;},
+      moveTo(x,y){start=[x,y];},
+      lineTo(x,y){if(start)segments.push({start,end:[x,y],dash});start=[x,y];},
+      clearRect(){lastFrameOrigin=labels.length;segments.length=0;dash=false;}
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
     window.requestAnimationFrame=callback=>{animate=callback;return 1;};
@@ -258,6 +263,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Lba')[3]);
     assert(dimensionLabel('Lbu')[3]<overflow[3]);
     assert(dimensionLabel('Lact')[3]<dimensionLabel('Lba')[3]);
+
+    const lact=dimensionLabel('Lact'),lactY=lact[3];
+    const lactLines=segments.filter(({start,end,dash})=>!dash&&start[1]===lactY&&end[1]===lactY);
+    assert.equal(lactLines.length,2);
+    assert(lactLines[0].end[0]<lact[2]&&lactLines[1].start[0]>lact[2]);
+    assert(segments.some(({start,end,dash})=>!dash&&start[1]===discharge[3]+10&&end[1]===start[1]&&Math.abs(end[0]-start[0]-9)<.0001));
+    const guides=()=>segments.filter(({start,end,dash})=>dash&&start[1]===lactY&&end[1]>lactY);
+    canvas.dispatchEvent(new window.MouseEvent('pointermove',{clientX:lact[2]*scale,clientY:lactY*scale}));
+    assert.equal(guides().length,2);
+    canvas.dispatchEvent(new window.MouseEvent('pointerleave'));
+    assert.equal(guides().length,0);
 
     const close=(actual,expected)=>assert(Math.abs(actual-expected)<.0001);
     assert.deepEqual(['B','P'].map(sensorPosition),originalSensors);
