@@ -2673,6 +2673,10 @@ function addSample(runtime) {
         blockedSeconds: round(item.blockedSeconds),
         partialStarvationLossSeconds: round(item.partialStarvationLossSeconds),
         partialBlockingLossSeconds: round(item.partialBlockingLossSeconds),
+        runningSeconds: round(item.runningSeconds),
+        startRampSeconds: round(item.startRampSeconds),
+        stopTransitionSeconds: round(item.stopTransitionSeconds),
+        failureCount: item.failureCount,
         failureSeconds: round(item.failureSeconds),
         minorFailureSeconds:round(item.minorFailureSeconds),majorFailureSeconds:round(item.majorFailureSeconds),generalFailureSeconds:round(item.generalFailureSeconds),
         emergencyStopSeconds: round(item.emergencyStopSeconds),
@@ -3135,7 +3139,7 @@ async function simulateBatch(input, options={}) {
       averageInventoryUnits:zone.averageInventoryUnits,maximumInventoryUnits:zone.maximumInventoryUnits
     }));
     if(index===0){representative=result;options.onFirstRound?.(result);}
-    else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
+    else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,zoneDefinitions:result.zoneDefinitions,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
     return response;
   }
   let validationFailure;

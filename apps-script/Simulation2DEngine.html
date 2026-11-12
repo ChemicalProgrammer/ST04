@@ -9,7 +9,7 @@ window.STSimulation2DEngine=(function(){
     const line=definitions.map((definition,index)=>definition.kind==='belt'
       ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,recentOutput:[],ratePerMinute:0}
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
-        rampElapsed:0,failureRemaining:0,exposure:null,
+        rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
         durations:{running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
         recentOutput:[],ratePerMinute:0});
@@ -67,7 +67,10 @@ window.STSimulation2DEngine=(function(){
     function updateFailure(machine,seconds){
       if(machine.failureRemaining>0){
         machine.failureRemaining=Math.max(0,machine.failureRemaining-seconds);
-        if(machine.failureRemaining===0&&machine.rampAfterRepair)machine.rampElapsed=0;
+        if(machine.failureRemaining===0&&machine.rampAfterRepair){
+          machine.rampElapsed=0;
+          machine.activeRampSeconds=machine.rampSeconds||0;
+        }
         return true;
       }
       const profiles=machine.failures||[];
@@ -79,6 +82,7 @@ window.STSimulation2DEngine=(function(){
       let pick=random(machine)*total;
       const profile=profiles.find(item=>(pick-=item.rate)<=0)||profiles.at(-1);
       machine.failureRemaining=profile.repairSeconds;
+      machine.failureCount++;
       machine.exposure=null;
       return true;
     }
@@ -89,14 +93,15 @@ window.STSimulation2DEngine=(function(){
       }else if(machine.backupSince!==null){
         machine.backupSince=null;
         machine.rampElapsed=0;
+        machine.activeRampSeconds=machine.rampSeconds||0;
       }
       const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
       if(braking&&machine.residual<=0){machine.state='Back-up stop';return;}
       if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
       const decelerating=machine.backupSince!==null&&!braking;
-      const accelerating=!decelerating&&!braking&&machine.rampElapsed<(machine.rampSeconds||0);
+      const accelerating=!decelerating&&!braking&&machine.rampElapsed<machine.activeRampSeconds;
       const factor=decelerating?Math.max(0,1-(time-machine.backupSince)/downstream.responseDelay)
-        :accelerating?Math.min(1,(machine.rampElapsed+seconds/2)/machine.rampSeconds):1;
+        :accelerating?Math.min(1,(machine.rampElapsed+seconds/2)/machine.activeRampSeconds):1;
       const motionState=decelerating?'Ramp down':accelerating?'Ramp up':braking?'Discharging':'Running';
       if(machine.remaining!==null){
         if(accelerating)machine.rampElapsed+=seconds;

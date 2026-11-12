@@ -35,7 +35,7 @@ export async function simulateBatch(input, options={}) {
       averageInventoryUnits:zone.averageInventoryUnits,maximumInventoryUnits:zone.maximumInventoryUnits
     }));
     if(index===0){representative=result;options.onFirstRound?.(result);}
-    else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
+    else if(!summaryOnly)replays[index-1]={round:index+1,seed:run.seed,samples:result.samples,zoneDefinitions:result.zoneDefinitions,accumulationZoneMetrics:result.accumulationZoneMetrics,detailCoverage:result.detailCoverage};
     return response;
   }
   let validationFailure;

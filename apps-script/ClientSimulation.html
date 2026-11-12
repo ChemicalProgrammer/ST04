@@ -562,6 +562,18 @@
       return representative?.round===index+1&&representative.samples?.length?representative:null;
     }
 
+    function representativeRoundFor2D(results){
+      if(!results)return null;
+      var batch=results.batch,round=batch?.representativeRound??1;
+      var row=batch?.rows?.[round-1];
+      var replay=round===1?results.replay:playbackReplay(batch,round-1);
+      if(!replay?.samples?.length||batch&&!row)return null;
+      var source=expandStoredReplay(replay,row||results);
+      return {...source,round,revision:JSON.stringify([results.completedAt,round,row?.seed??source.seed]),seed:row?.seed??source.seed??results.seed,
+        durationSeconds:row?.durationSeconds??source.durationSeconds??batch?.durationSeconds??source.samples.at(-1).virtualSecond,
+        shifts:row?.shifts??source.shifts??(round===1?results.shifts:undefined)};
+    }
+
     function playbackRoundPositions(){
       var first=state.run.representative;
       if(!state.run.playbackPositions||state.run.playbackPositions.result!==first)state.run.playbackPositions={result:first,times:{}};
