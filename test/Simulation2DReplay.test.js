@@ -256,14 +256,23 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert(current[2]-previous[2]>=(previous[0].length+current[0].length)*2.5+7.99);
     }
     assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Lba')[3]);
-    assert(dimensionLabel('Lbu')[3]>overflow[3]);
-    assert(dimensionLabel('Lact')[3]>dimensionLabel('Lba')[3]);
+    assert(dimensionLabel('Lbu')[3]<overflow[3]);
+    assert(dimensionLabel('Lact')[3]<dimensionLabel('Lba')[3]);
 
     const close=(actual,expected)=>assert(Math.abs(actual-expected)<.0001);
     assert.deepEqual(['B','P'].map(sensorPosition),originalSensors);
     close(marker('Design B')[2]-marker('Max Run-Out point')[2],420*.09);
     close(marker('P')[2]-marker('Design B')[2],830*.09);
     assert(!marker('Design P'));
+    assert(overflow[3]<marker('B')[3]);
+    const headings=labels.slice(lastFrameOrigin).filter(([text])=>text==='Parameter').slice(0,6);
+    assert.equal(headings.length,6);
+    assert.equal(headings[0][3],headings[2][3]);
+    assert.equal(headings[2][3],headings[4][3]);
+    assert.equal(headings[1][3],headings[3][3]);
+    assert.equal(headings[3][3],headings[5][3]);
+    assert(headings[2][2]-headings[0][2]>=180);
+    assert(headings[4][2]-headings[2][2]>=180);
     assert(!marker('Rec Pt.'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     close(marker('P')[2]-marker('Rec Pt.')[2],(830-412.5-55*412.5/65)*.09);
