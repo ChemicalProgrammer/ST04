@@ -7,7 +7,7 @@ window.STSimulation2DEngine=(function(){
   };
   function create(definitions,seed=1){
     const line=definitions.map((definition,index)=>definition.kind==='belt'
-      ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false}
+      ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,recentOutput:[],ratePerMinute:0}
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
         rampElapsed:0,failureRemaining:0,exposure:null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
@@ -107,6 +107,7 @@ window.STSimulation2DEngine=(function(){
           const first=upstream.items[0];
           if(first&&first.x+upstream.packageLength/2>=upstream.length-epsilon){
             upstream.items.shift();
+            upstream.recentOutput.push(time);
             machine.input++;
           }else if(!upstream.items.length)upstream.primeSeen=false;
         }
@@ -124,6 +125,8 @@ window.STSimulation2DEngine=(function(){
         stepMachine(item,line[index-1],line[index+1],seconds);
         const category=durationKey[item.state];
         if(category)item.durations[category]+=seconds;
+      }
+      for(const item of line){
         while(item.recentOutput.length&&item.recentOutput[0]<=time-5)item.recentOutput.shift();
         item.ratePerMinute=item.recentOutput.length*60/Math.min(time,5);
       }
