@@ -137,7 +137,7 @@ window.STSimulation2D=(function(){
     const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
     const tallestBelt=Math.max(0,...definitions.filter(item=>item.kind==='belt').map(beltHalfHeight));
     const telemetryTop=Math.max(machineHeight/2,tallestBelt)+22;
-    const top=sceneTop(),bottom=Math.max(telemetryTop+365,shortBelt?shortBeltOffset+280:0,68+shiftIndex(model?.time??0)*20);
+    const top=sceneTop(),bottom=Math.max(telemetryTop+395,shortBelt?shortBeltOffset+350:0,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -213,59 +213,57 @@ window.STSimulation2D=(function(){
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
     context.textAlign='center';
   }
-  function drawTelemetry(context,item,x,y,signal,ink,border,surface){
+  function drawTelemetry(context,item,x,y,signal,ink,border,surface,muted,soft){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const rate=item.ratePerMinute??0,produced=item.produced??0;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
-    const unit=(value,label)=>value+'\u00a0'+label;
-    const duration=key=>unit(num(item.durations?.[key]??0),'s');
-    const state=signal?.state||(runState==='Ready'?'Ready':runState==='Running'?item.state||'Empty':runState);
-    const summary=[state,unit(bottles(rate),'bpm'),unit(bottles(produced),'bottles')];
-    if(cases)summary.push(unit(num(rate),'cpm'),unit(num(produced),'cases'));
-    if(belt)summary.push(num(item.items?.length??0)+' on belt');
-    else summary.push(num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles)+' inside',
-      'Est. residence '+unit(num(item.residenceSeconds),'s'));
+    const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
+    const summary=[['State',signal.state,''],['Flow',bottles(rate),'bpm'],['Processed',bottles(produced),'bottles']];
+    if(cases)summary.push(['Case flow',num(rate),'cpm'],['Cases made',num(produced),'cases']);
+    if(belt)summary.push(['Belt speed',num(item.speed*.06),'m/min'],
+      ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
+    else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
+      ['Est. residence',num(item.residenceSeconds),'s']);
     const counters=belt
-      ? ['Empty '+duration('empty'),'Flow '+duration('flowing'),'Accum. '+duration('accumulating'),
-        'Back-up '+(item.backup===null?'—':item.backupBlocked?'active':'clear'),'Own failures —']
-      : ['Start '+duration('starting'),'Run '+duration('running'),'Starving '+duration('starving'),
-        'Ramp up '+duration('acceleration'),'Ramp down '+duration('deceleration'),'Blocked '+duration('blocked'),
-        'Failure time '+duration('failure'),item.failures?.length?'Own failures '+num(item.failureCount??0):'Own failures off'];
-    const textWidth=telemetryWidth-8;
-    function wrap(text,breakWords=false){
-      const lines=[];
-      let line='';
-      for(let word of text.split(' ')){
-        const joined=line?line+' '+word:word;
-        if(context.measureText(joined).width<=textWidth){line=joined;continue;}
-        if(line)lines.push(line);
-        while(breakWords&&context.measureText(word).width>textWidth&&word.length>1){
-          let end=word.length-1;
-          while(end>1&&context.measureText(word.slice(0,end)).width>textWidth)end--;
-          lines.push(word.slice(0,end));word=word.slice(end);
-        }
-        line=word;
+      ? [duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
+        ['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear',''],['Own failures','—','']]
+      : [duration('Start','starting'),duration('Run','running'),duration('Starving','starving'),
+        duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),duration('Blocked','blocked'),
+        duration('Failure time','failure'),['Own failures',item.failures?.length?num(item.failureCount??0):'Off','']];
+    function card(title,rows,showSignal){
+      const left=x-telemetryWidth/2,width=telemetryWidth;
+      const height=47+rows.length*18;
+      context.fillStyle=surface;context.strokeStyle=border;
+      strokeBox(context,left,y,width,height);
+      context.fillStyle=soft;
+      context.fillRect(left+1,y+6,width-2,33);
+      if(showSignal){
+        context.fillStyle=lampColors[signal.lamp];
+        context.beginPath();context.arc(left+12,y+17,3,0,Math.PI*2);context.fill();
       }
-      lines.push(line);
-      return lines;
-    }
-    function card(title,values,outline){
-      context.font='600 12px system-ui';
-      const heading=wrap(title,true);
-      context.font='12px system-ui';
-      const rows=values.flatMap(value=>wrap(value));
-      const height=14+(heading.length+values.length+2)*15;
-      context.fillStyle=surface;context.strokeStyle=outline;
-      strokeBox(context,x-telemetryWidth/2,y,telemetryWidth,height);
-      context.fillStyle=ink;
-      context.font='600 12px system-ui';
-      heading.forEach((line,index)=>context.fillText(line,x,y+17+index*15));
-      context.font='12px system-ui';
-      rows.forEach((line,index)=>context.fillText(line,x,y+17+(heading.length+index)*15));
+      context.fillStyle=ink;context.font='600 12px system-ui';context.textAlign='left';
+      const titleInset=showSignal?21:9;
+      drawText(context,title,left+titleInset,y+21,width-titleInset-9);
+      context.fillStyle=muted;context.font='10px system-ui';
+      context.fillText('Parameter',left+9,y+35);
+      context.textAlign='right';context.fillText('Value',left+132,y+35);
+      context.textAlign='left';context.fillText('Unit',left+140,y+35);
+      rows.forEach(([label,value,unit],index)=>{
+        const rowY=y+40+index*18;
+        if(index%2===1){context.fillStyle=soft;context.fillRect(left+1,rowY,width-2,18);}
+        context.font='11px system-ui';context.fillStyle=muted;
+        drawText(context,label,left+9,rowY+13,76);
+        context.fillStyle=ink;context.font='600 11px system-ui';context.textAlign='right';
+        drawText(context,value,left+132,rowY+13,label==='State'?76:44);
+        context.fillStyle=muted;context.font='10px system-ui';context.textAlign='left';
+        drawText(context,unit,left+140,rowY+13,34);
+      });
       y+=height+telemetryGap;
     }
-    card(item.name,summary,signal?lampColors[signal.lamp]:border);
-    card(belt?'Time / sensors':'Time / failures',counters,border);
+    card(item.name,summary,true);
+    card(belt?'Time / sensors':'Time / failures',counters,false);
+    context.textAlign='center';
+    context.font='12px system-ui';
   }
   function productHeight(item){
     const configured=productHeights[item.unit];
@@ -330,6 +328,8 @@ window.STSimulation2D=(function(){
     const border=style.getPropertyValue('--line-strong').trim()||'#758497';
     const accent=style.getPropertyValue('--accent').trim()||'#2473b5';
     const surface=style.getPropertyValue('--surface').trim()||'#fff';
+    const muted=style.getPropertyValue('--muted').trim()||ink;
+    const soft=style.getPropertyValue('--surface-soft').trim()||surface;
     const beltColor=style.getPropertyValue('--secondary').trim()||border;
     context.setTransform(dpr,0,0,dpr,0,0);
     context.clearRect(0,0,screenWidth,h);
@@ -360,7 +360,7 @@ window.STSimulation2D=(function(){
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
         const telemetryY=y+Math.max(beltHalfHeight(item)+22,width<telemetryWidth?shortBeltOffset:56);
-        drawTelemetry(context,item,x+width/2,telemetryY,signal,ink,border,surface);
+        drawTelemetry(context,item,x+width/2,telemetryY,signal,ink,border,surface,muted,soft);
       }else{
         const top=y-machineHeight/2;
         const signal=machineSignal(item);
@@ -374,7 +374,7 @@ window.STSimulation2D=(function(){
         }
         const sx=x+width/2;
         drawSignal(context,sx,top-14,signal.lamp);
-        drawTelemetry(context,item,sx,y+machineHeight/2+22,signal,ink,border,surface);
+        drawTelemetry(context,item,sx,y+machineHeight/2+22,signal,ink,border,surface,muted,soft);
       }
       x+=width;
     }

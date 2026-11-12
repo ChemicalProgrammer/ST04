@@ -66,8 +66,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
-      measureText:text=>({width:text.replaceAll("\u00a0"," ")==="Ramp down 0 s"?84:text.length*5}),
-      fillText(text){labels.push([text,this.font]);},
+      measureText:text=>({width:text.length*5}),
+      fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
       quadraticCurveTo:x=>bottles.push(x)
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
@@ -127,10 +127,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     for(const title of ['upstream','belt','Time / failures','Time / sensors']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
-    assert(labels.some(([text])=>text==='Ramp down 0\u00a0s'));
-    for(const prefix of ['Own failures','Run ','Starving','Ramp up','Ramp down','Failure time']){
-      assert(labels.some(([text,font])=>text.startsWith(prefix)&&font==='12px system-ui'));
+    for(const label of ['Own failures','Run','Starving','Ramp up','Ramp down','Failure time','Belt speed']){
+      assert(labels.some(([text,font])=>text===label&&font==='11px system-ui'));
     }
+    const beltSpeed=labels.findIndex(([text])=>text==='Belt speed');
+    const [parameter,value,unit]=labels.slice(beltSpeed,beltSpeed+3);
+    assert.equal(value[0],'7.2');
+    assert.equal(unit[0],'m/min');
+    assert.equal(parameter[3],value[3]);
+    assert.equal(value[3],unit[3]);
+    assert.equal(value[4],'right');
+    assert(parameter[2]<value[2]&&value[2]<unit[2]);
     assert.equal(records.length,saved);
     el('source').value='independent';
     el('source').dispatchEvent(new window.Event('change'));
