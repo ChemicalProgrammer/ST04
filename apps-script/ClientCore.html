@@ -46,7 +46,7 @@
         if(!owner)return;
         owner.simulation2d=record;
         autosave.change();
-      },representativeRoundFor2D(simulation.results));
+      },representativeRoundFor2D(simulation.results),STProducts.formats());
     }});
     function caseViewKey(caseId) {
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);

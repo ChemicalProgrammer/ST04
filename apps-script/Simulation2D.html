@@ -75,36 +75,90 @@ window.STSimulation2D=(function(){
       &&Number.isFinite(profile.mttrMinutes)&&profile.mttrMinutes>0)
       .map(([,profile])=>({rate:1/(profile.mtbfMinutes*60),repairSeconds:profile.mttrMinutes*60}));
   }
-  function dimensionRows(zone,data){
-    const length=zone.usableLengthMm,prime=zone.primeSensorPositionMm,backup=zone.backupSensorPositionMm;
-    const {input,calculated}=zone.engineering||{};
-    const discharge=data.geometry?.actualDischargeMm??input?.dischargeRunoutLengthMm??data.accumulation?.dischargeRunoutLengthMm;
-    const coding=data.geometry?.actualCodingMm??input?.rejectRunoutLengthMm??data.accumulation?.rejectRunoutLengthMm;
-    const installedSpan=Number.isFinite(prime)&&Number.isFinite(backup)?prime-backup:undefined;
-    const accumulation=calculated?.usefulAccumulationLengthMm??installedSpan;
+  function conveyorSegments(data){
+    return {
+      discharge:data.geometry?.actualDischargeMm??data.accumulation?.dischargeRunoutLengthMm??0,
+      coding:data.geometry?.actualCodingMm??data.accumulation?.rejectRunoutLengthMm??0
+    };
+  }
+  function formatDimensionInputs(zone,models,discharge,coding){
+    const {input,calculated}=zone?.engineering||{};
+    const speed=zone?.conveyorSpeedMmPerSecond;
+    const upstream=models.find(item=>item.id===zone?.upstreamControlEquipmentId);
+    const downstream=models.find(item=>item.id===zone?.downstreamControlEquipmentId);
+    if(upstream?.processData?.productApplies===false||downstream?.processData?.productApplies===false)return {};
+    const length=input?.packageLengthMm??zone?.productLengthMm;
+    const rate=input?.upstreamNominalSpeedBpm??upstream?.nominalRatePerSecond*60;
+    if(!(speed>0&&length>0&&rate>0))return {};
+    const flow=rate*length/60,population=flow/speed;
+    const dischargeSpeed=calculated?.dischargeZoneSpeedMmPerSecond??speed;
+    const codingSpeed=calculated?.codingZoneSpeedMmPerSecond??speed;
+    if(!(population<1)||discharge>0&&!(dischargeSpeed>0)||coding>0&&!(codingSpeed>0))return {};
+    const dischargeTime=discharge>0?discharge/dischargeSpeed:0;
+    const codingTime=coding>0?coding/codingSpeed:0;
+    const blocked=input?.blockedTimeDelaySeconds??zone.blockedTimeDelaySeconds??0;
+    const clear=input?.clearTimeDelaySeconds??zone.clearTimeDelaySeconds??0;
+    const stop=input?.bottlesDischargedAtStop??zone.bottlesDischargedAtStop??0;
+    const startup=upstream?.startupDelaySeconds??input?.upstreamStartupTimeSeconds??upstream?.processData?.upstream?.startupTimeSeconds??0;
+    const units=(blocked+dischargeTime+codingTime)*rate/60+stop+(input?.insuranceFactorUnits??0);
+    const downstreamRate=downstream?.processData?.productInputRatePerSecond??downstream?.nominalRatePerSecond;
+    return {overflow:units*length/(1-population),speed,
+      consumption:calculated?.downstreamConsumptionRateMmPerSecond??downstreamRate*length,
+      restart:clear+startup+dischargeTime+codingTime};
+  }
+  function dimensionRows(zone,data,designProfiles,index){
+    const length=data.geometry?.lactMm??zone.usableLengthMm;
+    const lp=data.geometry?.lpPrimeMm??(length-zone.primeSensorPositionMm);
+    const prime=length-lp;
+    const {discharge,coding}=conveyorSegments(data);
+    const runout=discharge+coding;
+    const results=designProfiles
+      .filter(({models})=>models[index].processData?.productApplies!==false)
+      .map(({zones,models})=>formatDimensionInputs(zones[index],models,discharge,coding));
+    const overflows=results.map(result=>result.overflow).filter(Number.isFinite);
+    const overflow=overflows.length?Math.max(...overflows):undefined;
+    const lbu=runout+overflow,lba=prime-lbu;
+    const margins=results.flatMap(({overflow:required,speed,consumption,restart})=>{
+      if(!Number.isFinite(required)||!(consumption>0&&speed>consumption)||!(lba>=0))return [];
+      const queueLoss=consumption*(restart+overflow/speed);
+      return [lba-queueLoss-consumption*queueLoss/(speed-consumption)];
+    });
+    const recovery=margins.length?Math.min(...margins):undefined;
+    const overflowPartial=overflows.length<results.length;
+    const recoveryPartial=overflowPartial||margins.length<results.length;
     const rows=[];
-    function span(tier,label,start,value){
-      if(!Number.isFinite(value)||value<=0)return;
-      rows.push({tier,label,start,value});
+    function span(tier,label,start,value,partial=false,showZero=false){
+      if(Number.isFinite(value)&&(value!==0||showZero)){
+        rows.push({tier,label,start,value,partial});
+      }
     }
     span(0,'Discharge',0,discharge);
-    span(0,'Coding',discharge??0,coding);
-    span(0,'Overflow',(discharge??0)+(coding??0),calculated?.overflowProductLengthMm);
-    if(Number.isFinite(calculated?.recoveryLengthMm)){
-      const value=calculated.recoveryLengthMm;
-      rows.push({tier:0,label:'Lrec (margin)',start:prime-Math.max(0,value),end:prime,value});
+    span(0,'Coding',discharge,coding);
+    span(0,'Overflow',runout,overflow,overflowPartial,true);
+    if(Number.isFinite(recovery)){
+      rows.push({tier:0,label:'Lrec',start:prime-Math.max(0,recovery),end:prime,value:recovery,partial:recoveryPartial});
+    }else{
+      rows.push({tier:0,label:'Lrec',start:prime,end:prime});
     }
-    if(Number.isFinite(prime))span(0,'Lp',prime,length-prime);
-    span(1,'Lbu',0,calculated?.overflowLengthMm);
-    span(1,'Lba',prime-accumulation,accumulation);
+    span(0,'Lp',prime,lp);
+    span(1,'Lbu',0,lbu,overflowPartial,true);
+    span(1,'Lba',lbu,lba,overflowPartial,true);
     span(2,'Lact',0,length);
     return rows;
   }
-  function prepare(equipment,format,config){
+  function prepare(equipment,format,config,formats){
     const geometry=window.SimulatorEngine;
     const packSize=format?geometry.productPackSize(format):null;
     const configured=format?geometry.applyProductProfile(equipment,format):equipment;
-    const zones=configured.map((item,index)=>item.type==='CONVEYOR'?geometry.resolveProductConveyor(configured,index):null);
+    const resolveZones=models=>models.map((item,index)=>item.type==='CONVEYOR'?geometry.resolveProductConveyor(models,index):null);
+    const zones=resolveZones(configured);
+    const currentProfile={models:configured,zones};
+    const designProfiles=formats.map(candidate=>{
+      if(candidate.id===format?.id)return currentProfile;
+      const models=geometry.applyProductProfile(equipment,candidate);
+      return {models,zones:resolveZones(models)};
+    });
+    if(!designProfiles.length)designProfiles.push(currentProfile);
     conveyorDimensions=new Map();
     return configured.map((item,index)=>{
       const data=item.processData||{};
@@ -124,7 +178,7 @@ window.STSimulation2D=(function(){
           startDelay:item.startupDelaySeconds??data.upstream?.startupTimeSeconds??0,batch};
       }
       const zone=zones[index]||{};
-      conveyorDimensions.set(item.id,dimensionRows(zone,data));
+      conveyorDimensions.set(item.id,dimensionRows(zone,data,designProfiles,index));
       const presentation=format?geometry.productPresentation(format,unit):{};
       return {id:item.id,name:item.name||item.id,kind:'belt',unit,bottlesPerUnit:unit==='BOTTLES'?1:packSize,
         zoneId:zone.id,length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
@@ -348,14 +402,14 @@ window.STSimulation2D=(function(){
         const hasPosition=Number.isFinite(start)&&Number.isFinite(end);
         const midpoint=hasPosition?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
         const anchor=x+midpoint*sceneScale;
-        const text=label+' · '+num(value)+' mm';
+        const text=Number.isFinite(value)?label+' · '+num(value)+' mm'+(row.partial?' (partial)':''):label+' · pending';
         const textWidth=Math.min(context.measureText(text).width,Math.max(100,width-6));
         const half=textWidth/2;
         let lane=lanes.findIndex(right=>right+7<=anchor-half);
         if(lane<0)lane=lanes.length;
         lanes[lane]=anchor+half;
         const rowY=tierY+lane*dimensionRowHeight;
-        if(hasPosition&&Math.min(start,end)>=0&&Math.max(start,end)<=item.length+.000001){
+        if(hasPosition&&value>0&&Math.min(start,end)>=0&&Math.max(start,end)<=item.length+.000001){
           const left=x+Math.min(start,end)*sceneScale,right=x+Math.max(start,end)*sceneScale;
           context.beginPath();
           context.moveTo(left,rowY);context.lineTo(right,rowY);
@@ -520,6 +574,15 @@ window.STSimulation2D=(function(){
           context.beginPath();context.arc(sx,sy,8,0,Math.PI*2);
           context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
+        }
+        if(showDimensions.checked){
+          const recovery=conveyorDimensions.get(item.id)?.find(row=>row.label==='Lrec');
+          if(recovery?.value>0&&recovery.start>=0&&recovery.start<=item.length){
+            const rx=x+recovery.start*scale,ry=signalY-16;
+            context.strokeStyle=accent;context.fillStyle=ink;
+            context.beginPath();context.moveTo(rx,beltY);context.lineTo(rx,ry);context.stroke();
+            context.fillText('Rec Pt.',rx,ry-3);
+          }
         }
         const dimensionY=y+beltHalfHeight(item)+24;
         const dimensionSpace=showDimensions.checked?drawConveyorDimensions(context,item,x,dimensionY,width,ink,accent):0;
@@ -705,13 +768,13 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source){
+  return {pause,unload(){endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
     const nextView=JSON.stringify(identity);
     const newView=nextView!==viewKey;
-    const revised=prepare(equipment,format,config);
+    const revised=prepare(equipment,format,config,formats);
     machineTypes=new Map(equipment.map(item=>[item.id,item.type==='PACEMAKER'?item.processData?.machineType:item.type]));
     bottleStages=new Map();
     let bottleStage=0;

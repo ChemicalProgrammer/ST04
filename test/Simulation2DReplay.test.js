@@ -217,19 +217,29 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
+    equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     Object.assign(geometry,{primeSensorPositionMm:1500,backupSensorPositionMm:500,
-      engineering:{input:{dischargeRunoutLengthMm:100,rejectRunoutLengthMm:150},
-        calculated:{usefulAccumulationLengthMm:1000,overflowLengthMm:500,overflowProductLengthMm:250,recoveryLengthMm:-50}}});
-    window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null);
+      engineering:{input:{packageLengthMm:30,upstreamNominalSpeedBpm:120,blockedTimeDelaySeconds:1,
+        clearTimeDelaySeconds:0,upstreamStartupTimeSeconds:2,bottlesDischargedAtStop:1,insuranceFactorUnits:0},
+        calculated:{dischargeZoneSpeedMmPerSecond:100,codingZoneSpeedMmPerSecond:150,downstreamConsumptionRateMmPerSecond:55}}});
+    window.SimulatorEngine.applyProductProfile=(line,profile)=>line.map(item=>({...item,formatId:profile.id}));
+    window.SimulatorEngine.resolveProductConveyor=(line,index)=>line[index].formatId==='slow-recovery'?{
+      ...geometry,conveyorSpeedMmPerSecond:150,engineering:{...geometry.engineering,
+        calculated:{...geometry.engineering.calculated,downstreamConsumptionRateMmPerSecond:80}}
+    }:geometry;
+    const formats=[{id:'large-overflow'},{id:'slow-recovery'}];
+    window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,formats);
     el('fit').click();
     const dimensions=el('dimensions');
     const currentLabels=()=>labels.slice(lastFrameOrigin).map(([text])=>text);
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
     dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
-    for(const label of ['Lact','Lp','Lba','Lbu','Discharge','Coding','Overflow','Lrec (margin)']){
+    for(const label of ['Lact','Lp','Lba','Lbu','Discharge','Coding','Overflow','Lrec']){
       assert(currentLabels().some(text=>text.startsWith(label+' ·')));
     }
-    assert(currentLabels().includes('Lrec (margin) · -50 mm'));
+    for(const [label,value] of [['Overflow',420],['Lbu',670],['Lba',830],['Lrec',-335.71]]){
+      assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
+    }
     const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
     const discharge=dimensionLabel('Discharge'),coding=dimensionLabel('Coding'),overflow=dimensionLabel('Overflow');
     assert(discharge[2]<coding[2]&&coding[2]<overflow[2]);
