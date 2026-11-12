@@ -50,7 +50,7 @@ window.STSimulation2D=(function(){
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
-  const dimensionRowHeight=19;
+  const dimensionRowHeight=26,dimensionLevels=3;
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
@@ -144,7 +144,7 @@ window.STSimulation2D=(function(){
     span(1,'Lbu',0,lbu,overflowPartial,true);
     span(1,'Lba',lbu,lba,overflowPartial,true);
     span(2,'Lact',0,length);
-    return rows;
+    return {rows,runout,backup:lbu,prime,recovery:recovery>0?prime-recovery:undefined};
   }
   function prepare(equipment,format,config,formats){
     const geometry=window.SimulatorEngine;
@@ -235,10 +235,10 @@ window.STSimulation2D=(function(){
   }
   function sceneTop(){
     return Math.max(tallestMachine()/2+26,
-      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+68));
+      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+(showDimensions.checked?112:68)));
   }
   function dimensionClearance(){
-    return showDimensions.checked?Math.max(0,...Array.from(conveyorDimensions.values(),rows=>rows.length*dimensionRowHeight)):0;
+    return showDimensions.checked&&conveyorDimensions.size?dimensionLevels*dimensionRowHeight:0;
   }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
@@ -390,27 +390,26 @@ window.STSimulation2D=(function(){
     return (productHeight(item)+beltInset+beltDepth)/2;
   }
   function drawConveyorDimensions(context,item,x,y,width,ink,accent){
-    const rows=conveyorDimensions.get(item.id)||[];
+    const rows=conveyorDimensions.get(item.id)?.rows||[];
     context.save();
     context.font='11px system-ui';context.textAlign='center';
     context.strokeStyle=accent;context.fillStyle=ink;
-    let tierY=y;
-    for(const tier of [0,1,2]){
-      const lanes=[];
+    for(let tier=0;tier<dimensionLevels;tier++){
+      const rowY=y+tier*dimensionRowHeight;
+      const labels=[];
       for(const row of rows.filter(row=>row.tier===tier)){
         const {label,start,value}=row,end=row.end??start+value;
         const hasPosition=Number.isFinite(start)&&Number.isFinite(end);
         const midpoint=hasPosition?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
         const anchor=x+midpoint*sceneScale;
         const text=Number.isFinite(value)?label+' · '+num(value)+' mm'+(row.partial?' (partial)':''):label+' · pending';
-        const textWidth=Math.min(context.measureText(text).width,Math.max(100,width-6));
-        const half=textWidth/2;
-        let lane=lanes.findIndex(right=>right+7<=anchor-half);
-        if(lane<0)lane=lanes.length;
-        lanes[lane]=anchor+half;
-        const rowY=tierY+lane*dimensionRowHeight;
-        if(hasPosition&&value>0&&Math.min(start,end)>=0&&Math.max(start,end)<=item.length+.000001){
-          const left=x+Math.min(start,end)*sceneScale,right=x+Math.max(start,end)*sceneScale;
+        const textWidth=context.measureText(text).width;
+        const previous=labels.at(-1);
+        const center=previous?Math.max(anchor,previous.center+(previous.width+textWidth)/2+8):anchor;
+        labels.push({text,width:textWidth,center,anchor});
+
+        if(hasPosition&&value>0&&start>=0&&end<=item.length+.000001){
+          const left=x+start*sceneScale,right=x+end*sceneScale;
           context.beginPath();
           context.moveTo(left,rowY);context.lineTo(right,rowY);
           for(const edge of [left,right]){
@@ -418,12 +417,25 @@ window.STSimulation2D=(function(){
           }
           context.stroke();
         }
-        drawText(context,text,anchor,rowY-4,textWidth);
       }
-      tierY+=lanes.length*dimensionRowHeight;
+      if(!labels.length)continue;
+      const first=labels[0],last=labels.at(-1);
+      const left=first.center-first.width/2,right=last.center+last.width/2;
+      const slack=(width-(right-left))/2;
+      const offset=slack<0?x+slack-left:Math.min(x+width-right,Math.max(x-left,0));
+      for(const label of labels){
+        const center=label.center+offset;
+        if(Math.abs(center-label.anchor)>1){
+          context.beginPath();
+          context.moveTo(label.anchor,rowY);
+          context.lineTo(center,rowY-7);
+          context.stroke();
+        }
+        context.fillText(label.text,center,rowY-10);
+      }
     }
     context.restore();
-    return tierY-y;
+    return dimensionLevels*dimensionRowHeight;
   }
   function drawBelt(context,x,y,width,item,factor,w,accent,beltColor,surface){
     const left=Math.max(0,x+5),right=Math.min(w,x+width-5);
@@ -561,12 +573,18 @@ window.STSimulation2D=(function(){
         const beltY=y+productHeight(item)-beltHalfHeight(item);
         drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface);
         const sensorY=y-beltHalfHeight(item)-12;
-        const closeSensors=item.prime!=null&&item.backup!=null&&Math.abs(item.prime-item.backup)*scale<19;
+        const dimensions=showDimensions.checked?conveyorDimensions.get(item.id):null;
+        const backup=dimensions?dimensions.backup:item.backup;
+        const prime=dimensions?dimensions.prime:item.prime;
+        const closeSensors=Number.isFinite(prime)&&Number.isFinite(backup)&&Math.abs(prime-backup)*scale<19;
         const signal=beltSignal(item),signalY=sensorY-22-(closeSensors?20:0);
         drawSignal(context,x+width/2,signalY,signal.lamp);
 
-        for(const [label,position,active] of [['B',item.backup,item.backupBlocked],['P',item.prime,item.primeBeam]]){
-          if(position===null)continue;
+        for(const [label,position,active] of [
+          ['B',backup,item.backupBlocked&&(!dimensions||Math.abs(backup-item.backup)<1e-6)],
+          ['P',prime,item.primeBeam&&(!dimensions||Math.abs(prime-item.prime)<1e-6)]
+        ]){
+          if(!Number.isFinite(position)||position<0||position>item.length)continue;
           const sx=x+position*scale,sy=sensorY-(label==='B'&&closeSensors?20:0);
           if(sx<0||sx>w)continue;
           context.strokeStyle=active?'#d26d31':accent;
@@ -575,13 +593,16 @@ window.STSimulation2D=(function(){
           context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
-        if(showDimensions.checked){
-          const recovery=conveyorDimensions.get(item.id)?.find(row=>row.label==='Lrec');
-          if(recovery?.value>0&&recovery.start>=0&&recovery.start<=item.length){
-            const rx=x+recovery.start*scale,ry=signalY-16;
+        if(dimensions){
+          for(const [label,position,offset] of [
+            ['Max Run-Out point',dimensions.runout,32],
+            ['Rec Pt.',dimensions.recovery,16]
+          ]){
+            if(!Number.isFinite(position)||position<0||position>item.length)continue;
+            const mx=x+position*scale,my=signalY-offset;
             context.strokeStyle=accent;context.fillStyle=ink;
-            context.beginPath();context.moveTo(rx,beltY);context.lineTo(rx,ry);context.stroke();
-            context.fillText('Rec Pt.',rx,ry-3);
+            context.beginPath();context.moveTo(mx,beltY);context.lineTo(mx,my);context.stroke();
+            context.fillText(label,mx,my-3);
           }
         }
         const dimensionY=y+beltHalfHeight(item)+24;

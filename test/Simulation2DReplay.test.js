@@ -243,14 +243,28 @@ test('2D uses the representative seed to calculate new production and preserves 
     const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
     const discharge=dimensionLabel('Discharge'),coding=dimensionLabel('Coding'),overflow=dimensionLabel('Overflow');
     assert(discharge[2]<coding[2]&&coding[2]<overflow[2]);
+    const topTier=['Discharge','Coding','Overflow','Lrec','Lp'].map(dimensionLabel);
+    for(const entry of topTier)assert.equal(entry[3],discharge[3]);
+    for(let index=1;index<topTier.length;index++){
+      const [previous,current]=topTier.slice(index-1,index+1);
+      assert(current[2]-previous[2]>=(previous[0].length+current[0].length)*2.5+7.99);
+    }
+    assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Lba')[3]);
     assert(dimensionLabel('Lbu')[3]>overflow[3]);
     assert(dimensionLabel('Lact')[3]>dimensionLabel('Lba')[3]);
 
+    const marker=label=>labels.slice(lastFrameOrigin).find(([text])=>text===label);
+    const close=(actual,expected)=>assert(Math.abs(actual-expected)<.0001);
+    close(marker('B')[2]-marker('Max Run-Out point')[2],420*.09);
+    close(marker('P')[2]-marker('B')[2],830*.09);
+    assert(!marker('Rec Pt.'));
+    window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
+    close(marker('P')[2]-marker('Rec Pt.')[2],(830-412.5-55*412.5/65)*.09);
+
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
-
-
-
+    assert(!marker('Max Run-Out point'));
+    close(marker('P')[2]-marker('B')[2],1000*.09);
   }finally{dom.window.close();}
 });
 
