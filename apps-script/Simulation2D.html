@@ -6,7 +6,9 @@
 .simulation2d-metrics > div { flex:1 1 8rem; padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
-#simulation2d-panel .fold-tools { flex-wrap:wrap; align-items:center; }
+#simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; overflow-x:auto; padding:2px; }
+#simulation2d-panel .fold-tools > * { flex:0 0 auto; }
+#simulation2d-zoom { width:clamp(64px,10vw,124px); min-width:0; padding:0; accent-color:var(--accent); }
 #simulation2d-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block:var(--space-2); }
 #simulation2d-legend span::before { content:""; display:inline-block; width:.65em; height:.65em; border-radius:50%; margin-inline-end:.4em; background:var(--lamp); }
 #simulation2d-legend .run { --lamp:#00bd67; }
@@ -78,7 +80,13 @@ window.STSimulation2D=(function(){
     return '';
   }
   function shiftIndex(seconds){return Math.floor((seconds+1e-7)/(shiftHours*3600));}
+  function syncZoom(){
+    const slider=el('zoom'),ratio=camera.scale/sceneScale;
+    slider.value=Math.log2(ratio);
+    slider.setAttribute('aria-valuetext',num(ratio*100)+'%');
+  }
   function fit(){
+    if(!canvas.clientWidth||!canvas.clientHeight)return;
     const length=definitions.reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
     const top=60,bottom=Math.max(240,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
@@ -87,7 +95,7 @@ window.STSimulation2D=(function(){
     camera.x=(canvas.clientWidth-length*camera.scale)/2;
     camera.y=(canvas.clientHeight+(top-bottom)*camera.scale/sceneScale)/2;
     camera.fit=true;
-    draw();
+    syncZoom();draw();
   }
   function strokeBox(context,x,y,width,height){
     context.beginPath();
@@ -305,10 +313,14 @@ window.STSimulation2D=(function(){
   document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
   el('pause').onclick=pause;el('reset').onclick=reset;
   canvas.addEventListener('dblclick',fit);
+  el('fit').onclick=fit;
+  el('zoom').addEventListener('input',function(){
+    zoom(sceneScale*2**Number(this.value)/camera.scale,canvas.clientWidth/2,canvas.clientHeight/2);
+  });
   function zoom(factor,x,y){
     const scale=Math.max(.0001,Math.min(4,camera.scale*factor));
     const ratio=scale/camera.scale;
-    camera={scale,x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,fit:false};draw();
+    camera={scale,x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,fit:false};syncZoom();draw();
   }
   canvas.addEventListener('wheel',event=>{
     if(!event.ctrlKey&&!event.metaKey)return;
@@ -344,7 +356,7 @@ window.STSimulation2D=(function(){
     const revised=prepare(equipment,format,config);
     if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
     key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;camera.fit=true;reset();
-    if(camera.scale<.09){camera={scale:.09,x:28,y:canvas.clientHeight/2-80,fit:false};draw();}
+    if(camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:canvas.clientHeight/2-80,fit:false};syncZoom();draw();}
   }};
 })();
 </script>
