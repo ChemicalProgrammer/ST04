@@ -138,6 +138,7 @@
       document.getElementById('home-cases').addEventListener('click', showCaseHome);
       document.getElementById('open-settings').addEventListener('click', STSettings.open);
       document.getElementById('show-new-case').addEventListener('click', function() {
+        setSubsectionExpanded(document.getElementById('toggle-cases-gallery'),true);
         toggle('new-case-form', true); document.getElementById('new-case-name').focus();
       });
       document.getElementById('refresh-case-catalog').onclick=refreshCaseCatalog;

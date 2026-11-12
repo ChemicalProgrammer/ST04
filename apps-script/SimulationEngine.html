@@ -1050,7 +1050,7 @@ function resolvePlannedStops(run) {
 
 function validateSimulationInput(input) {
   const details = [];
-  try { const resolvedProducts=validateProductSetup(input);if(resolvedProducts.length){for(const resolved of resolvedProducts)validateCase({...input.case,equipment:resolved.equipment},details,input.run,resolved.product);}else validateCase(input?.case, details); } catch(error) { details.push(invalid('run.productCatalog',error.message)); }
+  try { const resolvedProducts=validateProductSetup(input);if(resolvedProducts.length){for(const resolved of resolvedProducts)validateCase({...input.case,equipment:resolved.equipment},details,resolved.product);}else validateCase(input?.case, details); } catch(error) { details.push(invalid('run.productCatalog',error.message)); }
   validateRun(input?.run, details);
   try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
   if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);
@@ -1067,7 +1067,7 @@ function validateSimulationInput(input) {
       };
 }
 
-function validateCase(caseModel, details,run,product) {
+function validateCase(caseModel, details,product) {
   if (!caseModel || typeof caseModel !== 'object') {
     details.push(required('case'));
     return;
@@ -1104,9 +1104,10 @@ function validateCase(caseModel, details,run,product) {
     validateNoiseProfile(equipment.noiseProfile, path, details);
     validateStartProfile(equipment, path, details);
     const design=equipment.processData?.equipment;
-    if(product&&!isConveyorEquipment(equipment)&&(run.machineResidenceEnabled||design?.internalCapacityBottles!=null||design?.residenceTimeSeconds!=null)&&
-      (design?.internalCapacityBottles??10)<productUnitFactor(equipment,product)){
-      details.push(invalid(path+'.processData.equipment.internalCapacityBottles',equipment.name+': internal capacity must hold at least one output package in bottle equivalents.'));
+    if(product&&!isConveyorEquipment(equipment)&&design?.internalCapacityBottles!=null){
+      const minimum=productUnitFactor(equipment,product);
+      if(design.internalCapacityBottles<minimum)
+        details.push(invalid(path+'.processData.equipment.internalCapacityBottles',equipment.name+': internal capacity must hold at least '+minimum+' bottles for one output package.'));
     }
   });
 
@@ -2324,7 +2325,7 @@ function processEquipmentFlow(runtime, index) {
     residence.ready=Math.max(0,residence.ready-flow);
     residence.inventory=Math.max(0,residence.inventory-flow);
     if(!residualDischarge){
-      const capacity=(equipment.processData?.equipment?.internalCapacityBottles??10)/bottleFactor;
+      const capacity=equipmentCapacityBottles(equipment)/bottleFactor;
       const free=Math.max(0,capacity-residence.inventory);
       const available=index===0?Infinity:Math.min(incomingZone.waitingUnits,
         incomingZone.physicalModelEnabled?(isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
@@ -2713,6 +2714,7 @@ function addSample(runtime) {
         outputCount: round(item.outputCount),
         processedUnits: round(item.outputCount),
         internalInventoryBottles:equipmentInventoryBottles(item),
+        internalCapacityBottles:item.residence?equipmentCapacityBottles(item):undefined,
         meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
         minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
@@ -2941,6 +2943,9 @@ function createSummary(runtime) {
   };
 }
 
+function equipmentCapacityBottles(equipment) {
+  return equipment.processData?.equipment?.internalCapacityBottles??Math.max(10,equipment.outputBottleFactor||1);
+}
 function equipmentInventoryBottles(equipment) {
   return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;
 }
@@ -2952,6 +2957,7 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
     internalInventoryBottles:equipmentInventoryBottles(equipment),
+    internalCapacityBottles:equipment.residence?equipmentCapacityBottles(equipment):undefined,
     reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),
     startRampSeconds: round(equipment.startRampSeconds),

@@ -89,32 +89,28 @@
       <div class="workspace-content">
       <section id="status" data-error-notice="status" data-error-title="Application error" class="status" aria-live="polite"><?= __ST_TEXT__('client.loading_console') ?></section>
 
-      <section id="cases-panel" class="card hidden">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow"><?= __ST_TEXT__('view.your_workspace') ?></p>
-            <h2><?= __ST_TEXT__('view.your_cases') ?></h2>
-            <p><?= __ST_TEXT__('view.pick_up_where_you_left_off_or_explore_a_new_possibility') ?></p>
-          </div>
-          <div class="button-row">
-            <button id="create-demo-case" data-icon="copy" class="secondary" type="button"><?= __ST_TEXT__('view.create_demo') ?></button>
-            <button id="show-new-case" data-icon="plus" type="button"><?= __ST_TEXT__('view.new_case') ?></button>
+      <section id="cases-panel" class="fold-card hidden" aria-labelledby="cases-title">
+        <div class="fold-heading">
+          <h3 id="cases-title"><button id="toggle-cases-gallery" class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="cases-content"><?= __ST_TEXT__('view.your_cases') ?></button></h3>
+          <div class="cases-toolbar fold-tools button-row" role="group" aria-labelledby="cases-title">
+            <label class="search-field" data-icon="search"><span class="sr-only"><?= __ST_TEXT__('view.search_your_cases') ?></span><input id="case-search" type="search" placeholder="<?= __ST_TEXT__('view.search_cases') ?>" autocomplete="off"></label>
+            <select id="case-filter" aria-label="<?= __ST_TEXT__('view.filter_cases') ?>"><option value="all"><?= __ST_TEXT__('view.all_cases') ?></option><option value="ready"><?= __ST_TEXT__('view.ready_to_simulate') ?></option><option value="draft"><?= __ST_TEXT__('view.drafts') ?></option></select>
+            <select id="case-sort" aria-label="<?= __ST_TEXT__('view.sort_cases') ?>"><option value="updated"><?= __ST_TEXT__('view.recently_updated') ?></option><option value="name"><?= __ST_TEXT__('view.name_a_z') ?></option></select>
+            <button id="case-layout" class="ghost icon-button" data-icon="grid" aria-label="<?= __ST_TEXT__('view.switch_to_grid_view') ?>" title="<?= __ST_TEXT__('view.switch_to_grid_view') ?>"></button>
+            <button id="refresh-case-catalog" class="ghost icon-button" data-icon="refresh" aria-label="<?= __ST_TEXT__('cases.refresh') ?>" title="<?= __ST_TEXT__('cases.refresh') ?>" type="button"></button>
+            <button id="create-demo-case" data-icon="copy" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('view.create_demo') ?>" title="<?= __ST_TEXT__('view.create_demo') ?>"></button>
+            <button id="show-new-case" data-icon="plus" class="icon-button" type="button" aria-label="<?= __ST_TEXT__('view.new_case') ?>" title="<?= __ST_TEXT__('view.new_case') ?>"></button>
+            <span id="case-count" class="case-count" role="status"></span>
           </div>
         </div>
-        <form id="new-case-form" class="new-case-form hidden">
-          <label class="sr-only" for="new-case-name"><?= __ST_TEXT__('view.new_case_name') ?></label>
-          <input id="new-case-name" placeholder="<?= __ST_TEXT__('view.new_case_name') ?>" maxlength="120" required>
-          <button type="submit" data-icon="plus"><?= __ST_TEXT__('view.create_case') ?></button><button id="cancel-new-case" type="button" class="ghost"><?= __ST_TEXT__('view.cancel') ?></button>
-        </form>
-        <div class="cases-toolbar">
-          <label class="search-field" data-icon="search"><span class="sr-only"><?= __ST_TEXT__('view.search_your_cases') ?></span><input id="case-search" type="search" placeholder="<?= __ST_TEXT__('view.search_cases') ?>" autocomplete="off"></label>
-          <select id="case-filter" aria-label="<?= __ST_TEXT__('view.filter_cases') ?>"><option value="all"><?= __ST_TEXT__('view.all_cases') ?></option><option value="ready"><?= __ST_TEXT__('view.ready_to_simulate') ?></option><option value="draft"><?= __ST_TEXT__('view.drafts') ?></option></select>
-          <select id="case-sort" aria-label="<?= __ST_TEXT__('view.sort_cases') ?>"><option value="updated"><?= __ST_TEXT__('view.recently_updated') ?></option><option value="name"><?= __ST_TEXT__('view.name_a_z') ?></option></select>
-          <button id="case-layout" class="ghost icon-button" data-icon="grid" aria-label="<?= __ST_TEXT__('view.switch_to_grid_view') ?>" title="<?= __ST_TEXT__('view.switch_to_grid_view') ?>"></button>
-          <button id="refresh-case-catalog" class="ghost icon-button" data-icon="refresh" aria-label="<?= __ST_TEXT__('cases.refresh') ?>" title="<?= __ST_TEXT__('cases.refresh') ?>" type="button"></button>
-          <span id="case-count" class="case-count" role="status"></span>
+        <div id="cases-content" class="fold-content">
+          <form id="new-case-form" class="new-case-form hidden">
+            <label class="sr-only" for="new-case-name"><?= __ST_TEXT__('view.new_case_name') ?></label>
+            <input id="new-case-name" placeholder="<?= __ST_TEXT__('view.new_case_name') ?>" maxlength="120" required>
+            <button type="submit" data-icon="plus"><?= __ST_TEXT__('view.create_case') ?></button><button id="cancel-new-case" type="button" class="ghost"><?= __ST_TEXT__('view.cancel') ?></button>
+          </form>
+          <div id="cases-list" class="cases-list"></div><div id="case-pagination" class="case-pagination"></div>
         </div>
-        <div id="cases-list" class="cases-list"></div><div id="case-pagination" class="case-pagination"></div>
       </section>
 
       <section id="editor-panel" class="card hidden" aria-labelledby="editor-title">
@@ -163,6 +159,7 @@
             <button id="simulation2d-fit" type="button" class="secondary icon-button" data-icon="fit" title="Fit drawing to view" aria-label="Fit drawing to view"></button>
           </div>
         </div>
+        <p id="simulation2d-status" class="chart-note" role="status"></p>
         <div id="simulation2d-content" class="fold-content">
         <label class="simulation2d-source">Source
           <select id="simulation2d-source">
@@ -170,7 +167,6 @@
             <option value="representative">Representative round seed</option>
           </select>
         </label>
-        <p id="simulation2d-status" class="chart-note" role="status"></p>
         <dl class="simulation2d-metrics">
           <div><dt>Elapsed</dt><dd id="simulation2d-time">0 s</dd></div>
           <div><dt>Output</dt><dd id="simulation2d-output">0</dd></div>

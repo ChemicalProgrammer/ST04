@@ -923,7 +923,7 @@ function processEquipmentFlow(runtime, index) {
     residence.ready=Math.max(0,residence.ready-flow);
     residence.inventory=Math.max(0,residence.inventory-flow);
     if(!residualDischarge){
-      const capacity=(equipment.processData?.equipment?.internalCapacityBottles??10)/bottleFactor;
+      const capacity=equipmentCapacityBottles(equipment)/bottleFactor;
       const free=Math.max(0,capacity-residence.inventory);
       const available=index===0?Infinity:Math.min(incomingZone.waitingUnits,
         incomingZone.physicalModelEnabled?(isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
@@ -1312,6 +1312,7 @@ function addSample(runtime) {
         outputCount: round(item.outputCount),
         processedUnits: round(item.outputCount),
         internalInventoryBottles:equipmentInventoryBottles(item),
+        internalCapacityBottles:item.residence?equipmentCapacityBottles(item):undefined,
         meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
         minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
@@ -1540,6 +1541,9 @@ function createSummary(runtime) {
   };
 }
 
+function equipmentCapacityBottles(equipment) {
+  return equipment.processData?.equipment?.internalCapacityBottles??Math.max(10,equipment.outputBottleFactor||1);
+}
 function equipmentInventoryBottles(equipment) {
   return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;
 }
@@ -1551,6 +1555,7 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
     internalInventoryBottles:equipmentInventoryBottles(equipment),
+    internalCapacityBottles:equipment.residence?equipmentCapacityBottles(equipment):undefined,
     reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),
     startRampSeconds: round(equipment.startRampSeconds),

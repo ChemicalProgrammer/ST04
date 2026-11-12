@@ -109,3 +109,15 @@ test('Bottle Live ships whole packages, conserves material and records early spa
  i.run.rounds=2;
  assert.equal(simulateLine(i).ok,false);
 });
+
+test('default machine capacity holds a full twelve-pack while explicit undersizing is reported',()=>{
+ const i=input();i.run.machineResidenceEnabled=true;i.run.durationSeconds=180;
+ const result=run(i);conserved(result);
+ assert.equal(result.equipmentMetrics.packer.internalCapacityBottles,12);
+ assert.equal(result.equipmentMetrics.sink.internalCapacityBottles,12);
+ assert(result.summary.outputCount>0);
+ i.case.equipment[2].processData.equipment={internalCapacityBottles:10};
+ const invalid=simulateLine(i);
+ assert.equal(invalid.ok,false);
+ assert.match(JSON.stringify(invalid.error),/packer: internal capacity must hold at least 12 bottles/);
+});

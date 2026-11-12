@@ -70,7 +70,7 @@ window.STSimulation2D=(function(){
         const batch=unit==='CASES'&&data.flowUnits?.input==='BOTTLES'
           ? (format?geometry.productPackSize(format):NaN) : 1;
         const inputBottleFactor=data.flowUnits?.input==='CASES'&&packSize>0?packSize:1;
-        return {capacityBottles:data.equipment?.internalCapacityBottles??10,
+        return {capacityBottles:data.equipment?.internalCapacityBottles??Math.max(10,batch*inputBottleFactor),
           residenceSeconds:data.equipment?.residenceTimeSeconds??20,inputBottleFactor,id:item.id,name:item.name||item.id,kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,
           bottlesPerUnit:unit==='BOTTLES'?1:packSize,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
@@ -97,8 +97,11 @@ window.STSimulation2D=(function(){
     for(const item of definitions){
       if(item.kind==='machine'){
         if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
-        if(!Number.isSafeInteger(item.capacityBottles)||item.capacityBottles<item.batch*item.inputBottleFactor||
-          !Number.isFinite(item.residenceSeconds)||item.residenceSeconds<0)return item.name+': check internal capacity and residence time. Capacity must hold at least one output batch.';
+        const minimum=item.batch*item.inputBottleFactor;
+        if(!Number.isSafeInteger(item.capacityBottles)||item.capacityBottles<minimum)
+          return item.name+': set Internal capacity to at least '+num(minimum)+' bottles in Equipment.';
+        if(!Number.isFinite(item.residenceSeconds)||item.residenceSeconds<0)
+          return item.name+': set Residence time to zero or more in Equipment.';
         continue;
       }
       const missing=[['conveyor length',item.length],['belt speed',item.speed],['product length',item.packageLength],['moving pitch',item.pitch]]
@@ -382,7 +385,9 @@ window.STSimulation2D=(function(){
     const first=line[0];
     const waitingForFirst=runState==='Running'&&first?.produced===0
       ? ' · '+first.name+' · '+first.state:'';
-    el('status').textContent=(validation||runState)+sourceStatus+waitingForFirst;
+    const message=el('status');
+    message.classList.toggle('notice',Boolean(validation));
+    message.textContent=validation||runState+sourceStatus+waitingForFirst;
     el('time').textContent=num(model?.time??0)+' s';
     el('output').textContent=num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
     el('inventory').textContent=num(line.reduce((sum,item)=>sum+(item.items?.length||0),0));
@@ -398,6 +403,8 @@ window.STSimulation2D=(function(){
     el('pause').disabled=runState!=='Running';
     el('stop').disabled=runState!=='Running'&&runState!=='Paused';
     el('reset').disabled=!!validation;
+    el('play').title=validation||'Start';
+    el('reset').title=validation||'Reset';
     el('limit').disabled=runState==='Running';
     el('source').options[1].disabled=!representative;
     status();

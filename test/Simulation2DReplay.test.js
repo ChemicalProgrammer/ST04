@@ -134,6 +134,28 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('source').value='independent';
     el('source').dispatchEvent(new window.Event('change'));
     assert.equal(el('time').textContent,'1 s');
+
+    Object.assign(window.SimulatorEngine,{productPackSize:()=>12,applyProductProfile:items=>items,productPresentation:()=>({})});
+    const packer=equipment.at(-1);
+    packer.processData.flowUnits={input:'BOTTLES',output:'CASES'};
+    packer.processData.equipment.internalCapacityBottles=10;
+    const loadPacker=()=>window.STSimulation2D.load(['case','12-pack'],equipment,{}, {seed:7},null);
+    loadPacker();
+    assert.equal(el('play').disabled,true);
+    assert.match(el('status').textContent,/at least 12 bottles/);
+    delete packer.processData.equipment.internalCapacityBottles;
+    loadPacker();
+    assert.equal(el('play').disabled,false);
+    assert.equal(el('pause').disabled,true);
+    assert.equal(el('stop').disabled,true);
+    assert.equal(el('reset').disabled,false);
+    el('play').click();
+    assert.equal(el('pause').disabled,false);
+    el('pause').click();
+    assert.equal(el('stop').disabled,false);
+    el('stop').click();
+    el('reset').click();
+    assert.match(el('status').textContent,/^Ready/);
   }finally{dom.window.close();}
 });
 
