@@ -250,7 +250,7 @@ test('resident bottles discharge at even headways and Back-up leaves 25 of 30 af
 test('the five machine silhouettes have distinct moving details', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'), {window});
-  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#369'};
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#369',belt:'#526b82'};
   function trace(type,time){
     const operations=[];
     const context=new Proxy({},{get:(_,name)=>(...args)=>operations.push([name,...args])});
@@ -258,6 +258,10 @@ test('the five machine silhouettes have distinct moving details', () => {
     return {drawn,operations};
   }
   const types=['BLOWMOLDER','FILLER','SLEEVER','CASE_PACKER','PALLETIZER'];
+  const sizes=types.map(type=>window.STSimulation2DMachines.dimensions(type));
+  assert.equal(new Set(sizes.map(size=>size.width)).size,types.length);
+  assert.equal(new Set(sizes.map(size=>size.height)).size,types.length);
+  assert(sizes[2].width<sizes[1].width&&sizes[4].height>sizes[3].height);
   const still=types.map(type=>trace(type,0));
   assert(still.every(result=>result.drawn));
   assert.equal(new Set(still.map(result=>JSON.stringify(result.operations))).size,types.length);

@@ -52,7 +52,7 @@ window.STSimulation2D=(function(){
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
   machineStyle.addEventListener('change',()=>{
     window.STPreferences?.write('simulation2dMachineStyle',machineStyle.value);
-    draw();
+    if(camera.fit)fit();else draw();
   });
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
@@ -131,11 +131,19 @@ window.STSimulation2D=(function(){
     slider.setAttribute('aria-valuetext',percent);
     el('zoom-value').textContent=percent;
   }
+  function machineDesign(item){
+    return item.kind==='machine'&&machineStyle.value==='animated'
+      ? window.STSimulation2DMachines?.dimensions(machineTypes.get(item.id)) : null;
+  }
   function displayWidth(item){
-    return Math.max(0,item.length||0)*sceneScale*(item.kind==='machine'?machineScale:1);
+    return Math.max(0,item.length||0)*sceneScale*(item.kind==='machine'?machineScale*(machineDesign(item)?.width??1):1);
+  }
+  function displayHeight(item){return machineHeight*(machineDesign(item)?.height??1);}
+  function tallestMachine(){
+    return Math.max(0,...definitions.filter(item=>item.kind==='machine').map(displayHeight));
   }
   function sceneTop(){
-    return Math.max(machineHeight/2+26,
+    return Math.max(tallestMachine()/2+26,
       ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+68));
   }
   function fit(){
@@ -143,7 +151,7 @@ window.STSimulation2D=(function(){
     const length=(model?.line||definitions).reduce((total,item)=>total+displayWidth(item)/sceneScale,0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
     const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
     const tallestBelt=Math.max(0,...definitions.filter(item=>item.kind==='belt').map(beltHalfHeight));
-    const telemetryTop=Math.max(machineHeight/2,tallestBelt)+22;
+    const telemetryTop=Math.max(tallestMachine()/2,tallestBelt)+22;
     const top=sceneTop(),bottom=Math.max(telemetryTop+395,shortBelt?shortBeltOffset+350:0,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
@@ -345,8 +353,9 @@ window.STSimulation2D=(function(){
     context.font='12px system-ui';context.textAlign='center';
     const scale=sceneScale,y=camera.y/factor;
     let x=camera.x/factor;
-    for(const item of model?.line||definitions){
-      const width=displayWidth(item);
+    const line=model?.line||definitions;
+    for(let index=0;index<line.length;index++){
+      const item=line[index],width=displayWidth(item);
       const lane=item.kind==='belt';
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
@@ -369,25 +378,38 @@ window.STSimulation2D=(function(){
         const telemetryY=y+Math.max(beltHalfHeight(item)+22,width<telemetryWidth?shortBeltOffset:56);
         drawTelemetry(context,item,x+width/2,telemetryY,signal,ink,border,surface,muted,soft);
       }else{
-        const top=y-machineHeight/2;
+        const height=displayHeight(item),top=y-height/2;
         const signal=machineSignal(item);
         const durations=item.durations||{};
         const motionSeconds=reducedMotion?.matches?0:(durations.running||0)+(durations.acceleration||0)+(durations.deceleration||0);
-        const detailed=machineStyle.value==='animated'&&window.STSimulation2DMachines?.draw(context,
-          machineTypes.get(item.id),x,top,width,machineHeight,{ink,soft,surface,accent},motionSeconds);
-        if(!detailed){
+        const detailed=machineDesign(item)&&window.STSimulation2DMachines.draw(context,
+          machineTypes.get(item.id),x,top,width,height,{ink,soft,surface,accent,belt:beltColor},motionSeconds);
+        if(detailed){
+          const trackY=y+height*.015;
+          context.strokeStyle=beltColor;context.lineWidth=beltDepth*.55;context.lineCap='round';
+          context.beginPath();
+          for(const side of [-1,1]){
+            const belt=line[index+side];
+            if(belt?.kind!=='belt')continue;
+            const edge=side<0?x:x+width;
+            const beltY=y+productHeight(belt)-beltHalfHeight(belt)+beltInset+beltDepth/2;
+            context.moveTo(edge,beltY);
+            context.lineTo(edge-side*width*.105,trackY);
+          }
+          context.stroke();context.lineWidth=1;context.lineCap='butt';
+        }else{
           context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
-          strokeBox(context,x,top,width,machineHeight);
+          strokeBox(context,x,top,width,height);
           context.fillStyle=context.strokeStyle;
-          context.fillRect(x,top,Math.min(4,width),machineHeight);
+          context.fillRect(x,top,Math.min(4,width),height);
           if(width>=36){
-            context.strokeRect(x+width*.25,top+machineHeight*.27,width*.5,machineHeight*.46);
-            context.beginPath();context.moveTo(x+width/2,top+machineHeight*.27);context.lineTo(x+width/2,top+machineHeight*.73);context.stroke();
+            context.strokeRect(x+width*.25,top+height*.27,width*.5,height*.46);
+            context.beginPath();context.moveTo(x+width/2,top+height*.27);context.lineTo(x+width/2,top+height*.73);context.stroke();
           }
         }
         const sx=x+width/2;
         drawSignal(context,sx,top-14,signal.lamp);
-        drawTelemetry(context,item,sx,y+machineHeight/2+22,signal,ink,border,surface,muted,soft);
+        drawTelemetry(context,item,sx,y+height/2+22,signal,ink,border,surface,muted,soft);
       }
       x+=width;
     }

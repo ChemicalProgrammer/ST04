@@ -1,95 +1,125 @@
 <script>
 window.STSimulation2DMachines=(function(){
+  const blower={kind:'blower',width:.76,height:1.28};
   const designs={
-    BLOWER:'blower',BLOWMOLDER:'blower',FILLER:'filler',SLEEVER:'sleever',
-    CASE_PACKER:'packer',PALLETIZER:'palletizer'
+    BLOWER:blower,BLOWMOLDER:blower,
+    FILLER:{kind:'filler',width:1.18,height:.96},
+    SLEEVER:{kind:'sleever',width:.57,height:1.04},
+    CASE_PACKER:{kind:'packer',width:1.36,height:.82},
+    PALLETIZER:{kind:'palletizer',width:.94,height:1.42}
   };
+  function dimensions(type){
+    return Object.hasOwn(designs,type)?designs[type]:null;
+  }
   function draw(context,type,x,y,width,height,colors,seconds){
-    const design=Object.hasOwn(designs,type)?designs[type]:null;
+    const design=dimensions(type);
     if(!design)return false;
     const phase=(1-Math.cos(seconds*Math.PI*2))/2;
-    const {ink,soft,surface,accent}=colors;
+    const {ink,soft,surface,accent,belt}=colors;
     context.save();
     context.translate(x,y);
     context.scale(width/120,height/100);
     context.lineWidth=.8;
-    context.strokeStyle=ink;
-    function box(x,y,w,h,fill){
+    context.lineJoin='round';
+    context.strokeStyle=belt;
+    function box(x,y,w,h,fill,radius=2){
       context.fillStyle=fill;
-      context.beginPath();context.roundRect(x,y,w,h,1.4);context.fill();context.stroke();
+      context.beginPath();context.roundRect(x,y,w,h,radius);context.fill();context.stroke();
     }
     function line(...points){
-      context.beginPath();
-      context.moveTo(points[0],points[1]);
+      context.beginPath();context.moveTo(points[0],points[1]);
       for(let i=2;i<points.length;i+=2)context.lineTo(points[i],points[i+1]);
       context.stroke();
     }
-    function reel(x,y,radius){
-      context.fillStyle=soft;
+    function circle(x,y,radius,fill){
+      context.fillStyle=fill;
       context.beginPath();context.arc(x,y,radius,0,2*Math.PI);context.fill();context.stroke();
+    }
+    function reel(x,y,radius){
+      circle(x,y,radius,soft);circle(x,y,radius-3,surface);
       for(let spoke=0;spoke<3;spoke++){
         const angle=seconds*Math.PI+spoke*2*Math.PI/3;
-        line(x,y,x+radius*.73*Math.cos(angle),y+radius*.73*Math.sin(angle));
+        line(x,y,x+(radius-3)*Math.cos(angle),y+(radius-3)*Math.sin(angle));
       }
+      circle(x,y,2,accent);
     }
-    function housing(left,right,top=7){
-      box(left,top,right-left,86-top,soft);
-      box(left+4,top+6,right-left-8,64-top,surface);
-      box(left+4,73,right-left-8,9,surface);
-      box(left+5,86,7,6,ink);box(right-12,86,7,6,ink);
+    function foot(x,y){box(x,y,15,3,belt,1);}
+    function track(){
+      box(12,50,96,3,belt,1.5);
+      for(let x=19;x<108;x+=12)circle(x,51.5,1,surface);
     }
-    function rail(left,right){box(left,49,right-left,3,soft);}
-    switch(design){
+    switch(design.kind){
       case 'blower':
-        housing(12,108);
-        box(19,17,29,44,ink);
-        for(let i=0;i<4;i++)box(22+i*6,22,3,34,i<phase*4?'#ecaa58':'#ae7244');
-        box(60,19,35,39,soft);
-        box(64,31,10+5*phase,17,accent);
-        box(81-5*phase,31,10+5*phase,17,accent);
-        rail(52,110);
+        // Tall oven with a separate, open mold station.
+        box(14,9,38,76,soft,5);
+        box(22,22,22,40,surface,3);
+        for(let i=0;i<4;i++)box(26+i*4,27,2,27,i<phase*4?accent:belt,1);
+        box(20,14,20,2,belt,1);
+        box(56,18,50,7,belt);
+        box(98,25,8,60,soft);
+        box(56,69,42,16,soft,3);
+        box(72,25,10,12+7*phase,accent);
+        box(58+5*phase,38,12,10,soft);
+        box(84-5*phase,38,12,10,soft);
+        foot(23,85);foot(86,85);
+        track();
         break;
       case 'filler':
-        housing(6,114,12);
-        box(91,3,18,10,accent);
-        line(100,13,100,30,91,30);
-        box(24,24,64,5,soft);
-        for(let i=0;i<3;i++){
-          box(33+i*20,29,6,10+7*phase,accent);
-          line(36+i*20,39+7*phase,36+i*20,43+5*phase);
+        // Wide filling manifold, with an offset cap-feed hopper.
+        box(13,62,94,18,soft,4);
+        box(17,42,8,20,soft);
+        box(95,25,8,37,soft);
+        box(26,19,61,10,soft,5);
+        box(31,21,51,2,surface,1);
+        box(43,11,28,9,accent,4);
+        for(let i=0;i<4;i++){
+          box(34+i*13,29,4,8+6*phase,accent,1);
+          line(36+i*13,37+6*phase,36+i*13,45+3*phase);
         }
-        rail(10,110);
+        box(89,11,20,10,accent,4);
+        line(94,21,96,28,102,28,104,21);
+        foot(20,80);foot(85,80);
+        track();
         break;
       case 'sleever':
-        housing(18,102);
-        reel(40,29,11);reel(77,29,11);
-        line(51,29,63,37,63,45);line(66,29,63,37);
-        box(54,40+4*phase,18,6,accent);
-        rail(21,100);
+        // Narrow single column and exposed film reels.
+        box(50,10,19,77,soft,5);
+        box(43,70,34,13,soft,3);
+        reel(39,23,14);reel(80,35,10);
+        line(53,23,74,26);line(72,42,66,47,59,47);
+        box(47,41+4*phase,19,5,accent,2);
+        foot(44,86);foot(61,86);
+        track();
         break;
       case 'packer':
-        housing(5,115,15);
-        box(12,22,94,5,soft);
-        box(30+26*phase,27,15,13,accent);
-        line(30+26*phase,40,30+26*phase,45,45+26*phase,45,45+26*phase,40);
-        box(84,36,20,13,'#c99557');
-        line(84,36,80,31,100,31,104,36);
-        rail(9,111);
+        // Low open gantry, with a traversing head and carton guide.
+        box(8,30,104,6,belt,3);
+        box(11,36,7,42,soft);box(102,36,7,42,soft);
+        box(21,63,78,15,soft,3);
+        box(27+34*phase,29,15,10,accent,2);
+        line(31+34*phase,39,31+34*phase,47,39+34*phase,47,39+34*phase,39);
+        box(83,42,13,8,soft,1);line(83,42,79,37,92,37,96,42);
+        foot(10,78);foot(96,78);
+        track();
         break;
       case 'palletizer':
-        box(9,7,102,9,soft);
-        box(9,16,7,70,soft);box(104,16,7,70,soft);
-        box(13,86,93,6,ink);
-        box(55,16,10,14+10*phase,accent);
-        box(43,30+10*phase,34,5,soft);
-        box(39,46,20,12,'#c99557');box(60,46,20,12,'#c99557');
-        box(36,58,48,4,soft);
-        rail(17,35);rail(85,104);
+        // Tall portal with a lift head and an open pallet deck.
+        box(13,8,94,7,belt,3);
+        box(15,15,8,72,soft);box(97,15,8,72,soft);
+        line(23,22,31,15);line(89,15,97,22);
+        box(52,16,16,12,accent,3);
+        box(57,27,6,10+12*phase,belt,1);
+        box(42,37+12*phase,36,4,accent,2);
+        for(let i=0;i<3;i++)line(48+i*12,41+12*phase,48+i*12,46+12*phase);
+        box(35,69,50,4,belt,1);
+        box(39,73,7,4,ink,1);box(74,73,7,4,ink,1);
+        foot(11,87);foot(94,87);
+        track();
         break;
     }
     context.restore();
     return true;
   }
-  return {draw};
+  return {draw,dimensions};
 })();
 </script>
