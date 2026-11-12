@@ -191,10 +191,11 @@ window.STSimulation2D=(function(){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const rate=item.ratePerMinute??0,produced=item.produced??0;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
-    const duration=key=>num(item.durations?.[key]??0)+' s';
+    const unit=(value,label)=>value+'\u00a0'+label;
+    const duration=key=>unit(num(item.durations?.[key]??0),'s');
     const state=signal?.state||(runState==='Ready'?'Ready':runState==='Running'?item.state||'Empty':runState);
-    const summary=[state,bottles(rate)+' bpm',bottles(produced)+' bottles'];
-    if(cases)summary.push(num(rate)+' cpm',num(produced)+' cases');
+    const summary=[state,unit(bottles(rate),'bpm'),unit(bottles(produced),'bottles')];
+    if(cases)summary.push(unit(num(rate),'cpm'),unit(num(produced),'cases'));
     if(belt)summary.push(num(item.items?.length??0)+' on belt');
     const counters=belt
       ? ['Empty '+duration('empty'),'Flow '+duration('flowing'),'Accum. '+duration('accumulating'),
@@ -202,16 +203,17 @@ window.STSimulation2D=(function(){
       : ['Start '+duration('starting'),'Run '+duration('running'),'Starving '+duration('starving'),
         'Ramp up '+duration('acceleration'),'Ramp down '+duration('deceleration'),'Blocked '+duration('blocked'),
         'Failure time '+duration('failure'),item.failures?.length?'Own failures '+num(item.failureCount??0):'Own failures off'];
-    function wrap(text){
+    const textWidth=telemetryWidth-8;
+    function wrap(text,breakWords=false){
       const lines=[];
       let line='';
-      for(let word of text.split(/\s+/)){
+      for(let word of text.split(' ')){
         const joined=line?line+' '+word:word;
-        if(context.measureText(joined).width<=telemetryWidth-14){line=joined;continue;}
+        if(context.measureText(joined).width<=textWidth){line=joined;continue;}
         if(line)lines.push(line);
-        while(context.measureText(word).width>telemetryWidth-14&&word.length>1){
+        while(breakWords&&context.measureText(word).width>textWidth&&word.length>1){
           let end=word.length-1;
-          while(end>1&&context.measureText(word.slice(0,end)).width>telemetryWidth-14)end--;
+          while(end>1&&context.measureText(word.slice(0,end)).width>textWidth)end--;
           lines.push(word.slice(0,end));word=word.slice(end);
         }
         line=word;
@@ -221,9 +223,9 @@ window.STSimulation2D=(function(){
     }
     function card(title,values,outline){
       context.font='600 12px system-ui';
-      const heading=wrap(title);
+      const heading=wrap(title,true);
       context.font='12px system-ui';
-      const rows=values.flatMap(wrap);
+      const rows=values.flatMap(value=>wrap(value));
       const height=14+(heading.length+rows.length)*15;
       context.fillStyle=surface;context.strokeStyle=outline;
       strokeBox(context,x-telemetryWidth/2,y,telemetryWidth,height);

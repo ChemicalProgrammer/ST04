@@ -66,7 +66,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
-      measureText:text=>({width:text.length*5}),
+      measureText:text=>({width:text.replaceAll("\u00a0"," ")==="Ramp down 0 s"?84:text.length*5}),
       fillText(text){labels.push([text,this.font]);},
       ellipse:x=>bottles.push(x)
     },{get:(target,key)=>target[key]??(()=>{})});
@@ -126,6 +126,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     for(const title of ['upstream','belt','Time / failures','Time / sensors']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
+    assert(labels.some(([text])=>text==='Ramp down 0\u00a0s'));
     for(const prefix of ['Own failures','Run ','Starving','Ramp up','Ramp down','Failure time']){
       assert(labels.some(([text,font])=>text.startsWith(prefix)&&font==='12px system-ui'));
     }
