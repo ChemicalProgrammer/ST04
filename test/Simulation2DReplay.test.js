@@ -63,12 +63,14 @@ test('2D uses the representative seed to calculate new production and preserves 
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
     const labels=[],bottles=[];
+    let lastFrameOrigin;
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
       measureText:text=>({width:text.length*5}),
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
-      quadraticCurveTo:x=>bottles.push(x)
+      quadraticCurveTo:x=>bottles.push(x),
+      clearRect(){lastFrameOrigin=labels.length;}
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
     window.requestAnimationFrame=callback=>{animate=callback;return 1;};
@@ -164,6 +166,24 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('stop').click();
     el('reset').click();
     assert.match(el('status').textContent,/^Ready/);
+    const canvas=el('canvas');
+    const pointer=(target,type,x,buttons)=>target.dispatchEvent(Object.assign(
+      new window.MouseEvent(type,{clientX:x,clientY:100,button:0,buttons,bubbles:true}),{pointerId:1}));
+    el('fit').click();
+    const frameX=()=>labels.slice(lastFrameOrigin).find(([text])=>text==='upstream')[2];
+    const fittedX=frameX();
+    pointer(canvas,'pointerdown',120,1);
+    pointer(window,'pointermove',160,1);
+    pointer(window,'pointerup',160,0);
+    const draggedX=frameX();
+    assert.notEqual(draggedX,fittedX);
+    canvas.dispatchEvent(new window.MouseEvent('dblclick',{bubbles:true}));
+    assert.equal(frameX(),draggedX);
+    window.STSimulation2D.load(['case','12-pack'],equipment,{}, {seed:8},null);
+    assert.equal(frameX(),draggedX);
+    el('fit').click();
+    assert.equal(frameX(),fittedX);
+
   }finally{dom.window.close();}
 });
 

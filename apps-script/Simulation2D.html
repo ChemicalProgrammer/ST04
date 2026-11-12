@@ -44,7 +44,7 @@ window.STSimulation2D=(function(){
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,shortBeltOffset=385,machineScale=3.75;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
-  let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
+  let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
   let productHeights={};
   let camera={scale:1,x:0,y:0,fit:true};
@@ -485,8 +485,7 @@ window.STSimulation2D=(function(){
     limitSeconds=this.valueAsNumber*60;
     checkpoint();
   });
-  canvas.addEventListener('dblclick',fit);
-  el('fit').onclick=fit;
+  el('fit').onclick=()=>{endDrag();fit();};
   el('zoom').addEventListener('input',function(){
     zoom(sceneScale*2**Number(this.value)/camera.scale,canvas.clientWidth/2,canvas.clientHeight/2);
   });
@@ -509,6 +508,7 @@ window.STSimulation2D=(function(){
   }
   canvas.addEventListener('pointerdown',event=>{
     if(event.button!==0||drag)return;
+    camera.fit=false;
     drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
     canvas.setPointerCapture?.(event.pointerId);
   });
@@ -522,10 +522,12 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){cancelFrame();save=null;key=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source){
+  return {pause,unload(){endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
+    const nextView=JSON.stringify(identity);
+    const newView=nextView!==viewKey;
     const revised=prepare(equipment,format,config);
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
@@ -549,14 +551,15 @@ window.STSimulation2D=(function(){
     el('limit').value=limitSeconds/60;
     el('speed').value=String(stored?.speed??1);
     if(!el('speed').value)el('speed').value='1';
-    camera.fit=true;reset();
+    if(newView){endDrag();viewKey=nextView;camera.fit=true;}
+    reset();
     if(model&&stored?.version===1&&stored.signature===signature&&stored.checkpoint){
       model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint);
       shiftOutput=Array.isArray(stored.shiftOutput)?[...stored.shiftOutput]:[];
       runState=model.time>=limitSeconds-1e-8?'Completed':stored.runState==='Stopped'?'Stopped':'Paused';
-      syncControls();fit();
+      syncControls();if(camera.fit)fit();else draw();
     }
-    if(camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:Math.max(sceneTop()+18,canvas.clientHeight/2-80),fit:false};syncZoom();draw();}
+    if(newView&&camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:Math.max(sceneTop()+18,canvas.clientHeight/2-80),fit:false};syncZoom();draw();}
   }};
 })();
 </script>
