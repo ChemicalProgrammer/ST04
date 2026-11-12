@@ -68,7 +68,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('canvas').getContext=()=>new Proxy({
       measureText:text=>({width:text.replaceAll("\u00a0"," ")==="Ramp down 0 s"?84:text.length*5}),
       fillText(text){labels.push([text,this.font]);},
-      ellipse:x=>bottles.push(x)
+      quadraticCurveTo:x=>bottles.push(x)
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
     window.requestAnimationFrame=callback=>{animate=callback;return 1;};

@@ -45,6 +45,7 @@ window.STSimulation2D=(function(){
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
+  let productHeights={};
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
@@ -117,7 +118,7 @@ window.STSimulation2D=(function(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const length=(model?.line||definitions).reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
     const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
-    const top=60,bottom=Math.max(shortBelt?shortBeltOffset+280:385,68+shiftIndex(model?.time??0)*20);
+    const top=Math.max(68,...definitions.filter(item=>item.kind==='belt').map(item=>productHeight(item)+28)),bottom=Math.max(shortBelt?shortBeltOffset+280:385,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -239,6 +240,51 @@ window.STSimulation2D=(function(){
     card(item.name,summary,signal?lampColors[signal.lamp]:border);
     card(belt?'Time / sensors':'Time / failures',counters,border);
   }
+  function productHeight(item){
+    const configured=productHeights[item.unit];
+    const aspect=item.unit==='CASES'?.75:30/14;
+    return (configured>0?configured:(item.packageLength||0)*aspect)*sceneScale;
+  }
+  function drawBelt(context,x,y,width,item,factor,w,accent,border,surface){
+    const depth=10,left=Math.max(0,x),right=Math.min(w,x+width);
+    context.fillStyle=border;context.strokeStyle=border;
+    strokeBox(context,x,y,width,depth);
+    if(factor>=.25){
+      context.strokeStyle=surface;context.lineWidth=2;
+      context.setLineDash([20,8]);
+      const phase=((model?.time??0)*item.speed*sceneScale)%28||0;
+      for(const direction of [1,-1]){
+        context.lineDashOffset=(left-x)-direction*phase;
+        const track=y+(direction===1?1:depth-1);
+        context.beginPath();context.moveTo(left,track);context.lineTo(right,track);context.stroke();
+      }
+      context.setLineDash([]);context.lineDashOffset=0;context.lineWidth=1;
+    }
+    const length=item.packageLength*sceneScale,height=productHeight(item);
+    context.fillStyle=accent;
+    context.beginPath();
+    for(const product of item.items||[]){
+      const px=x+product.x*sceneScale,l=px-length/2,r=px+length/2,t=y-height;
+      if(r<0||l>w)continue;
+      if(length*factor<2){
+        const marker=2/factor;
+        context.rect(px-marker/2,y-Math.max(height,marker),marker,Math.max(height,marker));
+      }else if(item.unit==='CASES'){
+        context.rect(l,t,length,height);
+      }else{
+        // Side silhouette from BrandConveyor, normalized to the length and height of the product.
+        const dx=length/14,dy=height/30;
+        context.moveTo(l,y-2*dy);context.lineTo(l,y-15*dy);
+        context.quadraticCurveTo(l,y-18*dy,l+4*dx,y-22*dy);
+        context.lineTo(l+4*dx,t);context.lineTo(l+10*dx,t);context.lineTo(l+10*dx,y-22*dy);
+        context.quadraticCurveTo(r,y-18*dy,r,y-15*dy);
+        context.lineTo(r,y-2*dy);context.quadraticCurveTo(r,y,r-2*dx,y);
+        context.lineTo(l+2*dx,y);context.quadraticCurveTo(l,y,l,y-2*dy);
+        context.closePath();
+      }
+    }
+    context.fill();
+  }
   function draw(){
     if(panel.classList.contains('hidden'))return;
     const screenWidth=canvas.clientWidth,h=canvas.clientHeight;
@@ -266,52 +312,32 @@ window.STSimulation2D=(function(){
       const lane=item.kind==='belt';
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
-        const span=Math.max(10,(item.beltWidth??(item.packageWidth||0)*1.4)*scale);
-        context.fillStyle=surface;context.strokeStyle=border;
-        strokeBox(context,x,y-span/2,width,span);
-        context.beginPath();context.moveTo(x,y);context.lineTo(x+width,y);
-        context.setLineDash([3,5]);context.stroke();context.setLineDash([]);
-        context.fillStyle=accent;
-        const products=item.items||[];
-        for(const product of products){
-          const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
-          if(px+length/2<0||px-length/2>w)continue;
-          if(!(across>0)||Math.min(length,across)*factor<2){
-            // Keep individual products visible at Fit without changing their physical dimensions.
-            const mark=Math.max(2/factor,Math.min(length,across||length));
-            context.fillRect(px-mark/2,y-mark/2,mark,mark);
-          }else if(item.unit==='CASES'){
-            context.fillRect(px-length/2,y-across/2,length,across);
-            if(length>8&&across>5){
-              context.strokeStyle=surface;context.beginPath();context.moveTo(px,y-across/2);context.lineTo(px,y+across/2);context.stroke();
-            }
-          }else {context.beginPath();context.ellipse(px,y,length/2,across/2,0,0,Math.PI*2);context.fill();}
-        }
+        drawBelt(context,x,y,width,item,factor,w,accent,border,surface);
         for(const [label,position,active] of [['B',item.backup,item.backupBlocked],['P',item.prime,item.primeBeam]]){
           if(position===null)continue;
-          const sx=x+position*scale,sy=label==='P'?y-span/2-12:y+span/2+12;
+          const sx=x+position*scale,sy=label==='P'?y-productHeight(item)-12:y+22;
           if(sx<0||sx>w)continue;
           context.strokeStyle=active?'#d26d31':accent;
-          context.beginPath();context.moveTo(sx,y-span/2);context.lineTo(sx,y+span/2);context.stroke();
+          context.beginPath();context.moveTo(sx,y);context.lineTo(sx,sy);context.stroke();
           context.beginPath();context.arc(sx,sy,8,0,Math.PI*2);
           context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
-        const telemetryY=y+Math.max(span/2+25,width<telemetryWidth?shortBeltOffset:56);
+        const telemetryY=y+(width<telemetryWidth?shortBeltOffset:56);
         drawTelemetry(context,item,x+width/2,telemetryY,null,ink,border,surface);
       }else{
         const height=Math.max(24,540*scale);
         const signal=machineSignal(item);
         context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
-        strokeBox(context,x,y-height/2,width,height);
+        strokeBox(context,x,y-height+10,width,height);
         context.fillStyle=context.strokeStyle;
-        context.fillRect(x,y-height/2,Math.min(4,width),height);
+        context.fillRect(x,y-height+10,Math.min(4,width),height);
         if(width>=36){
-          context.strokeRect(x+width*.25,y-height*.23,width*.5,height*.46);
-          context.beginPath();context.moveTo(x+width/2,y-height*.23);context.lineTo(x+width/2,y+height*.23);context.stroke();
+          context.strokeRect(x+width*.25,y-height*.73+10,width*.5,height*.46);
+          context.beginPath();context.moveTo(x+width/2,y-height*.73+10);context.lineTo(x+width/2,y-height*.27+10);context.stroke();
         }
         const sx=x+width/2;
-        drawSignal(context,sx,y-height/2-14,signal.lamp);
+        drawSignal(context,sx,y-height-4,signal.lamp);
         drawTelemetry(context,item,sx,y+56,signal,ink,border,surface);
       }
       x+=width;
@@ -319,10 +345,8 @@ window.STSimulation2D=(function(){
     if(definitions.length&&x+cardGap<=w&&x+cardGap+cardWidth>=0)drawProduction(context,x+cardGap,y-40,ink,border,surface);
   }
   function status(){
-    const unknownWidth=definitions.some(item=>item.kind==='belt'&&!(item.packageWidth>0));
     const sourceStatus=(defaultRun?' · Round '+representative.round+' · Seed '+representative.seed:' · Seed '+seed)
-      +(representative?'':' · No representative seed available. Run the numerical simulation.')
-      +(unknownWidth?' · Products without a width in Formats are shown as centreline markers.':'');
+      +(representative?'':' · No representative seed available. Run the numerical simulation.');
     const line=model?.line||[];
     const first=line[0];
     const waitingForFirst=runState==='Running'&&first?.produced===0
@@ -463,11 +487,16 @@ window.STSimulation2D=(function(){
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
     const revised=prepare(equipment,format,config);
+    const geometry=window.SimulatorEngine;
+    const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
+      CASES:geometry.productPresentation(format,'CASES').heightMm}:{};
+    const heightChanged=heights.BOTTLES!==productHeights.BOTTLES||heights.CASES!==productHeights.CASES;
+    productHeights=heights;
     const nextSignature=JSON.stringify([next,revised],(key,value)=>key==='zoneId'?undefined:value);
     const nextRepresentative=Number.isFinite(source?.seed)?source:null;
     const sameCase=next===key&&nextSignature===signature;
     if(sameCase&&nextRepresentative?.round===representative?.round&&nextRepresentative?.seed===representative?.seed){
-      save=saveRecord;draw();return;
+      save=saveRecord;if(heightChanged&&camera.fit)fit();else draw();return;
     }
     if(sameCase&&defaultRun)switchSource(false);
     representative=nextRepresentative;
