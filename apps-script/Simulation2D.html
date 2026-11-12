@@ -41,7 +41,7 @@
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=94,telemetryGap=6,shortBeltOffset=385;
+  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,shortBeltOffset=385,machineScale=5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
@@ -114,11 +114,18 @@ window.STSimulation2D=(function(){
     slider.setAttribute('aria-valuetext',percent);
     el('zoom-value').textContent=percent;
   }
+  function displayWidth(item){
+    return Math.max(0,item.length||0)*sceneScale*(item.kind==='machine'?machineScale:1);
+  }
+  function sceneTop(){
+    return Math.max(540*sceneScale*machineScale+14,
+      ...definitions.filter(item=>item.kind==='belt').map(item=>productHeight(item)+76));
+  }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
-    const length=(model?.line||definitions).reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
+    const length=(model?.line||definitions).reduce((total,item)=>total+displayWidth(item)/sceneScale,0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
     const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
-    const top=Math.max(68,...definitions.filter(item=>item.kind==='belt').map(item=>productHeight(item)+28)),bottom=Math.max(shortBelt?shortBeltOffset+280:385,68+shiftIndex(model?.time??0)*20);
+    const top=sceneTop(),bottom=Math.max(shortBelt?shortBeltOffset+280:385,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -140,6 +147,12 @@ window.STSimulation2D=(function(){
     if(['Back-up stop','Blocked','Failed','Emergency stop','Planned stop','Stopped','Micro stop'].includes(state))return {state,lamp:0};
     if(state==='Running'||state==='Discharging')return {state,lamp:2};
     return {state,lamp:1};
+  }
+  function beltSignal(item){
+    if(runState==='Stopped'||runState==='Completed')return {state:runState,lamp:0};
+    if(runState!=='Running')return {state:runState,lamp:1};
+    const state=item.state||'Empty';
+    return {state,lamp:item.backupBlocked?0:state==='Flowing'?2:1};
   }
   function drawSignal(context,x,y,lamp){
     context.fillStyle='#edf2f7';
@@ -227,7 +240,7 @@ window.STSimulation2D=(function(){
       const heading=wrap(title,true);
       context.font='12px system-ui';
       const rows=values.flatMap(value=>wrap(value));
-      const height=14+(heading.length+rows.length)*15;
+      const height=14+(heading.length+values.length+2)*15;
       context.fillStyle=surface;context.strokeStyle=outline;
       strokeBox(context,x-telemetryWidth/2,y,telemetryWidth,height);
       context.fillStyle=ink;
@@ -245,17 +258,17 @@ window.STSimulation2D=(function(){
     const aspect=item.unit==='CASES'?.75:30/14;
     return (configured>0?configured:(item.packageLength||0)*aspect)*sceneScale;
   }
-  function drawBelt(context,x,y,width,item,factor,w,accent,border,surface){
-    const depth=10,left=Math.max(0,x),right=Math.min(w,x+width);
-    context.fillStyle=border;context.strokeStyle=border;
-    strokeBox(context,x,y,width,depth);
-    if(factor>=.25){
-      context.strokeStyle=surface;context.lineWidth=2;
+  function drawBelt(context,x,y,width,item,factor,w,accent,beltColor){
+    const depth=10,left=Math.max(0,x+5),right=Math.min(w,x+width-5);
+    context.fillStyle=beltColor;context.strokeStyle=beltColor;
+    strokeBox(context,x,y+2,width,depth);
+    if(factor>=.25&&right>left){
+      context.lineWidth=3;
       context.setLineDash([20,8]);
       const phase=((model?.time??0)*item.speed*sceneScale)%28||0;
       for(const direction of [1,-1]){
-        context.lineDashOffset=(left-x)-direction*phase;
-        const track=y+(direction===1?1:depth-1);
+        context.lineDashOffset=left-x-5-direction*phase;
+        const track=y+(direction===1?1.5:depth+1.5);
         context.beginPath();context.moveTo(left,track);context.lineTo(right,track);context.stroke();
       }
       context.setLineDash([]);context.lineDashOffset=0;context.lineWidth=1;
@@ -300,6 +313,7 @@ window.STSimulation2D=(function(){
     const border=style.getPropertyValue('--line-strong').trim()||'#758497';
     const accent=style.getPropertyValue('--accent').trim()||'#2473b5';
     const surface=style.getPropertyValue('--surface').trim()||'#fff';
+    const beltColor=style.getPropertyValue('--secondary').trim()||border;
     context.setTransform(dpr,0,0,dpr,0,0);
     context.clearRect(0,0,screenWidth,h);
     const factor=camera.scale/sceneScale,w=screenWidth/factor;
@@ -308,14 +322,18 @@ window.STSimulation2D=(function(){
     const scale=sceneScale,y=camera.y/factor;
     let x=camera.x/factor;
     for(const item of model?.line||definitions){
-      const width=Math.max(0,item.length||0)*scale;
+      const width=displayWidth(item);
       const lane=item.kind==='belt';
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
-        drawBelt(context,x,y,width,item,factor,w,accent,border,surface);
+        drawBelt(context,x,y,width,item,factor,w,accent,beltColor);
+        const sensorY=y-productHeight(item)-12;
+        const closeSensors=item.prime!=null&&item.backup!=null&&Math.abs(item.prime-item.backup)*scale<19;
+        const signal=beltSignal(item);
+        drawSignal(context,x+width/2,sensorY-22-(closeSensors?20:0),signal.lamp);
         for(const [label,position,active] of [['B',item.backup,item.backupBlocked],['P',item.prime,item.primeBeam]]){
           if(position===null)continue;
-          const sx=x+position*scale,sy=label==='P'?y-productHeight(item)-12:y+22;
+          const sx=x+position*scale,sy=sensorY-(label==='B'&&closeSensors?20:0);
           if(sx<0||sx>w)continue;
           context.strokeStyle=active?'#d26d31':accent;
           context.beginPath();context.moveTo(sx,y);context.lineTo(sx,sy);context.stroke();
@@ -324,9 +342,9 @@ window.STSimulation2D=(function(){
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
         const telemetryY=y+(width<telemetryWidth?shortBeltOffset:56);
-        drawTelemetry(context,item,x+width/2,telemetryY,null,ink,border,surface);
+        drawTelemetry(context,item,x+width/2,telemetryY,signal,ink,border,surface);
       }else{
-        const height=Math.max(24,540*scale);
+        const height=540*scale*machineScale;
         const signal=machineSignal(item);
         context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
         strokeBox(context,x,y-height+10,width,height);
@@ -516,7 +534,7 @@ window.STSimulation2D=(function(){
       runState=model.time>=limitSeconds-1e-8?'Completed':stored.runState==='Stopped'?'Stopped':'Paused';
       syncControls();fit();
     }
-    if(camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:canvas.clientHeight/2-80,fit:false};syncZoom();draw();}
+    if(camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:Math.max(sceneTop()+18,canvas.clientHeight/2-80),fit:false};syncZoom();draw();}
   }};
 })();
 </script>
