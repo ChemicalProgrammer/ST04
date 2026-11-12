@@ -37,6 +37,7 @@
     // Gemini uses the current draft, independently of local/cloud save latency.
     function flushForServer(){return prepareCaseDraft().then(function(){return window.STCaseContext.snapshot(Object.assign({},state.activeCase,{activeSimulationId:state.activeSimulationId}));});}
     async function leaveCase(){
+      STSimulation2D.pause();
       if(!state.activeCase||!autosave.pending())return true;
       if(automaticSaving()){await flushCase();return true;}
       var answer=await STDialog.open({title:'Unsaved case changes',message:'Save your changes before closing this case?',buttons:[{id:'cancel',label:__ST_TEXT__('view.cancel')},{id:'discard',label:'Discard changes'},{id:'save',label:'Save changes'}]});
@@ -287,7 +288,7 @@ async function openCase(caseId, initialView) {
       var copy=cloneJson(source), count=state.activeCase.simulations.length;
       copy.id='simulation-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
       copy.name=__ST_TEXT__('simulation.copy_name')+source.name;
-      copy.results=null;copy.geminiHistory=[];delete copy.whatIf;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
+      copy.results=null;delete copy.simulation2d;copy.geminiHistory=[];delete copy.whatIf;copy.clonedFromSimulationId=source.id;copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;
       return copy;
     }
     async function cloneActiveSimulation() {

@@ -156,7 +156,8 @@
             <button id="simulation2d-pause" type="button" class="secondary icon-button" data-icon="pause" aria-label="Pause" title="Pause"></button>
             <button id="simulation2d-stop" type="button" class="secondary icon-button" data-icon="stop" aria-label="Stop" title="Stop"></button>
             <button id="simulation2d-reset" type="button" class="secondary icon-button" data-icon="refresh" aria-label="Reset" title="Reset"></button>
-            <select id="simulation2d-speed" aria-label="Simulation speed" title="Simulation speed"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option></select>
+            <select id="simulation2d-speed" aria-label="Simulation speed" title="Simulation speed"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option><option value="2000">2000×</option><option value="5000">5000×</option></select>
+            <label class="simulation2d-limit"><input id="simulation2d-limit" type="number" min="0.01" step="any" value="60" aria-label="Simulation time limit in minutes" title="Simulation time limit"><span>min</span></label>
             <input id="simulation2d-zoom" type="range" min="-10" max="6" step="any" value="0" aria-label="Zoom" title="Zoom">
             <output id="simulation2d-zoom-value" for="simulation2d-zoom">100%</output>
             <button id="simulation2d-fit" type="button" class="secondary icon-button" data-icon="fit" title="Fit drawing to view" aria-label="Fit drawing to view"></button>

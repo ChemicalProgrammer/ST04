@@ -36,9 +36,17 @@
     var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:function(visible){
-      if(!visible){STSimulation2D.pause();return;}
+      if(!visible){if(state.activeCase)STSimulation2D.pause();else STSimulation2D.unload();return;}
       var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
-      STSimulation2D.load([state.activeCase.id,simulation?.id,format?.id],state.activeCase.equipment,format,simulation?.dynamicConfig);
+      if(!simulation)return;
+      var ownerId=state.activeCase.id,simulationId=simulation.id;
+      STSimulation2D.load([ownerId,simulationId,format?.id],state.activeCase.equipment,format,simulation.dynamicConfig,simulation.simulation2d,function(record){
+        if(state.activeCase?.id!==ownerId)return;
+        var owner=state.activeCase.simulations.find(function(item){return item.id===simulationId;});
+        if(!owner)return;
+        owner.simulation2d=record;
+        autosave.change();
+      });
     }});
     function caseViewKey(caseId) {
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);

@@ -10,14 +10,24 @@
 #simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; gap:var(--space-1); }
 #simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
 #simulation2d-speed { width:max-content; min-width:0; padding-inline:6px 20px; background-position:right 4px center; background-size:13px; }
+.simulation2d-limit { display:inline-flex; align-items:center; gap:2px; color:var(--ink); font-size:var(--font-secondary); white-space:nowrap; }
+#simulation2d-limit { width:6ch; min-width:0; padding-inline:4px; }
 #simulation2d-zoom { width:96px; min-width:0; padding:0; accent-color:var(--accent); }
 #simulation2d-zoom-value { width:5ch; text-align:end; color:var(--ink); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; white-space:nowrap; }
-@container (max-width:370px) {
+@container (max-width:450px) {
   #simulation2d-panel .fold-tools { gap:2px; }
   #simulation2d-panel .fold-tools .icon-button { width:28px; padding-inline:4px; }
   #simulation2d-zoom { width:48px; }
   #simulation2d-zoom-value { font-size:11px; }
   #simulation2d-speed { font-size:12px; padding-inline:4px 16px; background-size:11px; }
+}
+@container (max-width:320px) {
+  #simulation2d-panel .fold-tools { gap:1px; }
+  #simulation2d-panel .fold-tools .icon-button { width:23px; padding-inline:2px; }
+  #simulation2d-zoom { width:28px; }
+  #simulation2d-limit { width:5ch; font-size:11px; padding-inline:2px; }
+  .simulation2d-limit { font-size:10px; }
+  #simulation2d-speed { padding-inline:2px 13px; background-position:right 2px center; background-size:10px; }
 }
 #simulation2d-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block:var(--space-2); }
 #simulation2d-legend span::before { content:""; display:inline-block; width:.65em; height:.65em; border-radius:50%; margin-inline-end:.4em; background:var(--lamp); }
@@ -30,7 +40,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24;
-  let shiftHours=8,shiftOutput=[];
+  let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
@@ -116,7 +126,7 @@ window.STSimulation2D=(function(){
   }
   const lampColors=['#ff384c','#ffb000','#00bd67'];
   function machineSignal(item){
-    if(runState==='Stopped')return {state:'Stopped',lamp:0};
+    if(runState==='Stopped'||runState==='Completed')return {state:runState,lamp:0};
     if(runState==='Paused')return {state:'Paused',lamp:1};
     const state=item.state||'Waiting';
     if(state==='Back-up stop'||state==='Blocked'||state==='Failed')return {state,lamp:0};
@@ -287,11 +297,19 @@ window.STSimulation2D=(function(){
     el('pause').disabled=runState!=='Running';
     el('stop').disabled=runState!=='Running'&&runState!=='Paused';
     el('reset').disabled=!!validation;
+    el('limit').disabled=runState==='Running';
     status();
+  }
+  function checkpoint(){
+    if(!save)return;
+    save({
+      version:1,speed:Number(el('speed').value),limitSeconds,signature,runState,
+      shiftOutput:[...shiftOutput],checkpoint:model?.time>0?model.snapshot():null
+    });
   }
   function pause(){
     if(runState!=='Running')return;
-    cancelFrame();runState='Paused';syncControls();draw();
+    cancelFrame();runState='Paused';syncControls();draw();checkpoint();
   }
   function reset(){
     cancelFrame();lag=0;lastMetrics=-Infinity;shiftOutput=[];validation=validate();
@@ -303,27 +321,45 @@ window.STSimulation2D=(function(){
     if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
     previous=now;
     const output=model.line.at(-1);
-    for(let count=0;lag>=step&&count<1200;count++){
-      const previousOutput=output.produced;
-      model.step(step);lag-=step;
+    const deadline=performance.now()+12;
+    for(let count=0;count<24000;count++){
+      const remaining=limitSeconds-model.time;
+      if(remaining<=1e-8||lag<Math.min(step,remaining))break;
+      const advance=Math.min(step,remaining),previousOutput=output.produced;
+      model.step(advance);lag-=advance;
       if(output.produced>previousOutput){
         const index=shiftIndex(model.time);
         shiftOutput[index]=(shiftOutput[index]||0)+output.produced-previousOutput;
       }
+      if(count%128===127&&performance.now()>=deadline)break;
+    }
+    if(limitSeconds-model.time<=1e-8){
+      cancelFrame();runState='Completed';syncControls();draw();checkpoint();return;
     }
     if(now-lastMetrics>=125){status();lastMetrics=now;}
+    if(now-lastSave>=15000){checkpoint();lastSave=now;}
     draw();
     frame=window.requestAnimationFrame(animate);
   }
   el('play').onclick=function(){
     if(!model||frame!==undefined)return;
-    if(runState==='Stopped')reset();
-    runState='Running';syncControls();
+    if(runState==='Stopped'||runState==='Completed'||model.time>=limitSeconds)reset();
+    lastSave=performance.now();runState='Running';syncControls();
     frame=window.requestAnimationFrame(animate);
   };
-  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();draw();};
+  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();draw();checkpoint();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
-  el('pause').onclick=pause;el('reset').onclick=reset;
+  el('pause').onclick=pause;
+  el('reset').onclick=()=>{reset();checkpoint();};
+  el('speed').addEventListener('change',checkpoint);
+  el('limit').addEventListener('change',function(){
+    if(!this.checkValidity()||!Number.isFinite(this.valueAsNumber*60)||this.valueAsNumber<=0){
+      this.value=limitSeconds/60;
+      return;
+    }
+    limitSeconds=this.valueAsNumber*60;
+    checkpoint();
+  });
   canvas.addEventListener('dblclick',fit);
   el('fit').onclick=fit;
   el('zoom').addEventListener('input',function(){
@@ -361,13 +397,28 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,load(identity,equipment,format,config={}){
+  return {pause,unload(){cancelFrame();save=null;key=null;model=null;},load(identity,equipment,format,config={},stored,saveRecord){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
     const revised=prepare(equipment,format,config);
-    if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
-    key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;camera.fit=true;reset();
+    const nextSignature=JSON.stringify([next,revised]);
+    if(next===key&&nextSignature===signature){save=saveRecord;draw();return;}
+    cancelFrame();
+    save=saveRecord;signature=nextSignature;
+    key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;
+    const defaultLimit=config.durationSeconds>0?config.durationSeconds:3600;
+    limitSeconds=stored?.limitSeconds>0&&Number.isFinite(stored.limitSeconds)?stored.limitSeconds:defaultLimit;
+    el('limit').value=limitSeconds/60;
+    el('speed').value=String(stored?.speed??1);
+    if(!el('speed').value)el('speed').value='1';
+    camera.fit=true;reset();
+    if(model&&stored?.version===1&&stored.signature===signature&&stored.checkpoint){
+      model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint);
+      shiftOutput=Array.isArray(stored.shiftOutput)?[...stored.shiftOutput]:[];
+      runState=model.time>=limitSeconds-1e-8?'Completed':stored.runState==='Stopped'?'Stopped':'Paused';
+      syncControls();fit();
+    }
     if(camera.scale<sceneScale){camera={scale:sceneScale,x:28,y:canvas.clientHeight/2-80,fit:false};syncZoom();draw();}
   }};
 })();

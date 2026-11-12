@@ -99,6 +99,7 @@
     }
 
     function activatePersistentSimulation(simulationId, initial) {
+      STSimulation2D.pause();
       captureSimulationView();
       var hadUnsavedChanges = state.isDirty;
       if (!initial && !syncPersistentSimulation()) return;
