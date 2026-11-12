@@ -38,7 +38,7 @@
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:function(visible){
       if(!visible){STSimulation2D.pause();return;}
       var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
-      STSimulation2D.load([state.activeCase.id,simulation?.id,format?.id],state.activeCase.equipment,format);
+      STSimulation2D.load([state.activeCase.id,simulation?.id,format?.id],state.activeCase.equipment,format,simulation?.dynamicConfig);
     }});
     function caseViewKey(caseId) {
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);

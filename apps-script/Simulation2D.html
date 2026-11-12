@@ -1,5 +1,5 @@
 <style>
-#simulation2d-canvas { display:block; width:100%; height:clamp(320px,52vh,620px); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); cursor:grab; touch-action:none; }
+#simulation2d-canvas { display:block; width:100%; height:clamp(420px,57vh,690px); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); cursor:grab; touch-action:none; }
 #simulation2d-canvas:active { cursor:grabbing; }
 #simulation2d-canvas { background-color:var(--surface); background-image:radial-gradient(var(--line) 1px,transparent 1px); background-size:18px 18px; }
 .simulation2d-metrics { display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0; }
@@ -18,10 +18,18 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120;
-  let key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
+  let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
-  function prepare(equipment,format){
+  function failuresFor(item,config){
+    const general=item.noiseProfile?.reliability;
+    if(config.reliabilityEnabled===false||!general)return [];
+    const split=item.processData?.equipment?.stopInputs;
+    const profiles=split?Object.entries(split):[['general',general]];
+    return profiles.filter(([key,profile])=>config.reliabilityCategories?.[key]!==false&&profile?.mtbfMinutes>0&&profile?.mttrMinutes>0)
+      .map(([,profile])=>({rate:1/(profile.mtbfMinutes*60),repairSeconds:profile.mttrMinutes*60}));
+  }
+  function prepare(equipment,format,config){
     const geometry=window.SimulatorEngine;
     const configured=format?geometry.applyProductProfile(equipment,format):equipment;
     return configured.map((item,index)=>{
@@ -30,7 +38,10 @@ window.STSimulation2D=(function(){
       if(item.type!=='CONVEYOR'){
         const batch=unit==='CASES'&&data.flowUnits?.input==='BOTTLES'
           ? (format?geometry.productPackSize(format):NaN) : 1;
-        return {id:item.id,name:item.name||item.id,kind:'machine',unit,length:650,rate:item.nominalRatePerSecond,
+        return {id:item.id,name:item.name||item.id,kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,
+          bottlesPerUnit:unit==='BOTTLES'?1:format?geometry.productPackSize(format):null,
+          rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
+          rampAfterRepair:data.downstream?.rampAfterRepair===true,failures:failuresFor(item,config),
           startDelay:item.startupDelaySeconds??data.upstream?.startupTimeSeconds??0,batch};
       }
       const zone=geometry.resolveProductConveyor(configured,index)||{};
@@ -68,7 +79,7 @@ window.STSimulation2D=(function(){
     const length=definitions.reduce((total,item)=>total+(item.length||0),0);
     camera.scale=Math.max(.0001,Math.min((canvas.clientWidth-52)/Math.max(1,length),.32));
     camera.x=(canvas.clientWidth-length*camera.scale)/2;
-    camera.y=canvas.clientHeight/2;
+    camera.y=canvas.clientHeight/2-80;
     camera.fit=true;
     draw();
   }
@@ -82,17 +93,17 @@ window.STSimulation2D=(function(){
     if(runState==='Stopped')return {state:'Stopped',lamp:0};
     if(runState==='Paused')return {state:'Paused',lamp:1};
     const state=item.state||'Waiting';
-    if(state==='Back-up stop'||state==='Blocked')return {state,lamp:0};
+    if(state==='Back-up stop'||state==='Blocked'||state==='Failed')return {state,lamp:0};
     if(state==='Running'||state==='Discharging')return {state,lamp:2};
     return {state,lamp:1};
   }
   function drawSignal(context,x,y,lamp,border){
     context.fillStyle='#202a36';
     context.strokeStyle=border;
-    strokeBox(context,x-14,y-5,28,10);
+    strokeBox(context,x-22,y-8,44,16);
     lampColors.forEach((color,index)=>{
       context.beginPath();
-      context.arc(x+(index-1)*8,y,2.8,0,Math.PI*2);
+      context.arc(x+(index-1)*13,y,4.5,0,Math.PI*2);
       context.fillStyle=index===lamp?color:'#4c5868';
       context.fill();
     });
@@ -159,7 +170,7 @@ window.STSimulation2D=(function(){
           context.fillText(num(item.items?.length??0)+' on belt',labelX,y+span/2+37);
         }
       }else{
-        const height=Math.max(15,380*scale);
+        const height=Math.max(24,540*scale);
         const signal=machineSignal(item);
         context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
         strokeBox(context,x,y-height/2,width,height);
@@ -169,11 +180,27 @@ window.STSimulation2D=(function(){
           context.strokeRect(x+width*.25,y-height*.23,width*.5,height*.46);
           context.beginPath();context.moveTo(x+width/2,y-height*.23);context.lineTo(x+width/2,y+height*.23);context.stroke();
         }
-        const sx=x+width/2,sy=y+height/2+56+labelRow*34;
-        drawSignal(context,sx,y-height/2-10,signal.lamp,border);
+        const sx=x+width/2,sy=y+height/2+52+labelRow*22;
+        drawSignal(context,sx,y-height/2-14,signal.lamp,border);
         context.fillStyle=ink;
-        context.fillText(item.name,sx,sy,100);
-        context.fillText(signal.state+' · '+(item.produced||0),sx,sy+15,116);
+        context.fillText(item.name,sx,sy,Math.max(24,width-4));
+        context.fillText(signal.state,sx,sy+14,Math.max(24,width-4));
+        if(width>=86){
+          const durations=item.durations||{}, rate=item.ratePerMinute||0, produced=item.produced||0;
+          const bottles=item.bottlesPerUnit>0?num(produced*item.bottlesPerUnit):'—';
+          const bpm=item.bottlesPerUnit>0?num(rate*item.bottlesPerUnit):'—';
+          const counters=[
+            'Run '+num(durations.running||0)+' s',
+            'Starving '+num(durations.starving||0)+' s',
+            'Ramp up '+num(durations.acceleration||0)+' s',
+            'Ramp down '+num(durations.deceleration||0)+' s',
+            'Blocked '+num(durations.blocked||0)+' s',
+            'Own failure '+num(durations.failure||0)+' s',
+            bottles+' bottles · '+bpm+' bpm'
+          ];
+          if(item.unit==='CASES')counters.push(num(produced)+' cases · '+num(rate)+' cpm');
+          counters.forEach((label,index)=>context.fillText(label,sx,sy+31+index*15,width-4));
+        }
       }
       x+=width;
     }
@@ -205,14 +232,14 @@ window.STSimulation2D=(function(){
   }
   function reset(){
     cancelFrame();lag=0;lastMetrics=-Infinity;validation=validate();
-    model=validation?null:STSimulation2DEngine.create(definitions);
+    model=validation?null:STSimulation2DEngine.create(definitions,seed);
     runState='Ready';syncControls();
     if(camera.fit)fit();else draw();
   }
   function animate(now){
-    if(previous)lag+=(now-previous)/1000;
+    if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
     previous=now;
-    for(let count=0;lag>=step&&count<240;count++){model.step(step);lag-=step;}
+    for(let count=0;lag>=step&&count<1200;count++){model.step(step);lag-=step;}
     if(now-lastMetrics>=125){status();lastMetrics=now;}
     draw();
     frame=window.requestAnimationFrame(animate);
@@ -259,12 +286,12 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,load(identity,equipment,format){
-    const next=JSON.stringify(identity);
-    const revised=prepare(equipment,format);
+  return {pause,load(identity,equipment,format,config={}){
+    const next=JSON.stringify([identity,config.seed]);
+    const revised=prepare(equipment,format,config);
     if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
-    key=next;definitions=revised;camera.fit=true;reset();
-    if(camera.scale<.055){camera={scale:.055,x:28,y:canvas.clientHeight/2-15,fit:false};draw();}
+    key=next;seed=config.seed??1;definitions=revised;camera.fit=true;reset();
+    if(camera.scale<.09){camera={scale:.09,x:28,y:canvas.clientHeight/2-80,fit:false};draw();}
   }};
 })();
 </script>

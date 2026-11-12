@@ -1,10 +1,18 @@
 <script>
 window.STSimulation2DEngine=(function(){
   const epsilon=1e-6;
-  function create(definitions){
-    const line=definitions.map(definition=>definition.kind==='belt'
+  const durationKey={
+    Running:'running',Discharging:'running',Starved:'starving','Waiting for Prime':'starving',
+    'Ramp up':'acceleration','Ramp down':'deceleration',Blocked:'blocked','Back-up stop':'blocked',Failed:'failure'
+  };
+  function create(definitions,seed=1){
+    const line=definitions.map((definition,index)=>definition.kind==='belt'
       ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false}
-      : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting'});
+      : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
+        rampElapsed:0,failureRemaining:0,exposure:null,
+        randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
+        durations:{running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
+        recentOutput:[],ratePerMinute:0});
     let time=0;
     function moveBelt(belt,seconds){
       const travel=belt.speed*seconds;
@@ -40,17 +48,50 @@ window.STSimulation2DEngine=(function(){
       machine.ready=false;
       machine.input=0;
       machine.produced++;
+      machine.recentOutput.push(time);
+      return true;
+    }
+    function random(machine){
+      machine.randomState=(Math.imul(machine.randomState,1664525)+1013904223)>>>0;
+      return (machine.randomState+.5)/4294967296;
+    }
+    function updateFailure(machine,seconds){
+      if(machine.failureRemaining>0){
+        machine.failureRemaining=Math.max(0,machine.failureRemaining-seconds);
+        if(machine.failureRemaining===0&&machine.rampAfterRepair)machine.rampElapsed=0;
+        return true;
+      }
+      const profiles=machine.failures||[];
+      if(!profiles.length||machine.remaining===null)return false;
+      const total=profiles.reduce((sum,profile)=>sum+profile.rate,0);
+      if(machine.exposure===null)machine.exposure=-Math.log(random(machine))/total;
+      machine.exposure-=seconds;
+      if(machine.exposure>0)return false;
+      let pick=random(machine)*total;
+      const profile=profiles.find(item=>(pick-=item.rate)<=0)||profiles.at(-1);
+      machine.failureRemaining=profile.repairSeconds;
+      machine.exposure=null;
       return true;
     }
     function stepMachine(machine,upstream,downstream,seconds){
+      if(updateFailure(machine,seconds)){machine.state='Failed';return;}
       if(downstream?.backupBlocked){
         if(machine.backupSince===null){machine.backupSince=time;machine.residual=downstream.residual;}
-      }else machine.backupSince=null;
+      }else if(machine.backupSince!==null){
+        machine.backupSince=null;
+        machine.rampElapsed=0;
+      }
       const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
       if(braking&&machine.residual<=0){machine.state='Back-up stop';return;}
       if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
+      const decelerating=machine.backupSince!==null&&!braking;
+      const accelerating=!decelerating&&!braking&&machine.rampElapsed<(machine.rampSeconds||0);
+      const factor=decelerating?Math.max(0,1-(time-machine.backupSince)/downstream.responseDelay)
+        :accelerating?Math.min(1,(machine.rampElapsed+seconds/2)/machine.rampSeconds):1;
+      const motionState=decelerating?'Ramp down':accelerating?'Ramp up':braking?'Discharging':'Running';
       if(machine.remaining!==null){
-        machine.remaining-=seconds;
+        if(accelerating)machine.rampElapsed+=seconds;
+        machine.remaining-=seconds*factor;
         if(machine.remaining<=epsilon){machine.remaining=null;machine.ready=true;}
       }
       if(machine.ready){
@@ -58,7 +99,7 @@ window.STSimulation2DEngine=(function(){
         if(braking)machine.residual--;
       }
       if(braking&&machine.input===0){machine.state='Back-up stop';return;}
-      if(machine.remaining!==null){machine.state=braking?'Discharging':'Running';return;}
+      if(machine.remaining!==null){machine.state=motionState;return;}
       if(machine.input<machine.batch&&!braking){
         if(!upstream)machine.input=machine.batch;
         if(upstream?.kind==='belt'){
@@ -72,14 +113,19 @@ window.STSimulation2DEngine=(function(){
       }
       if(machine.input<machine.batch){machine.state=braking?'Back-up stop':'Starved';return;}
       machine.remaining=1/machine.rate;
-      machine.state=braking?'Discharging':'Running';
+      machine.state=motionState;
     }
     return {line,get time(){return time;},step(seconds){
       time+=seconds;
       line.forEach(item=>{if(item.kind==='belt')moveBelt(item,seconds);});
       for(let index=line.length-1;index>=0;index--){
         const item=line[index];
-        if(item.kind==='machine')stepMachine(item,line[index-1],line[index+1],seconds);
+        if(item.kind!=='machine')continue;
+        stepMachine(item,line[index-1],line[index+1],seconds);
+        const category=durationKey[item.state];
+        if(category)item.durations[category]+=seconds;
+        while(item.recentOutput.length&&item.recentOutput[0]<=time-5)item.recentOutput.shift();
+        item.ratePerMinute=item.recentOutput.length*60/Math.min(time,5);
       }
     }};
   }
