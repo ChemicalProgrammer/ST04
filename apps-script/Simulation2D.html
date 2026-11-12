@@ -8,7 +8,8 @@
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel { container-type:inline-size; }
 .simulation2d-style { margin-inline-start:var(--space-3); }
-.simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); }
+.simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
+.simulation2d-source select { width:auto; min-width:0; }
 #simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; gap:var(--space-1); }
 #simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
 #simulation2d-speed { width:max-content; min-width:0; padding-inline:6px 20px; background-position:right 4px center; background-size:13px; }
@@ -341,6 +342,10 @@ window.STSimulation2D=(function(){
     context.save();
     if(filled&&!marker)context.globalAlpha=.4;
     context.fill();
+    if(cases){
+      context.globalAlpha=.24;
+      context.fillStyle='#fff';context.fill();
+    }
     context.restore();
     if(cases){
       context.beginPath();
@@ -361,7 +366,7 @@ window.STSimulation2D=(function(){
       for(const product of products){
         const px=x+product.x*sceneScale;
         if(!visible(px))continue;
-        const l=px-bodyWidth/2,r=px+bodyWidth/2,level=top+3*dy;
+        const l=px-bodyWidth/2,r=px+bodyWidth/2,level=top+4*dy;
         context.moveTo(l+4.6*dx,level);context.lineTo(l+4.6*dx,y-22*dy);
         context.quadraticCurveTo(l+.7*dx,y-18*dy,l+.7*dx,y-15*dy);
         context.lineTo(l+.7*dx,y-2*dy);context.quadraticCurveTo(l+.7*dx,y-dy,l+2*dx,y-dy);

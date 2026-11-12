@@ -3,9 +3,9 @@ window.STSimulation2DMachines=(function(){
   const blower={kind:'blower',width:.76,height:1.28};
   const designs={
     BLOWER:blower,BLOWMOLDER:blower,
-    FILLER:{kind:'filler',width:1.18,height:.96},
+    FILLER:{kind:'filler',width:.98,height:1.09,viewWidth:184},
     SLEEVER:{kind:'sleever',width:.57,height:1.04},
-    CASE_PACKER:{kind:'packer',width:1.36,height:.82},
+    CASE_PACKER:{kind:'packer',width:1.14,height:1.03,viewWidth:226},
     PALLETIZER:{kind:'palletizer',width:.94,height:1.42}
   };
   function dimensions(type){
@@ -18,7 +18,8 @@ window.STSimulation2DMachines=(function(){
     const {ink,soft,surface,accent,belt}=colors;
     context.save();
     context.translate(x,y);
-    context.scale(width/120,height/100);
+    const viewWidth=design.viewWidth??120;
+    context.scale(width/viewWidth,height/100);
     context.lineWidth=.8;
     context.lineJoin='round';
     context.strokeStyle=belt;
@@ -45,8 +46,9 @@ window.STSimulation2DMachines=(function(){
     }
     function foot(x,y){box(x,y,15,3,belt,1);}
     function track(){
-      box(12,50,96,3,belt,1.5);
-      for(let x=19;x<108;x+=12)circle(x,51.5,1,surface);
+      const inset=viewWidth*.1;
+      box(inset,50,viewWidth-2*inset,3,belt,1.5);
+      for(let x=inset+7;x<viewWidth-inset;x+=12)circle(x,51.5,1,surface);
     }
     switch(design.kind){
       case 'blower':
@@ -65,20 +67,23 @@ window.STSimulation2DMachines=(function(){
         track();
         break;
       case 'filler':
-        // Wide filling manifold, with an offset cap-feed hopper.
-        box(13,62,94,18,soft,4);
-        box(17,42,8,20,soft);
-        box(95,25,8,37,soft);
-        box(26,19,61,10,soft,5);
-        box(31,21,51,2,surface,1);
-        box(43,11,28,9,accent,4);
+        // A raised, compact manifold and a separate cap-feed tower.
+        box(25,62,132,19,soft,4);
+        box(34,29,8,33,belt,2);
+        box(126,29,8,33,belt,2);
+        box(33,20,101,10,soft,4);
+        box(39,22,89,2,surface,1);
+        box(70,8,31,13,accent,5);
         for(let i=0;i<4;i++){
-          box(34+i*13,29,4,8+6*phase,accent,1);
-          line(36+i*13,37+6*phase,36+i*13,45+3*phase);
+          const x=52+i*19;
+          box(x,30,5,8+6*phase,accent,1);
+          line(x+2.5,38+6*phase,x+2.5,44+3*phase);
         }
-        box(89,11,20,10,accent,4);
-        line(94,21,96,28,102,28,104,21);
-        foot(20,80);foot(85,80);
+        box(146,24,10,38,soft,3);
+        box(143,14,16,12,accent,3);
+        line(147,26,149,34,153,34,155,26);
+        line(86,69,86,79);
+        foot(33,81);foot(134,81);
         track();
         break;
       case 'sleever':
@@ -91,17 +96,27 @@ window.STSimulation2DMachines=(function(){
         foot(44,86);foot(61,86);
         track();
         break;
-      case 'packer':
-        // Low open gantry, with a traversing head and carton guide.
-        box(8,30,104,6,belt,3);
-        box(11,36,7,42,soft);box(102,36,7,42,soft);
-        box(21,63,78,15,soft,3);
-        box(27+34*phase,29,15,10,accent,2);
-        line(31+34*phase,39,31+34*phase,47,39+34*phase,47,39+34*phase,39);
-        box(83,42,13,8,soft,1);line(83,42,79,37,92,37,96,42);
-        foot(10,78);foot(96,78);
+      case 'packer': {
+        // Open loading bay, traversing gripper and offset closing station.
+        box(27,20,127,7,belt,3);
+        box(28,27,8,57,soft,2);box(146,27,8,57,soft,2);
+        line(36,35,44,27);line(138,27,146,35);
+        box(44,68,92,15,soft,4);
+        box(56,73,20,2,surface,1);
+        const carriageX=53+49*phase;
+        const reach=4+5*phase;
+        box(carriageX,20,22,9,accent,3);
+        box(carriageX+9,29,4,reach,belt,1);
+        box(carriageX+1,29+reach,20,4,soft,1);
+        for(let i=0;i<3;i++)line(carriageX+4+i*6,33+reach,carriageX+4+i*6,39+reach);
+        box(167,33,25,50,soft,4);
+        box(173,39,13,7,accent,2);
+        line(160,42,164,46,171,46);
+        line(163,57,187,57);
+        foot(24,84);foot(140,84);foot(171,83);
         track();
         break;
+      }
       case 'palletizer':
         // Tall portal with a lift head and an open pallet deck.
         box(13,8,94,7,belt,3);
