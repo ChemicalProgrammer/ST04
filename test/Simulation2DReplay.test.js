@@ -78,6 +78,13 @@ test('2D uses the representative seed to calculate new production and preserves 
     const geometry={usableLengthMm:2000,productLengthMm:30,productPitchMm:60,accumulatedPitchMm:30,conveyorSpeedMmPerSecond:120};
     window.SimulatorEngine={resolveProductConveyor:()=>geometry};
     window.eval(script('Simulation2DEngine'));
+    window.eval(script('Simulation2DMachines'));
+    const art=window.STSimulation2DMachines.draw,drawn=[];
+    window.STSimulation2DMachines.draw=(context,type,...args)=>{
+      const rendered=art(context,type,...args);
+      if(rendered)drawn.push({type,seconds:args.at(-1)});
+      return rendered;
+    };
     window.eval(script('Simulation2D'));
     const source={round:2,seed:78,durationSeconds:10,summary:{outputCount:99999}};
     const createdSeeds=[];
@@ -90,7 +97,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     }};
     const records=[];
     const equipment=[
-      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
       {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:999}}}
     ];
@@ -100,6 +107,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('pause').click();
     assert.equal(el('time').textContent,'1 s');
     const saved=records.length;
+    const style=el('machine-style');
+    assert.equal(style.value,'blocks');
+    assert.equal(drawn.length,0);
+    style.value='animated';style.dispatchEvent(new window.Event('change'));
+    assert.equal(drawn.at(-1).type,'FILLER');
+    assert(drawn.at(-1).seconds>0);
+    const count=drawn.length;
+    style.value='blocks';style.dispatchEvent(new window.Event('change'));
+    assert.equal(drawn.length,count);
+    assert.equal(el('time').textContent,'1 s');
+    assert.equal(records.length,saved);
     assert(records.at(-1).checkpoint.line[0].failureCount>0,'split MTBF/MTTR work without a general pair');
     assert.match(el('status').textContent,/Seed 7/);
     el('source').value='representative';
@@ -227,4 +245,22 @@ test('resident bottles discharge at even headways and Back-up leaves 25 of 30 af
   assert.equal(model.line[0].produced,5);
   assert.equal(model.line[0].resident.length,25);
   assert.equal(model.line[0].state,'Back-up stop');
+});
+
+test('the five machine silhouettes have distinct moving details', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DMachines'), {window});
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#369'};
+  function trace(type,time){
+    const operations=[];
+    const context=new Proxy({},{get:(_,name)=>(...args)=>operations.push([name,...args])});
+    const drawn=window.STSimulation2DMachines.draw(context,type,0,0,120,100,colors,time);
+    return {drawn,operations};
+  }
+  const types=['BLOWMOLDER','FILLER','SLEEVER','CASE_PACKER','PALLETIZER'];
+  const still=types.map(type=>trace(type,0));
+  assert(still.every(result=>result.drawn));
+  assert.equal(new Set(still.map(result=>JSON.stringify(result.operations))).size,types.length);
+  types.forEach((type,index)=>assert.notDeepEqual(trace(type,.5).operations,still[index].operations));
+  assert.equal(trace('CUSTOM',0).drawn,false);
 });

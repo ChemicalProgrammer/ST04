@@ -167,6 +167,12 @@
             <option value="representative">Representative round seed</option>
           </select>
         </label>
+        <label class="simulation2d-source simulation2d-style">Equipment view
+          <select id="simulation2d-machine-style">
+            <option value="blocks">Blocks</option>
+            <option value="animated">Animated designs</option>
+          </select>
+        </label>
         <dl class="simulation2d-metrics">
           <div><dt>Elapsed</dt><dd id="simulation2d-time">0 s</dd></div>
           <div><dt>Output</dt><dd id="simulation2d-output">0</dd></div>
@@ -174,7 +180,7 @@
           <div><dt>Machines running</dt><dd id="simulation2d-running">0</dd></div>
           <div><dt>Back-up active</dt><dd id="simulation2d-backup">0</dd></div>
         </dl>
-        <canvas id="simulation2d-canvas" tabindex="0" aria-label="Top-down line drawing. Drag to pan. Control or Command and wheel to zoom. Double-click to fit."></canvas>
+        <canvas id="simulation2d-canvas" tabindex="0" aria-label="Side view of the line. Drag to pan. Control or Command and wheel to zoom. Use the Fit button to recenter."></canvas>
         <div id="simulation2d-legend" class="chart-note" aria-label="Machine states">
           <span class="run">Running / discharging</span>
           <span class="wait">Starting / ramp / waiting / paused</span>
@@ -532,6 +538,7 @@
     <?!= include_('ScenarioExplorer'); ?>
     <?!= include_('RunOptions'); ?>
     <?!= include_('Simulation2DEngine'); ?>
+    <?!= include_('Simulation2DMachines'); ?>
     <?!= include_('Simulation2D'); ?>
     <?!= include_('PlantCalendar'); ?>
     <?!= include_('Products'); ?>

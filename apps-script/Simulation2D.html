@@ -7,6 +7,7 @@
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel { container-type:inline-size; }
+.simulation2d-style { margin-inline-start:var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); }
 #simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; gap:var(--space-1); }
 #simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
@@ -46,7 +47,13 @@ window.STSimulation2D=(function(){
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
-  let productHeights={};
+  let productHeights={},machineTypes=new Map();
+  const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
+  machineStyle.addEventListener('change',()=>{
+    window.STPreferences?.write('simulation2dMachineStyle',machineStyle.value);
+    draw();
+  });
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
@@ -364,13 +371,19 @@ window.STSimulation2D=(function(){
       }else{
         const top=y-machineHeight/2;
         const signal=machineSignal(item);
-        context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
-        strokeBox(context,x,top,width,machineHeight);
-        context.fillStyle=context.strokeStyle;
-        context.fillRect(x,top,Math.min(4,width),machineHeight);
-        if(width>=36){
-          context.strokeRect(x+width*.25,top+machineHeight*.27,width*.5,machineHeight*.46);
-          context.beginPath();context.moveTo(x+width/2,top+machineHeight*.27);context.lineTo(x+width/2,top+machineHeight*.73);context.stroke();
+        const durations=item.durations||{};
+        const motionSeconds=reducedMotion?.matches?0:(durations.running||0)+(durations.acceleration||0)+(durations.deceleration||0);
+        const detailed=machineStyle.value==='animated'&&window.STSimulation2DMachines?.draw(context,
+          machineTypes.get(item.id),x,top,width,machineHeight,{ink,soft,surface,accent},motionSeconds);
+        if(!detailed){
+          context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
+          strokeBox(context,x,top,width,machineHeight);
+          context.fillStyle=context.strokeStyle;
+          context.fillRect(x,top,Math.min(4,width),machineHeight);
+          if(width>=36){
+            context.strokeRect(x+width*.25,top+machineHeight*.27,width*.5,machineHeight*.46);
+            context.beginPath();context.moveTo(x+width/2,top+machineHeight*.27);context.lineTo(x+width/2,top+machineHeight*.73);context.stroke();
+          }
         }
         const sx=x+width/2;
         drawSignal(context,sx,top-14,signal.lamp);
@@ -529,6 +542,7 @@ window.STSimulation2D=(function(){
     const nextView=JSON.stringify(identity);
     const newView=nextView!==viewKey;
     const revised=prepare(equipment,format,config);
+    machineTypes=new Map(equipment.map(item=>[item.id,item.type==='PACEMAKER'?item.processData?.machineType:item.type]));
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
       CASES:geometry.productPresentation(format,'CASES').heightMm}:{};
