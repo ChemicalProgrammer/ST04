@@ -17,7 +17,8 @@
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const step=1/120;
+  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24;
+  let shiftHours=8,shiftOutput=[];
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
@@ -76,11 +77,15 @@ window.STSimulation2D=(function(){
     }
     return '';
   }
+  function shiftIndex(seconds){return Math.floor((seconds+1e-7)/(shiftHours*3600));}
   function fit(){
-    const length=definitions.reduce((total,item)=>total+(item.length||0),0);
-    camera.scale=Math.max(.0001,Math.min((canvas.clientWidth-52)/Math.max(1,length),.32));
+    const length=definitions.reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
+    const top=60,bottom=Math.max(240,68+shiftIndex(model?.time??0)*20);
+    const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
+    const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
+    camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
     camera.x=(canvas.clientWidth-length*camera.scale)/2;
-    camera.y=canvas.clientHeight/2-80;
+    camera.y=(canvas.clientHeight+(top-bottom)*camera.scale/sceneScale)/2;
     camera.fit=true;
     draw();
   }
@@ -110,13 +115,38 @@ window.STSimulation2D=(function(){
       context.fill();context.stroke();
     });
   }
+  function drawProduction(context,x,y,ink,border,surface){
+    const output=model?.line.at(-1)||definitions.at(-1);
+    const cases=output.unit==='CASES';
+    const bottleFactor=output.bottlesPerUnit;
+    const currentShift=shiftIndex(model?.time??0);
+    const height=88+(currentShift+1)*20;
+    context.fillStyle=surface;context.strokeStyle=border;
+    strokeBox(context,x,y,cardWidth,height);
+    context.fillStyle=ink;
+    context.textAlign='left';
+    context.font='bold 14px system-ui';
+    context.fillText('Production',x+14,y+22);
+    context.font='12px system-ui';
+    context.fillText(num(shiftHours)+' h per shift',x+14,y+41);
+    context.fillText('Cases',x+120,y+60);
+    context.fillText(cases?'Bottle eq.':'Bottles',x+182,y+60);
+    function row(label,quantity,position){
+      context.fillText(label,x+14,position);
+      context.fillText(num(cases?quantity:0),x+120,position,55);
+      context.fillText(num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),x+182,position,64);
+    }
+    row('Total',output.produced||0,y+80);
+    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
+    context.textAlign='center';
+  }
   function draw(){
     if(panel.classList.contains('hidden'))return;
-    const w=canvas.clientWidth,h=canvas.clientHeight;
-    if(!w||!h)return;
+    const screenWidth=canvas.clientWidth,h=canvas.clientHeight;
+    if(!screenWidth||!h)return;
     const dpr=window.devicePixelRatio||1;
-    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){
-      canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+    if(canvas.width!==Math.round(screenWidth*dpr)||canvas.height!==Math.round(h*dpr)){
+      canvas.width=Math.round(screenWidth*dpr);canvas.height=Math.round(h*dpr);
     }
     const context=canvas.getContext('2d');
     if(!context)return;
@@ -126,10 +156,12 @@ window.STSimulation2D=(function(){
     const accent=style.getPropertyValue('--accent').trim()||'#2473b5';
     const surface=style.getPropertyValue('--surface').trim()||'#fff';
     context.setTransform(dpr,0,0,dpr,0,0);
-    context.clearRect(0,0,w,h);
+    context.clearRect(0,0,screenWidth,h);
+    const factor=camera.scale/sceneScale,w=screenWidth/factor;
+    context.setTransform(dpr*factor,0,0,dpr*factor,0,0);
     context.font='12px system-ui';context.textAlign='center';
-    const scale=camera.scale,y=camera.y;
-    let x=camera.x,machineIndex=0;
+    const scale=sceneScale,y=camera.y/factor;
+    let x=camera.x/factor,machineIndex=0;
     for(const item of model?.line||definitions){
       const width=Math.max(0,item.length||0)*scale;
       const lane=item.kind==='belt';
@@ -214,6 +246,7 @@ window.STSimulation2D=(function(){
       }
       x+=width;
     }
+    if(definitions.length&&x+cardGap<=w&&x+cardGap+cardWidth>=0)drawProduction(context,x+cardGap,y-40,ink,border,surface);
   }
   function status(){
     const unknownWidth=definitions.some(item=>item.kind==='belt'&&!(item.packageWidth>0));
@@ -241,7 +274,7 @@ window.STSimulation2D=(function(){
     cancelFrame();runState='Paused';syncControls();draw();
   }
   function reset(){
-    cancelFrame();lag=0;lastMetrics=-Infinity;validation=validate();
+    cancelFrame();lag=0;lastMetrics=-Infinity;shiftOutput=[];validation=validate();
     model=validation?null:STSimulation2DEngine.create(definitions,seed);
     runState='Ready';syncControls();
     if(camera.fit)fit();else draw();
@@ -249,7 +282,15 @@ window.STSimulation2D=(function(){
   function animate(now){
     if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
     previous=now;
-    for(let count=0;lag>=step&&count<1200;count++){model.step(step);lag-=step;}
+    const output=model.line.at(-1);
+    for(let count=0;lag>=step&&count<1200;count++){
+      const previousOutput=output.produced;
+      model.step(step);lag-=step;
+      if(output.produced>previousOutput){
+        const index=shiftIndex(model.time);
+        shiftOutput[index]=(shiftOutput[index]||0)+output.produced-previousOutput;
+      }
+    }
     if(now-lastMetrics>=125){status();lastMetrics=now;}
     draw();
     frame=window.requestAnimationFrame(animate);
@@ -297,10 +338,12 @@ window.STSimulation2D=(function(){
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
   return {pause,load(identity,equipment,format,config={}){
-    const next=JSON.stringify([identity,config.seed]);
+    const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
+    const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
+    const next=JSON.stringify([identity,config.seed,hours]);
     const revised=prepare(equipment,format,config);
     if(next===key&&JSON.stringify(revised)===JSON.stringify(definitions)){draw();return;}
-    key=next;seed=config.seed??1;definitions=revised;camera.fit=true;reset();
+    key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;camera.fit=true;reset();
     if(camera.scale<.09){camera={scale:.09,x:28,y:canvas.clientHeight/2-80,fit:false};draw();}
   }};
 })();
