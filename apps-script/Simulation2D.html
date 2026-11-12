@@ -7,6 +7,11 @@
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel .section-heading .button-row { flex-wrap:wrap; align-items:center; }
+#simulation2d-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block:var(--space-2); }
+#simulation2d-legend span::before { content:""; display:inline-block; width:.65em; height:.65em; border-radius:50%; margin-inline-end:.4em; background:var(--lamp); }
+#simulation2d-legend .run { --lamp:#25835e; }
+#simulation2d-legend .wait { --lamp:#d69420; }
+#simulation2d-legend .stop { --lamp:#c54e59; }
 </style>
 <script>
 window.STSimulation2D=(function(){
@@ -72,6 +77,26 @@ window.STSimulation2D=(function(){
     context.roundRect(x,y,width,height,Math.min(5,width/2,height/2));
     context.fill();context.stroke();
   }
+  const lampColors=['#c54e59','#d69420','#25835e'];
+  function machineSignal(item){
+    if(runState==='Stopped')return {state:'Stopped',lamp:0};
+    if(runState==='Paused')return {state:'Paused',lamp:1};
+    const state=item.state||'Waiting';
+    if(state==='Back-up stop'||state==='Blocked')return {state,lamp:0};
+    if(state==='Running'||state==='Discharging')return {state,lamp:2};
+    return {state,lamp:1};
+  }
+  function drawSignal(context,x,y,lamp,border){
+    context.fillStyle='#202a36';
+    context.strokeStyle=border;
+    strokeBox(context,x-14,y-5,28,10);
+    lampColors.forEach((color,index)=>{
+      context.beginPath();
+      context.arc(x+(index-1)*8,y,2.8,0,Math.PI*2);
+      context.fillStyle=index===lamp?color:'#4c5868';
+      context.fill();
+    });
+  }
   function draw(){
     if(panel.classList.contains('hidden'))return;
     const w=canvas.clientWidth,h=canvas.clientHeight;
@@ -135,9 +160,8 @@ window.STSimulation2D=(function(){
         }
       }else{
         const height=Math.max(15,380*scale);
-        const running=item.state==='Running'||item.state==='Discharging';
-        const blocked=item.state==='Back-up stop'||item.state==='Blocked';
-        context.fillStyle=surface;context.strokeStyle=running?'#25835e':blocked?'#b15f35':border;
+        const signal=machineSignal(item);
+        context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
         strokeBox(context,x,y-height/2,width,height);
         context.fillStyle=context.strokeStyle;
         context.fillRect(x,y-height/2,Math.min(4,width),height);
@@ -146,9 +170,10 @@ window.STSimulation2D=(function(){
           context.beginPath();context.moveTo(x+width/2,y-height*.23);context.lineTo(x+width/2,y+height*.23);context.stroke();
         }
         const sx=x+width/2,sy=y+height/2+56+labelRow*34;
+        drawSignal(context,sx,y-height/2-10,signal.lamp,border);
         context.fillStyle=ink;
         context.fillText(item.name,sx,sy,100);
-        context.fillText((item.state||'Waiting')+' · '+(item.produced||0),sx,sy+15,116);
+        context.fillText(signal.state+' · '+(item.produced||0),sx,sy+15,116);
       }
       x+=width;
     }
@@ -176,7 +201,7 @@ window.STSimulation2D=(function(){
   }
   function pause(){
     if(runState!=='Running')return;
-    cancelFrame();runState='Paused';syncControls();
+    cancelFrame();runState='Paused';syncControls();draw();
   }
   function reset(){
     cancelFrame();lag=0;lastMetrics=-Infinity;validation=validate();
@@ -198,7 +223,7 @@ window.STSimulation2D=(function(){
     runState='Running';syncControls();
     frame=window.requestAnimationFrame(animate);
   };
-  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();};
+  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();draw();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
   el('pause').onclick=pause;el('reset').onclick=reset;
   canvas.addEventListener('dblclick',fit);
