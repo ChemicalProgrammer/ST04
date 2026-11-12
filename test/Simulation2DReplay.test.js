@@ -167,11 +167,36 @@ test('2D retains resident bottles across snapshots and caps admission', () => {
   const engine=window.STSimulation2DEngine;
   const model=engine.create(definitions);
   for(let i=0;i<1200;i++)model.step(1/120);
-  assert.equal(model.line[0].resident.length,10);
+  assert(model.line[0].resident.length>0);
+  assert(model.line[0].resident.length<10);
   assert.equal(model.line[0].produced,0);
   const restored=engine.create(definitions,1,model.snapshot());
-  assert.equal(restored.line[0].resident.length,10);
+  assert.equal(restored.line[0].resident.length,model.line[0].resident.length);
   for(let i=0;i<1440;i++)restored.step(1/120);
   assert(restored.line[0].produced>0);
   assert(restored.line[0].resident.length<=10);
+});
+
+test('resident bottles discharge at even headways and Back-up leaves 25 of 30 after a five-bottle runout', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'), {window});
+  const machine={kind:'machine',rate:5,batch:1,startDelay:0,rampSeconds:0,
+    capacityBottles:30,residenceSeconds:20,inputBottleFactor:1,bottlesPerUnit:1};
+  const belt={kind:'belt',length:100000,speed:1000,packageLength:20,pitch:25,packedGap:0,prime:null,backup:null,
+    blockDelay:0,clearDelay:Infinity,responseDelay:2,residual:5};
+  const engine=window.STSimulation2DEngine;
+  const continuous=engine.create([machine]);
+  while(continuous.time<65)continuous.step(1/120);
+  const output=continuous.line[0].recentOutput;
+  assert(output.length>=7);
+  for(let i=1;i<output.length;i++)assert(Math.abs(output[i]-output[i-1]-2/3)<1/120+1e-8);
+  const model=engine.create([machine,belt]);
+  while(model.time<19.8)model.step(1/120);
+  assert.equal(model.line[0].resident.length,30);
+  assert.equal(model.line[0].produced,0);
+  model.line[1].backupBlocked=true;
+  while(model.time<30)model.step(1/120);
+  assert.equal(model.line[0].produced,5);
+  assert.equal(model.line[0].resident.length,25);
+  assert.equal(model.line[0].state,'Back-up stop');
 });

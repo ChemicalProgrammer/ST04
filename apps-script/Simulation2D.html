@@ -70,7 +70,7 @@ window.STSimulation2D=(function(){
         const batch=unit==='CASES'&&data.flowUnits?.input==='BOTTLES'
           ? (format?geometry.productPackSize(format):NaN) : 1;
         const inputBottleFactor=data.flowUnits?.input==='CASES'&&packSize>0?packSize:1;
-        return {capacityBottles:data.equipment?.internalCapacityBottles??Math.max(10,batch*inputBottleFactor),
+        return {capacityBottles:data.equipment?.internalCapacityBottles??Math.max(30,batch*inputBottleFactor),
           residenceSeconds:data.equipment?.residenceTimeSeconds??20,inputBottleFactor,id:item.id,name:item.name||item.id,kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,
           bottlesPerUnit:unit==='BOTTLES'?1:packSize,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,

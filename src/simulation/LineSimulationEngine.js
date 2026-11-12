@@ -590,7 +590,9 @@ function updateBackupSensor(runtime, zone) {
         zoneId: zone.id,
         active: true,
         responseRemainingSeconds: zone.upstreamStopResponseSeconds,
-        residualRemainingUnits: zone.bottlesDischargedAtStop
+        residualRemainingUnits: upstream.residence
+          ? Math.min(Math.floor(zone.bottlesDischargedAtStop/(upstream.outputBottleFactor||1)),Math.floor(upstream.residence.inventory+1e-8))
+          : zone.bottlesDischargedAtStop
       };
     }
     runtime.events.push({
@@ -621,7 +623,7 @@ function updateBackupSensor(runtime, zone) {
     zone.backupBlockedCandidateSeconds = 0;
     const upstream = getEquipment(runtime, zone.upstreamControlEquipmentId);
     if (upstream && upstream.backupControl?.zoneId === zone.id) {
-      const completedBackupStop = upstream.backupControl.responseRemainingSeconds <= 0 &&
+      const completedBackupStop = (upstream.residence||upstream.backupControl.responseRemainingSeconds <= 0) &&
         upstream.backupControl.residualRemainingUnits <= 0;
       upstream.backupControl.active = false;
       upstream.backupControl = null;
@@ -856,7 +858,7 @@ function processEquipmentFlow(runtime, index) {
   }
 
   const control = activeBackupControl(equipment);
-  if (control && control.responseRemainingSeconds <= 0 && control.residualRemainingUnits <= 0) {
+  if (control && (equipment.residence||control.responseRemainingSeconds <= 0) && control.residualRemainingUnits <= 0) {
     equipment.actualRatePerSecond = 0;
     equipment.backupStopSeconds += tickSeconds;
     equipment.availabilityState = 'BACKUP_STOP';
@@ -870,9 +872,18 @@ function processEquipmentFlow(runtime, index) {
   }
 
   const residualDischarge = Boolean(control && control.responseRemainingSeconds <= 0 && control.residualRemainingUnits > 0);
+  const residence=equipment.residence;
+  const bottleFactor=equipment.outputBottleFactor||1;
+  const residenceSeconds=equipment.processData?.equipment?.residenceTimeSeconds??20;
+  const ratio=equipment.inputPerOutput||1;
+  const capacity=residence?equipmentCapacityBottles(equipment)/bottleFactor:0;
+  const residenceRate=residence&&residenceSeconds>0
+    ? (capacity-(runtime.run.discretePackages?1-1/ratio:0))/residenceSeconds : Infinity;
+  const cadence=Math.min(1,residenceRate/equipment.nominalRatePerSecond);
+  const normalRequest=getRequestedFlow(equipment,tickSeconds)*cadence;
   const requestedFlow = residualDischarge
-    ? Math.min(equipment.nominalRatePerSecond * tickSeconds, control.residualRemainingUnits)
-    : getRequestedFlow(equipment, tickSeconds);
+    ? Math.min(equipment.nominalRatePerSecond*tickSeconds*cadence,control.residualRemainingUnits)
+    : residence&&control ? Math.min(normalRequest,control.residualRemainingUnits) : normalRequest;
 
   if (requestedFlow <= 0) {
     equipment.actualRatePerSecond = 0;
@@ -881,15 +892,12 @@ function processEquipmentFlow(runtime, index) {
   }
 
   const incomingZone = runtime.zones[index - 1];
-  const ratio=equipment.inputPerOutput||1;
   let inputAvailable = index === 0 ? requestedFlow : Math.min(incomingZone.waitingUnits,
     incomingZone.physicalModelEnabled ? (isTransportAvailable(getEquipment(runtime, incomingZone.ownerEquipmentId))
       ? incomingZone.conveyorSpeedMmPerSecond / incomingZone.accumulatedPitchMm * tickSeconds : 0) : Infinity) / ratio;
   const downstreamSpace = getDownstreamSpace(runtime, index);
   let flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   let entries;
-  const residence=equipment.residence;
-  const bottleFactor=equipment.outputBottleFactor||1;
   if(residence){
     residence.clock+=tickSeconds;
     while(residence.head<residence.queue.length&&residence.queue[residence.head].due<=residence.clock+1e-8){
@@ -922,22 +930,23 @@ function processEquipmentFlow(runtime, index) {
   if(residence){
     residence.ready=Math.max(0,residence.ready-flow);
     residence.inventory=Math.max(0,residence.inventory-flow);
-    if(!residualDischarge){
-      const capacity=equipmentCapacityBottles(equipment)/bottleFactor;
+    if(!control){
       const free=Math.max(0,capacity-residence.inventory);
-      const available=index===0?Infinity:Math.min(incomingZone.waitingUnits,
-        incomingZone.physicalModelEnabled?(isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
-          ?incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm*tickSeconds:0):Infinity)/ratio;
+      const transport=index===0||!incomingZone.physicalModelEnabled?Infinity:
+        isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
+          ? incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm*tickSeconds : 0;
+      const available=index===0?Infinity:(transport>0?incomingZone.waitingUnits/ratio:0);
       // Round discrete intake to a complete input package. A packer may accumulate its bottles over multiple ticks.
-      let admission=Math.min(free,requestedFlow,available);
+      let admission=Math.min(free,requestedFlow,available,transport/ratio);
       if(runtime.run.discretePackages){
-        residence.intakeCredit=Math.min(Math.max(1,requestedFlow*ratio),(residence.intakeCredit||0)+requestedFlow*ratio);
+        const supply=Math.min(requestedFlow*ratio,transport);
+        residence.intakeCredit=Math.min(Math.max(1,supply),(residence.intakeCredit||0)+supply);
         admission=Math.floor(Math.min(free*ratio,available*ratio,residence.intakeCredit)+1e-8)/ratio;
         residence.intakeCredit=Math.max(0,residence.intakeCredit-admission*ratio);
       }
       if(admission>0){
         residence.inventory+=admission;
-        residence.queue.push({amount:admission,due:residence.clock+(equipment.processData?.equipment?.residenceTimeSeconds??20)});
+        residence.queue.push({amount:admission,due:residence.clock+residenceSeconds});
         consumeFlow(runtime,index,admission);
       }
     }
@@ -947,7 +956,7 @@ function processEquipmentFlow(runtime, index) {
   if(runtime.product)equipment.productiveNativeSeconds=(equipment.productiveNativeSeconds||0)+flow/equipment.nominalRatePerSecond;
   equipment.actualRatePerSecond = flow / tickSeconds;
 
-  if (residualDischarge) {
+  if (residualDischarge||residence&&control) {
     control.residualRemainingUnits = Math.max(0, control.residualRemainingUnits - flow);
     if(runtime.run.discretePackages&&control.residualRemainingUnits<1)control.residualRemainingUnits=0;
   }
@@ -1542,7 +1551,7 @@ function createSummary(runtime) {
 }
 
 function equipmentCapacityBottles(equipment) {
-  return equipment.processData?.equipment?.internalCapacityBottles??Math.max(10,equipment.outputBottleFactor||1);
+  return equipment.processData?.equipment?.internalCapacityBottles??Math.max(30,equipment.outputBottleFactor||1);
 }
 function equipmentInventoryBottles(equipment) {
   return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;

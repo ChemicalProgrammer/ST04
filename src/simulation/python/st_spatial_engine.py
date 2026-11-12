@@ -171,6 +171,8 @@ class SpatialSimulation(SimPySimulation):
             machine.await_prime = machine.index > 0 and self.conveyors[machine.index-1].model.get('primeSensorPositionMm') is not None
             machine.backup_stopped = False
             machine.runout_remaining = 0
+            machine.has_residence = 'internalCapacityBottles' in machine.model or 'residenceTimeSeconds' in machine.model
+            machine.residence_stop_pending = False
         for command in payload['run'].get('commands', []):
             if command['equipmentId'] not in machine_ids:
                 index = next(b.index for b in self.conveyors if b.model['id'] == command['equipmentId'])
@@ -231,12 +233,18 @@ class SpatialSimulation(SimPySimulation):
             belt = self.conveyors[data[0]]
             if data[1] != belt.sensor_token or not belt.backup_signal or belt.backup_latched: return
             belt.backup_latched = True; belt.stop_token += 1
+            machine = self.machines[belt.index]
+            if machine.has_residence:
+                machine.residence_stop_pending = True
+                machine.runout_remaining = min(belt.model.get('bottlesDischargedAtStop', 0), len(machine.resident)+(machine.item is not None))
+                if machine.runout_remaining == 0: self.suspend_service(machine)
             self.schedule(self.now+belt.model.get('upstreamStopResponseSeconds', 0), 1, 'BACKUP_STOP', (belt.index, belt.stop_token))
             self.log('BACKUP_SENSOR_BLOCKED', belt.model['id'])
         elif kind == 'BACKUP_STOP':
             belt = self.conveyors[data[0]]
             if data[1] != belt.stop_token or not belt.backup_latched: return
-            machine = self.machines[belt.index]; machine.backup_stopped = True; machine.runout_remaining = belt.model.get('bottlesDischargedAtStop', 0)
+            machine = self.machines[belt.index]; machine.backup_stopped = True
+            if not machine.has_residence: machine.runout_remaining = belt.model.get('bottlesDischargedAtStop', 0)
             if machine.runout_remaining == 0: self.suspend_service(machine)
             self.log('BACKUP_STOP_RESPONSE_COMPLETED', machine.model['id'])
         elif kind == 'BACKUP_CLEAR':
@@ -244,7 +252,8 @@ class SpatialSimulation(SimPySimulation):
             if data[1] != belt.sensor_token or belt.backup_signal or not belt.backup_latched: return
             belt.backup_latched = False; belt.stop_token += 1
             machine = self.machines[belt.index]
-            if machine.backup_stopped:
+            machine.residence_stop_pending = False
+            if machine.backup_stopped or machine.has_residence and machine.runout_remaining <= 0:
                 machine.backup_stopped = False; machine.runout_remaining = 0; machine.recovery_ramp = None; machine.startup_until = self.now + machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
             self.log('BACKUP_SENSOR_CLEARED', belt.model['id'])
         else:
@@ -320,7 +329,8 @@ class SpatialSimulation(SimPySimulation):
                 if machine.index > 0 and machine.await_prime and self.conveyors[machine.index-1].prime_latched:
                     machine.await_prime = False; machine.recovery_ramp = None; machine.startup_until = self.now+machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
                 operating = machine.enabled and not machine.failed and not machine.micro_stopped and self.now >= machine.startup_until-EPS
-                if not operating or machine.backup_stopped and machine.runout_remaining <= 0: continue
+                stopping = machine.backup_stopped or machine.residence_stop_pending
+                if not operating or stopping and machine.runout_remaining <= 0: continue
                 if machine.completed:
                     if machine.index == len(self.machines)-1: self.output += 1
                     else:
@@ -332,13 +342,13 @@ class SpatialSimulation(SimPySimulation):
                         else:
                             belt.items.append(machine.item); belt.positions[machine.item] = 0.; belt.admitted += 1; belt.maximum = max(belt.maximum, belt.inventory); belt.refresh()
                     machine.output += 1; machine.completed = False; machine.item = None
-                    if machine.backup_stopped:
+                    if stopping:
                         machine.runout_remaining -= 1
                         if machine.runout_remaining <= 0: self.suspend_service(machine)
                     changed = True
-                if machine.backup_stopped and machine.runout_remaining <= 0: continue
-                if 'internalCapacityBottles' in machine.model or 'residenceTimeSeconds' in machine.model:
-                    changed = self.settle_residence(machine) or changed
+                if stopping and machine.runout_remaining <= 0: continue
+                if machine.has_residence:
+                    changed = self.settle_residence(machine, stopping) or changed
                     continue
                 if machine.busy:
                     if machine.finish_at is None: self.resume_service(machine); changed = True
@@ -357,11 +367,11 @@ class SpatialSimulation(SimPySimulation):
             if not changed: break
         else: raise RuntimeError('Spatial fixed point did not converge')
         for machine in self.machines:
-            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if machine.backup_stopped and machine.runout_remaining <= 0 else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy or machine.resident else 'WAITING_PRIME' if machine.await_prime else 'STARVED'
+            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if (machine.backup_stopped or machine.residence_stop_pending) and machine.runout_remaining <= 0 else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy or machine.resident else 'WAITING_PRIME' if machine.await_prime else 'STARVED'
         for belt in self.conveyors: self.sensors(belt); self.predict(belt)
         self.check_invariants()
 
-    def settle_residence(self, machine):
+    def settle_residence(self, machine, stopping):
         changed = False
         if machine.busy and machine.finish_at is None:
             self.resume_service(machine)
@@ -377,8 +387,8 @@ class SpatialSimulation(SimPySimulation):
                 changed = True
             else:
                 self.wake(self.now + due - machine.residence_clock)
-        capacity = machine.model.get('internalCapacityBottles', 10)
-        if machine.backup_stopped or len(machine.resident)+(machine.item is not None) >= capacity or self.now >= self.duration-EPS:
+        capacity = machine.model.get('internalCapacityBottles', 30)
+        if stopping or len(machine.resident)+(machine.item is not None) >= capacity or self.now >= self.duration-EPS:
             return changed
         if self.now < machine.next_intake-EPS:
             self.wake(machine.next_intake)
@@ -400,7 +410,7 @@ class SpatialSimulation(SimPySimulation):
         # Nominal service is part of residence; ramping or blockage can extend it.
         wait = max(0., machine.model.get('residenceTimeSeconds', 20)-1/machine.rate)
         machine.resident.append((machine.residence_clock+wait,item))
-        machine.next_intake = self.now+1/machine.rate
+        machine.next_intake = self.now+max(1/machine.rate,machine.model.get('residenceTimeSeconds',20)/capacity)
         self.wake(machine.next_intake)
         return True
 

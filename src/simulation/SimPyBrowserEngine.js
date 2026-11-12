@@ -34,7 +34,7 @@ export function adaptSimPyInput(input) {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       const design=model.processData?.equipment;
       const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null||design?.residenceTimeSeconds!=null
-        ?{internalCapacityBottles:design?.internalCapacityBottles??10,residenceTimeSeconds:design?.residenceTimeSeconds??20}:{};
+        ?{internalCapacityBottles:design?.internalCapacityBottles??30,residenceTimeSeconds:design?.residenceTimeSeconds??20}:{};
       machines.push({...residence,id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,

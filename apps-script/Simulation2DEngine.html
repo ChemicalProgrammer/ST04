@@ -10,7 +10,7 @@ window.STSimulation2DEngine=(function(){
       ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,produced:0,state:'Empty',
         durations:{empty:0,flowing:0,accumulating:0},recentOutput:[],ratePerMinute:0}
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
-        resident:[],residenceClock:0,intakeCredit:0,outletCredit:0,rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
+        resident:[],residenceClock:0,intakeCredit:1,outletCredit:0,rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
         durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
         recentOutput:[],ratePerMinute:0});
@@ -99,14 +99,18 @@ window.STSimulation2DEngine=(function(){
     function stepMachine(machine,upstream,downstream,seconds){
       if(updateFailure(machine,seconds)){machine.state='Failed';return;}
       if(downstream?.backupBlocked){
-        if(machine.backupSince===null){machine.backupSince=time;machine.residual=downstream.residual;}
+        if(machine.backupSince===null){
+          machine.backupSince=time;
+          machine.residual=machine.capacityBottles==null?downstream.residual:
+            Math.min(Math.floor(downstream.residual/(machine.bottlesPerUnit||1)),Math.floor(machine.resident.length/machine.batch));
+        }
       }else if(machine.backupSince!==null){
         machine.backupSince=null;
         machine.rampElapsed=0;
         machine.activeRampSeconds=machine.rampSeconds||0;
       }
       const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
-      if(braking&&machine.residual<=0){machine.state='Back-up stop';return;}
+      if(machine.residual<=0&&(braking||machine.capacityBottles!=null&&machine.backupSince!==null)){machine.state='Back-up stop';return;}
       if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
       const decelerating=machine.backupSince!==null&&!braking;
       const accelerating=!decelerating&&!braking&&machine.rampElapsed<machine.activeRampSeconds;
@@ -114,7 +118,7 @@ window.STSimulation2DEngine=(function(){
         :accelerating?Math.min(1,(machine.rampElapsed+seconds/2)/machine.activeRampSeconds):1;
       const motionState=decelerating?'Ramp down':accelerating?'Ramp up':braking?'Discharging':'Running';
       if(machine.capacityBottles!=null){
-        stepResident(machine,upstream,downstream,seconds,factor,motionState,accelerating,braking);
+        stepResident(machine,upstream,downstream,seconds,factor,motionState,accelerating,machine.backupSince!==null);
         return;
       }
       if(machine.remaining!==null){
@@ -145,21 +149,23 @@ window.STSimulation2DEngine=(function(){
       machine.remaining=1/machine.rate;
       machine.state=motionState;
     }
-    function stepResident(machine,upstream,downstream,seconds,factor,motionState,accelerating,braking){
+    function stepResident(machine,upstream,downstream,seconds,factor,motionState,accelerating,stopping){
       machine.residenceClock+=seconds;
       if(accelerating)machine.rampElapsed+=seconds;
-      const work=seconds*factor*machine.rate;
-      machine.outletCredit=Math.min(1,machine.outletCredit+work);
+      const capacity=Math.floor(machine.capacityBottles/machine.inputBottleFactor);
+      const residenceRate=machine.residenceSeconds>0?(capacity-machine.batch+1)/machine.batch/machine.residenceSeconds:Infinity;
+      const work=seconds*factor*Math.min(machine.rate,residenceRate);
+      machine.outletCredit+=work;
       let blocked=false;
       if(machine.outletCredit+epsilon>=1&&machine.resident[machine.batch-1]<=machine.residenceClock+epsilon){
         if(discharge(machine,downstream)){
-          machine.outletCredit=0;
-          if(braking)machine.residual--;
+          machine.outletCredit=Math.max(0,machine.outletCredit-1);
+          if(stopping)machine.residual--;
         }else blocked=true;
       }
-      if(!braking&&(!upstream||upstream.kind==='belt')){
-        machine.intakeCredit=Math.min(machine.batch,machine.intakeCredit+work*machine.batch);
-        const capacity=Math.floor(machine.capacityBottles/machine.inputBottleFactor);
+      machine.outletCredit=Math.min(1,machine.outletCredit);
+      if(!stopping&&(!upstream||upstream.kind==='belt')){
+        machine.intakeCredit+=work*machine.batch;
         while(machine.intakeCredit+epsilon>=1&&machine.resident.length<capacity){
           if(upstream){
             const first=upstream.items[0];
@@ -173,8 +179,9 @@ window.STSimulation2DEngine=(function(){
           machine.resident.push(machine.residenceClock+machine.residenceSeconds);
           machine.intakeCredit=Math.max(0,machine.intakeCredit-1);
         }
+        machine.intakeCredit=Math.min(1,machine.intakeCredit);
       }
-      machine.state=blocked?'Blocked':braking&&!machine.resident.length?'Back-up stop':
+      machine.state=blocked?'Blocked':stopping&&!machine.resident.length?'Back-up stop':
         machine.resident.length||!upstream||accelerating?motionState:
         upstream.prime!=null&&!upstream.primeSeen?'Waiting for Prime':'Starved';
     }

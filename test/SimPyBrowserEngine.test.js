@@ -185,5 +185,5 @@ print(json.dumps(simulate_line(json.load(sys.stdin)),allow_nan=False))`;
  assert.equal(at(24).outputCount,0);
  assert(response.result.summary.outputCount>0);
  assert.equal(response.result.summary.materialBalance.residualUnits,0);
- assert(response.result.samples.every(frame=>frame.equipment[0].internalInventoryBottles<=10));
+ assert(response.result.samples.every(frame=>frame.equipment[0].internalInventoryBottles<=30));
 });

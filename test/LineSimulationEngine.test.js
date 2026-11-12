@@ -286,10 +286,25 @@ test('machine residence holds stock through pauses and includes it in material b
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const sourceAt=time=>result.samples.find(sample=>sample.virtualSecond===time).equipment[0];
-  assert.equal(sourceAt(4).internalInventoryBottles,10);
-  assert.equal(sourceAt(8).internalInventoryBottles,10);
+  assert(sourceAt(4).internalInventoryBottles>0);
+  assert.equal(sourceAt(8).internalInventoryBottles,sourceAt(5).internalInventoryBottles);
   assert.equal(sourceAt(24).outputCount,0);
   assert(result.summary.outputCount>0);
   assert.equal(result.summary.materialBalance.residualUnits,0);
-  assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=10));
+  assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=30));
+});
+
+test('ST meters residence intake and maintains output after the first bottle exits', () => {
+  const input=createInput();
+  Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:55,sampleEverySeconds:1});
+  const sink=input.case.equipment.at(-1);
+  sink.processData.equipment={residenceTimeSeconds:0};
+  const {ok,result}=simulateLine(input);
+  assert.equal(ok,true);
+  const output=time=>result.samples.find(frame=>frame.virtualSecond===time).equipment[0].outputCount;
+  const firstAdmission=result.samples.find(frame=>frame.equipment[0].internalInventoryBottles>0);
+  const firstDischarge=result.samples.find(frame=>frame.equipment[0].outputCount>0);
+  assert.equal(firstDischarge.virtualSecond-firstAdmission.virtualSecond,20);
+  for(let time=31;time<=50;time++)assert.equal(output(time)-output(time-1),1.5);
+  assert.equal(result.summary.materialBalance.residualUnits,0);
 });
