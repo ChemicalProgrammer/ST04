@@ -65,40 +65,60 @@ test('2D replays recorded counters and final totals without replacing its indepe
   const dom=new JSDOM(panel,{runScripts:'outside-only'});
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
-    const labels=[];
+    const labels=[],bottles=[];
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
       measureText:text=>({width:text.length*5}),
-      fillText:text=>labels.push(text)
+      fillText:text=>labels.push(text),
+      ellipse:x=>bottles.push(x)
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
     window.requestAnimationFrame=callback=>{animate=callback;return 1;};
     window.cancelAnimationFrame=()=>{animate=null;};
-    window.SimulatorEngine={};
+    const geometry={usableLengthMm:2000,productLengthMm:30,productPitchMm:60,accumulatedPitchMm:30,conveyorSpeedMmPerSecond:120};
+    window.SimulatorEngine={resolveProductConveyor:()=>geometry};
     window.eval(script('Simulation2DEngine'));
     window.eval(script('Simulation2D'));
     const totals={outputCount:24,runningSeconds:3,starvedSeconds:2,startRampSeconds:1,stopTransitionSeconds:2,
       failureSeconds:1,failureCount:2};
+    const zone={ownerEquipmentId:'belt',inTransitUnits:8,waitingUnits:2,inventoryUnits:10,geometry};
+    const frames=(machine)=>[{id:'upstream'},{id:'belt'},{id:'m',...machine}];
     const source={revision:'round2',round:2,seed:78,durationSeconds:10,summary:{outputCount:24},equipmentMetrics:{m:totals},
-      samples:[{virtualSecond:0,outputCount:0,equipment:[{id:'m',availabilityState:'STARVED',starvedSeconds:1}]},
-        {virtualSecond:9,outputCount:20,equipment:[{id:'m',availabilityState:'RAMPING_UP',startRampSeconds:1}]}]};
+      samples:[{virtualSecond:0,outputCount:0,accumulationZones:[zone],equipment:frames({availabilityState:'STARVED',starvedSeconds:1})},
+        {virtualSecond:9,outputCount:20,accumulationZones:[zone],equipment:frames({availabilityState:'RAMPING_UP',startRampSeconds:1,actualRatePerSecond:4})}]};
     const records=[];
-    window.STSimulation2D.load(['case','simulation'],[{id:'m',nominalRatePerSecond:4}],null,{},null,record=>records.push(record),source);
+    const equipment=[
+      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
+      {id:'m',nominalRatePerSecond:4}
+    ];
+    window.STSimulation2D.load(['case','simulation'],equipment,null,{seed:7},null,record=>records.push(record),source);
     el('play').click();
     animate(1000);animate(2000);
     el('pause').click();
     assert.equal(el('time').textContent,'1 s');
     const saved=records.length;
+    assert(records.at(-1).checkpoint.line[0].failureCount>0,'split MTBF/MTTR work without a general pair');
+    assert.match(el('status').textContent,/Seed 7/);
     el('source').value='representative';
     el('source').dispatchEvent(new window.Event('change'));
     assert.match(el('status').textContent,/Round 2 · Seed 78/);
     assert.equal(el('limit').disabled,true);
     assert(labels.includes('Starving 1 s'));
     el('play').click();
-    animate(1000);animate(11000);
+    bottles.length=0;
+    animate(1000);
+    const before=bottles[0];
+    assert(Number.isFinite(before),'draw transit from inventory with no recorded positions');
+    bottles.length=0;
+    animate(1050);
+    assert(bottles[0]>before,'bottles move before the next recorded frame');
+    animate(11000);
     assert.equal(el('output').textContent,'24 bottle eq.');
     assert(labels.includes('Own failures 2'));
+    assert(labels.includes('24 bottles'));
+    assert(labels.includes('240 bpm'));
     assert(labels.includes('Ramp up 1 s'));
     assert(labels.includes('Ramp down 2 s'));
     assert.equal(records.length,saved);

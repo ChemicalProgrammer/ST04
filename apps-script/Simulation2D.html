@@ -48,11 +48,12 @@ window.STSimulation2D=(function(){
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
-    const general=item.noiseProfile?.reliability;
-    if(config.reliabilityEnabled===false||!general)return [];
+    if(config.reliabilityEnabled===false)return [];
     const split=item.processData?.equipment?.stopInputs;
-    const profiles=split?Object.entries(split):[['general',general]];
-    return profiles.filter(([key,profile])=>config.reliabilityCategories?.[key]!==false&&profile?.mtbfMinutes>0&&profile?.mttrMinutes>0)
+    const profiles=split?Object.entries(split):[['general',item.noiseProfile?.reliability]];
+    return profiles.filter(([key,profile])=>config.reliabilityCategories?.[key]!==false
+      &&Number.isFinite(profile?.mtbfMinutes)&&profile.mtbfMinutes>0
+      &&Number.isFinite(profile.mttrMinutes)&&profile.mttrMinutes>0)
       .map(([,profile])=>({rate:1/(profile.mtbfMinutes*60),repairSeconds:profile.mttrMinutes*60}));
   }
   function prepare(equipment,format,config){
@@ -76,7 +77,7 @@ window.STSimulation2D=(function(){
       const zone=zones[index]||{};
       const presentation=format?geometry.productPresentation(format,unit):{};
       return {id:item.id,name:item.name||item.id,kind:'belt',unit,bottlesPerUnit:unit==='BOTTLES'?1:packSize,
-        length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
+        zoneId:zone.id,length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
         packageLength:zone.productLengthMm??presentation.lengthMm,
         packageWidth:presentation.widthMm??data.upstream?.packageWidthMm??null,
         pitch:zone.productPitchMm,packedGap:Math.max(0,(zone.accumulatedPitchMm??zone.productLengthMm)-zone.productLengthMm)||0,
@@ -121,13 +122,13 @@ window.STSimulation2D=(function(){
       index=next;finished=final;
       const sample=samples[index];
       const equipment=new Map((sample.equipment||[]).map(item=>[item.id,item]));
-      const zones=new Map((sample.accumulationZones||[]).map(zone=>[zone.ownerEquipmentId,zone]));
+      const zones=new Map((sample.accumulationZones||[]).map(zone=>[zone.ownerEquipmentId??zone.id,zone]));
       outputCount=final?source.summary?.outputCount??sample.outputCount:sample.outputCount;
       const format=rows.find(row=>row.productId===sample.productId);
       for(const item of line){
         const frame=equipment.get(item.id)||{};
         const metrics=final?source.equipmentMetrics?.[item.id]??frame:frame;
-        const zone=zones.get(item.id);
+        const zone=zones.get(item.id)??zones.get(item.zoneId);
         const unit=metrics.unitOfFlow??zone?.packageUnit??item.unit;
         item.unit=unit;
         item.bottlesPerUnit=unit==='CASES'?format?.bottlesPerCase??item.bottlesPerUnit:1;
@@ -147,7 +148,13 @@ window.STSimulation2D=(function(){
         item.prime=zone?.prime?.positionMm??null;item.backup=zone?.backup?.positionMm??null;
         item.primeBeam=zone?.prime?.latched===true;item.backupBlocked=zone?.backup?.controlActive===true;
         item.inventory=zone?.inventoryUnits;
-        item.items=(zone?.transitPositionsMm||[]).map(x=>({x}));
+        item.transit={
+          positions:zone?.transitPositionsMm,
+          units:zone?.inTransitUnits??Math.max(0,(zone?.inventoryUnits??0)-(zone?.waitingUnits??0)),
+          speed:zone?.beltRunning===false?0:geometry?.conveyorSpeedMmPerSecond??item.speed,
+          sampledAt:sample.virtualSecond
+        };
+        item.items=[];
         const pitch=geometry?.accumulatedPitchMm,packageLength=item.packageLength;
         if(pitch>0&&packageLength>0&&item.length>=packageLength){
           const count=Math.min(Math.floor(zone.waitingUnits||0),Math.floor((item.length-packageLength)/pitch)+1);
@@ -157,6 +164,22 @@ window.STSimulation2D=(function(){
     }
     advance(0);
     return {line,step:advance,get time(){return time;},get outputCount(){return outputCount;}};
+  }
+  function replayTransit(item,time){
+    const transit=item.transit;
+    const front=item.packageLength/2;
+    const end=item.items.length?item.items.at(-1).x-item.packageLength:item.length-front;
+    if(!transit||!(front>0)||!(end>front))return [];
+    const travel=Math.max(0,time-transit.sampledAt)*(transit.speed||0);
+    if(transit.positions?.length){
+      return transit.positions.map(position=>({x:Math.max(front,position+travel)})).filter(product=>product.x<=end);
+    }
+    if(!(transit.units>0))return [];
+    const span=end-front;
+    const slots=Math.min(256,Math.max(1,Math.round(transit.units)),Math.max(1,Math.floor(span/item.packageLength)));
+    const spacing=span/slots;
+    const phase=(travel+spacing/2)%spacing;
+    return Array.from({length:slots},(_,index)=>({x:front+phase+index*spacing}));
   }
   function replayProduction(){
     const unit=model.line.at(-1)?.unit, rows=replay.products?.rows||[];
@@ -189,7 +212,7 @@ window.STSimulation2D=(function(){
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const length=(model?.line||definitions).reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
-    const top=60,bottom=Math.max(260,68+shiftIndex(model?.time??0)*20);
+    const top=60,bottom=Math.max(295,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -303,7 +326,8 @@ window.STSimulation2D=(function(){
         context.beginPath();context.moveTo(x,y);context.lineTo(x+width,y);
         context.setLineDash([3,5]);context.stroke();context.setLineDash([]);
         context.fillStyle=accent;
-        for(const product of item.items||[]){
+        const products=independent?[...replayTransit(item,model.time),...(item.items||[])]:item.items||[];
+        for(const product of products){
           const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
           if(px+length/2<0||px-length/2>w)continue;
           if(!(across>0)){
@@ -362,16 +386,17 @@ window.STSimulation2D=(function(){
           const bottles=item.bottlesPerUnit>0?num(produced*item.bottlesPerUnit):'—';
           const bpm=item.bottlesPerUnit>0?num(rate*item.bottlesPerUnit):'—';
           const counters=[
+            independent||item.failures?.length?'Own failures '+num(item.failureCount):'Own failures off',
+            bottles+' bottles',
+            bpm+' bpm',
             'Run '+seconds(durations.running),
             'Starving '+seconds(durations.starving),
             'Ramp up '+seconds(durations.acceleration),
             'Ramp down '+seconds(durations.deceleration),
             'Blocked '+seconds(durations.blocked),
-            'Own failures '+num(item.failureCount??(independent?undefined:0)),
-            'Failure time '+seconds(durations.failure),
-            bottles+' bottles · '+bpm+' bpm'
+            'Failure time '+seconds(durations.failure)
           ];
-          if(item.unit==='CASES')counters.push(num(produced)+' cases · '+num(rate)+' cpm');
+          if(item.unit==='CASES')counters.push(num(produced)+' cases',num(rate)+' cpm');
           counters.forEach((label,index)=>drawText(context,label,sx,sy+31+index*15,width-4));
         }
       }
@@ -382,8 +407,8 @@ window.STSimulation2D=(function(){
   function status(){
     const unknownWidth=definitions.some(item=>item.kind==='belt'&&!(item.packageWidth>0));
     const sourceStatus=independent
-      ? ' · Round '+replay.round+(replay.seed===undefined?'':' · Seed '+replay.seed)+' · Recorded frames. Queue positions are estimated. Transit is drawn where positions were recorded. A dash indicates unavailable telemetry.'
-      : (replay?'':' · No compatible representative round with recorded detail. Run the numerical simulation with playback recording.')
+      ? ' · Round '+replay.round+(replay.seed===undefined?'':' · Seed '+replay.seed)+' · Recorded states and totals. Bottle movement between frames is estimated. A dash indicates unavailable telemetry.'
+      : ' · Seed '+seed+(replay?'':' · No compatible representative round with recorded detail. Run the numerical simulation with playback recording.')
         +(unknownWidth?' · Products without a width in Formats are shown as centreline markers.':'');
     el('status').textContent=(validation||runState)+sourceStatus;
     const line=model?.line||[];
@@ -526,7 +551,7 @@ window.STSimulation2D=(function(){
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
     const revised=prepare(equipment,format,config);
-    const nextSignature=JSON.stringify([next,revised]);
+    const nextSignature=JSON.stringify([next,revised],(key,value)=>key==='zoneId'?undefined:value);
     const ids=source?.samples.at(-1)?.equipment?.map(item=>item.id)||[];
     const compatible=source?.durationSeconds>0&&ids.length>0&&ids.length===revised.length&&revised.every((item,index)=>item.id===ids[index]);
     const nextReplayKey=compatible?source.revision:null;
