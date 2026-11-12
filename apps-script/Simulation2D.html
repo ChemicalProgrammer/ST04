@@ -6,9 +6,19 @@
 .simulation2d-metrics > div { flex:1 1 8rem; padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
-#simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; }
-#simulation2d-panel .fold-tools > :not(#simulation2d-zoom) { flex:0 0 auto; }
-#simulation2d-zoom { flex:0 1 clamp(64px,10vw,124px); width:clamp(64px,10vw,124px); min-width:40px; padding:0; accent-color:var(--accent); }
+#simulation2d-panel { container-type:inline-size; }
+#simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; gap:var(--space-1); }
+#simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
+#simulation2d-speed { width:max-content; min-width:0; padding-inline:6px 20px; background-position:right 4px center; background-size:13px; }
+#simulation2d-zoom { width:96px; min-width:0; padding:0; accent-color:var(--accent); }
+#simulation2d-zoom-value { width:5ch; text-align:end; color:var(--ink); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; white-space:nowrap; }
+@container (max-width:370px) {
+  #simulation2d-panel .fold-tools { gap:2px; }
+  #simulation2d-panel .fold-tools .icon-button { width:28px; padding-inline:4px; }
+  #simulation2d-zoom { width:48px; }
+  #simulation2d-zoom-value { font-size:11px; }
+  #simulation2d-speed { font-size:12px; padding-inline:4px 16px; background-size:11px; }
+}
 #simulation2d-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block:var(--space-2); }
 #simulation2d-legend span::before { content:""; display:inline-block; width:.65em; height:.65em; border-radius:50%; margin-inline-end:.4em; background:var(--lamp); }
 #simulation2d-legend .run { --lamp:#00bd67; }
@@ -83,7 +93,9 @@ window.STSimulation2D=(function(){
   function syncZoom(){
     const slider=el('zoom'),ratio=camera.scale/sceneScale;
     slider.value=Math.log2(ratio);
-    slider.setAttribute('aria-valuetext',num(ratio*100)+'%');
+    const percent=(ratio>=.01?Math.round(ratio*100):num(ratio*100))+'%';
+    slider.setAttribute('aria-valuetext',percent);
+    el('zoom-value').textContent=percent;
   }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
