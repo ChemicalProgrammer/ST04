@@ -10,6 +10,7 @@
 .simulation2d-style { margin-inline-start:var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
 .simulation2d-source select { width:auto; min-width:0; }
+.simulation2d-source input[type=checkbox] { width:auto; margin:0; }
 #simulation2d-panel .fold-tools { flex-wrap:nowrap; align-items:center; max-width:100%; min-width:0; gap:var(--space-1); }
 #simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
 #simulation2d-speed { width:max-content; min-width:0; padding-inline:6px 20px; background-position:right 4px center; background-size:13px; }
@@ -48,12 +49,19 @@ window.STSimulation2D=(function(){
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
-  let productHeights={},machineTypes=new Map(),bottleStages=new Map();
+  let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
+  const dimensionRowHeight=19;
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
   machineStyle.addEventListener('change',()=>{
     window.STPreferences?.write('simulation2dMachineStyle',machineStyle.value);
+    if(camera.fit)fit();else draw();
+  });
+  const showDimensions=el('dimensions');
+  showDimensions.checked=window.STPreferences?.read('simulation2dDimensions')==='yes';
+  showDimensions.addEventListener('change',()=>{
+    window.STPreferences?.write('simulation2dDimensions',showDimensions.checked?'yes':'no');
     if(camera.fit)fit();else draw();
   });
   let camera={scale:1,x:0,y:0,fit:true};
@@ -67,11 +75,34 @@ window.STSimulation2D=(function(){
       &&Number.isFinite(profile.mttrMinutes)&&profile.mttrMinutes>0)
       .map(([,profile])=>({rate:1/(profile.mtbfMinutes*60),repairSeconds:profile.mttrMinutes*60}));
   }
+  function dimensionRows(zone,data){
+    const length=zone.usableLengthMm,prime=zone.primeSensorPositionMm,backup=zone.backupSensorPositionMm;
+    const {input,calculated}=zone.engineering||{};
+    const discharge=data.geometry?.actualDischargeMm??input?.dischargeRunoutLengthMm??data.accumulation?.dischargeRunoutLengthMm;
+    const coding=data.geometry?.actualCodingMm??input?.rejectRunoutLengthMm??data.accumulation?.rejectRunoutLengthMm;
+    const installedSpan=Number.isFinite(prime)&&Number.isFinite(backup)?prime-backup:undefined;
+    const accumulation=calculated?.usefulAccumulationLengthMm??installedSpan;
+    const rows=[];
+    function span(label,start,value){
+      if(!Number.isFinite(value)||value<=0)return;
+      rows.push({label,start,value});
+    }
+    span('Lact',0,length);
+    if(Number.isFinite(prime))span('Lp',prime,length-prime);
+    span('Lba',prime-accumulation,accumulation);
+    span('Lbu',0,calculated?.overflowLengthMm);
+    span('Discharge',0,discharge);
+    span('Coding',discharge??0,coding);
+    span('Overflow',(discharge??0)+(coding??0),calculated?.overflowProductLengthMm);
+    if(Number.isFinite(calculated?.recoveryLengthMm))rows.push({label:'Lrec (margin)',value:calculated.recoveryLengthMm});
+    return rows;
+  }
   function prepare(equipment,format,config){
     const geometry=window.SimulatorEngine;
     const packSize=format?geometry.productPackSize(format):null;
     const configured=format?geometry.applyProductProfile(equipment,format):equipment;
     const zones=configured.map((item,index)=>item.type==='CONVEYOR'?geometry.resolveProductConveyor(configured,index):null);
+    conveyorDimensions=new Map();
     return configured.map((item,index)=>{
       const data=item.processData||{};
       const unit=data.flowUnits?.output==='CASES'||String(item.unitOfFlow).toUpperCase()==='CASES'?'CASES':'BOTTLES';
@@ -90,6 +121,7 @@ window.STSimulation2D=(function(){
           startDelay:item.startupDelaySeconds??data.upstream?.startupTimeSeconds??0,batch};
       }
       const zone=zones[index]||{};
+      conveyorDimensions.set(item.id,dimensionRows(zone,data));
       const presentation=format?geometry.productPresentation(format,unit):{};
       return {id:item.id,name:item.name||item.id,kind:'belt',unit,bottlesPerUnit:unit==='BOTTLES'?1:packSize,
         zoneId:zone.id,length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
@@ -146,7 +178,8 @@ window.STSimulation2D=(function(){
   }
   function sceneTop(){
     return Math.max(tallestMachine()/2+26,
-      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+68));
+      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+68+
+        (showDimensions.checked?(conveyorDimensions.get(item.id)?.length||0)*dimensionRowHeight:0)));
   }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
@@ -296,6 +329,26 @@ window.STSimulation2D=(function(){
   function beltHalfHeight(item){
     return (productHeight(item)+beltInset+beltDepth)/2;
   }
+  function drawConveyorDimensions(context,item,x,y,width,ink,accent){
+    const rows=conveyorDimensions.get(item.id)||[];
+    context.save();
+    context.font='11px system-ui';context.textAlign='center';
+    context.strokeStyle=accent;context.fillStyle=ink;
+    rows.forEach(({label,start,value},index)=>{
+      const rowY=y-index*dimensionRowHeight,end=start+value;
+      if(Number.isFinite(start)&&start>=0&&end<=item.length+.000001){
+        const left=x+start*sceneScale,right=x+end*sceneScale;
+        context.beginPath();
+        context.moveTo(left,rowY);context.lineTo(right,rowY);
+        for(const edge of [left,right]){
+          context.moveTo(edge,rowY-3);context.lineTo(edge,rowY+3);
+        }
+        context.stroke();
+      }
+      drawText(context,label+' · '+num(value)+' mm',x+width/2,rowY-4,Math.max(1,width-4));
+    });
+    context.restore();
+  }
   function drawBelt(context,x,y,width,item,factor,w,accent,beltColor,surface){
     const left=Math.max(0,x+5),right=Math.min(w,x+width-5);
     context.fillStyle=beltColor;context.strokeStyle=beltColor;
@@ -433,8 +486,9 @@ window.STSimulation2D=(function(){
         drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface);
         const sensorY=y-beltHalfHeight(item)-12;
         const closeSensors=item.prime!=null&&item.backup!=null&&Math.abs(item.prime-item.backup)*scale<19;
-        const signal=beltSignal(item);
-        drawSignal(context,x+width/2,sensorY-22-(closeSensors?20:0),signal.lamp);
+        const signal=beltSignal(item),signalY=sensorY-22-(closeSensors?20:0);
+        drawSignal(context,x+width/2,signalY,signal.lamp);
+        if(showDimensions.checked)drawConveyorDimensions(context,item,x,signalY-16,width,ink,accent);
         for(const [label,position,active] of [['B',item.backup,item.backupBlocked],['P',item.prime,item.primeBeam]]){
           if(position===null)continue;
           const sx=x+position*scale,sy=sensorY-(label==='B'&&closeSensors?20:0);

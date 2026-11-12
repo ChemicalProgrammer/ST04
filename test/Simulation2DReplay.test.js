@@ -217,6 +217,22 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
+    Object.assign(geometry,{primeSensorPositionMm:1500,backupSensorPositionMm:500,
+      engineering:{input:{dischargeRunoutLengthMm:100,rejectRunoutLengthMm:150},
+        calculated:{usefulAccumulationLengthMm:1000,overflowLengthMm:500,overflowProductLengthMm:250,recoveryLengthMm:-50}}});
+    window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null);
+    el('fit').click();
+    const dimensions=el('dimensions');
+    const currentLabels=()=>labels.slice(lastFrameOrigin).map(([text])=>text);
+    assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
+    dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
+    for(const label of ['Lact','Lp','Lba','Lbu','Discharge','Coding','Overflow','Lrec (margin)']){
+      assert(currentLabels().some(text=>text.startsWith(label+' ·')));
+    }
+    assert(currentLabels().includes('Lrec (margin) · -50 mm'));
+    dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
+    assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
+
 
 
   }finally{dom.window.close();}
