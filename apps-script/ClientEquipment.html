@@ -530,7 +530,7 @@ function numericInputValue(input) {
         [['maximum-speed','maximumSpeedBpm'],['recovery-time','recoveryTimeSeconds']].forEach(function(spec){var input=equipmentField(card,'.equipment-'+spec[0]);if(input.value==='')delete data.equipment[spec[1]];else data.equipment[spec[1]]=Number(input.value);});
         if(!data.equipment.stopInputs&&(equipmentField(card,'.reliability-enabled').checked||window.STBasicMode?.isBasic()&&type!=='CONVEYOR'))noise.reliability=Object.assign({},noise.reliability,{mtbfMinutes:Number(equipmentField(card,'.reliability-mtbfMinutes').value),mttrMinutes:Number(equipmentField(card,'.reliability-mttrMinutes').value)});
         else if(!data.equipment.stopInputs)delete noise.reliability;
-        if(type!=='CONVEYOR')STEquipmentRoles.readResidence(card._fields,data);
+        if(type!=='CONVEYOR')STEquipmentRoles.readCapacity(card._fields,data);
         if(type==='CONVEYOR')data=mergeFormatZoneData(data,readFormatZoneInputs(card));
         var previewInput=equipmentField(card,'.equipment-input-unit').value,previewOutput=equipmentField(card,'.equipment-unit').value;if(previewInput&&previewOutput)data.flowUnits={input:type==='CONVEYOR'?previewOutput:previewInput,output:previewOutput};
         return {id:equipmentField(card,'.equipment-id').value,type:type,name:equipmentField(card,'.equipment-name').value,

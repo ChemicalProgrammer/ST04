@@ -1,4 +1,4 @@
-function sheetImportContractVersion_(){return 'sheet-import-20261112-6';}
+function sheetImportContractVersion_(){return 'sheet-import-20261112-7';}
 // Conservative name recognition for worksheets whose category is simply Machine.
 function inferSheetMachineType_(name) {
   var text=String(name||'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ');
@@ -73,14 +73,14 @@ function previewSheetImport_(request, user) {
   if (!sheet) throw createSimulatorError_('SHEET_TAB_NOT_FOUND','The worksheet was not found. Enter its exact tab name.');
   var lastRow=sheet.getLastRow();
   var inlineMarker=sheet.getMaxColumns()>=30?sheet.getRange(1,30).getValues()[0][0]:'';
-  var residenceColumns=inlineMarker==='st-equipment-metadata-b-v6';
-  var inlineStops=residenceColumns||inlineMarker==='st-equipment-metadata-b-v5';
+  var capacityColumn=['st-equipment-metadata-b-v6','st-equipment-metadata-b-v7'].includes(inlineMarker);
+  var inlineStops=capacityColumn||inlineMarker==='st-equipment-metadata-b-v5';
   var idColumn=inlineStops?30:26;
   var marker=sheet.getMaxColumns()>=26?sheet.getRange(1,26).getValues()[0][0]:'';
   var stopBreakdown=inlineStops||marker==='st-equipment-metadata-b-v4',compact=stopBreakdown||marker==='st-equipment-metadata-b-v3',start=compact?8:marker==='st-equipment-metadata-b-v2'?11:10,limit=start+999;
   if(lastRow>limit)throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows '+start+'–'+limit+'). Remove extra content below the equipment table or use a dedicated worksheet.');
   if(sheet.getMaxColumns()<23||sheet.getMaxRows()<start)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected an Equipment header and data starting at A'+start+'.');
-  var layout=detectSheetImportLayout_(sheet.getRange(start-2,inlineStops?11:7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=residenceColumns?'AF':inlineStops?'AC':String.fromCharCode(64+width);
+  var layout=detectSheetImportLayout_(sheet.getRange(start-2,inlineStops?11:7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=capacityColumn?'AE':inlineStops?'AC':String.fromCharCode(64+width);
   if(sheet.getMaxColumns()<width)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected equipment in A'+start+':'+lastColumn+'.');
   var metadataColumn=compact||['st-equipment-metadata-b-v1','st-equipment-metadata-b-v2'].includes(marker)?'B':'C';
   var metadata,containerUnit,metadataCells=compact?compactEquipmentMetadataCells_():null;
@@ -109,10 +109,10 @@ function previewSheetImport_(request, user) {
     stopRows=rows.map(function(row){return row.splice(3,4);});
     formats.forEach(function(row){row.splice(3,4);});
   }else if(stopBreakdown&&count)stopRows=sheet.getRange(start,27,count,4).getValues();
-  if(residenceColumns&&count)sheet.getRange(start,31,count,2).getValues().forEach(function(pair,index){rows[index].push(...pair);});
+  if(capacityColumn&&count)sheet.getRange(start,31,count,1).getValues().forEach(function(value,index){rows[index].push(value[0]);});
   var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,stopRows:stopRows,inlineStops:inlineStops,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A'+start+':'+lastColumn+(count?count+start-1:start)};
-  if(residenceColumns)result.source.residenceColumns=true;
+  if(capacityColumn)result.source.capacityColumn=true;
   if(compact)result.source.metadataCells=metadataCells;
   if(stopBreakdown)result.source.stopBreakdown=result.stopBreakdown=true;
   if(inlineStops)result.source.inlineStops=true;
@@ -257,10 +257,9 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
       speedAndSensors:{conveyorSpeedFactorVsDischargeVelocityPercent:values.conveyorSpeedFactorVsDischargeVelocityPercent,codingConveyorSpeedFactorVsPreviousConveyorPercent:values.codingConveyorSpeedFactorVsPreviousConveyorPercent,conveyorSpeedFactorVsPreviousConveyorPercent:values.conveyorSpeedFactorVsPreviousConveyorPercent,blockedTimeDelaySeconds:values.blockedTimeDelaySeconds,clearTimeDelaySeconds:values.clearTimeDelaySeconds,insuranceFactorUnits:values.insuranceFactorUnits,overspeedVsInfeedScrewPercent:values.overspeedVsInfeedScrewPercent}
     }};
     if(!conveyor){
-      var capacity=numeric(row[columns.length],'AE'+rowNumber),residence=numeric(row[columns.length+1],'AF'+rowNumber);
+      var capacity=numeric(row[columns.length],'AE'+rowNumber);
       if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1))issue(errors,'AE'+rowNumber,'Internal capacity must be a positive whole number.');
       if(capacity!==null)unit.processData.equipment.internalCapacityBottles=values.internalCapacityBottles=capacity;
-      if(residence!==null)unit.processData.equipment.residenceTimeSeconds=values.residenceTimeSeconds=residence;
     }
     if(stopInputs)unit.processData.equipment.stopInputs=stopInputs;
     if(mtbf>0&&mttr>0)unit.noiseProfile.reliability={mtbfMinutes:mtbf,mttrMinutes:mttr};

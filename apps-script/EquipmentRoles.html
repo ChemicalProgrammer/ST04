@@ -1,13 +1,12 @@
 <script>
 window.STEquipmentRoles=(function(){
-  var residenceFields=[['internal-capacity','internalCapacityBottles','Internal capacity (bottles)','30'],['residence-time','residenceTimeSeconds','Residence time (s)','20']];
-  function readResidence(fields,data){
+  function readCapacity(fields,data){
+    var input=fields.querySelector('.equipment-internal-capacity');
+    if(!input.checkValidity())return false;
     data.equipment=data.equipment||{};
-    for(var spec of residenceFields){
-      var input=fields.querySelector('.equipment-'+spec[0]);
-      if(!input.checkValidity())return false;
-      if(input.value==='')delete data.equipment[spec[1]];else data.equipment[spec[1]]=Number(input.value);
-    }
+    delete data.equipment.residenceTimeSeconds;
+    if(input.value==='')delete data.equipment.internalCapacityBottles;
+    else data.equipment.internalCapacityBottles=Number(input.value);
     return true;
   }
   function machineType(e){var types=['BLOWER','BLOWMOLDER','PUCKER','FILLER','FEEDER','DEPUCKER','SLEEVER','CASE_PACKER','PALLETIZER','CUSTOM'];return e.type==='PACEMAKER'?(types.includes(e.processData?.machineType)?e.processData.machineType:'CUSTOM'):e.type||'CUSTOM';}
@@ -22,21 +21,19 @@ window.STEquipmentRoles=(function(){
       if(spec[0]==='recovery-time'){input.value=equipment.processData?.equipment?.recoveryTimeSeconds??'';input.placeholder=__ST_TEXT__('equipment.recovery_default');label.title=__ST_TEXT__('equipment.recovery_help');}
       label.appendChild(input);grid.appendChild(label);
     });
-    residenceFields.forEach(function(spec){
-      var label=document.createElement('label'),input=document.createElement('input');
-      label.className='machine-design-field';label.textContent=spec[2];input.type='number';
-      input.className='equipment-'+spec[0];input.placeholder=spec[3];
-      input.min=spec[0]==='internal-capacity'?'1':'0';input.step=spec[0]==='internal-capacity'?'1':'any';
-      input.value=equipment.processData?.equipment?.[spec[1]]??'';
-      label.append(input);grid.append(label);
-    });
+    var capacityLabel=document.createElement('label'),capacity=document.createElement('input');
+    capacityLabel.className='machine-design-field';capacityLabel.textContent='Internal capacity (bottles)';
+    capacityLabel.title='Residence time is calculated from internal capacity and nominal machine speed.';
+    capacity.type='number';capacity.className='equipment-internal-capacity';capacity.placeholder='30';
+    capacity.min='1';capacity.step='1';capacity.value=equipment.processData?.equipment?.internalCapacityBottles??'';
+    capacityLabel.append(capacity);grid.append(capacityLabel);
     function refresh(){
       try{
         var data=JSON.parse(fields.querySelector('.equipment-process-data').value),characteristics=JSON.parse(fields.querySelector('.equipment-characteristics').value);
         fields.querySelector('.equipment-pacemaker').checked=data.role==='PACEMAKER'||characteristics.isPacemaker===true;
         fields.querySelector('.equipment-maximum-speed').value=data.equipment?.maximumSpeedBpm??'';
         fields.querySelector('.equipment-recovery-time').value=data.equipment?.recoveryTimeSeconds??'';
-        residenceFields.forEach(function(spec){fields.querySelector('.equipment-'+spec[0]).value=data.equipment?.[spec[1]]??'';});
+        capacity.value=data.equipment?.internalCapacityBottles??'';
       }catch(_){/* Validation handles incomplete JSON. */}
     }
     fields.querySelector('.equipment-process-data').addEventListener('change',refresh);
@@ -47,7 +44,7 @@ window.STEquipmentRoles=(function(){
     characteristics.isPacemaker=pacemaker;
     data.role=type==='CONVEYOR'?'CONVEYOR':pacemaker?'PACEMAKER':(characteristics.criticalMachine||data.role==='CRITICAL_MACHINE')?'CRITICAL_MACHINE':'MACHINE';data.machineType=type;
     if(type!=='CONVEYOR'){
-      if(!readResidence(fields,data))return false;
+      if(!readCapacity(fields,data))return false;
       for(var spec of [['maximum-speed','maximumSpeedBpm'],['recovery-time','recoveryTimeSeconds']]){
         var input=fields.querySelector('.equipment-'+spec[0]);
         if(!input.checkValidity())return false;
@@ -56,6 +53,6 @@ window.STEquipmentRoles=(function(){
     }
     return true;
   }
-  return {attach:attach,read:read,readResidence:readResidence,machineType:machineType};
+  return {attach:attach,read:read,readCapacity:readCapacity,machineType:machineType};
 })();
 </script>

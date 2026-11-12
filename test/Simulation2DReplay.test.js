@@ -88,9 +88,9 @@ test('2D uses the representative seed to calculate new production and preserves 
     }};
     const records=[];
     const equipment=[
-      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{residenceTimeSeconds:0,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
-      {id:'m',nominalRatePerSecond:4,processData:{equipment:{residenceTimeSeconds:2}}}
+      {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:999}}}
     ];
     window.STSimulation2D.load(['case','simulation'],equipment,null,{seed:7,durationSeconds:25},null,record=>records.push(record),source);
     el('play').click();
@@ -107,6 +107,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(el('time').textContent,'0 s');
     assert.equal(el('output').textContent,'0 bottles');
     assert.deepEqual(createdSeeds,[7,78]);
+    assert.equal(createdDefinitions.at(-1).residenceSeconds,2);
     el('speed').value='50';
     el('play').click();
     animate(1000);
@@ -162,7 +163,7 @@ test('2D uses the representative seed to calculate new production and preserves 
 test('2D retains resident bottles across snapshots and caps admission', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DEngine'), {window});
-  const definitions=[{kind:'machine',rate:10,batch:1,startDelay:0,rampSeconds:0,
+  const definitions=[{kind:'machine',rate:.5,batch:1,startDelay:0,rampSeconds:0,
     capacityBottles:10,residenceSeconds:20,inputBottleFactor:1}];
   const engine=window.STSimulation2DEngine;
   const model=engine.create(definitions);
@@ -180,7 +181,7 @@ test('2D retains resident bottles across snapshots and caps admission', () => {
 test('resident bottles discharge at even headways and Back-up leaves 25 of 30 after a five-bottle runout', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DEngine'), {window});
-  const machine={kind:'machine',rate:5,batch:1,startDelay:0,rampSeconds:0,
+  const machine={kind:'machine',rate:1.5,batch:1,startDelay:0,rampSeconds:0,
     capacityBottles:30,residenceSeconds:20,inputBottleFactor:1,bottlesPerUnit:1};
   const belt={kind:'belt',length:100000,speed:1000,packageLength:20,pitch:25,packedGap:0,prime:null,backup:null,
     blockDelay:0,clearDelay:Infinity,responseDelay:2,residual:5};

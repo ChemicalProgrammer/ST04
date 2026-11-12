@@ -86,7 +86,7 @@ html[data-ui-mode=basic] .equipment-grid input,
 html[data-ui-mode=basic] .reliability-controls input { width:100%; min-width:0; }
 html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); overflow-x:auto; }
 html[data-ui-mode=basic] .basic-machine .equipment-header .button-row,
-html[data-ui-mode=basic] .basic-machine .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-rate, > .equipment-material-flow, > .equipment-internal-capacity, > .equipment-residence-time)),
+html[data-ui-mode=basic] .basic-machine .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-rate, > .equipment-material-flow, > .equipment-internal-capacity)),
 html[data-ui-mode=basic] .reliability-controls label:has(> .reliability-enabled) { display:none !important; }
 html[data-ui-mode=basic] .basic-machine .equipment-grid,
 html[data-ui-mode=basic] .basic-machine .reliability-controls { grid-template-columns:1fr; gap:var(--space-3); }

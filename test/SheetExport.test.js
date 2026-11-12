@@ -54,12 +54,12 @@ test('Sheets export uses every import column and current overrides, preserves ze
   roundtrip.sourceRows.forEach((row,i)=>c.sheetImportColumns_(data.layout).forEach((column,j)=>assert.equal(row.values[column[1]],data.rows[i][j]==='NA'?null:data.rows[i][j])));
 });
 
-test('authenticated export creates one new themed Sheet in Exports with batched B1:B4 / A8:AF layout and literal names',()=>{
+test('authenticated export creates one new themed Sheet in Exports with batched B1:B4 / A8:AE layout and literal names',()=>{
   const {c,calls,writes}=runtime(),request=fixture(c);request.equipment[0].name='=HYPERLINK("https://example.test")';request.metadata.site='=1+1';
   const response=c.exportEquipmentSheet(request);assert.equal(response.ok,true,JSON.stringify(response));
   assert.equal(response.data.equipmentCount,3);assert.equal(response.data.url,'https://docs.google.com/spreadsheets/d/new-sheet-id/edit');
   assert.equal(calls[0][0],'owned');assert.deepEqual(calls.find(call=>call[0]==='move'),['move','export-folder']);
-  assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,107,32]);
+  assert.equal(writes.length,3);const {coordinates,values}=writes[0];assert.deepEqual(coordinates,[1,1,107,31]);
   assert.deepEqual(calls.filter(call=>call[0]==='insertSheet'),[['insertSheet','Products & Formats',1],['insertSheet','Real Data',2]]);
   const actuals=writes[2].values;assert.equal(actuals[0][9],'st-real-inputs-v5');assert.match(actuals[15][0],/Equipment.*MATCH/);assert.equal(actuals[15][9],values[7][29]);assert.equal(actuals[16][9],values[9][29]);assert.match(actuals[15][5],/E16\/\(D16\+E16\)/);
   const catalog=writes[1].values;
@@ -70,7 +70,7 @@ test('authenticated export creates one new themed Sheet in Exports with batched 
   assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].includes('FILLER')&&call[2]));
   assert(calls.some(call=>call[0]==='setDataValidation'&&JSON.stringify(call[1])==='[8,1,100,1]'));
   assert.equal(actuals[18][9],values[10][29]);assert.match(actuals[18][0],/COUNTIFS/);
-  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][29],'st-equipment-metadata-b-v6');assert.equal(values[7][1],"'=HYPERLINK(\"https://example.test\")");
+  assert.equal(values[0][1],"'=1+1");assert.equal(values[0][2],'');assert.equal(values[0][29],'st-equipment-metadata-b-v7');assert.equal(values[7][1],"'=HYPERLINK(\"https://example.test\")");
   assert.equal(values[6][28],'Overspeed vs infeed screw\n[%]');assert.equal(values[8][22],100);
   assert.deepEqual([2,12,16,20,22].map(i=>values[5][i]),['Equipment','Geometry','Upstream','Downstream','Speed & Sensors']);
   for(const group of [[6,3,1,10],[6,13,1,4],[6,17,1,4],[6,21,1,2],[6,23,1,7]])assert(calls.some(call=>call[0]==='merge'&&JSON.stringify(call[1])===JSON.stringify(group)));
@@ -112,7 +112,7 @@ test('regression: merged note cannot cross a frozen-column boundary; Google serv
 
 test('updated Sheets export places physical conveyor speed in G and reference accumulation in H and survives reimport',()=>{
  const {c}=runtime(),request=fixture(c),unit=request.equipment[1];unit.processData.accumulation.speedMode='MANUAL';unit.processData.accumulation.conveyorSpeedMmPerSecond=29.93*1000/60;unit.processData.accumulation.declaredAccumulationSeconds=28;
- const data=c.equipmentSheetData_(request.equipment,request.metadata);assert.equal(data.layout,'plant-sheet-v2');assert.equal(data.rows[1].length,27);assert.equal(data.rows[1][6],29.93);assert.equal(data.rows[1][7],28);assert.equal(data.rows[1][8],8000);
+ const data=c.equipmentSheetData_(request.equipment,request.metadata);assert.equal(data.layout,'plant-sheet-v2');assert.equal(data.rows[1].length,26);assert.equal(data.rows[1][6],29.93);assert.equal(data.rows[1][7],28);assert.equal(data.rows[1][8],8000);
  const out=c.parseEquipmentSheet_(data.metadata,data.rows,[],data.layout);assert(out.canImport,JSON.stringify(out.errors));assert.equal(out.equipment[1].processData.accumulation.speedMode,'MANUAL');assert.equal(out.equipment[1].processData.accumulation.declaredAccumulationSeconds,28);
  assert(Math.abs(out.equipment[1].processData.accumulation.conveyorSpeedMmPerSecond-unit.processData.accumulation.conveyorSpeedMmPerSecond)<1e-10);
  assert.equal(c.detectSheetImportLayout_([c.sheetImportColumns_(data.layout).slice(6,8).map(v=>v[2])]),'plant-sheet-v2');
@@ -156,13 +156,17 @@ test('three-tab export previews equipment and filled observations via the same s
   const result=h.c.previewSheetImport_({caseId:'mine',spreadsheet},{email:'owner@test'}),r=result.realData.record,e=r.equipment[0];
   assert.equal(result.realData.errors.length,0,JSON.stringify(result.realData.errors));
   assert.equal(result.equipment.length,4);assert.equal(result.source.sheetName,'Equipment');assert.equal(result.source.metadataColumn,'B');assert.equal(result.metadata.bottlesPerCase,24);
-  assert.equal(result.source.equipmentRange,'A8:AF107');assert.equal(result.equipment[0].processData.equipment.internalCapacityBottles,31);assert.equal(result.equipment[0].processData.equipment.residenceTimeSeconds,8.25);assert.equal(result.equipment[0].noiseProfile.reliability.mttrMinutes,5);assert.equal(result.materialCatalog.errors.length,0);
+  assert.equal(result.source.equipmentRange,'A8:AE107');assert.equal(result.equipment[0].processData.equipment.internalCapacityBottles,31);assert.equal(result.equipment[0].processData.equipment.residenceTimeSeconds,undefined);assert.equal(result.equipment[0].noiseProfile.reliability.mttrMinutes,5);assert.equal(result.materialCatalog.errors.length,0);
   assert.equal(r.production,100);assert.equal(r.reportedProductionCases,100);assert.equal(r.reportedProductionUnits,1200);assert.equal(r.aem.productionAvailableSeconds,80640);assert.equal(r.reportedEfficiencyPercent,63.3);
   assert.equal(e.sourceEquipmentId,request.equipment[0].id);assert.equal(e.downtimeSeconds,720);assert.equal(e.failureCount,null);assert.equal(e.stopClass,'UNKNOWN');
   assert.equal(e.reportedDowntimePercent,12.1);assert.equal(e.observationRow,16);
   assert.equal(r.equipment[1].sourceRow,11);assert.equal(r.equipment[1].observationRow,19);assert.equal(r.equipment[1].downtimeSeconds,0);assert.equal(r.equipment[1].reportedDowntimePercent,0);
   assert(result.realData.fields.some(f=>f.cell==='Real Data!B2'));
  }
+ values[0][29]='st-equipment-metadata-b-v6';values[0][31]='';values[7][31]='obsolete';
+ const legacy=h.c.previewSheetImport_({caseId:'mine',spreadsheet:'new-sheet-id'},{email:'owner@test'});
+ assert.equal(legacy.equipment[0].processData.equipment.internalCapacityBottles,31);
+ assert.equal(legacy.equipment[0].processData.equipment.residenceTimeSeconds,undefined);
  assert(h.calls.some(call=>call[0]==='hideColumns'&&call[1]===30));
 });
 
@@ -178,7 +182,7 @@ test('catalog uses product names and preserves internal IDs, format selection an
  assert.equal(catalog[2][2],'Linked product');
  assert(calls.some(call=>call[0]==='requireValueInList'&&call[1].join(',')==='Product,Format'));
  assert.equal(calls.filter(call=>call[0]==='setBorder').length,18);
- assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='7,1,1,32'&&call[2]==='center'));
+ assert(calls.some(call=>call[0]==='setHorizontalAlignment'&&String(call[1])==='7,1,1,31'&&call[2]==='center'));
  assert.deepEqual(catalog.slice(3).map(row=>row.slice(0,3)),[
    ['Product','Drink',''],['Format','Six pack',''],['Format','Twelve pack','']
  ]);
@@ -211,10 +215,10 @@ test('a new case with no equipment still exports all headings, validations and b
  assert.equal(response.ok,true,JSON.stringify(response));assert.equal(response.data.equipmentCount,0);
  const grid=writes[0].values;
  assert.equal(grid[2][1],46006);assert.equal(grid[3][0],'By');assert.equal(grid[3][1],'');
- assert.equal(grid[6].length,32);assert(grid[6].every(Boolean));
+ assert.equal(grid[6].length,31);assert(grid[6].every(Boolean));
  assert(grid[7].slice(0,29).every(value=>value===''));assert.match(grid[7][29],/^slot-/);
  assert(calls.some(call=>call[0]==='setNumberFormat'&&String(call[1])==='4,2'&&call[2]==='@'));
- assert(calls.some(call=>call[0]==='createFilter'&&String(call[1])==='7,1,101,32'));
+ assert(calls.some(call=>call[0]==='createFilter'&&String(call[1])==='7,1,101,31'));
  request.metadata.by='María García';
  assert(c.exportEquipmentSheet(request).ok);
  assert.equal(writes[3].values[3][1],'María García');

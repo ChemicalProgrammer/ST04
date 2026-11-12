@@ -170,7 +170,7 @@ print(json.dumps(dict(full=full,summary=summary,progress=progress,heartbeat=hear
 
 
 test('spatial DES retains default resident stock during pause and balances it',()=>{
- const input=fixture();Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:90,sampleEverySeconds:1,
+ const input=fixture();input.case.equipment[0].nominalRatePerSecond=1.5;Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:90,sampleEverySeconds:1,
    reliabilityEnabled:false,commands:[{equipmentId:input.case.equipment[0].id,atVirtualSecond:5,action:'PAUSE'},
      {equipmentId:input.case.equipment[0].id,atVirtualSecond:10,action:'AUTO'}]});
  const payload=adaptSimPyInput(input),code=`import sys,json
@@ -179,7 +179,8 @@ from st_simpy_engine import simulate_line
 print(json.dumps(simulate_line(json.load(sys.stdin)),allow_nan=False))`;
  const response=JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify(payload),encoding:'utf8'}));
  assert.equal(response.ok,true,JSON.stringify(response.error));
- const at=time=>response.result.samples.find(frame=>frame.virtualSecond===time).equipment[0];
+ const at=time=>response.result.samples.find(frame=>Math.abs(frame.virtualSecond-time)<1e-8).equipment[0];
+ assert.equal(normalizeSimPyResult(response.result,input,payload).equipmentMetrics[input.case.equipment[0].id].estimatedResidenceSeconds,20);
  assert(at(5).internalInventoryBottles>0);
  assert.equal(at(5).internalInventoryBottles,at(8).internalInventoryBottles);
  assert.equal(at(24).outputCount,0);

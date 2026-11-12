@@ -283,6 +283,7 @@ test('machine residence holds stock through pauses and includes it in material b
   const input=createInput();
   Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:75,sampleEverySeconds:1,
     commands:[{equipmentId:'source',atVirtualSecond:5,action:'PAUSE'},{equipmentId:'source',atVirtualSecond:10,action:'AUTO'}]});
+  input.case.equipment[0].processData.equipment={internalCapacityBottles:200};
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const sourceAt=time=>result.samples.find(sample=>sample.virtualSecond===time).equipment[0];
@@ -291,14 +292,14 @@ test('machine residence holds stock through pauses and includes it in material b
   assert.equal(sourceAt(24).outputCount,0);
   assert(result.summary.outputCount>0);
   assert.equal(result.summary.materialBalance.residualUnits,0);
-  assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=30));
+  assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=200));
 });
 
 test('ST meters residence intake and maintains output after the first bottle exits', () => {
   const input=createInput();
   Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:55,sampleEverySeconds:1});
-  const sink=input.case.equipment.at(-1);
-  sink.processData.equipment={residenceTimeSeconds:0};
+  input.case.equipment[0].nominalRatePerSecond=1.5;
+  input.case.equipment[0].processData.equipment={residenceTimeSeconds:999};
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const output=time=>result.samples.find(frame=>frame.virtualSecond===time).equipment[0].outputCount;

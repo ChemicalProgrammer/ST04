@@ -33,8 +33,8 @@ export function adaptSimPyInput(input) {
     } else {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
       const design=model.processData?.equipment;
-      const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null||design?.residenceTimeSeconds!=null
-        ?{internalCapacityBottles:design?.internalCapacityBottles??30,residenceTimeSeconds:design?.residenceTimeSeconds??20}:{};
+      const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null
+        ?{internalCapacityBottles:design?.internalCapacityBottles??30}:{};
       machines.push({...residence,id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
@@ -59,8 +59,13 @@ export function adaptSimPyInput(input) {
 export function normalizeSimPyResult(raw, input, payload) {
   const duration=input.run.durationSeconds, machineById=new Map(raw.equipment.map(m=>[m.id,m])), zoneById=new Map(raw.zones.map(z=>[z.id,z]));
   const beltById=new Map(payload.conveyors.map(b=>[b.id,b]));
+  const machineModelById=new Map(payload.machines.map(machine=>[machine.id,machine]));
+  function residenceMetrics(id) {
+    const model=machineModelById.get(id),capacity=model?.internalCapacityBottles;
+    return capacity==null?{}:{internalCapacityBottles:capacity,estimatedResidenceSeconds:capacity*60/model.rateBpm};
+  }
   function machineMetrics(m) {
-    return {...m,pausedSeconds:m.stateSeconds.PAUSED,stoppedSeconds:m.stateSeconds.STOPPED,
+    return {...m,...residenceMetrics(m.id),pausedSeconds:m.stateSeconds.PAUSED,stoppedSeconds:m.stateSeconds.STOPPED,
       microStopSeconds:m.microStopSeconds,startupSeconds:m.startupSeconds,processingCapacityPercent:m.productiveCapacityPercent,productiveEquivalentSeconds:m.outputCount/(input.case.equipment.find(e=>e.id===m.id).nominalRatePerSecond),
       // Unvalidated fields stay unavailable; never manufacture OEE or sensor losses.
       oeePercent:null,waitingForPrimeSeconds:m.waitingForPrimeSeconds??null,backupStopSeconds:m.backupStopSeconds??null,emergencyStopSeconds:null,
@@ -86,7 +91,7 @@ export function normalizeSimPyResult(raw, input, payload) {
       accumulationZones:frame.zones.map(zoneFrame),equipment:input.case.equipment.map(e=>{
         const m=frame.equipment.find(m=>m.id===e.id),prior=previous?.equipment.find(m=>m.id===e.id),z=frame.zones.find(z=>z.id===e.id),priorZone=previous?.zones.find(z=>z.id===e.id);
         const output=m?m.outputCount:z.releasedUnits,priorOutput=m?prior?.outputCount:priorZone?.releasedUnits;
-        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,internalInventoryBottles:m?.internalInventoryBottles,
+        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,internalInventoryBottles:m?.internalInventoryBottles,...residenceMetrics(e.id),
           actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
           microStopSeconds:m?.stateSeconds.MICRO_STOP??z?.stateSeconds?.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??z?.stateSeconds?.FAILED??null,
           ...Object.fromEntries(['minor','major','general'].map(kind=>[kind+'FailureSeconds',m?.[kind+'FailureSeconds']??z?.[kind+'FailureSeconds']??null])),

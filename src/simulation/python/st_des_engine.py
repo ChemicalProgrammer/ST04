@@ -109,8 +109,6 @@ def validate(payload):
         number(model.get("rampUpSeconds", 0), p + ".rampUpSeconds")
         if "internalCapacityBottles" in model:
             integer(model["internalCapacityBottles"], p + ".internalCapacityBottles", minimum=1)
-        if "residenceTimeSeconds" in model:
-            number(model["residenceTimeSeconds"], p + ".residenceTimeSeconds")
         micro = model.get("microStop")
         if micro is not None:
             keys(micro, ("probabilityPerMinute", "minDurationSeconds", "maxDurationSeconds"), p + ".microStop")

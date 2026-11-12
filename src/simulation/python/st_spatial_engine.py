@@ -171,7 +171,7 @@ class SpatialSimulation(SimPySimulation):
             machine.await_prime = machine.index > 0 and self.conveyors[machine.index-1].model.get('primeSensorPositionMm') is not None
             machine.backup_stopped = False
             machine.runout_remaining = 0
-            machine.has_residence = 'internalCapacityBottles' in machine.model or 'residenceTimeSeconds' in machine.model
+            machine.has_residence = 'internalCapacityBottles' in machine.model
             machine.residence_stop_pending = False
         for command in payload['run'].get('commands', []):
             if command['equipmentId'] not in machine_ids:
@@ -408,9 +408,9 @@ class SpatialSimulation(SimPySimulation):
             belt.released += 1
             belt.refresh()
         # Nominal service is part of residence; ramping or blockage can extend it.
-        wait = max(0., machine.model.get('residenceTimeSeconds', 20)-1/machine.rate)
+        wait = (capacity-1)/machine.rate
         machine.resident.append((machine.residence_clock+wait,item))
-        machine.next_intake = self.now+max(1/machine.rate,machine.model.get('residenceTimeSeconds',20)/capacity)
+        machine.next_intake = self.now+1/machine.rate
         self.wake(machine.next_intake)
         return True
 

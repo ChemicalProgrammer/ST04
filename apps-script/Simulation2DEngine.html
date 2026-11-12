@@ -153,8 +153,7 @@ window.STSimulation2DEngine=(function(){
       machine.residenceClock+=seconds;
       if(accelerating)machine.rampElapsed+=seconds;
       const capacity=Math.floor(machine.capacityBottles/machine.inputBottleFactor);
-      const residenceRate=machine.residenceSeconds>0?(capacity-machine.batch+1)/machine.batch/machine.residenceSeconds:Infinity;
-      const work=seconds*factor*Math.min(machine.rate,residenceRate);
+      const work=seconds*factor*machine.rate;
       machine.outletCredit+=work;
       let blocked=false;
       if(machine.outletCredit+epsilon>=1&&machine.resident[machine.batch-1]<=machine.residenceClock+epsilon){

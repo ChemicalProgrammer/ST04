@@ -158,7 +158,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabil
   const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
-    residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null&&model.processData?.equipment?.residenceTimeSeconds==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
+    residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
     mode: model.initialMode,
     availabilityState: model.initialMode,
     actualRatePerSecond: 0,
@@ -874,15 +874,12 @@ function processEquipmentFlow(runtime, index) {
   const residualDischarge = Boolean(control && control.responseRemainingSeconds <= 0 && control.residualRemainingUnits > 0);
   const residence=equipment.residence;
   const bottleFactor=equipment.outputBottleFactor||1;
-  const residenceSeconds=equipment.processData?.equipment?.residenceTimeSeconds??20;
   const ratio=equipment.inputPerOutput||1;
   const capacity=residence?equipmentCapacityBottles(equipment)/bottleFactor:0;
-  const residenceRate=residence&&residenceSeconds>0
-    ? (capacity-(runtime.run.discretePackages?1-1/ratio:0))/residenceSeconds : Infinity;
-  const cadence=Math.min(1,residenceRate/equipment.nominalRatePerSecond);
-  const normalRequest=getRequestedFlow(equipment,tickSeconds)*cadence;
+  const residenceSeconds=residence?estimateResidence(equipment):0;
+  const normalRequest=getRequestedFlow(equipment,tickSeconds);
   const requestedFlow = residualDischarge
-    ? Math.min(equipment.nominalRatePerSecond*tickSeconds*cadence,control.residualRemainingUnits)
+    ? Math.min(equipment.nominalRatePerSecond*tickSeconds,control.residualRemainingUnits)
     : residence&&control ? Math.min(normalRequest,control.residualRemainingUnits) : normalRequest;
 
   if (requestedFlow <= 0) {
@@ -1322,6 +1319,7 @@ function addSample(runtime) {
         processedUnits: round(item.outputCount),
         internalInventoryBottles:equipmentInventoryBottles(item),
         internalCapacityBottles:item.residence?equipmentCapacityBottles(item):undefined,
+        estimatedResidenceSeconds:item.residence?round(estimateResidence(item)):undefined,
         meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
         minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
@@ -1553,6 +1551,9 @@ function createSummary(runtime) {
 function equipmentCapacityBottles(equipment) {
   return equipment.processData?.equipment?.internalCapacityBottles??Math.max(30,equipment.outputBottleFactor||1);
 }
+function estimateResidence(equipment) {
+  return equipmentCapacityBottles(equipment)/((equipment.outputBottleFactor||1)*equipment.nominalRatePerSecond);
+}
 function equipmentInventoryBottles(equipment) {
   return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;
 }
@@ -1565,6 +1566,7 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   return {
     internalInventoryBottles:equipmentInventoryBottles(equipment),
     internalCapacityBottles:equipment.residence?equipmentCapacityBottles(equipment):undefined,
+    estimatedResidenceSeconds:equipment.residence?round(estimateResidence(equipment)):undefined,
     reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),
     startRampSeconds: round(equipment.startRampSeconds),

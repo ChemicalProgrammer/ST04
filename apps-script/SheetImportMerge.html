@@ -43,7 +43,7 @@ window.STSheetImportMerge=(function(){
     var result=preview.source?.inlineStops?mapped.map(function(f){
       return {...f,col:f.id==='stopInputs'?'D':f.col>='D'?String.fromCharCode(f.col.charCodeAt(0)+4):f.col};
     }):mapped;
-    if(preview.source?.residenceColumns)result.push(field('internalCapacity','AE','Internal capacity (bottles)',['processData.equipment.internalCapacityBottles']),field('residenceTime','AF','Residence time (s)',['processData.equipment.residenceTimeSeconds']));
+    if(preview.source?.capacityColumn)result.push(field('internalCapacity','AE','Internal capacity (bottles)',['processData.equipment.internalCapacityBottles']));
     return result;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});

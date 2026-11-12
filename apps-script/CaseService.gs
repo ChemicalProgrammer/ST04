@@ -368,6 +368,11 @@ function normalizeProcessData_(processData) {
   if (!processData || typeof processData !== 'object' || Array.isArray(processData)) {
     throw createSimulatorError_('INVALID_CASE', 'processData must be an object when provided.');
   }
+  if(processData.equipment&&Object.prototype.hasOwnProperty.call(processData.equipment,'residenceTimeSeconds')){
+    var equipment=Object.assign({},processData.equipment);
+    delete equipment.residenceTimeSeconds;
+    return Object.assign({},processData,{equipment:equipment});
+  }
   return processData;
 }
 
