@@ -201,19 +201,22 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(frameX(),draggedX);
     el('fit').click();
     assert.equal(frameX(),fittedX);
-    function stages(types){
+    function stages(types,names=[],parameter='Bottle stage'){
       const machines=['BLOWMOLDER',...types,'CUSTOM'];
       const line=machines.flatMap((type,index)=>[
-        {id:'m'+index,type,nominalRatePerSecond:10},
+        {id:'m'+index,name:names[index-1],type,nominalRatePerSecond:10},
         ...(index<machines.length-1?[{id:'b'+index,type:'CONVEYOR'}]:[])
       ]);
       window.STSimulation2D.load(['case','stage-order'],line,null,{seed:7},null);
       el('fit').click();
       const frame=labels.slice(lastFrameOrigin);
-      return frame.flatMap(([text],index)=>text==='Bottle stage'?[frame[index+1][0]]:[]);
+      return frame.flatMap(([text],index)=>text===parameter?[frame[index+1][0]]:[]);
     }
     assert.deepEqual(stages(['SLEEVER','FILLER']),['Empty','Labeled','Filled + labeled']);
     assert.deepEqual(stages(['FILLER','SLEEVER']),['Empty','Filled','Filled + labeled']);
+    assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
+    assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
+    assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
 
 
   }finally{dom.window.close();}

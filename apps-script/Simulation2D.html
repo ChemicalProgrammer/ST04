@@ -239,7 +239,11 @@ window.STSimulation2D=(function(){
     if(belt){
       summary.push(['Belt speed',num(item.speed*.06),'m/min'],
         ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
-      if(!cases)summary.push(['Bottle stage',bottleStageNames[bottleStages.get(item.id)??0],'']);
+      if(!cases){
+        const stage=bottleStages.get(item.id)??0;
+        summary.push(['Bottle stage',bottleStageNames[stage&3],'']);
+        if(stage&4)summary.push(['Cap','Applied','']);
+      }
     }else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
       ['Est. residence',num(item.residenceSeconds),'s']);
     const counters=belt
@@ -308,7 +312,7 @@ window.STSimulation2D=(function(){
     }
     const length=item.packageLength*sceneScale,height=productHeight(item);
     const cases=item.unit==='CASES',stage=bottleStages.get(item.id)??0;
-    const labeled=!cases&&Boolean(stage&1),filled=!cases&&Boolean(stage&2);
+    const labeled=Boolean(stage&1),filled=!cases&&Boolean(stage&2),capped=Boolean(stage&4);
     const marker=length*factor<2;
     const bodyWidth=marker?2/factor:length,bodyHeight=marker?Math.max(height,bodyWidth):height;
     const top=y-bodyHeight;
@@ -356,7 +360,15 @@ window.STSimulation2D=(function(){
       context.beginPath();
       for(const product of products){
         const px=x+product.x*sceneScale;
-        if(visible(px))context.rect(px-bodyWidth*.42,y-bodyHeight*.48,bodyWidth*.84,bodyHeight*.42);
+        if(!visible(px))continue;
+        const l=px-bodyWidth/2,r=px+bodyWidth/2,level=top+3*dy;
+        context.moveTo(l+4.6*dx,level);context.lineTo(l+4.6*dx,y-22*dy);
+        context.quadraticCurveTo(l+.7*dx,y-18*dy,l+.7*dx,y-15*dy);
+        context.lineTo(l+.7*dx,y-2*dy);context.quadraticCurveTo(l+.7*dx,y-dy,l+2*dx,y-dy);
+        context.lineTo(r-2*dx,y-dy);context.quadraticCurveTo(r-.7*dx,y-dy,r-.7*dx,y-2*dy);
+        context.lineTo(r-.7*dx,y-15*dy);
+        context.quadraticCurveTo(r-.7*dx,y-18*dy,r-4.6*dx,y-22*dy);
+        context.lineTo(r-4.6*dx,level);context.closePath();
       }
       context.fillStyle=accent;context.fill();
     }
@@ -369,6 +381,16 @@ window.STSimulation2D=(function(){
       context.fillStyle='#fff';context.fill();
       context.strokeStyle=beltColor;context.lineWidth=Math.min(bodyWidth*.12,.65/factor);
       context.stroke();context.lineWidth=1;
+    }
+    if(capped){
+      const capWidth=marker?bodyWidth:bodyWidth*.49;
+      const capHeight=Math.min(bodyHeight*.25,Math.max(2.5*dy,1/factor));
+      context.beginPath();
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(visible(px))context.rect(px-capWidth/2,top,capWidth,capHeight);
+      }
+      context.fillStyle=beltColor;context.fill();
     }
   }
   function draw(){
@@ -615,6 +637,7 @@ window.STSimulation2D=(function(){
       const type=machineTypes.get(item.id);
       if(type==='SLEEVER')bottleStage|=1;
       if(type==='FILLER')bottleStage|=2;
+      if(type==='CAPPER'||/\b(?:capper|capping|tapadora|taponadora|roscadora)\b/i.test(item.name))bottleStage|=4;
     }
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
