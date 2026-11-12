@@ -291,7 +291,7 @@ window.STSimulation2D=(function(){
   function beltHalfHeight(item){
     return (productHeight(item)+beltInset+beltDepth)/2;
   }
-  function drawBelt(context,x,y,width,item,factor,w,accent,beltColor,surface,ink){
+  function drawBelt(context,x,y,width,item,factor,w,accent,beltColor,surface){
     const left=Math.max(0,x+5),right=Math.min(w,x+width-5);
     context.fillStyle=beltColor;context.strokeStyle=beltColor;
     strokeBox(context,x,y+beltInset,width,beltDepth);
@@ -333,11 +333,23 @@ window.STSimulation2D=(function(){
         context.closePath();
       }
     }
-    context.fillStyle=cases||marker&&filled?accent:surface;
+    context.fillStyle=cases?beltColor:filled?accent:surface;
+    context.save();
+    if(filled&&!marker)context.globalAlpha=.4;
     context.fill();
-    if(cases)return;
+    context.restore();
+    if(cases){
+      context.beginPath();
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(visible(px))context.rect(px-bodyWidth*.11,top,bodyWidth*.22,bodyHeight*.4);
+      }
+      context.fillStyle=accent;context.fill();
+      return;
+    }
     if(!marker||!filled){
-      context.strokeStyle=beltColor;context.lineWidth=Math.min(bodyWidth*.16,1/factor);
+      context.strokeStyle=filled?accent:beltColor;
+      context.lineWidth=Math.min(bodyWidth*.16,1/factor);
       context.stroke();context.lineWidth=1;
     }
     if(filled&&!marker){
@@ -354,7 +366,9 @@ window.STSimulation2D=(function(){
         const px=x+product.x*sceneScale;
         if(visible(px))context.rect(px-bodyWidth*.5,y-bodyHeight*.36,bodyWidth,bodyHeight*.19);
       }
-      context.fillStyle=ink;context.fill();
+      context.fillStyle='#fff';context.fill();
+      context.strokeStyle=beltColor;context.lineWidth=Math.min(bodyWidth*.12,.65/factor);
+      context.stroke();context.lineWidth=1;
     }
   }
   function draw(){
@@ -389,7 +403,7 @@ window.STSimulation2D=(function(){
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
         const beltY=y+productHeight(item)-beltHalfHeight(item);
-        drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface,ink);
+        drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface);
         const sensorY=y-beltHalfHeight(item)-12;
         const closeSensors=item.prime!=null&&item.backup!=null&&Math.abs(item.prime-item.backup)*scale<19;
         const signal=beltSignal(item);
