@@ -1,10 +1,10 @@
-import { validateProductSetup } from './ProductProfiles.js';
+import { productUnitFactor, validateProductSetup } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { isConveyorEquipment, resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
 export function validateSimulationInput(input) {
   const details = [];
-  try { const resolvedProducts=validateProductSetup(input);if(resolvedProducts.length){for(const resolved of resolvedProducts)validateCase({...input.case,equipment:resolved.equipment},details);}else validateCase(input?.case, details); } catch(error) { details.push(invalid('run.productCatalog',error.message)); }
+  try { const resolvedProducts=validateProductSetup(input);if(resolvedProducts.length){for(const resolved of resolvedProducts)validateCase({...input.case,equipment:resolved.equipment},details,input.run,resolved.product);}else validateCase(input?.case, details); } catch(error) { details.push(invalid('run.productCatalog',error.message)); }
   validateRun(input?.run, details);
   try { if(input?.run?.tickSeconds>0)resolvePlannedStops(input.run);if(input?.run?.eventsEnabled!==false&&(input?.run?.plannedStops?.length||input?.run?.plantCalendar?.enabled&&input.run.plantCalendar.mode==='SCHEDULED')&&input.run.engineId==='DES_SIMPY_EXPERIMENTAL')throw new Error('Scheduled plant stops currently require the ST engine.'); } catch(error){details.push(invalid('run.plantCalendar',error.message));}
   if(input?.run?.eventsEnabled!==false)validateCommands(input?.run?.commands, input?.case?.equipment, details);
@@ -21,7 +21,7 @@ export function validateSimulationInput(input) {
       };
 }
 
-function validateCase(caseModel, details) {
+function validateCase(caseModel, details,run,product) {
   if (!caseModel || typeof caseModel !== 'object') {
     details.push(required('case'));
     return;
@@ -57,6 +57,11 @@ function validateCase(caseModel, details) {
     }
     validateNoiseProfile(equipment.noiseProfile, path, details);
     validateStartProfile(equipment, path, details);
+    const design=equipment.processData?.equipment;
+    if(product&&!isConveyorEquipment(equipment)&&(run.machineResidenceEnabled||design?.internalCapacityBottles!=null||design?.residenceTimeSeconds!=null)&&
+      (design?.internalCapacityBottles??10)<productUnitFactor(equipment,product)){
+      details.push(invalid(path+'.processData.equipment.internalCapacityBottles',equipment.name+': internal capacity must hold at least one output package in bottle equivalents.'));
+    }
   });
 
   validateAlternatingTopology(caseModel.equipment, details);
@@ -184,6 +189,9 @@ function validateRequiredNonNegative(value, path, details) {
 }
 
 function validateStartProfile(equipment, path, details) {
+  const capacity=equipment.processData?.equipment?.internalCapacityBottles;
+  if(capacity!=null&&(!Number.isSafeInteger(capacity)||capacity<1))details.push(invalid(path+'.processData.equipment.internalCapacityBottles','must be a positive whole number of bottles'));
+  validateOptionalNonNegative(equipment.processData?.equipment?.residenceTimeSeconds,path+'.processData.equipment.residenceTimeSeconds',details);
   validateOptionalNonNegative(equipment.startupDelaySeconds, path + '.startupDelaySeconds', details);
   validateOptionalNonNegative(equipment.restartRampUpSeconds, path + '.restartRampUpSeconds', details);
   ['conveyorSpeedFactorVsDischargeVelocityPercent','codingConveyorSpeedFactorVsPreviousConveyorPercent','conveyorSpeedFactorVsPreviousConveyorPercent','overspeedVsInfeedScrewPercent'].forEach(key=>validateOptionalNonNegative(equipment.processData?.speedAndSensors?.[key],path+'.processData.speedAndSensors.'+key,details));

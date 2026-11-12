@@ -255,6 +255,8 @@ class SpatialSimulation(SimPySimulation):
         if dt == 0: self.now=at;return
         for machine in self.machines:
             machine.state_seconds[machine.state] += dt
+            if machine.state in ('RUNNING', 'BLOCKED', 'STARVED', 'WAITING_PRIME'):
+                machine.residence_clock += dt
             if machine.state == 'FAILED': machine.failure_seconds[machine.failure_category] += dt
         for belt in self.conveyors:
             belt.integral += belt.inventory*dt; belt.state_seconds[belt.state] += dt
@@ -335,6 +337,9 @@ class SpatialSimulation(SimPySimulation):
                         if machine.runout_remaining <= 0: self.suspend_service(machine)
                     changed = True
                 if machine.backup_stopped and machine.runout_remaining <= 0: continue
+                if 'internalCapacityBottles' in machine.model or 'residenceTimeSeconds' in machine.model:
+                    changed = self.settle_residence(machine) or changed
+                    continue
                 if machine.busy:
                     if machine.finish_at is None: self.resume_service(machine); changed = True
                     continue
@@ -352,13 +357,56 @@ class SpatialSimulation(SimPySimulation):
             if not changed: break
         else: raise RuntimeError('Spatial fixed point did not converge')
         for machine in self.machines:
-            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if machine.backup_stopped and machine.runout_remaining <= 0 else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy else 'WAITING_PRIME' if machine.await_prime else 'STARVED'
+            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if machine.backup_stopped and machine.runout_remaining <= 0 else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy or machine.resident else 'WAITING_PRIME' if machine.await_prime else 'STARVED'
         for belt in self.conveyors: self.sensors(belt); self.predict(belt)
         self.check_invariants()
 
+    def settle_residence(self, machine):
+        changed = False
+        if machine.busy and machine.finish_at is None:
+            self.resume_service(machine)
+            changed = True
+        if machine.item is None and machine.resident:
+            due, item = machine.resident[0]
+            if due <= machine.residence_clock + EPS:
+                machine.resident.popleft()
+                machine.item = item
+                machine.busy = True
+                machine.remaining = 1.
+                self.resume_service(machine)
+                changed = True
+            else:
+                self.wake(self.now + due - machine.residence_clock)
+        capacity = machine.model.get('internalCapacityBottles', 10)
+        if machine.backup_stopped or len(machine.resident)+(machine.item is not None) >= capacity or self.now >= self.duration-EPS:
+            return changed
+        if self.now < machine.next_intake-EPS:
+            self.wake(machine.next_intake)
+            return changed
+        if machine.index == 0:
+            item = self.new_item()
+            self.source_started += 1
+        else:
+            belt = self.conveyors[machine.index-1]
+            if machine.await_prime or not belt.enabled or belt.failed or belt.micro_stopped or not belt.ready:
+                if not belt.items and belt.model.get('primeSensorPositionMm') is not None:
+                    belt.prime_latched = False
+                    machine.await_prime = True
+                return changed
+            item = belt.items.popleft()
+            del belt.positions[item]
+            belt.released += 1
+            belt.refresh()
+        # Nominal service is part of residence; ramping or blockage can extend it.
+        wait = max(0., machine.model.get('residenceTimeSeconds', 20)-1/machine.rate)
+        machine.resident.append((machine.residence_clock+wait,item))
+        machine.next_intake = self.now+1/machine.rate
+        self.wake(machine.next_intake)
+        return True
+
     def check_invariants(self):
         if not hasattr(self, 'overflow'): return super().check_invariants()
-        wip = sum(b.inventory for b in self.conveyors)+sum(m.item is not None for m in self.machines)
+        wip = sum(b.inventory for b in self.conveyors)+sum((m.item is not None)+len(m.resident) for m in self.machines)
         if self.initial_inventory+self.source_started != self.output+wip+self.overflow: raise RuntimeError('Spatial material balance failed')
         for belt in self.conveyors:
             if belt.inventory > belt.capacity: raise RuntimeError('Spatial packed capacity exceeded')
@@ -385,7 +433,7 @@ class SpatialSimulation(SimPySimulation):
         for value,b in zip(result['zones'],self.conveyors):
             value.update(**{kind.lower()+'FailureCount': value for kind,value in b.failure_counts.items()}, **{kind.lower()+'FailureSeconds': value for kind,value in b.failure_seconds.items()})
             value.update(readyUnits=len(b.queued),movingUnits=b.inventory-len(b.queued),stateSeconds=b.state_seconds,failureCount=b.failure_count,microStopCount=b.micro_count,physicalModelEnabled=True,overflowUnits=b.overflow)
-        result['limitations'] = ['Serial single-item machines; no batches, merges, splits, conversion ratios or rejects.', 'Spatial discrete products differ from the current fluid packet model; stochastic schedules are not paired.', 'Conveyor speed is constant while enabled; no conveyor acceleration ramp.', 'Residual discharge after Back-up stop spills at a full inlet, recorded as material loss; this requires plant calibration.', 'OEE remains unavailable pending a validated plant reference and reject/quality model.']
+        result['limitations'] = ['Serial machines with no batches, merges, splits, conversion ratios or rejects.', 'Spatial discrete products differ from the current fluid packet model; stochastic schedules are not paired.', 'Conveyor speed is constant while enabled; no conveyor acceleration ramp.', 'Residual discharge after Back-up stop spills at a full inlet, recorded as material loss; this requires plant calibration.', 'OEE remains unavailable pending a validated plant reference and reject/quality model.']
         result['diagnostics'].update(spatialCoordinates='product leading edges in mm; head stops at length, followers at packed pitch',photoeyes='per-product leading/trailing edge crossings, sustained occupancy debounce',overflowModel='counted residual discharge after response delay; full inlet spills')
         return result
 

@@ -97,7 +97,7 @@ def validate(payload):
     ids = set()
     for i, model in enumerate(machines):
         p = f"machines[{i}]"
-        keys(model, ("id", "name", "rateBpm", "critical", "initialMode", "startupSeconds", "rampUpSeconds", "microStop", "reliability", "failures"), p)
+        keys(model, ("id", "name", "rateBpm", "critical", "initialMode", "startupSeconds", "rampUpSeconds", "microStop", "reliability", "failures", "internalCapacityBottles", "residenceTimeSeconds"), p)
         uid = model.get("id")
         if not isinstance(uid, str) or not uid or uid in ids:
             raise InputError(f"{p}.id: unique nonempty string required")
@@ -107,6 +107,10 @@ def validate(payload):
             raise InputError(p + ".initialMode: unsupported")
         number(model.get("startupSeconds", 0), p + ".startupSeconds")
         number(model.get("rampUpSeconds", 0), p + ".rampUpSeconds")
+        if "internalCapacityBottles" in model:
+            integer(model["internalCapacityBottles"], p + ".internalCapacityBottles", minimum=1)
+        if "residenceTimeSeconds" in model:
+            number(model["residenceTimeSeconds"], p + ".residenceTimeSeconds")
         micro = model.get("microStop")
         if micro is not None:
             keys(micro, ("probabilityPerMinute", "minDurationSeconds", "maxDurationSeconds"), p + ".microStop")
@@ -211,6 +215,9 @@ class Machine:
     busy: bool = False
     completed: bool = False
     item: int | None = None
+    resident: deque = field(default_factory=deque)
+    residence_clock: float = 0.
+    next_intake: float = 0.
     remaining: float = 0
     finish_at: float | None = None
     service_started_at: float | None = None
@@ -599,7 +606,7 @@ class Simulation:
         self.check_invariants()
 
     def check_invariants(self):
-        inventory = sum(b.inventory for b in self.conveyors) + sum(m.item is not None for m in self.machines)
+        inventory = sum(b.inventory for b in self.conveyors) + sum((m.item is not None)+len(m.resident) for m in self.machines)
         if self.initial_inventory + self.source_started != self.output + inventory:
             raise RuntimeError("Material conservation violation")
         for belt in self.conveyors:
@@ -619,7 +626,7 @@ class Simulation:
     def sample(self):
         self.samples.append({"virtualSecond": self.now, "outputCount": self.output,
                              "equipment": [{"id": m.model["id"], "mode": m.mode, "state": m.state, "outputCount": m.output,
-                                            "stateSeconds": dict(m.state_seconds),
+                                            "stateSeconds": dict(m.state_seconds), "internalInventoryBottles": (m.item is not None)+len(m.resident),
                                             **{kind.lower()+"FailureSeconds": value for kind, value in m.failure_seconds.items()}} for m in self.machines],
                              "zones": [{"id": b.model["id"], "inventoryUnits": b.inventory, "readyUnits": len(b.ready),
                                         "movingUnits": len(b.moving), "releasedUnits": b.released} for b in self.conveyors]})
@@ -656,7 +663,7 @@ class Simulation:
         equipment = []
         for machine in self.machines:
             equipment.append({"id": machine.model["id"], "name": machine.model.get("name", machine.model["id"]),
-                "outputCount": machine.output, "processedCount": machine.processed,
+                "outputCount": machine.output, "processedCount": machine.processed, "internalInventoryBottles": (machine.item is not None)+len(machine.resident),
                 "stateSeconds": machine.state_seconds,
                 "runningSeconds": machine.state_seconds["RUNNING"], "starvedSeconds": machine.state_seconds["STARVED"],
                 "blockedSeconds": machine.state_seconds["BLOCKED"], "failureSeconds": machine.state_seconds["FAILED"],
@@ -671,7 +678,7 @@ class Simulation:
                   "readyUnits": len(b.ready), "movingUnits": len(b.moving), "maximumInventoryUnits": b.maximum,
                   "averageInventoryUnits": b.integral / self.duration, "travelSeconds": b.travel,
                   "entryHeadwaySeconds": b.entry_headway, "exitHeadwaySeconds": b.exit_headway} for b in self.conveyors]
-        wip = sum(z["inventoryUnits"] for z in zones) + sum(m.item is not None for m in self.machines)
+        wip = sum(z["inventoryUnits"] for z in zones) + sum((m.item is not None)+len(m.resident) for m in self.machines)
         return {"engine": {"id": "DES_PYTHON_EXPERIMENTAL", "version": VERSION, "method": "NEXT_EVENT",
                   "conveyorModel": "FINITE_FIFO_DELAY_WITH_ACCUMULATION", "modelEquivalentToST": False,
                   "schema": SCHEMA, "source": self.payload.get("metadata", {})},

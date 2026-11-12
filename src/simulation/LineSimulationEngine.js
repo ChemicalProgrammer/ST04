@@ -4,7 +4,7 @@ import { applyProductProfile, productUnitFactor, productFlowUnit, productPackSiz
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
 import { createEquipmentRandom } from './SeededRandom.js';
 import { validateSimulationInput } from './SimulationValidation.js';
-import { resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
+import { isConveyorEquipment, resolveAccumulationZoneDefinition } from './FormatGeometryAdapter.js';
 
 // Prepare field names once rather than concatenate them for every packet/tick.
 // Backup must still be processed before prime: sensor events share the same clock.
@@ -87,7 +87,7 @@ function createRuntime(input) {
   const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
-  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false, input.run.reliabilityCategories));
+  const equipment = input.case.equipment.map((model) => createEquipmentRuntime(model, input.run.seed, input.run.reliabilityEnabled !== false, input.run.reliabilityCategories,input.run.machineResidenceEnabled));
   const zones = equipment.slice(0, -1).map((equipment, index) => createAccumulationZoneRuntime(
     equipment,
     input.case.equipment[index + 1],
@@ -118,7 +118,7 @@ function createRuntime(input) {
   const runtime = {
     caseId: input.case.id,
     unitOfFlow: product ? 'bottles' : input.case.unitOfFlow,
-    baseEquipment, product, productRows:{}, productTimeline:[], inputBottleEquivalents:0, overflowBottleEquivalents:0, clearoutBottleEquivalents:0, idealBottleOutput:0,
+    baseEquipment, product, productRows:{}, productTimeline:[], sourceInputUnits:0, overflowBottleEquivalents:0, clearoutBottleEquivalents:0, idealBottleOutput:0,
     run: input.run,
     virtualSecond: 0,
     equipment,
@@ -151,13 +151,14 @@ function createRuntime(input) {
   return runtime;
 }
 
-function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabilityCategories) {
+function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabilityCategories, residenceEnabled) {
   const failureRandom=createEquipmentRandom(seed,model.id,"failure");
   const microStopRandom=createEquipmentRandom(seed,model.id,"microstop-occurrence");
   const microStopDurationRandom=createEquipmentRandom(seed,model.id,"microstop-duration");
   const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
+    residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null&&model.processData?.equipment?.residenceTimeSeconds==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
     mode: model.initialMode,
     availabilityState: model.initialMode,
     actualRatePerSecond: 0,
@@ -887,13 +888,24 @@ function processEquipmentFlow(runtime, index) {
   const downstreamSpace = getDownstreamSpace(runtime, index);
   let flow = Math.max(0, Math.min(requestedFlow, inputAvailable, residualDischarge ? requestedFlow : downstreamSpace));
   let entries;
+  const residence=equipment.residence;
+  const bottleFactor=equipment.outputBottleFactor||1;
+  if(residence){
+    residence.clock+=tickSeconds;
+    while(residence.head<residence.queue.length&&residence.queue[residence.head].due<=residence.clock+1e-8){
+      residence.ready+=residence.queue[residence.head++].amount;
+    }
+    if(residence.head>=1024){residence.queue.splice(0,residence.head);residence.head=0;}
+    inputAvailable=residence.ready;
+    flow=Math.max(0,Math.min(requestedFlow,inputAvailable,residualDischarge?requestedFlow:downstreamSpace));
+  }
   if(runtime.run.discretePackages){
     const transportRate=incomingZone?.physicalModelEnabled
       ? (isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
         ? incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm : 0)
       : Infinity;
-    inputAvailable=index===0?Infinity:(transportRate>0?incomingZone.waitingUnits/ratio:0);
-    const requestedPackages=Math.min(requestedFlow,transportRate*tickSeconds/ratio);
+    if(!residence)inputAvailable=index===0?Infinity:(transportRate>0?incomingZone.waitingUnits/ratio:0);
+    const requestedPackages=residence?requestedFlow:Math.min(requestedFlow,transportRate*tickSeconds/ratio);
     const planned=planDiscretePackages(equipment,runtime.zones[index],runtime.virtualSecond,tickSeconds,
       requestedPackages,inputAvailable,downstreamSpace,residualDischarge?control.residualRemainingUnits:undefined);
     flow=planned.count;
@@ -906,6 +918,29 @@ function processEquipmentFlow(runtime, index) {
     const phaseLoss=Math.max(0,tickSeconds-requestedFlow/equipment.nominalRatePerSecond);
     if(phase==='STOP')equipment.stopTransitionRateLossSeconds+=phaseLoss;
     else equipment.rampRateLossSeconds+=phaseLoss;
+  }
+  if(residence){
+    residence.ready=Math.max(0,residence.ready-flow);
+    residence.inventory=Math.max(0,residence.inventory-flow);
+    if(!residualDischarge){
+      const capacity=(equipment.processData?.equipment?.internalCapacityBottles??10)/bottleFactor;
+      const free=Math.max(0,capacity-residence.inventory);
+      const available=index===0?Infinity:Math.min(incomingZone.waitingUnits,
+        incomingZone.physicalModelEnabled?(isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
+          ?incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm*tickSeconds:0):Infinity)/ratio;
+      // Round discrete intake to a complete input package. A packer may accumulate its bottles over multiple ticks.
+      let admission=Math.min(free,requestedFlow,available);
+      if(runtime.run.discretePackages){
+        residence.intakeCredit=Math.min(Math.max(1,requestedFlow*ratio),(residence.intakeCredit||0)+requestedFlow*ratio);
+        admission=Math.floor(Math.min(free*ratio,available*ratio,residence.intakeCredit)+1e-8)/ratio;
+        residence.intakeCredit=Math.max(0,residence.intakeCredit-admission*ratio);
+      }
+      if(admission>0){
+        residence.inventory+=admission;
+        residence.queue.push({amount:admission,due:residence.clock+(equipment.processData?.equipment?.residenceTimeSeconds??20)});
+        consumeFlow(runtime,index,admission);
+      }
+    }
   }
   moveFlow(runtime, index, flow, residualDischarge, requestedFlow, inputAvailable, phase, entries);
   equipment.outputCount += flow;
@@ -1034,14 +1069,17 @@ function getDownstreamSpace(runtime, index) {
   return getZoneEntrySpace(zone);
 }
 
-function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvailable, phase, entries) {
-  if(runtime.product&&index===0)runtime.inputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;
+function consumeFlow(runtime,index,flow) {
+  if(index===0)runtime.sourceInputUnits+=flow*(runtime.equipment[0].outputBottleFactor||1);
   if (index > 0) {
     const incoming=runtime.zones[index-1];
     const consumed=flow*(runtime.equipment[index].inputPerOutput||1);
     incoming.waitingUnits=Math.max(0,incoming.waitingUnits-consumed);
     incoming.dischargedUnits=(incoming.dischargedUnits||0)+consumed;
   }
+}
+function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvailable, phase, entries) {
+  if(!runtime.equipment[index].residence)consumeFlow(runtime,index,flow);
   if (index === runtime.equipment.length - 1) {
     const output=flow*(runtime.equipment[index].outputBottleFactor||1);
     runtime.outputCount += output;
@@ -1273,6 +1311,7 @@ function addSample(runtime) {
         availabilityState: item.availabilityState,
         outputCount: round(item.outputCount),
         processedUnits: round(item.outputCount),
+        internalInventoryBottles:equipmentInventoryBottles(item),
         meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
         minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
         actualRatePerSecond: round(item.actualRatePerSecond),
@@ -1468,13 +1507,13 @@ function createSummary(runtime) {
     lineRateLossStatus: !validRate?'INCONSISTENT_REFERENCE':runtime.lineRateRecoverySeconds>1e-7?'ABOVE_REFERENCE_OUTPUT':'AVAILABLE',
     outputCount: round(runtime.outputCount),
     materialBalance: {
-      inputUnits: round(runtime.product?runtime.inputBottleEquivalents:(runtime.equipment[0]?.outputCount || 0)),
+      inputUnits: round(runtime.sourceInputUnits),
       outputUnits: round(runtime.outputCount),
-      inventoryUnits: round(sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1)))),
+      inventoryUnits: round(materialInventory(runtime)),
       overflowUnits: round(runtime.product?runtime.overflowBottleEquivalents:sum(runtime.zones.map(zone => zone.overflowUnits))),
       clearoutUnits: runtime.product?round(runtime.clearoutBottleEquivalents):undefined,
-      residualUnits: round(runtime.product?runtime.inputBottleEquivalents-runtime.outputCount-runtime.clearoutBottleEquivalents-runtime.overflowBottleEquivalents-sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1))):(runtime.equipment[0]?.outputCount || 0) - runtime.outputCount -
-        sum(runtime.zones.map(getZoneInventory)) - sum(runtime.zones.map(zone => zone.overflowUnits)))
+      residualUnits: round(runtime.sourceInputUnits-runtime.outputCount-materialInventory(runtime)-
+        (runtime.product?runtime.clearoutBottleEquivalents+runtime.overflowBottleEquivalents:sum(runtime.zones.map(zone=>zone.overflowUnits))))
     },
     averageOutputRatePerSecond: round(duration>0?runtime.outputCount / duration:0),
     totalBlockedSeconds: round(sum(runtime.equipment.map((item) => item.blockedSeconds))),
@@ -1501,9 +1540,17 @@ function createSummary(runtime) {
   };
 }
 
+function equipmentInventoryBottles(equipment) {
+  return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;
+}
+function materialInventory(runtime) {
+  return sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1)))+
+    sum(runtime.equipment.map(item=>(item.residence?.inventory||0)*(item.outputBottleFactor||1)));
+}
 function createEquipmentMetrics(equipment, durationSeconds) {
   const effectiveness = createEquipmentEffectiveness(equipment, durationSeconds);
   return {
+    internalInventoryBottles:equipmentInventoryBottles(equipment),
     reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),
     startRampSeconds: round(equipment.startRampSeconds),
@@ -1685,7 +1732,8 @@ function configureProductFactors(runtime){
 }
 function switchRuntimeProduct(runtime,id){
   const product=runtime.run.productCatalog.find(p=>p.id===id);
-  const removed=sum(runtime.zones.map(zone=>getZoneInventory(zone)*(zone.bottleFactor||1)));
+  const removed=materialInventory(runtime);
+  for(const e of runtime.equipment)if(e.residence)e.residence={clock:0,inventory:0,ready:0,queue:[],head:0};
   runtime.clearoutBottleEquivalents+=removed;currentProductRow(runtime).clearoutBottleEquivalents+=removed;
   runtime.productTimeline.at(-1).endSeconds=runtime.virtualSecond;
   const models=applyProductProfile(runtime.baseEquipment,product);

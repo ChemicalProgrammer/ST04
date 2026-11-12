@@ -88,9 +88,9 @@ test('2D uses the representative seed to calculate new production and preserves 
     }};
     const records=[];
     const equipment=[
-      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'upstream',nominalRatePerSecond:10,processData:{equipment:{residenceTimeSeconds:0,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
-      {id:'m',nominalRatePerSecond:4}
+      {id:'m',nominalRatePerSecond:4,processData:{equipment:{residenceTimeSeconds:2}}}
     ];
     window.STSimulation2D.load(['case','simulation'],equipment,null,{seed:7,durationSeconds:25},null,record=>records.push(record),source);
     el('play').click();
@@ -135,4 +135,21 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('source').dispatchEvent(new window.Event('change'));
     assert.equal(el('time').textContent,'1 s');
   }finally{dom.window.close();}
+});
+
+test('2D retains resident bottles across snapshots and caps admission', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'), {window});
+  const definitions=[{kind:'machine',rate:10,batch:1,startDelay:0,rampSeconds:0,
+    capacityBottles:10,residenceSeconds:20,inputBottleFactor:1}];
+  const engine=window.STSimulation2DEngine;
+  const model=engine.create(definitions);
+  for(let i=0;i<1200;i++)model.step(1/120);
+  assert.equal(model.line[0].resident.length,10);
+  assert.equal(model.line[0].produced,0);
+  const restored=engine.create(definitions,1,model.snapshot());
+  assert.equal(restored.line[0].resident.length,10);
+  for(let i=0;i<1440;i++)restored.step(1/120);
+  assert(restored.line[0].produced>0);
+  assert(restored.line[0].resident.length<=10);
 });

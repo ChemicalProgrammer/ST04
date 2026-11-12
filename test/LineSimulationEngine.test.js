@@ -278,3 +278,18 @@ test('uses MTBF and MTTR as seeded failure and repair events', () => {
   assert.ok(first.result.events.some((event) => event.type === 'FAILURE_STARTED' && event.equipmentId === 'downstream'));
   assert.ok(first.result.equipmentMetrics.downstream.failureSeconds > 0);
 });
+
+test('machine residence holds stock through pauses and includes it in material balance', () => {
+  const input=createInput();
+  Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:75,sampleEverySeconds:1,
+    commands:[{equipmentId:'source',atVirtualSecond:5,action:'PAUSE'},{equipmentId:'source',atVirtualSecond:10,action:'AUTO'}]});
+  const {ok,result}=simulateLine(input);
+  assert.equal(ok,true);
+  const sourceAt=time=>result.samples.find(sample=>sample.virtualSecond===time).equipment[0];
+  assert.equal(sourceAt(4).internalInventoryBottles,10);
+  assert.equal(sourceAt(8).internalInventoryBottles,10);
+  assert.equal(sourceAt(24).outputCount,0);
+  assert(result.summary.outputCount>0);
+  assert.equal(result.summary.materialBalance.residualUnits,0);
+  assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=10));
+});

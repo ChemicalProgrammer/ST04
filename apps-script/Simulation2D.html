@@ -42,7 +42,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,shortBeltOffset=385,machineScale=3.75;
-  const machineHeight=540*sceneScale*machineScale,beltDepth=10,beltInset=2;
+  const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
@@ -69,7 +69,9 @@ window.STSimulation2D=(function(){
       if(item.type!=='CONVEYOR'){
         const batch=unit==='CASES'&&data.flowUnits?.input==='BOTTLES'
           ? (format?geometry.productPackSize(format):NaN) : 1;
-        return {id:item.id,name:item.name||item.id,kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,
+        const inputBottleFactor=data.flowUnits?.input==='CASES'&&packSize>0?packSize:1;
+        return {capacityBottles:data.equipment?.internalCapacityBottles??10,
+          residenceSeconds:data.equipment?.residenceTimeSeconds??20,inputBottleFactor,id:item.id,name:item.name||item.id,kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,
           bottlesPerUnit:unit==='BOTTLES'?1:packSize,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
           primeRampSeconds:zones[index-1]?.primeSensorPositionMm!=null?zones[index-1].downstreamRampUpSeconds:undefined,
@@ -95,6 +97,8 @@ window.STSimulation2D=(function(){
     for(const item of definitions){
       if(item.kind==='machine'){
         if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
+        if(!Number.isSafeInteger(item.capacityBottles)||item.capacityBottles<item.batch*item.inputBottleFactor||
+          !Number.isFinite(item.residenceSeconds)||item.residenceSeconds<0)return item.name+': check internal capacity and residence time. Capacity must hold at least one output batch.';
         continue;
       }
       const missing=[['conveyor length',item.length],['belt speed',item.speed],['product length',item.packageLength],['moving pitch',item.pitch]]
@@ -128,7 +132,7 @@ window.STSimulation2D=(function(){
     const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
     const tallestBelt=Math.max(0,...definitions.filter(item=>item.kind==='belt').map(beltHalfHeight));
     const telemetryTop=Math.max(machineHeight/2,tallestBelt)+22;
-    const top=sceneTop(),bottom=Math.max(telemetryTop+330,shortBelt?shortBeltOffset+280:0,68+shiftIndex(model?.time??0)*20);
+    const top=sceneTop(),bottom=Math.max(telemetryTop+365,shortBelt?shortBeltOffset+280:0,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -214,6 +218,8 @@ window.STSimulation2D=(function(){
     const summary=[state,unit(bottles(rate),'bpm'),unit(bottles(produced),'bottles')];
     if(cases)summary.push(unit(num(rate),'cpm'),unit(num(produced),'cases'));
     if(belt)summary.push(num(item.items?.length??0)+' on belt');
+    else summary.push(num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles)+' inside',
+      'Residence '+unit(num(item.residenceSeconds),'s'));
     const counters=belt
       ? ['Empty '+duration('empty'),'Flow '+duration('flowing'),'Accum. '+duration('accumulating'),
         'Back-up '+(item.backup===null?'—':item.backupBlocked?'active':'clear'),'Own failures —']

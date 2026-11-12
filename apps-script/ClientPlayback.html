@@ -226,6 +226,8 @@
       heading.className='live-equipment-heading';symbol.className='live-equipment-symbol';symbol.setAttribute('aria-hidden','true');title.before(heading);heading.append(symbol,title);
       var meta=document.createElement('span');meta.className='critical-label';card.querySelector('.live-equipment-identity').appendChild(meta);
       var reliability=document.createElement('span');reliability.className='case-description reliability-label';card.querySelector('.live-equipment-identity').appendChild(reliability);
+      var residence=document.createElement('span');residence.className='live-residence';residence.hidden=true;
+      card.querySelector('.live-processed').after(residence);
       var losses=document.createElement('button');losses.className='ghost loss-toggle';losses.type='button';losses.innerHTML=STIcons.svg('chart');losses.title=__ST_TEXT__('client.time_losses');losses.setAttribute('aria-label',__ST_TEXT__('client.time_losses'));losses.setAttribute('aria-expanded','false');losses.onclick=function(){var open=card.dataset.losses!=='open';card.dataset.losses=open?'open':'closed';card.classList.toggle('show-losses',open);losses.setAttribute('aria-expanded',String(open));if(activePersistentSimulation()?.results){captureSimulationView();autosave.change();}};card.querySelector('.live-equipment-controls').appendChild(losses);
       [['run','play',__ST_TEXT__('client.run_resume')],['pause','pause',__ST_TEXT__('client.pause')],['stop','stop',__ST_TEXT__('client.planned_stop')],['emergency','warning',__ST_TEXT__('client.emergency_stop')],['reset','refresh',__ST_TEXT__('client.reset_run')]].forEach(function(pair){var button=card.querySelector('.live-control-'+pair[0]);button.innerHTML=STIcons.svg(pair[1]);button.setAttribute('aria-label',pair[2]);button.dataset.actionLabel=pair[2];button.title=pair[2];});
       bindLiveEquipmentControl(card.querySelector('.live-control-run'), equipmentId, 'RUN');
@@ -249,6 +251,10 @@
       card.querySelector('.live-command').textContent = __ST_TEXT__('client.command') + unit.mode;
       card.querySelector('.live-flow-label').textContent = index === 0 ? 'Produced' : 'Processed';
       card.querySelector('.live-processed').textContent = formatNumber(unit.processedUnits === undefined ? unit.outputCount : unit.processedUnits);
+      var residence=card.querySelector('.live-residence'),design=model.processData?.equipment;
+      residence.classList.toggle('hidden',!Number.isFinite(unit.internalInventoryBottles));residence.hidden=false;
+      residence.textContent=Number.isFinite(unit.internalInventoryBottles)?
+        formatNumber(unit.internalInventoryBottles)+' / '+formatNumber(design?.internalCapacityBottles??10)+' bottles inside · '+formatNumber(design?.residenceTimeSeconds??20)+' s residence':'';
       card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 && Number.isFinite(unit.oeePercent) ? formatPercent(unit.oeePercent / 100) : '—';
       var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
         return (candidate.ownerEquipmentId||state.run.result?.zoneDefinitions?.[candidate.id]?.ownerEquipmentId) === unit.id;

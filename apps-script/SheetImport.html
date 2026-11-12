@@ -1,7 +1,7 @@
 <script>
 window.STSheetImport=function(state,actions){
   var preview=null,plan=null,snapshot=null,sequence=0,context=null,lastFocus,packingDraft=null,inheritedTab=null,observationDraft=null;
-  var merge=STSheetImportMerge,importVersion='sheet-import-20261110-5';
+  var merge=STSheetImportMerge,importVersion='sheet-import-20261112-6';
   function el(id){return document.getElementById(id);}
   function validContext(){return context&&state.activeCase?.id===context.caseId&&state.activeSimulationId===context.simulationId&&state.requestEpoch===context.epoch;}
   function clear(){preview=null;plan=null;packingDraft=null;observationDraft=null;el('sheet-import-readiness')?.setAttribute('hidden','');el('sheet-import-preview').textContent='';el('sheet-import-ack').checked=false;el('sheet-import-apply').disabled=true;el('sheet-import-summary').textContent='';}

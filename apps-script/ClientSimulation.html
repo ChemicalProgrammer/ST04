@@ -500,6 +500,7 @@
       });table.append(body);target.append(table);var footer=document.createElement('div');footer.className='button-row';var label=document.createElement('span');label.textContent=events.length+' line stops · page '+(page+1)+' / '+Math.ceil(events.length/100);footer.append(label);if(events.length>100)[[-1,'Previous'],[1,'Next']].forEach(function(spec){var button=document.createElement('button');button.type='button';button.className='ghost';button.textContent=spec[1];button.disabled=page+spec[0]<0||(page+spec[0])*100>=events.length;button.onclick=function(){state.run.eventPage+=spec[0];renderPlannedStops();};footer.append(button);});target.append(footer);syncEventSelection();
     }
     function prepareCalendarRun(run){
+      run={...run,machineResidenceEnabled:true};
       var calendar=run.plantCalendar;
       var manualStops=run.plannedStops?.filter(function(event){return event?.source!=='PLANT_CALENDAR';});
       if(!calendar?.enabled)return {...run,plannedStops:manualStops};
@@ -767,7 +768,7 @@
       delete calendar.durationSource;
       delete calendar.needsApply;
       return {
-        ...extras,...STProducts.runFields(),plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
+        ...extras,...STProducts.runFields(),machineResidenceEnabled:true,plannedStops:state.run.plannedStops===undefined?undefined:cloneJson(state.run.plannedStops),
         plantCalendar:calendar.enabled?{...calendar,totalMinutes:durationSeconds/60}:calendar,
         engineId:activePersistentSimulation()?.dynamicConfig?.engineId,
         reliabilityEnabled:activePersistentSimulation()?.dynamicConfig?.reliabilityEnabled,

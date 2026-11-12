@@ -40,10 +40,11 @@ window.STSheetImportMerge=(function(){
     if((preview.layout||preview.source?.schemaVersion)!=='plant-sheet-v2')return fields;
     var mapped=fields.map(function(f){return Object.assign({},f,{col:f.col>='G'?String.fromCharCode(f.col.charCodeAt(0)+2):f.col});}).concat([beltField,accumulationField]).sort(function(a,b){return a.col.localeCompare(b.col);});
     if(preview.stopBreakdown||preview.source?.stopBreakdown)mapped.splice(3,2,stopField);
-    if(preview.source?.inlineStops)return mapped.map(function(f){
+    var result=preview.source?.inlineStops?mapped.map(function(f){
       return {...f,col:f.id==='stopInputs'?'D':f.col>='D'?String.fromCharCode(f.col.charCodeAt(0)+4):f.col};
-    });
-    return mapped;
+    }):mapped;
+    if(preview.source?.residenceColumns)result.push(field('internalCapacity','AE','Internal capacity (bottles)',['processData.equipment.internalCapacityBottles']),field('residenceTime','AF','Residence time (s)',['processData.equipment.residenceTimeSeconds']));
+    return result;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});
   function isReference(e){return e.type==='PACEMAKER'||e.processData?.role==='PACEMAKER'||e.characteristics?.isPacemaker===true;}

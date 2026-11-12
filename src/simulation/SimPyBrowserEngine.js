@@ -32,7 +32,10 @@ export function adaptSimPyInput(input) {
         bottlesDischargedAtStop:d.bottlesDischargedAtStop??0,...(input.run.reliabilityEnabled !== false && reliability?{reliability}:{}),...(model.noiseProfile?.microStop?{microStop:model.noiseProfile.microStop}:{})});
     } else {
       if(Object.keys(model.noiseProfile||{}).some(key=>!['reliability','microStop'].includes(key)))throw new Error('SimPy does not support this machine noise profile: '+model.name);
-      machines.push({id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
+      const design=model.processData?.equipment;
+      const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null||design?.residenceTimeSeconds!=null
+        ?{internalCapacityBottles:design?.internalCapacityBottles??10,residenceTimeSeconds:design?.residenceTimeSeconds??20}:{};
+      machines.push({...residence,id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
         rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,
@@ -83,7 +86,7 @@ export function normalizeSimPyResult(raw, input, payload) {
       accumulationZones:frame.zones.map(zoneFrame),equipment:input.case.equipment.map(e=>{
         const m=frame.equipment.find(m=>m.id===e.id),prior=previous?.equipment.find(m=>m.id===e.id),z=frame.zones.find(z=>z.id===e.id),priorZone=previous?.zones.find(z=>z.id===e.id);
         const output=m?m.outputCount:z.releasedUnits,priorOutput=m?prior?.outputCount:priorZone?.releasedUnits;
-        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,
+        return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,internalInventoryBottles:m?.internalInventoryBottles,
           actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
           microStopSeconds:m?.stateSeconds.MICRO_STOP??z?.stateSeconds?.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??z?.stateSeconds?.FAILED??null,
           ...Object.fromEntries(['minor','major','general'].map(kind=>[kind+'FailureSeconds',m?.[kind+'FailureSeconds']??z?.[kind+'FailureSeconds']??null])),
