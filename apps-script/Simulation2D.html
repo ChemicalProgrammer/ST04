@@ -41,10 +41,10 @@
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24;
+  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=94,telemetryGap=6,shortBeltOffset=385;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
-  let replay=null,replayKey=null,independent=null;
+  let representative=null,defaultRun=null;
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
@@ -105,102 +105,6 @@ window.STSimulation2D=(function(){
     }
     return '';
   }
-  function createReplay(source){
-    const samples=source.samples, rows=source.products?.rows||[];
-    const states={RUNNING:'Running',FAILURE:'Failed',STARVED:'Starved',WAITING_FOR_PRIME:'Waiting for Prime',
-      RAMPING_UP:'Ramp up',BACKUP_STOPPING:'Ramp down',BACKUP_STOP:'Back-up stop',BLOCKED:'Blocked',
-      STARTING:'Starting',READY:'Ready',IDLE:'Idle',PLANNED_STOP:'Planned stop',EMERGENCY_STOP:'Emergency stop',
-      PAUSED:'Paused',STOPPED:'Stopped',MICRO_STOP:'Micro stop'};
-    const line=definitions.map(item=>({...item}));
-    let index=-1,time=0,finished=false,outputCount;
-    function advance(seconds){
-      time=Math.min(source.durationSeconds,time+seconds);
-      let next=Math.max(0,index);
-      while(next+1<samples.length&&samples[next+1].virtualSecond<=time+1e-8)next++;
-      const final=time>=source.durationSeconds-1e-8;
-      if(next===index&&final===finished)return;
-      index=next;finished=final;
-      const sample=samples[index];
-      const equipment=new Map((sample.equipment||[]).map(item=>[item.id,item]));
-      const zones=new Map((sample.accumulationZones||[]).map(zone=>[zone.ownerEquipmentId??zone.id,zone]));
-      outputCount=final?source.summary?.outputCount??sample.outputCount:sample.outputCount;
-      const format=rows.find(row=>row.productId===sample.productId);
-      for(const item of line){
-        const frame=equipment.get(item.id)||{};
-        const metrics=final?source.equipmentMetrics?.[item.id]??frame:frame;
-        const zone=zones.get(item.id)??zones.get(item.zoneId);
-        const unit=metrics.unitOfFlow??zone?.packageUnit??item.unit;
-        item.unit=unit;
-        item.bottlesPerUnit=unit==='CASES'?format?.bottlesPerCase??item.bottlesPerUnit:1;
-        item.ratePerMinute=Number.isFinite(frame.actualRatePerSecond)?frame.actualRatePerSecond*60:undefined;
-        if(item.kind==='machine'){
-          item.state=states[frame.availabilityState]||frame.availabilityState||'Waiting';
-          item.produced=metrics.outputCount;
-          item.failureCount=metrics.failureCount;
-          item.durations={running:metrics.runningSeconds,starving:metrics.starvedSeconds===undefined?undefined:metrics.starvedSeconds+(metrics.waitingForPrimeSeconds||0),
-            acceleration:metrics.startRampSeconds,deceleration:metrics.stopTransitionSeconds,
-            blocked:metrics.blockedSeconds===undefined?undefined:metrics.blockedSeconds+(metrics.backupStopSeconds||0),failure:metrics.failureSeconds};
-          continue;
-        }
-        const geometry=zone?.geometry;
-        item.length=geometry?.usableLengthMm??item.length;
-        item.packageLength=geometry?.productLengthMm??item.packageLength;
-        item.prime=zone?.prime?.positionMm??null;item.backup=zone?.backup?.positionMm??null;
-        item.primeBeam=zone?.prime?.latched===true;item.backupBlocked=zone?.backup?.controlActive===true;
-        item.inventory=zone?.inventoryUnits;
-        item.transit={
-          positions:zone?.transitPositionsMm,
-          units:zone?.inTransitUnits??Math.max(0,(zone?.inventoryUnits??0)-(zone?.waitingUnits??0)),
-          speed:zone?.beltRunning===false?0:geometry?.conveyorSpeedMmPerSecond??item.speed,
-          sampledAt:sample.virtualSecond
-        };
-        item.items=[];
-        const pitch=geometry?.accumulatedPitchMm,packageLength=item.packageLength;
-        if(pitch>0&&packageLength>0&&item.length>=packageLength){
-          const count=Math.min(Math.floor(zone.waitingUnits||0),Math.floor((item.length-packageLength)/pitch)+1);
-          for(let n=0;n<count;n++)item.items.push({x:item.length-packageLength/2-n*pitch});
-        }
-      }
-    }
-    advance(0);
-    return {line,step:advance,get time(){return time;},get outputCount(){return outputCount;}};
-  }
-  function replayTransit(item,time){
-    const transit=item.transit;
-    const front=item.packageLength/2;
-    const end=item.items.length?item.items.at(-1).x-item.packageLength:item.length-front;
-    if(!transit||!(front>0)||!(end>front))return [];
-    const travel=Math.max(0,time-transit.sampledAt)*(transit.speed||0);
-    if(transit.positions?.length){
-      return transit.positions.map(position=>({x:Math.max(front,position+travel)})).filter(product=>product.x<=end);
-    }
-    if(!(transit.units>0))return [];
-    const span=end-front;
-    const slots=Math.min(256,Math.max(1,Math.round(transit.units)),Math.max(1,Math.floor(span/item.packageLength)));
-    const spacing=span/slots;
-    const phase=(travel+spacing/2)%spacing;
-    return Array.from({length:slots},(_,index)=>({x:front+phase+index*spacing}));
-  }
-  function replayProduction(){
-    const unit=model.line.at(-1)?.unit, rows=replay.products?.rows||[];
-    const pack=rows.length===1?rows[0].bottlesPerCase:undefined;
-    const cases=bottles=>unit==='CASES'?(pack>0?bottles/pack:undefined):0;
-    const bottles=model.outputCount;
-    const end=model.time>=replay.durationSeconds-1e-8;
-    const totalCases=end&&rows.length?rows.reduce((total,row)=>total+(row.outputUnit==='CASES'?row.outputNative:0),0)
-      :unit==='CASES'?model.line.at(-1)?.produced:0;
-    const shifts=[];
-    let closedOutput=0,elapsed=0;
-    for(const shift of replay.shifts||[]){
-      elapsed+=shift.durationSeconds;
-      const closed=model.time>=elapsed-1e-8;
-      const output=closed?shift.outputCount:Math.max(0,bottles-closedOutput);
-      shifts.push({label:'Shift '+shift.shift,cases:cases(output),bottles:output});
-      if(!closed||model.time<=elapsed+1e-8)break;
-      closedOutput+=output;
-    }
-    return [{label:'Total',cases:totalCases,bottles},...shifts];
-  }
   function shiftIndex(seconds){return Math.floor((seconds+1e-7)/(shiftHours*3600));}
   function syncZoom(){
     const slider=el('zoom'),ratio=camera.scale/sceneScale;
@@ -212,7 +116,8 @@ window.STSimulation2D=(function(){
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const length=(model?.line||definitions).reduce((total,item)=>total+(item.length||0),0)+(definitions.length?(cardWidth+cardGap)/sceneScale:0);
-    const top=60,bottom=Math.max(295,68+shiftIndex(model?.time??0)*20);
+    const shortBelt=definitions.some(item=>item.kind==='belt'&&item.length*sceneScale<telemetryWidth);
+    const top=60,bottom=Math.max(shortBelt?shortBeltOffset+280:385,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -228,8 +133,8 @@ window.STSimulation2D=(function(){
   }
   const lampColors=['#ff384c','#ffb000','#00bd67'];
   function machineSignal(item){
-    if(!independent&&(runState==='Stopped'||runState==='Completed'))return {state:runState,lamp:0};
-    if(!independent&&runState==='Paused')return {state:'Paused',lamp:1};
+    if(runState==='Stopped'||runState==='Completed')return {state:runState,lamp:0};
+    if(runState==='Paused')return {state:'Paused',lamp:1};
     const state=item.state||'Waiting';
     if(['Back-up stop','Blocked','Failed','Emergency stop','Planned stop','Stopped','Micro stop'].includes(state))return {state,lamp:0};
     if(state==='Running'||state==='Discharging')return {state,lamp:2};
@@ -262,8 +167,7 @@ window.STSimulation2D=(function(){
     const cases=output.unit==='CASES';
     const bottleFactor=output.bottlesPerUnit;
     const currentShift=shiftIndex(model?.time??0);
-    const rows=independent?replayProduction():null;
-    const height=88+(rows?rows.length-1:currentShift+1)*20;
+    const height=88+(currentShift+1)*20;
     context.fillStyle=surface;context.strokeStyle=border;
     strokeBox(context,x,y,cardWidth,height);
     context.fillStyle=ink;
@@ -271,7 +175,7 @@ window.STSimulation2D=(function(){
     context.font='bold 14px system-ui';
     context.fillText('Production',x+14,y+22);
     context.font='12px system-ui';
-    context.fillText(independent?'Representative round':num(shiftHours)+' h per shift',x+14,y+41);
+    context.fillText(num(shiftHours)+' h per shift',x+14,y+41);
     context.fillText('Cases',x+120,y+60);
     context.fillText(cases?'Bottle eq.':'Bottles',x+182,y+60);
     function row(label,quantity,position){
@@ -279,18 +183,59 @@ window.STSimulation2D=(function(){
       drawText(context,num(cases?quantity:0),x+120,position,55);
       drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),x+182,position,64);
     }
-    if(rows){
-      rows.forEach((entry,index)=>{
-        const position=y+80+20*index;
-        context.fillText(entry.label,x+14,position);
-        drawText(context,num(entry.cases),x+120,position,55);
-        drawText(context,num(entry.bottles),x+182,position,64);
-      });
-    }else{
-      row('Total',output.produced||0,y+80);
-      for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
-    }
+    row('Total',output.produced||0,y+80);
+    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
     context.textAlign='center';
+  }
+  function drawTelemetry(context,item,x,y,signal,ink,border,surface){
+    const belt=item.kind==='belt',cases=item.unit==='CASES';
+    const rate=item.ratePerMinute??0,produced=item.produced??0;
+    const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
+    const duration=key=>num(item.durations?.[key]??0)+' s';
+    const state=signal?.state||(runState==='Ready'?'Ready':runState==='Running'?item.state||'Empty':runState);
+    const summary=[state,bottles(rate)+' bpm',bottles(produced)+' bottles'];
+    if(cases)summary.push(num(rate)+' cpm',num(produced)+' cases');
+    if(belt)summary.push(num(item.items?.length??0)+' on belt');
+    const counters=belt
+      ? ['Empty '+duration('empty'),'Flow '+duration('flowing'),'Accum. '+duration('accumulating'),
+        'Back-up '+(item.backup===null?'—':item.backupBlocked?'active':'clear'),'Own failures —']
+      : ['Start '+duration('starting'),'Run '+duration('running'),'Starving '+duration('starving'),
+        'Ramp up '+duration('acceleration'),'Ramp down '+duration('deceleration'),'Blocked '+duration('blocked'),
+        'Failure time '+duration('failure'),item.failures?.length?'Own failures '+num(item.failureCount??0):'Own failures off'];
+    function wrap(text){
+      const lines=[];
+      let line='';
+      for(let word of text.split(/\s+/)){
+        const joined=line?line+' '+word:word;
+        if(context.measureText(joined).width<=telemetryWidth-14){line=joined;continue;}
+        if(line)lines.push(line);
+        while(context.measureText(word).width>telemetryWidth-14&&word.length>1){
+          let end=word.length-1;
+          while(end>1&&context.measureText(word.slice(0,end)).width>telemetryWidth-14)end--;
+          lines.push(word.slice(0,end));word=word.slice(end);
+        }
+        line=word;
+      }
+      lines.push(line);
+      return lines;
+    }
+    function card(title,values,outline){
+      context.font='600 12px system-ui';
+      const heading=wrap(title);
+      context.font='12px system-ui';
+      const rows=values.flatMap(wrap);
+      const height=14+(heading.length+rows.length)*15;
+      context.fillStyle=surface;context.strokeStyle=outline;
+      strokeBox(context,x-telemetryWidth/2,y,telemetryWidth,height);
+      context.fillStyle=ink;
+      context.font='600 12px system-ui';
+      heading.forEach((line,index)=>context.fillText(line,x,y+17+index*15));
+      context.font='12px system-ui';
+      rows.forEach((line,index)=>context.fillText(line,x,y+17+(heading.length+index)*15));
+      y+=height+telemetryGap;
+    }
+    card(item.name,summary,signal?lampColors[signal.lamp]:border);
+    card(belt?'Time / sensors':'Time / failures',counters,border);
   }
   function draw(){
     if(panel.classList.contains('hidden'))return;
@@ -313,11 +258,10 @@ window.STSimulation2D=(function(){
     context.setTransform(dpr*factor,0,0,dpr*factor,0,0);
     context.font='12px system-ui';context.textAlign='center';
     const scale=sceneScale,y=camera.y/factor;
-    let x=camera.x/factor,machineIndex=0;
+    let x=camera.x/factor;
     for(const item of model?.line||definitions){
       const width=Math.max(0,item.length||0)*scale;
       const lane=item.kind==='belt';
-      const labelRow=lane?0:(machineIndex++%2);
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
         const span=Math.max(10,(item.beltWidth??(item.packageWidth||0)*1.4)*scale);
@@ -326,13 +270,14 @@ window.STSimulation2D=(function(){
         context.beginPath();context.moveTo(x,y);context.lineTo(x+width,y);
         context.setLineDash([3,5]);context.stroke();context.setLineDash([]);
         context.fillStyle=accent;
-        const products=independent?[...replayTransit(item,model.time),...(item.items||[])]:item.items||[];
+        const products=item.items||[];
         for(const product of products){
           const px=x+product.x*scale,length=item.packageLength*scale,across=item.packageWidth*scale;
           if(px+length/2<0||px-length/2>w)continue;
-          if(!(across>0)){
-            // Width is only visual. Show a centreline marker without assuming a physical width.
-            context.fillRect(px-length/2,y-1,length,2);
+          if(!(across>0)||Math.min(length,across)*factor<2){
+            // Keep individual products visible at Fit without changing their physical dimensions.
+            const mark=Math.max(2/factor,Math.min(length,across||length));
+            context.fillRect(px-mark/2,y-mark/2,mark,mark);
           }else if(item.unit==='CASES'){
             context.fillRect(px-length/2,y-across/2,length,across);
             if(length>8&&across>5){
@@ -350,20 +295,8 @@ window.STSimulation2D=(function(){
           context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
-        if(width>100){
-          const labelX=Math.max(55,Math.min(w-55,x+width/2));
-          context.fillStyle=ink;
-          drawText(context,item.name+' · '+num(item.length/1000)+' m',labelX,y-span/2-35,Math.min(width,w-16));
-          context.fillText(num(independent?item.inventory:item.items?.length??0)+' on belt',labelX,y+span/2+37);
-        }
-        if(width>=45){
-          const labelX=Math.max(32,Math.min(w-32,x+width/2));
-          const rate=item.ratePerMinute??(independent?undefined:0);
-          const bottleRate=item.bottlesPerUnit>0?num(rate*item.bottlesPerUnit):'—';
-          const units=item.unit==='CASES'?bottleRate+' bpm · '+num(rate)+' cpm':bottleRate+' bpm';
-          context.fillStyle=ink;
-          drawText(context,units,labelX,y+span/2+53,Math.min(Math.max(width,72),w-12));
-        }
+        const telemetryY=y+Math.max(span/2+25,width<telemetryWidth?shortBeltOffset:56);
+        drawTelemetry(context,item,x+width/2,telemetryY,null,ink,border,surface);
       }else{
         const height=Math.max(24,540*scale);
         const signal=machineSignal(item);
@@ -375,30 +308,9 @@ window.STSimulation2D=(function(){
           context.strokeRect(x+width*.25,y-height*.23,width*.5,height*.46);
           context.beginPath();context.moveTo(x+width/2,y-height*.23);context.lineTo(x+width/2,y+height*.23);context.stroke();
         }
-        const sx=x+width/2,sy=y+height/2+52+labelRow*22;
+        const sx=x+width/2;
         drawSignal(context,sx,y-height/2-14,signal.lamp);
-        context.fillStyle=ink;
-        drawText(context,item.name,sx,sy,Math.max(24,width-4));
-        drawText(context,signal.state,sx,sy+14,Math.max(24,width-4));
-        if(width>=86){
-          const durations=item.durations||{}, rate=item.ratePerMinute??(independent?undefined:0), produced=item.produced??(independent?undefined:0);
-          const seconds=value=>Number.isFinite(value)?num(value)+' s':independent?'—':'0 s';
-          const bottles=item.bottlesPerUnit>0?num(produced*item.bottlesPerUnit):'—';
-          const bpm=item.bottlesPerUnit>0?num(rate*item.bottlesPerUnit):'—';
-          const counters=[
-            independent||item.failures?.length?'Own failures '+num(item.failureCount):'Own failures off',
-            bottles+' bottles',
-            bpm+' bpm',
-            'Run '+seconds(durations.running),
-            'Starving '+seconds(durations.starving),
-            'Ramp up '+seconds(durations.acceleration),
-            'Ramp down '+seconds(durations.deceleration),
-            'Blocked '+seconds(durations.blocked),
-            'Failure time '+seconds(durations.failure)
-          ];
-          if(item.unit==='CASES')counters.push(num(produced)+' cases',num(rate)+' cpm');
-          counters.forEach((label,index)=>drawText(context,label,sx,sy+31+index*15,width-4));
-        }
+        drawTelemetry(context,item,sx,y+56,signal,ink,border,surface);
       }
       x+=width;
     }
@@ -406,15 +318,17 @@ window.STSimulation2D=(function(){
   }
   function status(){
     const unknownWidth=definitions.some(item=>item.kind==='belt'&&!(item.packageWidth>0));
-    const sourceStatus=independent
-      ? ' · Round '+replay.round+(replay.seed===undefined?'':' · Seed '+replay.seed)+' · Recorded states and totals. Bottle movement between frames is estimated. A dash indicates unavailable telemetry.'
-      : ' · Seed '+seed+(replay?'':' · No compatible representative round with recorded detail. Run the numerical simulation with playback recording.')
-        +(unknownWidth?' · Products without a width in Formats are shown as centreline markers.':'');
-    el('status').textContent=(validation||runState)+sourceStatus;
+    const sourceStatus=(defaultRun?' · Round '+representative.round+' · Seed '+representative.seed:' · Seed '+seed)
+      +(representative?'':' · No representative seed available. Run the numerical simulation.')
+      +(unknownWidth?' · Products without a width in Formats are shown as centreline markers.':'');
     const line=model?.line||[];
+    const first=line[0];
+    const waitingForFirst=runState==='Running'&&first?.produced===0
+      ? ' · '+first.name+' · '+first.state:'';
+    el('status').textContent=(validation||runState)+sourceStatus+waitingForFirst;
     el('time').textContent=num(model?.time??0)+' s';
-    el('output').textContent=independent?num(model?.outputCount)+' bottle eq.':num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
-    el('inventory').textContent=num(line.reduce((sum,item)=>sum+(independent?item.inventory||0:item.items?.length||0),0));
+    el('output').textContent=num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
+    el('inventory').textContent=num(line.reduce((sum,item)=>sum+(item.items?.length||0),0));
     el('running').textContent=num(line.filter(item=>item.state==='Running'||item.state==='Discharging').length);
     el('backup').textContent=num(line.filter(item=>item.backupBlocked).length);
   }
@@ -427,12 +341,12 @@ window.STSimulation2D=(function(){
     el('pause').disabled=runState!=='Running';
     el('stop').disabled=runState!=='Running'&&runState!=='Paused';
     el('reset').disabled=!!validation;
-    el('limit').disabled=Boolean(independent)||runState==='Running';
-    el('source').options[1].disabled=!replay;
+    el('limit').disabled=runState==='Running';
+    el('source').options[1].disabled=!representative;
     status();
   }
   function checkpoint(){
-    if(!save||independent)return;
+    if(!save||defaultRun)return;
     save({
       version:1,speed:Number(el('speed').value),limitSeconds,signature,runState,
       shiftOutput:[...shiftOutput],checkpoint:model?.time>0?model.snapshot():null
@@ -443,34 +357,30 @@ window.STSimulation2D=(function(){
     cancelFrame();runState='Paused';syncControls();draw();checkpoint();
   }
   function reset(){
-    cancelFrame();lag=0;lastMetrics=-Infinity;shiftOutput=[];validation=independent?'':validate();
-    model=independent?createReplay(replay):validation?null:STSimulation2DEngine.create(definitions,seed);
+    cancelFrame();lag=0;lastMetrics=-Infinity;shiftOutput=[];validation=validate();
+    model=validation?null:STSimulation2DEngine.create(definitions,defaultRun?representative.seed:seed);
     runState='Ready';syncControls();
     if(camera.fit)fit();else draw();
   }
-  function switchSource(useReplay){
-    if(useReplay===Boolean(independent))return;
+  function switchSource(useRepresentative){
+    if(useRepresentative===Boolean(defaultRun))return;
     pause();
-    if(useReplay){
-      independent={model,shiftOutput,runState,validation};
-      el('limit').value=replay.durationSeconds/60;
+    if(useRepresentative){
+      defaultRun={model,shiftOutput,runState,validation};
       reset();
     }else{
-      ({model,shiftOutput,runState,validation}=independent);
-      independent=null;lag=0;lastMetrics=-Infinity;
-      el('limit').value=limitSeconds/60;
+      ({model,shiftOutput,runState,validation}=defaultRun);
+      defaultRun=null;lag=0;lastMetrics=-Infinity;
       syncControls();if(camera.fit)fit();else draw();
     }
-    el('source').value=useReplay?'representative':'independent';
+    el('source').value=useRepresentative?'representative':'independent';
   }
-  function endTime(){return independent?replay.durationSeconds:limitSeconds;}
   function animate(now){
     if(previous)lag+=(now-previous)/1000*Number(el('speed').value);
     previous=now;
     const output=model.line.at(-1);
     const deadline=performance.now()+12;
-    if(independent){model.step(lag);lag=0;}
-    for(let count=0;!independent&&count<24000;count++){
+    for(let count=0;count<24000;count++){
       const remaining=limitSeconds-model.time;
       if(remaining<=1e-8||lag<Math.min(step,remaining))break;
       const advance=Math.min(step,remaining),previousOutput=output.produced;
@@ -481,7 +391,7 @@ window.STSimulation2D=(function(){
       }
       if(count%128===127&&performance.now()>=deadline)break;
     }
-    if(endTime()-model.time<=1e-8){
+    if(limitSeconds-model.time<=1e-8){
       cancelFrame();runState='Completed';syncControls();draw();checkpoint();return;
     }
     if(now-lastMetrics>=125){status();lastMetrics=now;}
@@ -491,14 +401,14 @@ window.STSimulation2D=(function(){
   }
   el('play').onclick=function(){
     if(!model||frame!==undefined)return;
-    if(runState==='Stopped'||runState==='Completed'||model.time>=endTime())reset();
+    if(runState==='Stopped'||runState==='Completed'||model.time>=limitSeconds)reset();
     lastSave=performance.now();runState='Running';syncControls();
     frame=window.requestAnimationFrame(animate);
   };
   el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();draw();checkpoint();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
   el('pause').onclick=pause;
-  el('source').onchange=()=>switchSource(el('source').value==='representative'&&Boolean(replay));
+  el('source').onchange=()=>switchSource(el('source').value==='representative'&&Boolean(representative));
   el('reset').onclick=()=>{reset();checkpoint();};
   el('speed').addEventListener('change',checkpoint);
   el('limit').addEventListener('change',function(){
@@ -546,21 +456,21 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){cancelFrame();save=null;key=null;model=null;independent=null;replay=null;replayKey=null;},load(identity,equipment,format,config={},stored,saveRecord,source){
+  return {pause,unload(){cancelFrame();save=null;key=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
     const revised=prepare(equipment,format,config);
     const nextSignature=JSON.stringify([next,revised],(key,value)=>key==='zoneId'?undefined:value);
-    const ids=source?.samples.at(-1)?.equipment?.map(item=>item.id)||[];
-    const compatible=source?.durationSeconds>0&&ids.length>0&&ids.length===revised.length&&revised.every((item,index)=>item.id===ids[index]);
-    const nextReplayKey=compatible?source.revision:null;
+    const nextRepresentative=Number.isFinite(source?.seed)?source:null;
     const sameCase=next===key&&nextSignature===signature;
-    if(sameCase&&nextReplayKey===replayKey){save=saveRecord;draw();return;}
-    if(sameCase&&independent)switchSource(false);
-    replay=compatible?source:null;replayKey=nextReplayKey;
+    if(sameCase&&nextRepresentative?.round===representative?.round&&nextRepresentative?.seed===representative?.seed){
+      save=saveRecord;draw();return;
+    }
+    if(sameCase&&defaultRun)switchSource(false);
+    representative=nextRepresentative;
     if(sameCase){save=saveRecord;syncControls();draw();return;}
-    cancelFrame();independent=null;el('source').value='independent';
+    cancelFrame();defaultRun=null;el('source').value='independent';
     save=saveRecord;signature=nextSignature;
     key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;
     const defaultLimit=config.durationSeconds>0?config.durationSeconds:3600;

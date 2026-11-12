@@ -2,21 +2,26 @@
 window.STSimulation2DEngine=(function(){
   const epsilon=1e-6;
   const durationKey={
-    Running:'running',Discharging:'running',Starved:'starving','Waiting for Prime':'starving',
+    Starting:'starting',Running:'running',Discharging:'running',Starved:'starving','Waiting for Prime':'starving',
     'Ramp up':'acceleration','Ramp down':'deceleration',Blocked:'blocked','Back-up stop':'blocked',Failed:'failure'
   };
   function create(definitions,seed=1,checkpoint){
     const line=definitions.map((definition,index)=>definition.kind==='belt'
-      ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,recentOutput:[],ratePerMinute:0}
+      ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,produced:0,state:'Empty',
+        durations:{empty:0,flowing:0,accumulating:0},recentOutput:[],ratePerMinute:0}
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
         rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
-        durations:{running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
+        durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
         recentOutput:[],ratePerMinute:0});
     let time=0;
     if(checkpoint&&Number.isFinite(checkpoint.time)&&checkpoint.time>=0&&checkpoint.line?.length===line.length){
       time=checkpoint.time;
-      line.forEach((item,index)=>Object.assign(item,JSON.parse(JSON.stringify(checkpoint.line[index]))));
+      line.forEach((item,index)=>{
+        const saved=JSON.parse(JSON.stringify(checkpoint.line[index]));
+        saved.durations={...item.durations,...saved.durations};
+        Object.assign(item,saved);
+      });
     }
     function snapshot(){
       return JSON.parse(JSON.stringify({time,line:line.map((item,index)=>Object.fromEntries(
@@ -121,6 +126,7 @@ window.STSimulation2DEngine=(function(){
           const first=upstream.items[0];
           if(first&&first.x+upstream.packageLength/2>=upstream.length-epsilon){
             upstream.items.shift();
+            upstream.produced++;
             upstream.recentOutput.push(time);
             machine.input++;
           }else if(!upstream.items.length)upstream.primeSeen=false;
@@ -141,6 +147,13 @@ window.STSimulation2DEngine=(function(){
         if(category)item.durations[category]+=seconds;
       }
       for(const item of line){
+        if(item.kind==='belt'){
+          const head=item.items[0];
+          const accumulating=head&&head.x+item.packageLength/2>=item.length-epsilon;
+          const category=!head?'empty':accumulating?'accumulating':'flowing';
+          item.state=!head?'Empty':accumulating?'Accumulating':'Flowing';
+          item.durations[category]+=seconds;
+        }
         while(item.recentOutput.length&&item.recentOutput[0]<=time-5)item.recentOutput.shift();
         item.ratePerMinute=item.recentOutput.length*60/Math.min(time,5);
       }
