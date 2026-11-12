@@ -161,21 +161,23 @@
         </div>
         <p id="simulation2d-status" class="chart-note" role="status"></p>
         <div id="simulation2d-content" class="fold-content">
-        <label class="simulation2d-source">Source
-          <select id="simulation2d-source">
-            <option value="independent">Independent simulation</option>
-            <option value="representative">Representative round seed</option>
-          </select>
-        </label>
-        <label class="simulation2d-source simulation2d-style">Equipment view
-          <select id="simulation2d-machine-style">
-            <option value="blocks">Blocks</option>
-            <option value="animated">Animated designs</option>
-          </select>
-        </label>
-        <label class="simulation2d-source simulation2d-style">
-          <input id="simulation2d-dimensions" type="checkbox"> Show conveyor dimensions
-        </label>
+        <div class="simulation2d-options" role="group" aria-label="Simulation options">
+          <label class="simulation2d-source">Source
+            <select id="simulation2d-source">
+              <option value="independent">Independent simulation</option>
+              <option value="representative">Representative round seed</option>
+            </select>
+          </label>
+          <label class="simulation2d-source">Equipment view
+            <select id="simulation2d-machine-style">
+              <option value="blocks">Blocks</option>
+              <option value="animated">Animated designs</option>
+            </select>
+          </label>
+          <label class="simulation2d-source">
+            <input id="simulation2d-dimensions" type="checkbox"> Show dimensions
+          </label>
+        </div>
         <dl class="simulation2d-metrics">
           <div><dt>Elapsed</dt><dd id="simulation2d-time">0 s</dd></div>
           <div><dt>Output</dt><dd id="simulation2d-output">0</dd></div>

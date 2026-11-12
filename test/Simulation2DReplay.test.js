@@ -232,6 +232,12 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('fit').click();
     const dimensions=el('dimensions');
     const currentLabels=()=>labels.slice(lastFrameOrigin).map(([text])=>text);
+    const marker=label=>labels.slice(lastFrameOrigin).find(([text])=>text===label);
+    const sensorPosition=label=>marker(label).slice(2,4);
+    const originalSensors=['B','P'].map(sensorPosition);
+    for(const control of ['source','machine-style','dimensions']){
+      assert.equal(el(control).closest('.simulation2d-options'),dimensions.closest('.simulation2d-options'));
+    }
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
     dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
     for(const label of ['Lact','Lp','Lba','Lbu','Discharge','Coding','Overflow','Lrec']){
@@ -253,10 +259,11 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(dimensionLabel('Lbu')[3]>overflow[3]);
     assert(dimensionLabel('Lact')[3]>dimensionLabel('Lba')[3]);
 
-    const marker=label=>labels.slice(lastFrameOrigin).find(([text])=>text===label);
     const close=(actual,expected)=>assert(Math.abs(actual-expected)<.0001);
-    close(marker('B')[2]-marker('Max Run-Out point')[2],420*.09);
-    close(marker('P')[2]-marker('B')[2],830*.09);
+    assert.deepEqual(['B','P'].map(sensorPosition),originalSensors);
+    close(marker('Design B')[2]-marker('Max Run-Out point')[2],420*.09);
+    close(marker('P')[2]-marker('Design B')[2],830*.09);
+    assert(!marker('Design P'));
     assert(!marker('Rec Pt.'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     close(marker('P')[2]-marker('Rec Pt.')[2],(830-412.5-55*412.5/65)*.09);
@@ -264,7 +271,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
     assert(!marker('Max Run-Out point'));
-    close(marker('P')[2]-marker('B')[2],1000*.09);
+    assert(!marker('Design B'));
+    assert.deepEqual(['B','P'].map(sensorPosition),originalSensors);
   }finally{dom.window.close();}
 });
 

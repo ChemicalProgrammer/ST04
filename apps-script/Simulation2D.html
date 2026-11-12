@@ -7,7 +7,7 @@
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel { container-type:inline-size; }
-.simulation2d-style { margin-inline-start:var(--space-3); }
+.simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
 .simulation2d-source select { width:auto; min-width:0; }
 .simulation2d-source input[type=checkbox] { width:auto; margin:0; }
@@ -62,7 +62,7 @@ window.STSimulation2D=(function(){
   showDimensions.checked=window.STPreferences?.read('simulation2dDimensions')==='yes';
   showDimensions.addEventListener('change',()=>{
     window.STPreferences?.write('simulation2dDimensions',showDimensions.checked?'yes':'no');
-    if(camera.fit)fit();else draw();
+    draw();
   });
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
@@ -235,7 +235,7 @@ window.STSimulation2D=(function(){
   }
   function sceneTop(){
     return Math.max(tallestMachine()/2+26,
-      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+(showDimensions.checked?112:68)));
+      ...definitions.filter(item=>item.kind==='belt').map(item=>beltHalfHeight(item)+(showDimensions.checked?134:68)));
   }
   function dimensionClearance(){
     return showDimensions.checked&&conveyorDimensions.size?dimensionLevels*dimensionRowHeight:0;
@@ -574,15 +574,14 @@ window.STSimulation2D=(function(){
         drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface);
         const sensorY=y-beltHalfHeight(item)-12;
         const dimensions=showDimensions.checked?conveyorDimensions.get(item.id):null;
-        const backup=dimensions?dimensions.backup:item.backup;
-        const prime=dimensions?dimensions.prime:item.prime;
+        const {backup,prime}=item;
         const closeSensors=Number.isFinite(prime)&&Number.isFinite(backup)&&Math.abs(prime-backup)*scale<19;
         const signal=beltSignal(item),signalY=sensorY-22-(closeSensors?20:0);
         drawSignal(context,x+width/2,signalY,signal.lamp);
 
         for(const [label,position,active] of [
-          ['B',backup,item.backupBlocked&&(!dimensions||Math.abs(backup-item.backup)<1e-6)],
-          ['P',prime,item.primeBeam&&(!dimensions||Math.abs(prime-item.prime)<1e-6)]
+          ['B',backup,item.backupBlocked],
+          ['P',prime,item.primeBeam]
         ]){
           if(!Number.isFinite(position)||position<0||position>item.length)continue;
           const sx=x+position*scale,sy=sensorY-(label==='B'&&closeSensors?20:0);
@@ -596,7 +595,9 @@ window.STSimulation2D=(function(){
         if(dimensions){
           for(const [label,position,offset] of [
             ['Max Run-Out point',dimensions.runout,32],
-            ['Rec Pt.',dimensions.recovery,16]
+            ['Rec Pt.',dimensions.recovery,16],
+            ['Design B',Number.isFinite(backup)&&Math.abs(dimensions.backup-backup)<1e-6?null:dimensions.backup,48],
+            ['Design P',Number.isFinite(prime)&&Math.abs(dimensions.prime-prime)<1e-6?null:dimensions.prime,64]
           ]){
             if(!Number.isFinite(position)||position<0||position>item.length)continue;
             const mx=x+position*scale,my=signalY-offset;
