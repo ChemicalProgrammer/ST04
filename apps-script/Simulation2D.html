@@ -11,7 +11,8 @@
 #simulation2d-panel .fold-tools > * { flex:0 0 auto; margin:0; }
 #simulation2d-speed { width:max-content; min-width:0; padding-inline:6px 20px; background-position:right 4px center; background-size:13px; }
 .simulation2d-limit { display:inline-flex; align-items:center; gap:2px; color:var(--ink); font-size:var(--font-secondary); white-space:nowrap; }
-#simulation2d-limit { width:6ch; min-width:0; padding-inline:4px; }
+#simulation2d-limit { width:7ch; min-width:7ch; padding-inline:4px; appearance:textfield; font-variant-numeric:tabular-nums; }
+#simulation2d-limit::-webkit-inner-spin-button { appearance:none; margin:0; }
 #simulation2d-zoom { width:96px; min-width:0; padding:0; accent-color:var(--accent); }
 #simulation2d-zoom-value { width:5ch; text-align:end; color:var(--ink); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; white-space:nowrap; }
 @container (max-width:450px) {
@@ -25,7 +26,7 @@
   #simulation2d-panel .fold-tools { gap:1px; }
   #simulation2d-panel .fold-tools .icon-button { width:23px; padding-inline:2px; }
   #simulation2d-zoom { width:28px; }
-  #simulation2d-limit { width:5ch; font-size:11px; padding-inline:2px; }
+  #simulation2d-limit { font-size:11px; padding-inline:2px; }
   .simulation2d-limit { font-size:10px; }
   #simulation2d-speed { padding-inline:2px 13px; background-position:right 2px center; background-size:10px; }
 }
@@ -145,6 +146,16 @@ window.STSimulation2D=(function(){
       context.fill();context.stroke();
     });
   }
+  function drawText(context,text,x,y,available){
+    const width=context.measureText(text).width;
+    if(width<=available||width===0){context.fillText(text,x,y);return;}
+    const factor=available/width;
+    context.save();
+    context.translate(x,y);
+    context.scale(factor,factor);
+    context.fillText(text,0,0);
+    context.restore();
+  }
   function drawProduction(context,x,y,ink,border,surface){
     const output=model?.line.at(-1)||definitions.at(-1);
     const cases=output.unit==='CASES';
@@ -163,8 +174,8 @@ window.STSimulation2D=(function(){
     context.fillText(cases?'Bottle eq.':'Bottles',x+182,y+60);
     function row(label,quantity,position){
       context.fillText(label,x+14,position);
-      context.fillText(num(cases?quantity:0),x+120,position,55);
-      context.fillText(num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),x+182,position,64);
+      drawText(context,num(cases?quantity:0),x+120,position,55);
+      drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),x+182,position,64);
     }
     row('Total',output.produced||0,y+80);
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
@@ -230,7 +241,7 @@ window.STSimulation2D=(function(){
         if(width>100){
           const labelX=Math.max(55,Math.min(w-55,x+width/2));
           context.fillStyle=ink;
-          context.fillText(item.name+' · '+num(item.length/1000)+' m',labelX,y-span/2-35,Math.min(width,w-16));
+          drawText(context,item.name+' · '+num(item.length/1000)+' m',labelX,y-span/2-35,Math.min(width,w-16));
           context.fillText(num(item.items?.length??0)+' on belt',labelX,y+span/2+37);
         }
         if(width>=45){
@@ -239,7 +250,7 @@ window.STSimulation2D=(function(){
           const bottleRate=item.bottlesPerUnit>0?num(rate*item.bottlesPerUnit):'—';
           const units=item.unit==='CASES'?bottleRate+' bpm · '+num(rate)+' cpm':bottleRate+' bpm';
           context.fillStyle=ink;
-          context.fillText(units,labelX,y+span/2+53,Math.min(Math.max(width,72),w-12));
+          drawText(context,units,labelX,y+span/2+53,Math.min(Math.max(width,72),w-12));
         }
       }else{
         const height=Math.max(24,540*scale);
@@ -255,8 +266,8 @@ window.STSimulation2D=(function(){
         const sx=x+width/2,sy=y+height/2+52+labelRow*22;
         drawSignal(context,sx,y-height/2-14,signal.lamp);
         context.fillStyle=ink;
-        context.fillText(item.name,sx,sy,Math.max(24,width-4));
-        context.fillText(signal.state,sx,sy+14,Math.max(24,width-4));
+        drawText(context,item.name,sx,sy,Math.max(24,width-4));
+        drawText(context,signal.state,sx,sy+14,Math.max(24,width-4));
         if(width>=86){
           const durations=item.durations||{}, rate=item.ratePerMinute||0, produced=item.produced||0;
           const bottles=item.bottlesPerUnit>0?num(produced*item.bottlesPerUnit):'—';
@@ -271,7 +282,7 @@ window.STSimulation2D=(function(){
             bottles+' bottles · '+bpm+' bpm'
           ];
           if(item.unit==='CASES')counters.push(num(produced)+' cases · '+num(rate)+' cpm');
-          counters.forEach((label,index)=>context.fillText(label,sx,sy+31+index*15,width-4));
+          counters.forEach((label,index)=>drawText(context,label,sx,sy+31+index*15,width-4));
         }
       }
       x+=width;
