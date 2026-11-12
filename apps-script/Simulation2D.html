@@ -47,7 +47,8 @@ window.STSimulation2D=(function(){
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
-  let productHeights={},machineTypes=new Map();
+  let productHeights={},machineTypes=new Map(),bottleStages=new Map();
+  const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
   machineStyle.addEventListener('change',()=>{
@@ -235,9 +236,11 @@ window.STSimulation2D=(function(){
     const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
     const summary=[['State',signal.state,''],['Flow',bottles(rate),'bpm'],['Processed',bottles(produced),'bottles']];
     if(cases)summary.push(['Case flow',num(rate),'cpm'],['Cases made',num(produced),'cases']);
-    if(belt)summary.push(['Belt speed',num(item.speed*.06),'m/min'],
-      ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
-    else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
+    if(belt){
+      summary.push(['Belt speed',num(item.speed*.06),'m/min'],
+        ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
+      if(!cases)summary.push(['Bottle stage',bottleStageNames[bottleStages.get(item.id)??0],'']);
+    }else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
       ['Est. residence',num(item.residenceSeconds),'s']);
     const counters=belt
       ? [duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
@@ -269,7 +272,7 @@ window.STSimulation2D=(function(){
         context.font='11px system-ui';context.fillStyle=muted;
         drawText(context,label,left+9,rowY+13,76);
         context.fillStyle=ink;context.font='600 11px system-ui';context.textAlign='right';
-        drawText(context,value,left+132,rowY+13,label==='State'?76:44);
+        drawText(context,value,left+132,rowY+13,label==='State'||label==='Bottle stage'?76:44);
         context.fillStyle=muted;context.font='10px system-ui';context.textAlign='left';
         drawText(context,unit,left+140,rowY+13,34);
       });
@@ -288,7 +291,7 @@ window.STSimulation2D=(function(){
   function beltHalfHeight(item){
     return (productHeight(item)+beltInset+beltDepth)/2;
   }
-  function drawBelt(context,x,y,width,item,factor,w,accent,beltColor){
+  function drawBelt(context,x,y,width,item,factor,w,accent,beltColor,surface,ink){
     const left=Math.max(0,x+5),right=Math.min(w,x+width-5);
     context.fillStyle=beltColor;context.strokeStyle=beltColor;
     strokeBox(context,x,y+beltInset,width,beltDepth);
@@ -304,29 +307,55 @@ window.STSimulation2D=(function(){
       context.setLineDash([]);context.lineDashOffset=0;context.lineWidth=1;
     }
     const length=item.packageLength*sceneScale,height=productHeight(item);
-    context.fillStyle=accent;
+    const cases=item.unit==='CASES',stage=bottleStages.get(item.id)??0;
+    const labeled=!cases&&Boolean(stage&1),filled=!cases&&Boolean(stage&2);
+    const marker=length*factor<2;
+    const bodyWidth=marker?2/factor:length,bodyHeight=marker?Math.max(height,bodyWidth):height;
+    const top=y-bodyHeight;
+    const dx=bodyWidth/14,dy=bodyHeight/30;
+    const products=item.items||[];
+    const visible=px=>px+bodyWidth/2>=0&&px-bodyWidth/2<=w;
     context.beginPath();
-    for(const product of item.items||[]){
-      const px=x+product.x*sceneScale,l=px-length/2,r=px+length/2,t=y-height;
-      if(r<0||l>w)continue;
-      if(length*factor<2){
-        const marker=2/factor;
-        context.rect(px-marker/2,y-Math.max(height,marker),marker,Math.max(height,marker));
-      }else if(item.unit==='CASES'){
-        context.rect(l,t,length,height);
+    for(const product of products){
+      const px=x+product.x*sceneScale;
+      if(!visible(px))continue;
+      const l=px-bodyWidth/2,r=px+bodyWidth/2;
+      if(marker||cases){
+        context.rect(l,top,bodyWidth,bodyHeight);
       }else{
-        // Side silhouette from BrandConveyor, normalized to the length and height of the product.
-        const dx=length/14,dy=height/30;
+        // Side silhouette from BrandConveyor.
         context.moveTo(l,y-2*dy);context.lineTo(l,y-15*dy);
         context.quadraticCurveTo(l,y-18*dy,l+4*dx,y-22*dy);
-        context.lineTo(l+4*dx,t);context.lineTo(l+10*dx,t);context.lineTo(l+10*dx,y-22*dy);
+        context.lineTo(l+4*dx,top);context.lineTo(l+10*dx,top);context.lineTo(l+10*dx,y-22*dy);
         context.quadraticCurveTo(r,y-18*dy,r,y-15*dy);
         context.lineTo(r,y-2*dy);context.quadraticCurveTo(r,y,r-2*dx,y);
         context.lineTo(l+2*dx,y);context.quadraticCurveTo(l,y,l,y-2*dy);
         context.closePath();
       }
     }
+    context.fillStyle=cases||marker&&filled?accent:surface;
     context.fill();
+    if(cases)return;
+    if(!marker||!filled){
+      context.strokeStyle=beltColor;context.lineWidth=Math.min(bodyWidth*.16,1/factor);
+      context.stroke();context.lineWidth=1;
+    }
+    if(filled&&!marker){
+      context.beginPath();
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(visible(px))context.rect(px-bodyWidth*.42,y-bodyHeight*.48,bodyWidth*.84,bodyHeight*.42);
+      }
+      context.fillStyle=accent;context.fill();
+    }
+    if(labeled){
+      context.beginPath();
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(visible(px))context.rect(px-bodyWidth*.5,y-bodyHeight*.36,bodyWidth,bodyHeight*.19);
+      }
+      context.fillStyle=ink;context.fill();
+    }
   }
   function draw(){
     if(panel.classList.contains('hidden'))return;
@@ -360,7 +389,7 @@ window.STSimulation2D=(function(){
       if(x+width<0||x>w){x+=width;continue;}
       if(lane){
         const beltY=y+productHeight(item)-beltHalfHeight(item);
-        drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor);
+        drawBelt(context,x,beltY,width,item,factor,w,accent,beltColor,surface,ink);
         const sensorY=y-beltHalfHeight(item)-12;
         const closeSensors=item.prime!=null&&item.backup!=null&&Math.abs(item.prime-item.backup)*scale<19;
         const signal=beltSignal(item);
@@ -565,6 +594,14 @@ window.STSimulation2D=(function(){
     const newView=nextView!==viewKey;
     const revised=prepare(equipment,format,config);
     machineTypes=new Map(equipment.map(item=>[item.id,item.type==='PACEMAKER'?item.processData?.machineType:item.type]));
+    bottleStages=new Map();
+    let bottleStage=0;
+    for(const item of revised){
+      if(item.kind==='belt'){bottleStages.set(item.id,bottleStage);continue;}
+      const type=machineTypes.get(item.id);
+      if(type==='SLEEVER')bottleStage|=1;
+      if(type==='FILLER')bottleStage|=2;
+    }
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
       CASES:geometry.productPresentation(format,'CASES').heightMm}:{};

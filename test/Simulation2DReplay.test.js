@@ -201,6 +201,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(frameX(),draggedX);
     el('fit').click();
     assert.equal(frameX(),fittedX);
+    function stages(types){
+      const machines=['BLOWMOLDER',...types,'CUSTOM'];
+      const line=machines.flatMap((type,index)=>[
+        {id:'m'+index,type,nominalRatePerSecond:10},
+        ...(index<machines.length-1?[{id:'b'+index,type:'CONVEYOR'}]:[])
+      ]);
+      window.STSimulation2D.load(['case','stage-order'],line,null,{seed:7},null);
+      el('fit').click();
+      const frame=labels.slice(lastFrameOrigin);
+      return frame.flatMap(([text],index)=>text==='Bottle stage'?[frame[index+1][0]]:[]);
+    }
+    assert.deepEqual(stages(['SLEEVER','FILLER']),['Empty','Labeled','Filled + labeled']);
+    assert.deepEqual(stages(['FILLER','SLEEVER']),['Empty','Filled','Filled + labeled']);
+
 
   }finally{dom.window.close();}
 });
