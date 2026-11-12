@@ -230,6 +230,12 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert(currentLabels().some(text=>text.startsWith(label+' ·')));
     }
     assert(currentLabels().includes('Lrec (margin) · -50 mm'));
+    const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
+    const discharge=dimensionLabel('Discharge'),coding=dimensionLabel('Coding'),overflow=dimensionLabel('Overflow');
+    assert(discharge[2]<coding[2]&&coding[2]<overflow[2]);
+    assert(dimensionLabel('Lbu')[3]>overflow[3]);
+    assert(dimensionLabel('Lact')[3]>dimensionLabel('Lba')[3]);
+
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
 
