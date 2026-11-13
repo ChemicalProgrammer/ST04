@@ -7,6 +7,15 @@
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel { container-type:inline-size; }
+#simulation2d-panel.simulation2d-fullscreen {
+  position:fixed; inset:0; z-index:1000; margin:0; max-width:none;
+  border-radius:0; background:var(--surface); overflow:auto;
+  display:flex; flex-direction:column;
+}
+.simulation2d-fullscreen #simulation2d-content {
+  flex:1; min-height:22rem; display:flex; flex-direction:column;
+}
+.simulation2d-fullscreen #simulation2d-canvas { flex:1; min-height:12rem; height:auto; }
 .simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
 .simulation2d-source select { width:auto; min-width:0; }
@@ -811,6 +820,31 @@ window.STSimulation2D=(function(){
     limitSeconds=this.valueAsNumber*60;
     checkpoint();
   });
+  const fullscreenButton=el('fullscreen');
+  let embeddedCamera=null;
+  function setFullscreen(enabled){
+    if(enabled===Boolean(embeddedCamera))return;
+    endDrag();
+    if(enabled)embeddedCamera={...camera};
+    panel.classList.toggle('simulation2d-fullscreen',enabled);
+    fullscreenButton.setAttribute('aria-pressed',String(enabled));
+    fullscreenButton.title=enabled?'Exit full-screen diagram':'Open full-screen diagram';
+    fullscreenButton.setAttribute('aria-label',fullscreenButton.title);
+    fullscreenButton.dataset.icon=enabled?'restore':'fullscreen';
+    if(window.STIcons)fullscreenButton.innerHTML=window.STIcons.svg(fullscreenButton.dataset.icon);
+    if(enabled){fit();return;}
+    camera=embeddedCamera;
+    embeddedCamera=null;
+    syncZoom();draw();
+  }
+  fullscreenButton.onclick=()=>setFullscreen(!embeddedCamera);
+  window.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&embeddedCamera){
+      event.preventDefault();
+      setFullscreen(false);
+      fullscreenButton.focus();
+    }
+  });
   el('fit').onclick=()=>{endDrag();fit();};
   el('zoom').addEventListener('input',function(){
     zoom(sceneScale*2**Number(this.value)/camera.scale,canvas.clientWidth/2,canvas.clientHeight/2);
@@ -859,7 +893,7 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
+  return {pause,unload(){setFullscreen(false);endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);

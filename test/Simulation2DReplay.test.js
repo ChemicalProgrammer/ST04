@@ -235,6 +235,14 @@ test('2D uses the representative seed to calculate new production and preserves 
     const formats=[{id:'large-overflow'},{id:'slow-recovery'}];
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,formats);
     el('fit').click();
+    const fullscreen=el('fullscreen');
+    assert.equal(fullscreen.previousElementSibling,el('fit'));
+    fullscreen.click();
+    assert(el('panel').classList.contains('simulation2d-fullscreen'));
+    assert.equal(fullscreen.getAttribute('aria-pressed'),'true');
+    window.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape'}));
+    assert(!el('panel').classList.contains('simulation2d-fullscreen'));
+    assert.equal(fullscreen.getAttribute('aria-pressed'),'false');
     const dimensions=el('dimensions');
     const currentLabels=()=>labels.slice(lastFrameOrigin).map(([text])=>text);
     const marker=label=>labels.slice(lastFrameOrigin).find(([text])=>text===label);
