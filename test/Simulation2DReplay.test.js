@@ -291,12 +291,10 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(overflow[3]<marker('B')[3]);
     const headings=labels.slice(lastFrameOrigin).filter(([text])=>text==='Parameter').slice(0,6);
     assert.equal(headings.length,6);
-    assert.equal(headings[0][3],headings[2][3]);
-    assert.equal(headings[2][3],headings[4][3]);
-    assert.equal(headings[1][3],headings[3][3]);
-    assert.equal(headings[3][3],headings[5][3]);
-    assert(headings[2][2]-headings[0][2]>=180);
-    assert(headings[4][2]-headings[2][2]>=180);
+    for(const [index,heading] of headings.entries()){
+      assert.equal(heading[3],headings[0][3]);
+      if(index)assert(heading[2]-headings[index-1][2]>=180);
+    }
     assert(!marker('Rec Pt.'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     close(marker('P')[2]-marker('Rec Pt.')[2],(830-412.5-55*412.5/65)*.09);

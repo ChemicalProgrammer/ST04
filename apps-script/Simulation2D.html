@@ -57,6 +57,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,machineScale=3.75;
+  const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=14;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
@@ -264,7 +265,7 @@ window.STSimulation2D=(function(){
     });
     const positions=[];
     for(const center of centers){
-      positions.push(Math.max(center,positions.length?positions.at(-1)+telemetryWidth+cardGap:telemetryWidth/2));
+      positions.push(Math.max(center,positions.length?positions.at(-1)+telemetryPairWidth+cardGap:telemetryPairWidth/2));
     }
     return {centers,positions,end};
   }
@@ -272,8 +273,8 @@ window.STSimulation2D=(function(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const {positions,end}=telemetryLayout(model?.line||definitions);
     const length=Math.max(end+(definitions.length?cardWidth+cardGap:0),
-      (positions.at(-1)??0)+telemetryWidth/2)/sceneScale;
-    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+417,68+shiftIndex(model?.time??0)*20);
+      (positions.at(-1)??0)+telemetryPairWidth/2)/sceneScale;
+    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+205,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -374,32 +375,33 @@ window.STSimulation2D=(function(){
       : [duration('Start','starting'),duration('Run','running'),duration('Starving','starving'),
         duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),duration('Blocked','blocked'),
         duration('Failure time','failure'),['Own failures',item.failures?.length?num(item.failureCount??0):'Off','']];
-    function card(title,rows,showSignal){
-      const left=x-telemetryWidth/2,width=telemetryWidth;
-      const height=47+(showSignal?7:rows.length)*18;
+    function card(left,title,rows,showSignal){
+      const width=telemetryWidth;
+      const height=53+8*18;
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
-      context.fillRect(left+1,y+6,width-2,33);
+      context.fillRect(left+1,y+6,width-2,39);
       context.font='600 12px system-ui';context.textAlign='left';
       if(showSignal){
-        const capsuleWidth=Math.min(width-16,context.measureText(title).width+20);
+        const capsuleWidth=width-16;
         context.fillStyle=colors[signal.lamp];
         context.beginPath();
         context.roundRect(left+8,y+8,capsuleWidth,18,9);
         context.fill();
         context.fillStyle='#fff';
-        drawText(context,title,left+18,y+21,capsuleWidth-20);
+        context.textAlign='center';
+        drawText(context,title,left+width/2,y+21,capsuleWidth-20);
       }else{
         context.fillStyle=ink;
         drawText(context,title,left+9,y+21,width-18);
       }
-      context.fillStyle=muted;context.font='10px system-ui';
-      context.fillText('Parameter',left+9,y+35);
-      context.textAlign='right';context.fillText('Value',left+132,y+35);
-      context.textAlign='left';context.fillText('Unit',left+140,y+35);
+      context.textAlign='left';context.fillStyle=muted;context.font='10px system-ui';
+      context.fillText('Parameter',left+9,y+41);
+      context.textAlign='right';context.fillText('Value',left+132,y+41);
+      context.textAlign='left';context.fillText('Unit',left+140,y+41);
       rows.forEach(([label,value,unit],index)=>{
-        const rowY=y+40+index*18;
+        const rowY=y+46+index*18;
         if(index%2===1){context.fillStyle=soft;context.fillRect(left+1,rowY,width-2,18);}
         context.font='11px system-ui';context.fillStyle=muted;
         drawText(context,label,left+9,rowY+13,76);
@@ -408,10 +410,9 @@ window.STSimulation2D=(function(){
         context.fillStyle=muted;context.font='10px system-ui';context.textAlign='left';
         drawText(context,unit,left+140,rowY+13,34);
       });
-      y+=height+telemetryGap;
     }
-    card(item.name,summary,true);
-    card(belt?'Time / sensors':'Time / failures',counters,false);
+    card(x-telemetryPairWidth/2,item.name,summary,true);
+    card(x+telemetryGap/2,belt?'Time / sensors':'Time / failures',counters,false);
     context.textAlign='center';
     context.font='12px system-ui';
   }
@@ -634,7 +635,7 @@ window.STSimulation2D=(function(){
     let x=camera.x/factor;
     const line=model?.line||definitions;
     const {centers,positions}=telemetryLayout(line);
-    const half=sceneHalfHeight(),telemetryY=y+half+22,dimensionY=y-half-dimensionOffset;
+    const half=sceneHalfHeight(),telemetryY=y+half+telemetryTopGap,dimensionY=y-half-dimensionOffset;
     const pointer=dimensionPointer&&!drag?{x:dimensionPointer.x/factor,y:dimensionPointer.y/factor}:null;
     const origin=x;
     for(let index=0;index<line.length;index++){
@@ -718,10 +719,10 @@ window.STSimulation2D=(function(){
     }
     for(let index=0;index<line.length;index++){
       const item=line[index],center=origin+positions[index],anchor=origin+centers[index];
-      if(center+telemetryWidth/2<0||center-telemetryWidth/2>w)continue;
+      if(center+telemetryPairWidth/2<0||center-telemetryPairWidth/2>w)continue;
       if(Math.abs(center-anchor)>1){
         context.strokeStyle=border;
-        context.beginPath();context.moveTo(anchor,telemetryY-19);context.lineTo(center,telemetryY-2);context.stroke();
+        context.beginPath();context.moveTo(anchor,telemetryY-9);context.lineTo(center,telemetryY-2);context.stroke();
       }
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
       drawTelemetry(context,item,center,telemetryY,signal,ink,border,surface,muted,soft,colors);
