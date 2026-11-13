@@ -189,8 +189,11 @@
         <canvas id="simulation2d-canvas" tabindex="0" aria-label="Side view of the line. Drag to pan. Control or Command and wheel to zoom. Use the Fit button to recenter."></canvas>
         <div id="simulation2d-legend" class="chart-note" aria-label="Machine states">
           <span class="run">Running / discharging</span>
-          <span class="wait">Starting / ramp / waiting / paused</span>
-          <span class="stop">Blocked / failed / stopped</span>
+          <span class="starved">Starved</span>
+          <span class="blocked">Blocked / Back-up</span>
+          <span class="info">Starting / ramp / waiting for Prime / planned stop</span>
+          <span class="failure">Failure / emergency stop</span>
+          <span class="stop">Ready / paused / stopped</span>
         </div>
         <p class="chart-note">Drag to pan. Ctrl/⌘ + scroll to zoom. Double-click to fit.</p>
         </div>

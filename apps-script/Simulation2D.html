@@ -45,9 +45,12 @@
 }
 #simulation2d-legend { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block:var(--space-2); }
 #simulation2d-legend span::before { content:""; display:inline-block; width:.65em; height:.65em; border-radius:50%; margin-inline-end:.4em; background:var(--lamp); }
-#simulation2d-legend .run { --lamp:#00bd67; }
-#simulation2d-legend .wait { --lamp:#ffb000; }
-#simulation2d-legend .stop { --lamp:#ff384c; }
+#simulation2d-legend .run { --lamp:var(--running); }
+#simulation2d-legend .starved { --lamp:var(--starved); }
+#simulation2d-legend .blocked { --lamp:var(--blocked); }
+#simulation2d-legend .info { --lamp:var(--info); }
+#simulation2d-legend .failure { --lamp:var(--failure); }
+#simulation2d-legend .stop { --lamp:var(--muted); }
 </style>
 <script>
 window.STSimulation2D=(function(){
@@ -284,30 +287,32 @@ window.STSimulation2D=(function(){
     context.roundRect(x,y,width,height,Math.min(5,width/2,height/2));
     context.fill();context.stroke();
   }
-  const lampColors=['#ff384c','#ffb000','#00bd67'];
+  const lampTokens={running:'#23764a',starved:'#916000',blocked:'#7544ae',info:'#2967af',failure:'#b43542',muted:'#626977'};
+  const stateLamps=new Map([
+    ['Running','running'],['Discharging','running'],['Starved','starved'],
+    ['Blocked','blocked'],['Back-up stop','blocked'],['Back-up stopping','blocked'],
+    ['Starting','info'],['Waiting for Prime','info'],['Ramp up','info'],['Ramp down','info'],['Planned stop','info'],
+    ['Failed','failure'],['Emergency stop','failure']
+  ]);
   function machineSignal(item){
-    if(runState==='Stopped'||runState==='Completed')return {state:runState,lamp:0};
-    if(runState==='Paused')return {state:'Paused',lamp:1};
-    const state=item.state||'Waiting';
-    if(['Back-up stop','Blocked','Failed','Emergency stop','Planned stop','Stopped','Micro stop'].includes(state))return {state,lamp:0};
-    if(state==='Running'||state==='Discharging')return {state,lamp:2};
-    return {state,lamp:1};
+    const state=['Stopped','Completed','Paused'].includes(runState)?runState:item.state||'Waiting';
+    return {state,lamp:stateLamps.get(state)||'muted'};
   }
   function beltSignal(item){
-    if(runState==='Stopped'||runState==='Completed')return {state:runState,lamp:0};
-    if(runState!=='Running')return {state:runState,lamp:1};
+    if(runState!=='Running')return {state:runState,lamp:'muted'};
     const state=item.state||'Empty';
-    return {state,lamp:item.backupBlocked?0:state==='Flowing'?2:1};
+    return {state,lamp:item.backupBlocked||state==='Accumulating'?'blocked':state==='Flowing'?'running':'muted'};
   }
-  function drawSignal(context,x,y,lamp){
+  function drawSignal(context,x,y,lamp,colors){
+    const entries=Object.entries(colors),spacing=12,width=entries.length*spacing+6;
     context.fillStyle='#edf2f7';
     context.strokeStyle='#79899b';
-    strokeBox(context,x-22,y-8,44,16);
-    lampColors.forEach((color,index)=>{
+    strokeBox(context,x-width/2,y-9,width,18);
+    entries.forEach(([key,color],index)=>{
       context.beginPath();
-      context.arc(x+(index-1)*13,y,4.5,0,Math.PI*2);
-      context.fillStyle=index===lamp?color:'#cbd5df';
-      context.strokeStyle=index===lamp?'#344255':'#9ba9b7';
+      context.arc(x+(index-(entries.length-1)/2)*spacing,y,4.5,0,Math.PI*2);
+      context.fillStyle=key===lamp?color:'#cbd5df';
+      context.strokeStyle=key===lamp?'#344255':'#9ba9b7';
       context.fill();context.stroke();
     });
   }
@@ -346,7 +351,7 @@ window.STSimulation2D=(function(){
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
     context.textAlign='center';
   }
-  function drawTelemetry(context,item,x,y,signal,ink,border,surface,muted,soft){
+  function drawTelemetry(context,item,x,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const rate=item.ratePerMinute??0,produced=item.produced??0;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
@@ -376,13 +381,19 @@ window.STSimulation2D=(function(){
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
       context.fillRect(left+1,y+6,width-2,33);
+      context.font='600 12px system-ui';context.textAlign='left';
       if(showSignal){
-        context.fillStyle=lampColors[signal.lamp];
-        context.beginPath();context.arc(left+12,y+17,3,0,Math.PI*2);context.fill();
+        const capsuleWidth=Math.min(width-16,context.measureText(title).width+20);
+        context.fillStyle=colors[signal.lamp];
+        context.beginPath();
+        context.roundRect(left+8,y+8,capsuleWidth,18,9);
+        context.fill();
+        context.fillStyle='#fff';
+        drawText(context,title,left+18,y+21,capsuleWidth-20);
+      }else{
+        context.fillStyle=ink;
+        drawText(context,title,left+9,y+21,width-18);
       }
-      context.fillStyle=ink;context.font='600 12px system-ui';context.textAlign='left';
-      const titleInset=showSignal?21:9;
-      drawText(context,title,left+titleInset,y+21,width-titleInset-9);
       context.fillStyle=muted;context.font='10px system-ui';
       context.fillText('Parameter',left+9,y+35);
       context.textAlign='right';context.fillText('Value',left+132,y+35);
@@ -611,6 +622,8 @@ window.STSimulation2D=(function(){
     const surface=style.getPropertyValue('--surface').trim()||'#fff';
     const muted=style.getPropertyValue('--muted').trim()||ink;
     const soft=style.getPropertyValue('--surface-soft').trim()||surface;
+    const colors=Object.fromEntries(Object.entries(lampTokens).map(([token,fallback])=>
+      [token,style.getPropertyValue('--'+token).trim()||fallback]));
     const beltColor=style.getPropertyValue('--secondary').trim()||border;
     context.setTransform(dpr,0,0,dpr,0,0);
     context.clearRect(0,0,screenWidth,h);
@@ -636,7 +649,7 @@ window.STSimulation2D=(function(){
         const {backup,prime}=item;
         const closeSensors=Number.isFinite(prime)&&Number.isFinite(backup)&&Math.abs(prime-backup)*scale<19;
         const signal=beltSignal(item),signalY=sensorY-22-(closeSensors?20:0);
-        drawSignal(context,x+width/2,signalY,signal.lamp);
+        drawSignal(context,x+width/2,signalY,signal.lamp,colors);
 
         for(const [label,position,active] of [
           ['B',backup,item.backupBlocked],
@@ -689,7 +702,7 @@ window.STSimulation2D=(function(){
           }
           context.stroke();context.lineWidth=1;context.lineCap='butt';
         }else{
-          context.fillStyle=surface;context.strokeStyle=lampColors[signal.lamp];
+          context.fillStyle=surface;context.strokeStyle=colors[signal.lamp];
           strokeBox(context,x,top,width,height);
           context.fillStyle=context.strokeStyle;
           context.fillRect(x,top,Math.min(4,width),height);
@@ -699,7 +712,7 @@ window.STSimulation2D=(function(){
           }
         }
         const sx=x+width/2;
-        drawSignal(context,sx,top-14,signal.lamp);
+        drawSignal(context,sx,top-14,signal.lamp,colors);
       }
       x+=width;
     }
@@ -711,7 +724,7 @@ window.STSimulation2D=(function(){
         context.beginPath();context.moveTo(anchor,telemetryY-19);context.lineTo(center,telemetryY-2);context.stroke();
       }
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
-      drawTelemetry(context,item,center,telemetryY,signal,ink,border,surface,muted,soft);
+      drawTelemetry(context,item,center,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
     if(definitions.length&&x+cardGap<=w&&x+cardGap+cardWidth>=0)drawProduction(context,x+cardGap,y-40,ink,border,surface);
   }
