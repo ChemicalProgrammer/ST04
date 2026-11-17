@@ -1,23 +1,16 @@
-<dialog id="conveyor-analysis-dialog" class="message-dialog" aria-labelledby="conveyor-analysis-title">
-              <div class="conveyor-analysis-header">
-                <strong id="conveyor-analysis-title">Conveyor Analysis</strong>
-                <form method="dialog"><button type="submit" class="secondary icon-button" data-icon="x" aria-label="Close conveyor analysis" title="Close conveyor analysis"></button></form>
-              </div>
-              <div id="conveyor-analysis-body" class="conveyor-analysis-body"></div>
-            </dialog>
+<dialog id="conveyor-analysis-dialog" aria-labelledby="conveyor-analysis-title">
+  <header class="dialog-heading">
+    <h2 id="conveyor-analysis-title">Conveyor Analysis Tool</h2>
+    <button id="conveyor-analysis-close" type="button" class="ghost icon-button" data-icon="x" aria-label="Close conveyor analysis" title="Close conveyor analysis"></button>
+  </header>
+  <div id="conveyor-analysis-body" class="dialog-body"></div>
+</dialog>
 <style>
-#conveyor-analysis-dialog { width:min(48rem,95vw); max-width:95vw; }
-.conveyor-analysis-header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); margin-bottom:var(--space-2); }
-.conveyor-analysis-header form { margin:0; }
-.conveyor-analysis-body { max-height:70vh; overflow:auto; }
-.conveyor-analysis-body table { width:100%; border-collapse:collapse; font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
-.conveyor-analysis-body th, .conveyor-analysis-body td { padding:var(--space-2); text-align:start; border-bottom:1px solid var(--line); }
-.conveyor-analysis-body td { white-space:nowrap; }
-.conveyor-analysis-body td.conveyor-analysis-value { text-align:end; }
-.conveyor-analysis-body input { width:7em; }
-.conveyor-analysis-body .conveyor-analysis-subheading { background:var(--surface-soft); }
-.conveyor-analysis-body caption { text-align:start; font-weight:600; padding:var(--space-2); }
-.conveyor-analysis-body thead th { position:sticky; top:0; background:var(--surface); white-space:nowrap; }
+#conveyor-analysis-dialog { --dialog-width:54rem; }
+#conveyor-analysis-body { display:grid; gap:var(--space-4); }
+#conveyor-analysis-body h3 { margin:0 0 var(--space-2); }
+#conveyor-analysis-body .chart-note { margin:0; }
+#conveyor-analysis-body input { width:7em; }
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
@@ -199,47 +192,53 @@ window.STConveyorAnalysis=(function(){
       return element;
     }
     function table(title,headers){
-      const element=make(body,'table');
-      make(element,'caption',title);
+      const section=make(body,'section');
+      const heading=make(section,'h3',title);
+      heading.id='conveyor-analysis-section-'+body.children.length;
+      const wrapper=make(section,'div');
+      wrapper.className='table-scroll';
+      const element=make(wrapper,'table');
+      element.setAttribute('aria-labelledby',heading.id);
       const row=make(make(element,'thead'),'tr');
-      for(const header of headers)make(row,'th',header).scope='col';
+      headers.forEach((header,index)=>{
+        const cell=make(row,'th',header);
+        cell.scope='col';
+        if(index>0&&index<headers.length-1)cell.className='numeric';
+      });
       return make(element,'tbody');
     }
-    function row(parent,ref,label,formula){
+    function row(parent,ref,label){
       const element=make(parent,'tr');
-      make(element,'td',ref);
+      if(ref)element.dataset.cell=ref;
       make(element,'th',label).scope='row';
-      make(element,'td',formula);
       return element;
     }
-    const common=table('Common Geometry',['Cell','Parameter','Calculation','Value','Unit','Governing Format']);
-    worksheet.common.forEach(([ref,label,unit,,formula],index)=>{
-      const element=row(common,ref,label,formula);
+    const common=table('Common Geometry',['Parameter','Value','Unit']);
+    worksheet.common.forEach(([ref,label,unit],index)=>{
+      const element=row(common,ref,label);
       const output=make(element,'td');
-      output.className='conveyor-analysis-value';
+      output.className='numeric';
       make(element,'td',unit);
-      const governing=make(element,'td');
       updates.push(()=>{
         const [,,,value,,source]=worksheet.common[index];
         output.textContent=valueText(value)+(Number.isFinite(value)&&source?.partial?' (partial)':'');
-        governing.textContent=Number.isFinite(value)?source?.name??'':'';
       });
     });
     if(!worksheet.profiles.length)make(body,'p','No applicable formats.');
     for(const [title,entries] of worksheet.profiles.length?rows:[]){
-      const formats=table(title,['Cell','Parameter','Calculation',...worksheet.profiles.map(p=>p.name),'Unit']);
+      const formats=table(title,['Parameter',...worksheet.profiles.map(p=>p.name),'Unit']);
       for(const entry of entries){
         if(typeof entry==='string'){
           const heading=make(make(formats,'tr'),'th',entry);
-          heading.colSpan=worksheet.profiles.length+4;
-          heading.className='conveyor-analysis-subheading';
+          heading.colSpan=worksheet.profiles.length+2;
+          heading.scope='rowgroup';
           continue;
         }
-        const [ref,label,unit,formula,read]=entry;
-        const element=row(formats,'L'+ref,label,formula);
+        const [ref,label,unit,,read]=entry;
+        const element=row(formats,'L'+ref,label);
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
-          cell.className='conveyor-analysis-value';
+          cell.className='numeric';
           if(ref===62){
             const input=make(cell,'input');
             input.type='number';input.min='0';input.step='any';
@@ -258,11 +257,12 @@ window.STConveyorAnalysis=(function(){
       }
     }
     updates.forEach(update=>update());
-    make(body,'p','L62 is entered per format for the current dialog. The Cell and Calculation columns use the first format (L). L20 is the configured upstream startup time. Positions are measured from the conveyor entry.').className='chart-note';
-    make(body,'p','I11 uses Lact − Lp − Lbu, as shown on the drawing. The I11 Excel transcription has the opposite sign on Lbu. Verify L67, L73, L80 and L (min needed) against the original.').className='chart-note';
+    make(body,'p','Enter the time to the first package after restart for each format. Positions are measured from the conveyor entry.').className='chart-note';
+    make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();
   }
+  document.getElementById('conveyor-analysis-close').addEventListener('click',close);
   return {open,close,calculate};
 })();
 </script>

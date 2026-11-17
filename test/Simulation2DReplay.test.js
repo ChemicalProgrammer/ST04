@@ -464,27 +464,27 @@ test('2D uses the representative seed to calculate new production and preserves 
     analysis.showModal=()=>{analysis.open=true;};
     analysis.close=()=>{analysis.open=false;};
     const analysisButton=el('machine-controls').querySelector('[aria-haspopup="dialog"]');
-    assert(currentLabels().includes('Conveyor Geometry'));
-    assert(!currentLabels().includes('Back-up position'));
+    assert.equal(analysisButton.textContent,'Conveyor Geometry');
+    assert(currentLabels().includes('Back-up position'));
     assert.equal(analysisButton.hidden,false);
     analysisButton.click();
     assert(analysis.open);
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
     const tableValue=label=>{
-      const item=[...analysisEl('body').querySelectorAll('tbody tr')].find(row=>row.cells[0].textContent===label||row.cells[1]?.textContent===label);
+      const item=[...analysisEl('body').querySelectorAll('tbody tr')].find(row=>row.dataset.cell===label||row.cells[0].textContent===label);
       assert(item,label);
       const headers=[...item.closest('table').tHead.rows[0].cells].map(cell=>cell.textContent);
-      const unitIndex=headers.indexOf('Unit');
-      assert(unitIndex>3);
-      assert.equal(unitIndex,headers.length-(headers.includes('Governing Format')?2:1));
-      return [...item.cells].slice(3).filter((_,index)=>index+3!==unitIndex).map(cell=>cell.textContent);
+      assert.equal(headers[0],'Parameter');
+      assert.equal(headers.at(-1),'Unit');
+      assert.equal(headers.length,3);
+      return [...item.cells].slice(1,-1).map(cell=>cell.textContent);
     };
-    assert.deepEqual(tableValue('Back-up Sensor (actual)'),['500','']);
-    assert.deepEqual(tableValue('Prime Sensor (actual)'),['1,500','']);
-    assert.deepEqual(tableValue('Discharge'),['100','']);
-    assert.deepEqual(tableValue('Coding'),['150','']);
-    assert.deepEqual(tableValue('F8'),['420','large-overflow']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['830','large-overflow']);
+    assert.deepEqual(tableValue('Back-up Sensor (actual)'),['500']);
+    assert.deepEqual(tableValue('Prime Sensor (actual)'),['1,500']);
+    assert.deepEqual(tableValue('Discharge'),['100']);
+    assert.deepEqual(tableValue('Coding'),['150']);
+    assert.deepEqual(tableValue('F8'),['420']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['830']);
     analysis.close();
     close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
     const extent=label=>{
@@ -501,8 +501,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(currentLabels().includes('Discharge · 0 mm'));
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
-    assert.deepEqual(tableValue('Coding'),['Pending','']);
-    assert.deepEqual(tableValue('F8'),['Pending','']);
+    assert.deepEqual(tableValue('Coding'),['Pending']);
+    assert.deepEqual(tableValue('F8'),['Pending']);
     analysis.close();
 
     const calculatedSensors=['B','P'].map(sensorPosition);
@@ -529,20 +529,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(buttons.length,2);
     buttons[0].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
-    assert.deepEqual(tableValue('F8'),['1,162.84','Format 1']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16','Format 1']);
-    assert.deepEqual(tableValue('K8'),['Pending','']);
+    assert.deepEqual(tableValue('F8'),['1,162.84']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16']);
+    assert.deepEqual(tableValue('K8'),['Pending']);
     assert.deepEqual(tableValue('L20'),['1']);
     const firstPackage=analysisEl('body').querySelector('input[type=number]');
     firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
-    assert.deepEqual(tableValue('K8'),['1,800.42','Format 1']);
+    assert.deepEqual(tableValue('K8'),['1,800.42']);
     assert.deepEqual(tableValue('L74'),['13.26']);
     assert.deepEqual(tableValue('L76'),['6.72']);
     assert.deepEqual(tableValue('L80'),['Pending']);
     analysis.close();
     buttons[1].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');
-    assert.deepEqual(tableValue('I13'),['7,000','']);
+    assert.deepEqual(tableValue('I13'),['7,000']);
     analysis.close();
   }finally{dom.window.close();}
 });

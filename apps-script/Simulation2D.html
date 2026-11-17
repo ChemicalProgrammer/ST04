@@ -23,7 +23,8 @@
 .simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
 .simulation2d-machine-actions[hidden] { display:none; }
 .simulation2d-machine-actions .icon-button { width:26px; height:26px; min-width:0; min-height:0; padding:3px; }
-.simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translate(-50%,-50%); white-space:nowrap; }
+.simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translateY(-50%); transform-origin:left center; white-space:nowrap; background:none; color:var(--accent); border:0; border-radius:0; padding:0; min-width:0; min-height:0; line-height:1; text-decoration:underline; cursor:pointer; }
+.simulation2d-analysis-action:hover { background:none; }
 .simulation2d-analysis-action[hidden] { display:none; }
 .simulation2d-events-panel { padding:var(--space-2); }
 #simulation2d-events-dialog { max-width:min(34rem,95vw); }
@@ -137,9 +138,11 @@ window.STSimulation2D=(function(){
     for(const item of definitions){
       if(item.kind==='belt'){
         const button=document.createElement('button');
-        button.type='button';button.className='secondary simulation2d-analysis-action';
-        button.textContent='View analysis';
-        button.setAttribute('aria-label','View conveyor analysis · '+item.name);
+        button.type='button';button.className='simulation2d-analysis-action';
+        button.textContent='Conveyor Geometry';
+        button.style.font='600 '+telemetryFont;
+        button.title='Open conveyor analysis';
+        button.setAttribute('aria-label','Conveyor Geometry · '+item.name);
         button.setAttribute('aria-haspopup','dialog');
         button.setAttribute('aria-controls','conveyor-analysis-dialog');
         button.onclick=()=>window.STConveyorAnalysis.open(item.name,conveyorWorksheets.get(item.id));
@@ -459,6 +462,23 @@ window.STSimulation2D=(function(){
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index);
     context.textAlign='center';
   }
+  function conveyorGeometryRows(item){
+    const design=conveyorDimensions.get(item.id);
+    const rows=(design?.rows||[]).map(({label,value,partial})=>
+      [label,num(value),partial&&Number.isFinite(value)?'mm*':'mm']);
+    rows.push(['Back-up position',num(item.backup),'mm'],['Prime position',num(item.prime),'mm'],
+      ['Max Run-out point',num(design?.runout),'mm'],['Recovery Point',num(design?.recovery),'mm']);
+    for(const [label,value,active] of [
+      ['Design Back-up',design?.backup,item.backup],
+      ['Design Prime',design?.prime,item.prime],
+      ['Back-up release (cfg.)',item.configuredBackupRelease,item.backup]
+    ]){
+      if(Number.isFinite(value)&&(!Number.isFinite(active)||Math.abs(value-active)>1e-6)){
+        rows.push([label,num(value),'mm']);
+      }
+    }
+    return rows;
+  }
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const produced=item.produced??0;
@@ -506,11 +526,11 @@ window.STSimulation2D=(function(){
       const parameterX=left+telemetryPadding;
       const valueX=parameterX+parameterWidth+parameterValueGap+valueWidth;
       const unitX=valueX+telemetryColumnGap;
-      const height=(rows.length?53+rows.length*18:82)*tableScale;
+      const height=(53+rows.length*18)*tableScale;
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
-      context.fillRect(left+1,y+6*tableScale,width-2,(rows.length?39:24)*tableScale);
+      context.fillRect(left+1,y+6*tableScale,width-2,39*tableScale);
       context.font='600 '+telemetryFont;context.textAlign='left';
       if(showSignal){
         const capsuleWidth=width-16*tableScale;
@@ -521,7 +541,7 @@ window.STSimulation2D=(function(){
         context.fillStyle='#fff';
         context.textAlign='center';
         text(title,left+width/2,y+21*tableScale,capsuleWidth-20*tableScale);
-      }else{
+      }else if(title){
         context.fillStyle=ink;
         text(title,parameterX,y+21*tableScale,width-2*telemetryPadding);
       }
@@ -545,7 +565,7 @@ window.STSimulation2D=(function(){
     card(0,left,item.name,summary,true);
     card(1,statesLeft,'States',states,false);
     if(belt){
-      card(3,statesLeft+telemetryWidths[1]+telemetryGap,'Conveyor Geometry',[],false);
+      card(3,statesLeft+telemetryWidths[1]+telemetryGap,'',conveyorGeometryRows(item),false);
     }else{
       const efficiency=window.STEquipmentEfficiency;
       const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
@@ -786,10 +806,10 @@ window.STSimulation2D=(function(){
       const analysisButton=analysisButtons.get(item.id);
       if(analysisButton){
         const left=origin+items[index].center-items[index].telemetryWidth/2+telemetryPairWidth+telemetryGap;
-        const cx=(left+telemetryWidths[3]/2)*factor,cy=(telemetryY+55*tableScale)*factor;
+        const cx=(left+telemetryPadding)*factor,cy=(telemetryY+17.5*tableScale)*factor;
         analysisButton.style.left=cx+'px';analysisButton.style.top=cy+'px';
-        analysisButton.style.transform='translate(-50%,-50%) scale('+Math.min(.8,factor*.75)+')';
-        analysisButton.hidden=cx<0||cx>screenWidth||cy<0||cy>h;
+        analysisButton.style.transform='translateY(-50%) scale('+factor+')';
+        analysisButton.hidden=cx+analysisButton.offsetWidth*factor<=0||cx>=screenWidth||cy<0||cy>h;
       }
       const controls=machineControls.get(item.id);
       if(!controls)continue;
