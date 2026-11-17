@@ -398,10 +398,10 @@ test('2D uses the representative seed to calculate new production and preserves 
     }
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
     dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
-    for(const label of ['Lact','Lp','Lba','Lbu','Discharge','Coding','Overflow','Lrec']){
+    for(const label of ['Lact','Lp','Accumulation Zone (Lba)','Lbu','Discharge','Coding','Overflow','Lrec']){
       assert(currentLabels().some(text=>text.startsWith(label+' ·')));
     }
-    for(const [label,value] of [['Overflow',420],['Lbu',670],['Lba',830],['Lrec',-335.71]]){
+    for(const [label,value] of [['Overflow',420],['Lbu',670],['Accumulation Zone (Lba)',830],['Lrec',-335.71]]){
       assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
     }
     const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
@@ -414,9 +414,9 @@ test('2D uses the representative seed to calculate new production and preserves 
       const [previous,current]=topTier.slice(index-1,index+1);
       assert(current[2]-previous[2]>=(previous[0].length+current[0].length)*2.5+7.99);
     }
-    assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Lba')[3]);
+    assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Accumulation Zone (Lba)')[3]);
     assert(dimensionLabel('Lbu')[3]<overflow[3]);
-    assert(dimensionLabel('Lact')[3]<dimensionLabel('Lba')[3]);
+    assert(dimensionLabel('Lact')[3]<dimensionLabel('Accumulation Zone (Lba)')[3]);
 
     const lact=dimensionLabel('Lact'),lactY=lact[3];
     const lactLines=segments.filter(({start,end,dash})=>!dash&&start[1]===lactY&&end[1]===lactY);
@@ -446,13 +446,26 @@ test('2D uses the representative seed to calculate new production and preserves 
     close(marker('P')[2]-marker('Recovery Point')[2],(830-412.5-55*412.5/65)*.09);
 
     Object.assign(geometry.engineering.calculated,{
-      overflowProductLengthMm:300,recoveryLengthMm:150,minimumInstalledLengthMm:1400
+      overflowProductLengthMm:300,recoveryLengthMm:150,minimumInstalledLengthMm:2400
     });
     window.STSimulation2D.load(['case','engineering-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
-    for(const [label,value] of [['Overflow',300],['Lbu',550],['Lba',950],['Lrec',150],['L min',1400]]){
+    for(const [label,value] of [['Overflow',300],['Lbu',550],['Accumulation Zone (Lba)',950],['Lrec',150],['L min',2400]]){
       assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
     }
     close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
+    const extent=label=>{
+      const [, , , y]=dimensionLabel(label);
+      const lines=segments.filter(({start,end,dash})=>!dash&&start[1]===y&&end[1]===y);
+      return Math.max(...lines.map(line=>line.end[0]))-Math.min(...lines.map(line=>line.start[0]));
+    };
+    close(extent('L min'),2400*.09);
+    close(extent('Lact'),2000*.09);
+    delete equipment[1].processData.geometry.actualDischargeMm;
+    delete equipment[1].processData.geometry.actualCodingMm;
+    geometry.engineering.input.dischargeRunoutLengthMm=0;
+    window.STSimulation2D.load(['case','pending-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
+    assert(currentLabels().includes('Discharge · 0 mm'));
+    assert(currentLabels().includes('Coding · pending'));
     const calculatedSensors=['B','P'].map(sensorPosition);
 
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));

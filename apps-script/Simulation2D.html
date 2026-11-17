@@ -152,10 +152,11 @@ window.STSimulation2D=(function(){
       target.append(group);machineControls.set(item.id,{group,buttons});
     }
   }
-  function conveyorSegments(data){
+  function conveyorSegments(data,zone){
+    const input=zone.engineering?.input;
     return {
-      discharge:data.geometry?.actualDischargeMm??data.accumulation?.dischargeRunoutLengthMm??0,
-      coding:data.geometry?.actualCodingMm??data.accumulation?.rejectRunoutLengthMm??0
+      discharge:data.geometry?.actualDischargeMm??data.accumulation?.dischargeRunoutLengthMm??input?.dischargeRunoutLengthMm,
+      coding:data.geometry?.actualCodingMm??data.accumulation?.rejectRunoutLengthMm??input?.rejectRunoutLengthMm
     };
   }
   function formatDimensionInputs(zone,models,discharge,coding){
@@ -187,8 +188,8 @@ window.STSimulation2D=(function(){
     const length=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(length-zone.primeSensorPositionMm);
     const prime=length-lp;
-    const {discharge,coding}=conveyorSegments(data);
-    const runout=discharge+coding;
+    const {discharge,coding}=conveyorSegments(data,zone);
+    const runout=(discharge??0)+(coding??0);
     const results=designProfiles
       .filter(({models})=>models[index].processData?.productApplies!==false)
       .map(({zones,models})=>{
@@ -198,7 +199,7 @@ window.STSimulation2D=(function(){
           return {overflow:calculated.overflowProductLengthMm,
             recovery:calculated.recoveryLengthMm,minimumLength:calculated.minimumInstalledLengthMm};
         }
-        return formatDimensionInputs(formatZone,models,discharge,coding);
+        return formatDimensionInputs(formatZone,models,discharge??0,coding??0);
       });
     const overflows=results.map(result=>result.overflow).filter(Number.isFinite);
     const overflow=overflows.length?Math.max(...overflows):undefined;
@@ -218,8 +219,8 @@ window.STSimulation2D=(function(){
         rows.push({tier,label,start,value,partial});
       }
     }
-    span(0,'Discharge',0,discharge);
-    span(0,'Coding',discharge,coding);
+    rows.push({tier:0,label:'Discharge',start:0,value:discharge});
+    rows.push({tier:0,label:'Coding',start:discharge??0,value:coding});
     span(0,'Overflow',runout,overflow,overflowPartial,true);
     if(Number.isFinite(recovery)){
       rows.push({tier:0,label:'Lrec',start:prime-Math.max(0,recovery),end:prime,value:recovery,partial:recoveryPartial});
@@ -228,11 +229,13 @@ window.STSimulation2D=(function(){
     }
     span(0,'Lp',prime,lp);
     span(1,'Lbu',0,lbu,overflowPartial,true);
-    span(1,'Lba',lbu,lba,overflowPartial,true);
+    rows.push({tier:1,label:'Accumulation Zone (Lba)',start:lbu,value:lba,partial:overflowPartial});
     const minimumLengths=results.map(result=>result.minimumLength).filter(Number.isFinite);
-    if(minimumLengths.length)span(2,'L min',0,Math.max(...minimumLengths),minimumLengths.length<results.length);
+    const minimumLength=minimumLengths.length?Math.max(...minimumLengths):undefined;
+    rows.push({tier:2,label:'L min',start:0,value:minimumLength,allowExtension:true,
+      partial:minimumLengths.length<results.length});
     span(3,'Lact',0,length);
-    return {rows,runout,backup:lbu,prime,recovery:recovery>0?prime-recovery:undefined};
+    return {rows,runout,backup:lbu,prime,minimumLength,recovery:recovery>0?prime-recovery:undefined};
   }
   function prepare(equipment,format,config,formats){
     const geometry=window.SimulatorEngine;
@@ -348,9 +351,14 @@ window.STSimulation2D=(function(){
   }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
-    const {items,right}=equipmentLayout(model?.line||definitions);
+    const line=model?.line||definitions;
+    const {items,right}=equipmentLayout(line);
     const last=items.at(-1);
-    const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2):0)/sceneScale;
+    const dimensionRight=showDimensions.checked?line.reduce((extent,item,index)=>{
+      const minimum=conveyorDimensions.get(item.id)?.minimumLength;
+      return Number.isFinite(minimum)?Math.max(extent,items[index].left+minimum*sceneScale):extent;
+    },0):0;
+    const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2,dimensionRight):0)/sceneScale;
     const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+(108+shiftIndex(model?.time??0)*20)*tableScale);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
@@ -597,7 +605,7 @@ window.STSimulation2D=(function(){
       const rowY=y-tier*dimensionRowHeight;
       const dimensions=rows.filter(row=>row.tier===tier).map(row=>{
         const {label,start,value}=row,end=row.end??start+value;
-        const valid=value>0&&start>=0&&end<=item.length+.000001;
+        const valid=value>0&&start>=0&&(row.allowExtension||end<=item.length+.000001);
         const midpoint=Number.isFinite(start)&&Number.isFinite(end)
           ?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
         const text=Number.isFinite(value)?label+' · '+num(value)+' mm'+(row.partial?' (partial)':''):label+' · pending';
