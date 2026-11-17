@@ -23,6 +23,17 @@
 .simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
 .simulation2d-machine-actions[hidden] { display:none; }
 .simulation2d-machine-actions .icon-button { width:26px; height:26px; min-width:0; min-height:0; padding:3px; }
+#simulation2d-analysis-dialog { width:min(48rem,95vw); max-width:95vw; }
+.simulation2d-analysis-header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); margin-bottom:var(--space-2); }
+.simulation2d-analysis-header form { margin:0; }
+.simulation2d-analysis-body { max-height:70vh; overflow:auto; }
+.simulation2d-analysis-body table { width:100%; border-collapse:collapse; font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
+.simulation2d-analysis-body th, .simulation2d-analysis-body td { padding:var(--space-2); text-align:start; border-bottom:1px solid var(--line); }
+.simulation2d-analysis-body td { text-align:end; white-space:nowrap; }
+.simulation2d-analysis-body thead th { position:sticky; top:0; background:var(--surface); white-space:nowrap; }
+.simulation2d-analysis-body .worksheet-section th { background:var(--surface-soft); }
+.simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translate(-50%,-50%); white-space:nowrap; }
+.simulation2d-analysis-action[hidden] { display:none; }
 .simulation2d-events-panel { padding:var(--space-2); }
 #simulation2d-events-dialog { max-width:min(34rem,95vw); }
 .simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
@@ -110,7 +121,9 @@ window.STSimulation2D=(function(){
   let schedule={},scheduleError='';
   const scheduleOptions={failures:el('failures'),events:el('use-events'),calendar:el('use-calendar')};
   const scheduleSettings=()=>Object.fromEntries(Object.entries(scheduleOptions).map(([key,input])=>[key,input.checked]));
-  const machineControls=new Map();
+  const machineControls=new Map(),analysisButtons=new Map();
+  const analysisDialog=el('analysis-dialog');
+  let conveyorWorksheets=new Map();
   function resolveSchedule(config){
     const engine=window.SimulatorEngine;
     const calendar=config.plantCalendar;
@@ -127,11 +140,22 @@ window.STSimulation2D=(function(){
   }
   function rebuildMachineControls(){
     const target=el('machine-controls');
-    target.replaceChildren();machineControls.clear();
+    target.replaceChildren();machineControls.clear();analysisButtons.clear();
+    if(analysisDialog.open)analysisDialog.close();
     const actions=[['RUN','play','Start / resume'],['PAUSE','pause','Pause'],['STOP','stop','Stop'],
       ['EMERGENCY_STOP','error','Emergency stop'],['RESET','refresh','Reset emergency stop']];
     for(const item of definitions){
-      if(item.kind!=='machine')continue;
+      if(item.kind==='belt'){
+        const button=document.createElement('button');
+        button.type='button';button.className='secondary simulation2d-analysis-action';
+        button.textContent='View analysis';
+        button.setAttribute('aria-label','View conveyor analysis · '+item.name);
+        button.setAttribute('aria-haspopup','dialog');
+        button.setAttribute('aria-controls',analysisDialog.id);
+        button.onclick=()=>openConveyorAnalysis(item);
+        target.append(button);analysisButtons.set(item.id,button);
+        continue;
+      }
       const group=document.createElement('div');
       group.className='simulation2d-machine-actions';
       group.setAttribute('role','group');
@@ -184,6 +208,165 @@ window.STSimulation2D=(function(){
     return {overflow:units*length/(1-population),speed,
       consumption:calculated?.downstreamConsumptionRateMmPerSecond??downstreamRate*length,
       restart:clear+startup+dischargeTime+codingTime};
+  }
+  function conveyorWorksheet(zone,data,designProfiles,index){
+    const lact=data.geometry?.lactMm??zone.usableLengthMm;
+    const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
+    const prime=lact-lp;
+    const {discharge,coding}=conveyorSegments(data,zone);
+    const runout=discharge+coding;
+    const divide=(numerator,denominator)=>denominator>0?numerator/denominator:NaN;
+    const segmentTime=(length,speed)=>length===0?0:divide(length,speed);
+    const profiles=designProfiles.filter(({models})=>models[index].processData?.productApplies!==false)
+      .map(({zones,models,format})=>{
+        const belt=zones[index]||{};
+        const {input={},calculated={}}=belt.engineering||{};
+        const upstream=models.find(item=>item.id===belt.upstreamControlEquipmentId)??models[index-1];
+        const downstream=models.find(item=>item.id===belt.downstreamControlEquipmentId)??models[index+1];
+        const length=input.packageLengthMm??belt.productLengthMm;
+        const rate=input.upstreamNominalSpeedBpm??upstream?.nominalRatePerSecond*60;
+        const highRate=input.downstreamHighSpeedBpm??
+          (downstream?.processData?.productInputRatePerSecond??downstream?.nominalRatePerSecond)*60;
+        const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
+        const infeedPitch=input.downstreamInfeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
+        const speed=belt.conveyorSpeedMmPerSecond;
+        const dischargeSpeed=calculated.dischargeZoneSpeedMmPerSecond;
+        const codingSpeed=calculated.codingZoneSpeedMmPerSecond;
+        const flow=rate*length/60,consumption=highRate*length/60;
+        const population=divide(flow,speed);
+        const blocked=input.blockedTimeDelaySeconds??belt.blockedTimeDelaySeconds;
+        const clear=input.clearTimeDelaySeconds??belt.clearTimeDelaySeconds;
+        const startup=input.upstreamStartupTimeSeconds??belt.upstreamRestartDelaySeconds??
+          upstream?.startupDelaySeconds??upstream?.processData?.upstream?.startupTimeSeconds;
+        const residual=input.bottlesDischargedAtStop??belt.bottlesDischargedAtStop;
+        const insurance=input.insuranceFactorUnits??data.accumulation?.insuranceFactorUnits??0;
+        const dischargeTime=segmentTime(discharge,dischargeSpeed),codingTime=segmentTime(coding,codingSpeed);
+        const duringDelay=blocked*rate/60,inDischarge=dischargeTime*rate/60,inCoding=codingTime*rate/60;
+        const total=duringDelay+residual+inDischarge+inCoding+insurance;
+        const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
+        return {name:format?.name||format?.id||'Current format',length,rate,highRate,dischargePitch,infeedPitch,
+          speed,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,residual,insurance,
+          dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
+          ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
+          dischargeFactor:input.conveyorSpeedFactorPercent,codingFactor:input.codingSpeedFactorPercent,
+          accumulationFactor:input.accumulationSpeedFactorPercent,overspeed:input.infeedOverspeedPercent};
+      });
+    function extreme(field,select){
+      const valid=profiles.filter(profile=>Number.isFinite(profile[field]));
+      const governing=valid.reduce((best,profile)=>!best||select(profile[field],best[field])?profile:best,null);
+      return {value:governing?.[field],name:governing?.name,partial:valid.length<profiles.length};
+    }
+    const overflow=extreme('overflow',(a,b)=>a>b);
+    const lbu=runout+overflow.value,lba=prime-lbu;
+    for(const profile of profiles){
+      const {speed,consumption,clear,startup,dischargeTime,codingTime}=profile;
+      const overflowTime=divide(overflow.value,speed);
+      const arrival=clear+startup+dischargeTime+codingTime+overflowTime;
+      const consumed=consumption*arrival;
+      const catchTime=divide(consumed,speed-consumption);
+      Object.assign(profile,{overflowTime,arrival,consumed,catchTime,extraConsumed:consumption*catchTime,
+        recovery:lba-consumed-consumption*catchTime,
+        minimum:runout+profile.overflow+lp+consumption*profile.ramp/2});
+    }
+    const recovery=extreme('recovery',(a,b)=>a<b);
+    recovery.partial ||= overflow.partial;
+    const minimum=extreme('minimum',(a,b)=>a>b);
+    const point=recovery.value>0&&lba>=recovery.value?prime-recovery.value:NaN;
+    const common=[
+      ['Discharge','mm',discharge],['Coding','mm',coding],['Max Run-out point','mm',runout],
+      ['Overflow (maximum)','mm',overflow.value,overflow],['Back-up length (Lbu)','mm',lbu,overflow],
+      ['Back-up position (design)','mm',lbu,overflow],['Back-up position (operating)','mm',zone.backupSensorPositionMm],
+      ['Accumulation Zone (Lba)','mm',lba,overflow],['Recovery Margin (Lrec, minimum)','mm',recovery.value,recovery],
+      ['Recovery Point','mm',point,recovery],['Prime position (design)','mm',prime],
+      ['Prime position (operating)','mm',zone.primeSensorPositionMm],['Prime Reserve (Lp)','mm',lp],
+      ['Minimum Length (ramp criterion)','mm',minimum.value,minimum],['Installed Length (Lact)','mm',lact]
+    ];
+    const perFormat=[
+      ['Package, machines and speeds',[
+        ['Package length','mm',p=>p.length],['Upstream discharge pitch','mm',p=>p.dischargePitch],
+        ['Upstream nominal speed','packages/min',p=>p.rate],
+        ['Upstream discharge velocity','m/min',p=>p.rate*p.dischargePitch/1000],
+        ['Upstream configured startup','s',p=>p.startup],['Upstream packed product flow','m/min',p=>p.flow*.06],
+        ['Downstream high speed','packages/min',p=>p.highRate],['Downstream infeed pitch','mm',p=>p.infeedPitch],
+        ['Downstream ramp-up','s',p=>p.ramp],['Downstream packed consumption','m/min',p=>p.consumption*.06],
+        ['Discharge speed factor','%',p=>p.dischargeFactor],
+        ['Discharge speed','m/min',p=>p.dischargeSpeed*.06],['Discharge population','%',p=>divide(p.flow,p.dischargeSpeed)*100],
+        ['Coding speed factor','%',p=>p.codingFactor],
+        ['Coding speed','m/min',p=>p.codingSpeed*.06],['Coding population','%',p=>divide(p.flow,p.codingSpeed)*100],
+        ['Main belt speed factor','%',p=>p.accumulationFactor],
+        ['Main belt speed','m/min',p=>p.speed*.06],['Main belt population','%',p=>p.population*100],
+        ['Package pass at Back-up','s',p=>divide(p.length,p.speed)]
+      ]],
+      ['Overflow',[
+        ['Back-up blocked delay','s',p=>p.blocked],['Product during blocked delay','packages',p=>p.duringDelay],
+        ['Product discharged after stop','packages',p=>p.residual],['Product in Discharge','packages',p=>p.inDischarge],
+        ['Product in Coding','packages',p=>p.inCoding],['Insurance margin','packages',p=>p.insurance],
+        ['Total product to absorb','packages',p=>p.total],['Packed product length','mm',p=>p.total*p.length],
+        ['Required Overflow','mm',p=>p.overflow]
+      ]],
+      ['Recovery and buffer time',[
+        ['Back-up clear delay','s',p=>p.clear],['Restart to first discharge (estimated from startup)','s',p=>p.startup],
+        ['Discharge transit','s',p=>p.dischargeTime],['Coding transit','s',p=>p.codingTime],
+        ['Common Overflow transit','s',p=>p.overflowTime],['First product reaches Back-up','s',p=>p.arrival],
+        ['Queue consumed before arrival','mm',p=>p.consumed],['Time to reach the queue','s',p=>p.catchTime],
+        ['Additional queue consumption','mm',p=>p.extraConsumed],['Recovery Margin (Lrec)','mm',p=>p.recovery],
+        ['Anti-starve (packed queue)','s',p=>lba>=0?divide(lba,p.consumption):NaN],
+        ['Anti-block (moving product)','s',p=>lba>=0&&p.population<1?divide(lba*(1-p.population),p.flow):NaN],
+        ['Infeed overspeed target','%',p=>p.overspeed],
+        ['Recommended infeed conveyor speed','m/min',p=>p.highRate*p.infeedPitch/1000*(1+p.overspeed/100)]
+      ]]
+    ];
+    return {common,profiles,perFormat};
+  }
+  function openConveyorAnalysis(item){
+    const worksheet=conveyorWorksheets.get(item.id)?.();
+    if(!worksheet)return;
+    const body=el('analysis-body');
+    body.replaceChildren();
+    el('analysis-title').textContent='Conveyor Analysis · '+item.name;
+    function make(parent,tag,text){
+      const element=document.createElement(tag);
+      if(text!==undefined)element.textContent=text;
+      parent.append(element);
+      return element;
+    }
+    function table(headers){
+      const element=make(body,'table');
+      const row=make(make(element,'thead'),'tr');
+      for(const header of headers)make(row,'th',header).scope='col';
+      return make(element,'tbody');
+    }
+    function row(parent,label,unit,values){
+      const element=make(parent,'tr');
+      make(element,'th',label).scope='row';
+      make(element,'td',unit);
+      for(const value of values)make(element,'td',value);
+    }
+    function section(parent,label,width){
+      const element=make(parent,'tr');
+      element.className='worksheet-section';
+      make(element,'th',label).colSpan=width;
+    }
+    const valueText=value=>Number.isFinite(value)?num(value):'Pending';
+    const common=table(['Parameter','Unit','Value','Governing format']);
+    section(common,'Common geometry',4);
+    for(const [label,unit,value,source] of worksheet.common){
+      const finite=Number.isFinite(value);
+      row(common,label,unit,[valueText(value)+(finite&&source?.partial?' (partial)':''),finite?source?.name??'':'']);
+    }
+    if(worksheet.profiles.length){
+      const formats=table(['Parameter','Unit',...worksheet.profiles.map(profile=>profile.name)]);
+      for(const [title,rows] of worksheet.perFormat){
+        section(formats,title,worksheet.profiles.length+2);
+        for(const [label,unit,read] of rows)row(formats,label,unit,worksheet.profiles.map(profile=>valueText(read(profile))));
+      }
+    }else{
+      make(body,'p','No applicable formats.');
+    }
+    const note=make(body,'p','Positions are measured from the conveyor entry. Minimum Length uses the downstream ramp reserve. A negative Lrec means the queue runs out before recovery.');
+    note.className='chart-note';
+    body.scrollTop=0;
+    analysisDialog.showModal();
   }
   function dimensionRows(zone,data,designProfiles,index){
     const length=data.geometry?.lactMm??zone.usableLengthMm;
@@ -244,14 +427,15 @@ window.STSimulation2D=(function(){
     const configured=format?geometry.applyProductProfile(equipment,format):equipment;
     const resolveZones=models=>models.map((item,index)=>item.type==='CONVEYOR'?geometry.resolveProductConveyor(models,index):null);
     const zones=resolveZones(configured);
-    const currentProfile={models:configured,zones};
+    const currentProfile={models:configured,zones,format};
     const designProfiles=formats.map(candidate=>{
       if(candidate.id===format?.id)return currentProfile;
       const models=geometry.applyProductProfile(equipment,candidate);
-      return {models,zones:resolveZones(models)};
+      return {models,zones:resolveZones(models),format:candidate};
     });
     if(!designProfiles.length)designProfiles.push(currentProfile);
     conveyorDimensions=new Map();
+    conveyorWorksheets=new Map();
     return configured.map((item,index)=>{
       const data=item.processData||{};
       const unit=data.flowUnits?.output==='CASES'||String(item.unitOfFlow).toUpperCase()==='CASES'?'CASES':'BOTTLES';
@@ -274,6 +458,7 @@ window.STSimulation2D=(function(){
       }
       const zone=zones[index]||{};
       conveyorDimensions.set(item.id,dimensionRows(zone,data,designProfiles,index));
+      conveyorWorksheets.set(item.id,()=>conveyorWorksheet(zone,data,designProfiles,index));
       const presentation=format?geometry.productPresentation(format,unit):{};
       return {id:item.id,name:item.name||item.id,kind:'belt',unit,bottlesPerUnit:unit==='BOTTLES'?1:packSize,
         zoneId:zone.id,length:zone.usableLengthMm,speed:zone.conveyorSpeedMmPerSecond,beltWidth:data.accumulation?.conveyorWidthMm??null,
@@ -443,23 +628,6 @@ window.STSimulation2D=(function(){
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index);
     context.textAlign='center';
   }
-  function conveyorGeometryRows(item){
-    const design=conveyorDimensions.get(item.id);
-    const rows=(design?.rows||[]).map(({label,value,partial})=>
-      [label,num(value),partial&&Number.isFinite(value)?'mm*':'mm']);
-    rows.push(['Back-up position',num(item.backup),'mm'],['Prime position',num(item.prime),'mm'],
-      ['Max Run-out point',num(design?.runout),'mm'],['Recovery Point',num(design?.recovery),'mm']);
-    for(const [label,value,active] of [
-      ['Design Back-up',design?.backup,item.backup],
-      ['Design Prime',design?.prime,item.prime],
-      ['Back-up release (cfg.)',item.configuredBackupRelease,item.backup]
-    ]){
-      if(Number.isFinite(value)&&(!Number.isFinite(active)||Math.abs(value-active)>1e-6)){
-        rows.push([label,num(value),'mm']);
-      }
-    }
-    return rows;
-  }
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const produced=item.produced??0;
@@ -507,11 +675,11 @@ window.STSimulation2D=(function(){
       const parameterX=left+telemetryPadding;
       const valueX=parameterX+parameterWidth+parameterValueGap+valueWidth;
       const unitX=valueX+telemetryColumnGap;
-      const height=(53+rows.length*18)*tableScale;
+      const height=(rows.length?53+rows.length*18:82)*tableScale;
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
-      context.fillRect(left+1,y+6*tableScale,width-2,39*tableScale);
+      context.fillRect(left+1,y+6*tableScale,width-2,(rows.length?39:24)*tableScale);
       context.font='600 '+telemetryFont;context.textAlign='left';
       if(showSignal){
         const capsuleWidth=width-16*tableScale;
@@ -526,6 +694,7 @@ window.STSimulation2D=(function(){
         context.fillStyle=ink;
         text(title,parameterX,y+21*tableScale,width-2*telemetryPadding);
       }
+      if(!rows.length)return;
       context.textAlign='left';context.fillStyle=muted;context.font=telemetryFont;
       context.fillText('Parameter',parameterX,y+41*tableScale);
       context.textAlign='right';context.fillText('Value',valueX,y+41*tableScale);
@@ -545,9 +714,7 @@ window.STSimulation2D=(function(){
     card(0,left,item.name,summary,true);
     card(1,statesLeft,'States',states,false);
     if(belt){
-      const geometry=conveyorGeometryRows(item);
-      const title=geometry.some(row=>row[2]==='mm*')?'Geometry (* partial, x from entry)':'Conveyor geometry (x from entry)';
-      card(3,statesLeft+telemetryWidths[1]+telemetryGap,title,geometry,false);
+      card(3,statesLeft+telemetryWidths[1]+telemetryGap,'Conveyor Geometry',[],false);
     }else{
       const efficiency=window.STEquipmentEfficiency;
       const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
@@ -785,6 +952,14 @@ window.STSimulation2D=(function(){
     const half=sceneHalfHeight(),telemetryY=y+half+telemetryTopGap,dimensionY=y-half-dimensionOffset;
     const pointer=dimensionPointer&&!drag?{x:dimensionPointer.x/factor,y:dimensionPointer.y/factor}:null;
     for(const [index,item] of line.entries()){
+      const analysisButton=analysisButtons.get(item.id);
+      if(analysisButton){
+        const left=origin+items[index].center-items[index].telemetryWidth/2+telemetryPairWidth+telemetryGap;
+        const cx=(left+telemetryWidths[3]/2)*factor,cy=(telemetryY+55*tableScale)*factor;
+        analysisButton.style.left=cx+'px';analysisButton.style.top=cy+'px';
+        analysisButton.style.transform='translate(-50%,-50%) scale('+Math.min(.8,factor*.75)+')';
+        analysisButton.hidden=cx<0||cx>screenWidth||cy<0||cy>h;
+      }
       const controls=machineControls.get(item.id);
       if(!controls)continue;
       const {group,buttons}=controls,cx=(origin+items[index].center)*factor,cy=(telemetryY-25)*factor;

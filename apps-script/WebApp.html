@@ -216,6 +216,13 @@
               <canvas id="simulation2d-canvas" tabindex="0" aria-label="Side view of the line. Drag or hold the middle mouse button to pan. Scroll to zoom at the pointer. Use the Fit button to recenter."></canvas>
               <div id="simulation2d-machine-controls"></div>
             </div>
+            <dialog id="simulation2d-analysis-dialog" class="message-dialog" aria-labelledby="simulation2d-analysis-title">
+              <div class="simulation2d-analysis-header">
+                <strong id="simulation2d-analysis-title">Conveyor Analysis</strong>
+                <form method="dialog"><button type="submit" class="secondary icon-button" data-icon="x" aria-label="Close conveyor analysis" title="Close conveyor analysis"></button></form>
+              </div>
+              <div id="simulation2d-analysis-body" class="simulation2d-analysis-body"></div>
+            </dialog>
             <div id="simulation2d-legend" class="chart-note" aria-label="Machine states">
               <span class="run">Running / discharging</span>
               <span class="starved">Starved</span>
