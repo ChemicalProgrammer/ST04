@@ -103,7 +103,7 @@ window.STBasicMode=(function(){
     var setup=fields.querySelector('.format-zone-setup'),worksheet=node('div','','basic-conveyor-worksheet');setup.appendChild(worksheet);
     var groups=[
       ['Upstream','upstream',[
-        ['package-length','Package length (mm)'],['discharge-pitch','Discharge pitch (mm)'],['startup','Startup time (sec)'],['residual','Bottles at stop'],['stop-response','Stop response (sec)'],
+        ['package-length','Package length (mm)'],['discharge-pitch','Discharge pitch (mm)'],['discharge-velocity','Upstream Discharge Velocity (m/min)'],['startup','Startup time (sec)'],['restart-first-package','Time to First Package After Restart (s)'],['residual','Bottles at stop'],['stop-response','Stop response (sec)'],
         [null,'Package velocity (m/min)','package-velocity'],[null,'Output rate B2B (m/min)','output-b2b']]],
       ['Downstream','downstream',[
         ['infeed','Infeed pitch (mm)'],['downstream-ramp','Ramp up time (sec)'],[null,'Consumption rate (m/min)','consumption']]],

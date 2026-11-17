@@ -508,6 +508,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
     assert.deepEqual(tableValue('Coding'),['Pending']);
+    assert.deepEqual(tableValue('L62'),['Pending']);
     assert.deepEqual(tableValue('L23'),['7.2']);
     assert.deepEqual(tableValue('F8'),['Pending']);
     analysis.close();
@@ -521,6 +522,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(['B','P'].map(sensorPosition),calculatedSensors);
 
     equipment[1].processData.upstream={...equipment[1].processData.upstream,dischargeVelocityMPerMinute:18.816};
+    equipment[1].processData.accumulation={...equipment[1].processData.accumulation,restartToFirstPackageSeconds:2};
     equipment[1].processData.geometry={lactMm:5953,lpPrimeMm:1000,actualDischargeMm:0,actualCodingMm:0};
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,
@@ -539,7 +541,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
     assert.deepEqual(tableValue('F8'),['1,162.84']);
     assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16']);
-    assert.deepEqual(tableValue('K8'),['Pending']);
+    assert.deepEqual(tableValue('L62'),['2']);
+    assert.equal(analysisEl('body').querySelector('[data-cell="L62"] input'),null);
     assert.deepEqual(tableValue('L20'),['1']);
     assert.deepEqual(tableValue('L22'),['192']);
     assert.deepEqual(tableValue('L23'),['18.82']);
@@ -555,8 +558,6 @@ test('2D uses the representative seed to calculate new production and preserves 
     }
     assert.deepEqual(tableValue('L27'),['169.6']);
     assert.deepEqual(tableValue('L30'),['16.62']);
-    const firstPackage=analysisEl('body').querySelector('[data-cell="L62"] input');
-    firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
     assert.deepEqual(tableValue('K8'),['1,901.41']);
     assert.deepEqual(tableValue('L74'),['13.68']);
     assert.deepEqual(tableValue('L76'),['6.72']);

@@ -45,6 +45,7 @@ window.STSheetImportMerge=(function(){
     }):mapped;
     if(preview.source?.capacityColumn)result.push(field('internalCapacity','AE','Internal capacity (bottles)',['processData.equipment.internalCapacityBottles']));
     if(preview.source?.dischargeVelocityColumn)result.push(field('dischargeVelocity','AF','Upstream Discharge Velocity (m/min)',['processData.upstream.dischargeVelocityMPerMinute']));
+    if(preview.source?.restartFirstPackageColumn)result.push(field('restartFirstPackage','AG','Time to First Package After Restart (s)',['processData.accumulation.restartToFirstPackageSeconds']));
     return result;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});

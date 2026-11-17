@@ -10,7 +10,6 @@
 #conveyor-analysis-body { display:grid; gap:var(--space-4); }
 #conveyor-analysis-body h3 { margin:0 0 var(--space-2); }
 #conveyor-analysis-body .chart-note { margin:0; }
-#conveyor-analysis-body input { width:7em; }
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
@@ -24,7 +23,7 @@ window.STConveyorAnalysis=(function(){
     const packSize=format?window.SimulatorEngine.productPackSize(format):undefined;
     return Number.isFinite(packSize)&&packSize>0?packSize:NaN;
   }
-  function calculate({zone,data,designProfiles,index},delays=[]){
+  function calculate({zone,data,designProfiles,index}){
     const lact=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
     const prime=lact-lp;
@@ -34,7 +33,7 @@ window.STConveyorAnalysis=(function(){
     const divide=(numerator,denominator)=>denominator>0?numerator/denominator:NaN;
     const segmentTime=(length,speed)=>length===0?0:divide(length,speed);
     const profiles=designProfiles.filter(({models})=>models[index].processData?.productApplies!==false)
-      .map(({zones,models,format},column)=>{
+      .map(({zones,models,format})=>{
         const belt=zones[index]||{};
         const {input={}}=belt.engineering||{};
         const upstream=models.find(item=>item.id===belt.upstreamControlEquipmentId)??models[index-1];
@@ -55,7 +54,7 @@ window.STConveyorAnalysis=(function(){
         const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
         const dischargeSpeed=dischargeMmPerSecond*(1+dischargeFactor/100);
         const codingSpeed=dischargeSpeed*(1+codingFactor/100);
-        const firstPackage=delays[column]??models[index].processData?.accumulation?.restartToFirstPackageSeconds;
+        const firstPackage=models[index].processData?.accumulation?.restartToFirstPackageSeconds;
         const flow=rate*length/60,consumption=highRate*length/60;
         const population=divide(flow,speed);
         const blocked=input.blockedTimeDelaySeconds??belt.blockedTimeDelaySeconds;
@@ -193,11 +192,9 @@ window.STConveyorAnalysis=(function(){
     if(!context)return;
     const dialog=document.getElementById('conveyor-analysis-dialog');
     const body=document.getElementById('conveyor-analysis-body');
-    const delays=[];
     const number=new Intl.NumberFormat(undefined,{maximumFractionDigits:2});
     const valueText=value=>Number.isFinite(value)?number.format(value):'Pending';
-    const updates=[];
-    let worksheet=calculate(context,delays);
+    const worksheet=calculate(context);
     body.replaceChildren();
     document.getElementById('conveyor-analysis-title').textContent='Conveyor Analysis Tool · '+name;
     function make(parent,tag,text){
@@ -229,15 +226,12 @@ window.STConveyorAnalysis=(function(){
       return element;
     }
     const common=table('Common Geometry',['Parameter','Value','Unit']);
-    worksheet.common.forEach(([ref,label,unit],index)=>{
+    worksheet.common.forEach(([ref,label,unit,value,,source])=>{
       const element=row(common,ref,label);
       const output=make(element,'td');
       output.className='numeric';
       make(element,'td',unit);
-      updates.push(()=>{
-        const [,,,value,,source]=worksheet.common[index];
-        output.textContent=valueText(value)+(Number.isFinite(value)&&source?.partial?' (partial)':'');
-      });
+      output.textContent=valueText(value)+(Number.isFinite(value)&&source?.partial?' (partial)':'');
     });
     if(!worksheet.profiles.length)make(body,'p','No applicable formats.');
     for(const [title,entries] of worksheet.profiles.length?rows:[]){
@@ -252,30 +246,15 @@ window.STConveyorAnalysis=(function(){
         const [ref,label,unit,,read]=entry;
         const element=row(formats,'L'+ref,label);
         if(ref>=33&&ref<=41)element.dataset.zone=ref<=35?'discharge':ref<=38?'coding':'overflow';
-        worksheet.profiles.forEach((profile,column)=>{
+        worksheet.profiles.forEach(profile=>{
           const cell=make(element,'td');
           cell.className='numeric';
-          if(ref===62){
-            const input=make(cell,'input');
-            input.type='number';input.min='0';input.step='any';
-            input.placeholder='Pending';
-            const value=read(profile);
-            input.value=Number.isFinite(value)?Number(value.toFixed(8)):'';
-            input.setAttribute('aria-label',label+' · '+profile.name);
-            input.addEventListener('input',()=>{
-              delays[column]=input.value===''||!input.validity.valid?NaN:input.valueAsNumber;
-              worksheet=calculate(context,delays);
-              updates.forEach(update=>update());
-            });
-          }else{
-            updates.push(()=>{cell.textContent=valueText(read(worksheet.profiles[column],worksheet.lba));});
-          }
+          cell.textContent=valueText(read(profile,worksheet.lba));
         });
         make(element,'td',unit);
       }
     }
-    updates.forEach(update=>update());
-    make(body,'p','Enter the time to the first package after restart for each format. Positions are measured from the conveyor entry.').className='chart-note';
+    make(body,'p','Time to First Package After Restart is configured on the conveyor card. Positions are measured from the conveyor entry.').className='chart-note';
     make(body,'p','Upstream Discharge Velocity (AF) overrides the conveyor speed used as the default discharge reference. Overflow requires conveyor population below 100%.').className='chart-note';
     make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
     body.scrollTop=0;

@@ -31,7 +31,7 @@ function exportEquipmentSheet_(request, user) {
     var folder=getWorkspaceFolders_().exports;
     var name=String(request.caseName||'Case').trim().slice(0,120)+' · '+String(request.simulationName||'Simulation').trim().slice(0,80)+' · Equipment';
     var primary=sheetExportColor_(request.theme?.primary,'#5485a4');
-    var width=32,slots=Math.min(1000,Math.max(100,equipment.length+50));
+    var width=33,slots=Math.min(1000,Math.max(100,equipment.length+50));
     stage='CREATE_SPREADSHEET';
     book=SpreadsheetApp.create(name,slots+7,width);
     stage='MOVE_TO_EXPORTS';
@@ -52,13 +52,13 @@ function exportEquipmentSheet_(request, user) {
     sheet.getRange(3,2).setNumberFormat('dd mmm yyyy');
     sheet.getRange(4,2).setNumberFormat('@');
     values[0][29]='st-equipment-metadata-b-v7';
-    var groups=[['Equipment',3,10],['Geometry',13,4],['Upstream',17,4],['Downstream',21,2],['Speed & Sensors',23,7],['Machine capacity',31,1],['Upstream · Conveyor Analysis',32,1]];
+    var groups=[['Equipment',3,10],['Geometry',13,4],['Upstream',17,4],['Downstream',21,2],['Speed & Sensors',23,7],['Machine capacity',31,1],['Upstream · Conveyor Analysis',32,2]];
     groups.forEach(function(group){values[5][group[1]-1]=group[0];});
-    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[0]==='D'||column[0]==='E'?'General '+column[2]:column[2]);}).concat(['Equipment ID','Internal capacity\n[bottles]',sheetColumnHeading_(sheetDischargeVelocityHeading_())]);
+    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[0]==='D'||column[0]==='E'?'General '+column[2]:column[2]);}).concat(['Equipment ID','Internal capacity\n[bottles]',sheetColumnHeading_(sheetDischargeVelocityHeading_()),sheetColumnHeading_(sheetRestartFirstPackageHeading_())]);
     values[6].splice(3,0,'Minor MTBF\n[min]','Minor MTTR\n[min]','Major MTBF\n[min]','Major MTTR\n[min]');
     data.rows.forEach(function(row,index){
       var visible=row.slice(0,25);visible.splice(3,0,...stopRows[index]);
-      values[index+7]=visible.concat([equipment[index].id],row.slice(25),[equipment[index].type==='CONVEYOR'?equipment[index].processData?.upstream?.dischargeVelocityMPerMinute??'':'']).map(sheetExportLiteral_);
+      values[index+7]=visible.concat([equipment[index].id],row.slice(25),[equipment[index].type==='CONVEYOR'?equipment[index].processData?.upstream?.dischargeVelocityMPerMinute??'':'',equipment[index].type==='CONVEYOR'?equipment[index].processData?.accumulation?.restartToFirstPackageSeconds??'':'']).map(sheetExportLiteral_);
     });
     for(var i=equipment.length;i<slots;i++)values[i+7][29]='slot-'+book.getId()+'-'+(i+1);
     values[3][5]='Own stops only. Enter the General pair in H:I, or fill Minor Stops and Major Stops. Use 0 and 0 for a category with no stops. Split inputs take precedence.';

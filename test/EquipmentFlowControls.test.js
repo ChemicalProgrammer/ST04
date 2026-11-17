@@ -23,5 +23,13 @@ test('cards show format settings read-only while preserving the source catalog a
 });
 
 test('conveyor defaults remain visible and editable even when formats exist',()=>{
- const s=setup(),w=s.w,e=w.state.activeCase.equipment.find(e=>e.type==='CONVEYOR'),card=w.createEquipmentCard(e,w.state.activeCase.equipment.indexOf(e));for(const key of ['moving-gap','accumulated-gap','package-length','discharge-pitch','infeed']){const input=card.querySelector('.format-zone-'+key);assert(input,key);assert.equal(input.readOnly,false,key);assert.equal(input.closest('label').hidden,false,key);}assert.equal(card.querySelector('.format-zone-lact').readOnly,false);assert.equal(card.querySelector('.format-zone-blocked-delay').readOnly,false);
+ const s=setup(),w=s.w,e=w.state.activeCase.equipment.find(e=>e.type==='CONVEYOR'),card=w.createEquipmentCard(e,w.state.activeCase.equipment.indexOf(e));for(const key of ['moving-gap','accumulated-gap','package-length','discharge-pitch','infeed','discharge-velocity','restart-first-package']){const input=card.querySelector('.format-zone-'+key);assert(input,key);assert.equal(input.readOnly,false,key);assert.equal(input.closest('label').hidden,false,key);}assert.equal(card.querySelector('.format-zone-lact').readOnly,false);assert.equal(card.querySelector('.format-zone-blocked-delay').readOnly,false);
+ card.querySelector('.format-zone-discharge-velocity').value='18.816';
+ card.querySelector('.format-zone-restart-first-package').value='0';
+ const saved=w.mergeFormatZoneData(e.processData,w.readFormatZoneInputs(card));
+ assert.equal(saved.upstream.dischargeVelocityMPerMinute,18.816);
+ assert.equal(saved.accumulation.restartToFirstPackageSeconds,0);
+ const reopened=w.createEquipmentCard({...e,processData:saved},w.state.activeCase.equipment.indexOf(e));
+ assert.equal(reopened.querySelector('.format-zone-discharge-velocity').value,'18.816');
+ assert.equal(reopened.querySelector('.format-zone-restart-first-package').value,'0');
 });
