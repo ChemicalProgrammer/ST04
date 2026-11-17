@@ -184,6 +184,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabil
       : null,
     outputCount: 0,
     runningSeconds: 0,
+    runningDesignOutput: 0,
     pausedSeconds: 0,
     stoppedSeconds: 0,
     starvedSeconds: 0,
@@ -1170,11 +1171,17 @@ function addFlowToZone(runtime, zone, flow, allowOverflow, entries) {
   }
 }
 
+function machineDesignRatePerSecond(equipment){
+  const max=equipment.processData?.equipment?.maximumSpeedBpm;
+  return max>0?max/60:equipment.nominalRatePerSecond;
+}
+
 function recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge) {
   if (control && flow <= 0) equipment.backupStopSeconds += tickSeconds;
 
   if (flow > 0) {
     equipment.runningSeconds += tickSeconds;
+    equipment.runningDesignOutput = (equipment.runningDesignOutput||0) + machineDesignRatePerSecond(equipment)*tickSeconds;
     if(runtimeProductEquipment(equipment))equipment.idealRunningNativeOutput=(equipment.idealRunningNativeOutput||0)+equipment.nominalRatePerSecond*tickSeconds;
     if (control) {
       equipment.availabilityState = control.responseRemainingSeconds > 0 || residualDischarge
@@ -1328,6 +1335,9 @@ function addSample(runtime) {
         partialStarvationLossSeconds: round(item.partialStarvationLossSeconds),
         partialBlockingLossSeconds: round(item.partialBlockingLossSeconds),
         runningSeconds: round(item.runningSeconds),
+        runningDesignOutput: round(item.runningDesignOutput||0),
+        designSpeedPerSecond: machineDesignRatePerSecond(item),
+        microStopSeconds: round(item.microStopSeconds),
         startRampSeconds: round(item.startRampSeconds),
         stopTransitionSeconds: round(item.stopTransitionSeconds),
         failureCount: item.failureCount,
@@ -1583,6 +1593,8 @@ function createEquipmentMetrics(equipment, durationSeconds) {
     unitOfFlow:equipment.nativeOutputUnit||equipment.unitOfFlow,
     stateSeconds: Object.fromEntries(Object.entries(equipment.stateSeconds).map(([state, seconds]) => [state, round(seconds)])),
     runningSeconds: round(equipment.runningSeconds),
+    runningDesignOutput: round(equipment.runningDesignOutput||0),
+    designSpeedPerSecond: machineDesignRatePerSecond(equipment),
     productiveEquivalentSeconds: round(equipment.productiveNativeSeconds ?? (equipment.outputCount / equipment.nominalRatePerSecond)),
     processingCapacityPercent: round(100 * equipment.outputCount / (equipment.idealNativeOutput ?? (equipment.nominalRatePerSecond * durationSeconds))),
     pausedSeconds: round(equipment.pausedSeconds),

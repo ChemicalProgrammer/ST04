@@ -3,7 +3,8 @@ window.STSimulation2DEngine=(function(){
   const epsilon=1e-6;
   const durationKey={
     Starting:'starting',Running:'running',Discharging:'running',Starved:'starving','Waiting for Prime':'starving',
-    'Ramp up':'acceleration','Ramp down':'deceleration',Blocked:'blocked','Back-up stop':'blocked',Failed:'failure'
+    'Ramp up':'acceleration','Ramp down':'deceleration',Blocked:'blocked','Back-up stop':'backupStop',Failed:'failure',
+    Paused:'paused',Stopped:'stopped','Emergency stop':'emergencyStop','Planned stop':'plannedStop'
   };
   function create(definitions,seed=1,checkpoint,schedule={}){
     const line=definitions.map((definition,index)=>definition.kind==='belt'
@@ -12,7 +13,7 @@ window.STSimulation2DEngine=(function(){
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
         resident:[],residenceClock:0,intakeCredit:1,outletCredit:0,rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
-        durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
+        durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,backupStop:0,failure:0,paused:0,stopped:0,emergencyStop:0,plannedStop:0},
         recentOutput:[],ratePerMinute:0});
     let time=0,commandIndex=0,stopIndex=0,activeStop=null;
     const commands=schedule.commands||[],stops=schedule.stops||[];

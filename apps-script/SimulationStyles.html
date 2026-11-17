@@ -47,6 +47,10 @@
   .live-equipment-controls .live-control-emergency { background: var(--failure-soft); color: var(--danger); }
   .live-equipment-controls .live-control-emergency:hover { background: var(--failure-soft); }
   .live-equipment-controls .live-control-run { grid-column: span 2; }
+  .live-equipment-efficiency { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-block-start:var(--space-2); padding:var(--space-2); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); }
+  .live-equipment-efficiency[hidden] { display:none; }
+  .live-equipment-efficiency > div { display:flex; flex-direction:column; gap:var(--space-1); padding-inline-end:var(--space-2); }
+  .live-equipment-efficiency span { color:var(--muted); font-size:var(--font-secondary); }
   .state-ready { border-left-color: var(--muted); }
   .state-ready .live-state { background: var(--stopped-soft); color: var(--ink); }
   .state-running { border-left-color: var(--running); }

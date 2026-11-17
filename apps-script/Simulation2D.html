@@ -66,7 +66,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,machineScale=3.75;
-  const telemetryCardHeight=53+9*18;
+  const telemetryCardHeight=53+13*18;
   const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=51;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
@@ -242,6 +242,7 @@ window.STSimulation2D=(function(){
         const residenceSeconds=capacityBottles/(item.nominalRatePerSecond*bottlesPerUnit);
         return {capacityBottles,residenceSeconds,inputBottleFactor,id:item.id,name:item.name||item.id,
           kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,bottlesPerUnit,
+          ...(data.equipment?.maximumSpeedBpm>0?{designSpeedPerSecond:data.equipment.maximumSpeedBpm/60}:{}),
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
           primeRampSeconds:zones[index-1]?.primeSensorPositionMm!=null?zones[index-1].downstreamRampUpSeconds:undefined,
           rampAfterRepair:data.downstream?.rampAfterRepair===true,failures:failuresFor(item,config),
@@ -414,26 +415,42 @@ window.STSimulation2D=(function(){
     const rate=item.ratePerMinute??0,produced=item.produced??0;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
     const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
-    const summary=[['State',signal.state,''],['Flow',bottles(rate),'bpm'],['Processed',bottles(produced),'bottles']];
-    if(cases)summary.push(['Case flow',num(rate),'cpm'],['Cases made',num(produced),'cases']);
-    if(belt){
-      summary.push(['Belt speed',num(item.speed*.06),'m/min'],
-        ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
-      if(!cases){
-        const stage=bottleStages.get(item.id)??0;
-        summary.push(['Bottle stage',bottleStageNames[stage&3],'']);
-        if(stage&4)summary.push(['Cap','Applied','']);
-      }
-    }else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
-      ['Est. residence',num(item.residenceSeconds),'s']);
-    const counters=belt
-      ? [duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
-        ['Ramp up','N/A',''],['Ramp down','N/A',''],
-        ['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear',''],['Own failures','—','']]
-      : [duration('Start','starting'),duration('Run','running'),duration('Starving','starving'),
-        duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),duration('Blocked','blocked'),
-        duration('Failure time','failure'),['Own failures',item.failures?.length?num(item.failureCount??0):'Off',''],
-        ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']];
+    const statusRow=['State',signal.state,''];
+    const states=belt
+      ? [statusRow,duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
+        ['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']]
+      : [statusRow,duration('Running','running'),duration('Starved','starving'),duration('Blocked','blocked'),
+        duration('Faulted','failure'),duration('Stopped','stopped'),duration('Starting','starting'),
+        duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),
+        duration('Paused','paused'),duration('Emergency stop','emergencyStop'),duration('Planned stop','plannedStop'),
+        duration('Back-up stop','backupStop')];
+    const unit=cases?'cases/min':'bottles/min';
+    const max=item.designSpeedPerSecond??item.rate;
+    const efficiency=window.STEquipmentEfficiency;
+    const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
+    const metrics=belt?null:efficiency.calculate({
+      runningSeconds,internalDowntimeSeconds:item.durations?.failure??0,goodProducts:produced,designSpeed:max
+    });
+    const performance=belt
+      ? [['Belt speed',num(item.speed*.06),'m/min'],['Flow',bottles(rate),'bpm'],
+        ['Processed',bottles(produced),'bottles'],['On belt',num(item.items?.length??0),cases?'cases':'bottles'],
+        ['Ramp up','N/A',''],['Ramp down','N/A','']]
+      : efficiency.fields.map(([key,label])=>{
+        const throughput=key==='throughput',value=metrics[key];
+        return [label,num(value===null?NaN:value*(throughput?60:100)),throughput?unit:'%'];
+      });
+    if(belt&&cases)performance.push(['Case flow',num(rate),'cases/min'],['Cases moved',num(produced),'cases']);
+    if(belt&&!cases){
+      const stage=bottleStages.get(item.id)??0;
+      performance.push(['Bottle stage',bottleStageNames[stage&3],'']);
+      if(stage&4)performance.push(['Cap','Applied','']);
+    }
+    if(!belt)performance.push(['Design speed',num(max*60),unit],
+      ['Production speed',num(metrics.productionSpeed===null?NaN:metrics.productionSpeed*60),unit],
+      ['Produced',bottles(produced),'bottles'],
+      ['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
+      ['Est. residence',num(item.residenceSeconds),'s'],
+      ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']);
     function card(left,title,rows,showSignal){
       const width=telemetryWidth;
       const height=telemetryCardHeight;
@@ -470,8 +487,8 @@ window.STSimulation2D=(function(){
         drawText(context,unit,left+140,rowY+13,34);
       });
     }
-    card(x-telemetryPairWidth/2,item.name,summary,true);
-    card(x+telemetryGap/2,belt?'Time / sensors':'Time / failures',counters,false);
+    card(x-telemetryPairWidth/2,item.name,states,true);
+    card(x+telemetryGap/2,belt?'Conveyor operation':'Equipment efficiency',performance,false);
     context.textAlign='center';
     context.font='12px system-ui';
   }

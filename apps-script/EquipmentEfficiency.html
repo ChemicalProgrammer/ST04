@@ -1,0 +1,36 @@
+<script>
+window.STEquipmentEfficiency=(function(){
+  function calculate({runningSeconds,internalDowntimeSeconds,goodProducts,rejects=0,designSpeed,designOutput}){
+    const availability=Number.isFinite(runningSeconds)&&Number.isFinite(internalDowntimeSeconds)&&runningSeconds+internalDowntimeSeconds>0
+      ?runningSeconds/(runningSeconds+internalDowntimeSeconds):null;
+    const total=Number.isFinite(goodProducts)?goodProducts+rejects:NaN;
+    const reference=designOutput>0?designOutput:designSpeed*runningSeconds;
+    const effectiveDesignSpeed=runningSeconds>0?reference/runningSeconds:designSpeed;
+    const productionSpeed=runningSeconds>0&&Number.isFinite(total)?total/runningSeconds:null;
+    const quality=total>0?goodProducts/total:null;
+    const runtimeEfficiency=productionSpeed!==null&&effectiveDesignSpeed>0
+      ?(quality??1)*productionSpeed/effectiveDesignSpeed:null;
+    const operationalEfficiency=availability!==null&&runtimeEfficiency!==null?availability*runtimeEfficiency:null;
+    const throughput=operationalEfficiency!==null?operationalEfficiency*effectiveDesignSpeed:null;
+    return {availability,runtimeEfficiency,operationalEfficiency,throughput,productionSpeed,designSpeed:effectiveDesignSpeed};
+  }
+  function fromNumerical(metrics,model){
+    const max=model.processData?.equipment?.maximumSpeedBpm;
+    const nominal=max>0?max/60:model.nominalRatePerSecond;
+    return calculate({
+      runningSeconds:metrics.runningSeconds,
+      internalDowntimeSeconds:Number.isFinite(metrics.failureSeconds)&&Number.isFinite(metrics.microStopSeconds)
+        ?metrics.failureSeconds+metrics.microStopSeconds:null,
+      goodProducts:metrics.outputCount,
+      designSpeed:Number.isFinite(metrics.designSpeedPerSecond)?metrics.designSpeedPerSecond:nominal,
+      designOutput:metrics.runningDesignOutput
+    });
+  }
+  const fields=[
+    ['availability','Availability'],['runtimeEfficiency','Runtime Efficiency'],
+    ['operationalEfficiency','Operational efficiency'],['throughput','Throughput']
+  ];
+  const basis='Internal downtime includes own failures and modeled microstops. Quality is assumed 100% because rejects are not modeled.';
+  return {calculate,fromNumerical,fields,basis};
+})();
+</script>

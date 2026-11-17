@@ -222,6 +222,15 @@
       card.setAttribute('data-equipment-id', equipmentId);
       card.setAttribute('role', 'listitem');
       card.innerHTML = ("<div class=\"live-equipment-card__row\"><div class=\"live-equipment-identity live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.equipment') + "\"><strong></strong><span class=\"live-command\"></span></div><div class=\"live-equipment-operation live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.state_rate') + "\"><span class=\"live-state\"></span><b class=\"live-rate\"></b><span class=\"live-nominal-rate\"></span></div><div class=\"live-equipment-flow live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.units_oee') + "\"><span class=\"live-flow-label\"></span><b class=\"live-processed\"></b><span class=\"live-oee-label\" title=\"" + __ST_HTML_TEXT__('client.oee_availability_performance_quality_quality_is_assumed_100_until_the_model') + "\">" + __ST_HTML_TEXT__('client.oee') + "</span><b class=\"live-oee\"></b></div><div class=\"live-equipment-stats live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.time_losses') + "\"><div><span>" + __ST_HTML_TEXT__('client.starved') + "</span><b class=\"live-starved\"></b></div><div><span>" + __ST_HTML_TEXT__('client.blocked_2') + "</span><b class=\"live-blocked\"></b></div><div><span>" + __ST_HTML_TEXT__('client.waiting_prime') + "</span><b class=\"live-waiting-prime\"></b></div><div><span>" + __ST_HTML_TEXT__('client.back_up_stop') + "</span><b class=\"live-backup-stop\"></b></div><div><span>" + __ST_HTML_TEXT__('client.failure_2') + "</span><b class=\"live-failure\"></b></div><div><span>" + __ST_HTML_TEXT__('client.emergency') + "</span><b class=\"live-emergency\"></b></div></div><div class=\"live-speed-cell live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.speed_trend') + "\"><div class=\"equipment-speed-sparkline-heading\"><span>" + __ST_HTML_TEXT__('client.actual_last_60_s') + "</span><b class=\"live-sparkline-nominal-rate\"></b></div><canvas class=\"equipment-speed-sparkline\" height=\"56\" aria-label=\"" + __ST_HTML_TEXT__('client.rolling_actual_speed_chart') + "\"></canvas></div><div class=\"live-equipment-controls live-equipment-cell\" data-label=\"" + __ST_HTML_TEXT__('client.scenario_controls') + "\"><button class=\"secondary live-control-run\" type=\"button\">" + __ST_HTML_TEXT__('client.run_resume') + "</button><button class=\"live-control-pause\" type=\"button\">" + __ST_HTML_TEXT__('client.pause') + "</button><button class=\"live-control-stop\" type=\"button\">" + __ST_HTML_TEXT__('client.planned_stop') + "</button><button class=\"live-control-emergency\" type=\"button\">" + __ST_HTML_TEXT__('client.emergency_stop') + "</button><button class=\"secondary live-control-reset\" type=\"button\">" + __ST_HTML_TEXT__('client.reset_run') + "</button></div></div><div class=\"live-equipment-zone\"></div>");
+      var efficiency=document.createElement('div');
+      efficiency.className='live-equipment-efficiency';
+      efficiency.hidden=true;
+      efficiency.title=STEquipmentEfficiency.basis;
+      STEquipmentEfficiency.fields.forEach(function([key,label]){
+        var metric=document.createElement('div'),name=document.createElement('span'),value=document.createElement('b');
+        name.textContent=label;value.dataset.efficiency=key;metric.append(name,value);efficiency.append(metric);
+      });
+      card.querySelector('.live-equipment-zone').before(efficiency);
       var title=card.querySelector('.live-equipment-identity strong'),heading=document.createElement('div'),symbol=document.createElement('span');
       heading.className='live-equipment-heading';symbol.className='live-equipment-symbol';symbol.setAttribute('aria-hidden','true');title.before(heading);heading.append(symbol,title);
       var meta=document.createElement('span');meta.className='critical-label';card.querySelector('.live-equipment-identity').appendChild(meta);
@@ -261,6 +270,17 @@
       }) : null;
       if(zone)zone=Object.assign({},state.run.result?.zoneDefinitions?.[zone.id],zone);
       var belt=conveyorCardRates(zone,model,availabilityState);
+      var efficiencyCard=card.querySelector('.live-equipment-efficiency');
+      efficiencyCard.hidden=model.type==='CONVEYOR'||model.processData?.role==='CONVEYOR';
+      if(!efficiencyCard.hidden){
+        var efficiency=STEquipmentEfficiency.fromNumerical(unit,model);
+        var outputUnit=window.STBasicMode?.unitLabel(unit.unitOfFlow||model.unitOfFlow)||unit.unitOfFlow||model.unitOfFlow||'units';
+        STEquipmentEfficiency.fields.forEach(function([key]){
+          var value=efficiency[key];
+          efficiencyCard.querySelector('[data-efficiency="'+key+'"]').textContent=!Number.isFinite(value)?'—':
+            key==='throughput'?formatNumber(value*60)+' '+outputUnit+'/min':formatPercent(value);
+        });
+      }
       var rate=card.querySelector('.live-rate');
       rate.textContent=belt?formatNumber(belt.speedMmPerSecond*0.06)+' m/min de banda · '+formatNumber((unit.actualRatePerSecond??0)*60)+' unid/min de flujo':formatRatePerMinute(unit.actualRatePerSecond);
       rate.title=belt?'Velocidad de banda y flujo de producto procesado. La banda puede moverse aunque reciba menos producto o esté vacía.':'';

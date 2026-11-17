@@ -244,6 +244,31 @@ window.STResults=(function(){
       values.forEach((value,index)=>{const cell=document.createElement(index?'td':'th');cell.textContent=value;if(index)cell.className='numeric';else cell.scope='row';row.append(cell);});
     }
     scroll.append(table);target.append(heading,note,scroll);
+    const efficiencyHeading=document.createElement('h4'),efficiencyScroll=document.createElement('div'),efficiencyTable=document.createElement('table');
+    efficiencyHeading.textContent='Equipment efficiency';
+    efficiencyScroll.className='table-scroll';
+    const efficiencyHead=efficiencyTable.createTHead().insertRow(),efficiencyBody=efficiencyTable.createTBody();
+    const {fields,fromNumerical,basis}=window.STEquipmentEfficiency;
+    efficiencyTable.title=basis;
+    ['Equipment',...fields.map(([,label])=>label)].forEach(label=>{
+      const cell=document.createElement('th');cell.scope='col';cell.textContent=label;efficiencyHead.append(cell);
+    });
+    for(const model of equipment){
+      if(model.type==='CONVEYOR'||model.processData?.role==='CONVEYOR')continue;
+      const metric=result.equipmentMetrics?.[model.id]||{};
+      const efficiency=fromNumerical(metric,model);
+      const row=efficiencyBody.insertRow(),title=document.createElement('th');
+      title.scope='row';title.textContent=model.name||model.id;row.append(title);
+      for(const [key] of fields){
+        const cell=row.insertCell(),value=efficiency[key];
+        cell.className='numeric';
+        cell.textContent=!Number.isFinite(value)?'—':key==='throughput'
+          ?number(value*60,2)+' '+unitLabel(metric.unitOfFlow||model.unitOfFlow||result.unitOfFlow)+'/min'
+          :number(value*100,2)+' %';
+      }
+    }
+    efficiencyScroll.append(efficiencyTable);target.append(efficiencyHeading,efficiencyScroll);
+
     const breakdown=document.createElement('table'),breakdownHead=breakdown.createTHead(),groups=breakdownHead.insertRow(),columns=breakdownHead.insertRow();
     const equipmentHeader=document.createElement('th');equipmentHeader.rowSpan=2;equipmentHeader.scope='col';equipmentHeader.textContent='Equipment';groups.append(equipmentHeader);
     ['Minor stops','Major stops','General / unclassified'].forEach(function(label){

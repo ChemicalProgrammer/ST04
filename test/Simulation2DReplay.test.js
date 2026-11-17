@@ -90,6 +90,7 @@ test('2D uses the representative seed to calculate new production and preserves 
       if(rendered)drawn.push({type,seconds:args.at(-1)});
       return rendered;
     };
+    window.eval(script('EquipmentEfficiency'));
     window.eval(script('Simulation2D'));
     const source={round:2,seed:78,durationSeconds:10,summary:{outputCount:99999}};
     const createdSeeds=[];
@@ -149,10 +150,10 @@ test('2D uses the representative seed to calculate new production and preserves 
     while(25-expected.time>1e-8)expected.step(Math.min(1/120,25-expected.time));
     assert(expected.line.at(-1).produced>0);
     assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
-    for(const title of ['upstream','belt','Time / failures','Time / sensors']){
+    for(const title of ['upstream','belt','Equipment efficiency','Conveyor operation']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
-    for(const label of ['Own failures','Run','Starving','Ramp up','Ramp down','Failure time','Belt speed']){
+    for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Belt speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
       assert(labels.some(([text,font])=>text===label&&font==='11px system-ui'));
     }
     const beltSpeed=labels.findIndex(([text])=>text==='Belt speed');
@@ -449,4 +450,16 @@ test('2D counts the configured repair ramp and the Back-up response with zero ru
   assert.equal(model.line[0].durations.deceleration,1);
   assert.equal(model.line[0].state,'Back-up stop');
   assert.equal(model.line[0].produced,0);
+});
+
+test('equipment efficiency multiplies quality and speed and uses only internal downtime',()=>{
+  const window={};
+  vm.runInNewContext(script('EquipmentEfficiency'),{window});
+  const {calculate}=window.STEquipmentEfficiency;
+  const result=calculate({runningSeconds:80,internalDowntimeSeconds:20,goodProducts:360,rejects:40,designSpeed:10});
+  assert.equal(result.availability,.8);
+  assert.equal(result.runtimeEfficiency,.45);
+  assert(Math.abs(result.operationalEfficiency-.36)<1e-12);
+  assert(Math.abs(result.throughput-3.6)<1e-12);
+  assert.equal(calculate({runningSeconds:0,internalDowntimeSeconds:0,goodProducts:0,designSpeed:10}).availability,null);
 });

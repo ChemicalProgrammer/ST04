@@ -92,7 +92,7 @@ export function normalizeSimPyResult(raw, input, payload) {
         const m=frame.equipment.find(m=>m.id===e.id),prior=previous?.equipment.find(m=>m.id===e.id),z=frame.zones.find(z=>z.id===e.id),priorZone=previous?.zones.find(z=>z.id===e.id);
         const output=m?m.outputCount:z.releasedUnits,priorOutput=m?prior?.outputCount:priorZone?.releasedUnits;
         return {id:e.id,mode:m?.mode||e.initialMode,availabilityState:m?.state||z?.state||'RUNNING',outputCount:output,processedUnits:output,internalInventoryBottles:m?.internalInventoryBottles,...residenceMetrics(e.id),
-          actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,
+          actualRatePerSecond:dt>0?(output-priorOutput)/dt:0,oeePercent:null,runningSeconds:m?.stateSeconds.RUNNING??null,
           microStopSeconds:m?.stateSeconds.MICRO_STOP??z?.stateSeconds?.MICRO_STOP??null,startupSeconds:m?.stateSeconds.STARTING??null,starvedSeconds:m?.stateSeconds.STARVED??null,blockedSeconds:m?.stateSeconds.BLOCKED??null,failureSeconds:m?.stateSeconds.FAILED??z?.stateSeconds?.FAILED??null,
           ...Object.fromEntries(['minor','major','general'].map(kind=>[kind+'FailureSeconds',m?.[kind+'FailureSeconds']??z?.[kind+'FailureSeconds']??null])),
           waitingForPrimeSeconds:m?.stateSeconds.WAITING_PRIME??null,backupStopSeconds:m?.stateSeconds.BACKUP_STOP??null,emergencyStopSeconds:null,partialStarvationLossSeconds:null,partialBlockingLossSeconds:null};
