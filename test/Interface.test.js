@@ -1023,9 +1023,9 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   assert.match(machine.querySelector('.basic-availability').textContent,/66.7/);
   await h.click('[data-basic-view="conveyors"]');
   let fields=h.d.getElementById('equipment-inspector').querySelector('.equipment-fields');
-  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,27);
+  assert.equal(fields.querySelectorAll('.basic-worksheet-group').length,4);assert.equal(fields.querySelectorAll('.basic-conveyor-worksheet input').length,29);
   const requiredInfeedMargin=h.storedCases()[0].equipment[1].processData.speedAndSensors?.overspeedVsInfeedScrewPercent;
-  const values={'belt-speed':30,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2};
+  const values={'belt-speed':30,'discharge-velocity':14.4,'restart-first-package':2,'package-length':80,'discharge-pitch':120,'startup':2.4,'residual':4,'infeed':125,'downstream-ramp':5,'lact':25000,'lp-prime':1500,'discharge-runout':300,'reject-runout':200,'speed-factor':10,'coding-factor':20,'acc-factor':30,'blocked-delay':1.2,'clear-delay':.4,'insurance':2};
   Object.entries(values).forEach(([key,value])=>change(fields.querySelector('.format-zone-'+key),value));
   const overspeedMode=fields.querySelector('.format-zone-overspeed-enabled');overspeedMode.checked=true;overspeedMode.dispatchEvent(new h.w.Event('change',{bubbles:true}));
   change(fields.querySelector('.format-zone-overspeed'),7);overspeedMode.checked=false;overspeedMode.dispatchEvent(new h.w.Event('change',{bubbles:true}));await h.click('#save-case');
@@ -1038,7 +1038,13 @@ test('UI Basic: four conveyor worksheet groups persist inputs and expose static 
   const audit=h.w.STScenarios.audit({equipment:h.storedCases()[0].equipment})[0],c=audit.engineering.calculated;
   assert.equal(fields.querySelector('[data-basic-output=lbu]').textContent,c.overflowLengthMm.toLocaleString(undefined,{maximumFractionDigits:2}));
   await h.click('[data-conveyor-view="results"]');let results=h.d.getElementById('basic-conveyor-summary');assert(!results.classList.contains('hidden'));
-  for(const label of ['Tacc Antistarve (sec)','Tacc Antiblock (sec)','Lact vs Lmin','Conv Loss (%)','Lba actual (mm)','Lba min rampup (mm)','Lrec (mm)','Overflow req (mm)','Lmin required (mm)','Min infeed speed (m/min)','Block upstream','Starve downstream','Lost blocking/hr (s)','Lost starving/hr (s)'])assert(results.textContent.includes(label),label);
+  for(const label of ['Tacc Antistarve (sec)','Tacc Antiblock (sec)','Lact vs Lmin','Conv Loss (%)','Lba available (mm)','Lrec (mm)','Overflow req (mm)','Lmin required (mm)','Min infeed speed (m/min)','Block upstream','Starve downstream','Lost blocking/hr (s)','Lost starving/hr (s)'])assert(results.textContent.includes(label),label);
+  assert.equal(results.querySelector('[data-status]').dataset.status,'PASS');
+  await h.click('[data-conveyor-view="inputs"]');
+  change(fields.querySelector('.format-zone-restart-first-package'),120);
+  await h.click('[data-conveyor-view="results"]');
+  assert.equal(results.querySelector('[data-status]').dataset.status,'FAIL');
+  assert(results.textContent.includes('Recovery deficit (mm)'));
   assert.equal(results.querySelectorAll('progress').length,3);assert.equal(results.querySelectorAll('input').length,0);
   assert(results.textContent.includes('—'),'No invented dynamic losses before a run');
   await h.click('[data-conveyor-view="inputs"]');

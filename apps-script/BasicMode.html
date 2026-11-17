@@ -158,20 +158,32 @@ window.STBasicMode=(function(){
     efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(simulatedEfficiency,1)+(Number.isFinite(simulatedEfficiency)?'%':''));
     var shifts=document.getElementById('duration-mode').value==='SHIFTS';setupControls.querySelectorAll('[data-run-control]').forEach(function(group){group.hidden=['run-shift-hours','run-shift-count'].includes(group.dataset.runControl)&&!shifts;});
     setupControls.querySelectorAll('[data-control]').forEach(function(b){var control=document.getElementById(b.dataset.control);b.setAttribute('aria-pressed',String(control.value===b.dataset.value));b.disabled=control.disabled;});
-    var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;}),c=audit?.engineering?.calculated,unit=equipment.find(function(e){return e.id===audit?.downstreamId;});
+    var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;});
     if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;
     if(chosen)updateWorksheet(chosen,audit,equipment);
     conveyorSummary.replaceChildren();
     var left=node('section','','basic-conveyor-result-column'),right=node('section','','basic-conveyor-result-column');conveyorSummary.append(left,right);
     var zone=Object.values(state.run.result?.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===id;}),duration=state.run.result?.durationSeconds;
-    var status=Number.isFinite(c?.minimumInstalledLengthMm)&&Number.isFinite(audit?.engineering?.input.installedLengthMm)?audit.engineering.input.installedLengthMm>=c.minimumInstalledLengthMm?'PASS':'FAIL':'NOT EVALUATED';
-    metric(left,'Tacc Antistarve (sec)',number(c?.antiStarveSeconds));metric(right,'Tacc Antiblock (sec)',number(c?.antiBlockSeconds));
-    var pass=node('div','','basic-metric');pass.dataset.status=status;pass.append(node('span','Lact vs Lmin'),node('strong',status));left.appendChild(pass);
+    var index=equipment.findIndex(function(item){return item.id===id&&item.type==='CONVEYOR';});
+    var worksheet,profile;
+    if(index>=0&&state.basicView==='conveyors'&&conveyorView==='results'){
+      var format=window.STProducts?.currentFormat(),resolved=STConveyorAnalysis.resolveProfiles(equipment,format,window.STProducts?.formats()||[]);
+      worksheet=STConveyorAnalysis.calculate({zone:resolved.zones[index]||{},data:resolved.models[index].processData||{},designProfiles:resolved.designProfiles,index:index});
+      profile=worksheet.profiles.find(function(item){return item.formatId===format?.id;})||worksheet.profiles[0];
+    }
+    var geometry=worksheet?.geometry,margin=geometry?.recovery.value;
+    metric(left,'Tacc Antistarve (sec)',number(profile?.antiStarve));metric(right,'Tacc Antiblock (sec)',number(profile?.antiBlock));
+    var pass=node('div','','basic-metric');pass.dataset.status=geometry?.status||'NOT EVALUATED';
+    pass.title='Installed length versus the minimum required for zero recovery margin across applicable formats.';
+    pass.append(node('span','Lact vs Lmin'),node('strong',pass.dataset.status));left.appendChild(pass);
     metric(right,'Conv Loss (%)',number(zone?.conveyorConstraintLossPercent));
-    [['Lba actual (mm)',c?.usefulAccumulationLengthMm],['Lba min rampup (mm)',c?.minimumRampAccumulationLengthMm],['Lrec (mm)',c?.recoveryLengthMm],['Overflow req (mm)',c?.overflowProductLengthMm],['Lmin required (mm)',c?.minimumInstalledLengthMm],['Min infeed speed (m/min)',c?.recommendedInfeedConveyorSpeedMmPerSecond*.06]].forEach(function(row){metric(left,row[0],number(row[1]));});
-    [['Discharge zone',c?.dischargePopulationPercent],['Coding zone',c?.codingPopulationPercent],['Acc zone',c?.populationPercent]].forEach(function(row){
-      var label=node('label',row[0]+' · '+number(row[1])+'%','basic-population');label.title='Calculated design population (packed material rate / zone belt speed); this is not live inventory.';
-      var bar=document.createElement('progress');bar.max=100;if(Number.isFinite(row[1]))bar.value=Math.max(0,Math.min(100,row[1]));bar.setAttribute('aria-label',row[0]+' population');label.appendChild(bar);right.appendChild(label);
+    [['Lba available (mm)',geometry?.lba],['Lba min rampup (mm)',audit?.engineering?.calculated?.minimumRampAccumulationLengthMm],['Lrec (mm)',margin],['Overflow req (mm)',geometry?.overflow.value],
+      ['Lmin required (mm)',geometry?.minimumLength],['Min infeed speed (m/min)',STConveyorAnalysis.recommendedSpeed(profile)]].forEach(function(row){metric(left,row[0],number(row[1]));});
+    if(margin<0)metric(left,'Recovery deficit (mm)',number(-margin));
+    [['Discharge zone',profile?.dischargePopulation],['Coding zone',profile?.codingPopulation],['Acc zone',profile?.population]].forEach(function(row){
+      var percent=row[1]*100;
+      var label=node('label',row[0]+' · '+number(percent)+'%','basic-population');label.title='Calculated design population (packed material rate / zone belt speed); this is not live inventory.';
+      var bar=document.createElement('progress');bar.max=100;if(Number.isFinite(percent))bar.value=Math.max(0,Math.min(100,percent));bar.setAttribute('aria-label',row[0]+' population');label.appendChild(bar);right.appendChild(label);
     });
     metric(right,'Block upstream',Number.isFinite(zone?.blockingEquivalentSeconds)?zone.blockingEquivalentSeconds>0?'YES':'NO':'—');
     metric(right,'Starve downstream',Number.isFinite(zone?.starvingEquivalentSeconds)?zone.starvingEquivalentSeconds>0?'YES':'NO':'—');

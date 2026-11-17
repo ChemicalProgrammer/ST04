@@ -23,6 +23,20 @@ window.STConveyorAnalysis=(function(){
     const packSize=format?window.SimulatorEngine.productPackSize(format):undefined;
     return Number.isFinite(packSize)&&packSize>0?packSize:NaN;
   }
+  function resolveProfiles(equipment,format,formats=[]){
+    const engine=window.SimulatorEngine;
+    function resolve(profile){
+      const models=profile?engine.applyProductProfile(equipment,profile):equipment;
+      const zones=models.map((item,index)=>item.type==='CONVEYOR'?engine.resolveProductConveyor(models,index):null);
+      return {models,zones,format:profile};
+    }
+    const current=resolve(format);
+    const designProfiles=formats.length?formats.map(candidate=>candidate.id===format?.id?current:resolve(candidate)):[current];
+    return {...current,designProfiles};
+  }
+  function recommendedSpeed(profile){
+    return profile?.infeedPitch>0?profile.infeedPitch**2/1000*(1+profile.overspeed/100):NaN;
+  }
   function calculate({zone,data,designProfiles,index}){
     const lact=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
@@ -71,7 +85,7 @@ window.STConveyorAnalysis=(function(){
         const inCoding=coding===0?0:divide(coding*codingPopulation,length);
         const total=duringDelay+residual+inDischarge+inCoding+insurance;
         const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
-        return {name:format?.name||format?.id||'Current format',length,rate,highSpeedBpm,dischargePitch,infeedPitch,
+        return {name:format?.name||format?.id||'Current format',formatId:format?.id,length,rate,highSpeedBpm,dischargePitch,infeedPitch,
           speed,dischargeBpm,dischargeVelocity,dischargeSpeed,codingSpeed,dischargePopulation,codingPopulation,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
@@ -88,16 +102,22 @@ window.STConveyorAnalysis=(function(){
     for(const profile of profiles){
       const {speed,consumption,clear,firstPackage,dischargeTime,codingTime}=profile;
       const overflowTime=divide(overflow.value,speed);
-      const arrival=clear+firstPackage+dischargeTime+codingTime+overflowTime;
+      const arrival=clear+(firstPackage??NaN)+dischargeTime+codingTime+overflowTime;
       const consumed=consumption*arrival;
       const catchTime=divide(consumed,speed-consumption);
       Object.assign(profile,{overflowTime,arrival,consumed,catchTime,extraConsumed:consumption*catchTime,
-        recovery:lba-consumed-consumption*catchTime});
+        recovery:lba-consumed-consumption*catchTime,
+        antiStarve:lba>=0&&consumption>0?lba/consumption:NaN,
+        antiBlock:lba>=0&&profile.flow>0&&profile.population<1?lba*(1-profile.population)/profile.flow:NaN});
     }
     const recovery=extreme('recovery',(a,b)=>a<b);
     recovery.partial ||= overflow.partial;
-    const point=recovery.value>0&&lba>=recovery.value?prime-recovery.value:NaN;
-    return {profiles,common:[
+    const margin=recovery.value;
+    const minimumLength=Number.isFinite(margin)?lact-margin:undefined;
+    const status=margin<-.000001?'FAIL':!Number.isFinite(margin)||recovery.partial?'NOT EVALUATED':margin>.000001?'PASS':'AT LIMIT';
+    const point=margin>=0&&lba>=margin?prime-margin:NaN;
+    const geometry={lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength,status};
+    return {profiles,geometry,common:[
       ['D8','Discharge','mm',discharge,'Input'],
       ['E8','Coding','mm',coding,'Input'],
       ['F8','Overflow','mm',overflow.value,'=MAX(L58:N58)',overflow],
@@ -112,8 +132,8 @@ window.STConveyorAnalysis=(function(){
       ['','Rec Pt.','mm',point,'I13 − L8 − K8',recovery],
       ['','Prime Sensor (calculated)','mm',prime,'I13 − L8'],
       ['','Prime Sensor (actual)','mm',zone.primeSensorPositionMm,'Operating position'],
-      ['','L (min needed)','mm',undefined,'Formula to confirm']
-    ],lba};
+      ['','L (min needed)','mm',minimumLength,'Lact − Lrec (minimum for recovery)',recovery]
+    ]};
   }
 
   const rows=[
@@ -176,15 +196,15 @@ window.STConveyorAnalysis=(function(){
     ]],
     ["Calculating Conveyor Accumulation Time (Tacc)",[
       "Antistarve Accumulation (normally full) Critical machine is downstream",
-      [73,"Accumulation available on Lba","min",'=$I$11*(1-L414)/L16/L27 (L414 treated as 0)',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption/60:NaN],
-      [74,"Accumulation available on Lba","sec",'=L73*60',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption:NaN],
+      [73,"Accumulation available on Lba","min",'=$I$11*(1-L414)/L16/L27 (L414 treated as 0)',p=>p.antiStarve/60],
+      [74,"Accumulation available on Lba","sec",'=L73*60',p=>p.antiStarve],
       "Antiblock Accumulation (normally empty) Critical machine is upstream",
-      [75,"Accumulation available on Lba","min",'=$I$11*(1-L41)/L16/L22',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow/60:NaN],
-      [76,"Accumulation available on Lba","sec",'=L75*60',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow:NaN]
+      [75,"Accumulation available on Lba","min",'=$I$11*(1-L41)/L16/L22',p=>p.antiBlock/60],
+      [76,"Accumulation available on Lba","sec",'=L75*60',p=>p.antiBlock]
     ]],
     ["Calculating Downstream Machine Infeed Conveyor Speed",[
       [79,"Overspeed of conveyor vs infeed screw (5% recommended)","%",'Input',p=>p.overspeed],
-      [80,"Recommended (Minimum) Conveyor Speed","m/min",'=L28*L28/1000*(1+L79)',p=>p.infeedPitch>0?p.infeedPitch**2/1000*(1+p.overspeed/100):NaN]
+      [80,"Recommended (Minimum) Conveyor Speed","m/min",'=L28*L28/1000*(1+L79)',recommendedSpeed]
     ]]
   ];
 
@@ -249,18 +269,18 @@ window.STConveyorAnalysis=(function(){
         worksheet.profiles.forEach(profile=>{
           const cell=make(element,'td');
           cell.className='numeric';
-          cell.textContent=valueText(read(profile,worksheet.lba));
+          cell.textContent=valueText(read(profile));
         });
         make(element,'td',unit);
       }
     }
     make(body,'p','Time to First Package After Restart is configured on the conveyor card. Positions are measured from the conveyor entry.').className='chart-note';
     make(body,'p','Upstream Discharge Velocity (AF) overrides the conveyor speed used as the default discharge reference. Overflow requires conveyor population below 100%.').className='chart-note';
-    make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. L (min needed) is pending verification.').className='chart-note';
+    make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. L (min needed) is the installed length required for zero recovery margin, at the current worksheet settings.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();
   }
   document.getElementById('conveyor-analysis-close').addEventListener('click',close);
-  return {open,close,calculate};
+  return {open,close,calculate,resolveProfiles,recommendedSpeed};
 })();
 </script>
