@@ -540,9 +540,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('K8'),['Pending']);
     assert.deepEqual(tableValue('L20'),['1']);
     assert.deepEqual(tableValue('L22'),['192.73']);
-    assert.deepEqual(tableValue('Conveyor Nominal Speed'),['192.73']);
     assert.deepEqual(tableValue('L23'),['42.4']);
     assert.deepEqual(tableValue('L24'),['18.89']);
+    const speedRows=[...analysisEl('body').querySelectorAll('tr[data-zone]')];
+    assert.equal(speedRows[0].closest('table').tBodies[0].rows.length,9);
+    assert.deepEqual(speedRows.map(row=>row.dataset.zone),[
+      'discharge','discharge','discharge','coding','coding','coding','overflow','overflow','overflow'
+    ]);
+    assert.equal(analysisEl('body').querySelector('[data-cell="L51"]').closest('tbody').rows.length,8);
+    for(const [cell,value] of [[51,'1.61'],[52,'2'],[53,'0'],[54,'0'],[55,'3'],[56,'6.61'],[57,'647.39'],[58,'1,167.43']]){
+      assert.deepEqual(tableValue('L'+cell),[value]);
+    }
     assert.deepEqual(tableValue('L27'),['169.6']);
     assert.deepEqual(tableValue('L30'),['16.62']);
     const firstPackage=analysisEl('body').querySelector('[data-cell="L62"] input');
@@ -555,9 +563,9 @@ test('2D uses the representative seed to calculate new production and preserves 
     buttons[1].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');
     assert.deepEqual(tableValue('I13'),['7,000']);
-    assert.deepEqual(tableValue('Conveyor Nominal Speed'),['2,312.73']);
     assert.deepEqual(tableValue('L27'),['2,035.2']);
     assert.deepEqual(tableValue('L30'),['16.62']);
+    assert.deepEqual(tableValue('L58'),['1,167.43']);
     analysis.close();
   }finally{dom.window.close();}
 });

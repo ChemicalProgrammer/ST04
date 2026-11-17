@@ -11,6 +11,11 @@
 #conveyor-analysis-body h3 { margin:0 0 var(--space-2); }
 #conveyor-analysis-body .chart-note { margin:0; }
 #conveyor-analysis-body input { width:7em; }
+#conveyor-analysis-body tr[data-zone="discharge"] { --zone-color:#65a97c; }
+#conveyor-analysis-body tr[data-zone="coding"] { --zone-color:#e2a16b; }
+#conveyor-analysis-body tr[data-zone="overflow"] { --zone-color:#69a9c1; }
+#conveyor-analysis-body tr[data-zone] > * { background:color-mix(in srgb,var(--zone-color) 26%,var(--surface)); }
+#conveyor-analysis-body tr[data-zone] > :first-child { border-inline-start:3px solid var(--zone-color); }
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
@@ -49,7 +54,6 @@ window.STConveyorAnalysis=(function(){
         const highRate=divide(speed*60,infeedPitch);
         const highSpeedBpm=highRate*bottlesPerFlowUnit(models[index],format);
         const dischargeBpm=rate*bottlesPerFlowUnit(models[index],format);
-        const conveyorBpm=divide(speed*60,belt.productPitchMm)*bottlesPerFlowUnit(models[index],format);
         const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
         const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
         const dischargeSpeed=speed*(1+dischargeFactor/100);
@@ -64,11 +68,15 @@ window.STConveyorAnalysis=(function(){
         const residual=input.bottlesDischargedAtStop??belt.bottlesDischargedAtStop;
         const insurance=input.insuranceFactorUnits??data.accumulation?.insuranceFactorUnits??0;
         const dischargeTime=segmentTime(discharge,dischargeSpeed),codingTime=segmentTime(coding,codingSpeed);
-        const duringDelay=blocked*rate/60,inDischarge=dischargeTime*rate/60,inCoding=codingTime*rate/60;
+        const dischargePopulation=divide(flow,dischargeSpeed);
+        const codingPopulation=divide(flow,codingSpeed);
+        const duringDelay=blocked*rate/60;
+        const inDischarge=discharge===0?0:divide(discharge*dischargePopulation,length);
+        const inCoding=coding===0?0:divide(coding*codingPopulation,length);
         const total=duringDelay+residual+inDischarge+inCoding+insurance;
         const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
         return {name:format?.name||format?.id||'Current format',length,rate,highSpeedBpm,dischargePitch,infeedPitch,
-          speed,dischargeBpm,conveyorBpm,dischargeVelocity,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
+          speed,dischargeBpm,dischargeVelocity,dischargeSpeed,codingSpeed,dischargePopulation,codingPopulation,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
           dischargeFactor,codingFactor,
@@ -133,13 +141,12 @@ window.STConveyorAnalysis=(function(){
     ["Conveyor Details - Speed Selection",[
       [33,"Conveyor Speed Factor vs Discharge Velocity of the Package Leaving the Upstream Machine","%",'Input',p=>p.dischargeFactor],
       [34,"Discharge Conveyor Speed","m/min",'=L23*(1+L33)',p=>p.dischargeSpeed*.06],
-      [35,"Population of Packaging on the Conveyor","%",'=L$24/L34',p=>p.flow/p.dischargeSpeed*100],
+      [35,"Population of Packaging on the Conveyor","%",'=L$24/L34',p=>p.dischargePopulation*100],
       [36,"Coding Conveyor Speed Factor vs Previous Conveyor","%",'Input',p=>p.codingFactor],
       [37,"Coding Conveyor Speed","m/min",'=L34*(1+L36)',p=>p.codingSpeed*.06],
-      [38,"Population of Packaging on the Conveyor","%",'=L24/L37',p=>p.flow/p.codingSpeed*100],
+      [38,"Population of Packaging on the Conveyor","%",'=L24/L37',p=>p.codingPopulation*100],
       [39,"Conveyor Speed Factor vs Previous Conveyor (including overflow, accumulating, and prime sections)","%",'Input',p=>p.accumulationFactor],
       [40,"Conveyor Speed","m/min",'Input',p=>p.speed*.06],
-      [null,"Conveyor Nominal Speed","bpm",'Linear speed / moving pitch × bottles per flow unit',p=>p.conveyorBpm],
       [41,"Population of Packaging on the Conveyor","%",'=L24/L40',p=>p.population*100]
     ]],
     ["Sensor Information",[
@@ -150,7 +157,7 @@ window.STConveyorAnalysis=(function(){
       [48,"Back Up Sensor Clear Time Delay (time for sensor to acknowledge no packages present)","sec",'Input',p=>p.clear]
     ]],
     ["Overflow Space Needed - Calculates conveyor length required to accomodate all packagess during a normal stop",[
-      [51,"Packages Discharged as Back-up Sensor is blocked","Pkgs",'=L46*L22/60',p=>p.duringDelay],
+      [51,"Packages Discharged as Back-up Sensor is blocked","Pkgs",'Blocked delay × native discharge rate / 60',p=>p.duringDelay],
       [52,"Packages Discharged After the Stop Signal from Runout and/or Deceleration","Pkgs",'=L21',p=>p.residual],
       [53,"Packages in Transit on Discharge Conveyor","Pkgs",'=$D$8*L35/L16',p=>p.inDischarge],
       [54,"Packages in Transit on Coding Conveyor","Pkgs",'=$E$8*L38/L16',p=>p.inCoding],
@@ -246,7 +253,8 @@ window.STConveyorAnalysis=(function(){
           continue;
         }
         const [ref,label,unit,,read]=entry;
-        const element=row(formats,ref==null?null:'L'+ref,label);
+        const element=row(formats,'L'+ref,label);
+        if(ref>=33&&ref<=41)element.dataset.zone=ref<=35?'discharge':ref<=38?'coding':'overflow';
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
           cell.className='numeric';
@@ -271,6 +279,7 @@ window.STConveyorAnalysis=(function(){
     }
     updates.forEach(update=>update());
     make(body,'p','Enter the time to the first package after restart for each format. Positions are measured from the conveyor entry.').className='chart-note';
+    make(body,'p','Overflow requires conveyor population below 100%.').className='chart-note';
     make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();
