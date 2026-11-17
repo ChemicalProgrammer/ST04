@@ -561,7 +561,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('K8'),['1,901.41']);
     assert.deepEqual(tableValue('L74'),['13.68']);
     assert.deepEqual(tableValue('L76'),['6.72']);
-    assert.deepEqual(tableValue('L80'),['Pending']);
+    assert.deepEqual(tableValue('L79'),['5']);
+    assert.deepEqual(tableValue('L80'),['65.63']);
     analysis.close();
     buttons[1].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');

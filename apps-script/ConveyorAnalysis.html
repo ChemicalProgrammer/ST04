@@ -76,7 +76,7 @@ window.STConveyorAnalysis=(function(){
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
           dischargeFactor,codingFactor,
-          accumulationFactor:input.accumulationSpeedFactorPercent,overspeed:input.infeedOverspeedPercent};
+          accumulationFactor:input.accumulationSpeedFactorPercent,overspeed:input.infeedOverspeedPercent??models[index].processData?.speedAndSensors?.overspeedVsInfeedScrewPercent??5};
       });
     function extreme(field,select){
       const valid=profiles.filter(profile=>Number.isFinite(profile[field]));
@@ -184,7 +184,7 @@ window.STConveyorAnalysis=(function(){
     ]],
     ["Calculating Downstream Machine Infeed Conveyor Speed",[
       [79,"Overspeed of conveyor vs infeed screw (5% recommended)","%",'Input',p=>p.overspeed],
-      [80,"Recommended (Minimum) Conveyor Speed","m/min",'=L28*L28/1000*(1+L79) (to confirm)',()=>undefined]
+      [80,"Recommended (Minimum) Conveyor Speed","m/min",'=L28*L28/1000*(1+L79)',p=>p.infeedPitch>0?p.infeedPitch**2/1000*(1+p.overspeed/100):NaN]
     ]]
   ];
 
@@ -256,7 +256,7 @@ window.STConveyorAnalysis=(function(){
     }
     make(body,'p','Time to First Package After Restart is configured on the conveyor card. Positions are measured from the conveyor entry.').className='chart-note';
     make(body,'p','Upstream Discharge Velocity (AF) overrides the conveyor speed used as the default discharge reference. Overflow requires conveyor population below 100%.').className='chart-note';
-    make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
+    make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. L (min needed) is pending verification.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();
   }
