@@ -66,8 +66,8 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,machineScale=3.75;
-  const telemetryCardHeight=53+13*18;
-  const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=51;
+  const telemetryCardHeight=53+12*18;
+  const telemetryGroupWidth=3*telemetryWidth+2*telemetryGap,telemetryTopGap=51;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
@@ -321,7 +321,7 @@ window.STSimulation2D=(function(){
     });
     const positions=[];
     for(const center of centers){
-      positions.push(Math.max(center,positions.length?positions.at(-1)+telemetryPairWidth+cardGap:telemetryPairWidth/2));
+      positions.push(Math.max(center,positions.length?positions.at(-1)+telemetryGroupWidth+cardGap:telemetryGroupWidth/2));
     }
     return {positions,end};
   }
@@ -329,7 +329,7 @@ window.STSimulation2D=(function(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const {positions,end}=telemetryLayout(model?.line||definitions);
     const length=Math.max(end+(definitions.length?cardWidth+cardGap:0),
-      (positions.at(-1)??0)+telemetryPairWidth/2)/sceneScale;
+      (positions.at(-1)??0)+telemetryGroupWidth/2)/sceneScale;
     const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
@@ -415,42 +415,41 @@ window.STSimulation2D=(function(){
     const rate=item.ratePerMinute??0,produced=item.produced??0;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
     const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
-    const statusRow=['State',signal.state,''];
+    const summary=[['State',signal.state,''],['Flow',bottles(rate),'bpm'],['Processed',bottles(produced),'bottles']];
+    if(cases)summary.push(['Case flow',num(rate),'cpm'],['Cases made',num(produced),'cases']);
+    if(belt){
+      summary.push(['Belt speed',num(item.speed*.06),'m/min'],
+        ['On belt',num(item.items?.length??0),cases?'cases':'bottles']);
+      if(!cases){
+        const stage=bottleStages.get(item.id)??0;
+        summary.push(['Bottle stage',bottleStageNames[stage&3],'']);
+        if(stage&4)summary.push(['Cap','Applied','']);
+      }
+      summary.push(['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']);
+    }else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
+      ['Est. residence',num(item.residenceSeconds),'s'],
+      ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']);
+    summary.push(['Own failures',belt?'N/A':num(item.failureCount??0),'']);
     const states=belt
-      ? [statusRow,duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
-        ['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']]
-      : [statusRow,duration('Running','running'),duration('Starved','starving'),duration('Blocked','blocked'),
+      ? [duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
+        ['Ramp up','N/A',''],['Ramp down','N/A','']]
+      : [duration('Running','running'),duration('Starved','starving'),duration('Blocked','blocked'),
         duration('Faulted','failure'),duration('Stopped','stopped'),duration('Starting','starting'),
         duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),
         duration('Paused','paused'),duration('Emergency stop','emergencyStop'),duration('Planned stop','plannedStop'),
         duration('Back-up stop','backupStop')];
     const unit=cases?'cases/min':'bottles/min';
-    const max=item.designSpeedPerSecond??item.rate;
     const efficiency=window.STEquipmentEfficiency;
     const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
     const metrics=belt?null:efficiency.calculate({
-      runningSeconds,internalDowntimeSeconds:item.durations?.failure??0,goodProducts:produced,designSpeed:max
+      runningSeconds,internalDowntimeSeconds:item.durations?.failure??0,goodProducts:produced,
+      designSpeed:item.designSpeedPerSecond??item.rate
     });
-    const performance=belt
-      ? [['Belt speed',num(item.speed*.06),'m/min'],['Flow',bottles(rate),'bpm'],
-        ['Processed',bottles(produced),'bottles'],['On belt',num(item.items?.length??0),cases?'cases':'bottles'],
-        ['Ramp up','N/A',''],['Ramp down','N/A','']]
-      : efficiency.fields.map(([key,label])=>{
-        const throughput=key==='throughput',value=metrics[key];
-        return [label,num(value===null?NaN:value*(throughput?60:100)),throughput?unit:'%'];
-      });
-    if(belt&&cases)performance.push(['Case flow',num(rate),'cases/min'],['Cases moved',num(produced),'cases']);
-    if(belt&&!cases){
-      const stage=bottleStages.get(item.id)??0;
-      performance.push(['Bottle stage',bottleStageNames[stage&3],'']);
-      if(stage&4)performance.push(['Cap','Applied','']);
-    }
-    if(!belt)performance.push(['Design speed',num(max*60),unit],
-      ['Production speed',num(metrics.productionSpeed===null?NaN:metrics.productionSpeed*60),unit],
-      ['Produced',bottles(produced),'bottles'],
-      ['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
-      ['Est. residence',num(item.residenceSeconds),'s'],
-      ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']);
+    const performance=efficiency.fields.map(([key,label])=>{
+      if(belt)return [label,'N/A',''];
+      const throughput=key==='throughput',value=metrics[key];
+      return [label,num(value===null?NaN:value*(throughput?60:100)),throughput?unit:'%'];
+    });
     function card(left,title,rows,showSignal){
       const width=telemetryWidth;
       const height=telemetryCardHeight;
@@ -487,8 +486,10 @@ window.STSimulation2D=(function(){
         drawText(context,unit,left+140,rowY+13,34);
       });
     }
-    card(x-telemetryPairWidth/2,item.name,states,true);
-    card(x+telemetryGap/2,belt?'Conveyor operation':'Equipment efficiency',performance,false);
+    const left=x-telemetryGroupWidth/2,stride=telemetryWidth+telemetryGap;
+    card(left,item.name,summary,true);
+    card(left+stride,'States',states,false);
+    card(left+2*stride,'Equipment efficiency',performance,false);
     context.textAlign='center';
     context.font='12px system-ui';
   }
@@ -807,7 +808,7 @@ window.STSimulation2D=(function(){
     }
     for(let index=0;index<line.length;index++){
       const item=line[index],center=origin+positions[index];
-      if(center+telemetryPairWidth/2<0||center-telemetryPairWidth/2>w)continue;
+      if(center+telemetryGroupWidth/2<0||center-telemetryGroupWidth/2>w)continue;
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
       drawTelemetry(context,item,center,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }

@@ -125,6 +125,16 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(el('time').textContent,'1 s');
     assert.equal(records.length,saved);
     assert(records.at(-1).checkpoint.line[0].failureCount>0,'split MTBF/MTTR work without a general pair');
+    const frame=labels.slice(lastFrameOrigin);
+    const machine=frame.findIndex(([text,font])=>text==='upstream'&&font==='600 12px system-ui');
+    const states=frame.findIndex(([text])=>text==='States');
+    const efficiency=frame.findIndex(([text])=>text==='Equipment efficiency');
+    assert(machine>=0&&machine<states&&states<efficiency);
+    assert(frame[machine][2]<frame[states][2]&&frame[states][2]<frame[efficiency][2]);
+    const failures=frame.slice(machine,states).findIndex(([text])=>text==='Own failures');
+    assert(failures>=0);
+    assert.equal(frame[machine+failures+1][0],String(records.at(-1).checkpoint.line[0].failureCount));
+    assert(frame.slice(states,efficiency).some(([text])=>text==='Faulted'));
     assert.match(el('status').textContent,/Seed 7/);
     el('source').value='representative';
     el('source').dispatchEvent(new window.Event('change'));
@@ -150,7 +160,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     while(25-expected.time>1e-8)expected.step(Math.min(1/120,25-expected.time));
     assert(expected.line.at(-1).produced>0);
     assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
-    for(const title of ['upstream','belt','Equipment efficiency','Conveyor operation']){
+    for(const title of ['upstream','belt','States','Equipment efficiency']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
     for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Belt speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
