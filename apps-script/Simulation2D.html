@@ -65,10 +65,12 @@
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryGap=6,machineScale=3.75;
-  const telemetryCardHeight=53+12*18;
-  const telemetryColumns=[[96,99,52],[107,62,28],[135,62,75]],telemetryTopGap=51;
-  const telemetryPadding=9,telemetryColumnGap=8,parameterValueGap=telemetryColumnGap*.9,telemetryFont='12px system-ui';
+  const tableScale=.75;
+  const step=1/120,sceneScale=.09,cardWidth=260*tableScale,cardGap=24,telemetryGap=6*tableScale,machineScale=3.75;
+  const telemetryCardHeight=(53+12*18)*tableScale,telemetryRowHeight=18*tableScale;
+  const telemetryColumns=[[96,99,52],[107,62,28],[135,62,75]].map(columns=>columns.map(width=>width*tableScale));
+  const telemetryTopGap=51,telemetryPadding=9*tableScale,telemetryColumnGap=8*tableScale;
+  const parameterValueGap=telemetryColumnGap*.9,telemetryFont=12*tableScale+'px system-ui';
   const telemetryWidths=telemetryColumns.map(columns=>
     columns.reduce((sum,width)=>sum+width,0)+2*telemetryPadding+parameterValueGap+telemetryColumnGap);
   const telemetryPairWidth=telemetryWidths[0]+telemetryWidths[1]+telemetryGap;
@@ -336,7 +338,7 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(model?.line||definitions);
     const last=items.at(-1);
     const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2):0)/sceneScale;
-    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,68+shiftIndex(model?.time??0)*20);
+    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+(108+shiftIndex(model?.time??0)*20)*tableScale);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -396,24 +398,26 @@ window.STSimulation2D=(function(){
     const cases=output.unit==='CASES';
     const bottleFactor=output.bottlesPerUnit;
     const currentShift=shiftIndex(model?.time??0);
-    const height=88+(currentShift+1)*20;
+    const height=(88+(currentShift+1)*20)*tableScale;
+    const labelX=x+14*tableScale,casesX=x+120*tableScale,bottlesX=x+182*tableScale;
     context.fillStyle=surface;context.strokeStyle=border;
     strokeBox(context,x,y,cardWidth,height);
     context.fillStyle=ink;
     context.textAlign='left';
-    context.font='bold 14px system-ui';
-    context.fillText('Production',x+14,y+22);
-    context.font='12px system-ui';
-    context.fillText(num(shiftHours)+' h per shift',x+14,y+41);
-    context.fillText('Cases',x+120,y+60);
-    context.fillText(cases?'Bottle eq.':'Bottles',x+182,y+60);
-    function row(label,quantity,position){
-      context.fillText(label,x+14,position);
-      drawText(context,num(cases?quantity:0),x+120,position,55);
-      drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),x+182,position,64);
+    context.font='bold '+14*tableScale+'px system-ui';
+    context.fillText('Production',labelX,y+22*tableScale);
+    context.font=telemetryFont;
+    context.fillText(num(shiftHours)+' h per shift',labelX,y+41*tableScale);
+    context.fillText('Cases',casesX,y+60*tableScale);
+    context.fillText(cases?'Bottle eq.':'Bottles',bottlesX,y+60*tableScale);
+    function row(label,quantity,offset){
+      const baseline=y+offset*tableScale;
+      context.fillText(label,labelX,baseline);
+      drawText(context,num(cases?quantity:0),casesX,baseline,55*tableScale);
+      drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),bottlesX,baseline,64*tableScale);
     }
-    row('Total',output.produced||0,y+80);
-    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,y+100+20*index);
+    row('Total',output.produced||0,80);
+    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index);
     context.textAlign='center';
   }
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
@@ -464,34 +468,34 @@ window.STSimulation2D=(function(){
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
-      context.fillRect(left+1,y+6,width-2,39);
+      context.fillRect(left+1,y+6*tableScale,width-2,39*tableScale);
       context.font='600 '+telemetryFont;context.textAlign='left';
       if(showSignal){
-        const capsuleWidth=width-16;
+        const capsuleWidth=width-16*tableScale;
         context.fillStyle=colors[signal.lamp];
         context.beginPath();
-        context.roundRect(left+8,y+8,capsuleWidth,18,9);
+        context.roundRect(left+8*tableScale,y+8*tableScale,capsuleWidth,telemetryRowHeight,telemetryRowHeight/2);
         context.fill();
         context.fillStyle='#fff';
         context.textAlign='center';
-        text(title,left+width/2,y+21,capsuleWidth-20);
+        text(title,left+width/2,y+21*tableScale,capsuleWidth-20*tableScale);
       }else{
         context.fillStyle=ink;
-        text(title,left+9,y+21,width-18);
+        text(title,parameterX,y+21*tableScale,width-2*telemetryPadding);
       }
       context.textAlign='left';context.fillStyle=muted;context.font=telemetryFont;
-      context.fillText('Parameter',parameterX,y+41);
-      context.textAlign='right';context.fillText('Value',valueX,y+41);
-      context.textAlign='left';context.fillText('Unit',unitX,y+41);
+      context.fillText('Parameter',parameterX,y+41*tableScale);
+      context.textAlign='right';context.fillText('Value',valueX,y+41*tableScale);
+      context.textAlign='left';context.fillText('Unit',unitX,y+41*tableScale);
       rows.forEach(([label,value,unit],index)=>{
-        const rowY=y+46+index*18;
-        if(index%2===1){context.fillStyle=soft;context.fillRect(left+1,rowY,width-2,18);}
+        const rowY=y+46*tableScale+index*telemetryRowHeight,baseline=rowY+13*tableScale;
+        if(index%2===1){context.fillStyle=soft;context.fillRect(left+1,rowY,width-2,telemetryRowHeight);}
         context.font=telemetryFont;context.fillStyle=muted;
-        text(label,parameterX,rowY+13,parameterWidth);
+        text(label,parameterX,baseline,parameterWidth);
         context.fillStyle=ink;context.font='600 '+telemetryFont;context.textAlign='right';
-        text(value,valueX,rowY+13,valueWidth);
+        text(value,valueX,baseline,valueWidth);
         context.fillStyle=muted;context.font=telemetryFont;context.textAlign='left';
-        text(unit,unitX,rowY+13,unitWidth);
+        text(unit,unitX,baseline,unitWidth);
       });
     }
     const statesLeft=left+telemetryWidths[0]+telemetryGap;
@@ -569,7 +573,7 @@ window.STSimulation2D=(function(){
   function drawConveyorDimensions(context,item,x,y,width,beltY,ink,accent,pointer){
     const rows=conveyorDimensions.get(item.id)?.rows||[];
     context.save();
-    context.font='10px system-ui';
+    context.font=10*tableScale+'px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
     context.strokeStyle=accent;context.fillStyle=ink;
@@ -784,6 +788,8 @@ window.STSimulation2D=(function(){
           context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
         }
         if(dimensions){
+          context.save();
+          context.font=telemetryFont;
           for(const [label,position,offset] of [
             ['Max Run-Out point',dimensions.runout,24],
             ['Rec Pt.',dimensions.recovery,44],
@@ -798,8 +804,9 @@ window.STSimulation2D=(function(){
             context.setLineDash([]);
             context.fillText(label,mx,my);
           }
+          context.restore();
+          drawConveyorDimensions(context,item,x,dimensionY,width,beltY,ink,accent,pointer);
         }
-        if(dimensions)drawConveyorDimensions(context,item,x,dimensionY,width,beltY,ink,accent,pointer);
       }else{
         const height=displayHeight(item),top=y-height/2;
         const signal=machineSignal(item);
@@ -1024,11 +1031,14 @@ window.STSimulation2D=(function(){
     const ratio=scale/camera.scale;
     camera={scale,x:x-(x-camera.x)*ratio,y:y-(y-camera.y)*ratio,fit:false};syncZoom();draw();
   }
-  canvas.addEventListener('wheel',event=>{
-    if(!event.ctrlKey&&!event.metaKey)return;
+  canvas.parentElement.addEventListener('wheel',event=>{
+    if(!event.deltaY)return;
     event.preventDefault();
     const rect=canvas.getBoundingClientRect();
-    zoom(Math.exp(-event.deltaY/350),event.clientX-rect.left,event.clientY-rect.top);
+    const x=event.clientX-rect.left-canvas.clientLeft,y=event.clientY-rect.top-canvas.clientTop;
+    const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?canvas.clientHeight:1);
+    if(showDimensions.checked)dimensionPointer={x,y};
+    zoom(Math.exp(-delta/350),x,y);
   },{passive:false});
   function endDrag(event){
     if(!drag||(event?.pointerId!==undefined&&event.pointerId!==drag.id))return;
@@ -1048,7 +1058,8 @@ window.STSimulation2D=(function(){
     if(showDimensions.checked&&!drag)draw();
   });
   canvas.addEventListener('pointerdown',event=>{
-    if(event.button!==0||drag)return;
+    if((event.button!==0&&event.button!==1)||drag)return;
+    if(event.button===1)event.preventDefault();
     camera.fit=false;
     drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
     canvas.setPointerCapture?.(event.pointerId);

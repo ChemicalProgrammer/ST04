@@ -68,7 +68,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
-      measureText:text=>({width:text.length*5}),
+      measureText(text){return {width:text.length*(this.font?.includes('9px')?3.75:5)};},
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
       quadraticCurveTo:x=>bottles.push(x),
       rect:x=>bottles.push(x),
@@ -128,7 +128,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(records.length,saved);
     assert(records.at(-1).checkpoint.line[0].failureCount>0,'split MTBF/MTTR work without a general pair');
     const frame=labels.slice(lastFrameOrigin);
-    const machine=frame.findIndex(([text,font])=>text==='upstream'&&font==='600 12px system-ui');
+    const machine=frame.findIndex(([text,font])=>text==='upstream'&&font==='600 9px system-ui');
     const states=frame.findIndex(([text])=>text==='States');
     const efficiency=frame.findIndex(([text])=>text==='Equipment efficiency');
     assert(machine>=0&&machine<states&&states<efficiency);
@@ -164,7 +164,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(expected.line.at(-1).produced>0);
     assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
     const fittedFrame=labels.slice(lastFrameOrigin);
-    const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21;
+    const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21*.75;
     const cards=boxes.filter(box=>box.y===telemetryY);
     assert.equal(cards.length,8);
     const silhouettes=boxes.filter(box=>box.y<telemetryY&&box.width>100&&
@@ -183,12 +183,12 @@ test('2D uses the representative seed to calculate new production and preserves 
     const control=el('machine-controls').querySelector('[aria-label="upstream controls"]');
     assert(Math.abs(parseFloat(control.style.left)-(silhouettes[0].x+silhouettes[0].width/2)*scale)<1e-8);
     const cardText=fittedFrame.filter(([, , , y])=>y>=telemetryY);
-    assert(cardText.every(([,font])=>font==='12px system-ui'||font==='600 12px system-ui'));
+    assert(cardText.every(([,font])=>font==='9px system-ui'||font==='600 9px system-ui'));
     for(const title of ['upstream','belt','States','Equipment efficiency']){
-      assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
+      assert(labels.some(([text,font])=>text===title&&font==='600 9px system-ui'));
     }
     for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Design speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
-      assert(labels.some(([text,font])=>text===label&&font==='12px system-ui'));
+      assert(labels.some(([text,font])=>text===label&&font==='9px system-ui'));
     }
     assert.equal(fittedFrame.filter(([text])=>text==='Equipment efficiency').length,2);
     const speeds=fittedFrame.flatMap(([text],index)=>text==='Design speed'?[fittedFrame.slice(index,index+3)]:[]);
@@ -229,11 +229,26 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('reset').click();
     assert.match(el('status').textContent,/^Ready/);
     const canvas=el('canvas');
-    const pointer=(target,type,x,buttons)=>target.dispatchEvent(Object.assign(
-      new window.MouseEvent(type,{clientX:x,clientY:100,button:0,buttons,bubbles:true}),{pointerId:1}));
+    const pointer=(target,type,x,buttons,button=0)=>target.dispatchEvent(Object.assign(
+      new window.MouseEvent(type,{clientX:x,clientY:100,button,buttons,bubbles:true}),{pointerId:1}));
     el('fit').click();
     const frameX=()=>labels.slice(lastFrameOrigin).find(([text])=>text==='upstream')[2];
     const fittedX=frameX();
+    const titlePosition=()=>labels.slice(lastFrameOrigin).find(([text])=>text==='upstream').slice(2,4).map(value=>value*scale);
+    const anchor=[240,180],beforeZoom=titlePosition(),beforeScale=scale;
+    const wheel=new window.WheelEvent('wheel',{deltaY:-120,clientX:anchor[0],clientY:anchor[1],bubbles:true,cancelable:true});
+    canvas.dispatchEvent(wheel);
+    assert(wheel.defaultPrevented);
+    assert(scale>beforeScale);
+    for(const [index,value] of titlePosition().entries()){
+      assert(Math.abs((value-anchor[index])-(beforeZoom[index]-anchor[index])*scale/beforeScale)<1e-8);
+    }
+    const beforePan=titlePosition()[0];
+    pointer(canvas,'pointerdown',120,4,1);
+    pointer(window,'pointermove',160,4,1);
+    pointer(window,'pointerup',160,0,1);
+    assert(Math.abs(titlePosition()[0]-beforePan-40)<1e-8);
+    el('fit').click();
     pointer(canvas,'pointerdown',120,1);
     pointer(window,'pointermove',160,1);
     pointer(window,'pointerup',160,0);
@@ -323,6 +338,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
     const discharge=dimensionLabel('Discharge'),coding=dimensionLabel('Coding'),overflow=dimensionLabel('Overflow');
     assert(discharge[2]<coding[2]&&coding[2]<overflow[2]);
+    assert.equal(discharge[1],'7.5px system-ui');
     const topTier=['Discharge','Coding','Overflow','Lrec','Lp'].map(dimensionLabel);
     for(const entry of topTier)assert.equal(entry[3],discharge[3]);
     for(let index=1;index<topTier.length;index++){
@@ -354,7 +370,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(headings.length,6);
     for(const [index,heading] of headings.entries()){
       assert.equal(heading[3],headings[0][3]);
-      if(index)assert(heading[2]-headings[index-1][2]>=180);
+      if(index)assert(heading[2]-headings[index-1][2]>=180*.75);
     }
     assert(!marker('Rec Pt.'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
@@ -489,7 +505,16 @@ test('2D counts the configured repair ramp and the Back-up response with zero ru
   for(let i=0;i<5;i++)model.step(.25);
   assert.equal(model.line[0].durations.deceleration,1);
   assert.equal(model.line[0].state,'Back-up stop');
+  assert.equal(model.line[0].durations.backupStop,.25);
+  assert.equal(model.line[0].durations.blocked,0);
   assert.equal(model.line[0].produced,0);
+
+  const blocked=engine.create([{...machine,residenceSeconds:0},{...belt,id:'belt'}]);
+  blocked.control('belt','STOP');
+  for(let i=0;i<16;i++)blocked.step(.25);
+  assert.equal(blocked.line[0].state,'Blocked');
+  assert(blocked.line[0].durations.blocked>0);
+  assert.equal(blocked.line[0].durations.backupStop,0);
 });
 
 test('equipment efficiency multiplies quality and speed and uses only internal downtime',()=>{
