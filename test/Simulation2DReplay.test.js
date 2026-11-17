@@ -105,7 +105,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     }};
     const records=[];
     const equipment=[
-      {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,maximumSpeedBpm:720,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
       {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:999}}}
     ];
@@ -166,15 +166,19 @@ test('2D uses the representative seed to calculate new production and preserves 
     const fittedFrame=labels.slice(lastFrameOrigin);
     const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21;
     const cards=boxes.filter(box=>box.y===telemetryY);
-    assert.equal(cards.length,9);
+    assert.equal(cards.length,8);
     const silhouettes=boxes.filter(box=>box.y<telemetryY&&box.width>100&&
       (box.height===7.5||box.height>170&&box.height<200));
     assert.equal(silhouettes.length,3);
+    let firstCardIndex=0;
     for(const [index,silhouette] of silhouettes.entries()){
-      const first=cards[index*3],last=cards[index*3+2];
+      const count=index===1?2:3;
+      const first=cards[firstCardIndex],last=cards[firstCardIndex+count-1];
       const center=silhouette.x+silhouette.width/2;
       assert(Math.abs((first.x+last.x+last.width)/2-center)<1e-8);
-      if(index)assert(first.x>=cards[index*3-1].x+cards[index*3-1].width);
+      const previous=cards[firstCardIndex-1];
+      if(previous)assert(first.x>=previous.x+previous.width);
+      firstCardIndex+=count;
     }
     const control=el('machine-controls').querySelector('[aria-label="upstream controls"]');
     assert(Math.abs(parseFloat(control.style.left)-(silhouettes[0].x+silhouettes[0].width/2)*scale)<1e-8);
@@ -183,11 +187,15 @@ test('2D uses the representative seed to calculate new production and preserves 
     for(const title of ['upstream','belt','States','Equipment efficiency']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
-    for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Belt speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
+    for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Design speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
       assert(labels.some(([text,font])=>text===label&&font==='12px system-ui'));
     }
-    const beltSpeed=labels.findIndex(([text])=>text==='Belt speed');
-    const [parameter,value,unit]=labels.slice(beltSpeed,beltSpeed+3);
+    assert.equal(fittedFrame.filter(([text])=>text==='Equipment efficiency').length,2);
+    const speeds=fittedFrame.flatMap(([text],index)=>text==='Design speed'?[fittedFrame.slice(index,index+3)]:[]);
+    assert.deepEqual(speeds.map(row=>row.slice(1).map(([text])=>text)),[
+      ['720','bpm'],['7.2','m/min'],['240','bpm']
+    ]);
+    const [parameter,value,unit]=speeds[1];
     assert.equal(value[0],'7.2');
     assert.equal(unit[0],'m/min');
     assert.equal(parameter[3],value[3]);
@@ -285,6 +293,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(dialog.open);
     el('events-close').click();
     assert(!dialog.open);
+    assert.equal(el('settings-title').textContent,'Settings');
+    assert.equal(el('title').textContent,'Layout');
     assert.equal(el('running').textContent,'0/2');
     const fullscreen=el('fullscreen');
     assert.equal(fullscreen.previousElementSibling,el('fit'));
