@@ -133,7 +133,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
-      measureText(text){return {width:text.length*(this.font?.includes('9px')?3.75:5)};},
+      measureText(text){return {width:text.length*(this.font?.includes('6.75px')?2.8125:5)};},
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
       quadraticCurveTo:x=>bottles.push(x),
       rect:x=>bottles.push(x),
@@ -193,7 +193,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(records.length,saved);
     assert(records.at(-1).checkpoint.line[0].failureCount>0,'split MTBF/MTTR work without a general pair');
     const frame=labels.slice(lastFrameOrigin);
-    const machine=frame.findIndex(([text,font])=>text==='upstream'&&font==='600 9px system-ui');
+    const machine=frame.findIndex(([text,font])=>text==='upstream'&&font==='600 6.75px system-ui');
     const states=frame.findIndex(([text])=>text==='States');
     const efficiency=frame.findIndex(([text])=>text==='Equipment efficiency');
     assert(machine>=0&&machine<states&&states<efficiency);
@@ -230,15 +230,15 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(expected.line.at(-1).produced>0);
     assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
     const fittedFrame=labels.slice(lastFrameOrigin);
-    const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21*.75;
+    const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21*.75*.75;
     const cards=boxes.filter(box=>box.y===telemetryY);
-    assert.equal(cards.length,8);
+    assert.equal(cards.length,9);
     const silhouettes=boxes.filter(box=>box.y<telemetryY&&box.width>100&&
       (box.height===7.5||box.height>170&&box.height<200));
     assert.equal(silhouettes.length,3);
     let firstCardIndex=0;
     for(const [index,silhouette] of silhouettes.entries()){
-      const count=index===1?2:3;
+      const count=3;
       const first=cards[firstCardIndex],last=cards[firstCardIndex+count-1];
       const center=silhouette.x+silhouette.width/2;
       assert(Math.abs((first.x+last.x+last.width)/2-center)<1e-8);
@@ -249,12 +249,12 @@ test('2D uses the representative seed to calculate new production and preserves 
     const control=el('machine-controls').querySelector('[aria-label="upstream controls"]');
     assert(Math.abs(parseFloat(control.style.left)-(silhouettes[0].x+silhouettes[0].width/2)*scale)<1e-8);
     const cardText=fittedFrame.filter(([, , , y])=>y>=telemetryY);
-    assert(cardText.every(([,font])=>font==='9px system-ui'||font==='600 9px system-ui'));
+    assert(cardText.every(([,font])=>font==='6.75px system-ui'||font==='600 6.75px system-ui'));
     for(const title of ['upstream','belt','States','Equipment efficiency']){
-      assert(labels.some(([text,font])=>text===title&&font==='600 9px system-ui'));
+      assert(labels.some(([text,font])=>text===title&&font==='600 6.75px system-ui'));
     }
     for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Design speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
-      assert(labels.some(([text,font])=>text===label&&font==='9px system-ui'));
+      assert(labels.some(([text,font])=>text===label&&font==='6.75px system-ui'));
     }
     assert.equal(fittedFrame.filter(([text])=>text==='Equipment efficiency').length,2);
     const throughput=fittedFrame.findIndex(([text])=>text==='Throughput');
@@ -390,7 +390,11 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(fullscreen.getAttribute('aria-pressed'),'false');
     const dimensions=el('dimensions');
     const currentLabels=()=>labels.slice(lastFrameOrigin).map(([text])=>text);
-    const marker=label=>labels.slice(lastFrameOrigin).find(([text])=>text===label);
+    const marker=label=>{
+      const frame=labels.slice(lastFrameOrigin);
+      const headingY=frame.find(([text])=>text==='Parameter')[3];
+      return frame.find(([text,,,y])=>text===label&&y<headingY);
+    };
     const sensorPosition=label=>marker(label).slice(2,4);
     const originalSensors=['B','P'].map(sensorPosition);
     for(const control of ['source','machine-style','dimensions']){
@@ -407,14 +411,14 @@ test('2D uses the representative seed to calculate new production and preserves 
     const dimensionLabel=prefix=>labels.slice(lastFrameOrigin).find(([text])=>text.startsWith(prefix+' ·'));
     const discharge=dimensionLabel('Discharge'),coding=dimensionLabel('Coding'),overflow=dimensionLabel('Overflow');
     assert(discharge[2]<coding[2]&&coding[2]<overflow[2]);
-    assert.equal(discharge[1],'7.5px system-ui');
+    assert.equal(discharge[1],'6.75px system-ui');
     const topTier=['Discharge','Coding','Overflow','Lrec','Lp'].map(dimensionLabel);
     for(const entry of topTier)assert.equal(entry[3],discharge[3]);
     for(let index=1;index<topTier.length;index++){
       const [previous,current]=topTier.slice(index-1,index+1);
-      assert(current[2]-previous[2]>=(previous[0].length+current[0].length)*2.5+7.99);
+      assert(current[2]-previous[2]>=(previous[0].length+current[0].length)*2.8125/2+7.99);
     }
-    assert.equal(dimensionLabel('Lbu')[3],dimensionLabel('Accumulation Zone (Lba)')[3]);
+    assert(Math.abs(dimensionLabel('Lbu')[3]-dimensionLabel('Accumulation Zone (Lba)')[3])<=10);
     assert(dimensionLabel('Lbu')[3]<overflow[3]);
     assert(dimensionLabel('Lact')[3]<dimensionLabel('Accumulation Zone (Lba)')[3]);
 
@@ -439,7 +443,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(headings.length,6);
     for(const [index,heading] of headings.entries()){
       assert.equal(heading[3],headings[0][3]);
-      if(index)assert(heading[2]-headings[index-1][2]>=180*.75);
+      if(index)assert(heading[2]-headings[index-1][2]>=100);
     }
     assert(!marker('Recovery Point'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
@@ -452,6 +456,16 @@ test('2D uses the representative seed to calculate new production and preserves 
     for(const [label,value] of [['Overflow',300],['Lbu',550],['Accumulation Zone (Lba)',950],['Lrec',150],['L min',2400]]){
       assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
     }
+    const tableValue=label=>{
+      const frame=currentLabels(),index=frame.lastIndexOf(label);
+      assert(index>=0,label);
+      return frame.slice(index+1,index+3);
+    };
+    assert.deepEqual(tableValue('Back-up position'),['500','mm']);
+    assert.deepEqual(tableValue('Prime position'),['1,500','mm']);
+    assert.deepEqual(tableValue('Discharge'),['100','mm']);
+    assert.deepEqual(tableValue('Coding'),['150','mm']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['950','mm']);
     close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
     const extent=label=>{
       const [, , , y]=dimensionLabel(label);

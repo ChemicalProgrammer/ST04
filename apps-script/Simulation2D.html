@@ -65,16 +65,17 @@
 window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
-  const tableScale=.75;
-  const step=1/120,sceneScale=.09,cardWidth=260*tableScale,cardGap=24,telemetryGap=6*tableScale,machineScale=3.75;
-  const telemetryCardHeight=(53+12*18)*tableScale,telemetryRowHeight=18*tableScale;
-  const telemetryColumns=[[96,99,52],[107,62,28],[135,62,75]].map(columns=>columns.map(width=>width*tableScale));
-  const telemetryTopGap=51,telemetryPadding=9*tableScale,telemetryColumnGap=8*tableScale;
+  const tableScale=.75*.75;
+  const step=1/120,sceneScale=.09,cardWidth=226*tableScale,cardGap=24,telemetryGap=6*tableScale,machineScale=3.75;
+  const telemetryCardHeight=(53+16*18)*tableScale,telemetryRowHeight=18*tableScale;
+  const telemetryColumns=[[84,99,38],[94,50,23],[128,50,54],[145,62,22]].map(columns=>columns.map(width=>width*tableScale));
+  const telemetryTopGap=51,telemetryPadding=7*tableScale,telemetryColumnGap=5*tableScale;
   const parameterValueGap=telemetryColumnGap*.9,telemetryFont=12*tableScale+'px system-ui';
   const telemetryWidths=telemetryColumns.map(columns=>
     columns.reduce((sum,width)=>sum+width,0)+2*telemetryPadding+parameterValueGap+telemetryColumnGap);
   const telemetryPairWidth=telemetryWidths[0]+telemetryWidths[1]+telemetryGap;
   const telemetryGroupWidth=telemetryPairWidth+telemetryWidths[2]+telemetryGap;
+  const conveyorGroupWidth=telemetryPairWidth+telemetryWidths[3]+telemetryGap;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
@@ -221,14 +222,14 @@ window.STSimulation2D=(function(){
     }
     rows.push({tier:0,label:'Discharge',start:0,value:discharge});
     rows.push({tier:0,label:'Coding',start:discharge??0,value:coding});
-    span(0,'Overflow',runout,overflow,overflowPartial,true);
+    rows.push({tier:0,label:'Overflow',start:runout,value:overflow,partial:overflowPartial});
     if(Number.isFinite(recovery)){
       rows.push({tier:0,label:'Lrec',start:prime-Math.max(0,recovery),end:prime,value:recovery,partial:recoveryPartial});
     }else{
       rows.push({tier:0,label:'Lrec',start:prime,end:prime});
     }
-    span(0,'Lp',prime,lp);
-    span(1,'Lbu',0,lbu,overflowPartial,true);
+    rows.push({tier:0,label:'Lp',start:prime,value:lp});
+    rows.push({tier:1,label:'Lbu',start:0,value:lbu,partial:overflowPartial});
     rows.push({tier:1,label:'Accumulation Zone (Lba)',start:lbu,value:lba,partial:overflowPartial});
     const minimumLengths=results.map(result=>result.minimumLength).filter(Number.isFinite);
     const minimumLength=minimumLengths.length?Math.max(...minimumLengths):undefined;
@@ -280,6 +281,7 @@ window.STSimulation2D=(function(){
         packageWidth:presentation.widthMm??data.upstream?.packageWidthMm??null,
         pitch:zone.productPitchMm,packedGap:Math.max(0,(zone.accumulatedPitchMm??zone.productLengthMm)-zone.productLengthMm)||0,
         prime:zone.primeSensorPositionMm??null,backup:zone.backupSensorPositionMm??null,
+        configuredBackupRelease:zone.backupRestartPositionMm,
         blockDelay:zone.blockedTimeDelaySeconds??.5,clearDelay:zone.clearTimeDelaySeconds??.5,
         responseDelay:zone.upstreamStopResponseSeconds??0,residual:Math.max(0,Math.floor(zone.bottlesDischargedAtStop??0))};
     });
@@ -339,7 +341,7 @@ window.STSimulation2D=(function(){
     let right=0,previous;
     const items=line.map(item=>{
       const width=displayWidth(item);
-      const telemetryWidth=item.kind==='belt'?telemetryPairWidth:telemetryGroupWidth;
+      const telemetryWidth=item.kind==='belt'?conveyorGroupWidth:telemetryGroupWidth;
       const center=previous
         ? Math.max(right+width/2,previous.center+(previous.telemetryWidth+telemetryWidth)/2+cardGap)
         : Math.max(width,telemetryWidth)/2;
@@ -420,7 +422,7 @@ window.STSimulation2D=(function(){
     const bottleFactor=output.bottlesPerUnit;
     const currentShift=shiftIndex(model?.time??0);
     const height=(88+(currentShift+1)*20)*tableScale;
-    const labelX=x+14*tableScale,casesX=x+120*tableScale,bottlesX=x+182*tableScale;
+    const labelX=x+14*tableScale,casesX=x+102*tableScale,bottlesX=x+160*tableScale;
     context.fillStyle=surface;context.strokeStyle=border;
     strokeBox(context,x,y,cardWidth,height);
     context.fillStyle=ink;
@@ -440,6 +442,23 @@ window.STSimulation2D=(function(){
     row('Total',output.produced||0,80);
     for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index);
     context.textAlign='center';
+  }
+  function conveyorGeometryRows(item){
+    const design=conveyorDimensions.get(item.id);
+    const rows=(design?.rows||[]).map(({label,value,partial})=>
+      [label,num(value),partial&&Number.isFinite(value)?'mm*':'mm']);
+    rows.push(['Back-up position',num(item.backup),'mm'],['Prime position',num(item.prime),'mm'],
+      ['Max Run-out point',num(design?.runout),'mm'],['Recovery Point',num(design?.recovery),'mm']);
+    for(const [label,value,active] of [
+      ['Design Back-up',design?.backup,item.backup],
+      ['Design Prime',design?.prime,item.prime],
+      ['Back-up release (cfg.)',item.configuredBackupRelease,item.backup]
+    ]){
+      if(Number.isFinite(value)&&(!Number.isFinite(active)||Math.abs(value-active)>1e-6)){
+        rows.push([label,num(value),'mm']);
+      }
+    }
+    return rows;
   }
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
@@ -488,7 +507,7 @@ window.STSimulation2D=(function(){
       const parameterX=left+telemetryPadding;
       const valueX=parameterX+parameterWidth+parameterValueGap+valueWidth;
       const unitX=valueX+telemetryColumnGap;
-      const height=telemetryCardHeight;
+      const height=(53+rows.length*18)*tableScale;
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;
@@ -525,7 +544,11 @@ window.STSimulation2D=(function(){
     const statesLeft=left+telemetryWidths[0]+telemetryGap;
     card(0,left,item.name,summary,true);
     card(1,statesLeft,'States',states,false);
-    if(!belt){
+    if(belt){
+      const geometry=conveyorGeometryRows(item);
+      const title=geometry.some(row=>row[2]==='mm*')?'Geometry (* partial, x from entry)':'Conveyor geometry (x from entry)';
+      card(3,statesLeft+telemetryWidths[1]+telemetryGap,title,geometry,false);
+    }else{
       const efficiency=window.STEquipmentEfficiency;
       const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
       const metrics=efficiency.calculate({
@@ -597,7 +620,7 @@ window.STSimulation2D=(function(){
   function drawConveyorDimensions(context,item,x,y,width,beltY,ink,accent,pointer){
     const rows=conveyorDimensions.get(item.id)?.rows||[];
     context.save();
-    context.font=10*tableScale+'px system-ui';
+    context.font=telemetryFont;
     context.textAlign='center';
     context.textBaseline='middle';
     context.strokeStyle=accent;context.fillStyle=ink;
