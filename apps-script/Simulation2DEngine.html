@@ -153,7 +153,7 @@ window.STSimulation2DEngine=(function(){
         machine.activeRampSeconds=machine.rampSeconds||0;
       }
       const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
-      if(machine.residual<=0&&(braking||machine.capacityBottles!=null&&machine.backupSince!==null)){machine.state='Back-up stop';return;}
+      if(machine.residual<=0&&braking){machine.state='Back-up stop';return;}
       if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
       const decelerating=machine.backupSince!==null&&!braking;
       const accelerating=!decelerating&&!braking&&machine.rampElapsed<machine.activeRampSeconds;
@@ -194,12 +194,11 @@ window.STSimulation2DEngine=(function(){
     }
     function stepResident(machine,upstream,downstream,seconds,factor,motionState,accelerating,stopping){
       machine.residenceClock+=seconds;
-      if(accelerating)machine.rampElapsed+=seconds;
       const capacity=Math.floor(machine.capacityBottles/machine.inputBottleFactor);
       const work=seconds*factor*machine.rate;
       machine.outletCredit+=work;
       let blocked=false;
-      if(machine.outletCredit+epsilon>=1&&machine.resident[machine.batch-1]<=machine.residenceClock+epsilon){
+      if((!stopping||machine.residual>0)&&machine.outletCredit+epsilon>=1&&machine.resident[machine.batch-1]<=machine.residenceClock+epsilon){
         if(discharge(machine,downstream)){
           machine.outletCredit=Math.max(0,machine.outletCredit-1);
           if(stopping)machine.residual--;
@@ -223,7 +222,8 @@ window.STSimulation2DEngine=(function(){
         }
         machine.intakeCredit=Math.min(1,machine.intakeCredit);
       }
-      machine.state=blocked?'Blocked':stopping&&!machine.resident.length?'Back-up stop':
+      if(accelerating&&!blocked)machine.rampElapsed+=seconds;
+      machine.state=blocked?'Blocked':stopping&&!machine.resident.length&&motionState!=='Ramp down'?'Back-up stop':
         machine.resident.length||!upstream||accelerating?motionState:
         upstream.prime!=null&&!upstream.primeSeen?'Waiting for Prime':'Starved';
     }

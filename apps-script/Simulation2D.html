@@ -66,6 +66,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,machineScale=3.75;
+  const telemetryCardHeight=53+9*18;
   const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=51;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
@@ -328,7 +329,7 @@ window.STSimulation2D=(function(){
     const {positions,end}=telemetryLayout(model?.line||definitions);
     const length=Math.max(end+(definitions.length?cardWidth+cardGap:0),
       (positions.at(-1)??0)+telemetryPairWidth/2)/sceneScale;
-    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+205,68+shiftIndex(model?.time??0)*20);
+    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,68+shiftIndex(model?.time??0)*20);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -427,13 +428,15 @@ window.STSimulation2D=(function(){
       ['Est. residence',num(item.residenceSeconds),'s']);
     const counters=belt
       ? [duration('Empty','empty'),duration('Flowing','flowing'),duration('Accumulating','accumulating'),
+        ['Ramp up','N/A',''],['Ramp down','N/A',''],
         ['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear',''],['Own failures','—','']]
       : [duration('Start','starting'),duration('Run','running'),duration('Starving','starving'),
         duration('Ramp up','acceleration'),duration('Ramp down','deceleration'),duration('Blocked','blocked'),
-        duration('Failure time','failure'),['Own failures',item.failures?.length?num(item.failureCount??0):'Off','']];
+        duration('Failure time','failure'),['Own failures',item.failures?.length?num(item.failureCount??0):'Off',''],
+        ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']];
     function card(left,title,rows,showSignal){
       const width=telemetryWidth;
-      const height=53+8*18;
+      const height=telemetryCardHeight;
       context.fillStyle=surface;context.strokeStyle=border;
       strokeBox(context,left,y,width,height);
       context.fillStyle=soft;

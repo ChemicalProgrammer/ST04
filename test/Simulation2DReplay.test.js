@@ -427,3 +427,26 @@ test('2D honors runtime failure switches, scheduled stops and latched machine co
   model.configure({failures:false});
   assert.equal(model.line[0].failureRemaining,0);
 });
+
+test('2D counts the configured repair ramp and the Back-up response with zero runout',()=>{
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'),{window});
+  const engine=window.STSimulation2DEngine;
+  const machine={kind:'machine',rate:2,batch:1,startDelay:0,rampSeconds:1,rampAfterRepair:true,
+    capacityBottles:2,residenceSeconds:1,inputBottleFactor:1,bottlesPerUnit:1};
+  const repair=engine.create([machine]);
+  repair.line[0].failureRemaining=.25;
+  repair.step(.25);
+  assert.equal(repair.line[0].durations.acceleration,0);
+  for(let i=0;i<5;i++)repair.step(.25);
+  assert.equal(repair.line[0].durations.acceleration,1);
+  assert.equal(repair.line[0].state,'Running');
+  const belt={kind:'belt',length:5000,speed:100,packageLength:20,pitch:25,packedGap:0,prime:null,backup:null,
+    clearDelay:Infinity,responseDelay:1,residual:0};
+  const model=engine.create([machine,belt]);
+  model.line[1].backupBlocked=true;
+  for(let i=0;i<5;i++)model.step(.25);
+  assert.equal(model.line[0].durations.deceleration,1);
+  assert.equal(model.line[0].state,'Back-up stop');
+  assert.equal(model.line[0].produced,0);
+});
