@@ -15,6 +15,7 @@
 .conveyor-analysis-body td { white-space:nowrap; }
 .conveyor-analysis-body td:nth-child(n+5) { text-align:end; }
 .conveyor-analysis-body input { width:7em; }
+.conveyor-analysis-body .conveyor-analysis-subheading { background:var(--surface-soft); }
 .conveyor-analysis-body caption { text-align:start; font-weight:600; padding:var(--space-2); }
 .conveyor-analysis-body thead th { position:sticky; top:0; background:var(--surface); white-space:nowrap; }
 </style>
@@ -98,7 +99,7 @@ window.STConveyorAnalysis=(function(){
       ['E11','Lbu','mm',lbu,'=D8+E8+F8',overflow],
       ['I11','Accumulation Zone (Lba)','mm',lba,'=I13-L8-E11 (croquis)',overflow],
       ['I13','Lact','mm',lact,'Input'],
-      ['','Max Run-out Point','mm',runout,'D8 + E8'],
+      ['','Max Run-out point','mm',runout,'D8 + E8'],
       ['','Back-up Sensor (calculated)','mm',lbu,'E11',overflow],
       ['','Back-up Sensor (actual)','mm',zone.backupSensorPositionMm,'Operating position'],
       ['','Rec Pt.','mm',point,'I13 − L8 − K8',recovery],
@@ -109,58 +110,74 @@ window.STConveyorAnalysis=(function(){
   }
 
   const rows=[
-    ['Product, Machines and Conveyor Speeds',[
-      [16,'Package Length','mm','Input',p=>p.length],
-      [19,'Upstream Discharge Pitch','mm','Input',p=>p.dischargePitch],
-      [20,'Upstream Machine Startup Time','s','Input',p=>p.startup],
-      [21,'Packages Discharged at Stop','packages','Input',p=>p.residual],
-      [22,'Upstream Machine Nominal Speed','packages/min','Input',p=>p.rate],
-      [23,'Upstream Discharge Velocity','m/min','=L22*L19/1000',p=>p.rate*p.dischargePitch/1000],
-      [24,'Upstream Packed Product Flow','m/min','=L22*L16/1000',p=>p.flow*.06],
-      [27,'Downstream Machine High Speed','packages/min','Input',p=>p.highRate],
-      [28,'Downstream Infeed Pitch','mm','Input',p=>p.infeedPitch],
-      [29,'Downstream Ramp-up Time (Including Prime Delay)','s','Input',p=>p.ramp],
-      [30,'Downstream Packed Product Consumption','m/min','=L27*L16/1000',p=>p.consumption*.06],
-      [33,'Discharge Speed Factor','%','Input',p=>p.dischargeFactor],
-      [34,'Discharge Speed','m/min','=L23*(1+L33)',p=>p.dischargeSpeed*.06],
-      [35,'Discharge Population','%','=L$24/L34',p=>p.flow/p.dischargeSpeed*100],
-      [36,'Coding Speed Factor','%','Input',p=>p.codingFactor],
-      [37,'Coding Speed','m/min','=L34*(1+L36)',p=>p.codingSpeed*.06],
-      [38,'Coding Population','%','=L24/L37',p=>p.flow/p.codingSpeed*100],
-      [39,'Main Conveyor Speed Factor','%','Input',p=>p.accumulationFactor],
-      [40,'Main Conveyor Speed','m/min','Input',p=>p.speed*.06],
-      [41,'Main Conveyor Population','%','=L24/L40',p=>p.population*100],
-      [45,'Package Pass Time at Back-up Sensor','s','=L16/1000/L40*60',p=>p.length/p.speed],
-      [46,'Back-up Blocked Time Delay','s','Input',p=>p.blocked],
-      [48,'Back-up Clear Time Delay','s','Input',p=>p.clear]
+    ["Package Details",[
+      [16,"Package Length","mm",'Input',p=>p.length]
     ]],
-    ['Overflow',[
-      [51,'Packages During Blocked Time Delay','packages','=L46*L22/60',p=>p.duringDelay],
-      [52,'Packages Discharged After Stop Signal','packages','=L21',p=>p.residual],
-      [53,'Packages in Discharge','packages','=$D$8*L35/L16',p=>p.inDischarge],
-      [54,'Packages in Coding','packages','=$E$8*L38/L16',p=>p.inCoding],
-      [55,'Insurance Factor','packages','Input',p=>p.insurance],
-      [56,'Total Packages to Absorb','packages','=SUM(L51:L55)',p=>p.total],
-      [57,'Packed Product Length','mm','=L56*L16',p=>p.total*p.length],
-      [58,'Overflow Required','mm','=L57/(1-L41)',p=>p.overflow]
+    ["Upstream Machine Details",[
+      [19,"Upstream Machine Discharge Pitch","mm",'Input',p=>p.dischargePitch],
+      [20,"Start-up Time","sec",'Input',p=>p.startup],
+      [21,"Bottles Discharged at Stop","#",'Input',p=>p.residual],
+      [22,"Nominal Speed","pkg/min",'Input',p=>p.rate],
+      [23,"Package Velocity at Discharge of Upstream Machine","m/min",'=L22*L19/1000',p=>p.rate*p.dischargePitch/1000],
+      [24,"Machine Output Rate (m/min of containers back to back; 100% population)","m/min",'=L22*L16/1000',p=>p.flow*.06]
     ]],
-    ['Recovery, Accumulation and Infeed Speed',[
-      [61,'Back-up Clear Time Delay','s','=L48',p=>p.clear],
-      [62,'Time from Restart to First Package Discharged','s','Input',p=>p.firstPackage],
-      [63,'Discharge Transit Time','s','=$D$8/L$34/1000*60',p=>p.dischargeTime],
-      [64,'Coding Transit Time','s','=$E$8/L37/1000*60',p=>p.codingTime],
-      [65,'Common Overflow Transit Time','s','=$F$8/L40/1000*60',p=>p.overflowTime],
-      [66,'Time to First Package at Back-up','s','=SUM(L61:L65)',p=>p.arrival],
-      [67,'Queue Length Consumed Before Arrival','mm','=L27*L16/60*L66 (reconstructed)',p=>p.consumed],
-      [68,'Time to Reach the Queue','s','=(L67/1000)/(L40-L30)*60',p=>p.catchTime],
-      [69,'Additional Queue Length Consumed','mm','=L30/60*L68*1000',p=>p.extraConsumed],
-      [70,'Lrec','mm','=$I$11-L69-L67',p=>p.recovery],
-      [73,'Tacc Antistarve','min','=$I$11*(1-L414)/L16/L27 (L414 treated as 0)',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption/60:NaN],
-      [74,'Tacc Antistarve','s','=L73*60',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption:NaN],
-      [75,'Tacc Antiblock','min','=$I$11*(1-L41)/L16/L22',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow/60:NaN],
-      [76,'Tacc Antiblock','s','=L75*60',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow:NaN],
-      [79,'Infeed Overspeed','%','Input',p=>p.overspeed],
-      [80,'Minimum Recommended Infeed Speed','m/min','=L28*L28/1000*(1+L79) (to confirm)',()=>undefined]
+    ["Downstream Machine Details",[
+      [27,"High Speed","pkg/min",'Input',p=>p.highRate],
+      [28,"Downstream Machine - Infeed Pitch","mm",'Input',p=>p.infeedPitch],
+      [29,"Ramp up Time to Full Speed (including prime sensor delay)","sec",'Input',p=>p.ramp],
+      [30,"Machine Package Consumption Rate (m/min of containers back to back; 100% population)","m/min",'=L27*L16/1000',p=>p.consumption*.06]
+    ]],
+    ["Conveyor Details - Speed Selection",[
+      [33,"Conveyor Speed Factor vs Discharge Velocity of the Package Leaving the Upstream Machine","%",'Input',p=>p.dischargeFactor],
+      [34,"Discharge Conveyor Speed","m/min",'=L23*(1+L33)',p=>p.dischargeSpeed*.06],
+      [35,"Population of Packaging on the Conveyor","%",'=L$24/L34',p=>p.flow/p.dischargeSpeed*100],
+      [36,"Coding Conveyor Speed Factor vs Previous Conveyor","%",'Input',p=>p.codingFactor],
+      [37,"Coding Conveyor Speed","m/min",'=L34*(1+L36)',p=>p.codingSpeed*.06],
+      [38,"Population of Packaging on the Conveyor","%",'=L24/L37',p=>p.flow/p.codingSpeed*100],
+      [39,"Conveyor Speed Factor vs Previous Conveyor (including overflow, accumulating, and prime sections)","%",'Input',p=>p.accumulationFactor],
+      [40,"Conveyor Speed","m/min",'Input',p=>p.speed*.06],
+      [41,"Population of Packaging on the Conveyor","%",'=L24/L40',p=>p.population*100]
+    ]],
+    ["Sensor Information",[
+      "Back-up Sensor Operation - Blocked delay timer details",
+      [45,"Time for Package to Pass Back up Sensor","sec",'=L16/1000/L40*60',p=>p.length/p.speed],
+      [46,"Back Up Sensor Blocked Time Delay (time for sensor to acknowledge non moving packages)","sec",'Input',p=>p.blocked],
+      "Back-up Sensor Operation - Clear delay timer details",
+      [48,"Back Up Sensor Clear Time Delay (time for sensor to acknowledge no packages present)","sec",'Input',p=>p.clear]
+    ]],
+    ["Overflow Space Needed - Calculates conveyor length required to accomodate all packagess during a normal stop",[
+      [51,"Packages Discharged as Back-up Sensor is blocked","Pkgs",'=L46*L22/60',p=>p.duringDelay],
+      [52,"Packages Discharged After the Stop Signal from Runout and/or Deceleration","Pkgs",'=L21',p=>p.residual],
+      [53,"Packages in Transit on Discharge Conveyor","Pkgs",'=$D$8*L35/L16',p=>p.inDischarge],
+      [54,"Packages in Transit on Coding Conveyor","Pkgs",'=$E$8*L38/L16',p=>p.inCoding],
+      [55,"\"Insurance Factor\" (possible extra packages discharged after stop)","Pkgs",'Input',p=>p.insurance],
+      [56,"Subtotal of Packages in Transit on Conveyors (w/o overflow area)","Pkgs",'=SUM(L51:L55)',p=>p.total],
+      [57,"Space Needed in Overflow Area for the \"Subtotal\" Packages","mm",'=L56*L16',p=>p.total*p.length],
+      [58,"Length of Overflow Area Needed for Packages Discharged and in Transit.","mm",'=L57/(1-L41)',p=>p.overflow]
+    ]],
+    ["Calculating Recovery Position and Conveyor Length needed for smooth restart after downstream machine downtime (Lrec)",[
+      [61,"Back Up Sensor Clear Time Delay (time for sensor to acknowledge no packages present)","sec",'=L48',p=>p.clear],
+      [62,"Time for Upstream Machine to Make Packages in Process (time delay for first package to exit)","sec",'Input',p=>p.firstPackage],
+      [63,"Time for Packages to Travel Across Discharge Conveyor","sec",'=$D$8/L$34/1000*60',p=>p.dischargeTime],
+      [64,"Time for Packages to Travel Across Coding Conveyor","sec",'=$E$8/L37/1000*60',p=>p.codingTime],
+      [65,"Time for Packages to Travel Across Maximum Length Overflow Area (all formats are considered)","sec",'=$F$8/L40/1000*60',p=>p.overflowTime],
+      [66,"Total Time for First Package to Reach the Back up Sensor","sec",'=SUM(L61:L65)',p=>p.arrival],
+      [67,"Reduction of queue in time for first bottle to reach back-up sensor","mm",'=L27*L16/60*L66 (reconstructed)',p=>p.consumed],
+      [68,"Time from first bottle at backup sensor to first bottle reaching back of queue","sec",'=(L67/1000)/(L40-L30)*60',p=>p.catchTime],
+      [69,"Reduction in queue from first bottle at back up sensor to first bottle reaching queue","mm",'=L30/60*L68*1000',p=>p.extraConsumed],
+      [70,"Recovery Distance (position where first package catches the queue being consumed on start-up)","mm",'=$I$11-L69-L67',p=>p.recovery]
+    ]],
+    ["Calculating Conveyor Accumulation Time (Tacc)",[
+      "Antistarve Accumulation (normally full) Critical machine is downstream",
+      [73,"Accumulation available on Lba","min",'=$I$11*(1-L414)/L16/L27 (L414 treated as 0)',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption/60:NaN],
+      [74,"Accumulation available on Lba","sec",'=L73*60',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption:NaN],
+      "Antiblock Accumulation (normally empty) Critical machine is upstream",
+      [75,"Accumulation available on Lba","min",'=$I$11*(1-L41)/L16/L22',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow/60:NaN],
+      [76,"Accumulation available on Lba","sec",'=L75*60',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow:NaN]
+    ]],
+    ["Calculating Downstream Machine Infeed Conveyor Speed",[
+      [79,"Overspeed of conveyor vs infeed screw (5% recommended)","%",'Input',p=>p.overspeed],
+      [80,"Recommended (Minimum) Conveyor Speed","m/min",'=L28*L28/1000*(1+L79) (to confirm)',()=>undefined]
     ]]
   ];
 
@@ -209,7 +226,14 @@ window.STConveyorAnalysis=(function(){
     if(!worksheet.profiles.length)make(body,'p','No applicable formats.');
     for(const [title,entries] of worksheet.profiles.length?rows:[]){
       const formats=table(title,['Cell','Parameter','Unit','Calculation',...worksheet.profiles.map(p=>p.name)]);
-      for(const [ref,label,unit,formula,read] of entries){
+      for(const entry of entries){
+        if(typeof entry==='string'){
+          const heading=make(make(formats,'tr'),'th',entry);
+          heading.colSpan=worksheet.profiles.length+4;
+          heading.className='conveyor-analysis-subheading';
+          continue;
+        }
+        const [ref,label,unit,formula,read]=entry;
         const element=row(formats,'L'+ref,label,unit,formula);
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
