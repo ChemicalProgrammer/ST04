@@ -64,18 +64,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
     const labels=[],bottles=[];
     let lastFrameOrigin,scale,dash,start;
-    const segments=[];
+    const segments=[],boxes=[];
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
       measureText:text=>({width:text.length*5}),
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
       quadraticCurveTo:x=>bottles.push(x),
+      rect:x=>bottles.push(x),
       setTransform(factor){scale=factor;},
+      roundRect(x,y,width,height){boxes.push({x,y,width,height});},
       setLineDash(pattern){dash=pattern.length>0;},
       moveTo(x,y){start=[x,y];},
       lineTo(x,y){if(start)segments.push({start,end:[x,y],dash});start=[x,y];},
-      clearRect(){lastFrameOrigin=labels.length;segments.length=0;dash=false;}
+      clearRect(){lastFrameOrigin=labels.length;segments.length=0;boxes.length=0;dash=false;}
     },{get:(target,key)=>target[key]??(()=>{})});
     let animate;
     window.requestAnimationFrame=callback=>{animate=callback;return 1;};
@@ -144,6 +146,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(el('output').textContent,'0');
     assert.deepEqual(createdSeeds,[7,78]);
     assert.equal(createdDefinitions.at(-1).residenceSeconds,2);
+    el('fit').click();
     el('speed').value='50';
     el('play').click();
     animate(1000);
@@ -160,11 +163,28 @@ test('2D uses the representative seed to calculate new production and preserves 
     while(25-expected.time>1e-8)expected.step(Math.min(1/120,25-expected.time));
     assert(expected.line.at(-1).produced>0);
     assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
+    const fittedFrame=labels.slice(lastFrameOrigin);
+    const telemetryY=fittedFrame.find(([text])=>text==='upstream')[3]-21;
+    const cards=boxes.filter(box=>box.y===telemetryY);
+    assert.equal(cards.length,9);
+    const silhouettes=boxes.filter(box=>box.y<telemetryY&&box.width>100&&
+      (box.height===7.5||box.height>170&&box.height<200));
+    assert.equal(silhouettes.length,3);
+    for(const [index,silhouette] of silhouettes.entries()){
+      const first=cards[index*3],last=cards[index*3+2];
+      const center=silhouette.x+silhouette.width/2;
+      assert(Math.abs((first.x+last.x+last.width)/2-center)<1e-8);
+      if(index)assert(first.x>=cards[index*3-1].x+cards[index*3-1].width);
+    }
+    const control=el('machine-controls').querySelector('[aria-label="upstream controls"]');
+    assert(Math.abs(parseFloat(control.style.left)-(silhouettes[0].x+silhouettes[0].width/2)*scale)<1e-8);
+    const cardText=fittedFrame.filter(([, , , y])=>y>=telemetryY);
+    assert(cardText.every(([,font])=>font==='12px system-ui'||font==='600 12px system-ui'));
     for(const title of ['upstream','belt','States','Equipment efficiency']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
     for(const label of ['Running','Starved','Ramp up','Ramp down','Faulted','Belt speed','Availability','Runtime Efficiency','Operational efficiency','Throughput']){
-      assert(labels.some(([text,font])=>text===label&&font==='11px system-ui'));
+      assert(labels.some(([text,font])=>text===label&&font==='12px system-ui'));
     }
     const beltSpeed=labels.findIndex(([text])=>text==='Belt speed');
     const [parameter,value,unit]=labels.slice(beltSpeed,beltSpeed+3);
