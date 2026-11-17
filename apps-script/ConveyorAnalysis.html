@@ -50,6 +50,41 @@ window.STConveyorAnalysis=(function(){
   function recommendedSpeed(profile){
     return profile?.infeedPitch>0?profile.infeedPitch**2/1000*(1+profile.overspeed/100):NaN;
   }
+  function explainVerdict(status,recovery,profiles,geometry){
+    if(status==='FAIL'){
+      const deficit=(-recovery.value).toLocaleString(undefined,{maximumFractionDigits:2});
+      return recovery.name+': Lrec es negativo. Faltan '+deficit+' mm de acumulación útil para cubrir el rearranque.';
+    }
+    if(status!=='NOT EVALUATED')return 'Lact vs L min';
+    if(!profiles.length)return 'No hay formatos aplicables a este conveyor.';
+    const reasons=[];
+    for(const [label,value] of [
+      ['Lact (longitud instalada)',geometry.lact],['Lp (reserva de Prime)',geometry.lp],
+      ['Discharge actual',geometry.discharge],['Coding actual',geometry.coding]
+    ]){
+      if(!Number.isFinite(value))reasons.push('Falta '+label+'.');
+    }
+    for(const p of profiles){
+      if(Number.isFinite(p.recovery)&&Number.isFinite(p.overflow))continue;
+      const missing=[];
+      for(const [label,value] of [
+        ['velocidad del conveyor',p.speed],['longitud del envase',p.length],
+        ['paso de descarga',p.dischargePitch],['paso de entrada',p.infeedPitch]
+      ]){
+        if(!(value>0))missing.push(label);
+      }
+      if(!Number.isFinite(p.firstPackage))missing.push('Time to First Package After Restart');
+      if(p.blocked==null)missing.push('retardo de Back-up bloqueado');
+      if(p.clear==null)missing.push('retardo de Back-up libre');
+      if(p.residual==null)missing.push('envases descargados al paro');
+      if(geometry.discharge>0&&!(p.dischargeSpeed>0))missing.push('velocidad del tramo Discharge');
+      if(geometry.coding>0&&!(p.codingSpeed>0))missing.push('velocidad del tramo Coding');
+      if(missing.length)reasons.push(p.name+': faltan datos válidos de '+missing.join(', ')+'.');
+      if(p.population>=1)reasons.push(p.name+': la ocupación del conveyor es de 100 % o más. Overflow requiere espacio libre.');
+      if(p.consumption>0&&p.speed<=p.consumption)reasons.push(p.name+': la velocidad del conveyor debe superar el consumo aguas abajo para calcular Lrec.');
+    }
+    return reasons.length?reasons.join('\n'):'No se pudo calcular Overflow o Lrec para todos los formatos aplicables.';
+  }
   function calculate({zone,data,designProfiles,index}){
     const lact=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
@@ -130,6 +165,7 @@ window.STConveyorAnalysis=(function(){
     const status=margin<-.000001?'FAIL':!Number.isFinite(margin)||recovery.partial?'NOT EVALUATED':margin>.000001?'PASS':'AT LIMIT';
     const point=margin>=0&&lba>=margin?prime-margin:NaN;
     const geometry={lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength,status};
+    geometry.statusReason=explainVerdict(status,recovery,profiles,geometry);
     return {profiles,geometry,common:[
       ['D8','Discharge','mm',discharge,'Input'],
       ['E8','Coding','mm',coding,'Input'],
@@ -236,15 +272,15 @@ window.STConveyorAnalysis=(function(){
       parent.append(element);
       return element;
     }
-    function table(title,headers,status){
+    function table(title,headers,verdict){
       const section=make(body,'section');
       const heading=make(section,'h3',title);
       heading.id='conveyor-analysis-section-'+body.children.length;
-      if(status){
-        const badge=make(heading,'span',status);
+      if(verdict){
+        const badge=make(heading,'span',verdict.status);
         badge.className='conveyor-analysis-verdict';
-        badge.style.backgroundColor=verdictColors[status];
-        badge.title='Lact vs L min';
+        badge.style.backgroundColor=verdictColors[verdict.status];
+        badge.title=verdict.statusReason;
       }
       const wrapper=make(section,'div');
       wrapper.className='table-scroll';
@@ -266,7 +302,7 @@ window.STConveyorAnalysis=(function(){
       make(element,'th',label).scope='row';
       return element;
     }
-    const common=table('Common Geometry',['Parameter','Value','Unit'],worksheet.geometry.status);
+    const common=table('Common Geometry',['Parameter','Value','Unit'],worksheet.geometry);
     worksheet.common.forEach(([ref,label,unit,value,,source])=>{
       const element=row(common,ref,label);
       const output=make(element,'td');

@@ -86,6 +86,7 @@ window.STSimulation2D=(function(){
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
   const dimensionRowHeight=32,dimensionLevels=3,dimensionOffset=126;
   let dimensionPointer=null;
+  const verdictHitBoxes=[];
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
@@ -170,8 +171,8 @@ window.STSimulation2D=(function(){
       target.append(group);machineControls.set(item.id,{group,buttons});
     }
   }
-  function dimensionRows({lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength,status}){
-    return {runout,backup:lbu,prime,status,minimumLength,minimumPartial:recovery.partial,recovery:point,rows:[
+  function dimensionRows({lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength,status,statusReason}){
+    return {runout,backup:lbu,prime,status,statusReason,minimumLength,minimumPartial:recovery.partial,recovery:point,rows:[
       {tier:0,label:'Discharge',start:0,value:discharge},
       {tier:0,label:'Coding',start:discharge,value:coding},
       {tier:0,label:'Overflow',start:runout,value:overflow.value,partial:overflow.partial},
@@ -467,6 +468,10 @@ window.STSimulation2D=(function(){
         context.fillStyle='#fff';
         context.textAlign='center';
         context.fillText(verdict,end-capsuleWidth/2,y+21*tableScale);
+        const factor=camera.scale/sceneScale;
+        verdictHitBoxes.push({left:(end-capsuleWidth)*factor,right:end*factor,
+          top:(y+8*tableScale)*factor,bottom:(y+8*tableScale+telemetryRowHeight)*factor,
+          reason:conveyorDimensions.get(item.id)?.statusReason});
       }else if(title){
         context.fillStyle=ink;
         text(title,parameterX,y+21*tableScale,width-2*telemetryPadding);
@@ -855,6 +860,7 @@ window.STSimulation2D=(function(){
         drawSignal(context,sx,top-14,signal.lamp,colors);
       }
     }
+    verdictHitBoxes.length=0;
     for(let index=0;index<line.length;index++){
       const item=line[index],{center,telemetryWidth}=items[index];
       const left=origin+center-telemetryWidth/2;
@@ -1061,12 +1067,15 @@ window.STSimulation2D=(function(){
     if(canvas.hasPointerCapture?.(id))canvas.releasePointerCapture(id);
   }
   canvas.addEventListener('pointermove',event=>{
-    if(!showDimensions.checked||drag||event.pointerType==='touch')return;
+    if(drag||event.pointerType==='touch')return;
     const rect=canvas.getBoundingClientRect();
-    dimensionPointer={x:event.clientX-rect.left-canvas.clientLeft,y:event.clientY-rect.top-canvas.clientTop};
-    draw();
+    const x=event.clientX-rect.left-canvas.clientLeft,y=event.clientY-rect.top-canvas.clientTop;
+    if(showDimensions.checked){dimensionPointer={x,y};draw();}
+    const reason=verdictHitBoxes.find(box=>x>=box.left&&x<=box.right&&y>=box.top&&y<=box.bottom)?.reason??'';
+    if(canvas.title!==reason)canvas.title=reason;
   });
   canvas.addEventListener('pointerleave',()=>{
+    canvas.removeAttribute('title');
     if(!dimensionPointer)return;
     dimensionPointer=null;
     if(showDimensions.checked&&!drag)draw();
@@ -1074,6 +1083,7 @@ window.STSimulation2D=(function(){
   canvas.addEventListener('pointerdown',event=>{
     if((event.button!==0&&event.button!==1)||drag)return;
     if(event.button===1)event.preventDefault();
+    canvas.removeAttribute('title');
     camera.fit=false;
     drag={id:event.pointerId,x:event.clientX-camera.x,y:event.clientY-camera.y};
     canvas.setPointerCapture?.(event.pointerId);

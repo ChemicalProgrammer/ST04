@@ -472,7 +472,13 @@ test('2D uses the representative seed to calculate new production and preserves 
     analysisButton.click();
     assert(analysis.open);
     assert.equal(analysisEl('body').querySelector('.conveyor-analysis-verdict').textContent,'FAIL');
-    assert(currentLabels().includes('FAIL'));
+    const failBadge=analysisEl('body').querySelector('.conveyor-analysis-verdict');
+    assert.match(failBadge.title,/Lrec es negativo.*540 mm/);
+    const [, , verdictX,verdictY]=labels.slice(lastFrameOrigin).find(([text])=>text==='FAIL');
+    canvas.dispatchEvent(new window.MouseEvent('pointermove',{clientX:verdictX*scale,clientY:(verdictY-3)*scale}));
+    assert.equal(canvas.title,failBadge.title);
+    canvas.dispatchEvent(new window.MouseEvent('pointerleave'));
+    assert.equal(canvas.title,'');
     for(const ref of ['K8','L70']){
       const help=analysisEl('body').querySelector('[data-cell="'+ref+'"]').title;
       for(const sign of ['>','='])assert(help.includes('Lrec '+sign+' 0'));
@@ -522,13 +528,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     equipment[1].processData.geometry.lactMm=2000;
     delete equipment[1].processData.geometry.actualDischargeMm;
     delete equipment[1].processData.geometry.actualCodingMm;
+    delete equipment[1].processData.accumulation.restartToFirstPackageSeconds;
     geometry.engineering.input.dischargeRunoutLengthMm=0;
     window.STSimulation2D.load(['case','pending-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     assert(currentLabels().includes('Discharge · 0 mm'));
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
     assert.deepEqual(tableValue('Coding'),['Pending']);
-    delete equipment[1].processData.accumulation.restartToFirstPackageSeconds;
+    const pendingBadge=analysisEl('body').querySelector('.conveyor-analysis-verdict');
+    assert.equal(pendingBadge.textContent,'NOT EVALUATED');
+    assert.match(pendingBadge.title,/Coding actual/);
+    assert.match(pendingBadge.title,/Time to First Package After Restart/);
     assert.deepEqual(tableValue('L23'),['7.2']);
     assert.deepEqual(tableValue('F8'),['Pending']);
     analysis.close();
