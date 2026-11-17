@@ -1,0 +1,240 @@
+<dialog id="conveyor-analysis-dialog" class="message-dialog" aria-labelledby="conveyor-analysis-title">
+              <div class="conveyor-analysis-header">
+                <strong id="conveyor-analysis-title">Conveyor Analysis</strong>
+                <form method="dialog"><button type="submit" class="secondary icon-button" data-icon="x" aria-label="Close conveyor analysis" title="Close conveyor analysis"></button></form>
+              </div>
+              <div id="conveyor-analysis-body" class="conveyor-analysis-body"></div>
+            </dialog>
+<style>
+#conveyor-analysis-dialog { width:min(48rem,95vw); max-width:95vw; }
+.conveyor-analysis-header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); margin-bottom:var(--space-2); }
+.conveyor-analysis-header form { margin:0; }
+.conveyor-analysis-body { max-height:70vh; overflow:auto; }
+.conveyor-analysis-body table { width:100%; border-collapse:collapse; font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
+.conveyor-analysis-body th, .conveyor-analysis-body td { padding:var(--space-2); text-align:start; border-bottom:1px solid var(--line); }
+.conveyor-analysis-body td { white-space:nowrap; }
+.conveyor-analysis-body td:nth-child(n+5) { text-align:end; }
+.conveyor-analysis-body input { width:7em; }
+.conveyor-analysis-body caption { text-align:start; font-weight:600; padding:var(--space-2); }
+.conveyor-analysis-body thead th { position:sticky; top:0; background:var(--surface); white-space:nowrap; }
+</style>
+<script>
+window.STConveyorAnalysis=(function(){
+  function close(){
+    const dialog=document.getElementById('conveyor-analysis-dialog');
+    if(dialog.open)dialog.close();
+  }
+  function calculate({zone,data,designProfiles,index},delays=[]){
+    const lact=data.geometry?.lactMm??zone.usableLengthMm;
+    const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
+    const prime=lact-lp;
+    const discharge=data.geometry?.actualDischargeMm??data.accumulation?.dischargeRunoutLengthMm??zone.engineering?.input?.dischargeRunoutLengthMm;
+    const coding=data.geometry?.actualCodingMm??data.accumulation?.rejectRunoutLengthMm??zone.engineering?.input?.rejectRunoutLengthMm;
+    const runout=discharge+coding;
+    const divide=(numerator,denominator)=>denominator>0?numerator/denominator:NaN;
+    const segmentTime=(length,speed)=>length===0?0:divide(length,speed);
+    const profiles=designProfiles.filter(({models})=>models[index].processData?.productApplies!==false)
+      .map(({zones,models,format},column)=>{
+        const belt=zones[index]||{};
+        const {input={}}=belt.engineering||{};
+        const upstream=models.find(item=>item.id===belt.upstreamControlEquipmentId)??models[index-1];
+        const downstream=models.find(item=>item.id===belt.downstreamControlEquipmentId)??models[index+1];
+        const length=input.packageLengthMm??belt.productLengthMm;
+        const rate=input.upstreamNominalSpeedBpm??upstream?.nominalRatePerSecond*60;
+        const highRate=input.downstreamHighSpeedBpm??
+          (downstream?.processData?.productInputRatePerSecond??downstream?.nominalRatePerSecond)*60;
+        const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
+        const infeedPitch=input.downstreamInfeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
+        const speed=belt.conveyorSpeedMmPerSecond;
+        const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
+        const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
+        const dischargeSpeed=rate*dischargePitch/60*(1+dischargeFactor/100);
+        const codingSpeed=dischargeSpeed*(1+codingFactor/100);
+        const firstPackage=delays[column]??models[index].processData?.accumulation?.restartToFirstPackageSeconds;
+        const flow=rate*length/60,consumption=highRate*length/60;
+        const population=divide(flow,speed);
+        const blocked=input.blockedTimeDelaySeconds??belt.blockedTimeDelaySeconds;
+        const clear=input.clearTimeDelaySeconds??belt.clearTimeDelaySeconds;
+        const startup=input.upstreamStartupTimeSeconds??belt.upstreamRestartDelaySeconds??
+          upstream?.startupDelaySeconds??upstream?.processData?.upstream?.startupTimeSeconds;
+        const residual=input.bottlesDischargedAtStop??belt.bottlesDischargedAtStop;
+        const insurance=input.insuranceFactorUnits??data.accumulation?.insuranceFactorUnits??0;
+        const dischargeTime=segmentTime(discharge,dischargeSpeed),codingTime=segmentTime(coding,codingSpeed);
+        const duringDelay=blocked*rate/60,inDischarge=dischargeTime*rate/60,inCoding=codingTime*rate/60;
+        const total=duringDelay+residual+inDischarge+inCoding+insurance;
+        const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
+        return {name:format?.name||format?.id||'Current format',length,rate,highRate,dischargePitch,infeedPitch,
+          speed,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
+          dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
+          ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
+          dischargeFactor,codingFactor,
+          accumulationFactor:input.accumulationSpeedFactorPercent,overspeed:input.infeedOverspeedPercent};
+      });
+    function extreme(field,select){
+      const valid=profiles.filter(profile=>Number.isFinite(profile[field]));
+      const governing=valid.reduce((best,profile)=>!best||select(profile[field],best[field])?profile:best,null);
+      return {value:governing?.[field],name:governing?.name,partial:valid.length<profiles.length};
+    }
+    const overflow=extreme('overflow',(a,b)=>a>b);
+    const lbu=runout+overflow.value,lba=prime-lbu;
+    for(const profile of profiles){
+      const {speed,consumption,clear,firstPackage,dischargeTime,codingTime}=profile;
+      const overflowTime=divide(overflow.value,speed);
+      const arrival=clear+firstPackage+dischargeTime+codingTime+overflowTime;
+      const consumed=consumption*arrival;
+      const catchTime=divide(consumed,speed-consumption);
+      Object.assign(profile,{overflowTime,arrival,consumed,catchTime,extraConsumed:consumption*catchTime,
+        recovery:lba-consumed-consumption*catchTime});
+    }
+    const recovery=extreme('recovery',(a,b)=>a<b);
+    recovery.partial ||= overflow.partial;
+    const point=recovery.value>0&&lba>=recovery.value?prime-recovery.value:NaN;
+    return {profiles,common:[
+      ['D8','Discharge','mm',discharge,'Input'],
+      ['E8','Coding','mm',coding,'Input'],
+      ['F8','Overflow','mm',overflow.value,'=MAX(L58:N58)',overflow],
+      ['K8','Lrec (min)','mm',recovery.value,'=MIN(L70:N70)',recovery],
+      ['L8','Lp','mm',lp,'Input'],
+      ['E11','Lbu','mm',lbu,'=D8+E8+F8',overflow],
+      ['I11','Accumulation Zone (Lba)','mm',lba,'=I13-L8-E11 (croquis)',overflow],
+      ['I13','Lact','mm',lact,'Input'],
+      ['','Max Run-out Point','mm',runout,'D8 + E8'],
+      ['','Back-up Sensor (calculated)','mm',lbu,'E11',overflow],
+      ['','Back-up Sensor (actual)','mm',zone.backupSensorPositionMm,'Operating position'],
+      ['','Rec Pt.','mm',point,'I13 − L8 − K8',recovery],
+      ['','Prime Sensor (calculated)','mm',prime,'I13 − L8'],
+      ['','Prime Sensor (actual)','mm',zone.primeSensorPositionMm,'Operating position'],
+      ['','L (min needed)','mm',undefined,'Formula to confirm']
+    ],lba};
+  }
+
+  const rows=[
+    ['Product, Machines and Conveyor Speeds',[
+      [16,'Package Length','mm','Input',p=>p.length],
+      [19,'Upstream Discharge Pitch','mm','Input',p=>p.dischargePitch],
+      [20,'Upstream Machine Startup Time','s','Input',p=>p.startup],
+      [21,'Packages Discharged at Stop','packages','Input',p=>p.residual],
+      [22,'Upstream Machine Nominal Speed','packages/min','Input',p=>p.rate],
+      [23,'Upstream Discharge Velocity','m/min','=L22*L19/1000',p=>p.rate*p.dischargePitch/1000],
+      [24,'Upstream Packed Product Flow','m/min','=L22*L16/1000',p=>p.flow*.06],
+      [27,'Downstream Machine High Speed','packages/min','Input',p=>p.highRate],
+      [28,'Downstream Infeed Pitch','mm','Input',p=>p.infeedPitch],
+      [29,'Downstream Ramp-up Time (Including Prime Delay)','s','Input',p=>p.ramp],
+      [30,'Downstream Packed Product Consumption','m/min','=L27*L16/1000',p=>p.consumption*.06],
+      [33,'Discharge Speed Factor','%','Input',p=>p.dischargeFactor],
+      [34,'Discharge Speed','m/min','=L23*(1+L33)',p=>p.dischargeSpeed*.06],
+      [35,'Discharge Population','%','=L$24/L34',p=>p.flow/p.dischargeSpeed*100],
+      [36,'Coding Speed Factor','%','Input',p=>p.codingFactor],
+      [37,'Coding Speed','m/min','=L34*(1+L36)',p=>p.codingSpeed*.06],
+      [38,'Coding Population','%','=L24/L37',p=>p.flow/p.codingSpeed*100],
+      [39,'Main Conveyor Speed Factor','%','Input',p=>p.accumulationFactor],
+      [40,'Main Conveyor Speed','m/min','Input',p=>p.speed*.06],
+      [41,'Main Conveyor Population','%','=L24/L40',p=>p.population*100],
+      [45,'Package Pass Time at Back-up Sensor','s','=L16/1000/L40*60',p=>p.length/p.speed],
+      [46,'Back-up Blocked Time Delay','s','Input',p=>p.blocked],
+      [48,'Back-up Clear Time Delay','s','Input',p=>p.clear]
+    ]],
+    ['Overflow',[
+      [51,'Packages During Blocked Time Delay','packages','=L46*L22/60',p=>p.duringDelay],
+      [52,'Packages Discharged After Stop Signal','packages','=L21',p=>p.residual],
+      [53,'Packages in Discharge','packages','=$D$8*L35/L16',p=>p.inDischarge],
+      [54,'Packages in Coding','packages','=$E$8*L38/L16',p=>p.inCoding],
+      [55,'Insurance Factor','packages','Input',p=>p.insurance],
+      [56,'Total Packages to Absorb','packages','=SUM(L51:L55)',p=>p.total],
+      [57,'Packed Product Length','mm','=L56*L16',p=>p.total*p.length],
+      [58,'Overflow Required','mm','=L57/(1-L41)',p=>p.overflow]
+    ]],
+    ['Recovery, Accumulation and Infeed Speed',[
+      [61,'Back-up Clear Time Delay','s','=L48',p=>p.clear],
+      [62,'Time from Restart to First Package Discharged','s','Input',p=>p.firstPackage],
+      [63,'Discharge Transit Time','s','=$D$8/L$34/1000*60',p=>p.dischargeTime],
+      [64,'Coding Transit Time','s','=$E$8/L37/1000*60',p=>p.codingTime],
+      [65,'Common Overflow Transit Time','s','=$F$8/L40/1000*60',p=>p.overflowTime],
+      [66,'Time to First Package at Back-up','s','=SUM(L61:L65)',p=>p.arrival],
+      [67,'Queue Length Consumed Before Arrival','mm','=L27*L16/60*L66 (reconstructed)',p=>p.consumed],
+      [68,'Time to Reach the Queue','s','=(L67/1000)/(L40-L30)*60',p=>p.catchTime],
+      [69,'Additional Queue Length Consumed','mm','=L30/60*L68*1000',p=>p.extraConsumed],
+      [70,'Lrec','mm','=$I$11-L69-L67',p=>p.recovery],
+      [73,'Tacc Antistarve','min','=$I$11*(1-L414)/L16/L27 (L414 treated as 0)',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption/60:NaN],
+      [74,'Tacc Antistarve','s','=L73*60',(p,lba)=>lba>=0&&p.consumption>0?lba/p.consumption:NaN],
+      [75,'Tacc Antiblock','min','=$I$11*(1-L41)/L16/L22',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow/60:NaN],
+      [76,'Tacc Antiblock','s','=L75*60',(p,lba)=>lba>=0&&p.flow>0&&p.population<1?lba*(1-p.population)/p.flow:NaN],
+      [79,'Infeed Overspeed','%','Input',p=>p.overspeed],
+      [80,'Minimum Recommended Infeed Speed','m/min','=L28*L28/1000*(1+L79) (to confirm)',()=>undefined]
+    ]]
+  ];
+
+  function open(name,context){
+    if(!context)return;
+    const dialog=document.getElementById('conveyor-analysis-dialog');
+    const body=document.getElementById('conveyor-analysis-body');
+    const delays=[];
+    const number=new Intl.NumberFormat(undefined,{maximumFractionDigits:2});
+    const valueText=value=>Number.isFinite(value)?number.format(value):'Pending';
+    const updates=[];
+    let worksheet=calculate(context,delays);
+    body.replaceChildren();
+    document.getElementById('conveyor-analysis-title').textContent='Conveyor Analysis Tool · '+name;
+    function make(parent,tag,text){
+      const element=document.createElement(tag);
+      if(text!==undefined)element.textContent=text;
+      parent.append(element);
+      return element;
+    }
+    function table(title,headers){
+      const element=make(body,'table');
+      make(element,'caption',title);
+      const row=make(make(element,'thead'),'tr');
+      for(const header of headers)make(row,'th',header).scope='col';
+      return make(element,'tbody');
+    }
+    function row(parent,ref,label,unit,formula){
+      const element=make(parent,'tr');
+      make(element,'td',ref);
+      make(element,'th',label).scope='row';
+      make(element,'td',unit);
+      make(element,'td',formula);
+      return element;
+    }
+    const common=table('Common Geometry',['Cell','Parameter','Unit','Calculation','Value','Governing Format']);
+    worksheet.common.forEach(([ref,label,unit,,formula],index)=>{
+      const element=row(common,ref,label,unit,formula);
+      const output=make(element,'td'),governing=make(element,'td');
+      updates.push(()=>{
+        const [,,,value,,source]=worksheet.common[index];
+        output.textContent=valueText(value)+(Number.isFinite(value)&&source?.partial?' (partial)':'');
+        governing.textContent=Number.isFinite(value)?source?.name??'':'';
+      });
+    });
+    if(!worksheet.profiles.length)make(body,'p','No applicable formats.');
+    for(const [title,entries] of worksheet.profiles.length?rows:[]){
+      const formats=table(title,['Cell','Parameter','Unit','Calculation',...worksheet.profiles.map(p=>p.name)]);
+      for(const [ref,label,unit,formula,read] of entries){
+        const element=row(formats,'L'+ref,label,unit,formula);
+        worksheet.profiles.forEach((profile,column)=>{
+          const cell=make(element,'td');
+          if(ref===62){
+            const input=make(cell,'input');
+            input.type='number';input.min='0';input.step='any';
+            input.placeholder='Pending';input.value=profile.firstPackage??'';
+            input.setAttribute('aria-label',label+' · '+profile.name);
+            input.addEventListener('input',()=>{
+              delays[column]=input.value===''||!input.validity.valid?NaN:input.valueAsNumber;
+              worksheet=calculate(context,delays);
+              updates.forEach(update=>update());
+            });
+          }else{
+            updates.push(()=>{cell.textContent=valueText(read(worksheet.profiles[column],worksheet.lba));});
+          }
+        });
+      }
+    }
+    updates.forEach(update=>update());
+    make(body,'p','L62 is entered per format for the current dialog. The Cell and Calculation columns use the first format (L). L20 is the configured upstream startup time. Positions are measured from the conveyor entry.').className='chart-note';
+    make(body,'p','I11 uses Lact − Lp − Lbu, as shown on the drawing. The I11 Excel transcription has the opposite sign on Lbu. Verify L67, L73, L80 and L (min needed) against the original.').className='chart-note';
+    body.scrollTop=0;
+    dialog.showModal();
+  }
+  return {open,close,calculate};
+})();
+</script>

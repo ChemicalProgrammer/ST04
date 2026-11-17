@@ -124,7 +124,8 @@ test('2D extracts only the representative seed, even without recorded playback',
 test('2D uses the representative seed to calculate new production and preserves its other run', () => {
   const markup=readFileSync(new URL('../apps-script/WebApp.html',import.meta.url),'utf8');
   const panel=markup.match(/<section id="simulation2d-panel"[\s\S]*?<\/section>/)[0];
-  const dom=new JSDOM(panel,{runScripts:'outside-only'});
+  const analysisComponent=readFileSync(new URL('../apps-script/ConveyorAnalysis.html',import.meta.url),'utf8');
+  const dom=new JSDOM(panel+analysisComponent,{runScripts:'outside-only'});
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
     const labels=[],bottles=[];
@@ -158,6 +159,7 @@ test('2D uses the representative seed to calculate new production and preserves 
       return rendered;
     };
     window.eval(script('EquipmentEfficiency'));
+    window.eval(script('ConveyorAnalysis'));
     window.eval(script('Simulation2D'));
     const source={round:2,seed:78,durationSeconds:10,summary:{outputCount:99999}};
     const createdSeeds=[];
@@ -347,7 +349,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
     equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     Object.assign(geometry,{primeSensorPositionMm:1500,backupSensorPositionMm:500,
-      engineering:{input:{packageLengthMm:30,upstreamNominalSpeedBpm:120,blockedTimeDelaySeconds:1,
+      engineering:{input:{packageLengthMm:30,upstreamNominalSpeedBpm:120,upstreamDischargePitchMm:50,
+        conveyorSpeedFactorPercent:0,codingSpeedFactorPercent:50,blockedTimeDelaySeconds:1,
         clearTimeDelaySeconds:0,upstreamStartupTimeSeconds:2,bottlesDischargedAtStop:1,insuranceFactorUnits:0},
         calculated:{dischargeZoneSpeedMmPerSecond:100,codingZoneSpeedMmPerSecond:150,downstreamConsumptionRateMmPerSecond:55}}});
     window.SimulatorEngine.applyProductProfile=(line,profile)=>line.map(item=>({...item,formatId:profile.id}));
@@ -456,7 +459,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     for(const [label,value] of [['Overflow',300],['Lbu',550],['Accumulation Zone (Lba)',950],['Lrec',150],['L min',2400]]){
       assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
     }
-    const analysis=el('analysis-dialog');
+    const analysisEl=id=>window.document.getElementById('conveyor-analysis-'+id);
+    const analysis=analysisEl('dialog');
     analysis.showModal=()=>{analysis.open=true;};
     analysis.close=()=>{analysis.open=false;};
     const analysisButton=el('machine-controls').querySelector('[aria-haspopup="dialog"]');
@@ -465,18 +469,18 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(analysisButton.hidden,false);
     analysisButton.click();
     assert(analysis.open);
-    assert.equal(el('analysis-title').textContent,'Conveyor Analysis · belt');
+    assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
     const tableValue=label=>{
-      const item=[...el('analysis-body').querySelectorAll('tbody tr')].find(row=>row.cells[0].textContent===label);
+      const item=[...analysisEl('body').querySelectorAll('tbody tr')].find(row=>row.cells[0].textContent===label||row.cells[1]?.textContent===label);
       assert(item,label);
-      return [...item.cells].slice(1).map(cell=>cell.textContent);
+      return [...item.cells].slice(4).map(cell=>cell.textContent);
     };
-    assert.deepEqual(tableValue('Back-up position (operating)'),['mm','500','']);
-    assert.deepEqual(tableValue('Prime position (operating)'),['mm','1,500','']);
-    assert.deepEqual(tableValue('Discharge'),['mm','100','']);
-    assert.deepEqual(tableValue('Coding'),['mm','150','']);
-    assert.deepEqual(tableValue('Overflow (maximum)'),['mm','420','large-overflow']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['mm','830','large-overflow']);
+    assert.deepEqual(tableValue('Back-up Sensor (actual)'),['500','']);
+    assert.deepEqual(tableValue('Prime Sensor (actual)'),['1,500','']);
+    assert.deepEqual(tableValue('Discharge'),['100','']);
+    assert.deepEqual(tableValue('Coding'),['150','']);
+    assert.deepEqual(tableValue('F8'),['420','large-overflow']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['830','large-overflow']);
     analysis.close();
     close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
     const extent=label=>{
@@ -493,8 +497,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(currentLabels().includes('Discharge · 0 mm'));
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
-    assert.deepEqual(tableValue('Coding'),['mm','Pending','']);
-    assert.deepEqual(tableValue('Overflow (maximum)'),['mm','Pending','']);
+    assert.deepEqual(tableValue('Coding'),['Pending','']);
+    assert.deepEqual(tableValue('F8'),['Pending','']);
     analysis.close();
 
     const calculatedSensors=['B','P'].map(sensorPosition);
@@ -509,7 +513,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,
       engineering:{input:{packageLengthMm:98,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
-        blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:2,
+        blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:1,
         bottlesDischargedAtStop:2,insuranceFactorUnits:3}}});
     const secondBelt={...equipment[1],id:'belt-2',name:'second belt',processData:{
       ...equipment[1].processData,geometry:{...equipment[1].processData.geometry,lactMm:7000}}};
@@ -520,14 +524,21 @@ test('2D uses the representative seed to calculate new production and preserves 
     const buttons=[...el('machine-controls').querySelectorAll('[aria-haspopup="dialog"]')];
     assert.equal(buttons.length,2);
     buttons[0].click();
-    assert.equal(el('analysis-title').textContent,'Conveyor Analysis · belt');
-    assert.deepEqual(tableValue('Overflow (maximum)'),['mm','1,162.84','Format 1']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['mm','3,790.16','Format 1']);
-    assert.deepEqual(tableValue('Recovery Margin (Lrec, minimum)'),['mm','1,800.42','Format 1']);
+    assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
+    assert.deepEqual(tableValue('F8'),['1,162.84','Format 1']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16','Format 1']);
+    assert.deepEqual(tableValue('K8'),['Pending','']);
+    assert.deepEqual(tableValue('L20'),['1']);
+    const firstPackage=analysisEl('body').querySelector('input[type=number]');
+    firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
+    assert.deepEqual(tableValue('K8'),['1,800.42','Format 1']);
+    assert.deepEqual(tableValue('L74'),['13.26']);
+    assert.deepEqual(tableValue('L76'),['6.72']);
+    assert.deepEqual(tableValue('L80'),['Pending']);
     analysis.close();
     buttons[1].click();
-    assert.equal(el('analysis-title').textContent,'Conveyor Analysis · second belt');
-    assert.deepEqual(tableValue('Installed Length (Lact)'),['mm','7,000','']);
+    assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');
+    assert.deepEqual(tableValue('I13'),['7,000','']);
     analysis.close();
   }finally{dom.window.close();}
 });
