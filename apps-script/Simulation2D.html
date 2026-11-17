@@ -6,8 +6,9 @@
 .simulation2d-metrics > div { flex:1 1 8rem; padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
-#simulation2d-panel { container-type:inline-size; }
-#simulation2d-panel.simulation2d-fullscreen {
+#simulation2d-panel > .fold-card { container-type:inline-size; }
+#simulation2d-settings { margin-bottom:var(--space-3); }
+#simulation2d-results.simulation2d-fullscreen {
   position:fixed; inset:0; z-index:1000; margin:0; max-width:none;
   border-radius:0; background:var(--surface); overflow:auto;
   display:flex; flex-direction:column;
@@ -944,7 +945,7 @@ window.STSimulation2D=(function(){
     if(enabled===Boolean(embeddedCamera))return;
     endDrag();
     if(enabled)embeddedCamera={...camera};
-    panel.classList.toggle('simulation2d-fullscreen',enabled);
+    el('results').classList.toggle('simulation2d-fullscreen',enabled);
     fullscreenButton.setAttribute('aria-pressed',String(enabled));
     fullscreenButton.title=enabled?'Exit full-screen diagram':'Open full-screen diagram';
     fullscreenButton.setAttribute('aria-label',fullscreenButton.title);
