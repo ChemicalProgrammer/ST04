@@ -13,7 +13,7 @@
 .conveyor-analysis-body table { width:100%; border-collapse:collapse; font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
 .conveyor-analysis-body th, .conveyor-analysis-body td { padding:var(--space-2); text-align:start; border-bottom:1px solid var(--line); }
 .conveyor-analysis-body td { white-space:nowrap; }
-.conveyor-analysis-body td:nth-child(n+5) { text-align:end; }
+.conveyor-analysis-body td.conveyor-analysis-value { text-align:end; }
 .conveyor-analysis-body input { width:7em; }
 .conveyor-analysis-body .conveyor-analysis-subheading { background:var(--surface-soft); }
 .conveyor-analysis-body caption { text-align:start; font-weight:600; padding:var(--space-2); }
@@ -205,18 +205,20 @@ window.STConveyorAnalysis=(function(){
       for(const header of headers)make(row,'th',header).scope='col';
       return make(element,'tbody');
     }
-    function row(parent,ref,label,unit,formula){
+    function row(parent,ref,label,formula){
       const element=make(parent,'tr');
       make(element,'td',ref);
       make(element,'th',label).scope='row';
-      make(element,'td',unit);
       make(element,'td',formula);
       return element;
     }
-    const common=table('Common Geometry',['Cell','Parameter','Unit','Calculation','Value','Governing Format']);
+    const common=table('Common Geometry',['Cell','Parameter','Calculation','Value','Unit','Governing Format']);
     worksheet.common.forEach(([ref,label,unit,,formula],index)=>{
-      const element=row(common,ref,label,unit,formula);
-      const output=make(element,'td'),governing=make(element,'td');
+      const element=row(common,ref,label,formula);
+      const output=make(element,'td');
+      output.className='conveyor-analysis-value';
+      make(element,'td',unit);
+      const governing=make(element,'td');
       updates.push(()=>{
         const [,,,value,,source]=worksheet.common[index];
         output.textContent=valueText(value)+(Number.isFinite(value)&&source?.partial?' (partial)':'');
@@ -225,7 +227,7 @@ window.STConveyorAnalysis=(function(){
     });
     if(!worksheet.profiles.length)make(body,'p','No applicable formats.');
     for(const [title,entries] of worksheet.profiles.length?rows:[]){
-      const formats=table(title,['Cell','Parameter','Unit','Calculation',...worksheet.profiles.map(p=>p.name)]);
+      const formats=table(title,['Cell','Parameter','Calculation',...worksheet.profiles.map(p=>p.name),'Unit']);
       for(const entry of entries){
         if(typeof entry==='string'){
           const heading=make(make(formats,'tr'),'th',entry);
@@ -234,9 +236,10 @@ window.STConveyorAnalysis=(function(){
           continue;
         }
         const [ref,label,unit,formula,read]=entry;
-        const element=row(formats,'L'+ref,label,unit,formula);
+        const element=row(formats,'L'+ref,label,formula);
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
+          cell.className='conveyor-analysis-value';
           if(ref===62){
             const input=make(cell,'input');
             input.type='number';input.min='0';input.step='any';
@@ -251,6 +254,7 @@ window.STConveyorAnalysis=(function(){
             updates.push(()=>{cell.textContent=valueText(read(worksheet.profiles[column],worksheet.lba));});
           }
         });
+        make(element,'td',unit);
       }
     }
     updates.forEach(update=>update());

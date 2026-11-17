@@ -473,7 +473,11 @@ test('2D uses the representative seed to calculate new production and preserves 
     const tableValue=label=>{
       const item=[...analysisEl('body').querySelectorAll('tbody tr')].find(row=>row.cells[0].textContent===label||row.cells[1]?.textContent===label);
       assert(item,label);
-      return [...item.cells].slice(4).map(cell=>cell.textContent);
+      const headers=[...item.closest('table').tHead.rows[0].cells].map(cell=>cell.textContent);
+      const unitIndex=headers.indexOf('Unit');
+      assert(unitIndex>3);
+      assert.equal(unitIndex,headers.length-(headers.includes('Governing Format')?2:1));
+      return [...item.cells].slice(3).filter((_,index)=>index+3!==unitIndex).map(cell=>cell.textContent);
     };
     assert.deepEqual(tableValue('Back-up Sensor (actual)'),['500','']);
     assert.deepEqual(tableValue('Prime Sensor (actual)'),['1,500','']);
