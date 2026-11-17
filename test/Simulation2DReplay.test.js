@@ -347,7 +347,6 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
-    equipment[1].processData.upstream={dischargeVelocityMPerMinute:7.2};
     equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     Object.assign(geometry,{primeSensorPositionMm:1500,backupSensorPositionMm:500,
       engineering:{input:{packageLengthMm:30,upstreamNominalSpeedBpm:120,upstreamDischargePitchMm:50,
@@ -503,14 +502,13 @@ test('2D uses the representative seed to calculate new production and preserves 
     close(extent('Lact'),2000*.09);
     delete equipment[1].processData.geometry.actualDischargeMm;
     delete equipment[1].processData.geometry.actualCodingMm;
-    delete equipment[1].processData.upstream.dischargeVelocityMPerMinute;
     geometry.engineering.input.dischargeRunoutLengthMm=0;
     window.STSimulation2D.load(['case','pending-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     assert(currentLabels().includes('Discharge · 0 mm'));
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
     assert.deepEqual(tableValue('Coding'),['Pending']);
-    assert.deepEqual(tableValue('L23'),['Pending']);
+    assert.deepEqual(tableValue('L23'),['7.2']);
     assert.deepEqual(tableValue('F8'),['Pending']);
     analysis.close();
 
@@ -522,7 +520,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(!marker('Design B'));
     assert.deepEqual(['B','P'].map(sensorPosition),calculatedSensors);
 
-    equipment[1].processData.upstream.dischargeVelocityMPerMinute=18.816;
+    equipment[1].processData.upstream={...equipment[1].processData.upstream,dischargeVelocityMPerMinute:18.816};
     equipment[1].processData.geometry={lactMm:5953,lpPrimeMm:1000,actualDischargeMm:0,actualCodingMm:0};
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,

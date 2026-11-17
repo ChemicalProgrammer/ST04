@@ -11,11 +11,6 @@
 #conveyor-analysis-body h3 { margin:0 0 var(--space-2); }
 #conveyor-analysis-body .chart-note { margin:0; }
 #conveyor-analysis-body input { width:7em; }
-#conveyor-analysis-body tr[data-zone="discharge"] { --zone-color:#65a97c; }
-#conveyor-analysis-body tr[data-zone="coding"] { --zone-color:#e2a16b; }
-#conveyor-analysis-body tr[data-zone="overflow"] { --zone-color:#69a9c1; }
-#conveyor-analysis-body tr[data-zone] > * { background:color-mix(in srgb,var(--zone-color) 26%,var(--surface)); }
-#conveyor-analysis-body tr[data-zone] > :first-child { border-inline-start:3px solid var(--zone-color); }
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
@@ -48,8 +43,9 @@ window.STConveyorAnalysis=(function(){
         const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
         const infeedPitch=input.downstreamInfeedPitchMm??models[index].processData?.downstream?.infeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
         const speed=belt.conveyorSpeedMmPerSecond;
-        // The imported conveyor speed is already resolved for this format.
-        const dischargeVelocity=models[index].processData?.upstream?.dischargeVelocityMPerMinute;
+        // Legacy cases used the resolved conveyor speed as the discharge reference.
+        const configuredDischargeVelocity=models[index].processData?.upstream?.dischargeVelocityMPerMinute;
+        const dischargeVelocity=configuredDischargeVelocity>0?configuredDischargeVelocity:speed*.06;
         const dischargeMmPerSecond=dischargeVelocity>0?dischargeVelocity/.06:NaN;
         const rate=divide(dischargeMmPerSecond*60,dischargePitch);
         const highRate=divide(speed*60,infeedPitch);
@@ -280,7 +276,7 @@ window.STConveyorAnalysis=(function(){
     }
     updates.forEach(update=>update());
     make(body,'p','Enter the time to the first package after restart for each format. Positions are measured from the conveyor entry.').className='chart-note';
-    make(body,'p','Enter Upstream Discharge Velocity in the Equipment sheet (AF). Overflow also requires conveyor population below 100%.').className='chart-note';
+    make(body,'p','Upstream Discharge Velocity (AF) overrides the conveyor speed used as the default discharge reference. Overflow requires conveyor population below 100%.').className='chart-note';
     make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();
