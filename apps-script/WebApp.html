@@ -178,15 +178,35 @@
           <label class="simulation2d-source">
             <input id="simulation2d-dimensions" type="checkbox"> Show dimensions
           </label>
+          <label class="simulation2d-source"><input id="simulation2d-failures" type="checkbox" checked> MTBF / MTTR failures</label>
+          <button id="simulation2d-events" type="button" class="secondary icon-button" data-icon="calendar" title="Events and calendar" aria-label="Events and calendar" aria-expanded="false"></button>
         </div>
         <dl class="simulation2d-metrics">
           <div><dt>Elapsed</dt><dd id="simulation2d-time">0 s</dd></div>
-          <div><dt>Output</dt><dd id="simulation2d-output">0</dd></div>
+          <div><dt>Bottles produced</dt><dd id="simulation2d-output">0</dd></div>
           <div><dt>On conveyors</dt><dd id="simulation2d-inventory">0</dd></div>
-          <div><dt>Machines running</dt><dd id="simulation2d-running">0</dd></div>
+          <div><dt>Machines running</dt><dd id="simulation2d-running">0/0</dd></div>
           <div><dt>Back-up active</dt><dd id="simulation2d-backup">0</dd></div>
         </dl>
+        <div id="simulation2d-events-dock" hidden></div>
+        <dialog id="simulation2d-events-dialog" class="message-dialog" aria-labelledby="simulation2d-events-title">
+          <div id="simulation2d-events-panel" class="simulation2d-events-panel">
+            <div class="button-row">
+              <strong id="simulation2d-events-title">Events and calendar</strong>
+              <button id="simulation2d-events-pin" type="button" class="secondary icon-button" data-icon="pin" aria-label="Pin above diagram" title="Pin above diagram" aria-pressed="false"></button>
+              <button id="simulation2d-events-close" type="button" class="secondary icon-button" data-icon="x" aria-label="Close events and calendar" title="Close events and calendar"></button>
+            </div>
+            <div class="simulation2d-options">
+              <label class="simulation2d-source"><input id="simulation2d-use-events" type="checkbox"> Equipment events and line stops</label>
+              <label class="simulation2d-source"><input id="simulation2d-use-calendar" type="checkbox"> Plant calendar</label>
+            </div>
+            <p id="simulation2d-events-note" class="chart-note"></p>
+          </div>
+        </dialog>
+        <div class="simulation2d-diagram">
         <canvas id="simulation2d-canvas" tabindex="0" aria-label="Side view of the line. Drag to pan. Control or Command and wheel to zoom. Use the Fit button to recenter."></canvas>
+          <div id="simulation2d-machine-controls"></div>
+        </div>
         <div id="simulation2d-legend" class="chart-note" aria-label="Machine states">
           <span class="run">Running / discharging</span>
           <span class="starved">Starved</span>

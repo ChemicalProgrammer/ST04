@@ -15,7 +15,15 @@
 .simulation2d-fullscreen #simulation2d-content {
   flex:1; min-height:22rem; display:flex; flex-direction:column;
 }
+.simulation2d-fullscreen .simulation2d-diagram { flex:1; display:flex; }
 .simulation2d-fullscreen #simulation2d-canvas { flex:1; min-height:12rem; height:auto; }
+.simulation2d-diagram { position:relative; overflow:hidden; }
+#simulation2d-machine-controls { position:absolute; inset:0; pointer-events:none; }
+.simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
+.simulation2d-machine-actions[hidden] { display:none; }
+.simulation2d-machine-actions .icon-button { width:26px; height:26px; min-width:0; min-height:0; padding:3px; }
+.simulation2d-events-panel { padding:var(--space-2); }
+#simulation2d-events-dialog { max-width:min(34rem,95vw); }
 .simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
 .simulation2d-source select { width:auto; min-width:0; }
@@ -57,7 +65,7 @@ window.STSimulation2D=(function(){
   const el=id=>document.getElementById('simulation2d-'+id);
   const canvas=el('canvas'),panel=el('panel');
   const step=1/120,sceneScale=.09,cardWidth=260,cardGap=24,telemetryWidth=180,telemetryGap=6,machineScale=3.75;
-  const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=14;
+  const telemetryPairWidth=2*telemetryWidth+telemetryGap,telemetryTopGap=51;
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
@@ -82,13 +90,58 @@ window.STSimulation2D=(function(){
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
-    if(config.reliabilityEnabled===false)return [];
     const split=item.processData?.equipment?.stopInputs;
     const profiles=split?Object.entries(split):[['general',item.noiseProfile?.reliability]];
     return profiles.filter(([key,profile])=>config.reliabilityCategories?.[key]!==false
       &&Number.isFinite(profile?.mtbfMinutes)&&profile.mtbfMinutes>0
       &&Number.isFinite(profile.mttrMinutes)&&profile.mttrMinutes>0)
       .map(([,profile])=>({rate:1/(profile.mtbfMinutes*60),repairSeconds:profile.mttrMinutes*60}));
+  }
+  let schedule={},scheduleError='';
+  const scheduleOptions={failures:el('failures'),events:el('use-events'),calendar:el('use-calendar')};
+  const scheduleSettings=()=>Object.fromEntries(Object.entries(scheduleOptions).map(([key,input])=>[key,input.checked]));
+  const machineControls=new Map();
+  function resolveSchedule(config){
+    const engine=window.SimulatorEngine;
+    const calendar=config.plantCalendar;
+    const manual=(config.plannedStops||[]).filter(event=>event.source!=='PLANT_CALENDAR');
+    const generated=engine.plantCalendarSchedule?.(calendar,step);
+    const calendarStops=(generated?.events||[]).map(event=>({...event,restartPolicy:generated.restartPolicy,fromCalendar:true}));
+    const stops=manual.length||calendarStops.length
+      ?engine.resolvePlannedStops({tickSeconds:step,plannedStops:[...manual,...calendarStops]}).events:[];
+    const commands=[...(config.commands||[])].sort((a,b)=>a.atVirtualSecond-b.atVirtualSecond);
+    return {commands,stops};
+  }
+  function configureModel(){
+    model?.configure?.(scheduleSettings());
+  }
+  function rebuildMachineControls(){
+    const target=el('machine-controls');
+    target.replaceChildren();machineControls.clear();
+    const actions=[['RUN','play','Start / resume'],['PAUSE','pause','Pause'],['STOP','stop','Stop'],
+      ['EMERGENCY_STOP','error','Emergency stop'],['RESET','refresh','Reset emergency stop']];
+    for(const item of definitions){
+      if(item.kind!=='machine')continue;
+      const group=document.createElement('div');
+      group.className='simulation2d-machine-actions';
+      group.setAttribute('role','group');
+      group.setAttribute('aria-label',item.name+' controls');
+      const buttons=new Map();
+      for(const [action,icon,label] of actions){
+        const button=document.createElement('button');
+        button.type='button';button.className='secondary icon-button';
+        button.title=label+' · '+item.name;
+        button.setAttribute('aria-label',button.title);
+        if(window.STIcons)button.innerHTML=window.STIcons.svg(icon);
+        else button.textContent=label;
+        button.onclick=()=>{
+          model?.control?.(item.id,action);
+          status();draw();checkpoint();
+        };
+        buttons.set(action,button);group.append(button);
+      }
+      target.append(group);machineControls.set(item.id,{group,buttons});
+    }
   }
   function conveyorSegments(data){
     return {
@@ -267,7 +320,7 @@ window.STSimulation2D=(function(){
     for(const center of centers){
       positions.push(Math.max(center,positions.length?positions.at(-1)+telemetryPairWidth+cardGap:telemetryPairWidth/2));
     }
-    return {centers,positions,end};
+    return {positions,end};
   }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
@@ -296,12 +349,14 @@ window.STSimulation2D=(function(){
     ['Failed','failure'],['Emergency stop','failure']
   ]);
   function machineSignal(item){
-    const state=['Stopped','Completed','Paused'].includes(runState)?runState:item.state||'Waiting';
+    const state=item.emergency?'Emergency stop':item.mode==='STOP'?'Stopped':item.mode==='PAUSE'?'Paused':
+      ['Stopped','Completed','Paused'].includes(runState)?runState:item.state||'Waiting';
     return {state,lamp:stateLamps.get(state)||'muted'};
   }
   function beltSignal(item){
     if(runState!=='Running')return {state:runState,lamp:'muted'};
     const state=item.state||'Empty';
+    if(['Stopped','Paused','Emergency stop','Planned stop'].includes(state))return {state,lamp:stateLamps.get(state)||'muted'};
     return {state,lamp:item.backupBlocked||state==='Accumulating'?'blocked':state==='Flowing'?'running':'muted'};
   }
   function drawSignal(context,x,y,lamp,colors){
@@ -511,7 +566,7 @@ window.STSimulation2D=(function(){
     if(factor>=.25&&right>left){
       context.lineWidth=3;
       context.setLineDash([20,8]);
-      const phase=((model?.time??0)*item.speed*sceneScale)%28||0;
+      const phase=((item.travelSeconds??model?.time??0)*item.speed*sceneScale)%28||0;
       for(const direction of [1,-1]){
         context.lineDashOffset=left-x-5-direction*phase;
         const track=y+(direction===1?1.5:beltDepth+1.5);
@@ -634,10 +689,22 @@ window.STSimulation2D=(function(){
     const scale=sceneScale,y=camera.y/factor;
     let x=camera.x/factor;
     const line=model?.line||definitions;
-    const {centers,positions}=telemetryLayout(line);
+    const {positions}=telemetryLayout(line);
     const half=sceneHalfHeight(),telemetryY=y+half+telemetryTopGap,dimensionY=y-half-dimensionOffset;
     const pointer=dimensionPointer&&!drag?{x:dimensionPointer.x/factor,y:dimensionPointer.y/factor}:null;
     const origin=x;
+    for(const [index,item] of line.entries()){
+      const controls=machineControls.get(item.id);
+      if(!controls)continue;
+      const {group,buttons}=controls,cx=(origin+positions[index])*factor,cy=(telemetryY-25)*factor;
+      group.style.left=cx+'px';group.style.top=cy+'px';
+      group.style.transform='translate(-50%,-50%) scale('+Math.min(1,factor)+')';
+      group.hidden=!model||cx<0||cx>screenWidth||cy<0||cy>h;
+      for(const [action,button] of buttons){
+        button.disabled=action==='RESET'?!item.emergency:action==='EMERGENCY_STOP'?!!item.emergency:
+          !!item.emergency||(action==='PAUSE'&&item.mode==='PAUSE')||(action==='STOP'&&item.mode==='STOP');
+      }
+    }
     for(let index=0;index<line.length;index++){
       const item=line[index],width=displayWidth(item);
       const lane=item.kind==='belt';
@@ -718,12 +785,8 @@ window.STSimulation2D=(function(){
       x+=width;
     }
     for(let index=0;index<line.length;index++){
-      const item=line[index],center=origin+positions[index],anchor=origin+centers[index];
+      const item=line[index],center=origin+positions[index];
       if(center+telemetryPairWidth/2<0||center-telemetryPairWidth/2>w)continue;
-      if(Math.abs(center-anchor)>1){
-        context.strokeStyle=border;
-        context.beginPath();context.moveTo(anchor,telemetryY-9);context.lineTo(center,telemetryY-2);context.stroke();
-      }
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
       drawTelemetry(context,item,center,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
@@ -740,9 +803,11 @@ window.STSimulation2D=(function(){
     message.classList.toggle('notice',Boolean(validation));
     message.textContent=validation||runState+sourceStatus+waitingForFirst;
     el('time').textContent=num(model?.time??0)+' s';
-    el('output').textContent=num(line.at(-1)?.produced??0)+' '+(definitions.at(-1)?.unit==='CASES'?'cases':'bottles');
+    const output=line.at(-1);
+    el('output').textContent=num((output?.produced??0)*(output?.bottlesPerUnit??1));
     el('inventory').textContent=num(line.reduce((sum,item)=>sum+(item.items?.length||0),0));
-    el('running').textContent=num(line.filter(item=>item.state==='Running'||item.state==='Discharging').length);
+    const running=runState==='Running'?line.filter(item=>item.kind==='machine'&&['Running','Discharging','Ramp up','Ramp down'].includes(item.state)).length:0;
+    el('running').textContent=num(running)+'/'+num(definitions.filter(item=>item.kind==='machine').length);
     el('backup').textContent=num(line.filter(item=>item.backupBlocked).length);
   }
   function cancelFrame(){
@@ -763,8 +828,8 @@ window.STSimulation2D=(function(){
   function checkpoint(){
     if(!save||defaultRun)return;
     save({
-      version:1,speed:Number(el('speed').value),limitSeconds,signature,runState,
-      shiftOutput:[...shiftOutput],checkpoint:model?.time>0?model.snapshot():null
+      version:1,options:scheduleSettings(),speed:Number(el('speed').value),limitSeconds,signature,runState,
+      shiftOutput:[...shiftOutput],checkpoint:model?.snapshot()??null
     });
   }
   function pause(){
@@ -773,7 +838,8 @@ window.STSimulation2D=(function(){
   }
   function reset(){
     cancelFrame();lag=0;lastMetrics=-Infinity;shiftOutput=[];validation=validate();
-    model=validation?null:STSimulation2DEngine.create(definitions,defaultRun?representative.seed:seed);
+    model=validation?null:STSimulation2DEngine.create(definitions,defaultRun?representative.seed:seed,undefined,schedule);
+    configureModel();
     runState='Ready';syncControls();
     if(camera.fit)fit();else draw();
   }
@@ -785,7 +851,7 @@ window.STSimulation2D=(function(){
       reset();
     }else{
       ({model,shiftOutput,runState,validation}=defaultRun);
-      defaultRun=null;lag=0;lastMetrics=-Infinity;
+      defaultRun=null;lag=0;lastMetrics=-Infinity;configureModel();
       syncControls();if(camera.fit)fit();else draw();
     }
     el('source').value=useRepresentative?'representative':'independent';
@@ -814,6 +880,44 @@ window.STSimulation2D=(function(){
     draw();
     frame=window.requestAnimationFrame(animate);
   }
+  const eventsDialog=el('events-dialog'),eventsPanel=el('events-panel'),eventsDock=el('events-dock');
+  const eventsButton=el('events'),pinButton=el('events-pin');
+  function closeEvents(){
+    if(eventsDialog.open)eventsDialog.close();
+    eventsDock.hidden=true;
+    pinButton.setAttribute('aria-pressed','false');
+    pinButton.title='Pin above diagram';
+    pinButton.setAttribute('aria-label',pinButton.title);
+    eventsButton.setAttribute('aria-expanded','false');
+  }
+  function openEvents(){
+    eventsDialog.append(eventsPanel);
+    eventsDialog.showModal();
+    eventsButton.setAttribute('aria-expanded','true');
+  }
+  eventsButton.onclick=()=>eventsDock.hidden?openEvents():closeEvents();
+  el('events-close').onclick=closeEvents;
+  eventsDialog.addEventListener('close',()=>{
+    if(eventsDock.hidden&&!eventsDialog.open)eventsButton.setAttribute('aria-expanded','false');
+  });
+  pinButton.onclick=()=>{
+    const pin=eventsPanel.parentNode===eventsDialog;
+    if(pin){
+      eventsDock.append(eventsPanel);
+      eventsDock.hidden=false;
+      eventsDialog.close();
+      pinButton.focus();
+    }else{
+      eventsDock.hidden=true;
+      openEvents();
+    }
+    pinButton.setAttribute('aria-pressed',String(pin));
+    pinButton.title=pin?'Unpin events and calendar':'Pin above diagram';
+    pinButton.setAttribute('aria-label',pinButton.title);
+  };
+  Object.values(scheduleOptions).forEach(input=>input.onchange=()=>{
+    configureModel();status();draw();checkpoint();
+  });
   el('play').onclick=function(){
     if(!model||frame!==undefined)return;
     if(runState==='Stopped'||runState==='Completed'||model.time>=limitSeconds)reset();
@@ -853,7 +957,7 @@ window.STSimulation2D=(function(){
   }
   fullscreenButton.onclick=()=>setFullscreen(!embeddedCamera);
   window.addEventListener('keydown',event=>{
-    if(event.key==='Escape'&&embeddedCamera){
+    if(event.key==='Escape'&&embeddedCamera&&!eventsDialog.open){
       event.preventDefault();
       setFullscreen(false);
       fullscreenButton.focus();
@@ -907,7 +1011,7 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){setFullscreen(false);endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
+  return {pause,unload(){closeEvents();setFullscreen(false);endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);
@@ -929,7 +1033,12 @@ window.STSimulation2D=(function(){
       CASES:geometry.productPresentation(format,'CASES').heightMm}:{};
     const heightChanged=heights.BOTTLES!==productHeights.BOTTLES||heights.CASES!==productHeights.CASES;
     productHeights=heights;
-    const nextSignature=JSON.stringify([next,revised],(key,value)=>key==='zoneId'?undefined:value);
+    let nextSchedule={};
+    scheduleError='';
+    try{nextSchedule=resolveSchedule(config);}catch(error){scheduleError=error.message;}
+    const omitZone=(key,value)=>key==='zoneId'?undefined:value;
+    const nextSignature=JSON.stringify([next,revised,nextSchedule,scheduleError],omitZone);
+    const previousSignature=JSON.stringify([next,revised],omitZone);
     const nextRepresentative=Number.isFinite(source?.seed)?source:null;
     const sameCase=next===key&&nextSignature===signature;
     if(sameCase&&nextRepresentative?.round===representative?.round&&nextRepresentative?.seed===representative?.seed){
@@ -940,7 +1049,18 @@ window.STSimulation2D=(function(){
     if(sameCase){save=saveRecord;syncControls();draw();return;}
     cancelFrame();defaultRun=null;el('source').value='independent';
     save=saveRecord;signature=nextSignature;
-    key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;
+    key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;schedule=nextSchedule;
+    const savedOptions=stored?.options||{};
+    scheduleOptions.failures.checked=savedOptions.failures??config.reliabilityEnabled!==false;
+    scheduleOptions.events.checked=savedOptions.events??config.eventsEnabled!==false;
+    scheduleOptions.calendar.checked=savedOptions.calendar??Boolean(config.plantCalendar?.enabled);
+    scheduleOptions.events.disabled=scheduleOptions.calendar.disabled=Boolean(scheduleError);
+    const commands=schedule.commands||[],stops=schedule.stops||[];
+    el('events-note').textContent=scheduleError||
+      commands.length+' equipment events · '+stops.filter(event=>!event.fromCalendar).length+' line stops · '+
+      stops.filter(event=>event.fromCalendar).length+' calendar stops.'+
+      (stops.some(event=>event.targetProductId)?' Changeovers stop the line; 2D keeps the selected format.':'');
+    rebuildMachineControls();
     const defaultLimit=config.durationSeconds>0?config.durationSeconds:3600;
     limitSeconds=stored?.limitSeconds>0&&Number.isFinite(stored.limitSeconds)?stored.limitSeconds:defaultLimit;
     el('limit').value=limitSeconds/60;
@@ -948,8 +1068,9 @@ window.STSimulation2D=(function(){
     if(!el('speed').value)el('speed').value='1';
     if(newView){endDrag();viewKey=nextView;camera.fit=true;}
     reset();
-    if(model&&stored?.version===1&&stored.signature===signature&&stored.checkpoint){
-      model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint);
+    if(model&&stored?.version===1&&(stored.signature===signature||stored.signature===previousSignature&&!schedule.commands?.length&&!schedule.stops?.length)&&stored.checkpoint){
+      model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint,schedule);
+      configureModel();
       shiftOutput=Array.isArray(stored.shiftOutput)?[...stored.shiftOutput]:[];
       runState=model.time>=limitSeconds-1e-8?'Completed':stored.runState==='Stopped'?'Stopped':'Paused';
       syncControls();if(camera.fit)fit();else draw();

@@ -95,10 +95,10 @@ test('2D uses the representative seed to calculate new production and preserves 
     const createdSeeds=[];
     let createdDefinitions;
     const engine=window.STSimulation2DEngine;
-    window.STSimulation2DEngine={create(definitions,seed,checkpoint){
+    window.STSimulation2DEngine={create(definitions,seed,checkpoint,schedule){
       createdSeeds.push(seed);
       createdDefinitions=definitions;
-      return engine.create(definitions,seed,checkpoint);
+      return engine.create(definitions,seed,checkpoint,schedule);
     }};
     const records=[];
     const equipment=[
@@ -130,7 +130,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.match(el('status').textContent,/Round 2 · Seed 78/);
     assert.equal(el('limit').disabled,false);
     assert.equal(el('time').textContent,'0 s');
-    assert.equal(el('output').textContent,'0 bottles');
+    assert.equal(el('output').textContent,'0');
     assert.deepEqual(createdSeeds,[7,78]);
     assert.equal(createdDefinitions.at(-1).residenceSeconds,2);
     el('speed').value='50';
@@ -148,7 +148,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const expected=engine.create(createdDefinitions,78);
     while(25-expected.time>1e-8)expected.step(Math.min(1/120,25-expected.time));
     assert(expected.line.at(-1).produced>0);
-    assert.equal(el('output').textContent,expected.line.at(-1).produced+' bottles');
+    assert.equal(el('output').textContent,String(expected.line.at(-1).produced));
     for(const title of ['upstream','belt','Time / failures','Time / sensors']){
       assert(labels.some(([text,font])=>text===title&&font==='600 12px system-ui'));
     }
@@ -235,6 +235,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     const formats=[{id:'large-overflow'},{id:'slow-recovery'}];
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,formats);
     el('fit').click();
+    const dialog=el('events-dialog');
+    dialog.showModal=()=>{dialog.open=true;};
+    dialog.close=()=>{dialog.open=false;dialog.dispatchEvent(new window.Event('close'));};
+    el('events').click();
+    assert(dialog.open);
+    el('events-pin').click();
+    assert(!dialog.open);
+    assert.equal(el('events-panel').parentElement,el('events-dock'));
+    assert(!el('events-dock').hidden);
+    el('events-pin').click();
+    assert(dialog.open);
+    el('events-close').click();
+    assert(!dialog.open);
+    assert.equal(el('running').textContent,'0/2');
     const fullscreen=el('fullscreen');
     assert.equal(fullscreen.previousElementSibling,el('fit'));
     fullscreen.click();
@@ -369,4 +383,41 @@ test('the five machine silhouettes have distinct moving details', () => {
   assert.equal(new Set(still.map(result=>JSON.stringify(result.operations))).size,types.length);
   types.forEach((type,index)=>assert.notDeepEqual(trace(type,.5).operations,still[index].operations));
   assert.equal(trace('CUSTOM',0).drawn,false);
+});
+
+
+test('2D honors runtime failure switches, scheduled stops and latched machine controls',()=>{
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'),{window});
+  const definitions=[{id:'m',kind:'machine',rate:10,batch:1,startDelay:0,failures:[{rate:1e6,repairSeconds:10}]}];
+  const schedule={commands:[{equipmentId:'m',atVirtualSecond:0,action:'PAUSE'}],
+    stops:[{startSeconds:1,endSeconds:2,restartPolicy:'RESUME',fromCalendar:true}]};
+  const engine=window.STSimulation2DEngine;
+  let model=engine.create(definitions,1,undefined,schedule);
+  model.configure({failures:false});
+  model.step(.1);
+  assert.equal(model.line[0].state,'Paused');
+  model.control('m','EMERGENCY_STOP');
+  model.control('m','RUN');
+  assert.equal(model.line[0].state,'Emergency stop');
+  model.control('m','RESET');
+  assert.equal(model.line[0].state,'Stopped');
+  model.control('m','RUN');
+  for(let i=0;i<11;i++)model.step(.1);
+  assert.equal(model.line[0].state,'Planned stop');
+  const before=model.line[0].produced;
+  model=engine.create(definitions,1,model.snapshot(),schedule);
+  model.configure({failures:false});
+  model.step(.1);
+  assert.equal(model.line[0].produced,before);
+  assert.equal(model.line[0].state,'Planned stop');
+  model.configure({calendar:false});
+  for(let i=0;i<5;i++)model.step(.1);
+  assert(model.line[0].produced>before);
+  assert.equal(model.line[0].failureCount,0);
+  model.configure({failures:true});
+  for(let i=0;i<5;i++)model.step(.1);
+  assert.equal(model.line[0].state,'Failed');
+  model.configure({failures:false});
+  assert.equal(model.line[0].failureRemaining,0);
 });

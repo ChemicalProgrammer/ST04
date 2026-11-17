@@ -5,7 +5,7 @@ window.STSimulation2DEngine=(function(){
     Starting:'starting',Running:'running',Discharging:'running',Starved:'starving','Waiting for Prime':'starving',
     'Ramp up':'acceleration','Ramp down':'deceleration',Blocked:'blocked','Back-up stop':'blocked',Failed:'failure'
   };
-  function create(definitions,seed=1,checkpoint){
+  function create(definitions,seed=1,checkpoint,schedule={}){
     const line=definitions.map((definition,index)=>definition.kind==='belt'
       ? {...definition,items:[],backupBlocked:false,backupElapsed:0,primeSeen:false,backupBeam:false,primeBeam:false,produced:0,state:'Empty',
         durations:{empty:0,flowing:0,accumulating:0},recentOutput:[],ratePerMinute:0}
@@ -14,9 +14,50 @@ window.STSimulation2DEngine=(function(){
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
         durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,failure:0},
         recentOutput:[],ratePerMinute:0});
-    let time=0;
+    let time=0,commandIndex=0,stopIndex=0,activeStop=null;
+    const commands=schedule.commands||[],stops=schedule.stops||[];
+    const byId=new Map(line.map(item=>[item.id,item]));
+    const options={failures:true,events:true,calendar:true};
+    const running=item=>!item.emergency&&!['STOP','PAUSE'].includes(item.mode);
+    const available=item=>running(item)&&!activeStop;
+    function restart(item){
+      if(item.kind==='belt')return;
+      item.started=0;
+      item.rampElapsed=0;
+      item.activeRampSeconds=item.rampSeconds||0;
+    }
+    function control(id,action){
+      const item=byId.get(id);
+      if(!item)return;
+      const wasRunning=running(item);
+      if(action==='EMERGENCY_STOP'){item.emergency=true;item.mode='STOP';}
+      else if(action==='RESET'&&item.emergency){item.emergency=false;item.mode='STOP';}
+      else if(!item.emergency&&['RUN','AUTO','MANUAL','STOP','PAUSE'].includes(action)){
+        item.mode=action;
+        if(!wasRunning&&running(item))restart(item);
+      }
+      if(!running(item))item.state=haltState(item);
+    }
+    function haltState(item){
+      if(item.emergency)return 'Emergency stop';
+      if(item.mode==='PAUSE')return 'Paused';
+      if(item.mode==='STOP')return 'Stopped';
+      return 'Planned stop';
+    }
+    function configure(values){
+      Object.assign(options,values);
+      if(!options.failures)for(const item of line){
+        if(item.failureRemaining>0){
+          item.failureRemaining=0;
+          if(item.state==='Failed')item.state='Waiting';
+        }
+      }
+    }
     if(checkpoint&&Number.isFinite(checkpoint.time)&&checkpoint.time>=0&&checkpoint.line?.length===line.length){
       time=checkpoint.time;
+      commandIndex=checkpoint.commandIndex??0;
+      stopIndex=checkpoint.stopIndex??0;
+      activeStop=stops[checkpoint.activeStopIndex]??null;
       line.forEach((item,index)=>{
         const saved=JSON.parse(JSON.stringify(checkpoint.line[index]));
         saved.durations={...item.durations,...saved.durations};
@@ -24,11 +65,12 @@ window.STSimulation2DEngine=(function(){
       });
     }
     function snapshot(){
-      return JSON.parse(JSON.stringify({time,line:line.map((item,index)=>Object.fromEntries(
+      return JSON.parse(JSON.stringify({time,commandIndex,stopIndex,activeStopIndex:activeStop?stops.indexOf(activeStop):-1,line:line.map((item,index)=>Object.fromEntries(
         Object.entries(item).filter(([key])=>!Object.hasOwn(definitions[index],key))
       ))}));
     }
     function moveBelt(belt,seconds){
+      belt.travelSeconds=(belt.travelSeconds||0)+seconds;
       const travel=belt.speed*seconds;
       let limit=belt.length-belt.packageLength/2;
       let primeCrossed=false;
@@ -50,6 +92,7 @@ window.STSimulation2DEngine=(function(){
       }
     }
     function discharge(machine,downstream){
+      if(downstream&&!available(downstream))return false;
       if(downstream?.kind==='belt'){
         const entry=downstream.packageLength/2;
         const last=downstream.items.at(-1);
@@ -97,7 +140,7 @@ window.STSimulation2DEngine=(function(){
       return true;
     }
     function stepMachine(machine,upstream,downstream,seconds){
-      if(updateFailure(machine,seconds)){machine.state='Failed';return;}
+      if(options.failures&&updateFailure(machine,seconds)){machine.state='Failed';return;}
       if(downstream?.backupBlocked){
         if(machine.backupSince===null){
           machine.backupSince=time;
@@ -134,7 +177,7 @@ window.STSimulation2DEngine=(function(){
       if(machine.remaining!==null){machine.state=motionState;return;}
       if(machine.input<machine.batch&&!braking){
         if(!upstream)machine.input=machine.batch;
-        if(upstream?.kind==='belt'){
+        if(upstream?.kind==='belt'&&available(upstream)){
           if(upstream.prime!==null&&!upstream.primeSeen){machine.state='Waiting for Prime';return;}
           const first=upstream.items[0];
           if(first&&first.x+upstream.packageLength/2>=upstream.length-epsilon){
@@ -163,7 +206,7 @@ window.STSimulation2DEngine=(function(){
         }else blocked=true;
       }
       machine.outletCredit=Math.min(1,machine.outletCredit);
-      if(!stopping&&(!upstream||upstream.kind==='belt')){
+      if(!stopping&&(!upstream||upstream.kind==='belt'&&available(upstream))){
         machine.intakeCredit+=work*machine.batch;
         while(machine.intakeCredit+epsilon>=1&&machine.resident.length<capacity){
           if(upstream){
@@ -184,18 +227,31 @@ window.STSimulation2DEngine=(function(){
         machine.resident.length||!upstream||accelerating?motionState:
         upstream.prime!=null&&!upstream.primeSeen?'Waiting for Prime':'Starved';
     }
-    return {line,snapshot,get time(){return time;},step(seconds){
+    return {line,snapshot,configure,control,get time(){return time;},step(seconds){
+      while(commandIndex<commands.length&&commands[commandIndex].atVirtualSecond<=time+epsilon){
+        const event=commands[commandIndex++];
+        if(options.events)control(event.equipmentId,event.action);
+      }
+      while(stopIndex<stops.length&&stops[stopIndex].endSeconds<=time+epsilon)stopIndex++;
+      const stop=stops[stopIndex];
+      const nextStop=stop&&stop.startSeconds<=time+epsilon&&(stop.fromCalendar?options.calendar:options.events)?stop:null;
+      if(activeStop&&activeStop!==nextStop&&activeStop.restartPolicy==='RESTART'){
+        for(const item of line)restart(item);
+      }
+      activeStop=nextStop;
       time+=seconds;
-      line.forEach(item=>{if(item.kind==='belt')moveBelt(item,seconds);});
+      line.forEach(item=>{if(item.kind==='belt'&&available(item))moveBelt(item,seconds);});
       for(let index=line.length-1;index>=0;index--){
         const item=line[index];
         if(item.kind!=='machine')continue;
-        stepMachine(item,line[index-1],line[index+1],seconds);
+        if(available(item))stepMachine(item,line[index-1],line[index+1],seconds);
+        else item.state=haltState(item);
         const category=durationKey[item.state];
         if(category)item.durations[category]+=seconds;
       }
       for(const item of line){
-        if(item.kind==='belt'){
+        if(item.kind==='belt'&&!available(item)){item.travelSeconds??=0;item.state=haltState(item);}
+        else if(item.kind==='belt'){
           const head=item.items[0];
           const accumulating=head&&head.x+item.packageLength/2>=item.length-epsilon;
           const category=!head?'empty':accumulating?'accumulating':'flowing';
