@@ -206,6 +206,23 @@ test('Prime starts downstream and Back-up requests a controlled upstream stop', 
   assert.ok(response.result.equipmentMetrics.source.backupStopSeconds > 0);
 });
 
+test('a moving Prime pulse does not start the downstream machine', () => {
+  const line = createDebouncedSensorLine();
+  line.equipment[1].processData.accumulation.primeSensorPositionMm = 850;
+  line.equipment[2].initialMode = 'MANUAL';
+  const {ok,result} = simulateLine({
+    case: line,
+    run: { durationSeconds: 12, tickSeconds: 0.1, sampleEverySeconds: 0.1, seed: 7 }
+  });
+  assert.equal(ok,true);
+  const prime = result.events.find(event=>event.type==='PRIME_SENSOR_TRIGGERED');
+  assert(prime);
+  const waiting = result.samples.filter(frame=>frame.virtualSecond<prime.atVirtualSecond);
+  assert(waiting.some(frame=>frame.accumulationZones[0].prime.passedUnits>0));
+  assert(waiting.every(frame=>frame.equipment[2].outputCount===0));
+  assert(result.summary.outputCount>0);
+});
+
 test('a stopped conveyor freezes material travel until it runs again', () => {
   const response = simulateLine(createInput({
     durationSeconds: 8,
@@ -300,6 +317,8 @@ test('ST meters residence intake and maintains output after the first bottle exi
   Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:55,sampleEverySeconds:1});
   input.case.equipment[0].nominalRatePerSecond=1.5;
   input.case.equipment[0].processData.equipment={residenceTimeSeconds:999};
+  input.case.equipment[1].processData.accumulation.primeSensorPositionMm=100;
+  input.case.equipment[2].nominalRatePerSecond=1.5;
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const output=time=>result.samples.find(frame=>frame.virtualSecond===time).equipment[0].outputCount;

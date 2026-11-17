@@ -23,9 +23,11 @@ class SpatialTests(unittest.TestCase):
                 positions=b['positionsMm'];self.assertTrue(all(0<=p<=1000+1e-8 for p in positions));self.assertTrue(all(a-b>=100-1e-8 for a,b in zip(positions,positions[1:])))
         return r
 
-    def test_prime_is_triggered_by_physical_crossing_before_outlet(self):
+    def test_prime_requires_a_packed_queue_at_the_outlet(self):
         r=self.run_model(line());first=next(e for e in r['events'] if e['type']=='PRIME_DETECTED')
-        self.assertAlmostEqual(first['atVirtualSecond'],.5+800/200)
+        self.assertAlmostEqual(first['atVirtualSecond'],1+1000/200)
+        before = [s['zones'][0] for s in r['samples'] if s['virtualSecond'] < first['atVirtualSecond']]
+        self.assertTrue(any(b['prime']['occupied'] and not b['prime']['detected'] for b in before))
         self.assertGreater(r['equipment'][1]['waitingForPrimeSeconds'],0);self.assertGreater(r['summary']['outputCount'],0)
 
     def test_downstream_failure_builds_queue_and_stops_upstream_with_debounce(self):
@@ -72,7 +74,7 @@ class SpatialTests(unittest.TestCase):
     def test_connection_start_delay_and_ramp_are_applied(self):
         p=line();p['conveyors'][0]['upstreamRestartDelaySeconds']=4;p['conveyors'][0]['downstreamRampUpSeconds']=8
         r=self.run_model(p);first=next(e for e in r['events'] if e['type']=='PRIME_DETECTED')
-        self.assertAlmostEqual(first['atVirtualSecond'],4+.5+800/200)
+        self.assertAlmostEqual(first['atVirtualSecond'],4+1+1000/200)
         self.assertLess(r['summary']['outputCount'],self.run_model(line())['summary']['outputCount'])
 
     def test_stochastic_and_explicit_failure_calendar_are_not_combined(self):

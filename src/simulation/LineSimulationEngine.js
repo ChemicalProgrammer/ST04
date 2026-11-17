@@ -102,7 +102,8 @@ function createRuntime(input) {
     if ((equipment.type === 'CONVEYOR' || equipment.processData?.role === 'CONVEYOR') && outgoingZone?.physicalModelEnabled) {
       equipment.nominalRatePerSecond = outgoingZone.conveyorSpeedMmPerSecond / outgoingZone.productPitchMm;
     }
-    equipment.primeStartAuthorized = index === 0 || !incomingZone;
+    equipment.primeZoneId = index === 0 ? undefined : incomingZone?.id;
+    equipment.primeStartAuthorized = !equipment.primeZoneId;
     equipment.startupDelaySeconds = resolveStartupDelaySeconds(equipment);
     equipment.restartRampUpSeconds = resolveRestartRampUpSeconds(equipment);
     equipment.startDelayRemainingSeconds = 0;
@@ -340,7 +341,7 @@ function normalizePhysicalZone(definition) {
     primeSensorPositionMm: hasPrimeSensor ? definition.primeSensorPositionMm : null,
     primeTravelSeconds: hasPrimeSensor ? definition.primeSensorPositionMm / conveyorSpeedMmPerSecond : null,
     primeTriggerWaitingUnits: hasPrimeSensor
-      ? Math.max(1, Math.ceil((usableLengthMm - definition.primeSensorPositionMm) / accumulatedPitchMm))
+      ? Math.max(1, Math.min(capacityUnits, Math.ceil((usableLengthMm - definition.primeSensorPositionMm) / accumulatedPitchMm)))
       : null,
     hasBackupSensor,
     backupSensorPositionMm: hasBackupSensor ? definition.backupSensorPositionMm : null,
@@ -481,7 +482,6 @@ function advanceAccumulationZones(runtime) {
         if (fraction > previous) {
           recordNormalPhotoeyePass(runtime, zone, sensor.name, (fraction - previous) * packet.initialUnits);
           packet[sensor.fraction] = fraction;
-          if (sensor.name === 'prime') triggerPrimeSensor(runtime, zone);
         }
       }
       const arrivals = Math.min(packet.units, Math.max(0, arrivedFraction - packet.arrivedFraction) * packet.initialUnits);
@@ -513,7 +513,7 @@ function updateZonePhotoeyes(runtime, zone) {
 
 function updatePrimeSensorSignal(runtime, zone) {
   if (!zone.hasPrimeSensor) return;
-  const queueCoversPrime = zone.waitingUnits >= zone.primeTriggerWaitingUnits;
+  const queueCoversPrime = zone.waitingUnits + 1e-8 >= zone.primeTriggerWaitingUnits;
   if (queueCoversPrime) triggerPrimeSensor(runtime, zone);
   zone.primeSignalState = queueCoversPrime
     ? 'BLOCKED'
@@ -544,14 +544,19 @@ function isNormalPulseActive(pulseUntilVirtualSecond, virtualSecond) {
 
 function triggerPrimeSensor(runtime, zone) {
   if (zone.primeDetected) return;
+  const downstream = getEquipment(runtime, zone.downstreamControlEquipmentId);
+  if (!downstream || !isAvailable(downstream) || activeBackupControl(downstream) ||
+      !isTransportAvailable(getEquipment(runtime, zone.ownerEquipmentId))) return;
   zone.primeDetected = true;
   zone.primeDetectedAtVirtualSecond = runtime.virtualSecond;
   zone.primeTriggerCount += 1;
-  const downstream = getEquipment(runtime, zone.downstreamControlEquipmentId);
-  if (downstream) {
-    downstream.primeStartAuthorized = true;
-    requestEquipmentStart(runtime, downstream, 'PRIME_SENSOR', {
-      rampUpSeconds: zone.downstreamRampUpSeconds
+  downstream.primeStartAuthorized = true;
+  const pending = downstream.primeStartRequest;
+  downstream.primeStartRequest = null;
+  if (!pending?.resume || downstream.repairRestartPending) {
+    requestEquipmentStart(runtime, downstream, pending?.reason ?? 'PRIME_SENSOR', {
+      ...(pending?.options ?? {rampUpSeconds: zone.downstreamRampUpSeconds}),
+      primeAuthorized: true
     });
   }
   runtime.events.push({
@@ -742,7 +747,11 @@ function updatePlantCalendar(runtime, countTick=true) {
     const target=runtime.calendarActive.targetProductId;
     if(target&&runtime.product&&target!==runtime.product.id)switchRuntimeProduct(runtime,target);
     runtime.calendarActive=null;
-    runtime.equipment.forEach(e=>{e.calendarStopped=false;if(runtime.calendarActivePolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');});
+    runtime.equipment.forEach(e=>{e.calendarStopped=false;});
+    runtime.equipment.forEach(e=>{
+      if(runtime.calendarActivePolicy==='RESTART')requestEquipmentStart(runtime,e,'PLANT_CALENDAR_RESTART');
+      else resumeAfterPrime(runtime,e);
+    });
   }
   const next=runtime.calendar.events[runtime.calendarIndex];
   if(!runtime.calendarActive&&next&&now>=next.startSeconds){
@@ -795,6 +804,7 @@ function updateMicroStops(runtime) {
     if (equipment.failureRemainingSeconds > 0) return;
     if (equipment.microStopRemainingSeconds > 0) {
       equipment.microStopRemainingSeconds = Math.max(0, equipment.microStopRemainingSeconds - runtime.run.tickSeconds);
+      if (equipment.microStopRemainingSeconds === 0) resumeAfterPrime(runtime, equipment);
       return;
     }
     if (equipment.mode !== 'AUTO') return;
@@ -817,13 +827,17 @@ function processLineFromDownstream(runtime) {
 // Apply pending repair recovery, then observe the existing phase flow counters.
 function processEquipment(runtime, index) {
   const equipment=runtime.equipment[index];
-  if(equipment.repairRestartPending)requestEquipmentStart(runtime,equipment,'REPAIR_COMPLETED');
+  if(equipment.repairRestartPending&&!equipment.primeStartRequest)requestEquipmentStart(runtime,equipment,'REPAIR_COMPLETED');
   const control=activeBackupControl(equipment);
   const eligible=isAvailable(equipment)&&!equipment.calendarStopped&&!requiresPrime(equipment)&&!isStartDelayed(equipment);
   const phase=eligible&&control&&(control.responseRemainingSeconds>0||control.residualRemainingUnits>0)?'stopTransition':eligible&&!control&&isRampingUp(equipment)?'startRamp':null;
   const before=equipment.outputCount;
   processEquipmentFlow(runtime,index);
   const flow=equipment.outputCount-before;
+  if(equipment.availabilityState==='STARVED'&&equipment.primeZoneId&&
+    !(equipment.residence?.inventory>1e-8)&&runtime.zones[index-1]?.waitingUnits<=1e-8){
+    rearmPrime(runtime,equipment);
+  }
   if(equipment.actualRatePerSecond>0){
     // Full productive ticks, not output/nominal equivalent time: partial flow and
     // productive ramps still consume operating time. No-flow states consume none.
@@ -975,13 +989,36 @@ function hasStartProfile(equipment) {
   return equipment.startupDelaySeconds > 0 || equipment.restartRampUpSeconds > 0;
 }
 
+function rearmPrime(runtime, equipment) {
+  if (!equipment.primeZoneId) return null;
+  const zone = runtime.zones.find(zone => zone.id === equipment.primeZoneId);
+  if (!zone) return null;
+  equipment.primeStartAuthorized = false;
+  zone.primeDetected = false;
+  return zone;
+}
+
+function resumeAfterPrime(runtime, equipment) {
+  if (rearmPrime(runtime, equipment) && !equipment.primeStartRequest) {
+    equipment.primeStartRequest = {resume: true};
+  }
+}
+
 function requestEquipmentStart(runtime, equipment, reason, options = {}) {
   if (!equipment || equipment.emergencyStopLatched || !isOperationalMode(equipment)) return false;
   // Keep exactly one pending repair recovery until other stop controls permit it.
   // Prime, RUN or calendar requests may resolve the same pending restart.
   const repairRestart=equipment.repairRestartPending&&equipment.failureRemainingSeconds<=0;
   if(equipment.repairRestartPending&&!repairRestart)return false;
-  if(repairRestart&&(!isAvailable(equipment)||requiresPrime(equipment)||activeBackupControl(equipment)))return false;
+  if(repairRestart&&(!isAvailable(equipment)||activeBackupControl(equipment)))return false;
+  if (equipment.primeZoneId && !options.primeAuthorized) {
+    const zone = rearmPrime(runtime, equipment);
+    if (zone) {
+      equipment.primeStartRequest = {reason,options};
+      updatePrimeSensorSignal(runtime, zone);
+      return equipment.primeStartAuthorized;
+    }
+  }
   const delaySeconds = repairRestart?0:firstNonNegative(options.delaySeconds, equipment.startupDelaySeconds);
   if(repairRestart){equipment.repairRestartPending=false;equipment.repairRestartCount++;reason='REPAIR_COMPLETED';}
   const rampUpSeconds = repairRestart
@@ -1009,10 +1046,11 @@ function cancelEquipmentStart(equipment) {
   equipment.startRampDurationSeconds = 0;
   equipment.startRampElapsedSeconds = 0;
   equipment.startReason = null;
+  equipment.primeStartRequest = null;
 }
 
 function advanceEquipmentStart(runtime, equipment) {
-  if (!isAvailable(equipment) || activeBackupControl(equipment) || equipment.repairRestartPending) return;
+  if (!isAvailable(equipment) || requiresPrime(equipment) || activeBackupControl(equipment) || equipment.repairRestartPending) return;
   if (isStartDelayed(equipment)) {
     equipment.startDelayRemainingSeconds = Math.max(0, equipment.startDelayRemainingSeconds - runtime.run.tickSeconds);
     return;
@@ -1133,7 +1171,6 @@ function addFlowToZone(runtime, zone, flow, allowOverflow, entries) {
       }
       if (zone.hasPrimeSensor && zone.primeTravelSeconds <= 0) {
         recordNormalPhotoeyePass(runtime, zone, 'prime', accepted);
-        triggerPrimeSensor(runtime, zone);
       }
     } else if(entries){
       addDiscretePackets(zone,entries.slice(0,accepted));
@@ -1263,7 +1300,7 @@ function isAvailable(equipment) {
 }
 
 function requiresPrime(equipment) {
-  return equipment.mode === 'AUTO' && equipment.primeStartAuthorized === false;
+  return equipment.primeStartAuthorized === false;
 }
 
 function activeBackupControl(equipment) {
@@ -1777,7 +1814,7 @@ function switchRuntimeProduct(runtime,id){
     return next;
   });
   runtime.product=product;configureProductFactors(runtime);
-  runtime.equipment.forEach((e,i)=>{const outgoing=runtime.zones[i];if((e.type==='CONVEYOR'||e.processData?.role==='CONVEYOR')&&outgoing?.physicalModelEnabled)e.nominalRatePerSecond=outgoing.conveyorSpeedMmPerSecond/outgoing.productPitchMm;e.primeStartAuthorized=i===0||!runtime.zones.find(z=>z.downstreamControlEquipmentId===e.id&&z.hasPrimeSensor);});
+  runtime.equipment.forEach((e,i)=>{const outgoing=runtime.zones[i];if((e.type==='CONVEYOR'||e.processData?.role==='CONVEYOR')&&outgoing?.physicalModelEnabled)e.nominalRatePerSecond=outgoing.conveyorSpeedMmPerSecond/outgoing.productPitchMm;e.primeZoneId=i===0?undefined:runtime.zones.find(z=>z.downstreamControlEquipmentId===e.id&&z.hasPrimeSensor)?.id;e.primeStartAuthorized=!e.primeZoneId;e.primeStartRequest=null;});
   runtime.events.push({type:'PRODUCT_CHANGED',atVirtualSecond:runtime.virtualSecond,productId:id,clearoutBottleEquivalents:removed});
   runtime.productTimeline.push({productId:id,name:product.name,startSeconds:runtime.virtualSecond});
 }

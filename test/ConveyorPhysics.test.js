@@ -67,7 +67,9 @@ test('fractional travel crossing avoids a fake throughput bottleneck at differen
   const model=line({speed:107,sourceRate:3,sinkRate:3});
   const a=run(model,{tickSeconds:0.25}),b=run(model,{tickSeconds:0.125});
   assert.ok(Math.abs(a.summary.outputCount-b.summary.outputCount)<1);
-  assert.ok(a.summary.outputCount>3*(100-1000/107)-2);
+  const prime=a.events.find(event=>event.type==='PRIME_SENSOR_TRIGGERED');
+  assert(prime.atVirtualSecond>1000/107);
+  assert.ok(a.summary.outputCount>3*(100-prime.atVirtualSecond)-2);
   conserved(a);conserved(b);
 });
 

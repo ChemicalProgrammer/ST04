@@ -70,6 +70,39 @@ test('2D keeps a draining packed queue and its back-up stop active across produc
   assert.equal(upstream.state,'Running');
 });
 
+test('2D waits for the packed outlet-to-Prime reserve on initial start and manual restart', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'),{window});
+  const machine={kind:'machine',rate:1,batch:1,startDelay:.25,rampSeconds:0};
+  const model=window.STSimulation2DEngine.create([
+    {...machine,id:'upstream'},
+    {kind:'belt',length:200,speed:20,packageLength:20,pitch:40,packedGap:0,
+      prime:140,backup:null,responseDelay:0,residual:0},
+    {...machine,id:'downstream'}
+  ]);
+  const [,belt,downstream]=model.line;
+  belt.items=[{x:135}];
+  model.step(.25);
+  assert.equal(belt.primeBeam,true);
+  assert.equal(downstream.state,'Waiting for Prime');
+  assert.equal(downstream.started,0);
+  belt.items=[190,170].map(x=>({x}));
+  model.step(.25);
+  assert.equal(downstream.started,0);
+  belt.items.push({x:150});
+  model.step(.25);
+  assert.equal(downstream.state,'Starting');
+  model.step(.25);
+  assert(downstream.remaining>0);
+
+  model.control('downstream','STOP');
+  belt.items=[{x:190}];
+  model.control('downstream','MANUAL');
+  model.step(.25);
+  assert.equal(downstream.state,'Waiting for Prime');
+  assert.equal(downstream.produced,0);
+});
+
 test('2D extracts only the representative seed, even without recorded playback', () => {
   const code=readClientSource();
   const context=vm.createContext({});

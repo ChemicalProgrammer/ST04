@@ -12,6 +12,7 @@ window.STSimulation2DEngine=(function(){
         durations:{empty:0,flowing:0,accumulating:0},recentOutput:[],ratePerMinute:0}
       : {...definition,input:0,remaining:null,ready:false,started:0,produced:0,backupSince:null,residual:0,state:'Waiting',
         resident:[],residenceClock:0,intakeCredit:1,outletCredit:0,rampElapsed:0,activeRampSeconds:definition.primeRampSeconds??definition.rampSeconds??0,failureRemaining:0,failureCount:0,exposure:null,
+        awaitPrime:definitions[index-1]?.kind==='belt'&&definitions[index-1].prime!=null,
         randomState:(Math.trunc(seed)+Math.imul(index+1,2654435761))>>>0,
         durations:{starting:0,running:0,starving:0,acceleration:0,deceleration:0,blocked:0,backupStop:0,failure:0,paused:0,stopped:0,emergencyStop:0,plannedStop:0},
         recentOutput:[],ratePerMinute:0});
@@ -21,8 +22,13 @@ window.STSimulation2DEngine=(function(){
     const options={failures:true,events:true,calendar:true};
     const running=item=>!item.emergency&&!['STOP','PAUSE'].includes(item.mode);
     const available=item=>running(item)&&!activeStop;
+    function rearmPrime(item){
+      const upstream=line[line.indexOf(item)-1];
+      item.awaitPrime=upstream?.kind==='belt'&&upstream.prime!=null;
+    }
     function restart(item){
       if(item.kind==='belt')return;
+      rearmPrime(item);
       item.started=0;
       item.rampElapsed=0;
       item.activeRampSeconds=item.rampSeconds||0;
@@ -84,16 +90,12 @@ window.STSimulation2DEngine=(function(){
       belt.travelSeconds=(belt.travelSeconds||0)+seconds;
       const travel=belt.speed*seconds;
       let limit=belt.length-belt.packageLength/2;
-      let primeCrossed=false;
       for(const item of belt.items){
-        const previous=item.x;
         item.x=Math.min(limit,item.x+travel);
-        if(belt.prime!==null&&previous-belt.packageLength/2<=belt.prime&&item.x+belt.packageLength/2>=belt.prime)primeCrossed=true;
         limit=item.x-belt.packageLength-belt.packedGap;
       }
       const beam=position=>position!==null&&belt.items.some(item=>Math.abs(item.x-position)<=belt.packageLength/2);
       belt.primeBeam=beam(belt.prime);
-      if(belt.primeBeam||primeCrossed)belt.primeSeen=true;
       belt.backupBeam=beam(belt.backup);
       // The raw beam can clear briefly between packed products in the same queue.
       const backupOccupied=belt.backupBeam||belt.backup!==null&&hasPackedPair(belt,belt.backup);
@@ -133,6 +135,7 @@ window.STSimulation2DEngine=(function(){
     function updateFailure(machine,seconds){
       if(machine.failureRemaining>0){
         machine.failureRemaining=Math.max(0,machine.failureRemaining-seconds);
+        if(machine.failureRemaining===0)rearmPrime(machine);
         if(machine.failureRemaining===0&&machine.rampAfterRepair){
           machine.rampElapsed=0;
           machine.activeRampSeconds=machine.rampSeconds||0;
@@ -152,6 +155,17 @@ window.STSimulation2DEngine=(function(){
       machine.exposure=null;
       return true;
     }
+    function primeReady(belt){
+      if(belt?.kind!=='belt'||belt.prime==null)return true;
+      const pitch=belt.packageLength+belt.packedGap;
+      const capacity=1+Math.floor((belt.length-belt.packageLength+epsilon)/pitch);
+      const needed=Math.max(1,Math.min(capacity,Math.ceil((belt.length-belt.prime-epsilon)/pitch)));
+      for(let index=0;index<needed;index++){
+        const target=belt.length-belt.packageLength/2-index*pitch;
+        if(!belt.items[index]||belt.items[index].x<target-epsilon)return false;
+      }
+      return true;
+    }
     function stepMachine(machine,upstream,downstream,seconds){
       if(options.failures&&updateFailure(machine,seconds)){machine.state='Failed';return;}
       if(downstream?.backupBlocked){
@@ -161,12 +175,18 @@ window.STSimulation2DEngine=(function(){
             Math.min(Math.floor(downstream.residual/(machine.bottlesPerUnit||1)),Math.floor(machine.resident.length/machine.batch));
         }
       }else if(machine.backupSince!==null){
+        if(machine.backupStopped)rearmPrime(machine);
+        machine.backupStopped=false;
         machine.backupSince=null;
         machine.rampElapsed=0;
         machine.activeRampSeconds=machine.rampSeconds||0;
       }
       const braking=machine.backupSince!==null&&time-machine.backupSince+epsilon>=downstream.responseDelay;
       if(machine.residual<=0&&braking){machine.state='Back-up stop';return;}
+      if(machine.awaitPrime){
+        if(!available(upstream)||!primeReady(upstream)){machine.state='Waiting for Prime';return;}
+        machine.awaitPrime=false;
+      }
       if(machine.started<machine.startDelay){machine.started+=seconds;machine.state='Starting';return;}
       const decelerating=machine.backupSince!==null&&!braking;
       const accelerating=!decelerating&&!braking&&machine.rampElapsed<machine.activeRampSeconds;
@@ -191,14 +211,13 @@ window.STSimulation2DEngine=(function(){
       if(machine.input<machine.batch&&!braking){
         if(!upstream)machine.input=machine.batch;
         if(upstream?.kind==='belt'&&available(upstream)){
-          if(upstream.prime!==null&&!upstream.primeSeen){machine.state='Waiting for Prime';return;}
           const first=upstream.items[0];
           if(first&&first.x+upstream.packageLength/2>=upstream.length-epsilon){
             upstream.items.shift();
             upstream.produced++;
             upstream.recentOutput.push(time);
             machine.input++;
-          }else if(!upstream.items.length)upstream.primeSeen=false;
+          }
         }
       }
       if(machine.input<machine.batch){machine.state=braking?'Back-up stop':'Starved';return;}
@@ -223,11 +242,7 @@ window.STSimulation2DEngine=(function(){
         while(machine.intakeCredit+epsilon>=1&&machine.resident.length<capacity){
           if(upstream){
             const first=upstream.items[0];
-            if(!first){
-              upstream.primeSeen=false;
-              break;
-            }
-            if(upstream.prime!==null&&!upstream.primeSeen||first.x+upstream.packageLength/2<upstream.length-epsilon)break;
+            if(!first||first.x+upstream.packageLength/2<upstream.length-epsilon)break;
             upstream.items.shift();upstream.produced++;upstream.recentOutput.push(time);
           }
           machine.resident.push(machine.residenceClock+machine.residenceSeconds);
@@ -238,7 +253,7 @@ window.STSimulation2DEngine=(function(){
       if(accelerating&&!blocked)machine.rampElapsed+=seconds;
       machine.state=blocked?'Blocked':stopping&&!machine.resident.length&&motionState!=='Ramp down'?'Back-up stop':
         machine.resident.length||!upstream||accelerating?motionState:
-        upstream.prime!=null&&!upstream.primeSeen?'Waiting for Prime':'Starved';
+        'Starved';
     }
     return {line,snapshot,configure,control,get time(){return time;},step(seconds){
       while(commandIndex<commands.length&&commands[commandIndex].atVirtualSecond<=time+epsilon){
@@ -248,8 +263,12 @@ window.STSimulation2DEngine=(function(){
       while(stopIndex<stops.length&&stops[stopIndex].endSeconds<=time+epsilon)stopIndex++;
       const stop=stops[stopIndex];
       const nextStop=stop&&stop.startSeconds<=time+epsilon&&(stop.fromCalendar?options.calendar:options.events)?stop:null;
-      if(activeStop&&activeStop!==nextStop&&activeStop.restartPolicy==='RESTART'){
-        for(const item of line)restart(item);
+      if(activeStop&&activeStop!==nextStop){
+        for(const item of line){
+          if(item.kind!=='machine')continue;
+          if(activeStop.restartPolicy==='RESTART')restart(item);
+          else rearmPrime(item);
+        }
       }
       activeStop=nextStop;
       time+=seconds;
@@ -261,6 +280,12 @@ window.STSimulation2DEngine=(function(){
         else item.state=haltState(item);
         const category=durationKey[item.state];
         if(category)item.durations[category]+=seconds;
+        if(item.state==='Back-up stop')item.backupStopped=true;
+        const upstream=line[index-1];
+        if(item.state==='Starved'&&upstream?.kind==='belt'&&
+          (!upstream.items[0]||upstream.items[0].x+upstream.packageLength/2<upstream.length-epsilon)){
+          rearmPrime(item);
+        }
       }
       for(const item of line){
         if(item.kind==='belt'&&!available(item)){item.travelSeconds??=0;item.state=haltState(item);}

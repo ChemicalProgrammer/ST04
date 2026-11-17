@@ -125,6 +125,11 @@ class SpatialConveyor(Conveyor):
         self.parked_cache=set(result)
         return result
 
+    def prime_ready(self):
+        length = self.model['lengthMm'] - self.model['primeSensorPositionMm']
+        required = max(1, min(self.capacity, math.ceil((length - EPS) / self.pitch)))
+        return len(self.queued) >= required
+
     def occupied(self, position):
         if position is None: return False
         self.queued
@@ -168,7 +173,8 @@ class SpatialSimulation(SimPySimulation):
             self.arm_belt_noise(belt)
         for machine in self.machines:
             machine.state_seconds.update(WAITING_PRIME=0., BACKUP_STOP=0.)
-            machine.await_prime = machine.index > 0 and self.conveyors[machine.index-1].model.get('primeSensorPositionMm') is not None
+            machine.await_prime = False
+            self.rearm_prime(machine, machine.model.get('startupSeconds', 0))
             machine.backup_stopped = False
             machine.runout_remaining = 0
             machine.has_residence = 'internalCapacityBottles' in machine.model
@@ -195,6 +201,15 @@ class SpatialSimulation(SimPySimulation):
         for kind, at in list(belt.timers.items()):
             belt.remaining_noise[kind] = max(0., at-self.now); belt.noise_tokens[kind] += 1
         belt.timers.clear()
+
+    def rearm_prime(self, machine, delay=0):
+        if machine.index == 0:
+            return
+        belt = self.conveyors[machine.index-1]
+        if belt.model.get('primeSensorPositionMm') is not None:
+            belt.prime_latched = False
+            machine.await_prime = True
+            machine.prime_start_delay = delay
 
     def dispatch(self, kind, data):
         if kind == 'BELT_COMMAND':
@@ -255,9 +270,14 @@ class SpatialSimulation(SimPySimulation):
             machine.residence_stop_pending = False
             if machine.backup_stopped or machine.has_residence and machine.runout_remaining <= 0:
                 machine.backup_stopped = False; machine.runout_remaining = 0; machine.recovery_ramp = None; machine.startup_until = self.now + machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
+                self.rearm_prime(machine, machine.model.get('startupSeconds', 0))
             self.log('BACKUP_SENSOR_CLEARED', belt.model['id'])
         else:
+            machine = self.machines[data[0]] if kind == 'COMMAND' else self.machines[data] if kind in ('REPAIR', 'MICRO_STOP_END') else None
+            was_enabled = machine.enabled if machine is not None else False
             super().dispatch(kind, data)
+            if machine is not None and (kind != 'COMMAND' or not was_enabled and machine.enabled):
+                self.rearm_prime(machine, max(0, machine.startup_until - self.now))
 
     def advance(self, at):
         dt = max(0., at-self.now)
@@ -280,8 +300,6 @@ class SpatialSimulation(SimPySimulation):
 
     def sensors(self, belt):
         prime = belt.occupied(belt.model.get('primeSensorPositionMm'))
-        if prime and not belt.prime_occupied:
-            belt.prime_latched = True; self.log('PRIME_DETECTED', belt.model['id'])
         belt.prime_occupied = prime
         sensor=belt.model.get('backupSensorPositionMm')
         belt.backup_occupied=belt.occupied(sensor)
@@ -326,10 +344,17 @@ class SpatialSimulation(SimPySimulation):
         for _ in range(2*len(self.machines)+2):
             changed = False
             for machine in reversed(self.machines):
-                if machine.index > 0 and machine.await_prime and self.conveyors[machine.index-1].prime_latched:
-                    machine.await_prime = False; machine.recovery_ramp = None; machine.startup_until = self.now+machine.model.get('startupSeconds', 0); self.wake(machine.startup_until)
-                operating = machine.enabled and not machine.failed and not machine.micro_stopped and self.now >= machine.startup_until-EPS
                 stopping = machine.backup_stopped or machine.residence_stop_pending
+                available = machine.enabled and not machine.failed and not machine.micro_stopped
+                if machine.await_prime and available and not stopping:
+                    belt = self.conveyors[machine.index-1]
+                    if belt.enabled and not belt.failed and not belt.micro_stopped and belt.prime_ready():
+                        belt.prime_latched = True
+                        machine.await_prime = False
+                        machine.startup_until = self.now + machine.prime_start_delay
+                        self.wake(machine.startup_until)
+                        self.log('PRIME_DETECTED', belt.model['id'])
+                operating = available and not machine.await_prime and self.now >= machine.startup_until-EPS
                 if not operating or stopping and machine.runout_remaining <= 0: continue
                 if machine.completed:
                     if machine.index == len(self.machines)-1: self.output += 1
@@ -358,16 +383,15 @@ class SpatialSimulation(SimPySimulation):
                         machine.item = self.new_item(); self.source_started += 1
                     else:
                         belt = self.conveyors[machine.index-1]
-                        if machine.await_prime or not belt.enabled or belt.failed or belt.micro_stopped or not belt.ready:
-                            if not belt.items and belt.model.get('primeSensorPositionMm') is not None:
-                                belt.prime_latched = False; machine.await_prime = True
+                        if not belt.enabled or belt.failed or belt.micro_stopped or not belt.ready:
+                            if not belt.ready: self.rearm_prime(machine, machine.model.get('startupSeconds', 0))
                             continue
                         machine.item = belt.items.popleft(); del belt.positions[machine.item]; belt.released += 1; belt.refresh()
                     machine.busy = True; machine.remaining = 1.; self.resume_service(machine); changed = True
             if not changed: break
         else: raise RuntimeError('Spatial fixed point did not converge')
         for machine in self.machines:
-            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if (machine.backup_stopped or machine.residence_stop_pending) and machine.runout_remaining <= 0 else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy or machine.resident else 'WAITING_PRIME' if machine.await_prime else 'STARVED'
+            machine.state = 'FAILED' if machine.failed else 'PAUSED' if machine.mode == 'PAUSE' and not machine.emergency else 'STOPPED' if not machine.enabled else 'MICRO_STOP' if machine.micro_stopped else 'BACKUP_STOP' if (machine.backup_stopped or machine.residence_stop_pending) and machine.runout_remaining <= 0 else 'WAITING_PRIME' if machine.await_prime else 'STARTING' if self.now < machine.startup_until-EPS else 'BLOCKED' if machine.completed else 'RUNNING' if machine.busy or machine.resident else 'STARVED'
         for belt in self.conveyors: self.sensors(belt); self.predict(belt)
         self.check_invariants()
 
@@ -398,10 +422,9 @@ class SpatialSimulation(SimPySimulation):
             self.source_started += 1
         else:
             belt = self.conveyors[machine.index-1]
-            if machine.await_prime or not belt.enabled or belt.failed or belt.micro_stopped or not belt.ready:
-                if not belt.items and belt.model.get('primeSensorPositionMm') is not None:
-                    belt.prime_latched = False
-                    machine.await_prime = True
+            if not belt.enabled or belt.failed or belt.micro_stopped or not belt.ready:
+                if not belt.ready and not machine.busy and not machine.resident:
+                    self.rearm_prime(machine, machine.model.get('startupSeconds', 0))
                 return changed
             item = belt.items.popleft()
             del belt.positions[item]
