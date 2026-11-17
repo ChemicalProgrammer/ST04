@@ -471,6 +471,11 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(analysisButton.hidden,false);
     analysisButton.click();
     assert(analysis.open);
+    for(const ref of ['K8','L70']){
+      const help=analysisEl('body').querySelector('[data-cell="'+ref+'"]').title;
+      for(const sign of ['>','='])assert(help.includes('Lrec '+sign+' 0'));
+      assert(help.includes('Lrec < 0'));
+    }
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
     const tableValue=label=>{
       const item=[...analysisEl('body').querySelectorAll('tbody tr')].find(row=>row.dataset.cell===label||row.cells[0].textContent===label);
@@ -500,7 +505,10 @@ test('2D uses the representative seed to calculate new production and preserves 
       const lines=segments.filter(({start,end,dash})=>!dash&&start[1]===y&&end[1]===y);
       return Math.max(...lines.map(line=>line.end[0]))-Math.min(...lines.map(line=>line.start[0]));
     };
-    close(extent('L min'),2540*.09);
+    const minLength=dimensionLabel('L min'),totalLength=dimensionLabel('Lact');
+    assert.equal(minLength[2],totalLength[2]);
+    assert.equal(minLength[3]-totalLength[3],14);
+    assert(!segments.some(({start,end,dash})=>!dash&&start[1]===minLength[3]&&end[1]===minLength[3]));
     close(extent('Lact'),2000*.09);
     equipment[1].processData.geometry.lactMm=2540;
     const limit=window.STConveyorAnalysis.calculate({

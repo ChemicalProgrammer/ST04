@@ -13,6 +13,13 @@
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
+  const recoveryHelp=[
+    'Lrec es el margen de cola útil cuando la primera botella del rearranque alcanza la cola.',
+    'Lrec > 0: todavía queda cola útil.',
+    'Lrec = 0: la reserva se agota justo al llegar, sin margen para retrasos.',
+    'Lrec < 0: la cola se agota antes. La magnitud indica cuántos mm de acumulación útil faltan.'
+  ].join('\n');
+
   function close(){
     const dialog=document.getElementById('conveyor-analysis-dialog');
     if(dialog.open)dialog.close();
@@ -242,6 +249,7 @@ window.STConveyorAnalysis=(function(){
     function row(parent,ref,label){
       const element=make(parent,'tr');
       if(ref)element.dataset.cell=ref;
+      if(ref==='K8'||ref==='L70')element.title=recoveryHelp;
       make(element,'th',label).scope='row';
       return element;
     }

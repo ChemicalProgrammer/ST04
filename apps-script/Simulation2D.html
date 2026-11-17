@@ -84,7 +84,7 @@ window.STSimulation2D=(function(){
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
-  const dimensionRowHeight=32,dimensionLevels=4,dimensionOffset=126;
+  const dimensionRowHeight=32,dimensionLevels=3,dimensionOffset=126;
   let dimensionPointer=null;
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -171,7 +171,7 @@ window.STSimulation2D=(function(){
     }
   }
   function dimensionRows({lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength}){
-    return {runout,backup:lbu,prime,minimumLength,recovery:point,rows:[
+    return {runout,backup:lbu,prime,minimumLength,minimumPartial:recovery.partial,recovery:point,rows:[
       {tier:0,label:'Discharge',start:0,value:discharge},
       {tier:0,label:'Coding',start:discharge,value:coding},
       {tier:0,label:'Overflow',start:runout,value:overflow.value,partial:overflow.partial},
@@ -179,8 +179,7 @@ window.STSimulation2D=(function(){
       {tier:0,label:'Lp',start:prime,value:lp},
       {tier:1,label:'Lbu',start:0,value:lbu,partial:overflow.partial},
       {tier:1,label:'Accumulation Zone (Lba)',start:lbu,value:lba,partial:overflow.partial},
-      {tier:2,label:'L min',start:0,value:minimumLength,allowExtension:true,partial:recovery.partial},
-      {tier:3,label:'Lact',start:0,value:lact}
+      {tier:2,label:'Lact',start:0,value:lact}
     ]};
   }
   function prepare(equipment,format,config,formats){
@@ -295,11 +294,7 @@ window.STSimulation2D=(function(){
     const line=model?.line||definitions;
     const {items,right}=equipmentLayout(line);
     const last=items.at(-1);
-    const dimensionRight=showDimensions.checked?line.reduce((extent,item,index)=>{
-      const minimum=conveyorDimensions.get(item.id)?.minimumLength;
-      return Number.isFinite(minimum)?Math.max(extent,items[index].left+minimum*sceneScale):extent;
-    },0):0;
-    const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2,dimensionRight):0)/sceneScale;
+    const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2):0)/sceneScale;
     const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+(108+shiftIndex(model?.time??0)*20)*tableScale);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
@@ -386,6 +381,7 @@ window.STSimulation2D=(function(){
     const design=conveyorDimensions.get(item.id);
     const rows=(design?.rows||[]).map(({label,value,partial})=>
       [label,num(value),partial&&Number.isFinite(value)?'mm*':'mm']);
+    rows.push(['L min',num(design?.minimumLength),design?.minimumPartial&&Number.isFinite(design.minimumLength)?'mm*':'mm']);
     rows.push(['Back-up position',num(item.backup),'mm'],['Prime position',num(item.prime),'mm'],
       ['Max Run-out point',num(design?.runout),'mm'],['Recovery Point',num(design?.recovery),'mm']);
     for(const [label,value,active] of [
@@ -565,7 +561,8 @@ window.STSimulation2D=(function(){
     }
   }
   function drawConveyorDimensions(context,item,x,y,width,beltY,ink,accent,pointer){
-    const rows=conveyorDimensions.get(item.id)?.rows||[];
+    const design=conveyorDimensions.get(item.id);
+    const rows=design?.rows||[];
     context.save();
     context.font=telemetryFont;
     context.textAlign='center';
@@ -575,7 +572,7 @@ window.STSimulation2D=(function(){
       const rowY=y-tier*dimensionRowHeight;
       const dimensions=rows.filter(row=>row.tier===tier).map(row=>{
         const {label,start,value}=row,end=row.end??start+value;
-        const valid=value>0&&start>=0&&(row.allowExtension||end<=item.length+.000001);
+        const valid=value>0&&start>=0&&end<=item.length+.000001;
         const midpoint=Number.isFinite(start)&&Number.isFinite(end)
           ?Math.max(0,Math.min(item.length,(start+end)/2)):item.length/2;
         const text=Number.isFinite(value)?label+' · '+num(value)+' mm'+(row.deficit?' deficit':'')+(row.partial?' (partial)':''):label+' · pending';
@@ -595,6 +592,11 @@ window.STSimulation2D=(function(){
         for(const callout of callouts)callout.center+=offset;
       }
       for(const dimension of dimensions)dimension.draw(context,pointer);
+      if(tier===dimensionLevels-1&&dimensions.length){
+        const lact=dimensions[0],minimum=design.minimumLength;
+        const text=Number.isFinite(minimum)?'L min · '+num(minimum)+' mm'+(design.minimumPartial?' (partial)':''):'L min · pending';
+        context.fillText(text,lact.center,rowY+(lact.inline?14:4));
+      }
     }
     context.restore();
   }
