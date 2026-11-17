@@ -347,6 +347,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
+    equipment[1].processData.upstream={dischargeVelocityMPerMinute:7.2};
     equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     Object.assign(geometry,{primeSensorPositionMm:1500,backupSensorPositionMm:500,
       engineering:{input:{packageLengthMm:30,upstreamNominalSpeedBpm:120,upstreamDischargePitchMm:50,
@@ -502,12 +503,14 @@ test('2D uses the representative seed to calculate new production and preserves 
     close(extent('Lact'),2000*.09);
     delete equipment[1].processData.geometry.actualDischargeMm;
     delete equipment[1].processData.geometry.actualCodingMm;
+    delete equipment[1].processData.upstream.dischargeVelocityMPerMinute;
     geometry.engineering.input.dischargeRunoutLengthMm=0;
     window.STSimulation2D.load(['case','pending-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
     assert(currentLabels().includes('Discharge · 0 mm'));
     assert(currentLabels().includes('Coding · pending'));
     el('machine-controls').querySelector('[aria-haspopup="dialog"]').click();
     assert.deepEqual(tableValue('Coding'),['Pending']);
+    assert.deepEqual(tableValue('L23'),['Pending']);
     assert.deepEqual(tableValue('F8'),['Pending']);
     analysis.close();
 
@@ -519,10 +522,11 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(!marker('Design B'));
     assert.deepEqual(['B','P'].map(sensorPosition),calculatedSensors);
 
+    equipment[1].processData.upstream.dischargeVelocityMPerMinute=18.816;
     equipment[1].processData.geometry={lactMm:5953,lpPrimeMm:1000,actualDischargeMm:0,actualCodingMm:0};
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,
-      engineering:{input:{packageLengthMm:98,upstreamDischargePitchMm:220,downstreamInfeedPitchMm:250,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
+      engineering:{input:{packageLengthMm:98,upstreamDischargePitchMm:98,downstreamInfeedPitchMm:250,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
         blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:1,
         bottlesDischargedAtStop:2,insuranceFactorUnits:3}}});
     const secondBelt={...equipment[1],id:'belt-2',name:'second belt',processData:{
@@ -535,29 +539,29 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(buttons.length,2);
     buttons[0].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
-    assert.deepEqual(tableValue('F8'),['1,167.43']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,785.57']);
+    assert.deepEqual(tableValue('F8'),['1,162.84']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16']);
     assert.deepEqual(tableValue('K8'),['Pending']);
     assert.deepEqual(tableValue('L20'),['1']);
-    assert.deepEqual(tableValue('L22'),['192.73']);
-    assert.deepEqual(tableValue('L23'),['42.4']);
-    assert.deepEqual(tableValue('L24'),['18.89']);
+    assert.deepEqual(tableValue('L22'),['192']);
+    assert.deepEqual(tableValue('L23'),['18.82']);
+    assert.deepEqual(tableValue('L24'),['18.82']);
     const speedRows=[...analysisEl('body').querySelectorAll('tr[data-zone]')];
     assert.equal(speedRows[0].closest('table').tBodies[0].rows.length,9);
     assert.deepEqual(speedRows.map(row=>row.dataset.zone),[
       'discharge','discharge','discharge','coding','coding','coding','overflow','overflow','overflow'
     ]);
     assert.equal(analysisEl('body').querySelector('[data-cell="L51"]').closest('tbody').rows.length,8);
-    for(const [cell,value] of [[51,'1.61'],[52,'2'],[53,'0'],[54,'0'],[55,'3'],[56,'6.61'],[57,'647.39'],[58,'1,167.43']]){
+    for(const [cell,value] of [[51,'1.6'],[52,'2'],[53,'0'],[54,'0'],[55,'3'],[56,'6.6'],[57,'646.8'],[58,'1,162.84']]){
       assert.deepEqual(tableValue('L'+cell),[value]);
     }
     assert.deepEqual(tableValue('L27'),['169.6']);
     assert.deepEqual(tableValue('L30'),['16.62']);
     const firstPackage=analysisEl('body').querySelector('[data-cell="L62"] input');
     firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
-    assert.deepEqual(tableValue('K8'),['1,893.85']);
-    assert.deepEqual(tableValue('L74'),['13.67']);
-    assert.deepEqual(tableValue('L76'),['6.67']);
+    assert.deepEqual(tableValue('K8'),['1,901.41']);
+    assert.deepEqual(tableValue('L74'),['13.68']);
+    assert.deepEqual(tableValue('L76'),['6.72']);
     assert.deepEqual(tableValue('L80'),['Pending']);
     analysis.close();
     buttons[1].click();
@@ -565,7 +569,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('I13'),['7,000']);
     assert.deepEqual(tableValue('L27'),['2,035.2']);
     assert.deepEqual(tableValue('L30'),['16.62']);
-    assert.deepEqual(tableValue('L58'),['1,167.43']);
+    assert.deepEqual(tableValue('L58'),['1,162.84']);
     analysis.close();
   }finally{dom.window.close();}
 });

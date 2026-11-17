@@ -49,14 +49,15 @@ window.STConveyorAnalysis=(function(){
         const infeedPitch=input.downstreamInfeedPitchMm??models[index].processData?.downstream?.infeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
         const speed=belt.conveyorSpeedMmPerSecond;
         // The imported conveyor speed is already resolved for this format.
-        const dischargeVelocity=speed*.06;
-        const rate=divide(speed*60,dischargePitch);
+        const dischargeVelocity=models[index].processData?.upstream?.dischargeVelocityMPerMinute;
+        const dischargeMmPerSecond=dischargeVelocity>0?dischargeVelocity/.06:NaN;
+        const rate=divide(dischargeMmPerSecond*60,dischargePitch);
         const highRate=divide(speed*60,infeedPitch);
         const highSpeedBpm=highRate*bottlesPerFlowUnit(models[index],format);
         const dischargeBpm=rate*bottlesPerFlowUnit(models[index],format);
         const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
         const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
-        const dischargeSpeed=speed*(1+dischargeFactor/100);
+        const dischargeSpeed=dischargeMmPerSecond*(1+dischargeFactor/100);
         const codingSpeed=dischargeSpeed*(1+codingFactor/100);
         const firstPackage=delays[column]??models[index].processData?.accumulation?.restartToFirstPackageSeconds;
         const flow=rate*length/60,consumption=highRate*length/60;
@@ -279,7 +280,7 @@ window.STConveyorAnalysis=(function(){
     }
     updates.forEach(update=>update());
     make(body,'p','Enter the time to the first package after restart for each format. Positions are measured from the conveyor entry.').className='chart-note';
-    make(body,'p','Overflow requires conveyor population below 100%.').className='chart-note';
+    make(body,'p','Enter Upstream Discharge Velocity in the Equipment sheet (AF). Overflow also requires conveyor population below 100%.').className='chart-note';
     make(body,'p','Accumulation Zone uses Lact − Lp − Lbu. Queue reduction and antistarve use the worksheet assumptions. Recommended conveyor speed and L (min needed) are pending verification.').className='chart-note';
     body.scrollTop=0;
     dialog.showModal();

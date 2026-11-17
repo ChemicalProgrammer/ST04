@@ -19,6 +19,8 @@ function inferSheetMachineType_(name) {
 }
 // Fixed plant worksheet contract. Reads only; never writes to the source Sheet.
 // Column and metadata mappings live here so a layout change is localized.
+function sheetDischargeVelocityHeading_() { return 'Upstream Discharge Velocity (m/min)'; }
+
 function sheetImportColumns_(layout) {
   var columns=[
     ['A','type','Type'], ['B','name','Equipment name'], ['C','critical','Critical machine'],
@@ -81,6 +83,9 @@ function previewSheetImport_(request, user) {
   if(lastRow>limit)throw createSimulatorError_('SHEET_TOO_LARGE','This importer supports up to 1,000 equipment rows (rows '+start+'–'+limit+'). Remove extra content below the equipment table or use a dedicated worksheet.');
   if(sheet.getMaxColumns()<23||sheet.getMaxRows()<start)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected an Equipment header and data starting at A'+start+'.');
   var layout=detectSheetImportLayout_(sheet.getRange(start-2,inlineStops?11:7,2,2).getValues()),width=sheetImportColumns_(layout).length,lastColumn=capacityColumn?'AE':inlineStops?'AC':String.fromCharCode(64+width);
+  var dischargeVelocityColumn=capacityColumn&&sheet.getMaxColumns()>=32&&
+    /^Upstream Discharge Velocity\s*[\[(]m\/min[\])]$/i.test(String(sheet.getRange(start-1,32).getValues()[0][0]||'').trim());
+  if(dischargeVelocityColumn)lastColumn='AF';
   if(sheet.getMaxColumns()<width)throw createSimulatorError_('INVALID_SHEET_LAYOUT','Expected equipment in A'+start+':'+lastColumn+'.');
   var metadataColumn=compact||['st-equipment-metadata-b-v1','st-equipment-metadata-b-v2'].includes(marker)?'B':'C';
   var metadata,containerUnit,metadataCells=compact?compactEquipmentMetadataCells_():null;
@@ -110,9 +115,11 @@ function previewSheetImport_(request, user) {
     formats.forEach(function(row){row.splice(3,4);});
   }else if(stopBreakdown&&count)stopRows=sheet.getRange(start,27,count,4).getValues();
   if(capacityColumn&&count)sheet.getRange(start,31,count,1).getValues().forEach(function(value,index){rows[index].push(value[0]);});
-  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,stopRows:stopRows,inlineStops:inlineStops,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
+  var dischargeVelocityRows=dischargeVelocityColumn&&count?sheet.getRange(start,32,count,1).getValues():null;
+  var result = parseEquipmentSheet_(metadata, rows, formats,layout,{containerUnit:containerUnit,metadataColumn:metadataColumn,metadataCells:metadataCells,stopRows:stopRows,dischargeVelocityRows:dischargeVelocityRows,inlineStops:inlineStops,start:start,allowEmpty:compact||marker==='st-equipment-metadata-b-v2'});
   result.source = {schemaVersion:layout,spreadsheetId:reference.id,sheetId:sheet.getSheetId(),sheetName:sheet.getName(),metadataColumn:metadataColumn,readAt:new Date().toISOString(),equipmentRange:'A'+start+':'+lastColumn+(count?count+start-1:start)};
   if(capacityColumn)result.source.capacityColumn=true;
+  if(dischargeVelocityColumn)result.source.dischargeVelocityColumn=true;
   if(compact)result.source.metadataCells=metadataCells;
   if(stopBreakdown)result.source.stopBreakdown=result.stopBreakdown=true;
   if(inlineStops)result.source.inlineStops=true;
@@ -264,6 +271,11 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
     if(stopInputs)unit.processData.equipment.stopInputs=stopInputs;
     if(mtbf>0&&mttr>0)unit.noiseProfile.reliability={mtbfMinutes:mtbf,mttrMinutes:mttr};
     if(conveyor){
+      if(options?.dischargeVelocityRows){
+        var dischargeVelocity=numeric(options.dischargeVelocityRows[offset]?.[0],'AF'+rowNumber);
+        if(dischargeVelocity===0)issue(errors,'AF'+rowNumber,'Upstream discharge velocity must be greater than zero or NA.');
+        unit.processData.upstream.dischargeVelocityMPerMinute=values.dischargeVelocityMPerMinute=dischargeVelocity;
+      }
       unit.processData.accumulation={blockedTimeDelaySeconds:values.blockedTimeDelaySeconds,clearTimeDelaySeconds:values.clearTimeDelaySeconds,insuranceFactorUnits:values.insuranceFactorUnits,bottlesDischargedAtStop:values.bottlesDischargedAtStop,downstreamRampUpSeconds:values.rampUpTimeSeconds};
       if(layout==='plant-sheet-v2'){
         unit.processData.accumulation.declaredAccumulationSeconds=values.declaredAccumulationSeconds;

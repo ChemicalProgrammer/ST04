@@ -44,6 +44,7 @@ window.STSheetImportMerge=(function(){
       return {...f,col:f.id==='stopInputs'?'D':f.col>='D'?String.fromCharCode(f.col.charCodeAt(0)+4):f.col};
     }):mapped;
     if(preview.source?.capacityColumn)result.push(field('internalCapacity','AE','Internal capacity (bottles)',['processData.equipment.internalCapacityBottles']));
+    if(preview.source?.dischargeVelocityColumn)result.push(field('dischargeVelocity','AF','Upstream Discharge Velocity (m/min)',['processData.upstream.dischargeVelocityMPerMinute']));
     return result;
   }
   var criticalField=fields.find(function(f){return f.id==='critical';});
