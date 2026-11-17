@@ -80,7 +80,7 @@ window.STSimulation2D=(function(){
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null;
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
-  const dimensionRowHeight=32,dimensionLevels=3,dimensionOffset=126;
+  const dimensionRowHeight=32,dimensionLevels=4,dimensionOffset=126;
   let dimensionPointer=null;
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -191,11 +191,20 @@ window.STSimulation2D=(function(){
     const runout=discharge+coding;
     const results=designProfiles
       .filter(({models})=>models[index].processData?.productApplies!==false)
-      .map(({zones,models})=>formatDimensionInputs(zones[index],models,discharge,coding));
+      .map(({zones,models})=>{
+        const formatZone=zones[index];
+        const calculated=formatZone?.engineering?.calculated;
+        if(Number.isFinite(calculated?.overflowProductLengthMm)){
+          return {overflow:calculated.overflowProductLengthMm,
+            recovery:calculated.recoveryLengthMm,minimumLength:calculated.minimumInstalledLengthMm};
+        }
+        return formatDimensionInputs(formatZone,models,discharge,coding);
+      });
     const overflows=results.map(result=>result.overflow).filter(Number.isFinite);
     const overflow=overflows.length?Math.max(...overflows):undefined;
     const lbu=runout+overflow,lba=prime-lbu;
-    const margins=results.flatMap(({overflow:required,speed,consumption,restart})=>{
+    const margins=results.flatMap(({overflow:required,speed,consumption,restart,recovery})=>{
+      if(Number.isFinite(recovery))return [recovery];
       if(!Number.isFinite(required)||!(consumption>0&&speed>consumption)||!(lba>=0))return [];
       const queueLoss=consumption*(restart+overflow/speed);
       return [lba-queueLoss-consumption*queueLoss/(speed-consumption)];
@@ -220,7 +229,9 @@ window.STSimulation2D=(function(){
     span(0,'Lp',prime,lp);
     span(1,'Lbu',0,lbu,overflowPartial,true);
     span(1,'Lba',lbu,lba,overflowPartial,true);
-    span(2,'Lact',0,length);
+    const minimumLengths=results.map(result=>result.minimumLength).filter(Number.isFinite);
+    if(minimumLengths.length)span(2,'L min',0,Math.max(...minimumLengths),minimumLengths.length<results.length);
+    span(3,'Lact',0,length);
     return {rows,runout,backup:lbu,prime,recovery:recovery>0?prime-recovery:undefined};
   }
   function prepare(equipment,format,config,formats){
@@ -797,7 +808,7 @@ window.STSimulation2D=(function(){
           context.font=telemetryFont;
           for(const [label,position,offset] of [
             ['Max Run-Out point',dimensions.runout,24],
-            ['Rec Pt.',dimensions.recovery,44],
+            ['Recovery Point',dimensions.recovery,44],
             ['Design B',Number.isFinite(backup)&&Math.abs(dimensions.backup-backup)<1e-6?null:dimensions.backup,64],
             ['Design P',Number.isFinite(prime)&&Math.abs(dimensions.prime-prime)<1e-6?null:dimensions.prime,84]
           ]){

@@ -441,15 +441,25 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert.equal(heading[3],headings[0][3]);
       if(index)assert(heading[2]-headings[index-1][2]>=180*.75);
     }
-    assert(!marker('Rec Pt.'));
+    assert(!marker('Recovery Point'));
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
-    close(marker('P')[2]-marker('Rec Pt.')[2],(830-412.5-55*412.5/65)*.09);
+    close(marker('P')[2]-marker('Recovery Point')[2],(830-412.5-55*412.5/65)*.09);
+
+    Object.assign(geometry.engineering.calculated,{
+      overflowProductLengthMm:300,recoveryLengthMm:150,minimumInstalledLengthMm:1400
+    });
+    window.STSimulation2D.load(['case','engineering-dimensions'],equipment,null,{seed:7},null,null,null,[formats[0]]);
+    for(const [label,value] of [['Overflow',300],['Lbu',550],['Lba',950],['Lrec',150],['L min',1400]]){
+      assert(currentLabels().includes(label+' · '+value.toLocaleString()+' mm'));
+    }
+    close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
+    const calculatedSensors=['B','P'].map(sensorPosition);
 
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
     assert(!marker('Max Run-Out point'));
     assert(!marker('Design B'));
-    assert.deepEqual(['B','P'].map(sensorPosition),originalSensors);
+    assert.deepEqual(['B','P'].map(sensorPosition),calculatedSensors);
   }finally{dom.window.close();}
 });
 
