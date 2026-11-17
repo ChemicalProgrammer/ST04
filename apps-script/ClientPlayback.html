@@ -282,7 +282,11 @@
         });
       }
       var rate=card.querySelector('.live-rate');
-      rate.textContent=belt?formatNumber(belt.speedMmPerSecond*0.06)+' m/min de banda · '+formatNumber((unit.actualRatePerSecond??0)*60)+' unid/min de flujo':formatRatePerMinute(unit.actualRatePerSecond);
+      var machineLimit=unit.designSpeedPerSecond??(model.processData?.equipment?.maximumSpeedBpm>0
+        ?model.processData.equipment.maximumSpeedBpm/60:model.nominalRatePerSecond);
+      var machineRate=Number.isFinite(unit.actualRatePerSecond)&&machineLimit>0
+        ?Math.min(unit.actualRatePerSecond,machineLimit):unit.actualRatePerSecond;
+      rate.textContent=belt?formatNumber(belt.speedMmPerSecond*0.06)+' m/min de banda · '+formatNumber((unit.actualRatePerSecond??0)*60)+' unid/min de flujo':formatRatePerMinute(machineRate);
       rate.title=belt?'Velocidad de banda y flujo de producto procesado. La banda puede moverse aunque reciba menos producto o esté vacía.':'';
 
       card.querySelector('.live-starved').textContent = formatMinutes(unit.starvedSeconds);

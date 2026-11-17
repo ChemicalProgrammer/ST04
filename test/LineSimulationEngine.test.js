@@ -145,6 +145,15 @@ test('reports equipment OEE and global line OEE with an explicit pacemaker refer
   assert.ok(response.result.samples.at(-1).equipment[0].oeePercent >= 0);
 });
 
+test('caps simulated machine flow at the configured design maximum', () => {
+  const input=createInput();
+  input.case.equipment[0].processData.equipment={maximumSpeedBpm:539};
+  const {ok,result}=simulateLine(input);
+  assert.equal(ok,true);
+  assert(result.samples.some(sample=>sample.equipment[0].actualRatePerSecond>0));
+  assert(result.samples.every(sample=>sample.equipment[0].actualRatePerSecond*60<=539.00003));
+});
+
 test('starts with the downstream machine waiting for the physical Prime sensor', () => {
   const response = simulateLine(createInput({ durationSeconds: 1 }));
   const initial = response.result.samples[0];

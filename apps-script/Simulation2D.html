@@ -246,10 +246,12 @@ window.STSimulation2D=(function(){
         const inputBottleFactor=data.flowUnits?.input==='CASES'&&packSize>0?packSize:1;
         const bottlesPerUnit=unit==='BOTTLES'?1:packSize;
         const capacityBottles=data.equipment?.internalCapacityBottles??Math.max(30,batch*inputBottleFactor);
-        const residenceSeconds=capacityBottles/(item.nominalRatePerSecond*bottlesPerUnit);
+        const maximum=data.equipment?.maximumSpeedBpm;
+        const designSpeedPerSecond=maximum>0?maximum/60:item.nominalRatePerSecond;
+        const rate=Math.min(item.nominalRatePerSecond,designSpeedPerSecond);
+        const residenceSeconds=capacityBottles/(rate*bottlesPerUnit);
         return {capacityBottles,residenceSeconds,inputBottleFactor,id:item.id,name:item.name||item.id,
-          kind:'machine',unit,length:1100,rate:item.nominalRatePerSecond,bottlesPerUnit,
-          ...(data.equipment?.maximumSpeedBpm>0?{designSpeedPerSecond:data.equipment.maximumSpeedBpm/60}:{}),
+          kind:'machine',unit,length:1100,rate,bottlesPerUnit,designSpeedPerSecond,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
           primeRampSeconds:zones[index-1]?.primeSensorPositionMm!=null?zones[index-1].downstreamRampUpSeconds:undefined,
           rampAfterRepair:data.downstream?.rampAfterRepair===true,failures:failuresFor(item,config),
@@ -422,9 +424,12 @@ window.STSimulation2D=(function(){
   }
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
-    const rate=item.ratePerMinute??0,produced=item.produced??0;
+    const produced=item.produced??0;
     const unit=cases?'cases/min':'bpm';
     const designSpeed=item.designSpeedPerSecond??item.rate;
+    // Discrete counts in a short window can round up by one completed package.
+    const measuredRate=item.ratePerMinute??0;
+    const rate=belt?measuredRate:Math.min(measuredRate,designSpeed*60);
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
     const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
     const summary=[['State',signal.state,''],

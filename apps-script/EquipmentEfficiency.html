@@ -6,7 +6,9 @@ window.STEquipmentEfficiency=(function(){
     const total=Number.isFinite(goodProducts)?goodProducts+rejects:NaN;
     const reference=designOutput>0?designOutput:designSpeed*runningSeconds;
     const effectiveDesignSpeed=runningSeconds>0?reference/runningSeconds:designSpeed;
-    const productionSpeed=runningSeconds>0&&Number.isFinite(total)?total/runningSeconds:null;
+    const measuredSpeed=runningSeconds>0&&Number.isFinite(total)?total/runningSeconds:null;
+    const productionSpeed=measuredSpeed!==null&&effectiveDesignSpeed>0
+      ?Math.min(measuredSpeed,effectiveDesignSpeed):measuredSpeed;
     const quality=total>0?goodProducts/total:null;
     const runtimeEfficiency=productionSpeed!==null&&effectiveDesignSpeed>0
       ?(quality??1)*productionSpeed/effectiveDesignSpeed:null;

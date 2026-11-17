@@ -12,6 +12,11 @@ test('SimPy adapter resolves ST geometry without mutating the case and maps spat
  assert.equal(payload.metadata.stochasticSchedulesPaired,false);assert.equal(payload.metadata.conveyorModel,'SPATIAL_FINITE_PRODUCTS');assert.deepEqual(payload.metadata.ignoredFeatures,[]);assert(payload.conveyors[0].primeSensorPositionMm>=0);assert(payload.conveyors[0].backupSensorPositionMm>=0);
  assert(payload.conveyors[0].speedMmPerSecond>0);assert(payload.conveyors[0].accumulatedPitchMm<=payload.conveyors[0].movingPitchMm);
 });
+test('SimPy caps service speed at the configured design maximum',()=>{
+ const input=fixture(),source=input.case.equipment[0],maximum=source.nominalRatePerSecond*30;
+ source.processData={...source.processData,equipment:{maximumSpeedBpm:maximum}};
+ assert.equal(adaptSimPyInput(input).machines[0].rateBpm,maximum);
+});
 test('SimPy rejects unsupported topology and noise while supporting conveyor controls rather than silently changing engines',()=>{
  const input=fixture();input.case.equipment.pop();assert.throws(()=>adaptSimPyInput(input),/alternating|required physical-line/);
  const control=fixture();control.run.commands=[{atVirtualSecond:1,equipmentId:control.case.equipment[1].id,action:'STOP'}];assert.equal(adaptSimPyInput(control).run.commands[0].action,'STOP');

@@ -1,3 +1,4 @@
+import { machineOperatingRatePerSecond } from './LineSimulationEngine.js';
 import { stopReliabilityProfile } from './StopReliability.js';
 import { resolveAccumulationZoneDefinition, isConveyorEquipment } from './FormatGeometryAdapter.js';
 import { validateSimulationInput } from './SimulationValidation.js';
@@ -35,7 +36,7 @@ export function adaptSimPyInput(input) {
       const design=model.processData?.equipment;
       const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null
         ?{internalCapacityBottles:design?.internalCapacityBottles??30}:{};
-      machines.push({...residence,id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
+      machines.push({...residence,id:model.id,name:model.name,rateBpm:machineOperatingRatePerSecond(model)*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
         rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,

@@ -159,6 +159,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabil
   const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
+    nominalRatePerSecond: machineOperatingRatePerSecond(model),
     residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
     mode: model.initialMode,
     availabilityState: model.initialMode,
@@ -1208,9 +1209,14 @@ function addFlowToZone(runtime, zone, flow, allowOverflow, entries) {
   }
 }
 
-function machineDesignRatePerSecond(equipment){
+export function machineDesignRatePerSecond(equipment){
   const max=equipment.processData?.equipment?.maximumSpeedBpm;
   return max>0?max/60:equipment.nominalRatePerSecond;
+}
+
+export function machineOperatingRatePerSecond(equipment){
+  return isConveyorEquipment(equipment)?equipment.nominalRatePerSecond:
+    Math.min(equipment.nominalRatePerSecond,machineDesignRatePerSecond(equipment));
 }
 
 function recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge) {
@@ -1803,7 +1809,7 @@ function switchRuntimeProduct(runtime,id){
   runtime.productTimeline.at(-1).endSeconds=runtime.virtualSecond;
   const models=applyProductProfile(runtime.baseEquipment,product);
   models.forEach((model,i)=>{
-    const e=runtime.equipment[i];e.processData=model.processData;e.nominalRatePerSecond=model.nominalRatePerSecond;
+    const e=runtime.equipment[i];e.processData=model.processData;e.nominalRatePerSecond=machineOperatingRatePerSecond(model);
     e.startupDelaySeconds=model.startupDelaySeconds;e.restartRampUpSeconds=model.restartRampUpSeconds;e.backupControl=null;e.startupDelaySeconds=resolveStartupDelaySeconds(e);e.restartRampUpSeconds=resolveRestartRampUpSeconds(e);
   });
   runtime.zones=runtime.equipment.slice(0,-1).map((owner,i)=>{

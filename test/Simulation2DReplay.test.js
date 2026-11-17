@@ -170,7 +170,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     }};
     const records=[];
     const equipment=[
-      {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,maximumSpeedBpm:720,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
+      {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,maximumSpeedBpm:599,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
       {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:999}}}
     ];
@@ -210,6 +210,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(el('time').textContent,'0 s');
     assert.equal(el('output').textContent,'0');
     assert.deepEqual(createdSeeds,[7,78]);
+    assert.equal(createdDefinitions[0].rate,599/60);
     assert.equal(createdDefinitions.at(-1).residenceSeconds,2);
     el('fit').click();
     el('speed').value='50';
@@ -261,7 +262,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(fittedFrame[throughput+2][0],'bpm');
     const speeds=fittedFrame.flatMap(([text],index)=>text==='Design speed'?[fittedFrame.slice(index,index+3)]:[]);
     assert.deepEqual(speeds.map(row=>row.slice(1).map(([text])=>text)),[
-      ['720','bpm'],['7.2','m/min'],['240','bpm']
+      ['599','bpm'],['7.2','m/min'],['240','bpm']
     ]);
     const [parameter,value,unit]=speeds[1];
     assert.equal(value[0],'7.2');
@@ -592,6 +593,7 @@ test('equipment efficiency multiplies quality and speed and uses only internal d
   const result=calculate({runningSeconds:80,internalDowntimeSeconds:20,goodProducts:360,rejects:40,designSpeed:10});
   assert.equal(result.availability,.8);
   assert.equal(result.runtimeEfficiency,.45);
+  assert.equal(calculate({runningSeconds:1,internalDowntimeSeconds:0,goodProducts:11,designSpeed:10}).throughput,10);
   assert(Math.abs(result.operationalEfficiency-.36)<1e-12);
   assert(Math.abs(result.throughput-3.6)<1e-12);
   assert.equal(calculate({runningSeconds:0,internalDowntimeSeconds:0,goodProducts:0,designSpeed:10}).availability,null);

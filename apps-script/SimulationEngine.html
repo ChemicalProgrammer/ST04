@@ -1560,6 +1560,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabil
   const reliability = reliabilityEnabled ? stopReliabilityProfile(model, reliabilityCategories) : null;
   return {
     ...model,
+    nominalRatePerSecond: machineOperatingRatePerSecond(model),
     residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
     mode: model.initialMode,
     availabilityState: model.initialMode,
@@ -2614,6 +2615,11 @@ function machineDesignRatePerSecond(equipment){
   return max>0?max/60:equipment.nominalRatePerSecond;
 }
 
+function machineOperatingRatePerSecond(equipment){
+  return isConveyorEquipment(equipment)?equipment.nominalRatePerSecond:
+    Math.min(equipment.nominalRatePerSecond,machineDesignRatePerSecond(equipment));
+}
+
 function recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, flow, tickSeconds, control, residualDischarge) {
   if (control && flow <= 0) equipment.backupStopSeconds += tickSeconds;
 
@@ -3204,7 +3210,7 @@ function switchRuntimeProduct(runtime,id){
   runtime.productTimeline.at(-1).endSeconds=runtime.virtualSecond;
   const models=applyProductProfile(runtime.baseEquipment,product);
   models.forEach((model,i)=>{
-    const e=runtime.equipment[i];e.processData=model.processData;e.nominalRatePerSecond=model.nominalRatePerSecond;
+    const e=runtime.equipment[i];e.processData=model.processData;e.nominalRatePerSecond=machineOperatingRatePerSecond(model);
     e.startupDelaySeconds=model.startupDelaySeconds;e.restartRampUpSeconds=model.restartRampUpSeconds;e.backupControl=null;e.startupDelaySeconds=resolveStartupDelaySeconds(e);e.restartRampUpSeconds=resolveRestartRampUpSeconds(e);
   });
   runtime.zones=runtime.equipment.slice(0,-1).map((owner,i)=>{
@@ -3438,7 +3444,7 @@ function adaptSimPyInput(input) {
       const design=model.processData?.equipment;
       const residence=input.run.machineResidenceEnabled||design?.internalCapacityBottles!=null
         ?{internalCapacityBottles:design?.internalCapacityBottles??30}:{};
-      machines.push({...residence,id:model.id,name:model.name,rateBpm:model.nominalRatePerSecond*60,initialMode:model.initialMode??'AUTO',
+      machines.push({...residence,id:model.id,name:model.name,rateBpm:machineOperatingRatePerSecond(model)*60,initialMode:model.initialMode??'AUTO',
         critical:Boolean(model.characteristics?.isPacemaker||model.processData?.role==='PACEMAKER'||model.type==='PACEMAKER'),
         startupSeconds:model.startupDelaySeconds??model.processData?.upstream?.startupTimeSeconds??0,
         rampUpSeconds:model.restartRampUpSeconds??model.processData?.downstream?.rampUpTimeSeconds??0,
