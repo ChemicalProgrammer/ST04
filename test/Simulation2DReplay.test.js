@@ -522,7 +522,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     equipment[1].processData.geometry={lactMm:5953,lpPrimeMm:1000,actualDischargeMm:0,actualCodingMm:0};
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,
-      engineering:{input:{packageLengthMm:98,upstreamDischargePitchMm:220,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
+      engineering:{input:{packageLengthMm:98,upstreamDischargePitchMm:220,downstreamInfeedPitchMm:250,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
         blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:1,
         bottlesDischargedAtStop:2,insuranceFactorUnits:3}}});
     const secondBelt={...equipment[1],id:'belt-2',name:'second belt',processData:{
@@ -543,10 +543,12 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('Conveyor Nominal Speed'),['192.73']);
     assert.deepEqual(tableValue('L23'),['42.4']);
     assert.deepEqual(tableValue('L24'),['18.89']);
+    assert.deepEqual(tableValue('L27'),['169.6']);
+    assert.deepEqual(tableValue('L30'),['16.62']);
     const firstPackage=analysisEl('body').querySelector('[data-cell="L62"] input');
     firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
-    assert.deepEqual(tableValue('K8'),['1,792.71']);
-    assert.deepEqual(tableValue('L74'),['13.24']);
+    assert.deepEqual(tableValue('K8'),['1,893.85']);
+    assert.deepEqual(tableValue('L74'),['13.67']);
     assert.deepEqual(tableValue('L76'),['6.67']);
     assert.deepEqual(tableValue('L80'),['Pending']);
     analysis.close();
@@ -554,6 +556,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');
     assert.deepEqual(tableValue('I13'),['7,000']);
     assert.deepEqual(tableValue('Conveyor Nominal Speed'),['2,312.73']);
+    assert.deepEqual(tableValue('L27'),['2,035.2']);
+    assert.deepEqual(tableValue('L30'),['16.62']);
     analysis.close();
   }finally{dom.window.close();}
 });

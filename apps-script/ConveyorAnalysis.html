@@ -40,14 +40,14 @@ window.STConveyorAnalysis=(function(){
         const upstream=models.find(item=>item.id===belt.upstreamControlEquipmentId)??models[index-1];
         const downstream=models.find(item=>item.id===belt.downstreamControlEquipmentId)??models[index+1];
         const length=input.packageLengthMm??belt.productLengthMm;
-        const highRate=input.downstreamHighSpeedBpm??
-          (downstream?.processData?.productInputRatePerSecond??downstream?.nominalRatePerSecond)*60;
         const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
-        const infeedPitch=input.downstreamInfeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
+        const infeedPitch=input.downstreamInfeedPitchMm??models[index].processData?.downstream?.infeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
         const speed=belt.conveyorSpeedMmPerSecond;
         // The imported conveyor speed is already resolved for this format.
         const dischargeVelocity=speed*.06;
         const rate=divide(speed*60,dischargePitch);
+        const highRate=divide(speed*60,infeedPitch);
+        const highSpeedBpm=highRate*bottlesPerFlowUnit(models[index],format);
         const dischargeBpm=rate*bottlesPerFlowUnit(models[index],format);
         const conveyorBpm=divide(speed*60,belt.productPitchMm)*bottlesPerFlowUnit(models[index],format);
         const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
@@ -67,7 +67,7 @@ window.STConveyorAnalysis=(function(){
         const duringDelay=blocked*rate/60,inDischarge=dischargeTime*rate/60,inCoding=codingTime*rate/60;
         const total=duringDelay+residual+inDischarge+inCoding+insurance;
         const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
-        return {name:format?.name||format?.id||'Current format',length,rate,highRate,dischargePitch,infeedPitch,
+        return {name:format?.name||format?.id||'Current format',length,rate,highSpeedBpm,dischargePitch,infeedPitch,
           speed,dischargeBpm,conveyorBpm,dischargeVelocity,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
@@ -125,10 +125,10 @@ window.STConveyorAnalysis=(function(){
       [24,"Machine Output Rate (m/min of containers back to back; 100% population)","m/min",'Native discharge rate × package length / 1000',p=>p.flow*.06]
     ]],
     ["Downstream Machine Details",[
-      [27,"High Speed","pkg/min",'Input',p=>p.highRate],
+      [27,"High Speed","bpm",'Infeed velocity / infeed pitch × bottles per flow unit',p=>p.highSpeedBpm],
       [28,"Downstream Machine - Infeed Pitch","mm",'Input',p=>p.infeedPitch],
       [29,"Ramp up Time to Full Speed (including prime sensor delay)","sec",'Input',p=>p.ramp],
-      [30,"Machine Package Consumption Rate (m/min of containers back to back; 100% population)","m/min",'=L27*L16/1000',p=>p.consumption*.06]
+      [30,"Machine Package Consumption Rate (m/min of containers back to back; 100% population)","m/min",'Native infeed rate × package length / 1000',p=>p.consumption*.06]
     ]],
     ["Conveyor Details - Speed Selection",[
       [33,"Conveyor Speed Factor vs Discharge Velocity of the Package Leaving the Upstream Machine","%",'Input',p=>p.dischargeFactor],
