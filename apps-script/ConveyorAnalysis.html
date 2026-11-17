@@ -18,6 +18,12 @@ window.STConveyorAnalysis=(function(){
     const dialog=document.getElementById('conveyor-analysis-dialog');
     if(dialog.open)dialog.close();
   }
+  function bottlesPerFlowUnit(equipment,format){
+    const unit=equipment?.processData?.flowUnits?.output??equipment?.unitOfFlow;
+    if(String(unit).toUpperCase()!=='CASES')return 1;
+    const packSize=format?window.SimulatorEngine.productPackSize(format):undefined;
+    return Number.isFinite(packSize)&&packSize>0?packSize:NaN;
+  }
   function calculate({zone,data,designProfiles,index},delays=[]){
     const lact=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
@@ -40,6 +46,8 @@ window.STConveyorAnalysis=(function(){
         const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
         const infeedPitch=input.downstreamInfeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
         const speed=belt.conveyorSpeedMmPerSecond;
+        const upstreamBpm=rate*bottlesPerFlowUnit(upstream,format);
+        const conveyorBpm=divide(speed*60,belt.productPitchMm)*bottlesPerFlowUnit(models[index],format);
         const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
         const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
         const dischargeSpeed=rate*dischargePitch/60*(1+dischargeFactor/100);
@@ -58,7 +66,7 @@ window.STConveyorAnalysis=(function(){
         const total=duringDelay+residual+inDischarge+inCoding+insurance;
         const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
         return {name:format?.name||format?.id||'Current format',length,rate,highRate,dischargePitch,infeedPitch,
-          speed,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
+          speed,upstreamBpm,conveyorBpm,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
           dischargeFactor,codingFactor,
@@ -110,7 +118,7 @@ window.STConveyorAnalysis=(function(){
       [19,"Upstream Machine Discharge Pitch","mm",'Input',p=>p.dischargePitch],
       [20,"Start-up Time","sec",'Input',p=>p.startup],
       [21,"Bottles Discharged at Stop","#",'Input',p=>p.residual],
-      [22,"Nominal Speed","pkg/min",'Input',p=>p.rate],
+      [22,"Nominal Speed","bpm",'Upstream nominal speed in bottles/min',p=>p.upstreamBpm],
       [23,"Package Velocity at Discharge of Upstream Machine","m/min",'=L22*L19/1000',p=>p.rate*p.dischargePitch/1000],
       [24,"Machine Output Rate (m/min of containers back to back; 100% population)","m/min",'=L22*L16/1000',p=>p.flow*.06]
     ]],
@@ -129,6 +137,7 @@ window.STConveyorAnalysis=(function(){
       [38,"Population of Packaging on the Conveyor","%",'=L24/L37',p=>p.flow/p.codingSpeed*100],
       [39,"Conveyor Speed Factor vs Previous Conveyor (including overflow, accumulating, and prime sections)","%",'Input',p=>p.accumulationFactor],
       [40,"Conveyor Speed","m/min",'Input',p=>p.speed*.06],
+      [null,"Conveyor Nominal Speed","bpm",'Linear speed / moving pitch × bottles per flow unit',p=>p.conveyorBpm],
       [41,"Population of Packaging on the Conveyor","%",'=L24/L40',p=>p.population*100]
     ]],
     ["Sensor Information",[
@@ -235,7 +244,7 @@ window.STConveyorAnalysis=(function(){
           continue;
         }
         const [ref,label,unit,,read]=entry;
-        const element=row(formats,'L'+ref,label);
+        const element=row(formats,ref==null?null:'L'+ref,label);
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
           cell.className='numeric';

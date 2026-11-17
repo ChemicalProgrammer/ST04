@@ -520,7 +520,7 @@ test('2D uses the representative seed to calculate new production and preserves 
         blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:1,
         bottlesDischargedAtStop:2,insuranceFactorUnits:3}}});
     const secondBelt={...equipment[1],id:'belt-2',name:'second belt',processData:{
-      ...equipment[1].processData,geometry:{...equipment[1].processData.geometry,lactMm:7000}}};
+      ...equipment[1].processData,flowUnits:{output:'CASES'},geometry:{...equipment[1].processData.geometry,lactMm:7000}}};
     const line=[...equipment,secondBelt,{...equipment.at(-1),id:'last-machine'}];
     const format={id:'labeller',name:'Format 1'};
     window.STSimulation2D.load(['case','worksheet'],line,format,{seed:7},null,null,null,[format]);
@@ -533,6 +533,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16']);
     assert.deepEqual(tableValue('K8'),['Pending']);
     assert.deepEqual(tableValue('L20'),['1']);
+    assert.deepEqual(tableValue('L22'),['192']);
+    assert.deepEqual(tableValue('Conveyor Nominal Speed'),['192.73']);
     const firstPackage=analysisEl('body').querySelector('input[type=number]');
     firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
     assert.deepEqual(tableValue('K8'),['1,800.42']);
@@ -543,6 +545,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     buttons[1].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · second belt');
     assert.deepEqual(tableValue('I13'),['7,000']);
+    assert.deepEqual(tableValue('Conveyor Nominal Speed'),['2,312.73']);
     analysis.close();
   }finally{dom.window.close();}
 });
