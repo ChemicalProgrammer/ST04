@@ -70,6 +70,16 @@ window.STSimulation2DEngine=(function(){
         Object.entries(item).filter(([key])=>!Object.hasOwn(definitions[index],key))
       ))}));
     }
+    function hasPackedPair(belt,position=null){
+      const packedPitch=belt.packageLength+belt.packedGap;
+      if(packedPitch+epsilon>=belt.pitch)return false;
+      return belt.items.some((item,index)=>{
+        if(!index)return false;
+        const ahead=belt.items[index-1];
+        return ahead.x-item.x<=packedPitch+epsilon&&
+          (position===null||position>=item.x&&position<=ahead.x);
+      });
+    }
     function moveBelt(belt,seconds){
       belt.travelSeconds=(belt.travelSeconds||0)+seconds;
       const travel=belt.speed*seconds;
@@ -85,10 +95,12 @@ window.STSimulation2DEngine=(function(){
       belt.primeBeam=beam(belt.prime);
       if(belt.primeBeam||primeCrossed)belt.primeSeen=true;
       belt.backupBeam=beam(belt.backup);
-      if(belt.backupBeam===belt.backupBlocked){belt.backupElapsed=0;return;}
+      // The raw beam can clear briefly between packed products in the same queue.
+      const backupOccupied=belt.backupBeam||belt.backup!==null&&hasPackedPair(belt,belt.backup);
+      if(backupOccupied===belt.backupBlocked){belt.backupElapsed=0;return;}
       belt.backupElapsed+=seconds;
-      if(belt.backupElapsed+epsilon>=(belt.backupBeam?belt.blockDelay:belt.clearDelay)){
-        belt.backupBlocked=belt.backupBeam;
+      if(belt.backupElapsed+epsilon>=(backupOccupied?belt.blockDelay:belt.clearDelay)){
+        belt.backupBlocked=backupOccupied;
         belt.backupElapsed=0;
       }
     }
@@ -254,7 +266,7 @@ window.STSimulation2DEngine=(function(){
         if(item.kind==='belt'&&!available(item)){item.travelSeconds??=0;item.state=haltState(item);}
         else if(item.kind==='belt'){
           const head=item.items[0];
-          const accumulating=head&&head.x+item.packageLength/2>=item.length-epsilon;
+          const accumulating=head&&(head.x+item.packageLength/2>=item.length-epsilon||hasPackedPair(item));
           const category=!head?'empty':accumulating?'accumulating':'flowing';
           item.state=!head?'Empty':accumulating?'Accumulating':'Flowing';
           item.durations[category]+=seconds;

@@ -38,6 +38,38 @@ test('independent 2D counts own failures once and accumulates starvation and ram
   assert.equal(restored.line[2].durations.starving,downstream.durations.starving);
 });
 
+test('2D keeps a draining packed queue and its back-up stop active across product gaps', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DEngine'), {window});
+  const machine={kind:'machine',rate:1,batch:1,startDelay:0,rampSeconds:0};
+  const model=window.STSimulation2DEngine.create([
+    {...machine,id:'upstream'},
+    {kind:'belt',length:200,speed:20,packageLength:20,pitch:50,packedGap:10,
+      prime:null,backup:146,blockDelay:.25,clearDelay:.25,responseDelay:0,residual:0},
+    {...machine,id:'downstream'}
+  ]);
+  const [upstream,belt]=model.line;
+  belt.items=[190,160,130].map(x=>({x}));
+  model.step(.25);
+  assert.equal(belt.backupBeam,false);
+  assert.equal(belt.backupBlocked,true);
+  assert.equal(upstream.state,'Back-up stop');
+  assert.equal(belt.produced,1);
+  assert.equal(belt.items[0].x,160);
+  assert.equal(belt.state,'Accumulating');
+  model.step(.25);
+  assert.equal(belt.backupBeam,false);
+  assert.equal(belt.state,'Accumulating');
+  assert.equal(upstream.state,'Back-up stop');
+  assert.equal(belt.durations.accumulating,.5);
+
+  belt.items=[175,115].map(x=>({x}));
+  model.step(.25);
+  assert.equal(belt.state,'Flowing');
+  assert.equal(belt.backupBlocked,false);
+  assert.equal(upstream.state,'Running');
+});
+
 test('2D extracts only the representative seed, even without recorded playback', () => {
   const code=readClientSource();
   const context=vm.createContext({});
@@ -191,6 +223,9 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert(labels.some(([text,font])=>text===label&&font==='9px system-ui'));
     }
     assert.equal(fittedFrame.filter(([text])=>text==='Equipment efficiency').length,2);
+    const throughput=fittedFrame.findIndex(([text])=>text==='Throughput');
+    assert(throughput>=0);
+    assert.equal(fittedFrame[throughput+2][0],'bpm');
     const speeds=fittedFrame.flatMap(([text],index)=>text==='Design speed'?[fittedFrame.slice(index,index+3)]:[]);
     assert.deepEqual(speeds.map(row=>row.slice(1).map(([text])=>text)),[
       ['720','bpm'],['7.2','m/min'],['240','bpm']

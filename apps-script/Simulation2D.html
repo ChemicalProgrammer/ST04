@@ -423,7 +423,7 @@ window.STSimulation2D=(function(){
   function drawTelemetry(context,item,left,y,signal,ink,border,surface,muted,soft,colors){
     const belt=item.kind==='belt',cases=item.unit==='CASES';
     const rate=item.ratePerMinute??0,produced=item.produced??0;
-    const unit=cases?'cases/min':'bottles/min';
+    const unit=cases?'cases/min':'bpm';
     const designSpeed=item.designSpeedPerSecond??item.rate;
     const bottles=value=>num(item.bottlesPerUnit>0?value*item.bottlesPerUnit:NaN);
     const duration=(label,key)=>[label,num(item.durations?.[key]??0),'s'];
