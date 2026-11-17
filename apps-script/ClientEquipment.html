@@ -198,8 +198,8 @@
         ['.format-zone-discharge-pitch', __ST_TEXT__('client.centre_to_centre_distance_between_packages_leaving_the_upstream_machine')],
         ['.format-zone-speed-factor', __ST_TEXT__('client.belt_speed_increase_relative_to_upstream_package_discharge_velocity_it_chan')],
         ['.format-zone-backup', __ST_TEXT__('client.installed_back_up_photocell_position_measured_from_the_upstream_discharge_a')],
-        ['.format-zone-discharge-runout', __ST_TEXT__('client.length_that_must_be_cleared_after_the_upstream_discharge_before_a_stop_full')],
-        ['.format-zone-reject-runout', __ST_TEXT__('client.additional_reject_runout_length_that_must_be_cleared_during_an_upstream_sto')],
+        ['.format-zone-discharge-runout', window.STConveyorAnalysis?.lengthHelp.discharge ?? __ST_TEXT__('client.length_that_must_be_cleared_after_the_upstream_discharge_before_a_stop_full')],
+        ['.format-zone-reject-runout', window.STConveyorAnalysis?.lengthHelp.coding ?? __ST_TEXT__('client.additional_reject_runout_length_that_must_be_cleared_during_an_upstream_sto')],
         ['.format-zone-blocked-delay', __ST_TEXT__('client.continuous_back_up_blocked_time_required_before_the_simulator_requests_the_')],
         ['.format-zone-clear-delay', __ST_TEXT__('client.continuous_back_up_clear_time_required_before_the_simulator_releases_the_up')],
         ['.format-zone-insurance', __ST_TEXT__('client.extra_package_margin_reserved_in_the_required_overflow_calculation_it_is_a_')],
@@ -407,7 +407,9 @@ function readFormatZoneInputs(card) {
       var result = Object.assign({}, processData);
       result.geometry = Object.assign({}, result.geometry || {}, {
         lactMm: values.lactMm,
-        lpPrimeMm: values.lpPrimeMm
+        lpPrimeMm: values.lpPrimeMm,
+        actualDischargeMm: values.dischargeRunoutLengthMm,
+        actualCodingMm: values.rejectRunoutLengthMm
       });
       result.upstream = Object.assign({}, result.upstream || {}, {
         packageLengthMm: values.packageLengthMm,
@@ -439,14 +441,10 @@ function readFormatZoneInputs(card) {
         bottlesDischargedAtStop: values.bottlesDischargedAtStop,
         downstreamRampUpSeconds: values.downstreamRampUpSeconds
       });
-      if(result.geometry.actualDischargeMm!==undefined)result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
-      if(result.geometry.actualCodingMm!==undefined)result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
       if(window.STBasicMode?.isBasic()){
         result.accumulation.useNominalDesignSpeed=true;
         result.accumulation.speedMode='MANUAL';
         result.accumulation.conveyorSpeedMmPerSecond=values.conveyorSpeedMmPerSecond;
-        result.geometry.actualDischargeMm=values.dischargeRunoutLengthMm;
-        result.geometry.actualCodingMm=values.rejectRunoutLengthMm;
         result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;
         result.downstream=Object.assign({},result.downstream,{infeedPitchMm:values.downstreamInfeedPitchMm,rampUpTimeSeconds:values.downstreamRampUpSeconds});
         result.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent=values.codingFactorPercent;

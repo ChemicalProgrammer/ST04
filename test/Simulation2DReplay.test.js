@@ -471,6 +471,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(analysisButton.hidden,false);
     analysisButton.click();
     assert(analysis.open);
+    assert.equal(analysisEl('body').querySelector('.conveyor-analysis-verdict').textContent,'FAIL');
+    assert(currentLabels().includes('FAIL'));
     for(const ref of ['K8','L70']){
       const help=analysisEl('body').querySelector('[data-cell="'+ref+'"]').title;
       for(const sign of ['>','='])assert(help.includes('Lrec '+sign+' 0'));
@@ -578,6 +580,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('L30'),['16.62']);
     assert.deepEqual(tableValue('K8'),['1,901.41']);
     assert.deepEqual(tableValue('L (min needed)'),['4,051.59']);
+    assert.equal(analysisEl('body').querySelector('.conveyor-analysis-verdict').textContent,'PASS');
+    assert(currentLabels().includes('PASS'));
     assert.deepEqual(tableValue('L74'),['13.68']);
     assert.deepEqual(tableValue('L76'),['6.72']);
     assert.deepEqual(tableValue('L79'),['5']);

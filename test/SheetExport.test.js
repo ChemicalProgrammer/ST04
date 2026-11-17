@@ -41,12 +41,16 @@ test('Sheets export uses every import column and current overrides, preserves ze
   request.equipment[0].nominalRatePerSecond=3;
   unit.processData.accumulation={conveyorSpeedFactorPercent:75,blockedTimeDelaySeconds:0,clearTimeDelaySeconds:0,insuranceFactorUnits:0,bottlesDischargedAtStop:0,downstreamRampUpSeconds:2};
   delete request.equipment[2].noiseProfile.reliability;
+  delete unit.processData.geometry.actualDischargeMm;
+  unit.processData.accumulation.dischargeRunoutLengthMm=0;
+  unit.processData.accumulation.rejectRunoutLengthMm=123;
   const data=c.equipmentSheetData_(request.equipment,request.metadata),roundtrip=c.parseEquipmentSheet_(data.metadata,data.rows,[],data.layout);
   assert.equal(roundtrip.canImport,true);assert.equal(data.rows[0][5],420,'F is installed maximum, not nominal');
   const values=roundtrip.sourceRows[1].values;
   assert.equal(values.conveyorSpeedFactorVsDischargeVelocityPercent,75);
   for(const key of ['blockedTimeDelaySeconds','clearTimeDelaySeconds','insuranceFactorUnits','bottlesDischargedAtStop'])assert.equal(values[key],0,key);
   assert.equal(values.rampUpTimeSeconds,2);
+  assert.equal(values.actualDischargeMm,0);
   assert.equal(values.actualCodingMm,100);assert.equal(values.codingConveyorSpeedFactorVsPreviousConveyorPercent,102);assert.equal(values.conveyorSpeedFactorVsPreviousConveyorPercent,103);assert.equal(values.overspeedVsInfeedScrewPercent,7);
   assert.equal(roundtrip.metadata.containerSize,5.5);assert.equal(roundtrip.metadata.containerSizeOz,null);assert.equal(roundtrip.equipment[0].characteristics.isPacemaker,true);
   assert.deepEqual(JSON.parse(JSON.stringify(roundtrip.equipment[2].noiseProfile)),{});

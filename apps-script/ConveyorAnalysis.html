@@ -10,9 +10,15 @@
 #conveyor-analysis-body { display:grid; gap:var(--space-4); }
 #conveyor-analysis-body h3 { margin:0 0 var(--space-2); }
 #conveyor-analysis-body .chart-note { margin:0; }
+#conveyor-analysis-body .conveyor-analysis-verdict { display:inline-block; margin-inline-start:var(--space-2); padding:2px 8px; border-radius:999px; color:#fff; font-size:var(--font-secondary); white-space:nowrap; vertical-align:middle; }
 </style>
 <script>
 window.STConveyorAnalysis=(function(){
+  const verdictColors={'PASS':'#216343','FAIL':'#a12b36','AT LIMIT':'#805200','NOT EVALUATED':'#4b5563'};
+  const lengthHelp={
+    discharge:'Longitud instalada desde la salida de la máquina aguas arriba hasta el inicio del tramo Coding. Si no hay Coding, mide hasta el inicio de Overflow.',
+    coding:'Longitud instalada del tramo de codificación, desde el final de Discharge hasta el inicio de Overflow (Max Run-out Point). Captura 0 si no existe ese tramo.'
+  };
   const recoveryHelp=[
     'Lrec es el margen de cola útil cuando la primera botella del rearranque alcanza la cola.',
     'Lrec > 0: todavía queda cola útil.',
@@ -230,10 +236,16 @@ window.STConveyorAnalysis=(function(){
       parent.append(element);
       return element;
     }
-    function table(title,headers){
+    function table(title,headers,status){
       const section=make(body,'section');
       const heading=make(section,'h3',title);
       heading.id='conveyor-analysis-section-'+body.children.length;
+      if(status){
+        const badge=make(heading,'span',status);
+        badge.className='conveyor-analysis-verdict';
+        badge.style.backgroundColor=verdictColors[status];
+        badge.title='Lact vs L min';
+      }
       const wrapper=make(section,'div');
       wrapper.className='table-scroll';
       const element=make(wrapper,'table');
@@ -250,10 +262,11 @@ window.STConveyorAnalysis=(function(){
       const element=make(parent,'tr');
       if(ref)element.dataset.cell=ref;
       if(ref==='K8'||ref==='L70')element.title=recoveryHelp;
+      if(ref==='D8'||ref==='E8')element.title=lengthHelp[ref==='D8'?'discharge':'coding'];
       make(element,'th',label).scope='row';
       return element;
     }
-    const common=table('Common Geometry',['Parameter','Value','Unit']);
+    const common=table('Common Geometry',['Parameter','Value','Unit'],worksheet.geometry.status);
     worksheet.common.forEach(([ref,label,unit,value,,source])=>{
       const element=row(common,ref,label);
       const output=make(element,'td');
@@ -289,6 +302,6 @@ window.STConveyorAnalysis=(function(){
     dialog.showModal();
   }
   document.getElementById('conveyor-analysis-close').addEventListener('click',close);
-  return {open,close,calculate,resolveProfiles,recommendedSpeed};
+  return {open,close,calculate,resolveProfiles,recommendedSpeed,verdictColors,lengthHelp};
 })();
 </script>

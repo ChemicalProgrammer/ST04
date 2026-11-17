@@ -170,8 +170,8 @@ window.STSimulation2D=(function(){
       target.append(group);machineControls.set(item.id,{group,buttons});
     }
   }
-  function dimensionRows({lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength}){
-    return {runout,backup:lbu,prime,minimumLength,minimumPartial:recovery.partial,recovery:point,rows:[
+  function dimensionRows({lact,lp,prime,discharge,coding,runout,overflow,lbu,lba,recovery,point,minimumLength,status}){
+    return {runout,backup:lbu,prime,status,minimumLength,minimumPartial:recovery.partial,recovery:point,rows:[
       {tier:0,label:'Discharge',start:0,value:discharge},
       {tier:0,label:'Coding',start:discharge,value:coding},
       {tier:0,label:'Overflow',start:runout,value:overflow.value,partial:overflow.partial},
@@ -436,7 +436,7 @@ window.STSimulation2D=(function(){
       }
       context.fillText(value,x,baseline);
     }
-    function card(columnIndex,left,title,rows,showSignal){
+    function card(columnIndex,left,title,rows,showSignal,verdict){
       const width=telemetryWidths[columnIndex];
       const [parameterWidth,valueWidth,unitWidth]=telemetryColumns[columnIndex];
       const parameterX=left+telemetryPadding;
@@ -457,6 +457,16 @@ window.STSimulation2D=(function(){
         context.fillStyle='#fff';
         context.textAlign='center';
         text(title,left+width/2,y+21*tableScale,capsuleWidth-20*tableScale);
+      }else if(verdict){
+        const capsuleWidth=context.measureText(verdict).width+16*tableScale;
+        const end=left+width-8*tableScale;
+        context.fillStyle=window.STConveyorAnalysis.verdictColors[verdict];
+        context.beginPath();
+        context.roundRect(end-capsuleWidth,y+8*tableScale,capsuleWidth,telemetryRowHeight,telemetryRowHeight/2);
+        context.fill();
+        context.fillStyle='#fff';
+        context.textAlign='center';
+        context.fillText(verdict,end-capsuleWidth/2,y+21*tableScale);
       }else if(title){
         context.fillStyle=ink;
         text(title,parameterX,y+21*tableScale,width-2*telemetryPadding);
@@ -481,7 +491,7 @@ window.STSimulation2D=(function(){
     card(0,left,item.name,summary,true);
     card(1,statesLeft,'States',states,false);
     if(belt){
-      card(3,statesLeft+telemetryWidths[1]+telemetryGap,'',conveyorGeometryRows(item),false);
+      card(3,statesLeft+telemetryWidths[1]+telemetryGap,'',conveyorGeometryRows(item),false,conveyorDimensions.get(item.id)?.status);
     }else{
       const efficiency=window.STEquipmentEfficiency;
       const runningSeconds=(item.durations?.running??0)+(item.durations?.acceleration??0)+(item.durations?.deceleration??0);
