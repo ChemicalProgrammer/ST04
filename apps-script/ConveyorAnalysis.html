@@ -24,7 +24,7 @@ window.STConveyorAnalysis=(function(){
     const packSize=format?window.SimulatorEngine.productPackSize(format):undefined;
     return Number.isFinite(packSize)&&packSize>0?packSize:NaN;
   }
-  function calculate({zone,data,designProfiles,index},overrides=[]){
+  function calculate({zone,data,designProfiles,index},delays=[]){
     const lact=data.geometry?.lactMm??zone.usableLengthMm;
     const lp=data.geometry?.lpPrimeMm??(lact-zone.primeSensorPositionMm);
     const prime=lact-lp;
@@ -36,25 +36,25 @@ window.STConveyorAnalysis=(function(){
     const profiles=designProfiles.filter(({models})=>models[index].processData?.productApplies!==false)
       .map(({zones,models,format},column)=>{
         const belt=zones[index]||{};
-        const {input={},calculated={}}=belt.engineering||{};
+        const {input={}}=belt.engineering||{};
         const upstream=models.find(item=>item.id===belt.upstreamControlEquipmentId)??models[index-1];
         const downstream=models.find(item=>item.id===belt.downstreamControlEquipmentId)??models[index+1];
         const length=input.packageLengthMm??belt.productLengthMm;
-        const rate=input.upstreamNominalSpeedBpm??upstream?.nominalRatePerSecond*60;
         const highRate=input.downstreamHighSpeedBpm??
           (downstream?.processData?.productInputRatePerSecond??downstream?.nominalRatePerSecond)*60;
         const dischargePitch=input.upstreamDischargePitchMm??upstream?.processData?.upstream?.dischargePitchMm;
         const infeedPitch=input.downstreamInfeedPitchMm??downstream?.processData?.downstream?.infeedPitchMm;
         const speed=belt.conveyorSpeedMmPerSecond;
-        const upstreamBpm=rate*bottlesPerFlowUnit(upstream,format);
+        // The imported conveyor speed is already resolved for this format.
+        const dischargeVelocity=speed*.06;
+        const rate=divide(speed*60,dischargePitch);
+        const dischargeBpm=rate*bottlesPerFlowUnit(models[index],format);
         const conveyorBpm=divide(speed*60,belt.productPitchMm)*bottlesPerFlowUnit(models[index],format);
         const dischargeFactor=input.conveyorSpeedFactorPercent??data.speedAndSensors?.conveyorSpeedFactorVsDischargeVelocityPercent;
         const codingFactor=input.codingSpeedFactorPercent??data.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent;
-        const dischargeVelocity=overrides[column]?.[23]??
-          ((calculated.upstreamDischargeVelocityMmPerSecond??rate*dischargePitch/60)*.06);
-        const dischargeSpeed=dischargeVelocity/.06*(1+dischargeFactor/100);
+        const dischargeSpeed=speed*(1+dischargeFactor/100);
         const codingSpeed=dischargeSpeed*(1+codingFactor/100);
-        const firstPackage=overrides[column]?.[62]??models[index].processData?.accumulation?.restartToFirstPackageSeconds;
+        const firstPackage=delays[column]??models[index].processData?.accumulation?.restartToFirstPackageSeconds;
         const flow=rate*length/60,consumption=highRate*length/60;
         const population=divide(flow,speed);
         const blocked=input.blockedTimeDelaySeconds??belt.blockedTimeDelaySeconds;
@@ -68,7 +68,7 @@ window.STConveyorAnalysis=(function(){
         const total=duringDelay+residual+inDischarge+inCoding+insurance;
         const overflow=length>0&&population>=0?divide(total*length,1-population):NaN;
         return {name:format?.name||format?.id||'Current format',length,rate,highRate,dischargePitch,infeedPitch,
-          speed,upstreamBpm,conveyorBpm,dischargeVelocity,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
+          speed,dischargeBpm,conveyorBpm,dischargeVelocity,dischargeSpeed,codingSpeed,flow,consumption,population,blocked,clear,startup,firstPackage,residual,insurance,
           dischargeTime,codingTime,duringDelay,inDischarge,inCoding,total,overflow,
           ramp:input.downstreamRampUpSeconds??belt.downstreamRampUpSeconds,
           dischargeFactor,codingFactor,
@@ -120,9 +120,9 @@ window.STConveyorAnalysis=(function(){
       [19,"Upstream Machine Discharge Pitch","mm",'Input',p=>p.dischargePitch],
       [20,"Start-up Time","sec",'Input',p=>p.startup],
       [21,"Bottles Discharged at Stop","#",'Input',p=>p.residual],
-      [22,"Nominal Speed","bpm",'Upstream nominal speed in bottles/min',p=>p.upstreamBpm],
+      [22,"Nominal Speed","bpm",'Discharge velocity / discharge pitch × bottles per flow unit',p=>p.dischargeBpm],
       [23,"Package Velocity at Discharge of Upstream Machine","m/min",'Input',p=>p.dischargeVelocity],
-      [24,"Machine Output Rate (m/min of containers back to back; 100% population)","m/min",'=L22*L16/1000',p=>p.flow*.06]
+      [24,"Machine Output Rate (m/min of containers back to back; 100% population)","m/min",'Native discharge rate × package length / 1000',p=>p.flow*.06]
     ]],
     ["Downstream Machine Details",[
       [27,"High Speed","pkg/min",'Input',p=>p.highRate],
@@ -189,11 +189,11 @@ window.STConveyorAnalysis=(function(){
     if(!context)return;
     const dialog=document.getElementById('conveyor-analysis-dialog');
     const body=document.getElementById('conveyor-analysis-body');
-    const overrides=[];
+    const delays=[];
     const number=new Intl.NumberFormat(undefined,{maximumFractionDigits:2});
     const valueText=value=>Number.isFinite(value)?number.format(value):'Pending';
     const updates=[];
-    let worksheet=calculate(context,overrides);
+    let worksheet=calculate(context,delays);
     body.replaceChildren();
     document.getElementById('conveyor-analysis-title').textContent='Conveyor Analysis Tool · '+name;
     function make(parent,tag,text){
@@ -250,7 +250,7 @@ window.STConveyorAnalysis=(function(){
         worksheet.profiles.forEach((profile,column)=>{
           const cell=make(element,'td');
           cell.className='numeric';
-          if(ref===23||ref===62){
+          if(ref===62){
             const input=make(cell,'input');
             input.type='number';input.min='0';input.step='any';
             input.placeholder='Pending';
@@ -258,9 +258,8 @@ window.STConveyorAnalysis=(function(){
             input.value=Number.isFinite(value)?Number(value.toFixed(8)):'';
             input.setAttribute('aria-label',label+' · '+profile.name);
             input.addEventListener('input',()=>{
-              overrides[column]??={};
-              overrides[column][ref]=input.value===''||!input.validity.valid?NaN:input.valueAsNumber;
-              worksheet=calculate(context,overrides);
+              delays[column]=input.value===''||!input.validity.valid?NaN:input.valueAsNumber;
+              worksheet=calculate(context,delays);
               updates.forEach(update=>update());
             });
           }else{

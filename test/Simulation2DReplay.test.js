@@ -483,14 +483,14 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('Prime Sensor (actual)'),['1,500']);
     assert.deepEqual(tableValue('Discharge'),['100']);
     assert.deepEqual(tableValue('Coding'),['150']);
-    assert.deepEqual(tableValue('F8'),['420']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['830']);
-    const dischargeInput=analysisEl('body').querySelector('[data-cell="L23"] input');
-    assert.equal(dischargeInput.value,'6');
-    dischargeInput.value='12';dischargeInput.dispatchEvent(new window.Event('input'));
-    assert.deepEqual(tableValue('L34'),['12']);
-    assert.deepEqual(tableValue('L37'),['18']);
-    assert.deepEqual(tableValue('F8'),['300']);
+    assert.deepEqual(tableValue('F8'),['555']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['695']);
+    assert.deepEqual(tableValue('L23'),['7.2']);
+    assert.deepEqual(tableValue('L22'),['144']);
+    assert.deepEqual(tableValue('L24'),['4.32']);
+    assert.deepEqual(tableValue('L34'),['7.2']);
+    assert.deepEqual(tableValue('L37'),['10.8']);
+    assert.equal(analysisEl('body').querySelector('[data-cell="L23"] input'),null);
     analysis.close();
     close(marker('P')[2]-marker('Recovery Point')[2],150*.09);
     const extent=label=>{
@@ -522,7 +522,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     equipment[1].processData.geometry={lactMm:5953,lpPrimeMm:1000,actualDischargeMm:0,actualCodingMm:0};
     Object.assign(geometry,{usableLengthMm:5953,productLengthMm:98,productPitchMm:220,
       accumulatedPitchMm:98,conveyorSpeedMmPerSecond:42400/60,primeSensorPositionMm:4953,
-      engineering:{input:{packageLengthMm:98,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
+      engineering:{input:{packageLengthMm:98,upstreamDischargePitchMm:220,upstreamNominalSpeedBpm:192,downstreamHighSpeedBpm:175,
         blockedTimeDelaySeconds:.5,clearTimeDelaySeconds:.5,upstreamStartupTimeSeconds:1,
         bottlesDischargedAtStop:2,insuranceFactorUnits:3}}});
     const secondBelt={...equipment[1],id:'belt-2',name:'second belt',processData:{
@@ -535,21 +535,19 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(buttons.length,2);
     buttons[0].click();
     assert.equal(analysisEl('title').textContent,'Conveyor Analysis Tool · belt');
-    assert.deepEqual(tableValue('F8'),['1,162.84']);
-    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,790.16']);
+    assert.deepEqual(tableValue('F8'),['1,167.43']);
+    assert.deepEqual(tableValue('Accumulation Zone (Lba)'),['3,785.57']);
     assert.deepEqual(tableValue('K8'),['Pending']);
     assert.deepEqual(tableValue('L20'),['1']);
-    assert.deepEqual(tableValue('L22'),['192']);
+    assert.deepEqual(tableValue('L22'),['192.73']);
     assert.deepEqual(tableValue('Conveyor Nominal Speed'),['192.73']);
-    const dischargeVelocity=analysisEl('body').querySelector('[data-cell="L23"] input');
-    assert.equal(dischargeVelocity.value,'');
-    dischargeVelocity.value='24';dischargeVelocity.dispatchEvent(new window.Event('input'));
-    assert.equal(dischargeVelocity.value,'24');
+    assert.deepEqual(tableValue('L23'),['42.4']);
+    assert.deepEqual(tableValue('L24'),['18.89']);
     const firstPackage=analysisEl('body').querySelector('[data-cell="L62"] input');
     firstPackage.value='2';firstPackage.dispatchEvent(new window.Event('input'));
-    assert.deepEqual(tableValue('K8'),['1,800.42']);
-    assert.deepEqual(tableValue('L74'),['13.26']);
-    assert.deepEqual(tableValue('L76'),['6.72']);
+    assert.deepEqual(tableValue('K8'),['1,792.71']);
+    assert.deepEqual(tableValue('L74'),['13.24']);
+    assert.deepEqual(tableValue('L76'),['6.67']);
     assert.deepEqual(tableValue('L80'),['Pending']);
     analysis.close();
     buttons[1].click();
