@@ -38,12 +38,13 @@
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:syncSimulation2D});
     function syncSimulation2D(visible){
       if(!visible){
-        if(state.activeCase){STSimulation2D.closeEvents();STSimulation2D.pause();}
+        if(state.activeCase){STSimulation2D.syncEvents(false);STSimulation2D.pause();}
         else STSimulation2D.unload();
         return;
       }
       var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
       if(!simulation)return;
+      STSimulation2D.syncEvents(true);
       var ownerId=state.activeCase.id,simulationId=simulation.id;
       STSimulation2D.load([ownerId,simulationId,format?.id],state.activeCase.equipment,format,simulation.dynamicConfig,simulation.simulation2d,function(record){
         if(state.activeCase?.id!==ownerId)return;

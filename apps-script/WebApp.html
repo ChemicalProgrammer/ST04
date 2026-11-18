@@ -169,25 +169,22 @@
                 <input id="simulation2d-dimensions" type="checkbox"> Show dimensions
               </label>
               <label class="simulation2d-source"><input id="simulation2d-failures" type="checkbox" checked> MTBF / MTTR failures</label>
-              <button id="simulation2d-events" type="button" class="secondary icon-button" data-icon="calendar" title="Events and calendar" aria-label="Events and calendar" aria-haspopup="dialog" aria-controls="simulation2d-events-dialog" aria-expanded="false"></button>
+              <label class="simulation2d-source"><input id="simulation2d-show-events" type="checkbox" aria-controls="simulation2d-events-panel"> Show events and calendar</label>
             </div>
-            <div id="simulation2d-events-dock" hidden></div>
-            <dialog id="simulation2d-events-dialog" class="settings-dialog" aria-labelledby="simulation2d-events-title">
-              <div id="simulation2d-events-panel" class="simulation2d-events-panel">
-                <header class="dialog-heading">
-                  <h2 id="simulation2d-events-title">Events and calendar</h2>
-                  <button id="simulation2d-events-pin" type="button" class="secondary icon-button" data-icon="pin" aria-label="Pin above diagram" title="Pin above diagram" aria-pressed="false"></button>
-                  <button id="simulation2d-events-close" type="button" class="secondary icon-button" data-icon="x" aria-label="Close events and calendar" title="Close events and calendar"></button>
-                </header>
-                <div class="simulation2d-options" role="group" aria-label="Schedule included in the 2D run">
-                  <span>Include in 2D run</span>
-                  <label class="simulation2d-source"><input id="simulation2d-use-events" type="checkbox"> Equipment events and line stops</label>
-                  <label class="simulation2d-source"><input id="simulation2d-use-calendar" type="checkbox"> Plant calendar</label>
-                </div>
-                <p id="simulation2d-events-note" class="chart-note"></p>
-                <div id="simulation2d-event-editor"></div>
-              </div>
-            </dialog>
+          </div>
+        </div>
+        <div id="simulation2d-events-panel" class="fold-card" role="region" aria-labelledby="simulation2d-events-title" hidden>
+          <div class="fold-heading">
+            <h2 id="simulation2d-events-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation2d-events-content">Events and calendar</button></h2>
+          </div>
+          <div id="simulation2d-events-content" class="fold-content">
+            <div class="simulation2d-options" role="group" aria-label="Schedule included in the 2D run">
+              <span>Include in 2D run</span>
+              <label class="simulation2d-source"><input id="simulation2d-use-events" type="checkbox"> Equipment events and line stops</label>
+              <label class="simulation2d-source"><input id="simulation2d-use-calendar" type="checkbox"> Plant calendar</label>
+            </div>
+            <p id="simulation2d-events-note" class="chart-note"></p>
+            <div id="simulation2d-event-editor"></div>
           </div>
         </div>
         <div id="simulation2d-results" class="fold-card" role="region" aria-labelledby="simulation2d-title">

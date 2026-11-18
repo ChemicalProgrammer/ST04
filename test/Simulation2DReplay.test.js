@@ -156,7 +156,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const art=window.STSimulation2DMachines.draw,drawn=[];
     window.STSimulation2DMachines.draw=(context,type,...args)=>{
       const rendered=art(context,type,...args);
-      if(rendered)drawn.push({type,bottom:args[1]+args[3],seconds:args.at(-1)});
+      if(rendered)drawn.push({type,bottom:args[1]+args[3]*.84,seconds:args.at(-1)});
       return rendered;
     };
     window.eval(script('EquipmentEfficiency'));
@@ -380,25 +380,19 @@ test('2D uses the representative seed to calculate new production and preserves 
     const formats=[{id:'large-overflow'},{id:'slow-recovery'}];
     window.STSimulation2D.load(['case','dimensions'],equipment,null,{seed:7},null,null,null,formats);
     el('fit').click();
-    for(const name of ['source','dimensions','failures','events','limit','events-dock']){
+    for(const name of ['source','dimensions','failures','show-events','limit']){
       assert(el('settings').contains(el(name)));
     }
     for(const name of ['output','running','canvas','play','fullscreen']){
       assert(el('results').contains(el(name)));
     }
-    const dialog=el('events-dialog');
-    dialog.showModal=()=>{dialog.open=true;};
-    dialog.close=()=>{dialog.open=false;dialog.dispatchEvent(new window.Event('close'));};
-    el('events').click();
-    assert(dialog.open);
-    el('events-pin').click();
-    assert(!dialog.open);
-    assert.equal(el('events-panel').parentElement,el('events-dock'));
-    assert(!el('events-dock').hidden);
-    el('events-pin').click();
-    assert(dialog.open);
-    el('events-close').click();
-    assert(!dialog.open);
+    const events=el('events-panel');
+    assert(events.hidden);
+    el('show-events').click();
+    assert(!events.hidden);
+    assert(events.contains(window.document.getElementById('simulation-event-section')));
+    el('show-events').click();
+    assert(events.hidden);
     assert.equal(el('settings-title').textContent,'Settings');
     assert.equal(el('title').textContent,'Layout');
     assert.equal(el('running').textContent,'0/2');

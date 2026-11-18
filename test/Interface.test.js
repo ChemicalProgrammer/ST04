@@ -2723,8 +2723,11 @@ test('UI: 2D uses the numeric event editor and refreshes its schedule',async()=>
   const section=h.d.getElementById('simulation-event-section');
   const add=h.d.getElementById('add-control-event');
   await h.click('.sidebar [data-view="simulation2d"]');
-  await h.click('#simulation2d-events');
-  assert(section.closest('#simulation2d-events-dialog')?.open);
+  const events=h.d.getElementById('simulation2d-events-panel');
+  assert(events.hidden);
+  await h.click('#simulation2d-show-events');
+  assert(!events.hidden);
+  assert(events.contains(section));
   assert(!add.disabled);
   await h.click('#open-plant-calendar');
   assert(h.d.getElementById('plant-calendar-dialog').open);
@@ -2736,12 +2739,17 @@ test('UI: 2D uses the numeric event editor and refreshes its schedule',async()=>
   await h.click('#add-control-event');
   assert.notEqual(h.w.getComputedStyle(h.d.getElementById('control-events')).display,'none');
   assert.match(h.d.getElementById('simulation2d-events-note').textContent,/1 equipment events/);
-  await h.click('#simulation2d-events-pin');
-  assert(section.closest('#simulation2d-events-dock'));
+  await h.click('#simulation2d-show-events');
+  assert(events.hidden);
+  assert(section.closest('#run-panel'));
+  await h.click('#simulation2d-show-events');
   await h.click('.sidebar [data-view="simulation"]');
   assert(section.closest('#run-panel'));
   assert(section.classList.contains('hidden'));
   assert(add.disabled);
+  await h.click('.sidebar [data-view="simulation2d"]');
+  assert(!events.hidden);
+  assert(events.contains(section));
   assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

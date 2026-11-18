@@ -1,12 +1,12 @@
 <script>
 window.STSimulation2DMachines=(function(){
-  const blower={kind:'blower',width:.76,height:1.28};
+  const blower={kind:'blower',width:.76,height:1.28,floor:88};
   const designs={
     BLOWER:blower,BLOWMOLDER:blower,
-    FILLER:{kind:'filler',width:.98,height:1.09,viewWidth:184},
-    SLEEVER:{kind:'sleever',width:.57,height:1.04},
-    CASE_PACKER:{kind:'packer',width:1.14,height:1.03,viewWidth:226},
-    PALLETIZER:{kind:'palletizer',width:.94,height:1.42}
+    FILLER:{kind:'filler',width:.98,height:1.09,floor:84,viewWidth:184},
+    SLEEVER:{kind:'sleever',width:.57,height:1.04,floor:89},
+    CASE_PACKER:{kind:'packer',width:1.14,height:1.03,floor:87,viewWidth:226},
+    PALLETIZER:{kind:'palletizer',width:.94,height:1.42,floor:90}
   };
   function dimensions(type){
     return Object.hasOwn(designs,type)?designs[type]:null;
@@ -44,7 +44,7 @@ window.STSimulation2DMachines=(function(){
       }
       circle(x,y,2,accent);
     }
-    function foot(x,y){box(x,y,15,3,belt,1);}
+    function foot(x,offset=0){box(x,design.floor-3+offset,15,3,belt,1);}
     function track(){
       const inset=viewWidth*.1;
       box(inset,50,viewWidth-2*inset,3,belt,1.5);
@@ -63,7 +63,7 @@ window.STSimulation2DMachines=(function(){
         box(72,25,10,12+7*phase,accent);
         box(58+5*phase,38,12,10,soft);
         box(84-5*phase,38,12,10,soft);
-        foot(23,85);foot(86,85);
+        foot(23);foot(86);
         track();
         break;
       case 'filler':
@@ -83,7 +83,7 @@ window.STSimulation2DMachines=(function(){
         box(143,14,16,12,accent,3);
         line(147,26,149,34,153,34,155,26);
         line(86,69,86,79);
-        foot(33,81);foot(134,81);
+        foot(33);foot(134);
         track();
         break;
       case 'sleever':
@@ -93,7 +93,7 @@ window.STSimulation2DMachines=(function(){
         reel(39,23,14);reel(80,35,10);
         line(53,23,74,26);line(72,42,66,47,59,47);
         box(47,41+4*phase,19,5,accent,2);
-        foot(44,86);foot(61,86);
+        foot(44);foot(61);
         track();
         break;
       case 'packer': {
@@ -113,7 +113,7 @@ window.STSimulation2DMachines=(function(){
         box(173,39,13,7,accent,2);
         line(160,42,164,46,171,46);
         line(163,57,187,57);
-        foot(24,84);foot(140,84);foot(171,83);
+        foot(24);foot(140);foot(171,-1);
         track();
         break;
       }
@@ -128,7 +128,7 @@ window.STSimulation2DMachines=(function(){
         for(let i=0;i<3;i++)line(48+i*12,41+12*phase,48+i*12,46+12*phase);
         box(35,69,50,4,belt,1);
         box(39,73,7,4,ink,1);box(74,73,7,4,ink,1);
-        foot(11,87);foot(94,87);
+        foot(11);foot(94);
         track();
         break;
     }
