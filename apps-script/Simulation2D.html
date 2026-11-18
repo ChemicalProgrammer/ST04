@@ -325,7 +325,7 @@ window.STSimulation2D=(function(){
     }
     if(animation.started===null&&produced>animation.settled){
       animation.started=time;
-      animation.duration=Math.min(1.8,1/Math.max(.1,item.rate||.1));
+      animation.duration=4;
     }
     return animation.started===null?{produced,progress:1}:
       {produced:animation.settled+1,progress:Math.min(1,Math.max(0,(time-animation.started)/animation.duration))};
@@ -815,6 +815,15 @@ window.STSimulation2D=(function(){
     const origin=camera.x/factor;
     const line=model?.line||definitions;
     const {items,right}=equipmentLayout(line);
+    const output=productionLayout(line,items,right);
+    const transfer=output.pallets?palletTransfer(line.at(-1)):null;
+    const palletColors={ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight};
+    if(transfer){
+      const pickup=origin+palletInfeed(line,items,y).pickup;
+      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
+        pickup,palletColors,transfer.produced,transfer.progress,'robot');
+    }
+
     const half=sceneHalfHeight(),telemetryY=y+half+telemetryTopGap,dimensionY=y-half-dimensionOffset;
     const pointer=dimensionPointer&&!drag?{x:dimensionPointer.x/factor,y:dimensionPointer.y/factor}:null;
     for(const [index,item] of line.entries()){
@@ -944,14 +953,10 @@ window.STSimulation2D=(function(){
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
       drawTelemetry(context,item,left,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
-    const output=productionLayout(line,items,right);
-    if(output.pallets){
-      const palletizer=line.at(-1);
-      const transfer=palletTransfer(palletizer);
+    if(transfer){
       const pickup=drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,accent});
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        pickup,{ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight},
-        transfer.produced,transfer.progress);
+        pickup,palletColors,transfer.produced,transfer.progress,'foreground');
     }
     const productionX=origin+output.production;
     if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y-40,ink,border,surface,muted,soft);

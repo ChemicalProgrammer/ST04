@@ -664,17 +664,19 @@ test('palletizer stages a bounded symbolic output and transfers the last process
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'),{window});
   const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
-  function scene(produced,progress){
+  function scene(produced,progress,layer='all'){
     const boxes=[];
     const context=new Proxy({
       fillRect(...args){if(this.fillStyle===colors.belt)boxes.push(args);}
     },{
       get:(target,key)=>target[key]??(()=>{})
     });
-    art.drawPalletOutput(context,200,100,180,colors,produced,progress);
+    art.drawPalletOutput(context,200,100,180,colors,produced,progress,layer);
     assert(boxes.flat().every(Number.isFinite));
     return boxes.filter(([, ,width,height])=>width===37&&height===28);
   }
+  assert.equal(scene(1,.5,'robot').length,0);
+  assert.equal(scene(1,.5,'foreground').length,1);
   assert.equal(scene(0,1).length,0);
   const moving=scene(1,.5);
   assert.equal(moving.length,1);
@@ -726,12 +728,13 @@ test('new palletizer output queues behind the active cycle without restarting it
   assert.equal(context.palletTransfer(item).progress,0);
   context.model.time=1;
   const moving=context.palletTransfer(item);
+  assert(Math.abs(moving.progress-.225)<1e-8);
   item.produced=2;
   assert.equal(context.palletTransfer(item).progress,moving.progress);
   assert.equal(context.palletTransfer(item).produced,1);
-  context.model.time=1.9;
+  context.model.time=4.1;
   assert.equal(context.palletTransfer(item).produced,2);
-  context.model.time=3.7;
+  context.model.time=8.1;
   assert.equal(context.palletTransfer(item).progress,1);
   context.model={time:0};item.produced=0;
   assert.equal(context.palletTransfer(item).produced,0);

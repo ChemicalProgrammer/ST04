@@ -141,7 +141,7 @@ window.STSimulation2DMachines=(function(){
     context.restore();
     return true;
   }
-  function drawPalletOutput(context,x,y,outlet,colors,produced,progress){
+  function drawPalletOutput(context,x,y,outlet,colors,produced,progress,layer='all'){
     const {ink,soft,surface,accent,belt}=colors;
     context.save();context.lineWidth=1;context.strokeStyle=belt;
     function box(left,top,width,height,color){
@@ -153,14 +153,16 @@ window.STSimulation2DMachines=(function(){
     const transferring=produced>0&&progress<.56;
     const current=transferring?(produced-1)%12:active;
     const completedShown=Math.min(2,transferring?Math.floor((produced-1)/12):completed);
-    for(let slot=0;slot<3;slot++){
-      const px=x+100+slot*palletPitch,count=slot===0?current:slot<=completedShown?12:0;
-      if(slot>0&&!count)continue;
-      box(px,floor,palletWidth,5,belt);
-      for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,floor+5,8,7,belt);
-      box(px,floor+12,palletWidth,4,belt);
-      for(let i=0;i<count;i++){
-        drawCase(context,px+6+i%3*caseWidth,floor-(Math.floor(i/3)+1)*caseHeight,caseWidth,caseHeight,colors);
+    if(layer!=='robot'){
+      for(let slot=0;slot<3;slot++){
+        const px=x+100+slot*palletPitch,count=slot===0?current:slot<=completedShown?12:0;
+        if(slot>0&&!count)continue;
+        box(px,floor,palletWidth,5,belt);
+        for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,floor+5,8,7,belt);
+        box(px,floor+12,palletWidth,4,belt);
+        for(let i=0;i<count;i++){
+          drawCase(context,px+6+i%3*caseWidth,floor-(Math.floor(i/3)+1)*caseHeight,caseWidth,caseHeight,colors);
+        }
       }
     }
     const placement=Math.max(0,produced-1)%12;
@@ -189,49 +191,53 @@ window.STSimulation2DMachines=(function(){
     const distance=Math.max(1,Math.hypot(dx,dy));
     const angle=Math.atan2(dy,dx)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+distance*distance-forearm*forearm)/(2*upper*distance))));
     const elbowX=baseX+upper*Math.cos(angle),elbowY=shoulderY+upper*Math.sin(angle);
-    box(baseX-31,baseY,62,18,belt);
-    box(baseX-24,baseY-9,48,9,soft);
-    box(baseX-22,shoulderY+7,44,34,soft);
-    box(baseX-18,shoulderY+12,36,22,accent);
-    for(let rib=0;rib<4;rib++)box(baseX-12+rib*7,shoulderY+16,3,13,belt);
-    box(baseX+24,baseY-32,13,25,soft);
-    const yaw=Math.atan2(gripX-baseX,150);
-    context.fillStyle=belt;context.beginPath();
-    context.ellipse(baseX,shoulderY+5,27,10,0,0,2*Math.PI);context.fill();context.stroke();
-    context.fillStyle=accent;context.beginPath();
-    context.ellipse(baseX,shoulderY,24,9,0,0,2*Math.PI);context.fill();context.stroke();
-    context.lineWidth=3;context.strokeStyle=soft;
-    context.beginPath();context.moveTo(baseX,shoulderY);
-    context.lineTo(baseX+22*Math.sin(yaw),shoulderY+8*Math.cos(yaw));context.stroke();
-    for(const side of [-1,1]){
-      context.fillStyle=surface;context.beginPath();context.arc(baseX+side*24,baseY+9,2,0,2*Math.PI);context.fill();
+    if(layer!=='foreground'){
+      box(baseX-31,baseY,62,18,belt);
+      box(baseX-24,baseY-9,48,9,soft);
+      box(baseX-22,shoulderY+7,44,34,soft);
+      box(baseX-18,shoulderY+12,36,22,accent);
+      for(let rib=0;rib<4;rib++)box(baseX-12+rib*7,shoulderY+16,3,13,belt);
+      box(baseX+24,baseY-32,13,25,soft);
+      const yaw=Math.atan2(gripX-baseX,150);
+      context.fillStyle=belt;context.beginPath();
+      context.ellipse(baseX,shoulderY+5,27,10,0,0,2*Math.PI);context.fill();context.stroke();
+      context.fillStyle=accent;context.beginPath();
+      context.ellipse(baseX,shoulderY,24,9,0,0,2*Math.PI);context.fill();context.stroke();
+      context.lineWidth=3;context.strokeStyle=soft;
+      context.beginPath();context.moveTo(baseX,shoulderY);
+      context.lineTo(baseX+22*Math.sin(yaw),shoulderY+8*Math.cos(yaw));context.stroke();
+      for(const side of [-1,1]){
+        context.fillStyle=surface;context.beginPath();context.arc(baseX+side*24,baseY+9,2,0,2*Math.PI);context.fill();
+      }
+      function link(ax,ay,bx,by,width){
+        context.lineCap='round';context.strokeStyle=belt;context.lineWidth=width+3;
+        context.beginPath();context.moveTo(ax,ay);context.lineTo(bx,by);context.stroke();
+        context.strokeStyle=accent;context.lineWidth=width;context.stroke();
+        context.strokeStyle=soft;context.lineWidth=3;
+        context.beginPath();context.moveTo(ax-3,ay);context.lineTo(bx-3,by);context.stroke();
+      }
+      link(baseX,shoulderY,elbowX,elbowY,25);
+      link(elbowX,elbowY,gripX,gripY-12,19);
+      context.strokeStyle=belt;context.lineWidth=2;
+      context.beginPath();context.moveTo(baseX+8,shoulderY);
+      context.quadraticCurveTo(elbowX+22,elbowY-22,gripX+7,gripY-12);context.stroke();
+      for(const [cx,cy,radius] of [[baseX,shoulderY,17],[elbowX,elbowY,15],[gripX,gripY-12,10]]){
+        context.lineWidth=1;context.fillStyle=belt;context.beginPath();context.arc(cx,cy,radius,0,2*Math.PI);context.fill();
+        context.fillStyle=soft;context.beginPath();context.arc(cx,cy,radius*.67,0,2*Math.PI);context.fill();context.stroke();
+        context.fillStyle=accent;context.beginPath();context.arc(cx,cy,3,0,2*Math.PI);context.fill();
+      }
+      context.lineWidth=1;context.strokeStyle=belt;
+      box(gripX-7,gripY-6,14,7,soft);
+      box(gripX-caseWidth/2-5,gripY,caseWidth+10,4,belt);
+      for(const side of [-1,1]){
+        box(gripX+side*(caseWidth/2+3)-2,gripY+4,4,8,soft);
+      }
     }
-    function link(ax,ay,bx,by,width){
-      context.lineCap='round';context.strokeStyle=belt;context.lineWidth=width+3;
-      context.beginPath();context.moveTo(ax,ay);context.lineTo(bx,by);context.stroke();
-      context.strokeStyle=accent;context.lineWidth=width;context.stroke();
-      context.strokeStyle=soft;context.lineWidth=3;
-      context.beginPath();context.moveTo(ax-3,ay);context.lineTo(bx-3,by);context.stroke();
+    if(layer!=='robot'){
+      if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
+      context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
+      context.fillText('Pallet staging · schematic',x+100+(3*palletPitch-20)/2,floor+32);
     }
-    link(baseX,shoulderY,elbowX,elbowY,25);
-    link(elbowX,elbowY,gripX,gripY-12,19);
-    context.strokeStyle=belt;context.lineWidth=2;
-    context.beginPath();context.moveTo(baseX+8,shoulderY);
-    context.quadraticCurveTo(elbowX+22,elbowY-22,gripX+7,gripY-12);context.stroke();
-    for(const [cx,cy,radius] of [[baseX,shoulderY,17],[elbowX,elbowY,15],[gripX,gripY-12,10]]){
-      context.lineWidth=1;context.fillStyle=belt;context.beginPath();context.arc(cx,cy,radius,0,2*Math.PI);context.fill();
-      context.fillStyle=soft;context.beginPath();context.arc(cx,cy,radius*.67,0,2*Math.PI);context.fill();context.stroke();
-      context.fillStyle=accent;context.beginPath();context.arc(cx,cy,3,0,2*Math.PI);context.fill();
-    }
-    context.lineWidth=1;context.strokeStyle=belt;
-    box(gripX-7,gripY-6,14,7,soft);
-    box(gripX-caseWidth/2-5,gripY,caseWidth+10,4,belt);
-    for(const side of [-1,1]){
-      box(gripX+side*(caseWidth/2+3)-2,gripY+4,4,8,soft);
-    }
-    if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
-    context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
-    context.fillText('Pallet staging · schematic',x+100+(3*palletPitch-20)/2,floor+32);
     context.restore();
   }
   return {draw,dimensions,drawCase,drawPalletOutput};
