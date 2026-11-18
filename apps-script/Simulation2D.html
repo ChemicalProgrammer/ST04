@@ -330,6 +330,31 @@ window.STSimulation2D=(function(){
     return animation.started===null?{produced,progress:1}:
       {produced:animation.settled+1,progress:Math.min(1,Math.max(0,(time-animation.started)/animation.duration))};
   }
+  function palletInfeed(line,items,y){
+    const index=line.length-1,item=line[index],layout=items[index];
+    const upstream=line[index-1],entry=items[index-1];
+    const {caseWidth,caseHeight}=caseDimensions(line,index);
+    const pickup=layout.left+layout.width-caseWidth;
+    const start=upstream?.kind==='belt'?entry.left+entry.width-caseWidth:layout.left;
+    const startBottom=upstream?.kind==='belt'?y+productHeight(upstream)-beltHalfHeight(upstream):y;
+    const cases=(item.resident||[]).map(ready=>{
+      const progress=Math.max(0,Math.min(1,1-(ready-item.residenceClock)/Math.max(step,item.residenceSeconds)));
+      return {left:start+(pickup-start)*progress,top:startBottom+(y-startBottom)*progress-caseHeight};
+    });
+    return {start,startBottom,pickup,caseWidth,caseHeight,cases};
+  }
+  function drawPalletInfeed(context,line,items,origin,y,colors){
+    const path=palletInfeed(line,items,y);
+    context.save();
+    context.lineWidth=4;context.strokeStyle=colors.belt;context.lineCap='butt';
+    context.beginPath();context.moveTo(origin+path.start,path.startBottom+2);
+    context.lineTo(origin+path.pickup+path.caseWidth,y+2);context.stroke();
+    for(const carton of path.cases){
+      window.STSimulation2DMachines.drawCase(context,origin+carton.left,carton.top,path.caseWidth,path.caseHeight,colors);
+    }
+    context.restore();
+    return origin+path.pickup;
+  }
   function productionHeight(){
     return (88+(shiftIndex(model?.time??0)+2)*20)*tableScale;
   }
@@ -921,10 +946,11 @@ window.STSimulation2D=(function(){
     }
     const output=productionLayout(line,items,right);
     if(output.pallets){
-      const palletizer=line.at(-1),layout=items.at(-1);
+      const palletizer=line.at(-1);
       const transfer=palletTransfer(palletizer);
+      const pickup=drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,accent});
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        origin+layout.left+layout.width,{ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight},
+        pickup,{ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight},
         transfer.produced,transfer.progress);
     }
     const productionX=origin+output.production;

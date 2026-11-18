@@ -136,12 +136,6 @@ window.STSimulation2DMachines=(function(){
         box(39,73,7,4,ink,1);box(74,73,7,4,ink,1);
         foot(11);foot(94);
         track();
-        // Boxes already admitted by the simulation travel inside the palletizer.
-        for(let i=0;i<Math.min(3,colors.resident||0);i++){
-          const caseWidth=(colors.caseWidth||27)*viewWidth/width;
-          const caseHeight=(colors.caseHeight||20.25)*100/height;
-          drawCase(context,25+i*(caseWidth+4)+phase*5,50-caseHeight,caseWidth,caseHeight,colors);
-        }
         break;
     }
     context.restore();
@@ -156,7 +150,7 @@ window.STSimulation2DMachines=(function(){
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
     const floor=y+90,completed=Math.floor(produced/12),active=produced%12;
-    const transferring=produced>0&&progress<.6;
+    const transferring=produced>0&&progress<.56;
     const current=transferring?(produced-1)%12:active;
     const completedShown=Math.min(2,transferring?Math.floor((produced-1)/12):completed);
     for(let slot=0;slot<3;slot++){
@@ -171,16 +165,20 @@ window.STSimulation2DMachines=(function(){
     }
     const placement=Math.max(0,produced-1)%12;
     const targetX=x+106+placement%3*caseWidth,targetY=floor-(Math.floor(placement/3)+1)*caseHeight;
-    // Both legs share their end positions and stop smoothly while the gripper releases.
-    const returning=progress>=.68;
-    const phase=returning?(progress-.68)/.32:Math.min(1,progress/.6);
-    const t=Math.max(0,Math.min(1,phase));
-    const eased=t*t*t*(t*(t*6-15)+10);
-    const fraction=returning?1-eased:eased;
+    const smooth=value=>{
+      const t=Math.max(0,Math.min(1,value));
+      return t*t*t*(t*(t*6-15)+10);
+    };
+    const returning=progress>=.64;
+    const phase=returning?smooth((progress-.64)/.28):smooth((progress-.12)/.44);
+    const fraction=returning?1-phase:phase;
     const movingX=outlet+(targetX-outlet)*fraction;
-    const movingY=y-caseHeight+(targetY-y+caseHeight)*fraction-70*Math.sin(eased*Math.PI);
+    const movingY=y-caseHeight+(targetY-y+caseHeight)*fraction-70*Math.sin(phase*Math.PI);
+    const approaching=progress<.12;
+    const clearance=approaching?30*(1-smooth(progress/.12)):
+      returning?30*smooth((progress-.64)/.28):0;
     const gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
-    const gripY=produced>0?movingY-5:y-caseHeight-5;
+    const gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
     const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
     const reach=Math.max(
       Math.hypot(outlet+caseWidth/2-baseX,y-caseHeight-17-shoulderY),
@@ -193,8 +191,18 @@ window.STSimulation2DMachines=(function(){
     const elbowX=baseX+upper*Math.cos(angle),elbowY=shoulderY+upper*Math.sin(angle);
     box(baseX-31,baseY,62,18,belt);
     box(baseX-24,baseY-9,48,9,soft);
-    box(baseX-17,shoulderY,34,42,accent);
-    box(baseX+18,baseY-32,13,25,soft);
+    box(baseX-22,shoulderY+7,44,34,soft);
+    box(baseX-18,shoulderY+12,36,22,accent);
+    for(let rib=0;rib<4;rib++)box(baseX-12+rib*7,shoulderY+16,3,13,belt);
+    box(baseX+24,baseY-32,13,25,soft);
+    const yaw=Math.atan2(gripX-baseX,150);
+    context.fillStyle=belt;context.beginPath();
+    context.ellipse(baseX,shoulderY+5,27,10,0,0,2*Math.PI);context.fill();context.stroke();
+    context.fillStyle=accent;context.beginPath();
+    context.ellipse(baseX,shoulderY,24,9,0,0,2*Math.PI);context.fill();context.stroke();
+    context.lineWidth=3;context.strokeStyle=soft;
+    context.beginPath();context.moveTo(baseX,shoulderY);
+    context.lineTo(baseX+22*Math.sin(yaw),shoulderY+8*Math.cos(yaw));context.stroke();
     for(const side of [-1,1]){
       context.fillStyle=surface;context.beginPath();context.arc(baseX+side*24,baseY+9,2,0,2*Math.PI);context.fill();
     }

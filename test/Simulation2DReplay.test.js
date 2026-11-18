@@ -686,6 +686,36 @@ test('palletizer stages a bounded symbolic output and transfers the last process
   assert.equal(scene(0,1).length,0);
 });
 
+test('a palletizer case crosses continuously from belt exit through the machine to pickup', () => {
+  const source=script('Simulation2D');
+  const context=vm.createContext({
+    step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),
+    productHeight:()=>28,beltHalfHeight:()=>18
+  });
+  vm.runInContext(source.slice(source.indexOf('  function palletInfeed('),source.indexOf('  function drawPalletInfeed(')),context);
+  const belt={kind:'belt'},machine={resident:[10],residenceClock:0,residenceSeconds:10};
+  const items=[{left:100,width:200},{left:400,width:300}];
+  const path=context.palletInfeed([belt,machine],items,100);
+  assert.equal(path.cases[0].left,263);
+  assert.equal(path.cases[0].top,82);
+  machine.residenceClock=5;
+  const midway=context.palletInfeed([belt,machine],items,100).cases[0];
+  assert.equal(midway.left,463);
+  machine.residenceClock=10;
+  const end=context.palletInfeed([belt,machine],items,100);
+  assert.equal(end.cases[0].left,end.pickup);
+  assert.equal(end.cases[0].top,72);
+  const window={};
+  vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const cartons=[];
+  const colors={belt:'#777',soft:'#eee',surface:'#fff',accent:'#08f',ink:'#111',caseWidth:37,caseHeight:28};
+  const canvas=new Proxy({fillRect(x,y,w,h){
+    if(this.fillStyle===colors.belt&&w===37&&h===28)cartons.push([x,y]);
+  }},{get:(target,key)=>target[key]??(()=>{})});
+  window.STSimulation2DMachines.drawPalletOutput(canvas,720,100,end.pickup,colors,1,0);
+  assert.deepEqual(cartons[0],[end.pickup,end.cases[0].top]);
+});
+
 test('new palletizer output queues behind the active cycle without restarting its progress', () => {
   const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
   const source=script('Simulation2D');
@@ -722,8 +752,8 @@ test('palletizer wrist returns continuously to pickup across release and consecu
     assert.equal(left.length,right.length);
     left.forEach((value,i)=>assert(Math.abs(value-right[i])<.001));
   }
-  close(joints(1,.599999),joints(1,.600001));
-  close(joints(1,.679999),joints(1,.680001));
+  close(joints(1,.559999),joints(1,.560001));
+  close(joints(1,.639999),joints(1,.640001));
   close(joints(1,.999999),joints(2,0));
   close(joints(0,1),joints(1,0));
 });
