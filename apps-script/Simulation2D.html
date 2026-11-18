@@ -84,7 +84,7 @@ window.STSimulation2D=(function(){
   const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
-  let representative=null,defaultRun=null;
+  let representative=null,defaultRun=null,palletAnimation=null;
   let productHeights={},machineTypes=new Map(),bottleStages=new Map(),conveyorDimensions=new Map();
   const dimensionRowHeight=32,dimensionLevels=3,dimensionOffset=126;
   let dimensionPointer=null;
@@ -306,6 +306,29 @@ window.STSimulation2D=(function(){
     const palletWidth=3*dimensions.caseWidth+12;
     const stagingWidth=110+3*(palletWidth+20);
     return {start,pallets,production:start+(pallets?stagingWidth+cardGap:0),...dimensions};
+  }
+  function palletTransfer(item){
+    const time=model?.time??0,produced=item.produced||0;
+    if(palletAnimation?.model!==model||time<palletAnimation.time){
+      palletAnimation={model,time,settled:produced,started:null,duration:1};
+    }
+    const animation=palletAnimation;
+    animation.time=time;
+    if(reducedMotion?.matches){
+      animation.settled=produced;animation.started=null;
+      return {produced,progress:1};
+    }
+    if(animation.started!==null){
+      const completed=Math.min(produced-animation.settled,Math.floor((time-animation.started+1e-8)/animation.duration));
+      animation.settled+=completed;animation.started+=completed*animation.duration;
+      if(animation.settled>=produced)animation.started=null;
+    }
+    if(animation.started===null&&produced>animation.settled){
+      animation.started=time;
+      animation.duration=Math.min(1.8,1/Math.max(.1,item.rate||.1));
+    }
+    return animation.started===null?{produced,progress:1}:
+      {produced:animation.settled+1,progress:Math.min(1,Math.max(0,(time-animation.started)/animation.duration))};
   }
   function productionHeight(){
     return (88+(shiftIndex(model?.time??0)+2)*20)*tableScale;
@@ -899,11 +922,10 @@ window.STSimulation2D=(function(){
     const output=productionLayout(line,items,right);
     if(output.pallets){
       const palletizer=line.at(-1),layout=items.at(-1);
-      const lastOutput=palletizer.recentOutput?.at(-1);
-      const elapsed=Number.isFinite(lastOutput)?Math.max(0,(model?.time??0)-lastOutput):Infinity;
+      const transfer=palletTransfer(palletizer);
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
         origin+layout.left+layout.width,{ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight},
-        palletizer.produced||0,reducedMotion?.matches?1:Math.min(1,elapsed/1.2));
+        transfer.produced,transfer.progress);
     }
     const productionX=origin+output.production;
     if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y-40,ink,border,surface,muted,soft);

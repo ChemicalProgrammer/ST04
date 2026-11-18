@@ -686,6 +686,48 @@ test('palletizer stages a bounded symbolic output and transfers the last process
   assert.equal(scene(0,1).length,0);
 });
 
+test('new palletizer output queues behind the active cycle without restarting its progress', () => {
+  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
+  const source=script('Simulation2D');
+  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+  const item={produced:0,rate:.5};
+  context.palletTransfer(item);
+  item.produced=1;context.model.time=.1;
+  assert.equal(context.palletTransfer(item).progress,0);
+  context.model.time=1;
+  const moving=context.palletTransfer(item);
+  item.produced=2;
+  assert.equal(context.palletTransfer(item).progress,moving.progress);
+  assert.equal(context.palletTransfer(item).produced,1);
+  context.model.time=1.9;
+  assert.equal(context.palletTransfer(item).produced,2);
+  context.model.time=3.7;
+  assert.equal(context.palletTransfer(item).progress,1);
+  context.model={time:0};item.produced=0;
+  assert.equal(context.palletTransfer(item).produced,0);
+});
+
+test('palletizer wrist returns continuously to pickup across release and consecutive cycles', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+  function joints(produced,progress){
+    const points=[];
+    const context=new Proxy({arc(x,y,r){if([10,15,17].includes(r))points.push([x,y]);}},
+      {get:(target,key)=>target[key]??(()=>{})});
+    window.STSimulation2DMachines.drawPalletOutput(context,200,100,180,colors,produced,progress);
+    return points.flat();
+  }
+  function close(left,right){
+    assert.equal(left.length,right.length);
+    left.forEach((value,i)=>assert(Math.abs(value-right[i])<.001));
+  }
+  close(joints(1,.599999),joints(1,.600001));
+  close(joints(1,.679999),joints(1,.680001));
+  close(joints(1,.999999),joints(2,0));
+  close(joints(0,1),joints(1,0));
+});
+
 test('the five machine silhouettes have distinct moving details', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'), {window});
