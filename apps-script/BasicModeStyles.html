@@ -42,6 +42,7 @@ html[data-ui-mode=basic] .equipment-drag { display:none; }
 html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { display:grid; grid-template-columns:minmax(var(--size-220),1fr) minmax(0,3fr); gap:var(--section-gap); align-items:start; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { display:flex; flex-direction:column; min-width:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); background:var(--surface); position:sticky; top:var(--space-4); }
+html[data-ui-mode=basic] #basic-conveyor-panel { container-type:inline-size; }
 html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:calc(100vh - var(--header-height) - var(--space-8)); }
 html[data-ui-mode=basic] #basic-conveyor-panel h3 { margin:0 0 var(--space-3); }
 html[data-ui-mode=basic][data-basic-view=vgraph] #results-body > :not(#line-performance),
@@ -109,10 +110,10 @@ html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { display:gr
 html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header .button-row { display:none; }
 html[data-ui-mode=basic] .basic-metric { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
 html[data-ui-mode=basic] .basic-conveyor-tabs { display:flex; justify-content:flex-end; margin-bottom:var(--space-3); }
-html[data-ui-mode=basic] #basic-conveyor-summary { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); margin-bottom:var(--space-4); }
-html[data-ui-mode=basic] #basic-conveyor-summary > h4 { grid-column:1/-1; }
-html[data-ui-mode=basic] #basic-conveyor-summary > .basic-metric { grid-column:1; }
-html[data-ui-mode=basic] #basic-conveyor-summary > .basic-metric strong { border:var(--border-width) solid var(--line); border-radius:var(--radius-sm); padding:var(--space-2); min-width:100px; text-align:right; }
+html[data-ui-mode=basic] #basic-conveyor-summary {
+ display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3);
+ padding:var(--space-1);
+}
 html[data-ui-mode=basic] #basic-conveyor-panel .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-material-flow)),
 html[data-ui-mode=basic] #basic-conveyor-panel .reliability-controls { display:none; }
 html[data-ui-mode=basic] .basic-conveyor-validation { grid-column:2; grid-row:2/5; }
@@ -128,20 +129,43 @@ html[data-ui-mode=basic] #run-config label:has(> #run-sample-interval),
 html[data-ui-mode=basic] #run-config label:has(> #run-seed) { display:none !important; }
 @media(max-width:760px){
  html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:1fr; }
- html[data-ui-mode=basic] #basic-conveyor-summary { grid-template-columns:1fr; }
  html[data-ui-mode=basic] .basic-conveyor-validation { grid-column:1; grid-row:auto; }
 }
 
-html[data-ui-mode=basic] .basic-conveyor-worksheet { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
-html[data-ui-mode=basic] .basic-worksheet-group { display:flex; flex-direction:column; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
-html[data-ui-mode=basic] .basic-worksheet-group h4 { margin:0 0 var(--space-2); }
-html[data-ui-mode=basic] .basic-worksheet-group label { display:grid; grid-template-columns:minmax(0,1fr) minmax(85px,120px); align-items:center; gap:var(--space-2); }
-html[data-ui-mode=basic] .basic-worksheet-group input { width:100%; min-width:0; height:var(--control-height); }
-html[data-ui-mode=basic] .basic-worksheet-group output,
-html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input.calculated-value {
- display:block; width:100%; min-width:0; height:var(--control-height); padding:var(--space-2);
- border:0; border-radius:var(--radius-sm); background:var(--surface-soft); color:var(--ink); text-align:right;
- line-height:calc(var(--control-height) - 2 * var(--space-2)); box-shadow:none;
+html[data-ui-mode=basic] .basic-conveyor-worksheet {
+ display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3); align-items:start;
+}
+html[data-ui-mode=basic] :is(.basic-worksheet-group,.basic-conveyor-result-column) {
+ display:grid; gap:var(--space-3); min-width:0; margin:0;
+ padding:var(--space-3); border:var(--border-width) solid var(--line);
+ border-radius:var(--radius-md); background:var(--surface);
+}
+html[data-ui-mode=basic] .basic-worksheet-group {
+ grid-template-columns:minmax(0,1fr);
+}
+html[data-ui-mode=basic] .basic-worksheet-group h4 { grid-column:1/-1; margin:0; }
+html[data-ui-mode=basic] .basic-worksheet-group label {
+ display:grid; align-content:space-between; gap:var(--space-1); min-width:0;
+}
+html[data-ui-mode=basic] .basic-worksheet-group :is(input:not([type=checkbox]),select) {
+ width:100%; min-width:0; min-height:var(--control-height);
+}
+html[data-ui-mode=basic] .basic-worksheet-group input[type=number] { text-align:right; font-variant-numeric:tabular-nums; }
+html[data-ui-mode=basic] :is(.basic-worksheet-group output,.basic-worksheet-group .switchable-value > input.calculated-value,.basic-conveyor-result-column .basic-metric > strong) {
+ display:flex; align-items:center; justify-content:flex-end; min-width:0; min-height:var(--control-height);
+ padding:var(--space-2) var(--space-3); border:var(--border-width) solid var(--line);
+ border-radius:var(--radius-sm); background:var(--surface-soft); color:var(--ink); text-align:right;
+ font-size:var(--font-input); font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; box-shadow:none;
+}
+html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input.calculated-value { display:block; }
+@container (min-width:25rem) {
+ html[data-ui-mode=basic] .basic-worksheet-group { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@container (min-width:35rem) {
+ html[data-ui-mode=basic] #basic-conveyor-summary { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+}
+@container (min-width:55rem) {
+ html[data-ui-mode=basic] .basic-conveyor-worksheet { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value { appearance:textfield; -moz-appearance:textfield; }
 html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value::-webkit-inner-spin-button,
@@ -149,12 +173,17 @@ html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value::-webkit-
 html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-heading,
 html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-setup > .format-zone-grid,
 html[data-ui-mode=basic] #basic-conveyor-panel .equipment-json-details { display:none !important; }
-html[data-ui-mode=basic] #basic-conveyor-summary > section { display:flex; flex-direction:column; gap:var(--space-3); }
-html[data-ui-mode=basic] .basic-metric[data-status=PASS] strong { color:var(--success); }
-html[data-ui-mode=basic] .basic-metric[data-status=FAIL] strong { color:var(--danger); }
+html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric {
+ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,9rem);
+}
+html[data-ui-mode=basic] .basic-conveyor-result-column :is(.basic-metric > span,.basic-population) {
+ color:var(--muted); font-size:var(--font-secondary); font-weight:var(--weight-medium);
+}
+html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric > strong { overflow-wrap:anywhere; }
+html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric[data-status=PASS] strong { color:var(--success); }
+html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric[data-status=FAIL] strong { color:var(--danger); }
 html[data-ui-mode=basic] .basic-population { display:grid; gap:var(--space-2); }
 html[data-ui-mode=basic] .basic-population progress { width:100%; accent-color:var(--accent); }
-@media(max-width:1000px){html[data-ui-mode=basic] .basic-conveyor-worksheet { grid-template-columns:1fr; }}
 /* Basic machine fields stay visible independently of card collapse state. */
 html[data-ui-mode=basic] .basic-machine .reliability-controls { display:grid; }
 html[data-ui-mode=basic] .basic-machine .reliability-controls input { height:var(--control-height); box-sizing:border-box; }

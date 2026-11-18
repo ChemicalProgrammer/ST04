@@ -114,7 +114,7 @@ window.STBasicMode=(function(){
         ['speed-mode','Speed mode'],['moving-gap','Moving gap (mm)'],['accumulated-gap','Accumulated gap (mm)'],['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
         ['clear-delay','Back up clear delay (sec)'],['insurance','Insurance factor (pkgs)'],['overspeed','Conveyor overspeed (%)']]]
     ];
-    groups.forEach(function(group){var section=node('section','','basic-worksheet-group format-zone-grid'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);
+    groups.forEach(function(group){var section=node('section','','basic-worksheet-group'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);
       group[2].forEach(function(spec){var label;
         if(spec[0]){var control=fields.querySelector('.format-zone-'+spec[0]);label=control.closest('label');if(label.firstChild?.nodeType===Node.TEXT_NODE)label.firstChild.nodeValue=spec[1];section.appendChild(label);}
         else {label=node('label',spec[1],'basic-worksheet-calculated');var output=node('output','—');output.dataset.basicOutput=spec[2];label.appendChild(output);section.appendChild(label);}
