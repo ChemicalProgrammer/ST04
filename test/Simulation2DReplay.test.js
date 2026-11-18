@@ -781,13 +781,13 @@ test('new palletizer output queues behind the active cycle without restarting it
   assert.equal(context.palletTransfer(item).progress,0);
   context.model.time=1;
   const moving=context.palletTransfer(item);
-  assert(Math.abs(moving.progress-.45)<1e-8);
+  assert(Math.abs(moving.progress-.1125)<1e-8);
   item.produced=2;
   assert.equal(context.palletTransfer(item).progress,moving.progress);
   assert.equal(context.palletTransfer(item).produced,1);
-  context.model.time=2.1;
+  context.model.time=8.1;
   assert.equal(context.palletTransfer(item).produced,2);
-  context.model.time=4.1;
+  context.model.time=16.1;
   assert.equal(context.palletTransfer(item).progress,1);
   context.model={time:0};item.produced=0;
   assert.equal(context.palletTransfer(item).produced,0);
@@ -799,7 +799,7 @@ test('new palletizer output queues behind the active cycle without restarting it
   item.produced=37;context.model.time=7;
   const crossing=context.palletTransfer(item);
   assert(crossing.forkProgress>0&&crossing.forkProgress<1,'travel continues across pallet cycles');
-  context.model.time=18.1;
+  context.model.time=18.5;
   assert.equal(context.palletTransfer(item).forkProgress,1,'the forklift finishes leaving even if no new case arrives');
 });
 
@@ -950,4 +950,29 @@ test('production table centers above the three pallet positions and fits their f
   const plain=context.productionLayout([{id:'robot',unit:'BOTTLES'}],[{center:100,telemetryWidth:160}],200);
   assert.equal(plain.production,plain.start);
   assert.equal(plain.productionY,-40);
+});
+
+
+test('palletizer motion has minimum travel times at 1X even with a high machine input rate',()=>{
+  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
+  const source=script('Simulation2D');
+  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+  const item={produced:0,rate:100};context.palletTransfer(item);
+  item.produced=1;context.palletTransfer(item);
+  assert.equal(context.palletAnimation.duration,8);
+  context.model.time=4;
+  assert.equal(context.palletTransfer(item).progress,.5);
+  assert.equal(item.rate,100);
+  assert.equal(item.produced,1,'visual pacing does not modify production');
+  context.model={time:0};item.produced=11;context.palletTransfer(item);
+  item.produced=12;context.palletTransfer(item);
+  assert.equal(context.palletAnimation.duration,24);
+  assert(context.palletAnimation.duration*.34>=8,'pallet slide takes at least eight seconds');
+  context.model.time=16;
+  assert.equal(context.palletTransfer(item).produced,12);
+  assert.equal(context.palletTransfer(item).progress,2/3);
+  item.produced=13;context.model.time=24;
+  assert.equal(context.palletTransfer(item).produced,13);
+  assert.equal(context.palletTransfer(item).progress,0);
+  assert.equal(context.palletAnimation.duration,8,'normal timing resumes after the pallet exchange');
 });
