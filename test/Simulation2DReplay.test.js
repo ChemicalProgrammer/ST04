@@ -156,7 +156,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const art=window.STSimulation2DMachines.draw,drawn=[];
     window.STSimulation2DMachines.draw=(context,type,...args)=>{
       const rendered=art(context,type,...args);
-      if(rendered)drawn.push({type,seconds:args.at(-1)});
+      if(rendered)drawn.push({type,bottom:args[1]+args[3],seconds:args.at(-1)});
       return rendered;
     };
     window.eval(script('EquipmentEfficiency'));
@@ -189,6 +189,9 @@ test('2D uses the representative seed to calculate new production and preserves 
     style.value='animated';style.dispatchEvent(new window.Event('change'));
     assert.equal(drawn.at(-1).type,'FILLER');
     assert(drawn.at(-1).seconds>0);
+    const animatedControl=el('machine-controls').querySelector('[aria-label="upstream controls"]');
+    const animatedCardTop=labels.slice(lastFrameOrigin).find(([text])=>text==='upstream')[3]-21*.75*.75;
+    assert(Math.abs(parseFloat(animatedControl.style.top)-(drawn.at(-1).bottom+animatedCardTop)/2*scale)<1e-8);
     const count=drawn.length;
     style.value='blocks';style.dispatchEvent(new window.Event('change'));
     assert.equal(drawn.length,count);
@@ -278,6 +281,19 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('source').value='independent';
     el('source').dispatchEvent(new window.Event('change'));
     assert.equal(el('time').textContent,'1 s');
+
+    const action=label=>control.querySelector(`[aria-label="${label} · upstream"]`);
+    const active=()=>control.querySelector('[aria-pressed="true"]');
+    assert.equal(active(),action('Start / resume'));
+    for(const label of ['Pause','Stop','Emergency stop']){
+      action(label).click();
+      assert.equal(active(),action(label));
+    }
+    action('Reset emergency stop').click();
+    assert.equal(active(),action('Stop'));
+    assert.equal(action('Reset emergency stop').getAttribute('aria-pressed'),null);
+    action('Start / resume').click();
+    assert.equal(active(),action('Start / resume'));
 
     Object.assign(window.SimulatorEngine,{productPackSize:()=>12,applyProductProfile:items=>items,productPresentation:()=>({})});
     const packer=equipment.at(-1);

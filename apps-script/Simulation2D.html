@@ -23,6 +23,7 @@
 .simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
 .simulation2d-machine-actions[hidden] { display:none; }
 .simulation2d-machine-actions .icon-button { width:26px; height:22px; min-width:0; min-height:0; padding:3px; }
+.simulation2d-machine-actions .icon-button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
 .simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translateY(-50%); transform-origin:left center; white-space:nowrap; background:none; color:var(--ink); border:0; border-radius:0; padding:0; min-width:0; min-height:0; line-height:1; text-decoration:none; cursor:pointer; }
 .simulation2d-analysis-action:hover { background:none; }
 .simulation2d-analysis-action[hidden] { display:none; }
@@ -761,11 +762,16 @@ window.STSimulation2D=(function(){
       }
       const controls=machineControls.get(item.id);
       if(!controls)continue;
-      const {group,buttons}=controls,cx=(origin+items[index].center)*factor,cy=(telemetryY-telemetryTopGap/2)*factor;
+      const {group,buttons}=controls,cx=(origin+items[index].center)*factor;
+      const machineBottom=y+displayHeight(item)/2;
+      const cy=(machineBottom+telemetryY)/2*factor;
       group.style.left=cx+'px';group.style.top=cy+'px';
       group.style.transform='translate(-50%,-50%) scale('+Math.min(1,factor)+')';
       group.hidden=!model||cx<0||cx>screenWidth||cy<0||cy>h;
+      const activeAction=item.emergency?'EMERGENCY_STOP':
+        ['STOP','PAUSE'].includes(item.mode)?item.mode:'RUN';
       for(const [action,button] of buttons){
+        if(action!=='RESET')button.setAttribute('aria-pressed',String(action===activeAction));
         button.disabled=action==='RESET'?!item.emergency:action==='EMERGENCY_STOP'?!!item.emergency:
           !!item.emergency||(action==='PAUSE'&&item.mode==='PAUSE')||(action==='STOP'&&item.mode==='STOP');
       }
