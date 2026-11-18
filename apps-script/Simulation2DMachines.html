@@ -118,23 +118,66 @@ window.STSimulation2DMachines=(function(){
         break;
       }
       case 'palletizer':
-        // Tall portal with a lift head and an open pallet deck.
         box(13,8,94,7,belt,3);
         box(15,15,8,72,soft);box(97,15,8,72,soft);
         line(23,22,31,15);line(89,15,97,22);
-        box(52,16,16,12,accent,3);
-        box(57,27,6,10+12*phase,belt,1);
-        box(42,37+12*phase,36,4,accent,2);
-        for(let i=0;i<3;i++)line(48+i*12,41+12*phase,48+i*12,46+12*phase);
+        box(47+16*phase,18,18,7,accent,2);
         box(35,69,50,4,belt,1);
         box(39,73,7,4,ink,1);box(74,73,7,4,ink,1);
         foot(11);foot(94);
         track();
+        // Boxes already admitted by the simulation travel inside the palletizer.
+        for(let i=0;i<Math.min(3,colors.resident||0);i++){
+          box(30+i*22+phase*5,38,18,12,soft,1);
+          line(39+i*22+phase*5,38,39+i*22+phase*5,43);
+        }
         break;
     }
     context.restore();
     return true;
   }
-  return {draw,dimensions};
+  function drawPalletOutput(context,x,y,outlet,colors,produced,progress){
+    const {ink,soft,surface,accent,belt}=colors;
+    context.save();context.lineWidth=1;context.strokeStyle=belt;
+    function box(left,top,width,height,color){
+      context.fillStyle=color;context.beginPath();context.roundRect(left,top,width,height,1.5);context.fill();context.stroke();
+    }
+    function carton(left,top){
+      box(left,top,19,14,soft);
+      context.beginPath();context.moveTo(left+9.5,top);context.lineTo(left+9.5,top+5);context.stroke();
+    }
+    const floor=y+58,completed=Math.floor(produced/12),active=produced%12;
+    const transferring=produced>0&&progress<1;
+    const current=transferring?(produced-1)%12:active;
+    const completedShown=Math.min(2,transferring?Math.floor((produced-1)/12):completed);
+    for(let slot=0;slot<3;slot++){
+      const px=x+55+slot*80,count=slot===0?current:slot<=completedShown?12:0;
+      if(slot>0&&!count)continue;
+      box(px,floor,66,5,belt);
+      for(let leg=0;leg<3;leg++)box(px+5+leg*24,floor+5,8,6,belt);
+      box(px,floor+11,66,3,belt);
+      for(let i=0;i<count;i++)carton(px+3+i%3*20,floor-15-Math.floor(i/3)*15);
+    }
+    // The robot transfers the latest simulated output case to a symbolic pallet.
+    const targetX=x+58+current%3*20,targetY=floor-15-Math.floor(current/3)*15;
+    const eased=progress*progress*(3-2*progress);
+    const movingX=outlet+(targetX-outlet)*eased;
+    const movingY=y-18+(targetY-y+18)*eased-55*Math.sin(progress*Math.PI);
+    const gripX=transferring?movingX+9.5:x+35,gripY=transferring?movingY-4:y-30;
+    const baseX=x+16,baseY=floor-2,elbowX=x-4,elbowY=y-72;
+    box(baseX-15,baseY,30,14,belt);
+    context.strokeStyle=accent;context.lineWidth=9;context.lineCap='round';
+    context.beginPath();context.moveTo(baseX,baseY);context.lineTo(elbowX,elbowY);context.lineTo(gripX,gripY-10);context.stroke();
+    context.strokeStyle=belt;context.lineWidth=1;
+    for(const [cx,cy] of [[baseX,baseY],[elbowX,elbowY],[gripX,gripY-10]]){
+      context.fillStyle=surface;context.beginPath();context.arc(cx,cy,5,0,Math.PI*2);context.fill();context.stroke();
+    }
+    context.beginPath();context.moveTo(gripX-10,gripY+3);context.lineTo(gripX-10,gripY-3);context.lineTo(gripX+10,gripY-3);context.lineTo(gripX+10,gripY+3);context.stroke();
+    if(transferring)carton(movingX,movingY);
+    context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
+    context.fillText('Pallet staging · schematic',x+170,floor+30);
+    context.restore();
+  }
+  return {draw,dimensions,drawPalletOutput};
 })();
 </script>

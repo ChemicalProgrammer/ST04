@@ -660,6 +660,30 @@ test('resident bottles discharge at even headways and Back-up leaves 25 of 30 af
   assert.equal(model.line[0].state,'Back-up stop');
 });
 
+test('palletizer stages a bounded symbolic output and transfers the last processed case', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777'};
+  function scene(produced,progress){
+    const boxes=[];
+    const context=new Proxy({roundRect(...args){boxes.push(args);}},{
+      get:(target,key)=>target[key]??(()=>{})
+    });
+    art.drawPalletOutput(context,200,100,180,colors,produced,progress);
+    assert(boxes.flat().every(Number.isFinite));
+    return boxes.filter(([, ,width,height])=>width===19&&height===14);
+  }
+  assert.equal(scene(0,1).length,0);
+  const moving=scene(1,.5);
+  assert.equal(moving.length,1);
+  const placed=scene(1,1);
+  assert.equal(placed.length,1);
+  assert.notDeepEqual(moving,placed);
+  assert.equal(scene(120000,1).length,24);
+  assert(scene(120011,.5).length<=36);
+  assert.equal(scene(0,1).length,0);
+});
+
 test('the five machine silhouettes have distinct moving details', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'), {window});

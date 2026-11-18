@@ -292,13 +292,24 @@ window.STSimulation2D=(function(){
     });
     return {items,right};
   }
+  function productionLayout(line,items,right){
+    const last=items.at(-1);
+    const start=last?Math.max(right,last.center+last.telemetryWidth/2)+cardGap:0;
+    const palletizer=line.at(-1);
+    const pallets=machineTypes.get(palletizer?.id)==='PALLETIZER'&&palletizer.unit==='CASES';
+    return {start,pallets,production:start+(pallets?300+cardGap:0)};
+  }
+  function productionHeight(){
+    return (88+(shiftIndex(model?.time??0)+2)*20)*tableScale;
+  }
   function fit(){
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const line=model?.line||definitions;
     const {items,right}=equipmentLayout(line);
     const last=items.at(-1);
-    const length=(last?Math.max(right+cardWidth+cardGap,last.center+last.telemetryWidth/2):0)/sceneScale;
-    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+(108+shiftIndex(model?.time??0)*20)*tableScale);
+    const output=productionLayout(line,items,right);
+    const length=(last?output.production+cardWidth:0)/sceneScale;
+    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+productionHeight());
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -353,32 +364,37 @@ window.STSimulation2D=(function(){
     context.fillText(text,0,0);
     context.restore();
   }
-  function drawProduction(context,x,y,ink,border,surface){
+  function drawProduction(context,x,y,ink,border,surface,muted,soft){
     const output=model?.line.at(-1)||definitions.at(-1);
-    const cases=output.unit==='CASES';
-    const bottleFactor=output.bottlesPerUnit;
+    const cases=output.unit==='CASES',bottleFactor=output.bottlesPerUnit;
     const currentShift=shiftIndex(model?.time??0);
-    const height=(88+(currentShift+1)*20)*tableScale;
-    const labelX=x+14*tableScale,casesX=x+102*tableScale,bottlesX=x+160*tableScale;
+    const labelX=x+telemetryPadding,casesX=x+139*tableScale,bottlesX=x+218*tableScale;
     context.fillStyle=surface;context.strokeStyle=border;
-    strokeBox(context,x,y,cardWidth,height);
-    context.fillStyle=ink;
-    context.textAlign='left';
-    context.font='bold '+14*tableScale+'px system-ui';
-    context.fillText('Production',labelX,y+22*tableScale);
-    context.font=telemetryFont;
+    strokeBox(context,x,y,cardWidth,productionHeight());
+    context.fillStyle=soft;
+    context.fillRect(x+1,y+6*tableScale,cardWidth-2,59*tableScale);
+    context.fillStyle=ink;context.textAlign='left';context.font='600 '+telemetryFont;
+    context.fillText('Production',labelX,y+21*tableScale);
+    context.font=telemetryFont;context.fillStyle=muted;
     context.fillText(num(shiftHours)+' h per shift',labelX,y+41*tableScale);
+    context.fillText('Period',labelX,y+60*tableScale);
+    context.textAlign='right';
     context.fillText('Cases',casesX,y+60*tableScale);
     context.fillText(cases?'Bottle eq.':'Bottles',bottlesX,y+60*tableScale);
-    function row(label,quantity,offset){
+    function row(label,quantity,offset,index){
       const baseline=y+offset*tableScale;
-      context.fillText(label,labelX,baseline);
-      drawText(context,num(cases?quantity:0),casesX,baseline,55*tableScale);
-      drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),bottlesX,baseline,64*tableScale);
+      if(index%2===1){
+        context.fillStyle=soft;context.fillRect(x+1,baseline-13*tableScale,cardWidth-2,20*tableScale);
+      }
+      context.fillStyle=muted;context.font=telemetryFont;context.textAlign='left';
+      drawText(context,label,labelX,baseline,70*tableScale);
+      context.fillStyle=ink;context.font='600 '+telemetryFont;context.textAlign='right';
+      drawText(context,num(cases?quantity:0),casesX,baseline,60*tableScale);
+      drawText(context,num(cases?(bottleFactor>0?quantity*bottleFactor:NaN):quantity),bottlesX,baseline,72*tableScale);
     }
-    row('Total',output.produced||0,80);
-    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index);
-    context.textAlign='center';
+    row('Total',output.produced||0,80,0);
+    for(let index=0;index<=currentShift;index++)row('Shift '+(index+1),shiftOutput[index]||0,100+20*index,index+1);
+    context.textAlign='center';context.font='12px system-ui';
   }
   function conveyorGeometryRows(item){
     const design=conveyorDimensions.get(item.id);
@@ -841,7 +857,7 @@ window.STSimulation2D=(function(){
         const durations=item.durations||{};
         const motionSeconds=reducedMotion?.matches?0:(durations.running||0)+(durations.acceleration||0)+(durations.deceleration||0);
         const detailed=machineDesign(item)&&window.STSimulation2DMachines.draw(context,
-          machineTypes.get(item.id),x,top,width,height,{ink,soft,surface,accent,belt:beltColor},motionSeconds);
+          machineTypes.get(item.id),x,top,width,height,{ink,soft,surface,accent,belt:beltColor,resident:item.resident?.length??0},motionSeconds);
         if(detailed){
           const machineTrackY=y+height*.015;
           context.strokeStyle=beltColor;context.lineWidth=beltDepth*.55;context.lineCap='round';
@@ -877,8 +893,17 @@ window.STSimulation2D=(function(){
       const signal=item.kind==='belt'?beltSignal(item):machineSignal(item);
       drawTelemetry(context,item,left,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
-    const productionX=origin+right+cardGap;
-    if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y-40,ink,border,surface);
+    const output=productionLayout(line,items,right);
+    if(output.pallets){
+      const palletizer=line.at(-1),layout=items.at(-1);
+      const lastOutput=palletizer.recentOutput?.at(-1);
+      const elapsed=Number.isFinite(lastOutput)?Math.max(0,(model?.time??0)-lastOutput):Infinity;
+      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
+        origin+layout.left+layout.width,{ink,soft,surface,accent,belt:beltColor},
+        palletizer.produced||0,reducedMotion?.matches?1:Math.min(1,elapsed/1.2));
+    }
+    const productionX=origin+output.production;
+    if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y-40,ink,border,surface,muted,soft);
   }
   function status(){
     const sourceStatus=(defaultRun?' · Round '+representative.round+' · Seed '+representative.seed:' · Seed '+seed)
