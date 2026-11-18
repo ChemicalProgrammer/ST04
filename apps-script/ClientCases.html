@@ -329,6 +329,7 @@ async function openCase(caseId, initialView) {
       else invalidateActiveResult();
       autosave.change();renderEditorMeta();window.STBasicMode?.sync(state);STRunOptions.sync(runControlsLocked());
       refreshDesignGraph();
+      if(document.getElementById('simulation2d-event-editor').contains(document.getElementById('simulation-event-section'))&&syncPersistentSimulation())syncSimulation2D(true);
     }
     async function exportCompleteCase(){
       if(!state.activeCase)return;var button=document.getElementById('export-complete-case');button.disabled=true;

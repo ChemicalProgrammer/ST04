@@ -22,12 +22,14 @@
 #simulation2d-machine-controls { position:absolute; inset:0; pointer-events:none; }
 .simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
 .simulation2d-machine-actions[hidden] { display:none; }
-.simulation2d-machine-actions .icon-button { width:26px; height:26px; min-width:0; min-height:0; padding:3px; }
+.simulation2d-machine-actions .icon-button { width:26px; height:22px; min-width:0; min-height:0; padding:3px; }
 .simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translateY(-50%); transform-origin:left center; white-space:nowrap; background:none; color:var(--ink); border:0; border-radius:0; padding:0; min-width:0; min-height:0; line-height:1; text-decoration:none; cursor:pointer; }
 .simulation2d-analysis-action:hover { background:none; }
 .simulation2d-analysis-action[hidden] { display:none; }
-.simulation2d-events-panel { padding:var(--space-2); }
-#simulation2d-events-dialog { max-width:min(34rem,95vw); }
+.simulation2d-events-panel { display:grid; gap:var(--space-3); padding:var(--space-3); min-width:0; }
+.simulation2d-events-panel > .dialog-heading { padding:0; }
+#simulation2d-events-dialog { width:min(1100px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; }
+#simulation2d-event-editor > .fold-card { margin:0; }
 .simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
 .simulation2d-source { display:inline-flex; align-items:center; gap:var(--space-2); font-size:var(--font-secondary); white-space:nowrap; max-width:100%; }
 .simulation2d-source select { width:auto; min-width:0; }
@@ -72,7 +74,7 @@ window.STSimulation2D=(function(){
   const step=1/120,sceneScale=.09,cardWidth=226*tableScale,cardGap=24,telemetryGap=6*tableScale,machineScale=3.75;
   const telemetryCardHeight=(53+16*18)*tableScale,telemetryRowHeight=18*tableScale;
   const telemetryColumns=[[84,99,38],[94,50,23],[128,50,54],[145,62,22]].map(columns=>columns.map(width=>width*tableScale));
-  const telemetryTopGap=51,telemetryPadding=7*tableScale,telemetryColumnGap=5*tableScale;
+  const telemetryTopGap=25.5,telemetryPadding=7*tableScale,telemetryColumnGap=5*tableScale;
   const parameterValueGap=telemetryColumnGap*.9,telemetryFont=12*tableScale+'px system-ui';
   const telemetryWidths=telemetryColumns.map(columns=>
     columns.reduce((sum,width)=>sum+width,0)+2*telemetryPadding+parameterValueGap+telemetryColumnGap);
@@ -759,7 +761,7 @@ window.STSimulation2D=(function(){
       }
       const controls=machineControls.get(item.id);
       if(!controls)continue;
-      const {group,buttons}=controls,cx=(origin+items[index].center)*factor,cy=(telemetryY-25)*factor;
+      const {group,buttons}=controls,cx=(origin+items[index].center)*factor,cy=(telemetryY-telemetryTopGap/2)*factor;
       group.style.left=cx+'px';group.style.top=cy+'px';
       group.style.transform='translate(-50%,-50%) scale('+Math.min(1,factor)+')';
       group.hidden=!model||cx<0||cx>screenWidth||cy<0||cy>h;
@@ -961,7 +963,16 @@ window.STSimulation2D=(function(){
   }
   const eventsDialog=el('events-dialog'),eventsPanel=el('events-panel'),eventsDock=el('events-dock');
   const eventsButton=el('events'),pinButton=el('events-pin');
+  const sharedEvents=document.getElementById('simulation-event-section');
+  const eventHome=document.getElementById('simulation-event-home'),eventEditor=el('event-editor');
+  let eventEditorChanged=()=>{};
+  function restoreEventEditor(){
+    if(sharedEvents.parentElement===eventHome)return;
+    eventHome.append(sharedEvents);
+    eventEditorChanged(false);
+  }
   function closeEvents(){
+    restoreEventEditor();
     if(eventsDialog.open)eventsDialog.close();
     eventsDock.hidden=true;
     pinButton.setAttribute('aria-pressed','false');
@@ -971,13 +982,15 @@ window.STSimulation2D=(function(){
   }
   function openEvents(){
     eventsDialog.append(eventsPanel);
+    eventEditor.append(sharedEvents);
+    eventEditorChanged(true);
     eventsDialog.showModal();
     eventsButton.setAttribute('aria-expanded','true');
   }
   eventsButton.onclick=()=>eventsDock.hidden?openEvents():closeEvents();
   el('events-close').onclick=closeEvents;
   eventsDialog.addEventListener('close',()=>{
-    if(eventsDock.hidden&&!eventsDialog.open)eventsButton.setAttribute('aria-expanded','false');
+    if(eventsDock.hidden&&!eventsDialog.open)closeEvents();
   });
   pinButton.onclick=()=>{
     const pin=eventsPanel.parentNode===eventsDialog;
@@ -1098,7 +1111,7 @@ window.STSimulation2D=(function(){
   window.addEventListener('blur',()=>endDrag());
   canvas.addEventListener('lostpointercapture',endDrag);
   if(window.ResizeObserver)new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit)fit();else draw();}}).observe(canvas);
-  return {pause,unload(){closeEvents();setFullscreen(false);endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
+  return {pause,closeEvents,onEventEditorChange(callback){eventEditorChanged=callback;},unload(){closeEvents();setFullscreen(false);endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);

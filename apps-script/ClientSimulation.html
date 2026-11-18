@@ -346,7 +346,7 @@
       document.getElementById('run-simulation').disabled=locked||!isRunReady();
       if(state.run.result?.detailCoverage?.recordingMode==='SUMMARY'){document.getElementById('play-simulation').disabled=true;}else document.getElementById('play-simulation').disabled=!state.run.result;
       document.querySelectorAll('#products-workspace input,#products-workspace select,#products-workspace button,#planned-line-events input,#planned-line-events select,#planned-line-events button,#add-product-changeover').forEach(function(control){control.disabled=locked||control.dataset.formatDisabled==='true';});
-      STRunOptions.sync(locked);document.getElementById('add-control-event').disabled=locked||!document.getElementById('run-events-enabled').checked;syncEventSelection();
+      STRunOptions.sync(locked);syncEventSelection();
     }
     function applyScenarioRunInputs(run) {
       if (!run) return;

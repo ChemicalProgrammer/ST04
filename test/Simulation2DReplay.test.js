@@ -125,7 +125,8 @@ test('2D uses the representative seed to calculate new production and preserves 
   const markup=readFileSync(new URL('../apps-script/WebApp.html',import.meta.url),'utf8');
   const panel=markup.match(/<section id="simulation2d-panel"[\s\S]*?<\/section>/)[0];
   const analysisComponent=readFileSync(new URL('../apps-script/ConveyorAnalysis.html',import.meta.url),'utf8');
-  const dom=new JSDOM(panel+analysisComponent,{runScripts:'outside-only'});
+  const eventHome=markup.match(/<div id="simulation-event-home">[\s\S]*?<\/section>\s*<\/div>/)[0];
+  const dom=new JSDOM(panel+eventHome+analysisComponent,{runScripts:'outside-only'});
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
     const labels=[],bottles=[];

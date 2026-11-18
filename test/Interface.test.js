@@ -2717,6 +2717,35 @@ test('UI: enabling events exposes the editor and its calendar dialog in Basic an
  }finally{h.dom.window.close();}}
 });
 
+test('UI: 2D uses the numeric event editor and refreshes its schedule',async()=>{
+ const h=await setup({remember:true,uiMode:'BASIC'});try{
+  await h.click('.open-case');
+  const section=h.d.getElementById('simulation-event-section');
+  const add=h.d.getElementById('add-control-event');
+  await h.click('.sidebar [data-view="simulation2d"]');
+  await h.click('#simulation2d-events');
+  assert(section.closest('#simulation2d-events-dialog')?.open);
+  assert(!add.disabled);
+  await h.click('#open-plant-calendar');
+  assert(h.d.getElementById('plant-calendar-dialog').open);
+  await h.click('#plant-calendar-done');
+  await h.click('#open-event-generator');
+  const generator=h.d.querySelector('.event-generator-dialog');
+  assert(generator.open);
+  generator.close();
+  await h.click('#add-control-event');
+  assert.notEqual(h.w.getComputedStyle(h.d.getElementById('control-events')).display,'none');
+  assert.match(h.d.getElementById('simulation2d-events-note').textContent,/1 equipment events/);
+  await h.click('#simulation2d-events-pin');
+  assert(section.closest('#simulation2d-events-dock'));
+  await h.click('.sidebar [data-view="simulation"]');
+  assert(section.closest('#run-panel'));
+  assert(section.classList.contains('hidden'));
+  assert(add.disabled);
+  assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
 test('UI: relational Formats tabs save product-linked packaging and preserve a single source of operating settings',async()=>{
  const h=await setup({uiMode:'BASIC',autosaveSeconds:180});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="products"]');assert(h.visible('products-panel'));assert(!h.visible('run-panel'));assert.equal(h.d.getElementById('products-title'),null);assert.equal(h.d.getElementById('products-panel').getAttribute('aria-label'),'Formats');

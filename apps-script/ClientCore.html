@@ -35,8 +35,13 @@
     var renderCaseComparison = STComparison(state,isFiniteNumber).render;
     var assistant = STAssistant(state, {flush:flushForServer, saveChat:saveGeminiHistory, applyScenario:applyChatScenario});
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
-    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:function(visible){
-      if(!visible){if(state.activeCase)STSimulation2D.pause();else STSimulation2D.unload();return;}
+    var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:syncSimulation2D});
+    function syncSimulation2D(visible){
+      if(!visible){
+        if(state.activeCase){STSimulation2D.closeEvents();STSimulation2D.pause();}
+        else STSimulation2D.unload();
+        return;
+      }
       var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
       if(!simulation)return;
       var ownerId=state.activeCase.id,simulationId=simulation.id;
@@ -47,7 +52,7 @@
         owner.simulation2d=record;
         autosave.change();
       },representativeRoundFor2D(simulation.results),STProducts.formats());
-    }});
+    }
     function caseViewKey(caseId) {
       return 'caseView.'+JSON.stringify([state.bootstrap?.user?.email||'',state.bootstrap?.settings?.workspaceRootFolderId||'',caseId]);
     }
@@ -192,6 +197,10 @@
       document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
+      STSimulation2D.onEventEditorChange(function(open){
+        if(open)renderControlEvents();
+        STRunOptions.syncEventEditor(runControlsLocked());
+      });
       document.getElementById('add-control-event').addEventListener('click', addControlEvent);
       document.getElementById('open-event-generator').onclick=openEventGenerator;
       document.getElementById('delete-selected-control-events').onclick=function(){deleteControlEventSelection(false);};
