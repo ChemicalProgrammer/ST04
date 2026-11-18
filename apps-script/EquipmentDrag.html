@@ -1,27 +1,65 @@
 <script>
 window.STEquipmentDrag=(function(){
- function cards(){return Array.from(document.querySelectorAll('#equipment-list .equipment-card'));}
- function positions(){var map={};cards().forEach(function(c){map[c.dataset.equipmentId]=c.getBoundingClientRect().top;});return map;}
- function animate(before,index){cards().forEach(function(c){var y=before[c.dataset.equipmentId];if(Number.isFinite(y)&&c.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)c.animate([{transform:'translateY('+(y-c.getBoundingClientRect().top)+'px)'},{transform:'translateY(0)'}],{duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'});});cards()[index]?.querySelector('.equipment-drag').focus();}
+ function cards(){return Array.from(document.querySelectorAll('#equipment-list .equipment-card:not(.hidden)'));}
+ function position(card){var r=card.getBoundingClientRect();return {left:r.left||0,top:r.top,width:r.width||0,height:r.height};}
+ function positions(){return new Map(cards().map(function(card){return [card.dataset.equipmentId,position(card)];}));}
+ function translate(x,y){return 'translate('+x+'px,'+y+'px)';}
+ function animate(before,id){
+  cards().forEach(function(card){
+   var prior=before.get(card.dataset.equipmentId),after=position(card);
+   if(prior&&card.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    card.animate([{transform:translate(prior.left-after.left,prior.top-after.top)},{transform:translate(0,0)}],{duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'});
+   }
+   if(card.dataset.equipmentId===id)card.querySelector('.equipment-drag').focus();
+  });
+ }
  function bind(card,index,move){
   var handle=card.querySelector('.equipment-drag');handle.innerHTML=STIcons.svg('grip');
-  handle.onkeydown=function(e){if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();move(index,e.key==='ArrowUp'?-1:1);}};
+  handle.onkeydown=function(e){
+   if(handle.disabled||!['ArrowUp','ArrowDown'].includes(e.key))return;
+   e.preventDefault();
+   var visible=cards(),destination=visible[visible.indexOf(card)+(e.key==='ArrowUp'?-1:1)];
+   if(destination)move(index,Number(destination.dataset.index));
+  };
   handle.onpointerdown=function(e){
-   if(e.button!==0)return;e.preventDefault();handle.setPointerCapture(e.pointerId);
-   var all=cards(),rects=all.map(function(c){return c.getBoundingClientRect();}),target=index,start=e.clientY,lastY=start,startScroll=window.scrollY,frame=null,moved=false;
-   var gap=parseFloat(getComputedStyle(card.parentElement).rowGap)||0,stride=rects[index].height+gap;
+   if(e.button!==0||handle.disabled)return;
+   e.preventDefault();handle.setPointerCapture(e.pointerId);
+   var all=cards(),rects=all.map(position),from=all.indexOf(card),target=from;
+   var startX=e.clientX||0,startY=e.clientY,lastX=startX,lastY=startY,startScroll=window.scrollY,frame=null,moved=false;
    card.classList.add('equipment-dragging');all.forEach(function(c){c.classList.add('equipment-sorting');});
    function preview(){
-    var shift=window.scrollY-startScroll,center=rects[index].top+rects[index].height/2+lastY-start+shift;
-    target=rects.reduce(function(best,r,i){var distance=Math.abs(center-(r.top+r.height/2));return distance<best.distance?{index:i,distance:distance}:best;},{index:index,distance:Infinity}).index;
-    all.forEach(function(c,i){var y=i===index?lastY-start+shift:i>index&&i<=target?-stride:i<index&&i>=target?stride:0;c.style.transform='translateY('+y+'px)';});
+    var dx=lastX-startX,dy=lastY-startY+window.scrollY-startScroll,origin=rects[from];
+    var x=origin.left+origin.width/2+dx,y=origin.top+origin.height/2+dy;
+    target=rects.reduce(function(best,r,i){
+     var distance=Math.hypot(x-r.left-r.width/2,y-r.top-r.height/2);
+     return distance<best.distance?{index:i,distance:distance}:best;
+    },{index:from,distance:Infinity}).index;
+    all.forEach(function(c,i){
+     if(i===from){c.style.transform=translate(dx,dy);return;}
+     var shift=i>from&&i<=target?-1:i<from&&i>=target?1:0,destination=rects[i+shift];
+     c.style.transform=translate(destination.left-rects[i].left,destination.top-rects[i].top);
+    });
    }
-   function scroll(){if(!moved)return;var edge=60;if(lastY<edge)window.scrollBy(0,-12);else if(lastY>window.innerHeight-edge)window.scrollBy(0,12);preview();frame=requestAnimationFrame(scroll);}
-   function clear(){cancelAnimationFrame(frame);all.forEach(function(c){c.classList.remove('equipment-sorting','equipment-dragging');c.style.transform='';});handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;window.removeEventListener('keydown',cancel);}
+   function scroll(){
+    if(!moved)return;
+    var edge=60;
+    if(lastY<edge)window.scrollBy(0,-12);
+    else if(lastY>window.innerHeight-edge)window.scrollBy(0,12);
+    preview();frame=requestAnimationFrame(scroll);
+   }
+   function clear(){
+    cancelAnimationFrame(frame);all.forEach(function(c){c.classList.remove('equipment-sorting','equipment-dragging');c.style.transform='';});
+    handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;window.removeEventListener('keydown',cancel);
+   }
    function cancel(ev){if(ev.type==='keydown'&&ev.key!=='Escape')return;clear();if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);}
    window.addEventListener('keydown',cancel);
-   handle.onpointermove=function(ev){lastY=ev.clientY;if(!moved&&Math.abs(lastY-start)<5)return;if(!moved){moved=true;frame=requestAnimationFrame(scroll);}preview();};
-   handle.onpointerup=function(ev){clear();if(handle.hasPointerCapture(ev.pointerId))handle.releasePointerCapture(ev.pointerId);if(moved&&target!==index)move(index,target-index);};
+   handle.onpointermove=function(ev){
+    lastX=ev.clientX||0;lastY=ev.clientY;
+    if(!moved&&Math.hypot(lastX-startX,lastY-startY)<5)return;
+    if(!moved){moved=true;frame=requestAnimationFrame(scroll);}
+    preview();
+   };
+   handle.onpointerup=function(ev){cancel(ev);if(moved&&target!==from)move(index,Number(all[target].dataset.index));};
    handle.onpointercancel=cancel;handle.onlostpointercapture=cancel;
   };
  }

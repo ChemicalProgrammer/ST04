@@ -27,7 +27,7 @@
     <?!= include_('BrandConveyorStyles'); ?>
   </head>
   <body>
-    <div id="session-restore" class="auth-shell" role="status"><?= __ST_TEXT__('auth.restoring') ?></div>
+    <div id="session-restore" class="auth-shell" role="status"><div class="session-restore-content"><h1><?= __ST_TEXT__('auth.restoring') ?></h1><span aria-hidden="true" inert><?!= include_('BrandConveyor'); ?></span></div></div>
     <section id="auth-panel" class="auth-shell" aria-labelledby="auth-title">
       <div class="auth-card">
         <div class="brand"><span class="brand-mark" aria-hidden="true"><?!= include_('FlowPilotIcon'); ?></span><span><?= __ST_TEXT__('view.flow_pilot') ?></span><?!= include_('BrandConveyor'); ?></div>
@@ -125,10 +125,12 @@
 
         <div id="case-data-note" class="notice hidden" role="status"></div>
 
-        <div class="editor-subheading">
-          <h3 id="equipment-subsection-title">Equipment</h3>
+        <div id="equipment-section" class="fold-card">
+        <div class="editor-subheading fold-heading">
+          <h3><button id="equipment-subsection-title" class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="equipment-section-content">Equipment</button></h3>
           <div class="button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import" title="Import"></summary><div><button id="open-sheet-import" class="ghost" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" class="ghost" type="button"><?= __ST_TEXT__('json.import') ?></button></div></details><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-equipment-json" class="ghost" type="button">JSON</button><button id="export-equipment-sheet" class="ghost" type="button">Spreadsheet</button></div></details><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
+        <div id="equipment-section-content" class="fold-content">
         <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
           <label><input type="radio" name="equipment-filter" value="equipment"><span><?= __ST_TEXT__('filter.equipment') ?></span></label>
           <label><input type="radio" name="equipment-filter" value="conveyors"><span><?= __ST_TEXT__('filter.conveyors') ?></span></label>
@@ -136,6 +138,8 @@
         </div>
         <p id="equipment-filter-empty" class="empty hidden" role="status"><?= __ST_TEXT__('filter.empty') ?></p>
         <div id="equipment-list" class="equipment-list"></div>
+        </div>
+        </div>
 
         <details class="raw-viewer">
           <summary class="json-section-heading"><span><?= __ST_TEXT__('json.title') ?></span><span class="button-row"><button id="edit-setup-json" class="secondary icon-button" type="button" data-icon="edit" aria-label="Edit JSON" title="Edit JSON"></button><button id="import-setup-json" class="secondary icon-button" type="button" data-icon="download" aria-label="Import JSON" title="Import JSON"></button><button id="export-setup-json" class="secondary icon-button" type="button" data-icon="upload" aria-label="Export JSON" title="Export JSON"></button></span></summary>
@@ -495,7 +499,7 @@
         <div id="settings-page-case" role="tabpanel" aria-labelledby="settings-tab-case">
 
           <p id="settings-case-note" class="chart-note">Open a case to edit its name, DOE and chart colors. These options are saved with the case.</p>
-          <section id="settings-case-section" class="settings-section hidden"><h3>General</h3><form id="case-editor-form"><div class="field-grid settings-case-general-grid"><label><?= __ST_TEXT__('view.case_name') ?><input id="case-name" maxlength="120" required></label><div class="settings-case-export"><span class="field-label">Case export</span><button id="export-complete-case" type="button" class="secondary" data-icon="upload">Export case (JSON)</button></div></div></form></section>
+          <section id="settings-case-section" class="settings-section hidden"><h3>General</h3><form id="case-editor-form"><div class="field-grid settings-case-general-grid"><label><?= __ST_TEXT__('view.case_name') ?><input id="case-name" maxlength="120" required></label><div class="settings-case-export"><span class="field-label">Case export</span><button id="export-complete-case" type="button" class="secondary" data-icon="upload">Export case (JSON)</button></div></div></form><label>Equipment layout<select id="settings-equipment-layout"><option value="">Default for interface mode</option><option value="split">Separate Equipment and Conveyors tabs</option><option value="combined">Single Equipment tab</option></select></label></section>
           <section id="settings-save-section" class="settings-section"><h3>Case saving</h3><label class="scenario-scope"><input id="settings-autosave" type="checkbox"> Autosave</label><label>Save interval (seconds)<input id="settings-autosave-seconds" type="number" min="1" max="3600" step="1" value="10"></label><p>Save pending case changes after the selected interval. Basic always uses the Save icon. Autosave settings are saved in this case.</p></section>
           <section id="settings-case-options-section" class="settings-section settings-case-options"><label class="remember" hidden><input id="settings-json-fields" type="checkbox"><?= __ST_TEXT__('settings.show_json_fields') ?></label></section>
           <section id="settings-chart-section" class="settings-section"><div class="settings-section-heading"><h3>Chart Series Colors</h3><button id="settings-chart-reset" type="button" class="ghost">Reset colors</button></div><p>Equipment appears in line order. Colors repeat after 13 items; the first color also applies to line output.</p><div id="settings-chart-colors" class="settings-color-columns"></div></section>

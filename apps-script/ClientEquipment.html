@@ -152,13 +152,12 @@
         ['speed-mode',__ST_TEXT__('conveyor.speed_mode'),__ST_TEXT__('conveyor.help_speed_mode'),'select'],
         ['belt-speed',window.STBasicMode?.isBasic()?__ST_TEXT__('conveyor.belt_speed_m_min'):__ST_TEXT__('conveyor.belt_speed'),__ST_TEXT__('conveyor.help_belt_speed'),'number'],
         ['moving-gap',__ST_TEXT__('conveyor.moving_gap'),__ST_TEXT__('conveyor.help_moving_gap'),'number'],
-        ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number']
-      ].concat(window.STBasicMode?.isBasic()?[
+        ['accumulated-gap',__ST_TEXT__('conveyor.accumulated_gap'),__ST_TEXT__('conveyor.help_accumulated_gap'),'number'],
         ['startup','Startup Time (sec)','Upstream restart delay for this connection.','number'],
         ['infeed','Infeed Pitch (mm)','Downstream infeed pitch for this connection.','number'],
         ['coding-factor','Coding factor (%)','Speed increase relative to the discharge zone.','number'],
         ['acc-factor','Acc Zone factor (%)','Speed increase relative to the coding zone.','number']
-      ]:[]).forEach(function(spec) {
+      ].forEach(function(spec) {
         var label = document.createElement('label'); label.textContent = spec[1]; label.title = spec[2];
         var control = document.createElement(spec[3] === 'select' ? 'select' : 'input');
         control.className = 'format-zone-' + spec[0];
@@ -255,8 +254,8 @@ function populateFormatZoneInputs(card, equipment) {
         downstreamRamp: firstDefinedValue(formatZone.downstreamRampUpSeconds,equipment.processData?.downstream?.rampUpTimeSeconds),
         startup: upstream.startupTimeSeconds,
         infeed: equipment.processData?.downstream?.infeedPitchMm,
-        codingFactor: equipment.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
-        accFactor: equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent ?? 0,
+        codingFactor: equipment.processData?.speedAndSensors?.codingConveyorSpeedFactorVsPreviousConveyorPercent ?? (window.STBasicMode?.isBasic()?0:undefined),
+        accFactor: equipment.processData?.speedAndSensors?.conveyorSpeedFactorVsPreviousConveyorPercent ?? (window.STBasicMode?.isBasic()?0:undefined),
         overspeed: formatZone.targetOverspeedPercent ?? formatZone.inputValues?.overspeedPercent ?? equipment.processData?.speedAndSensors?.overspeedVsInfeedScrewPercent ?? 5
       };
       if(window.STBasicMode?.isBasic()&&equipment.type==='CONVEYOR'){
@@ -441,16 +440,15 @@ function readFormatZoneInputs(card) {
         bottlesDischargedAtStop: values.bottlesDischargedAtStop,
         downstreamRampUpSeconds: values.downstreamRampUpSeconds
       });
-      if(window.STBasicMode?.isBasic()){
-        result.accumulation.useNominalDesignSpeed=true;
-        result.accumulation.speedMode='MANUAL';
-        result.accumulation.conveyorSpeedMmPerSecond=values.conveyorSpeedMmPerSecond;
-        result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;
-        result.downstream=Object.assign({},result.downstream,{infeedPitchMm:values.downstreamInfeedPitchMm,rampUpTimeSeconds:values.downstreamRampUpSeconds});
-        result.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent=values.codingFactorPercent;
-        result.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent=values.accFactorPercent;
-        // The existing required infeed audit margin remains separate from the target.
+      var basic=window.STBasicMode?.isBasic();
+      if(basic)result.accumulation.useNominalDesignSpeed=true;
+      result.upstream.startupTimeSeconds=values.upstreamStartupTimeSeconds;
+      if(basic||values.downstreamInfeedPitchMm!==undefined||result.downstream){
+        result.downstream=Object.assign({},result.downstream,{infeedPitchMm:values.downstreamInfeedPitchMm});
+        if(basic)result.downstream.rampUpTimeSeconds=values.downstreamRampUpSeconds;
       }
+      result.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent=values.codingFactorPercent;
+      result.speedAndSensors.conveyorSpeedFactorVsPreviousConveyorPercent=values.accFactorPercent;
       Object.keys(result.accumulation).forEach(function(key) {
         if (result.accumulation[key] === undefined) delete result.accumulation[key];
       });
@@ -493,25 +491,39 @@ function numericInputValue(input) {
       return typeof value === 'number' && Number.isFinite(value);
     }
 
-    function moveEquipment(index, direction) {
-      if(!STEquipmentFilter.all())return;
-      if (!syncEquipmentFromEditor()) return;
-      var targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= state.activeCase.equipment.length) return;
-      var positions=STEquipmentDrag.positions();
-      var moved = state.activeCase.equipment.splice(index, 1)[0];
-      state.activeCase.equipment.splice(targetIndex, 0, moved);
+    function moveEquipment(index, targetIndex) {
+      if(!STEquipmentFilter.canReorder()||index===targetIndex||!syncEquipmentFromEditor())return;
+      var line=state.activeCase.equipment;
+      if(!line[index]||!line[targetIndex])return;
+      var positions=STEquipmentDrag.positions(),moved=line[index];
+      if(STBasicMode.isSplit()){
+        var conveyor=moved.type==='CONVEYOR';
+        var group=line.filter(function(item){return (item.type==='CONVEYOR')===conveyor;});
+        var to=group.indexOf(line[targetIndex]);
+        if(to<0)return;
+        group.splice(group.indexOf(moved),1);
+        group.splice(to,0,moved);
+        var machines=conveyor?line.filter(function(item){return item.type!=='CONVEYOR';}):group;
+        var conveyors=conveyor?group:line.filter(function(item){return item.type==='CONVEYOR';});
+        state.activeCase.equipment=machines.flatMap(function(machine,i){return conveyors[i]?[machine,conveyors[i]]:[machine];}).concat(conveyors.slice(machines.length));
+      }else{
+        line.splice(index,1);
+        line.splice(targetIndex,0,moved);
+      }
       state.isDirty = true;
       renderEquipment();
-      STEquipmentDrag.animate(positions,targetIndex);
+      STEquipmentDrag.animate(positions,moved.id);
       invalidateActiveResult();autosave.change(true);
       renderRunWorkspace();
     }
 
     async function removeEquipment(index) {
+      var record=state.activeCase,simulationId=state.activeSimulationId,id=record.equipment[index]?.id;
       if (!await STDialog.confirm(__ST_TEXT__('dialog.delete_equipment'),__ST_TEXT__('dialog.delete_equipment_message'),true))return;
-      if (!syncEquipmentFromEditor()) return;
-      state.activeCase.equipment.splice(index, 1);
+      if (state.activeCase!==record||state.activeSimulationId!==simulationId||!syncEquipmentFromEditor()) return;
+      var position=record.equipment.findIndex(function(item){return item.id===id;});
+      if(position<0)return;
+      record.equipment.splice(position, 1);
       STProducts.reconcile();
       state.isDirty = true;
       renderEquipment();

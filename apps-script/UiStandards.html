@@ -114,7 +114,7 @@ html[data-ui-mode=basic] #basic-run-controls { gap:var(--space-3); }
 html[data-ui-mode=basic] #basic-run-controls > section { padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); align-self:stretch; }
 html[data-ui-mode=basic] #basic-conveyor-panel { position:static; max-height:none; }
 html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; overflow:visible; flex:none; }
-html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { max-height:none; overflow:visible; }
+html[data-equipment-layout=split][data-basic-view=conveyors] #equipment-list { min-width:0; }
 html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-card { display:flex; flex-direction:column; justify-content:center; }
 html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header { align-items:center; margin:0; }
 /* Basic presents the same evaluated values without the advanced comparison table. */
@@ -173,9 +173,9 @@ html[data-ui-mode=basic] .scenario-preview-status { display:block; color:var(--m
 html[data-ui-mode=basic] .scenario-basic-metric:first-child .scenario-basic-change { align-self:flex-start; padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); background:var(--surface-soft); margin-top:var(--space-1); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation > .analysis-capex { align-self:flex-start; padding:var(--space-2) var(--space-3); min-height:0; line-height:var(--leading-body); }
 .analysis-capex[data-tier=MEDIUM] { color:var(--info); background:var(--info-soft); }
-html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-card { padding:var(--space-3) var(--space-4); min-height:64px; box-sizing:border-box; justify-content:center; }
-html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .equipment-header { margin:0; padding:0; border:0; width:100%; flex-direction:row; align-items:center; }
-html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list .basic-card-data { display:none; }
+html[data-equipment-layout=split][data-basic-view=conveyors] #equipment-list .equipment-card { padding:var(--space-3) var(--space-4); min-height:64px; box-sizing:border-box; justify-content:center; }
+html[data-equipment-layout=split][data-basic-view=conveyors] #equipment-list .equipment-header { margin:0; padding:0; border:0; width:100%; flex-direction:row; align-items:center; }
+html[data-equipment-layout=split][data-basic-view=conveyors] #equipment-list .basic-card-data { display:none; }
 
 .scenario-activity { background:var(--surface-soft); }
 html[data-ui-mode=basic] .scenario-tier-grid > .analysis-recommendation { border-left:var(--state-border-width) solid var(--muted); }

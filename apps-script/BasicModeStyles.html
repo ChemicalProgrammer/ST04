@@ -30,48 +30,49 @@ html[data-ui-mode=basic] .json-example,
 html[data-ui-mode=basic] #editor-meta,
 html[data-ui-mode=basic] #run-case-meta,
 html[data-ui-mode=basic] #status:not(.error),
-html[data-ui-mode=basic] .equipment-filters { display:none !important; }
-html[data-ui-mode=basic] #basic-conveyor-layout { display:block; }
-html[data-ui-mode=basic] #basic-conveyor-panel { display:none; }
-html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-240)),1fr)); align-items:start; }
-html[data-ui-mode=basic] .basic-machine { cursor:default; padding:var(--space-4); }
-html[data-ui-mode=basic] .basic-machine .equipment-fields { display:block; }
-html[data-ui-mode=basic] .equipment-json-details { display:none !important; }
-html[data-ui-mode=basic] .basic-machine .equipment-grid { display:grid; }
-html[data-ui-mode=basic] .equipment-drag { display:none; }
-html[data-ui-mode=basic] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
-html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { display:grid; grid-template-columns:minmax(var(--size-220),1fr) minmax(0,3fr); gap:var(--section-gap); align-items:start; }
-html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { display:flex; flex-direction:column; min-width:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); background:var(--surface); position:sticky; top:var(--space-4); }
-html[data-ui-mode=basic] #basic-conveyor-panel { container-type:inline-size; }
-html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:calc(100vh - var(--header-height) - var(--space-8)); }
-html[data-ui-mode=basic] #basic-conveyor-panel h3 { margin:0 0 var(--space-3); }
+html[data-equipment-layout=split] .equipment-filters { display:none !important; }
+html[data-equipment-layout=split] #basic-conveyor-layout { display:block; }
+html[data-equipment-layout=split] #basic-conveyor-panel { display:none; }
+html[data-equipment-layout=split] .basic-machine { cursor:default; padding:var(--space-4); }
+html[data-equipment-layout=split] .basic-machine .equipment-fields { display:block; }
+html[data-equipment-layout=split] .equipment-json-details { display:none !important; }
+html[data-equipment-layout=split] .basic-machine .equipment-grid { display:grid; }
+html[data-equipment-layout=split] .basic-machine .equipment-json-details { margin-top:var(--space-3); }
+html[data-equipment-layout=split][data-basic-view=conveyors] #basic-conveyor-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:var(--section-gap); align-items:start; }
+html[data-equipment-layout=split][data-basic-view=conveyors] #basic-conveyor-panel { display:flex; flex-direction:column; min-width:0; border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); background:var(--surface); position:sticky; top:var(--space-4); }
+html[data-equipment-layout=split] #basic-conveyor-panel { container-type:inline-size; }
+html[data-equipment-layout=split] #basic-conveyor-panel #equipment-inspector { max-height:calc(100vh - var(--header-height) - var(--space-8)); }
+html[data-equipment-layout=split] #basic-conveyor-panel h3 { margin:0 0 var(--space-3); }
 html[data-ui-mode=basic][data-basic-view=vgraph] #results-body > :not(#line-performance),
 html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance > :not(#vgraph-profile) { display:none !important; }
 html[data-ui-mode=basic][data-basic-view=vgraph] #line-performance { margin-top:0; border-top:0; }
 html[data-ui-mode=basic] .equipment-speed-chart-heading p,
 html[data-ui-mode=basic] .simulation-analysis-heading p { display:none; }
-html[data-ui-mode=basic] label:has(> .equipment-mode) { display:none !important; }
+html[data-equipment-layout=split] label:has(> .equipment-mode) { display:none !important; }
+html[data-equipment-layout=split][data-basic-view=conveyors] { scrollbar-gutter:stable; }
+html[data-equipment-layout=split] #equipment-list .equipment-header .button-row { flex-wrap:nowrap; gap:var(--space-1); }
+html[data-equipment-layout=split] #equipment-list .equipment-header .icon-button { width:var(--size-28); height:var(--size-28); min-height:var(--size-28); padding:var(--space-1); }
 /* Keep the setup controls on one compact row and use identical field tracks. */
 .topbar { padding-top:var(--space-2); padding-bottom:var(--space-2); }
 .case-open .user-chip { display:none; }
 .case-open .breadcrumb { flex:1 1 var(--size-220); }
 html[data-ui-mode=basic] #equipment-list { gap:var(--space-3); margin-top:0; }
-html[data-ui-mode=basic] #basic-conveyor-layout { margin-top:var(--space-3); }
-html[data-ui-mode=basic] .basic-machine { padding:var(--space-3); }
-html[data-ui-mode=basic] .basic-machine .equipment-header { gap:var(--space-2); margin-bottom:var(--space-2); }
-html[data-ui-mode=basic] .basic-machine .equipment-header strong { overflow-wrap:anywhere; min-width:0; }
-html[data-ui-mode=basic] .basic-machine .equipment-grid { gap:var(--space-2); align-items:start; }
-html[data-ui-mode=basic] .equipment-grid label { min-width:0; }
-html[data-ui-mode=basic] .basic-machine .equipment-grid label { grid-template-rows:minmax(var(--size-28),auto) var(--control-height); gap:var(--space-1); align-items:end; }
-html[data-ui-mode=basic] .equipment-grid input:not([type=checkbox]),
-html[data-ui-mode=basic] .equipment-grid select { height:var(--control-height); box-sizing:border-box; }
-html[data-ui-mode=basic] #equipment-inspector label { padding-right:0; }
-html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
+html[data-equipment-layout=split] #basic-conveyor-layout { margin-top:var(--space-3); }
+html[data-equipment-layout=split] .basic-machine { padding:var(--space-3); }
+html[data-equipment-layout=split] .basic-machine .equipment-header { gap:var(--space-2); margin-bottom:var(--space-2); }
+html[data-equipment-layout=split] .basic-machine .equipment-header strong { overflow-wrap:anywhere; min-width:0; }
+html[data-equipment-layout=split] .basic-machine .equipment-grid { gap:var(--space-2); align-items:start; }
+html[data-equipment-layout=split] .equipment-grid label { min-width:0; }
+html[data-equipment-layout=split] .basic-machine .equipment-grid label { grid-template-rows:minmax(var(--size-28),auto) var(--control-height); gap:var(--space-1); align-items:end; }
+html[data-equipment-layout=split] .equipment-grid input:not([type=checkbox]),
+html[data-equipment-layout=split] .equipment-grid select { height:var(--control-height); box-sizing:border-box; }
+html[data-equipment-layout=split] #equipment-inspector label { padding-right:0; }
+html[data-equipment-layout=split] label:has(> .equipment-id) { display:none !important; }
 @media(max-width:760px){
   html[data-ui-mode=basic] #editor-panel > .section-heading { flex-wrap:wrap; }
-  html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
-  html[data-ui-mode=basic][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }
-  html[data-ui-mode=basic] #basic-conveyor-panel #equipment-inspector { max-height:none; }
+  html[data-equipment-layout=split][data-basic-view=conveyors] #basic-conveyor-layout { grid-template-columns:1fr; }
+  html[data-equipment-layout=split][data-basic-view=conveyors] #basic-conveyor-panel { position:static; }
+  html[data-equipment-layout=split] #basic-conveyor-panel #equipment-inspector { max-height:none; }
 
 }
 @media(max-width:1100px){
@@ -83,40 +84,39 @@ html[data-ui-mode=basic] label:has(> .equipment-id) { display:none !important; }
 html[data-ui-mode=basic] { --basic-spark-height:80px; }
 html[data-ui-mode=basic] { --vgraph-height:440px; }
 #basic-run-controls,#basic-efficiencies,#basic-start-simulation,.basic-card-data,.basic-conveyor-tabs,#basic-conveyor-summary { display:none; }
-html[data-ui-mode=basic] .equipment-grid input,
+html[data-equipment-layout=split] .equipment-grid input,
 html[data-ui-mode=basic] .reliability-controls input { width:100%; min-width:0; }
-html[data-ui-mode=basic][data-basic-view=equipment] #equipment-list { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); overflow-x:auto; }
-html[data-ui-mode=basic] .basic-machine .equipment-header .button-row,
-html[data-ui-mode=basic] .basic-machine .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-rate, > .equipment-material-flow, > .equipment-internal-capacity)),
+html[data-equipment-layout=split][data-basic-view=equipment] #equipment-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--size-220)),1fr)); align-items:start; }
+html[data-equipment-layout=split] .basic-machine .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-rate, > .equipment-material-flow, > .equipment-internal-capacity)),
 html[data-ui-mode=basic] .reliability-controls label:has(> .reliability-enabled) { display:none !important; }
-html[data-ui-mode=basic] .basic-machine .equipment-grid,
-html[data-ui-mode=basic] .basic-machine .reliability-controls { grid-template-columns:1fr; gap:var(--space-3); }
-html[data-ui-mode=basic] .basic-machine .reliability-controls { margin-top:var(--space-2); }
-html[data-ui-mode=basic] .basic-card-data { display:grid; gap:var(--space-3); margin-top:var(--space-3); }
-html[data-ui-mode=basic] .basic-buffer { display:block; text-align:right; padding:var(--space-2); min-height:var(--control-height); box-sizing:border-box; border:var(--border-width) solid var(--line-strong); border-radius:var(--radius-sm); color:var(--accent); }
-html[data-ui-mode=basic] .basic-availability { color:var(--accent); }
+html[data-equipment-layout=split] .basic-machine .equipment-grid,
+html[data-equipment-layout=split] .basic-machine .reliability-controls { grid-template-columns:1fr; gap:var(--space-3); }
+html[data-equipment-layout=split] .basic-machine .reliability-controls { margin-top:var(--space-2); }
+html[data-equipment-layout=split] .basic-card-data { display:grid; gap:var(--space-3); margin-top:var(--space-3); }
+html[data-equipment-layout=split] .basic-buffer { display:block; text-align:right; padding:var(--space-2); min-height:var(--control-height); box-sizing:border-box; border:var(--border-width) solid var(--line-strong); border-radius:var(--radius-sm); color:var(--accent); }
+html[data-equipment-layout=split] .basic-availability { color:var(--accent); }
 html[data-ui-mode=basic] #basic-efficiencies { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
 html[data-ui-mode=basic] #basic-efficiencies > div { border:var(--border-width) solid var(--line); border-radius:var(--radius-md); padding:var(--space-3); flex-direction:column; align-items:start; }
 html[data-ui-mode=basic] #basic-run-controls { display:grid; grid-template-columns:1.2fr 1.2fr .6fr; gap:var(--space-3); margin:var(--space-3) 0; }
 html[data-ui-mode=basic] #basic-run-controls > section { display:grid; gap:var(--space-2); padding:var(--space-3); border:var(--border-width) solid var(--line); border-radius:var(--radius-md); }
 html[data-ui-mode=basic] #basic-run-controls .button-row { flex-wrap:wrap; }
 html[data-ui-mode=basic] #basic-run-controls button[aria-pressed=true],
-html[data-ui-mode=basic] .basic-conveyor-tabs button[aria-pressed=true] { background:var(--selected); color:var(--selected-text); }
+html[data-equipment-layout=split] .basic-conveyor-tabs button[aria-pressed=true] { background:var(--selected); color:var(--selected-text); }
 html[data-ui-mode=basic] #basic-run-controls label:has(> #run-playback-rate),
 html[data-ui-mode=basic] #basic-run-controls label:has(> #run-shift-count) { display:none; }
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-run-controls,
 html[data-ui-mode=basic][data-basic-view=conveyors] #basic-efficiencies { display:none; }
-html[data-ui-mode=basic][data-basic-view=conveyors] #equipment-list { display:grid; grid-template-columns:1fr; max-height:70vh; overflow-y:auto; }
-html[data-ui-mode=basic][data-basic-view=conveyors] .equipment-header .button-row { display:none; }
-html[data-ui-mode=basic] .basic-metric { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
-html[data-ui-mode=basic] .basic-conveyor-tabs { display:flex; justify-content:flex-end; margin-bottom:var(--space-3); }
-html[data-ui-mode=basic] #basic-conveyor-summary {
+html[data-equipment-layout=split][data-basic-view=conveyors] #equipment-list { display:grid; grid-template-columns:minmax(0,1fr); }
+
+html:is([data-ui-mode=basic],[data-equipment-layout=split]) .basic-metric { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
+html[data-equipment-layout=split] .basic-conveyor-tabs { display:flex; justify-content:flex-end; margin-bottom:var(--space-3); }
+html[data-equipment-layout=split] #basic-conveyor-summary {
  display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3);
  padding:var(--space-1);
 }
-html[data-ui-mode=basic] #basic-conveyor-panel .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-material-flow)),
-html[data-ui-mode=basic] #basic-conveyor-panel .reliability-controls { display:none; }
-html[data-ui-mode=basic] .basic-conveyor-validation { grid-column:2; grid-row:2/5; }
+html[data-equipment-layout=split] #basic-conveyor-panel .equipment-grid:not(.reliability-controls) > label:not(:has(> .equipment-material-flow)),
+html[data-equipment-layout=split] #basic-conveyor-panel .reliability-controls { display:none; }
+html[data-equipment-layout=split] .basic-conveyor-validation { grid-column:2; grid-row:2/5; }
 html[data-ui-mode=basic][data-basic-view=results] #line-performance { display:none; }
 html[data-ui-mode=basic] #run-config > summary,
 html[data-ui-mode=basic] #run-config > .compact-heading,
@@ -129,66 +129,66 @@ html[data-ui-mode=basic] #run-config label:has(> #run-sample-interval),
 html[data-ui-mode=basic] #run-config label:has(> #run-seed) { display:none !important; }
 @media(max-width:760px){
  html[data-ui-mode=basic] #basic-run-controls { grid-template-columns:1fr; }
- html[data-ui-mode=basic] .basic-conveyor-validation { grid-column:1; grid-row:auto; }
+ html[data-equipment-layout=split] .basic-conveyor-validation { grid-column:1; grid-row:auto; }
 }
 
-html[data-ui-mode=basic] .basic-conveyor-worksheet {
+html[data-equipment-layout=split] .basic-conveyor-worksheet {
  display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3); align-items:start;
 }
-html[data-ui-mode=basic] :is(.basic-worksheet-group,.basic-conveyor-result-column) {
+html[data-equipment-layout=split] :is(.basic-worksheet-group,.basic-conveyor-result-column) {
  display:grid; gap:var(--space-3); min-width:0; margin:0;
  padding:var(--space-3); border:var(--border-width) solid var(--line);
  border-radius:var(--radius-md); background:var(--surface);
 }
-html[data-ui-mode=basic] .basic-worksheet-group {
+html[data-equipment-layout=split] .basic-worksheet-group {
  grid-template-columns:minmax(0,1fr);
 }
-html[data-ui-mode=basic] .basic-worksheet-group h4 { grid-column:1/-1; margin:0; }
-html[data-ui-mode=basic] .basic-worksheet-group label {
+html[data-equipment-layout=split] .basic-worksheet-group h4 { grid-column:1/-1; margin:0; }
+html[data-equipment-layout=split] .basic-worksheet-group label {
  display:grid; align-content:space-between; gap:var(--space-1); min-width:0;
 }
-html[data-ui-mode=basic] .basic-worksheet-group :is(input:not([type=checkbox]),select) {
+html[data-equipment-layout=split] .basic-worksheet-group :is(input:not([type=checkbox]),select) {
  width:100%; min-width:0; min-height:var(--control-height);
 }
-html[data-ui-mode=basic] .basic-worksheet-group input[type=number] { text-align:right; font-variant-numeric:tabular-nums; }
-html[data-ui-mode=basic] :is(.basic-worksheet-group output,.basic-worksheet-group .switchable-value > input.calculated-value,.basic-conveyor-result-column .basic-metric > strong) {
+html[data-equipment-layout=split] .basic-worksheet-group input[type=number] { text-align:right; font-variant-numeric:tabular-nums; }
+html[data-equipment-layout=split] :is(.basic-worksheet-group output,.basic-worksheet-group .switchable-value > input.calculated-value,.basic-conveyor-result-column .basic-metric > strong) {
  display:flex; align-items:center; justify-content:flex-end; min-width:0; min-height:var(--control-height);
  padding:var(--space-2) var(--space-3); border:var(--border-width) solid var(--line);
  border-radius:var(--radius-sm); background:var(--surface-soft); color:var(--ink); text-align:right;
  font-size:var(--font-input); font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; box-shadow:none;
 }
-html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input.calculated-value { display:block; }
+html[data-equipment-layout=split] .basic-worksheet-group .switchable-value > input.calculated-value { display:block; }
 @container (min-width:25rem) {
- html[data-ui-mode=basic] .basic-worksheet-group { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ html[data-equipment-layout=split] .basic-worksheet-group { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @container (min-width:35rem) {
- html[data-ui-mode=basic] #basic-conveyor-summary { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+ html[data-equipment-layout=split] #basic-conveyor-summary { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
 }
 @container (min-width:55rem) {
- html[data-ui-mode=basic] .basic-conveyor-worksheet { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ html[data-equipment-layout=split] .basic-conveyor-worksheet { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value { appearance:textfield; -moz-appearance:textfield; }
-html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value::-webkit-inner-spin-button,
-html[data-ui-mode=basic] .basic-worksheet-group input.calculated-value::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
-html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-heading,
-html[data-ui-mode=basic] #basic-conveyor-panel .format-zone-setup > .format-zone-grid,
-html[data-ui-mode=basic] #basic-conveyor-panel .equipment-json-details { display:none !important; }
-html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric {
+html[data-equipment-layout=split] .basic-worksheet-group input.calculated-value { appearance:textfield; -moz-appearance:textfield; }
+html[data-equipment-layout=split] .basic-worksheet-group input.calculated-value::-webkit-inner-spin-button,
+html[data-equipment-layout=split] .basic-worksheet-group input.calculated-value::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+html[data-equipment-layout=split] #basic-conveyor-panel .format-zone-heading,
+html[data-equipment-layout=split] #basic-conveyor-panel .format-zone-setup > .format-zone-grid,
+html[data-equipment-layout=split] #basic-conveyor-panel .equipment-json-details { display:none !important; }
+html[data-equipment-layout=split] .basic-conveyor-result-column .basic-metric {
  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,9rem);
 }
-html[data-ui-mode=basic] .basic-conveyor-result-column :is(.basic-metric > span,.basic-population) {
+html[data-equipment-layout=split] .basic-conveyor-result-column :is(.basic-metric > span,.basic-population) {
  color:var(--muted); font-size:var(--font-secondary); font-weight:var(--weight-medium);
 }
-html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric > strong { overflow-wrap:anywhere; }
-html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric[data-status=PASS] strong { color:var(--success); }
-html[data-ui-mode=basic] .basic-conveyor-result-column .basic-metric[data-status=FAIL] strong { color:var(--danger); }
-html[data-ui-mode=basic] .basic-population { display:grid; gap:var(--space-2); }
-html[data-ui-mode=basic] .basic-population progress { width:100%; accent-color:var(--accent); }
+html[data-equipment-layout=split] .basic-conveyor-result-column .basic-metric > strong { overflow-wrap:anywhere; }
+html[data-equipment-layout=split] .basic-conveyor-result-column .basic-metric[data-status=PASS] strong { color:var(--success); }
+html[data-equipment-layout=split] .basic-conveyor-result-column .basic-metric[data-status=FAIL] strong { color:var(--danger); }
+html[data-equipment-layout=split] .basic-population { display:grid; gap:var(--space-2); }
+html[data-equipment-layout=split] .basic-population progress { width:100%; accent-color:var(--accent); }
 /* Basic machine fields stay visible independently of card collapse state. */
-html[data-ui-mode=basic] .basic-machine .reliability-controls { display:grid; }
-html[data-ui-mode=basic] .basic-machine .reliability-controls input { height:var(--control-height); box-sizing:border-box; }
-html[data-ui-mode=basic] .basic-machine .equipment-header { border-bottom:var(--border-width) solid var(--line); padding-bottom:var(--space-3); margin-bottom:var(--space-3); }
-html[data-ui-mode=basic] .basic-machine .equipment-header strong { color:var(--accent); }
+html[data-equipment-layout=split] .basic-machine .reliability-controls { display:grid; }
+html[data-equipment-layout=split] .basic-machine .reliability-controls input { height:var(--control-height); box-sizing:border-box; }
+html[data-equipment-layout=split] .basic-machine .equipment-header { border-bottom:var(--border-width) solid var(--line); padding-bottom:var(--space-3); margin-bottom:var(--space-3); }
+html[data-equipment-layout=split] .basic-machine .equipment-header strong { color:var(--accent); }
 html[data-ui-mode=basic] #run-config,
 html[data-ui-mode=basic] .live-equipment-controls,
 html[data-ui-mode=basic] .live-equipment-columns > :last-child,
@@ -218,17 +218,17 @@ html[data-ui-mode=basic] .scenario-change > details,
 html[data-ui-mode=basic] .scenario-change > .chart-note,
 html[data-ui-mode=basic] .analysis-recommendation > .analysis-checks,
 html[data-ui-mode=basic] .analysis-recommendation > .chart-note { display:none; }
-html[data-ui-mode=basic] .basic-conveyor-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-3); }
-html[data-ui-mode=basic] .basic-conveyor-heading h3 { margin:0 !important; flex:1; min-width:120px; }
-html[data-ui-mode=basic] .basic-conveyor-heading .basic-conveyor-tabs { margin:0; flex-shrink:0; }
+html[data-equipment-layout=split] .basic-conveyor-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-3); }
+html[data-equipment-layout=split] .basic-conveyor-heading h3 { margin:0 !important; flex:1; min-width:120px; }
+html[data-equipment-layout=split] .basic-conveyor-heading .basic-conveyor-tabs { margin:0; flex-shrink:0; }
 .switchable-value { display:flex; align-items:center; gap:var(--space-2); min-width:0; }
 .switchable-value > input[type=number] { flex:1; min-width:0; }
-.switchable-value > input[type=checkbox],html[data-ui-mode=basic] .basic-worksheet-group .switchable-value > input[type=checkbox] { width:16px; height:16px; min-height:16px; padding:0; flex:0 0 16px; }
+.switchable-value > input[type=checkbox],html[data-equipment-layout=split] .basic-worksheet-group .switchable-value > input[type=checkbox] { width:16px; height:16px; min-height:16px; padding:0; flex:0 0 16px; }
 .switchable-value > .calculated-value { background:var(--surface-soft); border-color:transparent; text-align:right; }
 html[data-ui-mode=advance][data-header-view=vgraph] #results-body > :not(#line-performance),
 html[data-ui-mode=advance][data-header-view=vgraph] #line-performance > :not(#vgraph-profile) { display:none; }
 html[data-ui-mode=advance][data-header-view=results] #line-performance { display:none; }
 
-html[data-ui-mode=basic] .equipment-options-button { display:none !important; }
+html[data-equipment-layout=split] .equipment-options-button { display:none !important; }
 </style>
 

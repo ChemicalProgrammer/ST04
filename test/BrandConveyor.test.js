@@ -6,7 +6,7 @@ test('brand motion shares speed across welcome/About, excludes editing and pause
  try{
   await new Promise(resolve=>w.addEventListener('load',resolve));
   const context=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/TextResources.gs','utf8'),context);
-  const nodes=[...d.querySelectorAll('.brand-conveyor')],animations=nodes.map(()=>({rate:1,currentTime:450,effect:{getTiming:()=>({duration:1800})},state:'running',updatePlaybackRate(rate){this.rate=rate;},pause(){this.state='paused';},play(){this.state='running';}}));
+  const nodes=[...d.querySelectorAll('#auth-panel .brand-conveyor,#app-info-dialog .brand-conveyor')],animations=nodes.map(()=>({rate:1,currentTime:450,effect:{getTiming:()=>({duration:1800})},state:'running',updatePlaybackRate(rate){this.rate=rate;},pause(){this.state='paused';},play(){this.state='running';}}));
   assert.equal(nodes.length,2);nodes.forEach((node,i)=>{node.getAnimations=()=>[animations[i]];});
   w.eval(context.resolveTextResources_(fs.readFileSync('apps-script/BrandConveyorMotion.html','utf8')).replace(/<\/?script>/g,''));d.dispatchEvent(new w.Event('DOMContentLoaded'));
   function press(key,target=d.body,extra={}){const event=new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...extra});target.dispatchEvent(event);return event;}
@@ -33,7 +33,7 @@ async function interactiveHarness(isReduced=false){
  w.matchMedia=()=>media;w.performance.now=()=>clock;
  w.requestAnimationFrame=callback=>{frames.set(++id,callback);return id;};w.cancelAnimationFrame=key=>frames.delete(key);
  w.setTimeout=(callback,delay)=>{timers.set(++id,{callback,due:clock+delay});return id;};w.clearTimeout=key=>timers.delete(key);
- const node=d.querySelector('.brand-conveyor'),svg=node.querySelector('svg');svg.getBoundingClientRect=()=>({left:0,top:0,width:208,height:48});
+ const node=d.querySelector('#auth-panel .brand-conveyor'),svg=node.querySelector('svg');svg.getBoundingClientRect=()=>({left:0,top:0,width:208,height:48});
  const context=vm.createContext({});vm.runInContext(fs.readFileSync('apps-script/TextResources.gs','utf8'),context);
  w.eval(context.resolveTextResources_(fs.readFileSync('apps-script/BrandConveyorMotion.html','utf8')).replace(/<\/?script>/g,''));d.dispatchEvent(new w.Event('DOMContentLoaded'));
  const paths=()=>[...node.querySelectorAll('.brand-bottles path')],x=path=>Number(path.getAttribute('transform').match(/translate\(([-\d.]+)/)[1]);
@@ -42,6 +42,19 @@ async function interactiveHarness(isReduced=false){
  function key(value,target=node){const event=new w.KeyboardEvent('keydown',{key:value,bubbles:true,cancelable:true});target.dispatchEvent(event);return event;}
  return {w,d,node,paths,x,advance,pointer,key,frames,media,close:async()=>{await Promise.resolve();w.close();}};
 }
+
+test('remembered session runs the welcome animation only on the restoring screen',async()=>{
+ const h=await interactiveHarness();try{
+  const loader=h.d.querySelector('#session-restore .brand-conveyor');
+  const bottle=loader.querySelector('.brand-bottles path'),start=bottle.getAttribute('transform');
+  h.advance(300);assert.equal(bottle.getAttribute('transform'),start);
+  const welcome=h.paths()[0];
+  h.d.documentElement.classList.add('restoring-session');h.w.STBrandConveyor.sync();
+  const hiddenPosition=welcome.getAttribute('transform');
+  h.advance(300);assert.notEqual(bottle.getAttribute('transform'),start);
+  assert.equal(welcome.getAttribute('transform'),hiddenPosition);
+ }finally{await h.close();}
+});
 
 test('interactive conveyor accumulates without overlap, releases and reverses without jumps',async()=>{
  const h=await interactiveHarness();try{

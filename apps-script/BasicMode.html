@@ -1,11 +1,12 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,headerActionsHome,headerActionsNext,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var state,actions,mounted=false,splitMounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Formats','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['simulation2d','Simulation 2D','play','simulation2d'],['results',__ST_TEXT__('shell.results'),'chart','results'],['realdata','Real data','chart','realdata'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
-  function inline(card){return basic()&&type(card)!=='CONVEYOR';}
+  function split(){return (STPreferences.caseOptions().equipmentLayout||(basic()?'split':'combined'))==='split';}
+  function inline(card){return split()&&type(card)!=='CONVEYOR';}
   function button(label,icon,click){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=label;if(icon)b.dataset.icon=icon;b.onclick=click;return b;}
   function init(current,callbacks){
     if(initialized)return;initialized=true;state=current;actions=callbacks;
@@ -18,7 +19,7 @@ window.STBasicMode=(function(){
     });b.dataset.basicView=s[0];nav.appendChild(b);});sectionRow.appendChild(nav);
     tools=document.createElement('div');tools.id='basic-case-actions';tools.className='basic-utilities';
     var utilityRow=document.createElement('div');utilityRow.className='button-row';tools.appendChild(utilityRow);
-    headerActions=document.getElementById('header-case-actions');headerActionsHome=headerActions.parentNode;headerActionsNext=headerActions.nextSibling;
+    headerActions=document.getElementById('header-case-actions');
     [['open-settings',__ST_TEXT__('shell.settings'),'settings'],['faq-gallery','FAQ / Preguntas frecuentes',''],['sidebar-app-info',__ST_TEXT__('info.title'),'info'],['home-cases',__ST_TEXT__('view.close_case'),'back'],['sign-out',__ST_TEXT__('view.sign_out'),'logout']].forEach(function(s){var b=button('',s[2],function(){document.getElementById(s[0])?.click();});if(s[0]==='faq-gallery'){b.innerHTML=window.STFaq.icon();b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','faq-dialog');}if(s[0]==='sidebar-app-info'){b.id='basic-app-info';b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','app-info-dialog');}b.classList.add('icon-button');b.title=s[1];b.setAttribute('aria-label',s[1]);utilityRow.appendChild(b);});header.appendChild(tools);
     list=document.getElementById('equipment-list');listHome=list.parentNode;
     layout=document.createElement('div');layout.id='basic-conveyor-layout';list.before(layout);
@@ -27,7 +28,7 @@ window.STBasicMode=(function(){
     conveyorTabs=document.createElement('div');conveyorTabs.className='button-row basic-conveyor-tabs';
     ['inputs','results'].forEach(function(view){var b=button(view==='inputs'?'Inputs':'Results','',function(){conveyorView=view;refreshData();});b.dataset.conveyorView=view;conveyorTabs.appendChild(b);});heading.appendChild(conveyorTabs);
     conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
-    runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.classList.add('fold-card');runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';var optionsHeading=node('div','','basic-options-heading fold-heading');var optionsToggle=button(optionsTitle.textContent);optionsToggle.classList.add('fold-toggle');optionsToggle.dataset.subsectionToggle='';optionsToggle.setAttribute('aria-expanded','true');optionsToggle.setAttribute('aria-controls','basic-efficiencies');optionsTitle.replaceChildren(optionsToggle);optionsHeading.append(optionsTitle);runOptions.append(optionsHeading);document.querySelector('#editor-panel > .editor-subheading').before(runOptions);
+    runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.classList.add('fold-card');runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';var optionsHeading=node('div','','basic-options-heading fold-heading');var optionsToggle=button(optionsTitle.textContent);optionsToggle.classList.add('fold-toggle');optionsToggle.dataset.subsectionToggle='';optionsToggle.setAttribute('aria-expanded','true');optionsToggle.setAttribute('aria-controls','basic-efficiencies');optionsTitle.replaceChildren(optionsToggle);optionsHeading.append(optionsTitle);runOptions.append(optionsHeading);document.getElementById('equipment-section').before(runOptions);
     efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';efficiencies.classList.add('fold-content');runOptions.append(efficiencies);
     setupControls=document.createElement('div');setupControls.id='basic-run-controls';runOptions.append(setupControls);
     [['run-rounds','Rounds']].forEach(function(spec){
@@ -35,11 +36,18 @@ window.STBasicMode=(function(){
       var group=document.createElement('section');group.dataset.runControl=spec[0];group._label=label;setupControls.appendChild(group);
     });
     inspector=document.getElementById('equipment-inspector');inspectorHome=inspector.parentNode;inspectorNext=inspector.nextSibling;
-    window.addEventListener('st:inspector',function(){if(basic()){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
+    window.addEventListener('st:inspector',function(){if(splitMounted){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
     sync(current);
   }
-  function mount(){if(mounted)return;sectionRow.appendChild(headerActions);layout.insertBefore(list,panel);panel.appendChild(inspector);Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;placeEfficiencies(false);document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});headerActionsHome.insertBefore(headerActions,headerActionsNext);STEquipmentInspector.release();STEquipmentInspector.hide();listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);mounted=false;}
+  function mount(){if(mounted)return;Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
+  function unmount(){if(!mounted)return;placeEfficiencies(false);document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});mounted=false;}
+  function mountEquipmentLayout(separate){
+    if(separate===splitMounted)return;
+    STEquipmentInspector.release();STEquipmentInspector.hide();
+    if(separate){layout.insertBefore(list,panel);panel.insertBefore(inspector,conveyorSummary);}
+    else{listHome.insertBefore(list,layout);inspectorHome.insertBefore(inspector,inspectorNext);STEquipmentFilter.set('all');}
+    splitMounted=separate;
+  }
   // Reubica las eficiencias sin cambiar el estado del panel plegable de Equipment.
   function placeEfficiencies(inSimulation){
     var host=inSimulation?document.getElementById('simulation-playback-efficiencies'):runOptions;
@@ -49,11 +57,15 @@ window.STBasicMode=(function(){
   }
   function sync(current){
     state=current;if(!initialized)return;
-    var enabled=basic(),root=document.documentElement;if(!enabled&&state.basicView==='conveyors')state.basicView='equipment';root.dataset.uiMode=enabled?'basic':'advance';
+    var enabled=basic(),separate=split(),root=document.documentElement;
+    if(!separate&&state.basicView==='conveyors')state.basicView='equipment';
+    root.dataset.uiMode=enabled?'basic':'advance';root.dataset.equipmentLayout=separate?'split':'combined';
     STPreferences.applyFontScale();
     STPreferences.applyJsonFields(root.dataset.uiMode);
     STPreferences.applyPalette(root.dataset.uiMode);
-    if(enabled)mount();else{unmount();if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);}
+    if(enabled)mount();else unmount();
+    if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);
+    mountEquipmentLayout(separate);
     var active=Boolean(state.activeCase),view=state.uiView;
     var section=view==='editor'?(state.basicView==='conveyors'?'conveyors':'equipment'):view==='results'?(state.basicView==='results'?'results':'vgraph'):view==='products'?'products':view==='whatif'?'whatif':'simulation';
     if(view==='simulation2d')section='simulation2d';if(view==='comparison')section='comparison';if(view==='realdata')section='realdata';
@@ -62,18 +74,20 @@ window.STBasicMode=(function(){
     document.getElementById('equipment-subsection-title').textContent=section==='conveyors'?__ST_TEXT__('filter.conveyors'):__ST_TEXT__('filter.equipment');
     nav.querySelector('[data-basic-view=realdata]').classList.toggle('hidden',!STPreferences.caseOptions().showRealData);
     nav.querySelector('[data-basic-view=comparison]').classList.toggle('hidden',(state.activeCase?.simulations||[]).length<2);
-    nav.querySelector('[data-basic-view=conveyors]').classList.toggle('hidden',!enabled);
+    nav.querySelector('[data-basic-view=conveyors]').classList.toggle('hidden',!separate);
     root.dataset.headerView=active?section:'cases';root.dataset.basicView=active?section:'cases';sectionRow.classList.toggle('hidden',!active);nav.classList.toggle('hidden',!active);tools.classList.toggle('hidden',!active);
     nav.querySelector('[data-basic-view=results]').classList.toggle('hidden',!state.run.result?.summary);
     nav.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',b.dataset.basicView===section?'page':'false');});
-    if(!enabled){if(active&&view==='results'&&section==='vgraph'){document.getElementById('breadcrumb-view').textContent=__ST_TEXT__('basic.vgraph');document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);}STIcons.decorate(nav);STIcons.decorate(tools);return;}
     var cards=Array.from(list.querySelectorAll('.equipment-card'));
-    cards.forEach(function(card){card.classList.toggle('basic-machine',type(card)!=='CONVEYOR');if(type(card)==='CONVEYOR')prepareWorksheet(card);});
-    if(active&&view==='editor'){
+    cards.forEach(function(card){card.classList.toggle('basic-machine',separate&&type(card)!=='CONVEYOR');
+      if(separate&&type(card)==='CONVEYOR')prepareWorksheet(card);
+      else restoreWorksheet(card);
+      STEquipmentInspector.refreshTitle(card);});
+    if(active&&view==='editor'&&separate){
       var conveyor=section==='conveyors';
       inspector.classList.toggle('hidden',!conveyor);
       if(!conveyor){STEquipmentInspector.release();STEquipmentInspector.hide();}
-      STEquipmentFilter.set(conveyor?'conveyors':'equipment');
+      STEquipmentFilter.set(conveyor?'conveyors':'equipment',true);
       if(conveyor){
         var chosen=cards.find(function(c){return type(c)==='CONVEYOR'&&c.classList.contains('equipment-selected');})||cards.find(function(c){return type(c)==='CONVEYOR';});
         if(chosen&&!chosen.classList.contains('equipment-selected'))STEquipmentInspector.select(chosen,false);
@@ -87,19 +101,22 @@ window.STBasicMode=(function(){
       STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);
     }
     // Simulation setup permanece en su propia tarjeta y usa los mismos campos que Equipment.
-    var inSimulation=active&&section==='simulation';
-    var runButton=document.getElementById('run-simulation');
-    var buttonHost=inSimulation?document.getElementById('simulation-setup-tools'):document.querySelector('#run-panel > .section-heading > .button-row');
-    if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);
-    placeEfficiencies(inSimulation);
-    var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label;
-    var roundsHost=inSimulation?document.querySelector('.simulation-duration-grid'):roundsGroup;
-    if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);
+    if(enabled){
+      var inSimulation=active&&section==='simulation';
+      var runButton=document.getElementById('run-simulation');
+      var buttonHost=inSimulation?document.getElementById('simulation-setup-tools'):document.querySelector('#run-panel > .section-heading > .button-row');
+      if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);
+      placeEfficiencies(inSimulation);
+      var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label;
+      var roundsHost=inSimulation?document.querySelector('.simulation-duration-grid'):roundsGroup;
+      if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);
+    }
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
   }
   function prepareWorksheet(card){
     var fields=card._fields;if(fields._basicWorksheet)return;
+    var moved=[];
     var setup=fields.querySelector('.format-zone-setup'),worksheet=node('div','','basic-conveyor-worksheet');setup.appendChild(worksheet);
     var groups=[
       ['Upstream','upstream',[
@@ -108,7 +125,7 @@ window.STBasicMode=(function(){
       ['Downstream','downstream',[
         ['infeed','Infeed pitch (mm)'],['downstream-ramp','Ramp up time (sec)'],[null,'Consumption rate (m/min)','consumption']]],
       ['Geometry','geometry',[
-        ['lact','Lact = Total length (mm)'],['lp-prime','Lp = Prime zone (mm)'],['discharge-runout','Discharge actual (mm)'],['reject-runout','Coding actual (mm)'],['backup','Back-up sensor position (mm)'],
+        ['material-flow','Transport unit'],['lact','Lact = Total length (mm)'],['lp-prime','Lp = Prime zone (mm)'],['discharge-runout','Discharge actual (mm)'],['reject-runout','Coding actual (mm)'],['backup','Back-up sensor position (mm)'],
         [null,'Overflow (mm)','overflow'],[null,'Lbu = D8 + E8 + F8 (mm)','lbu'],['lba','LBA (mm)']]],
       ['Speed & sensors','sensors',[
         ['speed-mode','Speed mode'],['moving-gap','Moving gap (mm)'],['accumulated-gap','Accumulated gap (mm)'],['population','Population (%)'],['belt-speed',__ST_TEXT__('conveyor.belt_speed_m_min')],['speed-factor','Discharge factor (%)'],['coding-factor','Coding factor (%)'],['acc-factor','Acc zone factor (%)'],['blocked-delay','Back up block delay (sec)'],
@@ -116,11 +133,20 @@ window.STBasicMode=(function(){
     ];
     groups.forEach(function(group){var section=node('section','','basic-worksheet-group'),h=node('h4',group[0]);h.dataset.basicGroup=group[1];section.appendChild(h);worksheet.appendChild(section);
       group[2].forEach(function(spec){var label;
-        if(spec[0]){var control=fields.querySelector('.format-zone-'+spec[0]);label=control.closest('label');if(label.firstChild?.nodeType===Node.TEXT_NODE)label.firstChild.nodeValue=spec[1];section.appendChild(label);}
+        if(spec[0]){var control=fields.querySelector(spec[0]==='material-flow'?'.equipment-material-flow':'.format-zone-'+spec[0]);
+          label=control.closest('label');moved.push({label:label,home:label.parentNode,next:label.nextSibling,text:label.firstChild.nodeValue});
+          label.firstChild.nodeValue=!basic()&&spec[0]==='belt-speed'?__ST_TEXT__('conveyor.belt_speed'):spec[1];section.appendChild(label);}
         else {label=node('label',spec[1],'basic-worksheet-calculated');var output=node('output','—');output.dataset.basicOutput=spec[2];label.appendChild(output);section.appendChild(label);}
       });
     });
-    fields._basicWorksheet=worksheet;
+    fields._basicWorksheet={node:worksheet,moved:moved};
+  }
+  function restoreWorksheet(card){
+    var fields=card._fields,worksheet=fields._basicWorksheet;if(!worksheet)return;
+    worksheet.moved.slice().reverse().forEach(function(entry){
+      entry.home.insertBefore(entry.label,entry.next);entry.label.firstChild.nodeValue=entry.text;
+    });
+    worksheet.node.remove();delete fields._basicWorksheet;
   }
   function updateWorksheet(card,audit,equipment){
     prepareWorksheet(card);
@@ -134,20 +160,19 @@ window.STBasicMode=(function(){
   function node(tag,text,cls){var n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n;}
   function metric(host,label,value){var row=node('div','','basic-metric');row.append(node('span',label),node('strong',value));host.appendChild(row);}
   function refreshData(){
-    if(!mounted||!basic()||!state.activeCase)return;
+    if(!state.activeCase||!mounted&&!splitMounted)return;
     var equipment=actions.preview?.()||state.activeCase.equipment||[],simulation=(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
     var audits=STScenarios.audit({equipment:equipment}),availability=1;
     Array.from(list.querySelectorAll('.equipment-card')).forEach(function(card,index){
       var e=equipment[index];if(!e)return;var machine=e.type!=='CONVEYOR';
-      var sectionAudit=!machine?audits.find(function(x){return x.equipmentId===e.id;}):null;
-      var upstream=equipment.find(function(x){return x.id===sectionAudit?.upstreamId;}),downstream=equipment.find(function(x){return x.id===sectionAudit?.downstreamId;});
-      card.querySelector('.equipment-header strong').textContent=e.name;
-      STEquipmentInspector.refreshTitle(card);
+      if(splitMounted)card.querySelector('.equipment-header strong').textContent=e.name;
+      var reliability=e.noiseProfile.reliability||{},a=reliability.mtbfMinutes/(reliability.mtbfMinutes+reliability.mttrMinutes);
+      if(machine)availability*=Number.isFinite(a)?a:NaN;
+      if(!splitMounted)return;
       var data=card.querySelector('.basic-card-data');if(!data){data=node('section','','basic-card-data');card.appendChild(data);}
       data.replaceChildren();
       if(machine){
         var speedLabel=card._fields.querySelector('.equipment-rate').closest('label');if(speedLabel.firstChild?.nodeType===Node.TEXT_NODE)speedLabel.firstChild.nodeValue='Speed ('+(card._fields.querySelector('.equipment-unit').value||'units').toLowerCase()+'/min)';
-        var reliability=e.noiseProfile.reliability||{},a=reliability.mtbfMinutes/(reliability.mtbfMinutes+reliability.mttrMinutes);availability*=Number.isFinite(a)?a:NaN;
         var next=equipment[index+1],audit=next?.type==='CONVEYOR'?audits.find(function(x){return x.equipmentId===next.id;}):null;
         var capacity=audit?.engineering?.runtimeGeometry?.capacityUnits,downstream=equipment.find(function(x){return x.id===audit?.downstreamId;});
         var buffer=next?.type==='CONVEYOR'?capacity/(downstream?.nominalRatePerSecond*60):0;
@@ -158,9 +183,10 @@ window.STBasicMode=(function(){
     efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(simulatedEfficiency,1)+(Number.isFinite(simulatedEfficiency)?'%':''));
     var shifts=document.getElementById('duration-mode').value==='SHIFTS';setupControls.querySelectorAll('[data-run-control]').forEach(function(group){group.hidden=['run-shift-hours','run-shift-count'].includes(group.dataset.runControl)&&!shifts;});
     setupControls.querySelectorAll('[data-control]').forEach(function(b){var control=document.getElementById(b.dataset.control);b.setAttribute('aria-pressed',String(control.value===b.dataset.value));b.disabled=control.disabled;});
+    if(!splitMounted)return;
     var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;});
     if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;
-    if(chosen)updateWorksheet(chosen,audit,equipment);
+    if(chosen&&type(chosen)==='CONVEYOR')updateWorksheet(chosen,audit,equipment);
     conveyorSummary.replaceChildren();
     var left=node('section','','basic-conveyor-result-column'),right=node('section','','basic-conveyor-result-column');conveyorSummary.append(left,right);
     var zone=Object.values(state.run.result?.accumulationZoneMetrics||{}).find(function(z){return z.ownerEquipmentId===id;}),duration=state.run.result?.durationSeconds;
@@ -194,6 +220,6 @@ window.STBasicMode=(function(){
     inspector.classList.toggle('hidden',state.uiView!=='editor'||state.basicView!=='conveyors'||conveyorView!=='inputs');
     conveyorTabs.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.conveyorView===conveyorView));b.disabled=false;});
   }
-  return {init:init,sync:sync,inline:inline,isBasic:basic,unitLabel:function(unit){return unit||'units';},newType:function(){return basic()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
+  return {init:init,sync:sync,inline:inline,isBasic:basic,isSplit:split,unitLabel:function(unit){return unit||'units';},newType:function(){return split()&&state.basicView==='conveyors'?'CONVEYOR':null;}};
 })();
 </script>

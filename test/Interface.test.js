@@ -789,12 +789,62 @@ test('UI: equipment units persist independently and the resizer remains anchored
  }finally{h.dom.window.close();}
 });
 
+test('UI: case layout switches across modes and separated reordering preserves alternating line order',async()=>{
+ for(const uiMode of ['BASIC','ADVANCE']){
+  const h=await setup({remember:true,uiMode});
+  try{
+   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+   const el=id=>h.d.getElementById(id),cards=()=>Array.from(el('equipment-list').querySelectorAll('.equipment-card'));
+   const visible=()=>cards().filter(card=>!card.classList.contains('hidden'));
+   const root=h.d.documentElement,picker=el('settings-equipment-layout');
+   const setLayout=value=>{picker.value=value;picker.dispatchEvent(new h.w.Event('change',{bubbles:true}));};
+   const moveDown=card=>card.querySelector('.equipment-drag').dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+   h.w.STSettings.open();await h.click('#settings-tab-case');
+   assert.equal(root.dataset.equipmentLayout,uiMode==='BASIC'?'split':'combined');
+   setLayout('combined');assert.equal(visible().length,cards().length);
+   assert(h.d.querySelector('[data-basic-view="conveyors"]').classList.contains('hidden'));
+   setLayout('split');await h.w.STSettings.close();
+   assert.equal(root.dataset.uiMode,uiMode==='BASIC'?'basic':'advance');
+   assert(el('equipment-section').contains(el('add-equipment')));
+   assert(el('equipment-section-content').contains(el('equipment-list')));
+   await h.click('#equipment-subsection-title');assert(el('equipment-section-content').hidden);
+   await h.click('#equipment-subsection-title');assert(!el('equipment-section-content').hidden);
+   const original=cards().map(card=>card.dataset.equipmentId);
+   moveDown(visible()[0]);
+   assert.deepEqual(cards().slice(0,4).map(card=>card.dataset.equipmentId),[original[2],original[1],original[0],original[3]]);
+   await h.click('[data-basic-view="conveyors"]');
+   assert.equal(el('equipment-subsection-title').textContent,'Conveyors');
+   assert(el('equipment-inspector').querySelector('[data-basic-group="geometry"]').parentElement.querySelector('.equipment-material-flow'));
+   const tracks=h.w.getComputedStyle(el('basic-conveyor-layout')).gridTemplateColumns;
+   await h.click('[data-conveyor-view="results"]');
+   assert.equal(h.w.getComputedStyle(el('basic-conveyor-layout')).gridTemplateColumns,tracks);
+   await h.click('[data-conveyor-view="inputs"]');
+   await h.click('#equipment-subsection-title');assert(el('equipment-section-content').hidden);
+   await h.click('#equipment-subsection-title');assert(!el('equipment-section-content').hidden);
+   moveDown(visible()[0]);
+   assert.deepEqual(cards().slice(0,4).map(card=>card.dataset.equipmentId),[original[2],original[3],original[0],original[1]]);
+   visible()[0].querySelector('.remove-equipment').click();
+   await waitFor(()=>h.d.querySelector('.message-dialog[open] button.danger'));
+   await h.click('.message-dialog[open] button.danger');
+   assert(!cards().some(card=>card.dataset.equipmentId===original[3]));
+   await h.click('[data-basic-view="equipment"]');
+   visible()[0].querySelector('.remove-equipment').click();
+   await waitFor(()=>h.d.querySelector('.message-dialog[open] button.danger'));
+   await h.click('.message-dialog[open] button.danger');
+   assert(!cards().some(card=>card.dataset.equipmentId===original[2]));
+   await h.click('#save-case');
+   await waitFor(()=>h.storedCases()[0].metadata.consoleOptions?.equipmentLayout==='split');
+   assert.deepEqual(h.errors,[]);
+  }finally{h.dom.window.close();}
+ }
+});
+
 test('UI Basic: inline equipment and fixed conveyor fields persist across the main sections',async()=>{
  const h=await setup({remember:true,uiMode:null});try{
   const style=e=>h.w.getComputedStyle(e).display;
   await h.click('.open-case');assert.equal(h.d.documentElement.dataset.uiMode,'basic');
   assert.equal(style(h.d.getElementById('case-sidebar')),'none');
-  assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not(.hidden)')).map(b=>b.dataset.basicView),['equipment','conveyors','products','vgraph','simulation','realdata','whatif']);
+  assert.deepEqual(Array.from(h.d.querySelectorAll('#basic-navigation button:not(.hidden)')).map(b=>b.dataset.basicView),['equipment','conveyors','products','vgraph','simulation','simulation2d','realdata','whatif']);
   await h.click('[data-basic-view="equipment"]');
   const machines=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(machines.length,7);assert.equal(style(machines[0]._fields),'block');
@@ -808,7 +858,7 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the ma
   await h.click('[data-basic-view="conveyors"]');
   const conveyors=Array.from(h.d.querySelectorAll('.equipment-card:not(.hidden)'));
   assert.equal(conveyors.length,6);assert.equal(style(h.d.getElementById('basic-conveyor-panel')),'flex');
-  assert.equal(style(conveyors[0].querySelector('.equipment-drag')),'none');
+  assert.notEqual(style(conveyors[0].querySelector('.equipment-drag')),'none');
   assert.equal(style(h.d.querySelector('#equipment-inspector .equipment-id').closest('label')),'none');
   assert.equal(h.d.getElementById('equipment-inspector').parentElement.id,'basic-conveyor-panel');
   assert.equal(style(h.d.getElementById('gemini-panel')),'none');
@@ -818,7 +868,10 @@ test('UI Basic: inline equipment and fixed conveyor fields persist across the ma
   await waitFor(()=>h.storedCases()[0].equipment[3].processData.speedAndSensors.codingConveyorSpeedFactorVsPreviousConveyorPercent===23);
   await h.click('[data-basic-view="equipment"]');assert.equal(h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-rate').value,'333');
   await h.click('[data-basic-view="vgraph"]');assert(h.d.querySelector('#vgraph-plot svg'));
-  assert.equal(style(h.d.querySelector('#line-performance .table-scroll')),'none');
+  const table=h.d.querySelector('#line-performance .table-scroll');
+  let hidden=false;
+  for(let node=table;node&&node.id!=='line-performance';node=node.parentElement)hidden||=style(node)==='none';
+  assert(hidden);
   assert.equal(style(h.d.getElementById('vgraph-caveat')),'none');
   await h.click('[data-basic-view="whatif"]');assert(h.visible('whatif-panel'));
   await h.click('[data-basic-view="simulation"]');assert(h.visible('run-panel'));

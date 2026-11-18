@@ -2,7 +2,11 @@
 window.STBrandConveyor=(function(){
   var speed=1,direction='right',steps=[.25,.5,.75,1,1.5,2,3,4],observer,scenes=[],frame=0,last=0;
   var reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  function visible(node){return !node.closest('.hidden')&&!node.closest('[hidden]')&&(!node.closest('dialog')||node.closest('dialog').open);}
+  function visible(node){
+    var restoring=document.documentElement.classList.contains('restoring-session');
+    if(node.closest('#session-restore')&&!restoring||node.closest('#auth-panel')&&restoring)return false;
+    return !node.closest('.hidden,[hidden]')&&(!node.closest('dialog')||node.closest('dialog').open);
+  }
   function running(scene){return !document.hidden&&visible(scene.node);}
   function sign(){return direction==='left'?-1:1;}
   function bottle(scene,x){var path=scene.template.cloneNode(true);path.removeAttribute('transform');scene.lane.appendChild(path);var item={path:path,x:x,tilt:null};scene.items.push(item);return item;}
@@ -63,7 +67,7 @@ window.STBrandConveyor=(function(){
     });if(!running(scene))reset(scene);
   });if(!scenes.some(running)||reduced?.matches){cancelAnimationFrame(frame);frame=0;}last=0;schedule();}
   function key(event){if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable=false])'))return;
-    var welcome=document.getElementById('auth-panel'),about=document.getElementById('app-info-dialog');if(!(welcome&&!welcome.classList.contains('hidden'))&&!about?.open)return;var modal=document.querySelector('dialog[open]');if(modal&&modal!==about)return;
+    var welcome=document.getElementById('auth-panel'),about=document.getElementById('app-info-dialog');if(!(welcome&&visible(welcome))&&!about?.open)return;var modal=document.querySelector('dialog[open]');if(modal&&modal!==about)return;
     if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();direction=event.key==='ArrowLeft'?'left':'right';sync();return;}
     var change=['+','='].includes(event.key)?1:['-','_'].includes(event.key)?-1:0;if(change){event.preventDefault();speed=steps[Math.max(0,Math.min(steps.length-1,steps.indexOf(speed)+change))];sync();return;}
     var scene=scenes.find(function(value){return value.node===event.target.closest?.('.brand-conveyor');});if(!scene)return;var item=choose(scene);
@@ -74,7 +78,7 @@ window.STBrandConveyor=(function(){
     else if(event.key==='Escape'){event.preventDefault();reset(scene);scene.items.slice().forEach(function(value){remove(scene,value);});for(var i=0;i<8;i++)bottle(scene,-21+i*28);render(scene);}
   }
   document.addEventListener('DOMContentLoaded',function(){if(scenes.length)return;document.querySelectorAll('.brand-conveyor').forEach(function(node){var lane=node.querySelector('.brand-bottles'),paths=Array.from(lane.children),scene={node:node,lane:lane,template:paths[0].cloneNode(true),items:[],time:0,active:null,robot:null,clickTimer:0,ghost:node.querySelector('.brand-drag-layer'),robotNode:node.querySelector('.brand-robot'),robotArm:node.querySelector('.brand-robot-arm'),robotBottle:node.querySelector('.brand-robot-bottle')};paths.forEach(function(path,i){scene.items.push({path:path,x:-21+i*28,tilt:null});});node.dataset.interactive='';scenes.push(scene);bind(scene);render(scene);});
-    document.addEventListener('keydown',key);document.addEventListener('visibilitychange',sync);reduced?.addEventListener?.('change',function(){scenes.forEach(reset);sync();});observer=new MutationObserver(sync);['auth-panel','app-info-dialog'].forEach(function(id){var node=document.getElementById(id);if(node)observer.observe(node,{attributes:true,attributeFilter:['class','open']});});sync();
+    document.addEventListener('keydown',key);document.addEventListener('visibilitychange',sync);reduced?.addEventListener?.('change',function(){scenes.forEach(reset);sync();});observer=new MutationObserver(sync);observer.observe(document.documentElement,{attributes:true,attributeFilter:['class']});['auth-panel','app-info-dialog'].forEach(function(id){var node=document.getElementById(id);if(node)observer.observe(node,{attributes:true,attributeFilter:['class','open']});});sync();
   });
   return {speed:function(){return speed;},direction:function(){return direction;},sync:sync};
 })();
