@@ -10,7 +10,7 @@ window.STEquipmentDrag=(function(){
    if(prior&&card.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     card.animate([{transform:translate(prior.left-after.left,prior.top-after.top)},{transform:translate(0,0)}],{duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'});
    }
-   if(card.dataset.equipmentId===id)card.querySelector('.equipment-drag').focus();
+   if(card.dataset.equipmentId===id)card.querySelector('.equipment-drag').focus({preventScroll:true});
   });
  }
  function bind(card,index,move){
@@ -25,42 +25,58 @@ window.STEquipmentDrag=(function(){
    if(e.button!==0||handle.disabled)return;
    e.preventDefault();handle.setPointerCapture(e.pointerId);
    var all=cards(),rects=all.map(position),from=all.indexOf(card),target=from;
-   var startX=e.clientX||0,startY=e.clientY,lastX=startX,lastY=startY,startScroll=window.scrollY,frame=null,moved=false;
-   card.classList.add('equipment-dragging');all.forEach(function(c){c.classList.add('equipment-sorting');});
+   var startX=e.clientX||0,startY=e.clientY,lastX=startX,lastY=startY,frame=null,moved=false;
+   var startScrollX=window.scrollX,startScrollY=window.scrollY;
    function preview(){
-    var dx=lastX-startX,dy=lastY-startY+window.scrollY-startScroll,origin=rects[from];
-    var x=origin.left+origin.width/2+dx,y=origin.top+origin.height/2+dy;
-    target=rects.reduce(function(best,r,i){
-     var distance=Math.hypot(x-r.left-r.width/2,y-r.top-r.height/2);
-     return distance<best.distance?{index:i,distance:distance}:best;
+    var dx=lastX-startX+window.scrollX-startScrollX,dy=lastY-startY+window.scrollY-startScrollY;
+    var origin=rects[from],x=origin.left+origin.width/2+dx,y=origin.top+origin.height/2+dy;
+    var next=rects.reduce(function(best,r,i){
+      var distance=Math.hypot(x-r.left-r.width/2,y-r.top-r.height/2);
+      return distance<best.distance?{index:i,distance:distance}:best;
     },{index:from,distance:Infinity}).index;
-    all.forEach(function(c,i){
-     if(i===from){c.style.transform=translate(dx,dy);return;}
-     var shift=i>from&&i<=target?-1:i<from&&i>=target?1:0,destination=rects[i+shift];
-     c.style.transform=translate(destination.left-rects[i].left,destination.top-rects[i].top);
-    });
+    if(target!==next){
+      all[target].classList.remove('equipment-drop-target');
+      target=next;
+      if(target!==from)all[target].classList.add('equipment-drop-target');
+    }
+    card.style.transform=translate(dx,dy);
    }
-   function scroll(){
-    if(!moved)return;
+   function drawFrame(){
+    frame=null;
     var edge=60;
     if(lastY<edge)window.scrollBy(0,-12);
     else if(lastY>window.innerHeight-edge)window.scrollBy(0,12);
-    preview();frame=requestAnimationFrame(scroll);
+    preview();
+    if(lastY<edge||lastY>window.innerHeight-edge)queueFrame();
    }
-   function clear(){
-    cancelAnimationFrame(frame);all.forEach(function(c){c.classList.remove('equipment-sorting','equipment-dragging');c.style.transform='';});
-    handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;window.removeEventListener('keydown',cancel);
+   function queueFrame(){if(frame===null)frame=requestAnimationFrame(drawFrame);}
+   function clear(ev){
+    if(ev.type==='keydown'&&ev.key!=='Escape')return;
+    if(frame!==null)cancelAnimationFrame(frame);
+    all[target].classList.remove('equipment-drop-target');
+    card.classList.remove('equipment-dragging');card.style.transform='';
+    handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;
+    window.removeEventListener('keydown',clear);
+    if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);
    }
-   function cancel(ev){if(ev.type==='keydown'&&ev.key!=='Escape')return;clear();if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);}
-   window.addEventListener('keydown',cancel);
+   window.addEventListener('keydown',clear);
    handle.onpointermove=function(ev){
     lastX=ev.clientX||0;lastY=ev.clientY;
     if(!moved&&Math.hypot(lastX-startX,lastY-startY)<5)return;
-    if(!moved){moved=true;frame=requestAnimationFrame(scroll);}
-    preview();
+    if(!moved){moved=true;card.classList.add('equipment-dragging');}
+    queueFrame();
    };
-   handle.onpointerup=function(ev){cancel(ev);if(moved&&target!==from)move(index,Number(all[target].dataset.index));};
-   handle.onpointercancel=cancel;handle.onlostpointercapture=cancel;
+   handle.onpointerup=function(ev){
+    if(moved){
+      lastX=ev.clientX||0;lastY=ev.clientY;preview();
+      if(target!==from){
+        var before=positions(),destination=Number(all[target].dataset.index);
+        clear(ev);move(index,destination,before);return;
+      }
+    }
+    clear(ev);
+   };
+   handle.onpointercancel=clear;handle.onlostpointercapture=clear;
   };
  }
  return {bind:bind,positions:positions,animate:animate};

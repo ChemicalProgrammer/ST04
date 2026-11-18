@@ -544,7 +544,7 @@ test('UI: shared equipment inspector preserves drafts, saves the selected equipm
  }finally{h.dom.window.close();}
 });
 
-test('UI: pointer sorting previews neighboring positions before release and Escape cancels without saving',async()=>{
+test('UI: pointer sorting highlights a stable destination and Escape cancels without saving',async()=>{
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
   const list=()=>Array.from(h.d.querySelectorAll('#equipment-list .equipment-card')),before=list().map(c=>c.dataset.equipmentId);
@@ -552,10 +552,11 @@ test('UI: pointer sorting previews neighboring positions before release and Esca
   const handle=list()[0].querySelector('.equipment-drag');let captured=false;handle.setPointerCapture=()=>{captured=true;};handle.hasPointerCapture=()=>captured;handle.releasePointerCapture=()=>{captured=false;};
   const event=(y)=>({button:0,clientY:y,pointerId:1,preventDefault(){}});
   handle.onpointerdown(event(130));handle.onpointermove(event(290));
-  assert.match(list()[1].style.transform,/-/);assert.match(list()[2].style.transform,/-/);assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  h.w.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Escape'}));assert(list().every(c=>c.style.transform===''));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);
+  await waitFor(()=>list()[2].classList.contains('equipment-drop-target'));
+  assert.match(list()[0].style.transform,/160px/);assert(list().slice(1).every(c=>c.style.transform===''));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  h.w.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Escape'}));assert(list().every(c=>c.style.transform===''&&!c.classList.contains('equipment-drop-target')));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);
   handle.onpointerdown(event(130));handle.onpointermove(event(290));handle.onpointerup(event(290));
-  assert.equal(list()[2].dataset.equipmentId,before[0]);await waitFor(()=>h.storedCases()[0].equipment[2].id===before[0]);assert.deepEqual(h.errors,[]);
+  assert.equal(list()[2].dataset.equipmentId,before[0]);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].equipment[2].id===before[0]);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
 
@@ -806,6 +807,10 @@ test('UI: case layout switches across modes and separated reordering preserves a
    setLayout('split');await h.w.STSettings.close();
    assert.equal(root.dataset.uiMode,uiMode==='BASIC'?'basic':'advance');
    assert(el('equipment-section').contains(el('add-equipment')));
+   assert(el('add-equipment').closest('.fold-tools.button-row'));
+   assert(!el('equipment-subsection-title').closest('.editor-subheading'));
+   assert(el('run-rounds').closest('#simulation-duration-content'));
+   assert(!el('basic-run-controls'));
    assert(el('equipment-section-content').contains(el('equipment-list')));
    await h.click('#equipment-subsection-title');assert(el('equipment-section-content').hidden);
    await h.click('#equipment-subsection-title');assert(!el('equipment-section-content').hidden);
@@ -2092,7 +2097,7 @@ test('UI: shared typography scales once, retains mode-specific choices and start
   for(const [view,title,panel] of [['equipment','Equipment','editor-panel'],['conveyors','Conveyors','editor-panel'],['vgraph','V-Graph','results-panel'],['simulation','Simulation','run-panel'],['whatif','What-If','whatif-panel']].filter(([view])=>basic||view!=='conveyors')){
    await h.click('[data-basic-view='+view+']');const heading=h.d.querySelector('#'+panel+' > .section-heading h2');if(['equipment','conveyors','vgraph','whatif'].includes(view)){assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}else{assert.equal(heading.textContent,'Simulation');if(basic)assert.equal(h.w.getComputedStyle(heading.closest('.section-heading')).display,'none');}if(['equipment','conveyors'].includes(view))assert.equal(h.d.getElementById('equipment-subsection-title').textContent,title);
   }
-  await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert.equal(h.d.getElementById('run-rounds').closest('section').querySelectorAll('strong').length,0);assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
+  await h.click('[data-basic-view=equipment]');if(basic){assert.equal(h.d.getElementById('basic-run-options-title').textContent,'Simulation settings');assert(h.d.getElementById('run-rounds').closest('#simulation-duration-content'));assert.equal(h.d.getElementById('basic-efficiencies').parentElement.id,'basic-run-options');await h.click('[data-basic-view=conveyors]');assert.match(h.d.querySelector('#equipment-inspector [data-basic-group=upstream]').textContent,/^Upstream:/);assert.equal(h.d.querySelector('#equipment-inspector [data-basic-group=geometry]').textContent,'Geometry');}
   await h.click('#open-settings');assert.equal(h.d.getElementById('settings-font-scale').value,basic?'110':'100');const font=h.d.getElementById('settings-font-scale');font.value='125';font.dispatchEvent(new h.w.Event('change'));assert.equal(h.d.documentElement.style.fontSize,'20px');await h.click('#settings-close');await h.click('[data-basic-view=simulation]');assert.equal(h.d.documentElement.style.fontSize,'20px');assert.equal(h.w.STPreferences.read('fontScale.'+(basic?'basic':'advance')),'125');
   const other=basic?'advance':'basic';h.d.documentElement.dataset.uiMode=other;h.w.STPreferences.applyFontScale();assert.equal(h.d.documentElement.style.fontSize,basic?'16px':'17.6px');h.d.documentElement.dataset.uiMode=basic?'basic':'advance';h.w.STPreferences.applyFontScale();assert.equal(h.d.documentElement.style.fontSize,'20px');
   for(const theme of ['light','dark']){h.w.STPreferences.setTheme(theme);const boxes=[h.d.getElementById('settings-json-fields'),h.d.getElementById('settings-scenario-doe'),h.d.querySelector('.switchable-value input[type=checkbox]')];assert(boxes.every(Boolean));const dimensions=boxes.map(box=>{const css=h.w.getComputedStyle(box);return [css.width,css.height,css.padding].map(value=>value.replace(/var\((--[^)]+)\)/g,(_,name)=>h.w.getComputedStyle(h.d.documentElement).getPropertyValue(name).trim()));});assert.deepEqual(dimensions[0],dimensions[1]);assert.deepEqual(dimensions[0],dimensions[2]);}
@@ -2810,9 +2815,15 @@ test('UI: 2D uses the numeric event editor and refreshes its schedule',async()=>
 test('UI: relational Formats tabs save product-linked packaging and preserve a single source of operating settings',async()=>{
  const h=await setup({uiMode:'BASIC',autosaveSeconds:180});try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('[data-basic-view="products"]');assert(h.visible('products-panel'));assert(!h.visible('run-panel'));assert.equal(h.d.getElementById('products-title'),null);assert.equal(h.d.getElementById('products-panel').getAttribute('aria-label'),'Formats');
+  const checkToolbar=kind=>{
+   const add=h.d.querySelector('[aria-label="Add '+kind+'"]'),row=add.closest('.fold-tools');
+   assert.equal(h.w.getComputedStyle(row).flexWrap,'nowrap');
+   assert.equal(row.querySelectorAll('.icon-button').length,5);
+   assert(row.querySelector('select'));
+  };
   const enter=(label,value)=>{const input=h.d.querySelector('[aria-label="'+label+'"]');assert(input,label);input.value=String(value);input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
-  await h.click('[aria-label="Add product"]');enter('Product name','Product A');enter('Length along travel (mm)',60);
-  await h.click('[data-format-tab="formats"]');await h.click('[aria-label="Add format"]');enter('Format name','A / Case 12');enter('Bottles per case',12);enter('Case length along travel (mm)',300);
+  checkToolbar('product');await h.click('[aria-label="Add product"]');enter('Product name','Product A');enter('Length along travel (mm)',60);
+  await h.click('[data-format-tab="formats"]');checkToolbar('format');await h.click('[aria-label="Add format"]');enter('Format name','A / Case 12');enter('Bottles per case',12);enter('Case length along travel (mm)',300);
   assert.equal(h.d.querySelectorAll('.product-settings-table select').length,0);assert.equal(h.d.querySelector('#products-workspace .dialog-actions'),null);await settle();assert(h.visible('products-panel'));assert(!h.visible('editor-panel'));assert(!h.visible('run-panel'));
   await h.click('[data-format-tab=products]');const unused=h.d.querySelector('#products-workspace tr[data-equipment-id] input[type=number]');assert(unused.disabled);await h.click('#save-case');assert(unused.disabled);await waitFor(()=>h.storedCases()[0].metadata?.formatCatalog?.formats?.length===1);const record=h.storedCases()[0],catalog=record.metadata.formatCatalog;assert.equal(catalog.products[0].name,'Product A');assert.equal(catalog.boxes,undefined);assert.equal(catalog.formats[0].case.lengthMm,300);assert.equal(catalog.formats[0].bottlesPerCase,12);assert.equal(catalog.formats[0].productId,catalog.products[0].id);assert.equal(record.metadata.products,undefined);
   await h.click('[data-basic-view="simulation"]');const selector=h.d.getElementById('run-initial-format');assert.equal(selector.closest('.simulation-duration-grid').firstElementChild,selector.closest('label'));assert(!selector.disabled);selector.value=catalog.formats[0].id;selector.dispatchEvent(new h.w.Event('change',{bubbles:true}));await settle();assert.equal(h.w.STProducts.runFields().initialFormatId,catalog.formats[0].id);assert.equal(h.w.STProducts.currentFormat().productName,'Product A');

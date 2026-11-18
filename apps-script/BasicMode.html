@@ -1,7 +1,7 @@
 <script>
 // Optional presentation adapter. Removing its includes and hooks restores Advance.
 window.STBasicMode=(function(){
-  var state,actions,mounted=false,splitMounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,setupControls,efficiencies,runOptions,controlHomes=[],conveyorTabs,conveyorSummary,conveyorView="inputs";
+  var state,actions,basicMounted=false,splitMounted=false,initialized=false,layout,panel,inspector,inspectorHome,inspectorNext,list,listHome,nav,sectionRow,tools,title,headerActions,efficiencies,runOptions,conveyorTabs,conveyorSummary,conveyorView="inputs";
   var sections=[['equipment',__ST_TEXT__('filter.equipment'),'machine','editor'],['conveyors',__ST_TEXT__('filter.conveyors'),'conveyor','editor'],['products','Formats','box','products'],['vgraph',__ST_TEXT__('basic.vgraph'),'chart','results'],['simulation',__ST_TEXT__('shell.simulation'),'play','simulation'],['simulation2d','Simulation 2D','play','simulation2d'],['results',__ST_TEXT__('shell.results'),'chart','results'],['realdata','Real data','chart','realdata'],['whatif',__ST_TEXT__('shell.what_if'),'flask','whatif'],['comparison',__ST_TEXT__('client.compare_simulations'),'chart','comparison']];
   function basic(){return !['ADVANCE','ADVANCED'].includes(String(state?.bootstrap?.uiMode||'BASIC').toUpperCase());}
   function type(card){return card._fields?.querySelector('.equipment-type')?.value;}
@@ -30,17 +30,10 @@ window.STBasicMode=(function(){
     conveyorSummary=document.createElement('section');conveyorSummary.id='basic-conveyor-summary';panel.appendChild(conveyorSummary);
     runOptions=document.createElement('section');runOptions.id='basic-run-options';runOptions.classList.add('fold-card');runOptions.setAttribute('aria-labelledby','basic-run-options-title');var optionsTitle=node('h3',__ST_TEXT__('ui.simulation_settings'));optionsTitle.id='basic-run-options-title';var optionsHeading=node('div','','basic-options-heading fold-heading');var optionsToggle=button(optionsTitle.textContent);optionsToggle.classList.add('fold-toggle');optionsToggle.dataset.subsectionToggle='';optionsToggle.setAttribute('aria-expanded','true');optionsToggle.setAttribute('aria-controls','basic-efficiencies');optionsTitle.replaceChildren(optionsToggle);optionsHeading.append(optionsTitle);runOptions.append(optionsHeading);document.getElementById('equipment-section').before(runOptions);
     efficiencies=document.createElement('div');efficiencies.id='basic-efficiencies';efficiencies.classList.add('fold-content');runOptions.append(efficiencies);
-    setupControls=document.createElement('div');setupControls.id='basic-run-controls';runOptions.append(setupControls);
-    [['run-rounds','Rounds']].forEach(function(spec){
-      var control=document.getElementById(spec[0]),label=control.closest('label');controlHomes.push({node:label,home:label.parentNode,next:label.nextSibling});
-      var group=document.createElement('section');group.dataset.runControl=spec[0];group._label=label;setupControls.appendChild(group);
-    });
     inspector=document.getElementById('equipment-inspector');inspectorHome=inspector.parentNode;inspectorNext=inspector.nextSibling;
     window.addEventListener('st:inspector',function(){if(splitMounted){title.textContent=STEquipmentInspector.name();conveyorView='inputs';refreshData();}});
     sync(current);
   }
-  function mount(){if(mounted)return;Array.from(setupControls.children).forEach(function(group){group.appendChild(group._label);});mounted=true;}
-  function unmount(){if(!mounted)return;placeEfficiencies(false);document.querySelector('#run-panel > .section-heading > .button-row').appendChild(document.getElementById('run-simulation'));controlHomes.slice().reverse().forEach(function(c){c.home.insertBefore(c.node,c.next);});mounted=false;}
   function mountEquipmentLayout(separate){
     if(separate===splitMounted)return;
     STEquipmentInspector.release();STEquipmentInspector.hide();
@@ -52,7 +45,7 @@ window.STBasicMode=(function(){
   function placeEfficiencies(inSimulation){
     var host=inSimulation?document.getElementById('simulation-playback-efficiencies'):runOptions;
     if(efficiencies.parentNode===host)return;
-    host.insertBefore(efficiencies,inSimulation?null:setupControls);
+    host.appendChild(efficiencies);
     efficiencies.hidden=!inSimulation&&runOptions.querySelector('.fold-toggle').getAttribute('aria-expanded')==='false';
   }
   function sync(current){
@@ -63,7 +56,6 @@ window.STBasicMode=(function(){
     STPreferences.applyFontScale();
     STPreferences.applyJsonFields(root.dataset.uiMode);
     STPreferences.applyPalette(root.dataset.uiMode);
-    if(enabled)mount();else unmount();
     if(headerActions.parentNode!==sectionRow)sectionRow.appendChild(headerActions);
     mountEquipmentLayout(separate);
     var active=Boolean(state.activeCase),view=state.uiView;
@@ -100,17 +92,14 @@ window.STBasicMode=(function(){
       document.getElementById('results-empty').classList.add('hidden');document.getElementById('results-body').classList.remove('hidden');
       STLinePerformance.render(null,actions.preview?.()||state.activeCase.equipment||[]);
     }
-    // Simulation setup permanece en su propia tarjeta y usa los mismos campos que Equipment.
-    if(enabled){
-      var inSimulation=active&&section==='simulation';
+    if(enabled||basicMounted){
+      var inSimulation=enabled&&active&&section==='simulation';
       var runButton=document.getElementById('run-simulation');
       var buttonHost=inSimulation?document.getElementById('simulation-setup-tools'):document.querySelector('#run-panel > .section-heading > .button-row');
       if(runButton.parentNode!==buttonHost)buttonHost.appendChild(runButton);
       placeEfficiencies(inSimulation);
-      var roundsGroup=setupControls.querySelector('[data-run-control=run-rounds]'),roundsLabel=roundsGroup._label;
-      var roundsHost=inSimulation?document.querySelector('.simulation-duration-grid'):roundsGroup;
-      if(roundsLabel.parentNode!==roundsHost)roundsHost.appendChild(roundsLabel);
     }
+    basicMounted=enabled;
     refreshData();
     STIcons.decorate(nav);STIcons.decorate(tools);
   }
@@ -160,7 +149,7 @@ window.STBasicMode=(function(){
   function node(tag,text,cls){var n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n;}
   function metric(host,label,value){var row=node('div','','basic-metric');row.append(node('span',label),node('strong',value));host.appendChild(row);}
   function refreshData(){
-    if(!state.activeCase||!mounted&&!splitMounted)return;
+    if(!state.activeCase||!basicMounted&&!splitMounted)return;
     var equipment=actions.preview?.()||state.activeCase.equipment||[],simulation=(state.activeCase.simulations||[]).find(function(s){return s.id===state.activeSimulationId;});
     var audits=STScenarios.audit({equipment:equipment}),availability=1;
     Array.from(list.querySelectorAll('.equipment-card')).forEach(function(card,index){
@@ -181,8 +170,6 @@ window.STBasicMode=(function(){
     });
     var simulatedEfficiency=state.run.result?.provisional?null:state.run.result?.summary?.lineOeePercent;
     efficiencies.replaceChildren();metric(efficiencies,'Theoretical equipment efficiency',number(availability*100,1)+'%');metric(efficiencies,'Simulated efficiency',number(simulatedEfficiency,1)+(Number.isFinite(simulatedEfficiency)?'%':''));
-    var shifts=document.getElementById('duration-mode').value==='SHIFTS';setupControls.querySelectorAll('[data-run-control]').forEach(function(group){group.hidden=['run-shift-hours','run-shift-count'].includes(group.dataset.runControl)&&!shifts;});
-    setupControls.querySelectorAll('[data-control]').forEach(function(b){var control=document.getElementById(b.dataset.control);b.setAttribute('aria-pressed',String(control.value===b.dataset.value));b.disabled=control.disabled;});
     if(!splitMounted)return;
     var chosen=list.querySelector('.equipment-selected'),id=chosen?.dataset.equipmentId,audit=audits.find(function(x){return x.equipmentId===id;});
     if(chosen)title.textContent=chosen.querySelector('.equipment-header strong').textContent;

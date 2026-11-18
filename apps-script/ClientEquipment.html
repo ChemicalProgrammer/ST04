@@ -491,11 +491,11 @@ function numericInputValue(input) {
       return typeof value === 'number' && Number.isFinite(value);
     }
 
-    function moveEquipment(index, targetIndex) {
+    function moveEquipment(index, targetIndex, before) {
       if(!STEquipmentFilter.canReorder()||index===targetIndex||!syncEquipmentFromEditor())return;
       var line=state.activeCase.equipment;
       if(!line[index]||!line[targetIndex])return;
-      var positions=STEquipmentDrag.positions(),moved=line[index];
+      var positions=before||STEquipmentDrag.positions(),moved=line[index];
       if(STBasicMode.isSplit()){
         var conveyor=moved.type==='CONVEYOR';
         var group=line.filter(function(item){return (item.type==='CONVEYOR')===conveyor;});

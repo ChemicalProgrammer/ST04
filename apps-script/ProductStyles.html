@@ -1,7 +1,7 @@
 <style>
-.product-selector-row { display:flex; align-items:flex-end; gap:var(--space-3); flex-wrap:wrap; }
+.product-selector-row { display:flex; align-items:center; gap:var(--space-2); flex-wrap:nowrap; min-width:0; max-width:100%; overflow-x:auto; }
 #products-workspace { min-width:0; }
-#products-workspace h3,.products-dialog h3,.products-editor h3 { color:var(--secondary-text); font-size:var(--font-card); font-weight:600; margin:0 0 var(--space-3); }
+#products-workspace h3:not(.fold-heading > h3),.products-dialog h3:not(.fold-heading > h3),.products-editor h3:not(.fold-heading > h3) { color:var(--secondary-text); font-size:var(--font-card); font-weight:600; margin:0 0 var(--space-3); }
 .products-dialog { width:min(76rem,calc(100vw - 2rem)); max-width:76rem; }
 .products-dialog .dialog-body { display:flex; flex-direction:column; gap:var(--space-4); }
 .products-dialog .dialog-body h3,.products-dialog .chart-note { margin:0; }
@@ -12,7 +12,7 @@
 .products-editor .dialog-body h3,.products-editor .chart-note { margin:0; }
 .products-editor .dialog-actions { padding-inline:0; }
 .product-subsection .chart-note { margin:var(--space-2) 0; }
-.product-selector-row > select { flex:0 1 auto; min-width:0; max-width:100%; }
+.product-selector-row > select { flex:0 1 14rem; width:14rem; min-width:5rem; }
 .product-selector-row .icon-button { flex-shrink:0; }
 .product-initial-choice { margin-top:var(--space-3); }
 .product-general-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:var(--space-3); }
@@ -30,7 +30,6 @@
 .product-settings-table input[type=checkbox] { min-width:0; width:auto; }
 .product-row-inactive th,.product-row-inactive td:nth-child(n+3) { opacity:.5; }
 .product-row-inactive input:disabled { background:var(--surface-soft); color:var(--muted); cursor:not-allowed; }
-.product-selector-row + .product-general-grid { margin-top:var(--space-3); }
 .equipment-product-context { grid-column:1 / -1; margin:0; }
 .formats-tabs { padding-inline:0; margin-bottom:var(--space-3); }
 .product-settings-table input[type=text] { text-align:left; min-width:10rem; }

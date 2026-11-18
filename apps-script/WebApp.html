@@ -125,10 +125,10 @@
 
         <div id="case-data-note" class="notice hidden" role="status"></div>
 
-        <div id="equipment-section" class="fold-card">
-        <div class="editor-subheading fold-heading">
+        <div id="equipment-section" class="fold-card" aria-labelledby="equipment-subsection-title">
+        <div class="fold-heading">
           <h3><button id="equipment-subsection-title" class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="equipment-section-content">Equipment</button></h3>
-          <div class="button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import" title="Import"></summary><div><button id="open-sheet-import" class="ghost" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" class="ghost" type="button"><?= __ST_TEXT__('json.import') ?></button></div></details><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-equipment-json" class="ghost" type="button">JSON</button><button id="export-equipment-sheet" class="ghost" type="button">Spreadsheet</button></div></details><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
+          <div class="fold-tools button-row"><details class="export-menu import-menu"><summary class="icon-button" data-icon="download" aria-label="Import" title="Import"></summary><div><button id="open-sheet-import" class="ghost" type="button"><?= __ST_TEXT__('view.import_sheet') ?></button><button id="open-json-import" class="ghost" type="button"><?= __ST_TEXT__('json.import') ?></button></div></details><details class="export-menu"><summary class="icon-button" data-icon="upload" aria-label="Export" title="Export"></summary><div><button id="export-equipment-json" class="ghost" type="button">JSON</button><button id="export-equipment-sheet" class="ghost" type="button">Spreadsheet</button></div></details><button id="add-equipment" data-icon="plus" class="secondary icon-button" type="button" aria-label="<?= __ST_TEXT__('sheetimport.add_equipment') ?>" title="<?= __ST_TEXT__('sheetimport.add_equipment') ?>"></button></div>
         </div>
         <div id="equipment-section-content" class="fold-content">
         <div class="equipment-filters" role="radiogroup" aria-label="<?= __ST_TEXT__('filter.label') ?>">
