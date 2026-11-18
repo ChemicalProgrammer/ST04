@@ -22,8 +22,15 @@ window.STEquipmentRoles=(function(){
       label.appendChild(input);grid.appendChild(label);
     });
     var capacityLabel=document.createElement('label'),capacity=document.createElement('input');
-    capacityLabel.className='machine-design-field';capacityLabel.textContent='Internal capacity (bottles)';
-    capacityLabel.title='Residence time is calculated from internal capacity and nominal machine speed.';
+    capacityLabel.className='machine-design-field';
+    var capacityTitle=document.createTextNode('');capacityLabel.append(capacityTitle);
+    function refreshCapacityUnit(){
+      var unit=fields.querySelector('.equipment-input-unit')?.value||equipment.processData?.flowUnits?.input;
+      capacityTitle.nodeValue='Internal capacity ('+(unit==='CASES'?'cases':'bottles')+')';
+    }
+    fields.querySelector('.equipment-unit')?.addEventListener('change',refreshCapacityUnit);
+    refreshCapacityUnit();
+    capacityLabel.title='Maximum incoming bottles or cases held inside the equipment. Residence time is calculated from this capacity and nominal machine speed.';
     capacity.type='number';capacity.className='equipment-internal-capacity';capacity.placeholder='30';
     capacity.min='1';capacity.step='1';capacity.value=equipment.processData?.equipment?.internalCapacityBottles??'';
     capacityLabel.append(capacity);grid.append(capacityLabel);
@@ -34,6 +41,7 @@ window.STEquipmentRoles=(function(){
         fields.querySelector('.equipment-maximum-speed').value=data.equipment?.maximumSpeedBpm??'';
         fields.querySelector('.equipment-recovery-time').value=data.equipment?.recoveryTimeSeconds??'';
         capacity.value=data.equipment?.internalCapacityBottles??'';
+        refreshCapacityUnit();
       }catch(_){/* Validation handles incomplete JSON. */}
     }
     fields.querySelector('.equipment-process-data').addEventListener('change',refresh);

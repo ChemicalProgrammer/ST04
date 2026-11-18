@@ -199,12 +199,12 @@ window.STSimulation2D=(function(){
           ? (format?geometry.productPackSize(format):NaN) : 1;
         const inputBottleFactor=data.flowUnits?.input==='CASES'&&packSize>0?packSize:1;
         const bottlesPerUnit=unit==='BOTTLES'?1:packSize;
-        const capacityBottles=data.equipment?.internalCapacityBottles??Math.max(30,batch*inputBottleFactor);
+        const capacityBottles=(data.equipment?.internalCapacityBottles??Math.max(30,batch))*inputBottleFactor;
         const maximum=data.equipment?.maximumSpeedBpm;
         const designSpeedPerSecond=maximum>0?maximum/60:item.nominalRatePerSecond;
         const rate=Math.min(item.nominalRatePerSecond,designSpeedPerSecond);
         const residenceSeconds=capacityBottles/(rate*bottlesPerUnit);
-        return {capacityBottles,residenceSeconds,inputBottleFactor,id:item.id,name:item.name||item.id,
+        return {capacityBottles,residenceSeconds,inputBottleFactor,inputUnit:data.flowUnits?.input||'BOTTLES',id:item.id,name:item.name||item.id,
           kind:'machine',unit,length:1100,rate,bottlesPerUnit,designSpeedPerSecond,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
           primeRampSeconds:zones[index-1]?.primeSensorPositionMm!=null?zones[index-1].downstreamRampUpSeconds:undefined,
@@ -236,7 +236,7 @@ window.STSimulation2D=(function(){
         if(!(item.rate>0)||!Number.isInteger(item.batch)||item.batch<1)return item.name+': check nominal rate and bottles per case.';
         const minimum=item.batch*item.inputBottleFactor;
         if(!Number.isSafeInteger(item.capacityBottles)||item.capacityBottles<minimum)
-          return item.name+': set Internal capacity to at least '+num(minimum)+' bottles in Equipment.';
+          return item.name+': set Internal capacity to at least '+num(minimum/item.inputBottleFactor)+' '+(item.inputUnit==='CASES'?'cases':'bottles')+' in Equipment.';
         if(!Number.isFinite(item.residenceSeconds)||item.residenceSeconds<0)
           return item.name+': check nominal speed and the bottle equivalent of the active format.';
         continue;
@@ -331,12 +331,16 @@ window.STSimulation2D=(function(){
       {produced:animation.settled+1,progress:Math.min(1,Math.max(0,(time-animation.started)/animation.duration))};
     const group=Math.floor((result.produced-1)/12),index=(result.produced-1)%12;
     if(group>=2&&index>=9){
-      if(animation.forkGroup!==group){
+      if(animation.forkGroup!==group&&(!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod)){
         animation.forkGroup=group;
-        animation.forkPeriod=2.3*animation.duration;
-        animation.forkStarted=time-(index+result.progress-9)*animation.duration;
+        // Travel takes at least 18 simulation seconds, independently of robot throughput.
+        animation.forkPeriod=Math.max(18,2.3*animation.duration);
+        animation.forkStarted=time;
       }
+    }
+    if(Number.isFinite(animation.forkStarted)){
       result.forkProgress=Math.max(0,Math.min(1,(time-animation.forkStarted)/animation.forkPeriod));
+      result.forkGroup=animation.forkGroup;
     }
     return result;
   }
@@ -502,7 +506,7 @@ window.STSimulation2D=(function(){
         if(stage&4)summary.push(['Cap','Applied','']);
       }
       summary.push(['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']);
-    }else summary.push(['Inside',num((item.resident?.length??0)*item.inputBottleFactor)+' / '+num(item.capacityBottles),'bottles'],
+    }else summary.push(['Inside',num(item.resident?.length??0)+' / '+num(item.capacityBottles/item.inputBottleFactor),item.inputUnit==='CASES'?'cases':'bottles'],
       ['Est. residence',num(item.residenceSeconds),'s'],
       ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']);
     summary.push(['Own failures',belt?'N/A':num(item.failureCount??0),'']);
@@ -827,7 +831,7 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(line);
     const output=productionLayout(line,items,right);
     const transfer=output.pallets?palletTransfer(line.at(-1)):null;
-    const palletColors={ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight,exitX:w+140,forkProgress:transfer?.forkProgress};
+    const palletColors={ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight,exitX:w+140,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,

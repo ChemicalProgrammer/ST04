@@ -1369,6 +1369,8 @@ function addSample(runtime) {
         processedUnits: round(item.outputCount),
         internalInventoryBottles:equipmentInventoryBottles(item),
         internalCapacityBottles:item.residence?equipmentCapacityBottles(item):undefined,
+        internalInputBottleFactor:item.residence?(item.outputBottleFactor||1)/(item.inputPerOutput||1):undefined,
+        internalInputUnit:item.processData?.flowUnits?.input==='CASES'?'cases':'bottles',
         estimatedResidenceSeconds:item.residence?round(estimateResidence(item)):undefined,
         meanRatePerSecond:round(runtime.historyTicks?(item.historySum||0)/runtime.historyTicks:item.actualRatePerSecond),
         minRatePerSecond:round(item.historyMin??item.actualRatePerSecond),maxRatePerSecond:round(item.historyMax??item.actualRatePerSecond),
@@ -1602,7 +1604,9 @@ function createSummary(runtime) {
 }
 
 function equipmentCapacityBottles(equipment) {
-  return equipment.processData?.equipment?.internalCapacityBottles??Math.max(30,equipment.outputBottleFactor||1);
+  // The persisted legacy field stores incoming units; the engine balances bottle equivalents.
+  const factor=(equipment.outputBottleFactor||1)/(equipment.inputPerOutput||1);
+  return (equipment.processData?.equipment?.internalCapacityBottles??Math.max(30,equipment.inputPerOutput||1))*factor;
 }
 function estimateResidence(equipment) {
   return equipmentCapacityBottles(equipment)/((equipment.outputBottleFactor||1)*equipment.nominalRatePerSecond);
@@ -1619,6 +1623,8 @@ function createEquipmentMetrics(equipment, durationSeconds) {
   return {
     internalInventoryBottles:equipmentInventoryBottles(equipment),
     internalCapacityBottles:equipment.residence?equipmentCapacityBottles(equipment):undefined,
+    internalInputBottleFactor:equipment.residence?(equipment.outputBottleFactor||1)/(equipment.inputPerOutput||1):undefined,
+    internalInputUnit:equipment.processData?.flowUnits?.input==='CASES'?'cases':'bottles',
     estimatedResidenceSeconds:equipment.residence?round(estimateResidence(equipment)):undefined,
     reliabilityClockBasis: 'POSITIVE_PROCESSED_FLOW_TICKS',
     reliabilityExposureSeconds: round(equipment.reliabilityExposureSeconds),

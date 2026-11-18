@@ -54,7 +54,7 @@ function exportEquipmentSheet_(request, user) {
     values[0][29]='st-equipment-metadata-b-v7';
     var groups=[['Equipment',3,10],['Geometry',13,4],['Upstream',17,4],['Downstream',21,2],['Speed & Sensors',23,7],['Machine capacity',31,1],['Upstream · Conveyor Analysis',32,2]];
     groups.forEach(function(group){values[5][group[1]-1]=group[0];});
-    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[0]==='D'||column[0]==='E'?'General '+column[2]:column[2]);}).concat(['Equipment ID','Internal capacity\n[bottles]',sheetColumnHeading_(sheetDischargeVelocityHeading_()),sheetColumnHeading_(sheetRestartFirstPackageHeading_())]);
+    values[6]=sheetImportColumns_(data.layout).map(function(column){return sheetColumnHeading_(column[1]==='bottlesDischargedAtStop'?column[2]+' (bottles)':column[0]==='D'||column[0]==='E'?'General '+column[2]:column[2]);}).concat(['Equipment ID','Internal capacity\n[input bottles/cases]',sheetColumnHeading_(sheetDischargeVelocityHeading_()),sheetColumnHeading_(sheetRestartFirstPackageHeading_())]);
     values[6].splice(3,0,'Minor MTBF\n[min]','Minor MTTR\n[min]','Major MTBF\n[min]','Major MTTR\n[min]');
     data.rows.forEach(function(row,index){
       var visible=row.slice(0,25);visible.splice(3,0,...stopRows[index]);

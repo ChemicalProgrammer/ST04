@@ -59,9 +59,9 @@ function validateCase(caseModel, details,product) {
     validateStartProfile(equipment, path, details);
     const design=equipment.processData?.equipment;
     if(product&&!isConveyorEquipment(equipment)&&design?.internalCapacityBottles!=null){
-      const minimum=productUnitFactor(equipment,product);
+      const minimum=productUnitFactor(equipment,product)/productUnitFactor(equipment,product,'input');
       if(design.internalCapacityBottles<minimum)
-        details.push(invalid(path+'.processData.equipment.internalCapacityBottles',equipment.name+': internal capacity must hold at least '+minimum+' bottles for one output package.'));
+        details.push(invalid(path+'.processData.equipment.internalCapacityBottles',equipment.name+': internal capacity must hold at least '+minimum+' '+(equipment.processData?.flowUnits?.input==='CASES'?'cases':'bottles')+' for one output package.'));
     }
   });
 
@@ -191,7 +191,7 @@ function validateRequiredNonNegative(value, path, details) {
 
 function validateStartProfile(equipment, path, details) {
   const capacity=equipment.processData?.equipment?.internalCapacityBottles;
-  if(capacity!=null&&(!Number.isSafeInteger(capacity)||capacity<1))details.push(invalid(path+'.processData.equipment.internalCapacityBottles','must be a positive whole number of bottles'));
+  if(capacity!=null&&(!Number.isSafeInteger(capacity)||capacity<1))details.push(invalid(path+'.processData.equipment.internalCapacityBottles','must be a positive whole number of incoming units (bottles or cases)'));
   validateOptionalNonNegative(equipment.startupDelaySeconds, path + '.startupDelaySeconds', details);
   validateOptionalNonNegative(equipment.restartRampUpSeconds, path + '.restartRampUpSeconds', details);
   ['conveyorSpeedFactorVsDischargeVelocityPercent','codingConveyorSpeedFactorVsPreviousConveyorPercent','conveyorSpeedFactorVsPreviousConveyorPercent','overspeedVsInfeedScrewPercent'].forEach(key=>validateOptionalNonNegative(equipment.processData?.speedAndSensors?.[key],path+'.processData.speedAndSensors.'+key,details));

@@ -261,9 +261,10 @@
       card.querySelector('.live-flow-label').textContent = index === 0 ? 'Produced' : 'Processed';
       card.querySelector('.live-processed').textContent = formatNumber(unit.processedUnits === undefined ? unit.outputCount : unit.processedUnits);
       var residence=card.querySelector('.live-residence'),design=model.processData?.equipment;
+      var capacityFactor=unit.internalInputBottleFactor||1,capacityUnit=unit.internalInputUnit||(model.processData?.flowUnits?.input==='CASES'?'cases':'bottles');
       residence.classList.toggle('hidden',!Number.isFinite(unit.internalInventoryBottles));residence.hidden=false;
       residence.textContent=Number.isFinite(unit.internalInventoryBottles)?
-        formatNumber(unit.internalInventoryBottles)+' / '+formatNumber(unit.internalCapacityBottles??design?.internalCapacityBottles??30)+' bottles inside · '+(Number.isFinite(unit.estimatedResidenceSeconds)?formatNumber(unit.estimatedResidenceSeconds)+' s est. residence':'—'):'';
+        formatNumber(unit.internalInventoryBottles/capacityFactor)+' / '+formatNumber(unit.internalCapacityBottles!=null?unit.internalCapacityBottles/capacityFactor:design?.internalCapacityBottles??30)+' '+capacityUnit+' inside · '+(Number.isFinite(unit.estimatedResidenceSeconds)?formatNumber(unit.estimatedResidenceSeconds)+' s est. residence':'—'):'';
       card.querySelector('.live-oee').textContent = sample.virtualSecond > 0 && Number.isFinite(unit.oeePercent) ? formatPercent(unit.oeePercent / 100) : '—';
       var zone = sample.accumulationZones ? sample.accumulationZones.find(function(candidate) {
         return (candidate.ownerEquipmentId||state.run.result?.zoneDefinitions?.[candidate.id]?.ownerEquipmentId) === unit.id;

@@ -145,18 +145,19 @@ window.STSimulation2DMachines=(function(){
     const t=Math.max(0,Math.min(1,value));
     return t*t*t*(t*(t*6-15)+10);
   }
-  function palletStage(produced,progress,forkClock){
+  function palletStage(produced,progress,forkClock,forkGroup){
     const index=produced>0?(produced-1)%12:-1;
     const completed=produced>0?Math.floor((produced-1)/12):0;
     const exchange=index===11;
     const shift=exchange?smooth((progress-.56)/.16):0;
-    const forklift=completed>=2&&index>=9;
+    const forklift=Number.isFinite(forkClock)||completed>=2&&index>=9;
     const forkProgress=forklift?Math.max(0,Math.min(1,Number.isFinite(forkClock)?forkClock:(index+progress-9)/2.3)):0;
     return {
       index,exchange,shift,completed,
       count:index<0?0:index+(progress>=.56?1:0),
       forkProgress,forkVisible:forklift&&forkProgress<1,
-      thirdRemoved:forklift&&forkProgress>=.38
+      forkLoaded:forklift&&forkProgress>=.38,
+      thirdRemoved:forklift&&forkProgress>=.38&&(forkGroup===undefined||forkGroup===completed)
     };
   }
   function drawPalletOutput(context,x,y,outlet,colors,produced,progress,layer='all'){
@@ -167,7 +168,7 @@ window.STSimulation2DMachines=(function(){
     }
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
-    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress);
+    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.56;
     const activeX=x+100,rackX=x-85,rackY=floor+17;
     function pallet(px,py,count){
@@ -303,7 +304,7 @@ window.STSimulation2DMachines=(function(){
           context.fillStyle=belt;context.beginPath();context.arc(wheel,truckY-8,12,0,Math.PI*2);context.fill();
           context.fillStyle=soft;context.beginPath();context.arc(wheel,truckY-8,5,0,Math.PI*2);context.fill();
         }
-        if(stage.thirdRemoved)pallet(forkX,floor-lift,12);
+        if(stage.forkLoaded)pallet(forkX,floor-lift,12);
       }
       if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
       context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';

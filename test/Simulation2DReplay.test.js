@@ -303,6 +303,13 @@ test('2D uses the representative seed to calculate new production and preserves 
     loadPacker();
     assert.equal(el('play').disabled,true);
     assert.match(el('status').textContent,/at least 12 bottles/);
+    packer.processData.flowUnits={input:'CASES',output:'CASES'};
+    packer.processData.equipment.internalCapacityBottles=3;
+    loadPacker();
+    assert.equal(el('play').disabled,false);
+    assert.equal(createdDefinitions.at(-1).capacityBottles,36);
+    assert.equal(createdDefinitions.at(-1).residenceSeconds,.75);
+    packer.processData.flowUnits={input:'BOTTLES',output:'CASES'};
     delete packer.processData.equipment.internalCapacityBottles;
     loadPacker();
     assert.equal(el('play').disabled,false);
@@ -701,6 +708,10 @@ test('pallet change slides the completed pallets and removes the third before th
   assert(halfway.shift>0&&halfway.shift<1);
   assert.equal(stage(36,1).shift,1);
   assert.equal(stage(36,1).forkVisible,false);
+  const leaving=stage(37,.2,.6,2);
+  assert.equal(leaving.forkVisible,true,'truck stays visible when the next pallet starts');
+  assert.equal(leaving.forkLoaded,true);
+  assert.equal(leaving.thirdRemoved,false,'the truck carries the previous pallet');
   assert.equal(stage(37,0).shift,0);
   assert.equal(stage(37,0).count,0);
   const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
@@ -776,6 +787,11 @@ test('new palletizer output queues behind the active cycle without restarting it
   item.produced=34;context.model.time=.1;
   assert.equal(context.palletTransfer(item).forkProgress,0);
   context.model.time=5.1;
+  assert(context.palletTransfer(item).forkProgress<.3,'the forklift travels at normal speed at 1X');
+  item.produced=37;context.model.time=7;
+  const crossing=context.palletTransfer(item);
+  assert(crossing.forkProgress>0&&crossing.forkProgress<1,'travel continues across pallet cycles');
+  context.model.time=18.1;
   assert.equal(context.palletTransfer(item).forkProgress,1,'the forklift finishes leaving even if no new case arrives');
 });
 

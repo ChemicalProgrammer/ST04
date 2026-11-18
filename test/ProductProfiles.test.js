@@ -110,14 +110,40 @@ test('Bottle Live ships whole packages, conserves material and records early spa
  assert.equal(simulateLine(i).ok,false);
 });
 
-test('default machine capacity is 30 bottles and holds a full twelve-pack while explicit undersizing is reported',()=>{
+test('default machine capacity is 30 incoming units and rejects an undersized bottle packer',()=>{
  const i=input();i.run.machineResidenceEnabled=true;i.run.durationSeconds=180;
  const result=run(i);conserved(result);
  assert.equal(result.equipmentMetrics.packer.internalCapacityBottles,30);
- assert.equal(result.equipmentMetrics.sink.internalCapacityBottles,30);
+ assert.equal(result.equipmentMetrics.sink.internalCapacityBottles,360);
+ assert.equal(result.equipmentMetrics.sink.internalCapacityBottles/result.equipmentMetrics.sink.internalInputBottleFactor,30);
  assert(result.summary.outputCount>0);
  i.case.equipment[2].processData.equipment={internalCapacityBottles:10};
  const invalid=simulateLine(i);
  assert.equal(invalid.ok,false);
  assert.match(JSON.stringify(invalid.error),/packer: internal capacity must hold at least 12 bottles/);
+});
+
+test('internal capacity counts incoming cases at palletizers and incoming bottles at packers',()=>{
+ const i=input();
+ i.case.equipment[2].processData.equipment={internalCapacityBottles:24};
+ i.case.equipment[4].processData.equipment={internalCapacityBottles:3};
+ const r=run(i);conserved(r);
+ const packer=r.equipmentMetrics.packer,sink=r.equipmentMetrics.sink;
+ assert.equal(packer.internalCapacityBottles,24);
+ assert.equal(packer.internalInputBottleFactor,1);
+ assert.equal(packer.internalInputUnit,'bottles');
+ assert.equal(packer.estimatedResidenceSeconds,1);
+ assert.equal(sink.internalCapacityBottles,36);
+ assert.equal(sink.internalInputBottleFactor,12);
+ assert.equal(sink.internalInputUnit,'cases');
+ assert.equal(sink.estimatedResidenceSeconds,1.5);
+ for(const sample of r.samples){
+   const machine=sample.equipment.find(e=>e.id==='sink');
+   assert(machine.internalInventoryBottles/12<=3+1e-6);
+   assert.equal(machine.internalInputBottleFactor,12);
+ }
+ i.case.equipment[4].processData.equipment.internalCapacityBottles=1;
+ conserved(run(i));
+ i.case.equipment[2].processData.equipment.internalCapacityBottles=11;
+ assert.equal(simulateLine(i).ok,false);
 });

@@ -148,7 +148,7 @@ test('three-tab export previews equipment and filled observations via the same s
  assert.equal(values[0][17],'');assert.equal(values[4][17],'');
  assert.equal(values[6][31],'Upstream Discharge Velocity\n[m/min]');assert.equal(values[8][31],18.816);
  assert.equal(values[6][32],'Time to First Package After Restart\n[s]');assert.equal(values[8][32],2);
- assert.equal(values[7][29],request.equipment[0].id);assert.equal(values[6][29],'Equipment ID');
+ assert.equal(values[7][29],request.equipment[0].id);assert.equal(values[6][29],'Equipment ID');assert.equal(values[6][30],'Internal capacity\n[input bottles/cases]');
  assert.equal(values[2][1],46303);values[2][1]='2026-10-08';
  // Inputs and computed values returned by the dedicated tab, including blank and zero.
  actuals[4][4]=100;actuals[1][1]=1440;actuals[2][1]=0;
