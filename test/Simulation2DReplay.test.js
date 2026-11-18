@@ -663,15 +663,17 @@ test('resident bottles discharge at even headways and Back-up leaves 25 of 30 af
 test('palletizer stages a bounded symbolic output and transfers the last processed case', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'),{window});
-  const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777'};
+  const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
   function scene(produced,progress){
     const boxes=[];
-    const context=new Proxy({roundRect(...args){boxes.push(args);}},{
+    const context=new Proxy({
+      fillRect(...args){if(this.fillStyle===colors.belt)boxes.push(args);}
+    },{
       get:(target,key)=>target[key]??(()=>{})
     });
     art.drawPalletOutput(context,200,100,180,colors,produced,progress);
     assert(boxes.flat().every(Number.isFinite));
-    return boxes.filter(([, ,width,height])=>width===19&&height===14);
+    return boxes.filter(([, ,width,height])=>width===37&&height===28);
   }
   assert.equal(scene(0,1).length,0);
   const moving=scene(1,.5);

@@ -292,12 +292,20 @@ window.STSimulation2D=(function(){
     });
     return {items,right};
   }
+  function caseDimensions(line,index){
+    const upstream=line.slice(0,index).reverse().find(item=>item.kind==='belt'&&item.unit==='CASES');
+    const width=(upstream?.packageLength||300)*sceneScale;
+    return {caseWidth:width,caseHeight:upstream?productHeight(upstream):(productHeights.CASES||225)*sceneScale};
+  }
   function productionLayout(line,items,right){
     const last=items.at(-1);
     const start=last?Math.max(right,last.center+last.telemetryWidth/2)+cardGap:0;
     const palletizer=line.at(-1);
     const pallets=machineTypes.get(palletizer?.id)==='PALLETIZER'&&palletizer.unit==='CASES';
-    return {start,pallets,production:start+(pallets?300+cardGap:0)};
+    const dimensions=caseDimensions(line,line.length-1);
+    const palletWidth=3*dimensions.caseWidth+12;
+    const stagingWidth=110+3*(palletWidth+20);
+    return {start,pallets,production:start+(pallets?stagingWidth+cardGap:0),...dimensions};
   }
   function productionHeight(){
     return (88+(shiftIndex(model?.time??0)+2)*20)*tableScale;
@@ -650,19 +658,27 @@ window.STSimulation2D=(function(){
     }
     const length=item.packageLength*sceneScale,height=productHeight(item);
     const cases=item.unit==='CASES',stage=bottleStages.get(item.id)??0;
-    const labeled=Boolean(stage&1),filled=!cases&&Boolean(stage&2),capped=Boolean(stage&4);
+    const labeled=Boolean(stage&1),filled=Boolean(stage&2),capped=Boolean(stage&4);
     const marker=length*factor<2;
     const bodyWidth=marker?2/factor:length,bodyHeight=marker?Math.max(height,bodyWidth):height;
     const top=y-bodyHeight;
     const dx=bodyWidth/14,dy=bodyHeight/30;
     const products=item.items||[];
+    if(cases){
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(px+bodyWidth/2<0||px-bodyWidth/2>w)continue;
+        window.STSimulation2DMachines.drawCase(context,px-length/2,y-height,length,height,{belt:beltColor,accent});
+      }
+      return;
+    }
     const visible=px=>px+bodyWidth/2>=0&&px-bodyWidth/2<=w;
     context.beginPath();
     for(const product of products){
       const px=x+product.x*sceneScale;
       if(!visible(px))continue;
       const l=px-bodyWidth/2,r=px+bodyWidth/2;
-      if(marker||cases){
+      if(marker){
         context.rect(l,top,bodyWidth,bodyHeight);
       }else{
         // Side silhouette from BrandConveyor.
@@ -675,24 +691,11 @@ window.STSimulation2D=(function(){
         context.closePath();
       }
     }
-    context.fillStyle=cases?beltColor:filled?accent:surface;
+    context.fillStyle=filled?accent:surface;
     context.save();
     if(filled&&!marker)context.globalAlpha=.4;
     context.fill();
-    if(cases){
-      context.globalAlpha=.24;
-      context.fillStyle='#fff';context.fill();
-    }
     context.restore();
-    if(cases){
-      context.beginPath();
-      for(const product of products){
-        const px=x+product.x*sceneScale;
-        if(visible(px))context.rect(px-bodyWidth*.11,top,bodyWidth*.22,bodyHeight*.4);
-      }
-      context.fillStyle=accent;context.fill();
-      return;
-    }
     if(!marker||!filled){
       context.strokeStyle=filled?accent:beltColor;
       context.lineWidth=Math.min(bodyWidth*.16,1/factor);
@@ -857,7 +860,7 @@ window.STSimulation2D=(function(){
         const durations=item.durations||{};
         const motionSeconds=reducedMotion?.matches?0:(durations.running||0)+(durations.acceleration||0)+(durations.deceleration||0);
         const detailed=machineDesign(item)&&window.STSimulation2DMachines.draw(context,
-          machineTypes.get(item.id),x,top,width,height,{ink,soft,surface,accent,belt:beltColor,resident:item.resident?.length??0},motionSeconds);
+          machineTypes.get(item.id),x,top,width,height,{ink,soft,surface,accent,belt:beltColor,resident:item.resident?.length??0,...caseDimensions(line,index)},motionSeconds);
         if(detailed){
           const machineTrackY=y+height*.015;
           context.strokeStyle=beltColor;context.lineWidth=beltDepth*.55;context.lineCap='round';
@@ -899,7 +902,7 @@ window.STSimulation2D=(function(){
       const lastOutput=palletizer.recentOutput?.at(-1);
       const elapsed=Number.isFinite(lastOutput)?Math.max(0,(model?.time??0)-lastOutput):Infinity;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        origin+layout.left+layout.width,{ink,soft,surface,accent,belt:beltColor},
+        origin+layout.left+layout.width,{ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight},
         palletizer.produced||0,reducedMotion?.matches?1:Math.min(1,elapsed/1.2));
     }
     const productionX=origin+output.production;

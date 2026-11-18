@@ -11,6 +11,16 @@ window.STSimulation2DMachines=(function(){
   function dimensions(type){
     return Object.hasOwn(designs,type)?designs[type]:null;
   }
+  function drawCase(context,x,y,width,height,colors){
+    context.save();
+    context.fillStyle=colors.belt;
+    context.fillRect(x,y,width,height);
+    context.globalAlpha=.24;context.fillStyle='#fff';
+    context.fillRect(x,y,width,height);
+    context.globalAlpha=1;context.fillStyle=colors.accent;
+    context.fillRect(x+width*.39,y,width*.22,height*.4);
+    context.restore();
+  }
   function draw(context,type,x,y,width,height,colors,seconds){
     const design=dimensions(type);
     if(!design)return false;
@@ -128,8 +138,9 @@ window.STSimulation2DMachines=(function(){
         track();
         // Boxes already admitted by the simulation travel inside the palletizer.
         for(let i=0;i<Math.min(3,colors.resident||0);i++){
-          box(30+i*22+phase*5,38,18,12,soft,1);
-          line(39+i*22+phase*5,38,39+i*22+phase*5,43);
+          const caseWidth=(colors.caseWidth||27)*viewWidth/width;
+          const caseHeight=(colors.caseHeight||20.25)*100/height;
+          drawCase(context,25+i*(caseWidth+4)+phase*5,50-caseHeight,caseWidth,caseHeight,colors);
         }
         break;
     }
@@ -142,42 +153,70 @@ window.STSimulation2DMachines=(function(){
     function box(left,top,width,height,color){
       context.fillStyle=color;context.beginPath();context.roundRect(left,top,width,height,1.5);context.fill();context.stroke();
     }
-    function carton(left,top){
-      box(left,top,19,14,soft);
-      context.beginPath();context.moveTo(left+9.5,top);context.lineTo(left+9.5,top+5);context.stroke();
-    }
-    const floor=y+58,completed=Math.floor(produced/12),active=produced%12;
+    const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
+    const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
+    const floor=y+90,completed=Math.floor(produced/12),active=produced%12;
     const transferring=produced>0&&progress<1;
     const current=transferring?(produced-1)%12:active;
     const completedShown=Math.min(2,transferring?Math.floor((produced-1)/12):completed);
     for(let slot=0;slot<3;slot++){
-      const px=x+55+slot*80,count=slot===0?current:slot<=completedShown?12:0;
+      const px=x+100+slot*palletPitch,count=slot===0?current:slot<=completedShown?12:0;
       if(slot>0&&!count)continue;
-      box(px,floor,66,5,belt);
-      for(let leg=0;leg<3;leg++)box(px+5+leg*24,floor+5,8,6,belt);
-      box(px,floor+11,66,3,belt);
-      for(let i=0;i<count;i++)carton(px+3+i%3*20,floor-15-Math.floor(i/3)*15);
+      box(px,floor,palletWidth,5,belt);
+      for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,floor+5,8,7,belt);
+      box(px,floor+12,palletWidth,4,belt);
+      for(let i=0;i<count;i++){
+        drawCase(context,px+6+i%3*caseWidth,floor-(Math.floor(i/3)+1)*caseHeight,caseWidth,caseHeight,colors);
+      }
     }
-    // The robot transfers the latest simulated output case to a symbolic pallet.
-    const targetX=x+58+current%3*20,targetY=floor-15-Math.floor(current/3)*15;
+    const targetX=x+106+current%3*caseWidth,targetY=floor-(Math.floor(current/3)+1)*caseHeight;
     const eased=progress*progress*(3-2*progress);
     const movingX=outlet+(targetX-outlet)*eased;
-    const movingY=y-18+(targetY-y+18)*eased-55*Math.sin(progress*Math.PI);
-    const gripX=transferring?movingX+9.5:x+35,gripY=transferring?movingY-4:y-30;
-    const baseX=x+16,baseY=floor-2,elbowX=x-4,elbowY=y-72;
-    box(baseX-15,baseY,30,14,belt);
-    context.strokeStyle=accent;context.lineWidth=9;context.lineCap='round';
-    context.beginPath();context.moveTo(baseX,baseY);context.lineTo(elbowX,elbowY);context.lineTo(gripX,gripY-10);context.stroke();
-    context.strokeStyle=belt;context.lineWidth=1;
-    for(const [cx,cy] of [[baseX,baseY],[elbowX,elbowY],[gripX,gripY-10]]){
-      context.fillStyle=surface;context.beginPath();context.arc(cx,cy,5,0,Math.PI*2);context.fill();context.stroke();
+    const movingY=y-caseHeight+(targetY-y+caseHeight)*eased-70*Math.sin(progress*Math.PI);
+    const gripX=transferring?movingX+caseWidth/2:x+65;
+    const gripY=transferring?movingY-5:y-55;
+    const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
+    // Two articulated links keep the robot connected to the gripper throughout the transfer.
+    const dx=gripX-baseX,dy=gripY-12-shoulderY;
+    const distance=Math.max(1,Math.hypot(dx,dy));
+    const upper=Math.max(125,distance*.58),forearm=Math.max(135,distance*.62);
+    const angle=Math.atan2(dy,dx)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+distance*distance-forearm*forearm)/(2*upper*distance))));
+    const elbowX=baseX+upper*Math.cos(angle),elbowY=shoulderY+upper*Math.sin(angle);
+    box(baseX-31,baseY,62,18,belt);
+    box(baseX-24,baseY-9,48,9,soft);
+    box(baseX-17,shoulderY,34,42,accent);
+    box(baseX+18,baseY-32,13,25,soft);
+    for(const side of [-1,1]){
+      context.fillStyle=surface;context.beginPath();context.arc(baseX+side*24,baseY+9,2,0,2*Math.PI);context.fill();
     }
-    context.beginPath();context.moveTo(gripX-10,gripY+3);context.lineTo(gripX-10,gripY-3);context.lineTo(gripX+10,gripY-3);context.lineTo(gripX+10,gripY+3);context.stroke();
-    if(transferring)carton(movingX,movingY);
+    function link(ax,ay,bx,by,width){
+      context.lineCap='round';context.strokeStyle=belt;context.lineWidth=width+3;
+      context.beginPath();context.moveTo(ax,ay);context.lineTo(bx,by);context.stroke();
+      context.strokeStyle=accent;context.lineWidth=width;context.stroke();
+      context.strokeStyle=soft;context.lineWidth=3;
+      context.beginPath();context.moveTo(ax-3,ay);context.lineTo(bx-3,by);context.stroke();
+    }
+    link(baseX,shoulderY,elbowX,elbowY,25);
+    link(elbowX,elbowY,gripX,gripY-12,19);
+    context.strokeStyle=belt;context.lineWidth=2;
+    context.beginPath();context.moveTo(baseX+8,shoulderY);
+    context.quadraticCurveTo(elbowX+22,elbowY-22,gripX+7,gripY-12);context.stroke();
+    for(const [cx,cy,radius] of [[baseX,shoulderY,17],[elbowX,elbowY,15],[gripX,gripY-12,10]]){
+      context.lineWidth=1;context.fillStyle=belt;context.beginPath();context.arc(cx,cy,radius,0,2*Math.PI);context.fill();
+      context.fillStyle=soft;context.beginPath();context.arc(cx,cy,radius*.67,0,2*Math.PI);context.fill();context.stroke();
+      context.fillStyle=accent;context.beginPath();context.arc(cx,cy,3,0,2*Math.PI);context.fill();
+    }
+    context.lineWidth=1;context.strokeStyle=belt;
+    box(gripX-7,gripY-6,14,7,soft);
+    box(gripX-caseWidth/2-5,gripY,caseWidth+10,4,belt);
+    for(const side of [-1,1]){
+      box(gripX+side*(caseWidth/2+3)-2,gripY+4,4,8,soft);
+    }
+    if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
     context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
-    context.fillText('Pallet staging · schematic',x+170,floor+30);
+    context.fillText('Pallet staging · schematic',x+100+(3*palletPitch-20)/2,floor+32);
     context.restore();
   }
-  return {draw,dimensions,drawPalletOutput};
+  return {draw,dimensions,drawCase,drawPalletOutput};
 })();
 </script>
