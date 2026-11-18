@@ -544,17 +544,28 @@ test('UI: shared equipment inspector preserves drafts, saves the selected equipm
  }finally{h.dom.window.close();}
 });
 
-test('UI: pointer sorting highlights a stable destination and Escape cancels without saving',async()=>{
+test('UI: pointer sorting animates the live order and Escape cancels without saving',async()=>{
  const h=await setup();try{
   await h.click('#sign-in-button');await h.click('.open-case');await h.click('.sidebar [data-view="editor"]');
   const list=()=>Array.from(h.d.querySelectorAll('#equipment-list .equipment-card')),before=list().map(c=>c.dataset.equipmentId);
-  list().forEach((c,i)=>{c.getBoundingClientRect=()=>({top:100+i*80,height:60});});
+  const animations=[];
+  const visualOrder=()=>list().sort((a,b)=>Number(a.style.order||a.dataset.index)-Number(b.style.order||b.dataset.index));
+  list().forEach(c=>{
+   c.getBoundingClientRect=()=>({top:100+visualOrder().indexOf(c)*80+(Number(c.style.transform.match(/,(-?\d+)px/)?.[1])||0),height:60});
+   c.animate=frames=>{const animation={id:c.dataset.equipmentId,frames,cancel(){}};animations.push(animation);return animation;};
+  });
   const handle=list()[0].querySelector('.equipment-drag');let captured=false;handle.setPointerCapture=()=>{captured=true;};handle.hasPointerCapture=()=>captured;handle.releasePointerCapture=()=>{captured=false;};
   const event=(y)=>({button:0,clientY:y,pointerId:1,preventDefault(){}});
   handle.onpointerdown(event(130));handle.onpointermove(event(290));
-  await waitFor(()=>list()[2].classList.contains('equipment-drop-target'));
-  assert.match(list()[0].style.transform,/160px/);assert(list().slice(1).every(c=>c.style.transform===''));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
-  h.w.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Escape'}));assert(list().every(c=>c.style.transform===''&&!c.classList.contains('equipment-drop-target')));assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);
+  await waitFor(()=>list()[0].style.order==='2');
+  assert.deepEqual(visualOrder().slice(0,3).map(c=>c.dataset.equipmentId),[before[1],before[2],before[0]]);
+  assert(animations.some(animation=>animation.id===before[1]&&animation.frames[0].transform==='translate(0px,80px)'));
+  assert.equal(list()[0].getBoundingClientRect().top,260);
+  assert.deepEqual(list().map(c=>c.dataset.equipmentId),before);
+  assert.equal(h.calls.filter(c=>c==='saveCase').length,0);
+  h.w.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'Escape'}));
+  assert(list().every(c=>c.style.transform===''&&c.style.order===''));
+  assert.deepEqual(visualOrder().map(c=>c.dataset.equipmentId),before);
   handle.onpointerdown(event(130));handle.onpointermove(event(290));handle.onpointerup(event(290));
   assert.equal(list()[2].dataset.equipmentId,before[0]);await h.click('#save-case');await waitFor(()=>h.storedCases()[0].equipment[2].id===before[0]);assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}

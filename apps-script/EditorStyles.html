@@ -40,7 +40,6 @@
 
 
 .equipment-drag { cursor:grab; touch-action:none; }
-.equipment-drop-target { outline:var(--focus-width) solid var(--accent); background:var(--accent-soft); }
 .equipment-card { transition:background var(--duration-fast), opacity var(--duration-fast); }
 
 .equipment-card .equipment-fields { display:none; }
@@ -68,8 +67,8 @@
 #json-help-fields dd { margin:var(--space-1) 0 var(--space-3); color:var(--muted); }
 #gemini-chat-view { display:flex; flex-direction:column; flex:1; min-height:0; gap:var(--space-3); }
 
+#equipment-list:has(.equipment-dragging) { overflow-anchor:none; }
 .equipment-card.equipment-dragging { position:relative; z-index:var(--z-header); transition:none; cursor:grabbing; box-shadow:var(--shadow-dialog); opacity:.85; will-change:transform; }
-.equipment-card.equipment-drop-target { outline:2px solid var(--accent); outline-offset:-2px; }
 .equipment-card { cursor:pointer; }
 .equipment-card:focus-visible { outline:var(--focus-width) solid var(--accent); outline-offset:var(--space-1); }
 

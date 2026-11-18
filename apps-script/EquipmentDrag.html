@@ -1,15 +1,24 @@
 <script>
 window.STEquipmentDrag=(function(){
+ var animations=new WeakMap();
+ function stopAnimations(items){
+  items.forEach(function(item){animations.get(item)?.cancel();animations.delete(item);});
+ }
  function cards(){return Array.from(document.querySelectorAll('#equipment-list .equipment-card:not(.hidden)'));}
  function position(card){var r=card.getBoundingClientRect();return {left:r.left||0,top:r.top,width:r.width||0,height:r.height};}
  function positions(){return new Map(cards().map(function(card){return [card.dataset.equipmentId,position(card)];}));}
  function translate(x,y){return 'translate('+x+'px,'+y+'px)';}
+ function animateCard(card,prior){
+  if(!prior||!card.animate||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var after=position(card),x=prior.left-after.left,y=prior.top-after.top;
+  if(!x&&!y)return;
+  animations.set(card,card.animate([{transform:translate(x,y)},{transform:translate(0,0)}],{
+   duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'
+  }));
+ }
  function animate(before,id){
   cards().forEach(function(card){
-   var prior=before.get(card.dataset.equipmentId),after=position(card);
-   if(prior&&card.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-    card.animate([{transform:translate(prior.left-after.left,prior.top-after.top)},{transform:translate(0,0)}],{duration:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-normal'))||180,easing:'ease-out'});
-   }
+   animateCard(card,before.get(card.dataset.equipmentId));
    if(card.dataset.equipmentId===id)card.querySelector('.equipment-drag').focus({preventScroll:true});
   });
  }
@@ -24,22 +33,36 @@ window.STEquipmentDrag=(function(){
   handle.onpointerdown=function(e){
    if(e.button!==0||handle.disabled)return;
    e.preventDefault();handle.setPointerCapture(e.pointerId);
-   var all=cards(),rects=all.map(position),from=all.indexOf(card),target=from;
+   var all=cards();stopAnimations(all);
+   var rects=all.map(position),from=all.indexOf(card),target=from;
    var startX=e.clientX||0,startY=e.clientY,lastX=startX,lastY=startY,frame=null,moved=false;
    var startScrollX=window.scrollX,startScrollY=window.scrollY;
+   var origin=rects[from],baseX=origin.left+startScrollX,baseY=origin.top+startScrollY;
+   function setPreviewOrder(next){
+    var before=positions();
+    stopAnimations(all);
+    // CSS order lets the grid lay out cards at their actual sizes while the saved order stays intact.
+    var order=all.slice();
+    order.splice(from,1);order.splice(next,0,card);
+    order.forEach(function(item,i){item.style.order=String(i);});
+    card.style.transform='';
+    var base=position(card);
+    baseX=base.left+window.scrollX;baseY=base.top+window.scrollY;
+    all.forEach(function(item){
+     if(item===card)return;
+     animateCard(item,before.get(item.dataset.equipmentId));
+    });
+    target=next;
+   }
    function preview(){
-    var dx=lastX-startX+window.scrollX-startScrollX,dy=lastY-startY+window.scrollY-startScrollY;
-    var origin=rects[from],x=origin.left+origin.width/2+dx,y=origin.top+origin.height/2+dy;
+    var x=origin.left+origin.width/2+lastX-startX+window.scrollX-startScrollX;
+    var y=origin.top+origin.height/2+lastY-startY+window.scrollY-startScrollY;
     var next=rects.reduce(function(best,r,i){
       var distance=Math.hypot(x-r.left-r.width/2,y-r.top-r.height/2);
       return distance<best.distance?{index:i,distance:distance}:best;
     },{index:from,distance:Infinity}).index;
-    if(target!==next){
-      all[target].classList.remove('equipment-drop-target');
-      target=next;
-      if(target!==from)all[target].classList.add('equipment-drop-target');
-    }
-    card.style.transform=translate(dx,dy);
+    if(target!==next)setPreviewOrder(next);
+    card.style.transform=translate(origin.left+lastX-startX+window.scrollX-baseX,origin.top+lastY-startY+window.scrollY-baseY);
    }
    function drawFrame(){
     frame=null;
@@ -50,11 +73,14 @@ window.STEquipmentDrag=(function(){
     if(lastY<edge||lastY>window.innerHeight-edge)queueFrame();
    }
    function queueFrame(){if(frame===null)frame=requestAnimationFrame(drawFrame);}
-   function clear(ev){
+   function clear(ev,committing){
     if(ev.type==='keydown'&&ev.key!=='Escape')return;
     if(frame!==null)cancelAnimationFrame(frame);
-    all[target].classList.remove('equipment-drop-target');
+    var before=moved&&!committing?positions():null;
+    stopAnimations(all);
+    all.forEach(function(item){item.style.order='';});
     card.classList.remove('equipment-dragging');card.style.transform='';
+    if(before)all.forEach(function(item){animateCard(item,before.get(item.dataset.equipmentId));});
     handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;
     window.removeEventListener('keydown',clear);
     if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);
@@ -71,7 +97,7 @@ window.STEquipmentDrag=(function(){
       lastX=ev.clientX||0;lastY=ev.clientY;preview();
       if(target!==from){
         var before=positions(),destination=Number(all[target].dataset.index);
-        clear(ev);move(index,destination,before);return;
+        clear(ev,true);move(index,destination,before);return;
       }
     }
     clear(ev);
