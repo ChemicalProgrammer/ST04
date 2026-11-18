@@ -149,12 +149,12 @@ window.STSimulation2DMachines=(function(){
     const index=produced>0?(produced-1)%12:-1;
     const completed=produced>0?Math.floor((produced-1)/12):0;
     const exchange=index===11;
-    const shift=exchange?smooth((progress-.56)/.16):0;
+    const shift=exchange?smooth((progress-.6)/.34):0;
     const forklift=Number.isFinite(forkClock)||completed>=2&&index>=9;
     const forkProgress=forklift?Math.max(0,Math.min(1,Number.isFinite(forkClock)?forkClock:(index+progress-9)/2.3)):0;
     return {
       index,exchange,shift,completed,
-      count:index<0?0:index+(progress>=.56?1:0),
+      count:index<0?0:index+(progress>=.6?1:0),
       forkProgress,forkVisible:forklift&&forkProgress<1,
       forkLoaded:forklift&&forkProgress>=.38,
       thirdRemoved:forklift&&forkProgress>=.38&&(forkGroup===undefined||forkGroup===completed)
@@ -169,7 +169,7 @@ window.STSimulation2DMachines=(function(){
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
-    const transferring=produced>0&&progress<.56;
+    const transferring=produced>0&&progress<.6;
     const activeX=x+100,rackX=x-85,rackY=floor+17;
     function pallet(px,py,count){
       box(px,py,palletWidth,5,belt);
@@ -183,42 +183,42 @@ window.STSimulation2DMachines=(function(){
       // Empty pallets wait behind the robot, ready for the next change.
       pallet(rackX,rackY+12,0);
       pallet(rackX,rackY+6,0);
-      if(!stage.exchange||progress<.7)pallet(rackX,rackY,0);
+      if(!stage.exchange||progress<.74)pallet(rackX,rackY,0);
     }
     if(layer!=='robot'){
       pallet(activeX+stage.shift*palletPitch,floor,stage.count);
       if(stage.completed>=1)pallet(activeX+(1+stage.shift)*palletPitch,floor,12);
-      if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor-8*smooth((stage.forkProgress-.28)/.1),12);
-      if(stage.exchange&&progress>=.9)pallet(activeX,floor,0);
+      if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor,12);
+      if(stage.exchange&&progress>=.94)pallet(activeX,floor,0);
     }
     const placement=Math.max(0,produced-1)%12;
     const targetX=x+106+placement%3*caseWidth,targetY=floor-(Math.floor(placement/3)+1)*caseHeight;
-    const returning=progress>=.64;
-    const phase=returning?smooth((progress-.64)/.28):smooth((progress-.12)/.44);
+    const returning=progress>=.6;
+    const phase=returning?smooth((progress-.6)/.4):smooth((progress-.04)/.56);
     const fraction=returning?1-phase:phase;
     const movingX=outlet+(targetX-outlet)*fraction;
     const movingY=y-caseHeight+(targetY-y+caseHeight)*fraction-70*Math.sin(phase*Math.PI);
-    const approaching=progress<.12;
-    const clearance=approaching?30*(1-smooth(progress/.12)):
-      returning?30*smooth((progress-.64)/.28):0;
+    const approaching=progress<.04;
+    const clearance=approaching?30*(1-smooth(progress/.04)):
+      returning?30*smooth((progress-.6)/.4):0;
     let gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
     let gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
     let gripperWidth=caseWidth,emptyPallet=null;
-    if(stage.exchange&&progress>=.56){
+    if(stage.exchange&&progress>=.6){
       const depositX=targetX+caseWidth/2,depositY=targetY-5;
       const rackGripX=rackX+palletWidth/2,rackGripY=rackY-5;
-      if(progress<.7){
-        const t=smooth((progress-.56)/.14);
+      if(progress<.74){
+        const t=smooth((progress-.6)/.14);
         gripX=depositX+(rackGripX-depositX)*t;
         gripY=depositY+(rackGripY-depositY)*t-55*Math.sin(t*Math.PI);
         gripperWidth=caseWidth+(palletWidth-caseWidth)*t;
-      }else if(progress<.9){
-        const t=smooth((progress-.7)/.2);
+      }else if(progress<.94){
+        const t=smooth((progress-.74)/.2);
         const left=rackX+(activeX-rackX)*t,top=rackY+(floor-rackY)*t-60*Math.sin(t*Math.PI);
         emptyPallet={left,top};
         gripX=left+palletWidth/2;gripY=top-5;gripperWidth=palletWidth;
       }else{
-        const t=smooth((progress-.9)/.1);
+        const t=smooth((progress-.94)/.06);
         const dockX=activeX+palletWidth/2,dockY=floor-5;
         gripX=dockX+(outlet+caseWidth/2-dockX)*t;
         gripY=dockY+(y-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
@@ -286,7 +286,7 @@ window.STSimulation2DMachines=(function(){
         const t=stage.forkProgress;
         const forkX=t<.28?exit+(pickup-exit)*smooth(t/.28):
           t<.46?pickup:pickup+(exit-pickup)*smooth((t-.46)/.54);
-        const lift=8*smooth((t-.28)/.1);
+        const lift=0;
         const truckX=forkX+palletWidth+8,truckY=floor+16;
         context.strokeStyle=belt;context.lineWidth=2;
         // Forks point toward the pallet so the truck reverses out to the right.

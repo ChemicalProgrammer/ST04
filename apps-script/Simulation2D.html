@@ -304,8 +304,11 @@ window.STSimulation2D=(function(){
     const pallets=machineTypes.get(palletizer?.id)==='PALLETIZER'&&palletizer.unit==='CASES';
     const dimensions=caseDimensions(line,line.length-1);
     const palletWidth=3*dimensions.caseWidth+12;
-    const stagingWidth=110+3*(palletWidth+20);
-    return {start,pallets,production:start+(pallets?stagingWidth+cardGap:0),...dimensions};
+    const stagingWidth=100+3*palletWidth+40;
+    const production=pallets?start+100+(3*palletWidth+40-cardWidth)/2:start;
+    // Keep the whole production table above the tallest loaded pallet.
+    const productionY=pallets?90-4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
+    return {start,pallets,production,productionY,right:pallets?start+stagingWidth:start+cardWidth,...dimensions};
   }
   function palletTransfer(item){
     const time=model?.time??0,produced=item.produced||0;
@@ -378,8 +381,8 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(line);
     const last=items.at(-1);
     const output=productionLayout(line,items,right);
-    const length=(last?output.production+cardWidth:0)/sceneScale;
-    const top=sceneTop(),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,-40+productionHeight());
+    const length=(last?Math.max(output.right,output.production+cardWidth):0)/sceneScale;
+    const top=Math.max(sceneTop(),-output.productionY+8),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,output.productionY+productionHeight(),output.pallets?138:0);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));
@@ -973,7 +976,7 @@ window.STSimulation2D=(function(){
         pickup,palletColors,transfer.produced,transfer.progress,'foreground');
     }
     const productionX=origin+output.production;
-    if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y-40,ink,border,surface,muted,soft);
+    if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y+output.productionY,ink,border,surface,muted,soft);
   }
   function status(){
     const sourceStatus=(defaultRun?' · Round '+representative.round+' · Seed '+representative.seed:' · Seed '+seed)

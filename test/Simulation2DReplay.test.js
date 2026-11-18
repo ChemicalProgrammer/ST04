@@ -703,8 +703,8 @@ test('pallet change slides the completed pallets and removes the third before th
   assert.equal(stage(34,.2).forkVisible,true);
   assert.equal(stage(34,.2).thirdRemoved,false);
   assert.equal(stage(35,.1).thirdRemoved,true);
-  assert.equal(stage(36,.55).shift,0);
-  const halfway=stage(36,.64);
+  assert.equal(stage(36,.6).shift,0);
+  const halfway=stage(36,.77);
   assert(halfway.shift>0&&halfway.shift<1);
   assert.equal(stage(36,1).shift,1);
   assert.equal(stage(36,1).forkVisible,false);
@@ -715,15 +715,15 @@ test('pallet change slides the completed pallets and removes the third before th
   assert.equal(stage(37,0).shift,0);
   assert.equal(stage(37,0).count,0);
   const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
-  function palletDecks(produced,progress){
+  function palletDecks(produced,progress,extraColors={}){
     const decks=[];
     const context=new Proxy({roundRect(x,y,w,h){
       if(w===123&&h===5)decks.push([x,y]);
     }},{get:(target,key)=>target[key]??(()=>{})});
-    art.drawPalletOutput(context,200,100,180,colors,produced,progress,'foreground');
+    art.drawPalletOutput(context,200,100,180,{...colors,...extraColors},produced,progress,'foreground');
     return decks;
   }
-  const before=palletDecks(36,.55),moving=palletDecks(36,.64),after=palletDecks(36,1);
+  const before=palletDecks(36,.6),moving=palletDecks(36,.77),after=palletDecks(36,1);
   assert(before.some(([x])=>x===300));
   assert(moving[0][0]>300&&moving[0][0]<443);
   assert(after.some(([x,y])=>x===300&&y===190));
@@ -731,6 +731,14 @@ test('pallet change slides the completed pallets and removes the third before th
   assert(after.some(([x,y])=>x===586&&y===190));
   const held=palletDecks(36,.8).find(([x,y])=>y<190&&x<300);
   assert(held,'the robot carries an empty pallet from the rack');
+  const level=palletDecks(34,.4,{forkProgress:.34,forkGroup:2});
+  assert.equal(level.length,3);
+  assert(level.every(([,y])=>y===190),'all three staged pallets stay on the same floor');
+  const loaded=palletDecks(34,.4,{forkProgress:.5,forkGroup:2});
+  assert(loaded.every(([,y])=>y===190),'the carried pallet stays aligned with the staging level');
+  const oldShift=(.875*.875*(3-2*.875)),newShift=stage(36,.7).shift;
+  assert(newShift<oldShift/2,'pallet travel spreads over more of the cycle');
+
 });
 
 test('a palletizer case crosses continuously from belt exit through the machine to pickup', () => {
@@ -810,11 +818,12 @@ test('palletizer wrist returns continuously to pickup across release and consecu
     assert.equal(left.length,right.length);
     left.forEach((value,i)=>assert(Math.abs(value-right[i])<.001));
   }
-  close(joints(1,.559999),joints(1,.560001));
-  close(joints(1,.639999),joints(1,.640001));
+  close(joints(1,.599999),joints(1,.600001));
+  close(joints(1,.039999),joints(1,.040001));
+  assert.notDeepEqual(joints(1,.95),joints(1,.99),'return motion continues to the end of the cycle');
   close(joints(1,.999999),joints(2,0));
   close(joints(0,1),joints(1,0));
-  for(const boundary of [.56,.7,.9]){
+  for(const boundary of [.6,.74,.94]){
     close(joints(12,boundary-.000001),joints(12,boundary+.000001));
   }
   close(joints(12,.999999),joints(13,0));
@@ -923,4 +932,22 @@ test('equipment efficiency multiplies quality and speed and uses only internal d
   assert(Math.abs(result.operationalEfficiency-.36)<1e-12);
   assert(Math.abs(result.throughput-3.6)<1e-12);
   assert.equal(calculate({runningSeconds:0,internalDowntimeSeconds:0,goodProducts:0,designSpeed:10}).availability,null);
+});
+
+
+test('production table centers above the three pallet positions and fits their full width',()=>{
+  const source=script('Simulation2D');
+  const context=vm.createContext({machineTypes:new Map([['robot','PALLETIZER']]),cardGap:24,cardWidth:127.125,
+    caseDimensions:()=>({caseWidth:37,caseHeight:28}),productionHeight:()=>80});
+  vm.runInContext(source.slice(source.indexOf('  function productionLayout('),source.indexOf('  function palletTransfer(')),context);
+  const layout=context.productionLayout([{id:'robot',unit:'CASES'}],[{center:100,telemetryWidth:160}],200);
+  const palletWidth=3*37+12;
+  const center=layout.start+100+(3*palletWidth+40)/2;
+  assert.equal(layout.production+127.125/2,center);
+  assert(layout.productionY+80<=90-4*28-24,'table clears the highest stacked cases');
+  assert.equal(layout.right,layout.start+100+3*palletWidth+40);
+  context.machineTypes.clear();
+  const plain=context.productionLayout([{id:'robot',unit:'BOTTLES'}],[{center:100,telemetryWidth:160}],200);
+  assert.equal(plain.production,plain.start);
+  assert.equal(plain.productionY,-40);
 });
