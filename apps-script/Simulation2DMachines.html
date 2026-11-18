@@ -141,6 +141,24 @@ window.STSimulation2DMachines=(function(){
     context.restore();
     return true;
   }
+  function smooth(value){
+    const t=Math.max(0,Math.min(1,value));
+    return t*t*t*(t*(t*6-15)+10);
+  }
+  function palletStage(produced,progress,forkClock){
+    const index=produced>0?(produced-1)%12:-1;
+    const completed=produced>0?Math.floor((produced-1)/12):0;
+    const exchange=index===11;
+    const shift=exchange?smooth((progress-.56)/.16):0;
+    const forklift=completed>=2&&index>=9;
+    const forkProgress=forklift?Math.max(0,Math.min(1,Number.isFinite(forkClock)?forkClock:(index+progress-9)/2.3)):0;
+    return {
+      index,exchange,shift,completed,
+      count:index<0?0:index+(progress>=.56?1:0),
+      forkProgress,forkVisible:forklift&&forkProgress<1,
+      thirdRemoved:forklift&&forkProgress>=.38
+    };
+  }
   function drawPalletOutput(context,x,y,outlet,colors,produced,progress,layer='all'){
     const {ink,soft,surface,accent,belt}=colors;
     context.save();context.lineWidth=1;context.strokeStyle=belt;
@@ -149,28 +167,31 @@ window.STSimulation2DMachines=(function(){
     }
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
-    const floor=y+90,completed=Math.floor(produced/12),active=produced%12;
+    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress);
     const transferring=produced>0&&progress<.56;
-    const current=transferring?(produced-1)%12:active;
-    const completedShown=Math.min(2,transferring?Math.floor((produced-1)/12):completed);
-    if(layer!=='robot'){
-      for(let slot=0;slot<3;slot++){
-        const px=x+100+slot*palletPitch,count=slot===0?current:slot<=completedShown?12:0;
-        if(slot>0&&!count)continue;
-        box(px,floor,palletWidth,5,belt);
-        for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,floor+5,8,7,belt);
-        box(px,floor+12,palletWidth,4,belt);
-        for(let i=0;i<count;i++){
-          drawCase(context,px+6+i%3*caseWidth,floor-(Math.floor(i/3)+1)*caseHeight,caseWidth,caseHeight,colors);
-        }
+    const activeX=x+100,rackX=x-85,rackY=floor+17;
+    function pallet(px,py,count){
+      box(px,py,palletWidth,5,belt);
+      for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,py+5,8,7,belt);
+      box(px,py+12,palletWidth,4,belt);
+      for(let i=0;i<count;i++){
+        drawCase(context,px+6+i%3*caseWidth,py-(Math.floor(i/3)+1)*caseHeight,caseWidth,caseHeight,colors);
       }
+    }
+    if(layer!=='foreground'){
+      // Empty pallets wait behind the robot, ready for the next change.
+      pallet(rackX,rackY+12,0);
+      pallet(rackX,rackY+6,0);
+      if(!stage.exchange||progress<.7)pallet(rackX,rackY,0);
+    }
+    if(layer!=='robot'){
+      pallet(activeX+stage.shift*palletPitch,floor,stage.count);
+      if(stage.completed>=1)pallet(activeX+(1+stage.shift)*palletPitch,floor,12);
+      if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor-8*smooth((stage.forkProgress-.28)/.1),12);
+      if(stage.exchange&&progress>=.9)pallet(activeX,floor,0);
     }
     const placement=Math.max(0,produced-1)%12;
     const targetX=x+106+placement%3*caseWidth,targetY=floor-(Math.floor(placement/3)+1)*caseHeight;
-    const smooth=value=>{
-      const t=Math.max(0,Math.min(1,value));
-      return t*t*t*(t*(t*6-15)+10);
-    };
     const returning=progress>=.64;
     const phase=returning?smooth((progress-.64)/.28):smooth((progress-.12)/.44);
     const fraction=returning?1-phase:phase;
@@ -179,12 +200,35 @@ window.STSimulation2DMachines=(function(){
     const approaching=progress<.12;
     const clearance=approaching?30*(1-smooth(progress/.12)):
       returning?30*smooth((progress-.64)/.28):0;
-    const gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
-    const gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
+    let gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
+    let gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
+    let gripperWidth=caseWidth,emptyPallet=null;
+    if(stage.exchange&&progress>=.56){
+      const depositX=targetX+caseWidth/2,depositY=targetY-5;
+      const rackGripX=rackX+palletWidth/2,rackGripY=rackY-5;
+      if(progress<.7){
+        const t=smooth((progress-.56)/.14);
+        gripX=depositX+(rackGripX-depositX)*t;
+        gripY=depositY+(rackGripY-depositY)*t-55*Math.sin(t*Math.PI);
+        gripperWidth=caseWidth+(palletWidth-caseWidth)*t;
+      }else if(progress<.9){
+        const t=smooth((progress-.7)/.2);
+        const left=rackX+(activeX-rackX)*t,top=rackY+(floor-rackY)*t-60*Math.sin(t*Math.PI);
+        emptyPallet={left,top};
+        gripX=left+palletWidth/2;gripY=top-5;gripperWidth=palletWidth;
+      }else{
+        const t=smooth((progress-.9)/.1);
+        const dockX=activeX+palletWidth/2,dockY=floor-5;
+        gripX=dockX+(outlet+caseWidth/2-dockX)*t;
+        gripY=dockY+(y-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
+        gripperWidth=palletWidth+(caseWidth-palletWidth)*t;
+      }
+    }
     const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
     const reach=Math.max(
       Math.hypot(outlet+caseWidth/2-baseX,y-caseHeight-17-shoulderY),
-      Math.hypot(x+106+2.5*caseWidth-baseX,floor-4*caseHeight-17-shoulderY)
+      Math.hypot(x+106+2.5*caseWidth-baseX,floor-4*caseHeight-17-shoulderY),
+      Math.hypot(rackX+palletWidth/2-baseX,rackY-17-shoulderY)
     );
     const upper=Math.max(125,reach*.58),forearm=Math.max(135,reach*.62);
     const dx=gripX-baseX,dy=gripY-12-shoulderY;
@@ -228,18 +272,45 @@ window.STSimulation2DMachines=(function(){
       }
       context.lineWidth=1;context.strokeStyle=belt;
       box(gripX-7,gripY-6,14,7,soft);
-      box(gripX-caseWidth/2-5,gripY,caseWidth+10,4,belt);
+      box(gripX-gripperWidth/2-5,gripY,gripperWidth+10,4,belt);
       for(const side of [-1,1]){
-        box(gripX+side*(caseWidth/2+3)-2,gripY+4,4,8,soft);
+        box(gripX+side*(gripperWidth/2+3)-2,gripY+4,4,8,soft);
       }
     }
     if(layer!=='robot'){
+      if(emptyPallet)pallet(emptyPallet.left,emptyPallet.top,0);
+      if(stage.forkVisible){
+        const pickup=activeX+2*palletPitch;
+        const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
+        const t=stage.forkProgress;
+        const forkX=t<.28?exit+(pickup-exit)*smooth(t/.28):
+          t<.46?pickup:pickup+(exit-pickup)*smooth((t-.46)/.54);
+        const lift=8*smooth((t-.28)/.1);
+        const truckX=forkX+palletWidth+8,truckY=floor+16;
+        context.strokeStyle=belt;context.lineWidth=2;
+        // Forks point toward the pallet so the truck reverses out to the right.
+        box(forkX,truckY-8-lift,palletWidth+10,4,belt);
+        box(truckX-4,truckY-94,7,98,belt);
+        box(truckX+8,truckY-90,5,70,belt);
+        box(truckX+8,truckY-92,72,6,soft);
+        box(truckX+75,truckY-86,5,63,belt);
+        box(truckX+15,truckY-43,66,32,accent);
+        box(truckX+66,truckY-49,24,38,soft);
+        box(truckX+27,truckY-65,22,5,belt);
+        box(truckX+30,truckY-62,5,19,belt);
+        context.beginPath();context.moveTo(truckX+18,truckY-62);context.lineTo(truckX+26,truckY-45);context.stroke();
+        for(const wheel of [truckX+18,truckX+76]){
+          context.fillStyle=belt;context.beginPath();context.arc(wheel,truckY-8,12,0,Math.PI*2);context.fill();
+          context.fillStyle=soft;context.beginPath();context.arc(wheel,truckY-8,5,0,Math.PI*2);context.fill();
+        }
+        if(stage.thirdRemoved)pallet(forkX,floor-lift,12);
+      }
       if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
       context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
       context.fillText('Pallet staging · schematic',x+100+(3*palletPitch-20)/2,floor+32);
     }
     context.restore();
   }
-  return {draw,dimensions,drawCase,drawPalletOutput};
+  return {draw,dimensions,drawCase,drawPalletOutput,palletStage};
 })();
 </script>

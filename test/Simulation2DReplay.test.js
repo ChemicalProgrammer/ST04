@@ -688,6 +688,40 @@ test('palletizer stages a bounded symbolic output and transfers the last process
   assert.equal(scene(0,1).length,0);
 });
 
+test('pallet change slides the completed pallets and removes the third before the next shift', () => {
+  const window={};
+  vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const art=window.STSimulation2DMachines,stage=art.palletStage;
+  assert.equal(stage(33,1).forkVisible,false);
+  assert.equal(stage(34,.2).forkVisible,true);
+  assert.equal(stage(34,.2).thirdRemoved,false);
+  assert.equal(stage(35,.1).thirdRemoved,true);
+  assert.equal(stage(36,.55).shift,0);
+  const halfway=stage(36,.64);
+  assert(halfway.shift>0&&halfway.shift<1);
+  assert.equal(stage(36,1).shift,1);
+  assert.equal(stage(36,1).forkVisible,false);
+  assert.equal(stage(37,0).shift,0);
+  assert.equal(stage(37,0).count,0);
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+  function palletDecks(produced,progress){
+    const decks=[];
+    const context=new Proxy({roundRect(x,y,w,h){
+      if(w===123&&h===5)decks.push([x,y]);
+    }},{get:(target,key)=>target[key]??(()=>{})});
+    art.drawPalletOutput(context,200,100,180,colors,produced,progress,'foreground');
+    return decks;
+  }
+  const before=palletDecks(36,.55),moving=palletDecks(36,.64),after=palletDecks(36,1);
+  assert(before.some(([x])=>x===300));
+  assert(moving[0][0]>300&&moving[0][0]<443);
+  assert(after.some(([x,y])=>x===300&&y===190));
+  assert(after.some(([x,y])=>x===443&&y===190));
+  assert(after.some(([x,y])=>x===586&&y===190));
+  const held=palletDecks(36,.8).find(([x,y])=>y<190&&x<300);
+  assert(held,'the robot carries an empty pallet from the rack');
+});
+
 test('a palletizer case crosses continuously from belt exit through the machine to pickup', () => {
   const source=script('Simulation2D');
   const context=vm.createContext({
@@ -728,16 +762,21 @@ test('new palletizer output queues behind the active cycle without restarting it
   assert.equal(context.palletTransfer(item).progress,0);
   context.model.time=1;
   const moving=context.palletTransfer(item);
-  assert(Math.abs(moving.progress-.225)<1e-8);
+  assert(Math.abs(moving.progress-.45)<1e-8);
   item.produced=2;
   assert.equal(context.palletTransfer(item).progress,moving.progress);
   assert.equal(context.palletTransfer(item).produced,1);
-  context.model.time=4.1;
+  context.model.time=2.1;
   assert.equal(context.palletTransfer(item).produced,2);
-  context.model.time=8.1;
+  context.model.time=4.1;
   assert.equal(context.palletTransfer(item).progress,1);
   context.model={time:0};item.produced=0;
   assert.equal(context.palletTransfer(item).produced,0);
+  context.model={time:0};item.produced=33;context.palletTransfer(item);
+  item.produced=34;context.model.time=.1;
+  assert.equal(context.palletTransfer(item).forkProgress,0);
+  context.model.time=5.1;
+  assert.equal(context.palletTransfer(item).forkProgress,1,'the forklift finishes leaving even if no new case arrives');
 });
 
 test('palletizer wrist returns continuously to pickup across release and consecutive cycles', () => {
@@ -759,6 +798,11 @@ test('palletizer wrist returns continuously to pickup across release and consecu
   close(joints(1,.639999),joints(1,.640001));
   close(joints(1,.999999),joints(2,0));
   close(joints(0,1),joints(1,0));
+  for(const boundary of [.56,.7,.9]){
+    close(joints(12,boundary-.000001),joints(12,boundary+.000001));
+  }
+  close(joints(12,.999999),joints(13,0));
+  close(joints(36,.999999),joints(37,0));
 });
 
 test('the five machine silhouettes have distinct moving details', () => {
