@@ -222,10 +222,10 @@ html[data-visual-style=elegant] .gemini-panel:has(#equipment-inspector:not(.hidd
 /* Compact settings groups and a semantic saved-state indicator. */
 #settings-page-appearance .settings-colors { grid-template-columns:160px minmax(160px,260px); }
 html[data-ui-mode=basic] .settings-option-group > p { display:none; }
-#settings-dialog .gemini-settings { border:0; border-radius:0; padding:0; margin-top:0; }
-#settings-dialog .settings-section > .settings-option-group + .settings-option-group { margin-top:var(--space-4); }
-#settings-dialog .settings-option-group > label { margin-bottom:var(--space-2); }
-#settings-dialog .settings-option-group > p { margin-top:var(--space-2); font-size:var(--font-secondary); }
+#settings-dialog .gemini-settings { border:0; border-radius:0; padding:0 0 var(--section-gap); margin-top:0; }
+#settings-dialog .settings-section > .settings-option-group + .settings-option-group { margin-top:0; }
+#settings-dialog .settings-option-group > label { margin:0; }
+#settings-dialog .settings-option-group > p { margin:0; font-size:var(--font-secondary); }
 #settings-unsaved[data-state=saved] { color:var(--selected-text); }
 #settings-unsaved[data-state=error] { color:var(--danger); }
 /* Progressive native select styling preserves the original form values,

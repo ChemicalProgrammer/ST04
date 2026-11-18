@@ -36,9 +36,27 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 /* Settings uses the full dialog width for the source color collection. */
 #settings-dialog .dialog-heading { padding:var(--space-3) var(--space-4); }
 #settings-dialog .dialog-body { padding:var(--space-4); }
-#settings-dialog .settings-section { padding-bottom:var(--space-3); margin-bottom:var(--space-3); }
-#settings-dialog .settings-section h3 { margin:0 0 var(--space-2); font-size:var(--font-secondary); }
-#settings-dialog .settings-section > p { margin:0 0 var(--space-2); }
+#settings-dialog .settings-section {
+  display:grid; gap:var(--space-3); min-width:0;
+  padding-bottom:var(--section-gap); margin:0 0 var(--section-gap);
+}
+#settings-dialog .settings-section > :is(h3,p,label,form,.settings-row,.settings-section-heading,.gemini-connection-grid,.gemini-prompt-editor,.settings-color-columns,.settings-simulation-grid) { margin:0; }
+#settings-dialog .settings-section > :is(form,.settings-option-group),
+#settings-dialog .settings-simulation-grid > .settings-option-group,
+#settings-dialog .gemini-connection-grid > div { display:grid; gap:var(--space-2); min-width:0; }
+#settings-dialog .settings-section :is(.field-grid,.gemini-connection-grid,.gemini-prompt-editor,.settings-simulation-grid) { gap:var(--space-3); }
+#settings-dialog .settings-section :is(input:not([type=checkbox]),select,textarea) { min-width:0; max-width:100%; box-sizing:border-box; }
+#settings-dialog .settings-section .checkbox-label,
+#settings-dialog .settings-section .remember,
+#settings-dialog .settings-section .scenario-scope { gap:var(--space-2); }
+#settings-dialog .settings-section .settings-section-heading h3,
+#settings-dialog .gemini-connection-grid :is(label,p) { margin:0; }
+#settings-dialog .gemini-settings { padding:0 0 var(--section-gap); }
+#settings-dialog .gemini-prompt-card { display:grid; gap:var(--space-2); align-content:start; }
+#settings-dialog .gemini-prompt-card :is(textarea,.gemini-prompt-footer) { margin:0; }
+
+#settings-dialog .settings-section h3 { margin:0; font-size:var(--font-secondary); }
+#settings-dialog .settings-section > p { margin:0; }
 #settings-dialog .settings-row { margin-top:var(--space-2); gap:var(--space-3); }
 #settings-dialog .settings-colors { grid-template-columns:1fr; gap:var(--space-2); }
 .accent-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); font-size:var(--font-secondary); }
@@ -51,8 +69,8 @@ dialog::backdrop { background: var(--overlay); } dialog[open] { display:flex; fl
 .settings-case-export { display:grid;gap:var(--space-2); }
 .settings-case-export button { justify-self:start; }
 @media(max-width:600px) { #settings-dialog #case-editor-form .settings-case-general-grid { grid-template-columns:1fr; } }
-#settings-dialog .gemini-settings { margin-top:var(--space-3); padding:var(--space-3); }
-#settings-dialog .gemini-settings > label { margin:var(--space-2) 0 var(--space-1); }
+
+#settings-dialog .gemini-settings > label { margin:0; }
 #settings-dialog .dialog-actions { padding:var(--space-3) var(--space-4); }
 #settings-error:empty { display:none; }
 #settings-dialog { --dialog-width:920px; height:min(720px,calc(100dvh - 32px)); }
