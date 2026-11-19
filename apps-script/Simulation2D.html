@@ -589,12 +589,32 @@ window.STSimulation2D=(function(){
     }
   }
 
+  function machineDrawingType(item){
+    if(item.type==='CONVEYOR')return 'CONVEYOR';
+    const explicit=item.type==='PACEMAKER'?item.processData?.machineType:item.type;
+    if(explicit&&explicit!=='CUSTOM'&&window.STSimulation2DMachines?.dimensions(explicit))return explicit;
+    const configured=item.processData?.machineType;
+    if(configured&&configured!=='CUSTOM'&&window.STSimulation2DMachines?.dimensions(configured))return configured;
+    const name=item.name||'';
+    for(const [type,pattern] of [
+      ['DEPUCKER',/\b(?:de[ -]?pucker|despuckeador)\b/i],['PUCKER',/\bpucker\b/i],
+      ['BLOWMOLDER',/\b(?:blower|blow[ -]?mou?lder|sopladora)\b/i],
+      ['PALLETIZER',/\b(?:palleti[sz]er|palleti[sz]ador|paletizador)\b/i],
+      ['CASE_PACKER',/\b(?:case[ -]?packer|empacadora|encajonadora)\b/i],
+      ['FILLER',/\b(?:filler|llenadora)\b/i],['CAPPER',/\b(?:capper|tapadora|taponadora|roscadora)\b/i],
+      ['SLEEVER',/\b(?:sleever|labeler|labeller|etiquetadora)\b/i],
+      ['FEEDER',/\b(?:feeder|unscrambler|alimentador|alimentadora|orientadora)\b/i]
+    ])if(pattern.test(name))return type;
+    return explicit||null;
+  }
   function machineDesign(item){
     return item.kind==='machine'&&machineStyle.value==='animated'
       ? window.STSimulation2DMachines?.dimensions(machineTypes.get(item.id)) : null;
   }
   function displayWidth(item){
-    return Math.max(0,item.length||0)*sceneScale*(item.kind==='machine'?machineScale*(machineDesign(item)?.width??1):1);
+    const design=machineDesign(item);
+    if(design)return displayHeight(item)*(design.viewWidth??120)/100;
+    return Math.max(0,item.length||0)*sceneScale*(item.kind==='machine'?machineScale:1);
   }
   function displayHeight(item){return machineHeight*(machineDesign(item)?.height??1);}
   function tallestMachine(){
@@ -1627,7 +1647,7 @@ window.STSimulation2D=(function(){
     const newView=nextView!==viewKey;
     if(newView){restoringView=true;setFullscreen(false);fullscreenCamera=null;window.clearTimeout(viewSaveTimer);viewSaveTimer=null;}
     const revised=prepare(equipment,format,config,formats);
-    machineTypes=new Map(equipment.map(item=>[item.id,item.type==='PACEMAKER'?item.processData?.machineType:item.type]));
+    machineTypes=new Map(equipment.map(item=>[item.id,machineDrawingType(item)]));
     bottleStages=resolveBottleStages(revised,machineTypes);
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,

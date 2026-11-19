@@ -1317,3 +1317,46 @@ test('fullscreen resizing preserves the world center and zoom without drift on r
  context.applyModeCameras(full);
  views.forEach((view,index)=>{assert.equal(view.camera.x,full[index].x);assert.equal(view.camera.y,full[index].y);});
 });
+
+test('machine drawings preserve equal horizontal and vertical scale in any viewport box',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777'};
+ for(const type of ['BLOWMOLDER','PUCKER','DEPUCKER','FEEDER','CAPPER','CUSTOM','FILLER','SLEEVER','CASE_PACKER','PALLETIZER']){
+   for(const [width,height] of [[600,120],[120,400],[240,200]]){
+     const scales=[],context=new Proxy({scale(...args){scales.push(args);}},{get:(o,k)=>o[k]??(()=>{})});
+     assert(art.draw(context,type,20,30,width,height,colors,.3));
+     assert.equal(scales.length,1);assert.equal(scales[0][0],scales[0][1],type+' cannot stretch circles or panels');assert(scales[0][0]>0);
+   }
+ }
+ const signatures=['PUCKER','DEPUCKER','FEEDER','CAPPER','CUSTOM'].map(type=>{
+   const bodies=[],context=new Proxy({roundRect(x,y,w,h){if(w>=20&&h>=15)bodies.push([w,h]);}},{get:(o,k)=>o[k]??(()=>{})});
+   art.draw(context,type,0,0,240,200,colors,0);return JSON.stringify(bodies);
+ });
+ assert.equal(new Set(signatures).size,5,'new machine types have different primary body silhouettes');
+});
+
+test('animated layout uses the native machine aspect ratio and chooses the configured physical type',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const source=script('Simulation2D'),machineTypes=new Map(),machineStyle={value:'animated'};
+ const context=vm.createContext({window,machineTypes,machineStyle,machineHeight:182.25,sceneScale:.09,machineScale:3.75});
+ vm.runInContext(source.slice(source.indexOf('  function machineDrawingType('),source.indexOf('  function tallestMachine(')),context);
+ const cases=[
+   [{type:'CAPPER',name:'Filler reference'},'CAPPER'],
+   [{type:'PACEMAKER',processData:{machineType:'SLEEVER'}},'SLEEVER'],
+   [{type:'CUSTOM',processData:{machineType:'FEEDER'}},'FEEDER'],
+   [{type:'CUSTOM',name:'Depucker'},'DEPUCKER'],
+   [{type:'CUSTOM',name:'Pucker'},'PUCKER'],
+   [{type:'CUSTOM',name:'Etiquetadora'},'SLEEVER'],
+   [{type:'CUSTOM',name:'Alimentadora'},'FEEDER'],
+   [{type:'CONVEYOR',name:'Filler infeed'},'CONVEYOR'],
+   [{type:'CUSTOM',name:'Unspecified process'},'CUSTOM']
+ ];
+ for(const [item,expected] of cases)assert.equal(context.machineDrawingType(item),expected);
+ const item={id:'machine',kind:'machine',length:1100};
+ for(const type of ['PUCKER','DEPUCKER','FEEDER','CAPPER','CUSTOM','FILLER','CASE_PACKER','SLEEVER']){
+   machineTypes.set(item.id,type);
+   assert(Math.abs(context.displayWidth(item)/context.displayHeight(item)-(window.STSimulation2DMachines.dimensions(type).viewWidth||120)/100)<1e-8);
+ }
+ machineStyle.value='blocks';assert.equal(context.displayWidth(item),1100*.09*3.75);
+ assert.equal(context.displayWidth({kind:'belt',length:2000}),180,'conveyor dimensions keep their measured scale');
+});

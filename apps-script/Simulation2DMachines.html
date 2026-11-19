@@ -173,9 +173,10 @@ window.STSimulation2DMachines=(function(){
     const phase=(1-Math.cos(seconds*Math.PI*2))/2;
     const {ink,soft,surface,accent,belt}=colors;
     context.save();
-    context.translate(x,y);
     const viewWidth=design.viewWidth??120;
-    context.scale(width/viewWidth,height/100);
+    const scale=Math.min(width/viewWidth,height/100);
+    context.translate(x+(width-viewWidth*scale)/2,y+(height-100*scale)/2);
+    context.scale(scale,scale);
     context.lineWidth=.8;
     context.lineJoin='round';
     context.strokeStyle=belt;
@@ -222,9 +223,7 @@ window.STSimulation2DMachines=(function(){
         foot(23);foot(86);
         track();
         break;
-      case 'pucker':
-      case 'depucker': {
-        const removing=design.kind==='depucker';
+      case 'pucker': {
         box(18,18,84,8,belt,3);box(22,26,7,60,soft);box(91,26,7,60,soft);
         box(28,65,65,18,soft,4);box(38,69,43,6,accent,2);
         const angle=seconds*.8;
@@ -232,11 +231,28 @@ window.STSimulation2DMachines=(function(){
         for(let i=0;i<4;i++){
           const a=angle+i*Math.PI/2,px=60+20*Math.cos(a),py=57+8*Math.sin(a);
           box(px-5,py+8,10,5,belt,1);
-          const lift=removing?10*phase:10*(1-phase);
+          const lift=10*(1-phase);
           box(px-3,py-9-lift,6,17,accent,2);box(px-1.5,py-13-lift,3,5,soft,1);
         }
         box(52,26,16,6,accent);line(60,32,60,38+8*phase);
         line(8,64,30,64);line(89,64,113,64);foot(20);foot(88);
+        break;
+      }
+      case 'depucker': {
+        // Linear lift separates bottles from their pucks; empty carriers return below.
+        box(10,67,99,17,soft,4);box(24,17,8,50,belt);box(85,17,8,50,belt);
+        box(19,13,80,8,soft,3);box(50,3,21,11,accent,3);
+        const lift=13*phase,head=28-lift;
+        box(57,21,7,head-15,belt,1);box(42,head+7,36,6,accent,2);
+        for(const left of [48,66]){
+          line(left,head+13,left,head+24);line(left-3,head+24,left+3,head+24);
+          box(left-3,48-lift,7,18,surface,2);box(left-1,44-lift,3,5,accent,1);
+          box(left-6,65,13,5,belt,1);
+        }
+        box(4,77,42,6,belt,1);line(9,80,40,80);
+        for(let puck=0;puck<3;puck++)box(8+puck*11-3*phase,73,9,4,accent,1);
+        box(95,48,20,5,belt,1);line(96,53,107,53);
+        foot(15);foot(84);track();
         break;
       }
       case 'capper':
@@ -265,10 +281,14 @@ window.STSimulation2DMachines=(function(){
         break;
       }
       case 'custom':
-        box(15,22,90,59,soft,5);box(22,29,57,31,surface,3);
-        box(85,31,12,22,belt,2);circle(91,37,3,accent);
-        box(28+35*phase,35,13,18,accent,3);line(26,63,81,63);
-        foot(23);foot(83);track();
+        // Enclosed process cabinet with service doors and a compact operator panel.
+        box(13,20,78,64,soft,5);box(20,28,46,32,surface,3);
+        box(72,30,12,21,belt,2);circle(78,36,2.5,accent);
+        box(77,42,3,5,surface,1);line(49,64,49,80);line(53,69,53,75);
+        for(let vent=0;vent<4;vent++)line(24,68+vent*3,39,68+vent*3);
+        box(94,52,12,30,soft,2);box(96,55,8,3,accent,1);
+        box(27+20*phase,35,10,17,accent,3);line(22,57,63,57);
+        foot(19);foot(76);track();
         break;
       case 'filler':
         // A raised, compact manifold and a separate cap-feed tower.
