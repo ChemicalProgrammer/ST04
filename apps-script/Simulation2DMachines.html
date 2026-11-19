@@ -460,8 +460,8 @@ window.STSimulation2DMachines=(function(){
     const top=Math.min(pickupY-caseHeight-17,floor-4*caseHeight-17)-100;
     const bottom=Math.max(rackY-17,pickupY-caseHeight-17,floor-caseHeight-17);
     const reach=Math.max(...[left,right].flatMap(px=>[top,bottom].map(py=>Math.hypot(px-baseX,py-shoulderY))));
-    // Fixed, shorter links cover the complete motion envelope with a small reach reserve.
-    const upper=Math.max(96,(reach+24)*.55),forearm=upper;
+    // Reduce each fixed link by a further 10% while retaining the motion envelope.
+    const upper=Math.max(96,(reach+24)*.55)*.9,forearm=upper;
     const armInFront=stage.exchange&&progress>=.6&&progress<1;
     const dx=gripX-baseX,dy=gripY-12-shoulderY;
     const distance=Math.max(1,Math.hypot(dx,dy));
