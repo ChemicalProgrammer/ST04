@@ -329,19 +329,27 @@ window.STSimulation2DMachines=(function(){
     const t=Math.max(0,Math.min(1,value));
     return t*t*t*(t*(t*6-15)+10);
   }
+  function forkliftMotion(progress,pickup,exit){
+    const t=Math.max(0,progress),depart=Math.max(0,(t-.5)/.5);
+    // Accelerate out of pickup and keep travelling, even after the nominal exit time.
+    const travel=(depart<.1?depart*depart/.2:depart-.05)/.95;
+    const x=t<.28?exit+(pickup-exit)*smooth(t/.28):t<.5?pickup:pickup+(exit-pickup)*travel;
+    const contact=3*smooth((t-.38)/.04),loadLift=10*smooth((t-.42)/.06);
+    return {x,forkRise:t<.28?18*(1-smooth(t/.28)):contact+loadLift,loadLift};
+  }
   function palletStage(produced,progress,forkClock,forkGroup){
     const index=produced>0?(produced-1)%36:-1;
     const completed=produced>0?Math.floor((produced-1)/36):0;
     const exchange=index===35;
     const shift=exchange?smooth((progress-.6)/.34):0;
     const forklift=Number.isFinite(forkClock)||completed>=2&&index>=33;
-    const forkProgress=forklift?Math.max(0,Math.min(1,Number.isFinite(forkClock)?forkClock:(index+progress-33)/2.3)):0;
+    const forkProgress=forklift?Math.max(0,Number.isFinite(forkClock)?forkClock:Math.min(1,(index+progress-33)/2.3)):0;
     return {
       index,exchange,shift,completed,
       count:index<0?0:index+(progress>=.6?1:0),
-      forkProgress,forkVisible:forklift&&forkProgress<1,
-      forkLoaded:forklift&&forkProgress>=.38,
-      thirdRemoved:forklift&&forkProgress>=.38&&(forkGroup===undefined||forkGroup===completed)
+      forkProgress,forkVisible:forklift&&(Number.isFinite(forkClock)||forkProgress<1),
+      forkLoaded:forklift&&forkProgress>=.42,
+      thirdRemoved:forklift&&forkProgress>=.42&&(forkGroup===undefined||forkGroup===completed)
     };
   }
   function drawPalletOutput(context,x,y,outlet,colors,produced,progress,layer='all'){
@@ -479,13 +487,11 @@ window.STSimulation2DMachines=(function(){
         const pickup=activeX+2*palletPitch;
         const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
         const t=stage.forkProgress;
-        const forkX=t<.28?exit+(pickup-exit)*smooth(t/.28):
-          t<.5?pickup:pickup+(exit-pickup)*smooth((t-.5)/.5);
-        const lift=t<.28?18*(1-smooth(t/.28)):10*smooth((t-.38)/.1);
+        const motion=forkliftMotion(t,pickup,exit),forkX=motion.x;
         const truckX=forkX+palletWidth+8,truckY=floor+16;
         context.strokeStyle=belt;context.lineWidth=2;
         // Forks point toward the pallet so the truck reverses out to the right.
-        box(forkX,truckY-8-lift,palletWidth+10,4,belt);
+        box(forkX,truckY-8-motion.forkRise,palletWidth+10,4,belt);
         box(truckX-4,truckY-94,7,98,belt);
         box(truckX+8,truckY-90,5,70,belt);
         box(truckX+8,truckY-92,72,6,soft);
@@ -499,7 +505,7 @@ window.STSimulation2DMachines=(function(){
           context.fillStyle=belt;context.beginPath();context.arc(wheel,truckY-8,12,0,Math.PI*2);context.fill();
           context.fillStyle=soft;context.beginPath();context.arc(wheel,truckY-8,5,0,Math.PI*2);context.fill();
         }
-        if(stage.forkLoaded)pallet(forkX,floor-lift,36);
+        if(stage.forkLoaded)pallet(forkX,floor-motion.loadLift,36);
       }
       if(transferring){
         drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
@@ -509,6 +515,6 @@ window.STSimulation2DMachines=(function(){
     }
     context.restore();
   }
-  return {draw,dimensions,bottleNeck,drawBottle,drawCase,drawPalletOutput,palletStage};
+  return {draw,dimensions,bottleNeck,drawBottle,drawCase,drawPalletOutput,palletStage,forkliftMotion};
 })();
 </script>

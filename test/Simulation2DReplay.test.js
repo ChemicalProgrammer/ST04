@@ -1174,10 +1174,12 @@ test('forks arrive raised, lower into the pallet and lift the load before revers
    const forks=[],decks=[];const ctx=new Proxy({roundRect(x,y,w,h){if(w===133&&h===4)forks.push([x,y]);if(w===123&&h===5)decks.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
    window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,{...colors,forkProgress:progress},106,.2,'foreground');return {fork:forks[0],decks};
  }
- const arriving=frame(.01),lowering=frame(.2),inserted=frame(.3),lifting=frame(.43),carrying=frame(.6);
+ const arriving=frame(.01),lowering=frame(.2),inserted=frame(.3),contact=frame(.42),lifting=frame(.45),carrying=frame(.6);
+ assert.equal(contact.fork[1],195,'fork top reaches the underside of the top deck before lifting');
+ assert.equal(contact.decks.filter(([,y])=>y===190).length,3,'load remains on the floor until contact');
  assert(arriving.fork[1]<lowering.fork[1]);assert(lowering.fork[1]<inserted.fork[1]);
  assert.equal(inserted.fork[1],198);
- assert(lifting.fork[1]<inserted.fork[1]);assert.equal(carrying.fork[1],188);
+ assert(lifting.fork[1]<inserted.fork[1]);assert.equal(carrying.fork[1],185);
  assert.equal(inserted.decks.filter(([,y])=>y===190).length,3);
  assert(lifting.decks.some(([,y])=>y<190&&y>180));
  assert.equal(carrying.decks.filter(([,y])=>y===180).length,1);
@@ -1223,4 +1225,37 @@ test('bottle presentation infers omitted preparation steps and honors explicit m
  assert.deepEqual(stages([['FILLER','Filler / Capper'],'SLEEVER']),[0,6,7]);
  assert.deepEqual(stages([['CUSTOM','Llenadora'],['CUSTOM','Tapadora'],['CUSTOM','Etiquetadora']]),[0,2,6,7]);
  assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER']),[1,9,15,7],'puck handling stays independent from bottle preparation');
+});
+
+
+test('fork contact precedes load lift and departure continues past the nominal exit',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines;
+ for(const t of [.38,.39,.4,.41,.42]){
+   const motion=art.forkliftMotion(t,300,900);assert.equal(motion.loadLift,0);assert(motion.forkRise>=0&&motion.forkRise<=3);
+ }
+ for(const t of [.43,.45,.48,.6]){
+   const motion=art.forkliftMotion(t,300,900);assert(motion.loadLift>0);assert(Math.abs(motion.forkRise-motion.loadLift-3)<1e-8,'fork remains in contact with the underside of the raised deck');
+ }
+ assert(art.forkliftMotion(.6,300,900).x>300);
+ assert.equal(art.forkliftMotion(1,300,900).x,900);
+ assert(art.forkliftMotion(1.1,300,900).x>900);
+ assert(art.palletStage(106,.2,1.1,2).forkVisible,'the clock cannot abruptly hide an outbound forklift');
+});
+
+test('forklift route clears every viewport and longer routes preserve transit speed',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const source=script('Simulation2D'),model={time:0};
+ const views=[{canvas:{clientWidth:800},camera:{x:0,scale:.09}},{canvas:{clientWidth:1200},camera:{x:-400,scale:.045}}];
+ const context=vm.createContext({window,model,palletAnimation:null,reducedMotion:{matches:false},viewportCount:2,viewports:views,renderingView:0,camera:views[0].camera,sceneScale:.09});
+ vm.runInContext(source.slice(source.indexOf('  function forkliftRoute('),source.indexOf('  function palletInfeed(')),context);
+ const route=context.forkliftRoute({caseWidth:37,start:200});
+ assert(route.exitOffset+200>3200,'the route passes the farthest visible right edge');
+ const item={produced:105,rate:.5};context.palletTransfer(item,route);item.produced=106;model.time=.1;
+ assert.equal(context.palletTransfer(item,route).forkProgress,0);
+ const timing=vm.runInContext('({approach:palletAnimation.forkApproach,hold:palletAnimation.forkHold,depart:palletAnimation.forkDepart,total:palletAnimation.forkPeriod})',context);
+ assert.equal(timing.hold,15*.22);assert(timing.total>15);
+ const ratio=(route.exitOffset-route.pickupOffset)/(route.baselineExitOffset-route.pickupOffset);
+ assert(Math.abs(timing.depart/(15*.5)-ratio)<1e-8);
+ model.time=.1+timing.total+.5;assert(context.palletTransfer(item,route).forkProgress>1,'departure is not clamped before clearing the views');
 });

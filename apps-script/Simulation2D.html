@@ -637,7 +637,19 @@ window.STSimulation2D=(function(){
     const productionY=pallets?90-4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
     return {start,pallets,production,productionY,right:pallets?start+stagingWidth:start+cardWidth,...dimensions};
   }
-  function palletTransfer(item){
+  function forkliftRoute(output){
+    const pitch=3*output.caseWidth+32;
+    const baselineExitOffset=100+3*pitch+260;
+    let exitOffset=baselineExitOffset;
+    for(let index=0;index<viewportCount;index++){
+      const view=viewports[index],position=index===renderingView?camera:view.camera;
+      if(!(view.canvas.clientWidth>0&&position.scale>0))continue;
+      const right=(view.canvas.clientWidth-position.x)*sceneScale/position.scale-output.start;
+      exitOffset=Math.max(exitOffset,right+40);
+    }
+    return {pickupOffset:100+2*pitch,baselineExitOffset,exitOffset};
+  }
+  function palletTransfer(item,route){
     const time=model?.time??0,produced=item.produced||0;
     if(palletAnimation?.model!==model||time<palletAnimation.time){
       palletAnimation={model,time,settled:produced,placed:produced,started:null,duration:1,batch:0,picked:false};
@@ -676,18 +688,25 @@ window.STSimulation2D=(function(){
     if(animation.started!==null&&progress>=.04)pick();
     const result={produced:animation.placed+(animation.started===null?0:1),progress,
       batch:1,pickedCases:animation.batch,waiting:Math.max(0,produced-animation.settled-(animation.picked?animation.batch:0))};
+    function forkProgress(){
+      const elapsed=Math.max(0,time-animation.forkStarted);
+      if(elapsed<animation.forkApproach)return .28*elapsed/animation.forkApproach;
+      if(elapsed<animation.forkApproach+animation.forkHold)return .28+.22*(elapsed-animation.forkApproach)/animation.forkHold;
+      return .5+.5*(elapsed-animation.forkApproach-animation.forkHold)/animation.forkDepart;
+    }
     const group=Math.floor((result.produced-1)/36),index=(result.produced-1)%36;
-    if(group>=2&&index>=33){
-      if(animation.forkGroup!==group&&(!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod)){
-        animation.forkGroup=group;
-        // Keep the 18-second travel baseline at the requested 1.2x animation speed.
-        animation.forkPeriod=Math.max(18,2.3/Math.max(.001,item.rate||.001))/1.2;
-        animation.forkStarted=time;
-      }
+    const finished=!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod&&
+      (!route||window.STSimulation2DMachines.forkliftMotion(forkProgress(),animation.forkPickup,animation.forkExitOffset).x>=route.exitOffset);
+    if(group>=2&&index>=33&&animation.forkGroup!==group&&finished){
+      animation.forkGroup=group;
+      const baseline=Math.max(18,2.3/Math.max(.001,item.rate||.001))/1.2;
+      const ratio=route?Math.max(1,(route.exitOffset-route.pickupOffset)/(route.baselineExitOffset-route.pickupOffset)):1;
+      animation.forkApproach=baseline*.28*ratio;animation.forkHold=baseline*.22;animation.forkDepart=baseline*.5*ratio;
+      animation.forkPeriod=animation.forkApproach+animation.forkHold+animation.forkDepart;
+      animation.forkPickup=route?.pickupOffset;animation.forkExitOffset=route?.exitOffset;animation.forkStarted=time;
     }
     if(Number.isFinite(animation.forkStarted)){
-      result.forkProgress=Math.max(0,Math.min(1,(time-animation.forkStarted)/animation.forkPeriod));
-      result.forkGroup=animation.forkGroup;
+      result.forkProgress=forkProgress();result.forkGroup=animation.forkGroup;result.forkExitOffset=animation.forkExitOffset;
     }
     return result;
   }
@@ -1224,8 +1243,8 @@ window.STSimulation2D=(function(){
     const line=model?.line||definitions;
     const {items,right}=equipmentLayout(line);
     const output=productionLayout(line,items,right);
-    const transfer=output.pallets?palletTransfer(line.at(-1)):null;
-    const palletColors={pickupY:transfer?palletInfeed(line,items,y).startBottom:y,ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:secondary,caseAccent:accent,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
+    const transfer=output.pallets?palletTransfer(line.at(-1),forkliftRoute(output)):null;
+    const palletColors={exitX:Number.isFinite(transfer?.forkExitOffset)?origin+output.start+transfer.forkExitOffset:undefined,pickupY:transfer?palletInfeed(line,items,y).startBottom:y,ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:secondary,caseAccent:accent,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
