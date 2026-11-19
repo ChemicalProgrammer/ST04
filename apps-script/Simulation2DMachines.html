@@ -380,6 +380,7 @@ window.STSimulation2DMachines=(function(){
     };
   }
   function drawPalletOutput(context,x,y,outlet,colors,produced,progress,layer='all'){
+    if(layer==='all'){for(const plane of ['robot','staging','load'])drawPalletOutput(context,x,y,outlet,colors,produced,progress,plane);return;}
     const {ink,soft,surface,accent,belt}=colors;
     context.save();context.lineWidth=1;context.strokeStyle=belt;
     function box(left,top,width,height,color){
@@ -391,7 +392,7 @@ window.STSimulation2DMachines=(function(){
     const pickupY=Number.isFinite(colors.pickupY)?colors.pickupY:y;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.6;
-    const staging=layer==='all'||layer==='staging',robot=layer==='all'||layer==='robot';
+    const staging=layer==='staging',robot=layer==='robot',load=layer==='load';
     const activeX=x+100,rackX=activeX,rackY=floor+48;
     function pallet(px,py,count){
       box(px,py,palletWidth,5,colors.palletColor||belt);
@@ -539,10 +540,10 @@ window.STSimulation2DMachines=(function(){
         box(gripX+side*(gripperWidth/2+3)-2,gripY+4,4,8,soft);
       }
     }
-    if(robot){
+    if(robot)paintArm();
+    if(load){
       if(emptyPallet)pallet(emptyPallet.left,emptyPallet.top,0);
       if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
-      paintArm();
     }
     context.restore();
   }

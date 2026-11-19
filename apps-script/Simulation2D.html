@@ -1320,10 +1320,8 @@ window.STSimulation2D=(function(){
     const palletColors={exitX:Number.isFinite(transfer?.forkExitOffset)?origin+output.start+transfer.forkExitOffset:undefined,pickupY:transfer?palletInfeed(line,items,y).startBottom:y,ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:appearance.cases||secondary,caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
-      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        pickup,palletColors,transfer.produced,transfer.progress,'staging');
-      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        pickup,palletColors,transfer.produced,transfer.progress,'robot');
+      for(const plane of ['robot','staging','load'])window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
+        pickup,palletColors,transfer.produced,transfer.progress,plane);
     }
 
     const half=sceneHalfHeight(),telemetryY=y+half+telemetryTopGap,dimensionY=y-half-dimensionOffset;

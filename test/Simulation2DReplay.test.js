@@ -765,8 +765,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     ];
     window.STSimulation2D.load(['fixed-layers','case'],palletLine,{},config,null);
     el('machine-style').value='animated';el('machine-style').dispatchEvent(new window.Event('change'));layerOrder.length=0;el('fit').click();
-    const stagingIndex=layerOrder.lastIndexOf('staging'),robotIndex=layerOrder.lastIndexOf('robot'),equipmentIndex=layerOrder.lastIndexOf('equipment');
-    assert(stagingIndex>=0&&stagingIndex<robotIndex&&robotIndex<equipmentIndex,'complete layout always paints stored pallets, robot, then equipment');
+    const stagingIndex=layerOrder.lastIndexOf('staging'),robotIndex=layerOrder.lastIndexOf('robot'),loadIndex=layerOrder.lastIndexOf('load'),equipmentIndex=layerOrder.lastIndexOf('equipment');
+    assert(robotIndex>=0&&robotIndex<stagingIndex&&stagingIndex<loadIndex&&loadIndex<equipmentIndex,'complete layout paints robot, stored pallets, carried load, then equipment');
     assert(!layerOrder.includes('foreground'),'no phase-dependent foreground pass can move the robot above the equipment');
     window.STSimulation2DMachines.drawPalletOutput=originalPalletDraw;window.STSimulation2DMachines.draw=originalMachineDraw;
   }finally{dom.window.close();}
@@ -829,7 +829,7 @@ test('palletizer stages a bounded symbolic output and transfers the last process
     assert(boxes.flat().every(Number.isFinite));
     return boxes.filter(([, ,width,height])=>width===37&&height===28);
   }
-  assert.equal(scene(1,.5,'robot').length,1);
+  assert.equal(scene(1,.5,'robot').length,0);assert.equal(scene(1,.5,'load').length,1);
   assert.equal(scene(1,.5,'staging').length,0);
   assert.equal(scene(0,1).length,0);
   const moving=scene(1,.5);
@@ -1127,7 +1127,7 @@ test('a picked group draws one case in transit and fills exactly one space',()=>
  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:50};
  for(const progress of [.04,.2,.599,.6,.9,1]){
    const cases=[],ctx=new Proxy({fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
-   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,1,progress,progress<.6?'robot':'staging');
+   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,1,progress,progress<.6?'load':'staging');
    assert.equal(cases.length,1);assert(cases.flat().every(Number.isFinite));
    if(progress>=.6)assert.deepEqual(cases[0],[306,162]);
  }
@@ -1389,7 +1389,7 @@ test('empty pallets sit below the first filling position and rise vertically wit
  const top=Math.min(...stack.map(([,y])=>y));assert(top>active[1]+16,'there is a visible gap below the filling pallet');
  let previous=Infinity;
  for(const progress of [.74,.78,.82,.86,.9,.939999]){
-   const moving=decks(36,progress,'robot').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
+   const moving=decks(36,progress,'load').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
    assert(moving,'the replacement stays directly under the first position');
    assert(moving[1]<=previous,'the lift goes upward without a downward swing');previous=moving[1];
  }
@@ -1397,7 +1397,7 @@ test('empty pallets sit below the first filling position and rise vertically wit
 });
 
 
-test('robot keeps one fixed layer in front of stored pallets throughout the complete cycle',()=>{
+test('robot stays behind all pallets while carried loads stay in front throughout the complete cycle',()=>{
  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
  const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
  function frame(progress,layer){
@@ -1407,7 +1407,8 @@ test('robot keeps one fixed layer in front of stored pallets throughout the comp
  for(const progress of [0,.3,.599,.6,.72,.74,.8,.92,.94,.97,1]){
    assert(frame(progress,'robot').includes('gripper'),'the robot never leaves its dedicated layer');
    assert(!frame(progress,'staging').includes('elbow'),'stored pallets never redraw the robot');
-   const all=frame(progress,'all');assert(all.indexOf('gripper')>all.lastIndexOf('pallet'),'robot and carried pallet remain ahead of stored pallets');
+   const all=frame(progress,'all');assert(all.indexOf('gripper')<all.indexOf('pallet'),'the robot is always behind stored pallets');
+   assert(!frame(progress,'load').includes('elbow'),'a carried load cannot redraw the robot above the pallets');
  }
 });
 
