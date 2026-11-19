@@ -1281,6 +1281,8 @@ window.STSimulation2D=(function(){
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
+        pickup,palletColors,transfer.produced,transfer.progress,'staging');
+      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
         pickup,palletColors,transfer.produced,transfer.progress,'robot');
     }
 
@@ -1418,9 +1420,7 @@ window.STSimulation2D=(function(){
       drawTelemetry(context,item,left,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
     if(transfer){
-      const pickup=drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,caseColor:appearance.cases||secondary,caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape,surface,accent},transfer);
-      window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
-        pickup,palletColors,transfer.produced,transfer.progress,'foreground');
+      drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,caseColor:appearance.cases||secondary,caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape,surface,accent},transfer);
     }
     const productionX=origin+output.production;
     if(definitions.length&&productionX<=w&&productionX+cardWidth>=0)drawProduction(context,productionX,y+output.productionY,ink,border,surface,muted,soft);

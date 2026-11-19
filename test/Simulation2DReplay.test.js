@@ -755,6 +755,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(JSON.stringify(records.at(-1).checkpoint),JSON.stringify(fullscreenRecord.checkpoint));
     el('fullscreen').click();
 
+    const layerOrder=[],originalPalletDraw=window.STSimulation2DMachines.drawPalletOutput,originalMachineDraw=window.STSimulation2DMachines.draw;
+    window.STSimulation2DMachines.drawPalletOutput=(...args)=>{layerOrder.push(args.at(-1));return originalPalletDraw(...args);};
+    window.STSimulation2DMachines.draw=(...args)=>{if(args[1]==='PALLETIZER')layerOrder.push('equipment');return originalMachineDraw(...args);};
+    const palletLine=[
+      {id:'packer',type:'CASE_PACKER',nominalRatePerSecond:1,processData:{flowUnits:{input:'BOTTLES',output:'CASES'},equipment:{internalCapacityBottles:24}}},
+      {id:'case-belt',type:'CONVEYOR',processData:{flowUnits:{input:'CASES',output:'CASES'}}},
+      {id:'palletizer',type:'PALLETIZER',nominalRatePerSecond:.5,processData:{flowUnits:{input:'CASES',output:'CASES'},equipment:{internalCapacityBottles:3}}}
+    ];
+    window.STSimulation2D.load(['fixed-layers','case'],palletLine,{},config,null);
+    el('machine-style').value='animated';el('machine-style').dispatchEvent(new window.Event('change'));layerOrder.length=0;el('fit').click();
+    const stagingIndex=layerOrder.lastIndexOf('staging'),robotIndex=layerOrder.lastIndexOf('robot'),equipmentIndex=layerOrder.lastIndexOf('equipment');
+    assert(stagingIndex>=0&&stagingIndex<robotIndex&&robotIndex<equipmentIndex,'complete layout always paints stored pallets, robot, then equipment');
+    assert(!layerOrder.includes('foreground'),'no phase-dependent foreground pass can move the robot above the equipment');
+    window.STSimulation2DMachines.drawPalletOutput=originalPalletDraw;window.STSimulation2DMachines.draw=originalMachineDraw;
   }finally{dom.window.close();}
 });
 
@@ -815,8 +829,8 @@ test('palletizer stages a bounded symbolic output and transfers the last process
     assert(boxes.flat().every(Number.isFinite));
     return boxes.filter(([, ,width,height])=>width===37&&height===28);
   }
-  assert.equal(scene(1,.5,'robot').length,0);
-  assert.equal(scene(1,.5,'foreground').length,1);
+  assert.equal(scene(1,.5,'robot').length,1);
+  assert.equal(scene(1,.5,'staging').length,0);
   assert.equal(scene(0,1).length,0);
   const moving=scene(1,.5);
   assert.equal(moving.length,1);
@@ -838,7 +852,7 @@ test('pallets have 36 spaces in four levels and move on one common floor',()=>{
  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
  function scene(produced,progress,extra={}){
    const decks=[],cases=[];const ctx=new Proxy({roundRect(x,y,w,h){if(Math.abs(w-123)<1e-5&&h===5)decks.push([x,y]);},fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
-   art.drawPalletOutput(ctx,200,100,180,{...colors,...extra},produced,progress,'foreground');return {decks,cases};
+   art.drawPalletOutput(ctx,200,100,180,{...colors,...extra},produced,progress,'staging');return {decks:decks.filter(([,y])=>y<=190),cases};
  }
  const full=scene(36,1);assert.equal(full.cases.length,12);
  assert.equal(new Set(full.cases.map(([x,y])=>x+','+y)).size,12);
@@ -1113,7 +1127,7 @@ test('a picked group draws one case in transit and fills exactly one space',()=>
  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:50};
  for(const progress of [.04,.2,.599,.6,.9,1]){
    const cases=[],ctx=new Proxy({fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
-   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,1,progress,'foreground');
+   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,1,progress,progress<.6?'robot':'staging');
    assert.equal(cases.length,1);assert(cases.flat().every(Number.isFinite));
    if(progress>=.6)assert.deepEqual(cases[0],[306,162]);
  }
@@ -1194,7 +1208,7 @@ test('forks arrive raised, lower into the pallet and lift the load before revers
  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,forkGroup:2};
  function frame(progress){
    const forks=[],decks=[];const ctx=new Proxy({roundRect(x,y,w,h){if(w===133&&h===4)forks.push([x,y]);if(w===123&&h===5)decks.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
-   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,{...colors,forkProgress:progress},106,.2,'foreground');return {fork:forks[0],decks};
+   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,{...colors,forkProgress:progress},106,.2,'staging');return {fork:forks[0],decks};
  }
  const arriving=frame(.01),lowering=frame(.2),inserted=frame(.3),contact=frame(.42),lifting=frame(.45),carrying=frame(.6);
  assert.equal(contact.fork[1],195,'fork top reaches the underside of the top deck before lifting');
@@ -1370,12 +1384,12 @@ test('empty pallets sit below the first filling position and rise vertically wit
    const rectangles=[],ctx=new Proxy({roundRect(x,y,w,h){if(w===123&&h===5)rectangles.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
    art.drawPalletOutput(ctx,200,100,180,colors,produced,progress,layer);return rectangles;
  }
- const stack=decks(1,1,'robot'),active=decks(1,1,'foreground')[0];
+ const active=decks(1,1,'staging').find(([,y])=>y===190),stack=decks(1,1,'staging').filter(([,y])=>y>active[1]);
  assert.equal(stack.length,3);assert(stack.every(([x])=>x===active[0]));
  const top=Math.min(...stack.map(([,y])=>y));assert(top>active[1]+16,'there is a visible gap below the filling pallet');
  let previous=Infinity;
  for(const progress of [.74,.78,.82,.86,.9,.939999]){
-   const moving=decks(36,progress,'foreground').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
+   const moving=decks(36,progress,'robot').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
    assert(moving,'the replacement stays directly under the first position');
    assert(moving[1]<=previous,'the lift goes upward without a downward swing');previous=moving[1];
  }
@@ -1383,19 +1397,18 @@ test('empty pallets sit below the first filling position and rise vertically wit
 });
 
 
-test('robot arms pass in front of staging pallets during the empty-pallet exchange',()=>{
+test('robot keeps one fixed layer in front of stored pallets throughout the complete cycle',()=>{
  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
  const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
  function frame(progress,layer){
    const ops=[],ctx=new Proxy({roundRect(x,y,w,h){if(w===123&&h===5)ops.push('pallet');if(w===47&&h===4)ops.push('gripper');},arc(x,y,r){if(r===15)ops.push('elbow');}},{get:(o,k)=>o[k]??(()=>{})});
    art.drawPalletOutput(ctx,200,100,180,colors,36,progress,layer);return ops;
  }
- for(const progress of [.61,.72,.8,.92,.97]){
-   assert(!frame(progress,'robot').includes('gripper'),'the arm is omitted from the background pass');
-   const front=frame(progress,'foreground');assert(front.indexOf('gripper')>front.lastIndexOf('pallet'),'arms and gripper paint after every staging pallet');
+ for(const progress of [0,.3,.599,.6,.72,.74,.8,.92,.94,.97,1]){
+   assert(frame(progress,'robot').includes('gripper'),'the robot never leaves its dedicated layer');
+   assert(!frame(progress,'staging').includes('elbow'),'stored pallets never redraw the robot');
+   const all=frame(progress,'all');assert(all.indexOf('gripper')>all.lastIndexOf('pallet'),'robot and carried pallet remain ahead of stored pallets');
  }
- assert(frame(.3,'robot').includes('gripper'),'normal box placement keeps the robot behind the line');
- assert(!frame(.3,'foreground').includes('gripper'));
 });
 
 test('shorter rigid robot links still reach every layer and the lower pallet stack',()=>{

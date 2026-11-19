@@ -391,6 +391,7 @@ window.STSimulation2DMachines=(function(){
     const pickupY=Number.isFinite(colors.pickupY)?colors.pickupY:y;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.6;
+    const staging=layer==='all'||layer==='staging',robot=layer==='all'||layer==='robot';
     const activeX=x+100,rackX=activeX,rackY=floor+48;
     function pallet(px,py,count){
       box(px,py,palletWidth,5,colors.palletColor||belt);
@@ -406,13 +407,13 @@ window.STSimulation2DMachines=(function(){
         for(let mark=0;mark<occupied;mark++)context.fillRect(left+caseWidth*(.18+mark*.23),top+caseHeight*.84,caseWidth*.12,Math.max(.7,caseHeight*.035));
       }
     }
-    if(layer!=='foreground'){
+    if(staging){
       // Empty pallets wait below the first filling position, with clearance for a vertical lift.
       pallet(rackX,rackY+12,0);
       pallet(rackX,rackY+6,0);
       if(!stage.exchange||progress<.74)pallet(rackX,rackY,0);
     }
-    if(layer!=='robot'){
+    if(staging){
       pallet(activeX+stage.shift*palletPitch,floor,stage.count);
       if(stage.completed>=1)pallet(activeX+(1+stage.shift)*palletPitch,floor,36);
       if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor,36);
@@ -462,12 +463,39 @@ window.STSimulation2DMachines=(function(){
     const reach=Math.max(...[left,right].flatMap(px=>[top,bottom].map(py=>Math.hypot(px-baseX,py-shoulderY))));
     // Reduce each fixed link by a further 10% while retaining the motion envelope.
     const upper=Math.max(96,(reach+24)*.55)*.9,forearm=upper;
-    const armInFront=stage.exchange&&progress>=.6&&progress<1;
     const dx=gripX-baseX,dy=gripY-12-shoulderY;
     const distance=Math.max(1,Math.hypot(dx,dy));
     const angle=Math.atan2(dy,dx)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+distance*distance-forearm*forearm)/(2*upper*distance))));
     const elbowX=baseX+upper*Math.cos(angle),elbowY=shoulderY+upper*Math.sin(angle);
-    if(layer!=='foreground'){
+    if(staging){
+      if(stage.forkVisible){
+        const pickup=activeX+2*palletPitch;
+        const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
+        const t=stage.forkProgress;
+        const motion=forkliftMotion(t,pickup,exit),forkX=motion.x;
+        const truckX=forkX+palletWidth+8,truckY=floor+16;
+        context.strokeStyle=belt;context.lineWidth=2;
+        // Forks point toward the pallet so the truck reverses out to the right.
+        box(forkX,truckY-8-motion.forkRise,palletWidth+10,4,belt);
+        box(truckX-4,truckY-94,7,98,belt);
+        box(truckX+8,truckY-90,5,70,belt);
+        box(truckX+8,truckY-92,72,6,soft);
+        box(truckX+75,truckY-86,5,63,belt);
+        box(truckX+15,truckY-43,66,32,accent);
+        box(truckX+66,truckY-49,24,38,soft);
+        box(truckX+27,truckY-65,22,5,belt);
+        box(truckX+30,truckY-62,5,19,belt);
+        context.beginPath();context.moveTo(truckX+18,truckY-62);context.lineTo(truckX+26,truckY-45);context.stroke();
+        for(const wheel of [truckX+18,truckX+76]){
+          context.fillStyle=belt;context.beginPath();context.arc(wheel,truckY-8,12,0,Math.PI*2);context.fill();
+          context.fillStyle=soft;context.beginPath();context.arc(wheel,truckY-8,5,0,Math.PI*2);context.fill();
+        }
+        if(stage.forkLoaded)pallet(forkX,floor-motion.loadLift,36);
+      }
+      context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
+      context.fillText('36 symbolic spaces · 9 per level × 4',x+100+(3*palletPitch-20)/2,floor+32);
+    }
+    if(robot){
       box(baseX-31,baseY,62,18,belt);
       box(baseX-24,baseY-9,48,9,soft);
       box(baseX-22,shoulderY+7,44,34,soft);
@@ -511,40 +539,11 @@ window.STSimulation2DMachines=(function(){
         box(gripX+side*(gripperWidth/2+3)-2,gripY+4,4,8,soft);
       }
     }
-    if(layer!=='foreground'&&!armInFront)paintArm();
-    if(layer!=='robot'){
+    if(robot){
       if(emptyPallet)pallet(emptyPallet.left,emptyPallet.top,0);
-      if(stage.forkVisible){
-        const pickup=activeX+2*palletPitch;
-        const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
-        const t=stage.forkProgress;
-        const motion=forkliftMotion(t,pickup,exit),forkX=motion.x;
-        const truckX=forkX+palletWidth+8,truckY=floor+16;
-        context.strokeStyle=belt;context.lineWidth=2;
-        // Forks point toward the pallet so the truck reverses out to the right.
-        box(forkX,truckY-8-motion.forkRise,palletWidth+10,4,belt);
-        box(truckX-4,truckY-94,7,98,belt);
-        box(truckX+8,truckY-90,5,70,belt);
-        box(truckX+8,truckY-92,72,6,soft);
-        box(truckX+75,truckY-86,5,63,belt);
-        box(truckX+15,truckY-43,66,32,accent);
-        box(truckX+66,truckY-49,24,38,soft);
-        box(truckX+27,truckY-65,22,5,belt);
-        box(truckX+30,truckY-62,5,19,belt);
-        context.beginPath();context.moveTo(truckX+18,truckY-62);context.lineTo(truckX+26,truckY-45);context.stroke();
-        for(const wheel of [truckX+18,truckX+76]){
-          context.fillStyle=belt;context.beginPath();context.arc(wheel,truckY-8,12,0,Math.PI*2);context.fill();
-          context.fillStyle=soft;context.beginPath();context.arc(wheel,truckY-8,5,0,Math.PI*2);context.fill();
-        }
-        if(stage.forkLoaded)pallet(forkX,floor-motion.loadLift,36);
-      }
-      if(transferring){
-        drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
-      }
-      context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
-      context.fillText('36 symbolic spaces · 9 per level × 4',x+100+(3*palletPitch-20)/2,floor+32);
+      if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
+      paintArm();
     }
-    if(layer!=='robot'&&armInFront)paintArm();
     context.restore();
   }
   return {draw,dimensions,bottleNeck,drawBottle,drawCase,drawPalletOutput,palletStage,forkliftMotion};
