@@ -455,13 +455,14 @@ window.STSimulation2DMachines=(function(){
       }
     }
     const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
-    const reach=Math.max(
-      Math.hypot(outlet+caseWidth/2-baseX,pickupY-caseHeight-17-shoulderY),
-      Math.hypot(x+106+3.02*caseWidth-baseX,floor-4.4*caseHeight-17-shoulderY),
-      Math.hypot(rackX+palletWidth/2-baseX,rackY-17-shoulderY)
-    );
-    // Equal, fixed links cover all pickup, stacking and pallet-rack paths, including the lift arc.
-    const upper=Math.max(160,(reach+140)*.6),forearm=upper;
+    const left=Math.min(outlet+caseWidth/2,activeX+6+caseWidth/2);
+    const right=Math.max(outlet+caseWidth/2,activeX+6+2.5*caseWidth);
+    const top=Math.min(pickupY-caseHeight-17,floor-4*caseHeight-17)-100;
+    const bottom=Math.max(rackY-17,pickupY-caseHeight-17,floor-caseHeight-17);
+    const reach=Math.max(...[left,right].flatMap(px=>[top,bottom].map(py=>Math.hypot(px-baseX,py-shoulderY))));
+    // Fixed, shorter links cover the complete motion envelope with a small reach reserve.
+    const upper=Math.max(96,(reach+24)*.55),forearm=upper;
+    const armInFront=stage.exchange&&progress>=.6&&progress<1;
     const dx=gripX-baseX,dy=gripY-12-shoulderY;
     const distance=Math.max(1,Math.hypot(dx,dy));
     const angle=Math.atan2(dy,dx)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+distance*distance-forearm*forearm)/(2*upper*distance))));
@@ -484,6 +485,8 @@ window.STSimulation2DMachines=(function(){
       for(const side of [-1,1]){
         context.fillStyle=surface;context.beginPath();context.arc(baseX+side*24,baseY+9,2,0,2*Math.PI);context.fill();
       }
+    }
+    function paintArm(){
       function link(ax,ay,bx,by,width){
         context.lineCap='round';context.strokeStyle=belt;context.lineWidth=width+3;
         context.beginPath();context.moveTo(ax,ay);context.lineTo(bx,by);context.stroke();
@@ -508,6 +511,7 @@ window.STSimulation2DMachines=(function(){
         box(gripX+side*(gripperWidth/2+3)-2,gripY+4,4,8,soft);
       }
     }
+    if(layer!=='foreground'&&!armInFront)paintArm();
     if(layer!=='robot'){
       if(emptyPallet)pallet(emptyPallet.left,emptyPallet.top,0);
       if(stage.forkVisible){
@@ -540,6 +544,7 @@ window.STSimulation2DMachines=(function(){
       context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
       context.fillText('36 symbolic spaces · 9 per level × 4',x+100+(3*palletPitch-20)/2,floor+32);
     }
+    if(layer!=='robot'&&armInFront)paintArm();
     context.restore();
   }
   return {draw,dimensions,bottleNeck,drawBottle,drawCase,drawPalletOutput,palletStage,forkliftMotion};

@@ -1095,7 +1095,7 @@ test('robot arm links and gripper retain their dimensions when moving pallets an
     const joints={},widths=[];
     const ctx=new Proxy({arc(x,y,r){if([10,15,17].includes(r))joints[r]=[x,y];},roundRect(x,y,w,h){if(h===4&&this.fillStyle===colors.belt)widths.push(w);}},
       {get:(target,key)=>target[key]??(()=>{})});
-    art.drawPalletOutput(ctx,200,100,180,colors,produced,tick/100,'robot');
+    art.drawPalletOutput(ctx,200,100,180,colors,produced,tick/100,'all');
     const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
     const lengths=[distance(joints[17],joints[15]),distance(joints[15],joints[10])];
     reference??=lengths;
@@ -1379,4 +1379,33 @@ test('empty pallets sit below the first filling position and rise vertically wit
    assert(moving[1]<=previous,'the lift goes upward without a downward swing');previous=moving[1];
  }
  assert(previous<active[1]+.001,'the pallet arrives exactly at filling height');
+});
+
+
+test('robot arms pass in front of staging pallets during the empty-pallet exchange',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+ function frame(progress,layer){
+   const ops=[],ctx=new Proxy({roundRect(x,y,w,h){if(w===123&&h===5)ops.push('pallet');if(w===47&&h===4)ops.push('gripper');},arc(x,y,r){if(r===15)ops.push('elbow');}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawPalletOutput(ctx,200,100,180,colors,36,progress,layer);return ops;
+ }
+ for(const progress of [.61,.72,.8,.92,.97]){
+   assert(!frame(progress,'robot').includes('gripper'),'the arm is omitted from the background pass');
+   const front=frame(progress,'foreground');assert(front.indexOf('gripper')>front.lastIndexOf('pallet'),'arms and gripper paint after every staging pallet');
+ }
+ assert(frame(.3,'robot').includes('gripper'),'normal box placement keeps the robot behind the line');
+ assert(!frame(.3,'foreground').includes('gripper'));
+});
+
+test('shorter rigid robot links still reach every layer and the lower pallet stack',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+ let reference;
+ for(let produced=1;produced<=36;produced++)for(let tick=0;tick<=100;tick+=4){
+   const joints={},ctx=new Proxy({arc(x,y,r){if([17,15,10].includes(r))joints[r]=[x,y];}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawPalletOutput(ctx,200,100,180,colors,produced,tick/100);
+   const length=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+   const links=[length(joints[17],joints[15]),length(joints[15],joints[10])];reference??=links;
+   for(let i=0;i<2;i++){assert(links[i]<160,'both links are shorter than the previous minimum length');assert(Math.abs(links[i]-reference[i])<1e-7,'the link reaches all targets without stretching');}
+ }
 });
