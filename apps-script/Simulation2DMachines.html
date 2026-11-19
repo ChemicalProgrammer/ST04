@@ -154,7 +154,14 @@ window.STSimulation2DMachines=(function(){
     context.globalAlpha=.24;context.fillStyle='#fff';
     context.fillRect(x,y,width,height);
     context.globalAlpha=1;context.fillStyle=colors.caseAccent||colors.accent;
-    context.fillRect(x+width*.39,y,width*.22,height*.4);
+    const marking=colors.caseMarkShape||'tape';
+    if(marking==='label')context.fillRect(x+width*.19,y+height*.32,width*.62,height*.4);
+    else if(marking==='round-label'){context.beginPath();context.ellipse(x+width*.5,y+height*.52,Math.min(width,height)*.27,Math.min(width,height)*.27,0,0,Math.PI*2);context.fill();}
+    else if(marking==='tape')context.fillRect(x+width*.39,y,width*.22,height*.4);
+    else{
+      if(marking==='vertical-band'||marking==='cross-band')context.fillRect(x+width*.39,y,width*.22,height);
+      if(marking==='horizontal-band'||marking==='cross-band')context.fillRect(x,y+height*.39,width,height*.22);
+    }
     const edge=Math.min(.85,width*.035,height*.035);context.lineWidth=edge;
     context.strokeStyle=colors.caseLine||colors.surface||'#eef2f6';
     context.strokeRect(x+edge/2,y+edge/2,width-edge,height-edge);

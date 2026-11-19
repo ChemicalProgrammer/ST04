@@ -3310,6 +3310,10 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
 
    chooseColor('Equipment color','Blue steel');
    chooseColor('Conveyor color','Graphite');
+   chooseColor('Case color','Kraft');chooseColor('Case label / band color','Violet');
+   const caseShape=dialog.querySelector('select[aria-label="Case label / band shape"]');caseShape.value='cross-band';caseShape.dispatchEvent(new h.w.Event('change'));
+   assert(dialog.querySelector('.simulation2d-case-preview'));
+
    assert(dialog.classList.contains('theme-color-dialog'));assert(dialog.querySelector('.theme-color-choice .theme-color-swatch'));
    await h.click('#simulation2d-appearance-dialog .dialog-actions button:last-child');
    assert.equal(h.d.getElementById('simulation2d-appearance-dialog'),null);
@@ -3323,6 +3327,10 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.capShape,undefined);
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.equipment,'#52718a');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.conveyors,'#414b57');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.cases,'#b98c5d');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.caseLabel,'#7c3aed');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.caseLabelShape,'cross-band');
+
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),equipment);
    const views=h.d.getElementById('simulation2d-viewports');views.value='4';views.dispatchEvent(new h.w.Event('change'));
    const grip=h.d.querySelector('.simulation2d-splitter[data-axis="x"]');grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));

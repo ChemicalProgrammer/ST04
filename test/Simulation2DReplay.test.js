@@ -734,6 +734,27 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(JSON.stringify(restored.checkpoint),JSON.stringify(stored.checkpoint));
     vertical.dispatchEvent(new window.MouseEvent('dblclick',{bubbles:true}));
     assert.deepEqual(JSON.parse(JSON.stringify(records.at(-1).layout.split)),{x:.5,y:.5},'double-click restores equal sizes in both directions');
+    const normalViews=JSON.parse(JSON.stringify(records.at(-1).layout.cameras));
+    el('fullscreen').click();
+    secondSlider.value='1.8';secondSlider.dispatchEvent(new window.Event('input',{bubbles:true}));
+    pointer(second,'pointerdown',120,1);pointer(window,'pointermove',195,1);pointer(window,'pointerup',195,0);
+    const fullscreenRecord=JSON.parse(JSON.stringify(records.at(-1)));
+    assert.deepEqual(fullscreenRecord.layout.cameras,normalViews,'normal mode keeps its own framing while fullscreen is edited');
+    const fullscreenViews=fullscreenRecord.layout.fullscreenCameras;
+    el('fullscreen').click();el('speed').dispatchEvent(new window.Event('change'));
+    assert.deepEqual(JSON.parse(JSON.stringify(records.at(-1).layout.cameras)),normalViews);
+    for(let cycle=0;cycle<2;cycle++){
+      el('fullscreen').click();el('speed').dispatchEvent(new window.Event('change'));
+      assert.deepEqual(JSON.parse(JSON.stringify(records.at(-1).layout.fullscreenCameras)),fullscreenViews,'re-entering fullscreen restores every view without fitting again');
+      el('fullscreen').click();
+    }
+    window.STSimulation2D.unload();
+    window.STSimulation2D.load(identity,equipment,null,config,fullscreenRecord,record=>records.push(record));
+    el('fullscreen').click();el('speed').dispatchEvent(new window.Event('change'));
+    assert.deepEqual(JSON.parse(JSON.stringify(records.at(-1).layout.fullscreenCameras)),fullscreenViews,'fullscreen cameras survive reopening the case');
+    assert.equal(JSON.stringify(records.at(-1).checkpoint),JSON.stringify(fullscreenRecord.checkpoint));
+    el('fullscreen').click();
+
   }finally{dom.window.close();}
 });
 
@@ -1258,4 +1279,41 @@ test('forklift route clears every viewport and longer routes preserve transit sp
  const ratio=(route.exitOffset-route.pickupOffset)/(route.baselineExitOffset-route.pickupOffset);
  assert(Math.abs(timing.depart/(15*.5)-ratio)<1e-8);
  model.time=.1+timing.total+.5;assert(context.palletTransfer(item,route).forkProgress>1,'departure is not clamped before clearing the views');
+});
+
+
+test('case colors and marking shapes draw consistently inside the measured carton dimensions',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const colors={caseColor:'#ab8c62',caseAccent:'#42bfa3',surface:'#fff',belt:'#333'};
+ for(const [caseMarkShape,count] of [['tape',1],['label',1],['round-label',1],['horizontal-band',1],['vertical-band',1],['cross-band',2],['none',0]]){
+   const marks=[],bodies=[];let oval;
+   const ctx=new Proxy({fillRect(x,y,w,h){if(this.fillStyle===colors.caseColor)bodies.push([x,y,w,h]);if(this.fillStyle===colors.caseAccent)marks.push([x,y,w,h]);},ellipse(x,y,rx,ry){oval=[x-rx,y-ry,rx*2,ry*2];},fill(){if(oval&&this.fillStyle===colors.caseAccent)marks.push(oval);}},{get:(o,k)=>o[k]??(()=>{})});
+   window.STSimulation2DMachines.drawCase(ctx,10,20,80,50,{...colors,caseMarkShape});
+   assert.deepEqual(bodies,[[10,20,80,50]]);assert.equal(marks.length,count,caseMarkShape);
+   assert(marks.every(([x,y,w,h])=>x>=10&&y>=20&&x+w<=90&&y+h<=70),caseMarkShape+' stays within the case');
+ }
+});
+
+
+test('fullscreen resizing preserves the world center and zoom without drift on return',()=>{
+ const source=script('Simulation2D');
+ const views=[{canvas:{clientWidth:800,clientHeight:400},camera:{scale:.12,x:150,y:220,fit:false},initialized:true},{canvas:{clientWidth:420,clientHeight:300},camera:{scale:.07,x:-90,y:80,fit:false},initialized:true}];
+ const context=vm.createContext({viewports:views,activeViewport:1,camera:views[1].camera});
+ vm.runInContext(source.slice(source.indexOf('  function captureViewportCameras('),source.indexOf('  function setFullscreen(')),context);
+ const original=context.captureViewportCameras();
+ const centers=views.map(view=>[(view.canvas.clientWidth/2-view.camera.x)/view.camera.scale,(view.canvas.clientHeight/2-view.camera.y)/view.camera.scale]);
+ views.forEach(view=>{view.canvas.clientWidth+=700;view.canvas.clientHeight+=400;});
+ context.applyModeCameras(original);
+ views.forEach((view,index)=>{
+   assert.equal(view.camera.scale,original[index].scale);
+   assert(Math.abs((view.canvas.clientWidth/2-view.camera.x)/view.camera.scale-centers[index][0])<1e-8);
+   assert(Math.abs((view.canvas.clientHeight/2-view.camera.y)/view.camera.scale-centers[index][1])<1e-8);
+ });
+ const full=context.captureViewportCameras();
+ views.forEach(view=>{view.canvas.clientWidth-=700;view.canvas.clientHeight-=400;});
+ context.applyModeCameras(original);
+ views.forEach((view,index)=>{assert.equal(view.camera.x,original[index].x);assert.equal(view.camera.y,original[index].y);});
+ views.forEach(view=>{view.canvas.clientWidth+=700;view.canvas.clientHeight+=400;});
+ context.applyModeCameras(full);
+ views.forEach((view,index)=>{assert.equal(view.camera.x,full[index].x);assert.equal(view.camera.y,full[index].y);});
 });
