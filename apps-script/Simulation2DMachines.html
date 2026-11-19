@@ -17,27 +17,43 @@ window.STSimulation2DMachines=(function(){
     return Object.hasOwn(designs,type)?designs[type]:null;
   }
   function bottleNeck(type){
-    return type==='oval-jug'?{x:32,width:30,y:0}:type==='shower'?{x:16,width:68,y:0}:type==='ribbed'?{x:38,width:24,y:0}:type==='softener'?{x:30,width:29,y:0}:type==='jug'?{x:20,width:39,y:0}:type==='shampoo'?{x:27,width:46,y:0}:type==='pump'?{x:44,width:12,y:27}:{x:38,width:24,y:0};
+    return type==='oval-jug'?{x:33,width:32,y:35}:type==='shower'?{x:17,width:66,y:33}:type==='ribbed'?{x:38,width:24,y:12}:type==='softener'?{x:30,width:29,y:0}:type==='jug'?{x:20,width:39,y:0}:type==='shampoo'?{x:27,width:46,y:0}:type==='pump'?{x:44,width:12,y:27}:{x:38,width:24,y:0};
   }
   function drawBottle(context,x,y,width,height,colors,type='classic',stage=0){
     if(!(width>0&&height>0))return;
-    const bounds=type==='softener'||type==='jug'||type==='oval-jug'?[3,98]:type==='pump'?[6,94]:[4,96];
+    const bounds=type==='oval-jug'?[0,100]:type==='softener'||type==='jug'?[3,98]:type==='pump'?[6,94]:[4,96];
     context.save();context.translate(x-bounds[0]*width/(bounds[1]-bounds[0]),y);context.scale(width/(bounds[1]-bounds[0]),height/200);
     function path(){
       context.beginPath();
       if(type==='oval-jug'){
-        context.moveTo(32,0);context.lineTo(62,0);context.lineTo(64,30);
-        context.bezierCurveTo(93,44,98,85,98,128);context.bezierCurveTo(98,170,86,198,65,200);
-        context.lineTo(24,200);context.bezierCurveTo(4,194,3,170,3,135);context.bezierCurveTo(3,84,16,49,31,30);context.closePath();
-        context.moveTo(72,54);context.bezierCurveTo(84,58,92,87,88,111);context.bezierCurveTo(79,105,68,80,72,54);context.closePath();
+        // Traced proportions: broad asymmetric pear body and long, slanted handle opening.
+        context.moveTo(33,35);context.lineTo(65,35);
+        context.bezierCurveTo(81,47,100,85,100,133);
+        context.bezierCurveTo(100,158,94,183,85,195);
+        context.bezierCurveTo(62,201,34,201,13,194);
+        context.bezierCurveTo(5,182,0,158,0,125);
+        context.bezierCurveTo(0,86,12,57,33,35);context.closePath();
+        context.moveTo(68,75);
+        context.bezierCurveTo(72,72,78,81,82,91);
+        context.bezierCurveTo(86,100,91,111,90,114);
+        context.bezierCurveTo(86,120,74,101,70,89);
+        context.bezierCurveTo(68,83,67,78,68,75);context.closePath();
       }else if(type==='shower'){
-        context.moveTo(16,0);context.quadraticCurveTo(50,8,84,0);context.lineTo(85,29);
+        context.moveTo(17,32);context.quadraticCurveTo(50,41,83,32);
         context.quadraticCurveTo(96,65,96,110);context.quadraticCurveTo(96,150,83,189);context.quadraticCurveTo(80,200,69,200);
-        context.lineTo(31,200);context.quadraticCurveTo(20,200,17,189);context.quadraticCurveTo(4,150,4,110);context.quadraticCurveTo(4,65,15,29);context.closePath();
+        context.lineTo(31,200);context.quadraticCurveTo(20,200,17,189);context.quadraticCurveTo(4,150,4,110);context.quadraticCurveTo(4,65,17,32);context.closePath();
       }else if(type==='ribbed'){
-        context.moveTo(38,0);context.lineTo(62,0);context.lineTo(63,20);context.quadraticCurveTo(94,38,96,57);
-        context.lineTo(96,178);context.quadraticCurveTo(96,200,82,200);context.lineTo(18,200);
-        context.quadraticCurveTo(4,200,4,178);context.lineTo(4,57);context.quadraticCurveTo(6,38,37,20);context.closePath();
+        context.moveTo(38,12);context.lineTo(62,12);context.lineTo(62,19);
+        context.bezierCurveTo(66,24,88,33,94,46);
+        context.quadraticCurveTo(98,53,93,57);
+        for(let rib=0;rib<4;rib++){
+          const top=57+rib*6;context.quadraticCurveTo(97,top+1,94,top+4);
+        }
+        context.lineTo(96,85);context.lineTo(96,176);
+        context.quadraticCurveTo(96,190,91,197);context.quadraticCurveTo(50,203,9,197);
+        context.quadraticCurveTo(4,190,4,176);context.lineTo(4,85);
+        for(let rib=3;rib>=0;rib--){const top=57+rib*6;context.lineTo(6,top+4);context.quadraticCurveTo(3,top+1,7,top);}
+        context.quadraticCurveTo(2,53,6,46);context.bezierCurveTo(12,33,34,24,38,19);context.closePath();
       }else if(type==='softener'||type==='jug'){
         context.moveTo(type==='jug'?20:30,0);context.lineTo(59,0);context.lineTo(61,35);
         context.quadraticCurveTo(97,42,98,84);context.lineTo(95,184);
@@ -68,7 +84,7 @@ window.STSimulation2DMachines=(function(){
       }
     }
     path();context.fillStyle=colors.surface;context.fill('evenodd');
-    if(stage&2){context.save();path();context.clip('evenodd');context.fillStyle=colors.liquid||colors.accent;context.fillRect(0,65,100,135);context.restore();}
+    if(stage&2){context.save();path();context.clip('evenodd');context.fillStyle=colors.liquid||colors.accent;const liquidTop=type==='oval-jug'?35:type==='shower'?33:type==='ribbed'?26:65;context.fillRect(0,liquidTop,100,200-liquidTop);context.restore();}
     path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
     if(stage&1){
       // All label styles follow the chosen body; the even-odd clip preserves handle openings.
@@ -89,24 +105,55 @@ window.STSimulation2DMachines=(function(){
       context.restore();
     }
     path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
-    if(type==='ribbed'){context.strokeStyle=colors.belt;for(let rib=0;rib<4;rib++){context.beginPath();context.moveTo(7,57+rib*7);context.quadraticCurveTo(50,50+rib*7,93,57+rib*7);context.stroke();}}
+    if(type==='oval-jug'){
+      // The recessed handle rim is larger than the opening and merges into the lower body.
+      context.save();path();context.clip('evenodd');context.strokeStyle=colors.belt;context.lineWidth=1.4;
+      context.beginPath();context.moveTo(64,53);context.bezierCurveTo(75,47,86,67,92,91);
+      context.bezierCurveTo(101,126,94,137,84,131);context.bezierCurveTo(72,120,60,86,64,63);context.stroke();
+      context.globalAlpha=.3;context.strokeStyle=colors.surface;
+      context.beginPath();context.moveTo(10,91);context.bezierCurveTo(2,140,10,179,21,187);context.bezierCurveTo(44,196,70,188,85,175);context.stroke();context.restore();
+    }
+    if(type==='ribbed'){
+      context.strokeStyle=colors.belt;context.lineWidth=1;
+      for(let rib=0;rib<4;rib++){context.beginPath();context.moveTo(7,57+rib*6);context.quadraticCurveTo(50,52+rib*6,93,57+rib*6);context.stroke();}
+      context.beginPath();context.moveTo(38,16);context.lineTo(62,16);context.stroke();
+      for(let groove=0;groove<9;groove++){const left=12+groove*9;context.beginPath();context.moveTo(left,187);context.lineTo(left+(50-left)*.08,197);context.stroke();}
+    }
     if(type==='cleaner'){context.strokeStyle=colors.belt;for(let rib=0;rib<3;rib++){context.beginPath();context.moveTo(17,158+rib*9);context.lineTo(83,158+rib*9);context.stroke();}}
     if(stage&4){
       const neck=bottleNeck(type);context.fillStyle=colors.cap||colors.belt;
-      const cap=colors.capShape&&colors.capShape!=='auto'?colors.capShape:type==='pump'?'pump':type==='oval-jug'?'dosing':type==='shower'?'flip':'screw';
-      if(cap==='pump'){
-        // Center each closure on this bottle's neck, including mixed combinations.
+      context.strokeStyle=colors.belt;context.lineWidth=1;
+      if(type==='pump'){
         const center=neck.x+neck.width/2;
         context.fillRect(neck.x-2,neck.y,neck.width+4,10);
         context.fillRect(center-4,6,8,Math.max(8,neck.y-6));context.fillRect(center-12,0,30,6);context.fillRect(center+13,4,5,8);
-      }else if(cap==='dosing'||cap==='flip'){
-        context.save();context.translate(0,neck.y);
-        const left=neck.x-2,right=neck.x+neck.width+2;
-        context.beginPath();context.moveTo(left,22);context.lineTo(left,6);
-        context.quadraticCurveTo(left+neck.width*.3,cap==='dosing'?16:0,right,2);context.lineTo(right,22);context.closePath();context.fill();context.stroke();
-        context.beginPath();context.moveTo(left+2,13);context.quadraticCurveTo(left+neck.width*.4,6,right-2,6);context.stroke();
-        if(cap==='dosing'){context.beginPath();context.moveTo(left+5,12);context.lineTo(left+8,0);context.quadraticCurveTo(left+neck.width/2,0,right-7,0);context.lineTo(right-3,6);context.fill();context.stroke();}
-        context.restore();
+      }else if(type==='oval-jug'){
+        // Rear dosing cup, raised sweeping pouring lip, ribbed screw collar.
+        context.beginPath();context.moveTo(37,24);context.lineTo(38,3);
+        context.bezierCurveTo(40,0,53,0,57,3);context.lineTo(60,15);context.closePath();context.fill();context.stroke();
+        context.save();context.globalAlpha=.2;context.fillStyle=colors.surface;
+        context.beginPath();context.moveTo(45,2);context.lineTo(48,2);context.lineTo(49,18);context.lineTo(45,21);context.closePath();context.fill();context.restore();
+        context.beginPath();context.moveTo(33,35);context.lineTo(32,21);context.lineTo(35,24);
+        context.bezierCurveTo(44,17,56,7,66,9);context.quadraticCurveTo(68,10,66,18);
+        context.lineTo(65,35);context.closePath();context.fill();context.stroke();
+        context.beginPath();context.moveTo(35,24);context.bezierCurveTo(45,22,56,15,66,15);context.stroke();
+        context.fillRect(33,26,32,9);context.strokeRect(33,26,32,9);
+        context.save();context.globalAlpha=.35;context.strokeStyle=colors.surface;context.lineWidth=.45;
+        for(let rib=0;rib<19;rib++){const left=34+rib*1.6;context.beginPath();context.moveTo(left,27);context.lineTo(left,34);context.stroke();}context.restore();
+      }else if(type==='shower'){
+        // Wide asymmetric flip top: high rear lip, swept front seam, curved lower skirt.
+        context.beginPath();context.moveTo(17,32);context.lineTo(20,5);
+        context.quadraticCurveTo(24,1,35,4);context.quadraticCurveTo(62,5,78,2);
+        context.quadraticCurveTo(82,1,83,7);context.lineTo(85,32);
+        context.quadraticCurveTo(51,42,17,32);context.closePath();context.fill();context.stroke();
+        context.beginPath();context.moveTo(19,16);context.bezierCurveTo(35,13,53,5,81,5);context.stroke();
+        context.beginPath();context.moveTo(22,17);context.bezierCurveTo(47,15,61,7,80,7);context.stroke();
+        context.save();context.globalAlpha=.25;context.strokeStyle=colors.surface;
+        context.beginPath();context.moveTo(23,7);context.lineTo(20,27);context.stroke();context.restore();
+      }else if(type==='ribbed'){
+        context.beginPath();context.moveTo(37,12);context.lineTo(37,4);context.quadraticCurveTo(38,0,50,0);
+        context.quadraticCurveTo(62,0,63,4);context.lineTo(63,12);context.closePath();context.fill();context.stroke();
+        for(let rib=0;rib<8;rib++){const left=39+rib*3;context.beginPath();context.moveTo(left,4);context.lineTo(left,10);context.stroke();}
       }else{
         context.fillRect(neck.x-2,neck.y,neck.width+4,12);
         context.strokeStyle=colors.belt;context.lineWidth=1;context.strokeRect(neck.x-2,neck.y,neck.width+4,12);
@@ -321,6 +368,7 @@ window.STSimulation2DMachines=(function(){
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const depthX=0,depthY=0;
     const palletWidth=caseWidth*3+2*depthX+12,palletPitch=palletWidth+20;
+    const pickupY=Number.isFinite(colors.pickupY)?colors.pickupY:y;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.6;
     const activeX=x+100,rackX=x-85,rackY=floor+17;
@@ -357,12 +405,12 @@ window.STSimulation2DMachines=(function(){
     const phase=returning?smooth((progress-.6)/.4):smooth((progress-.04)/.56);
     const fraction=returning?1-phase:phase;
     const movingX=outlet+(targetX-outlet)*fraction;
-    const movingY=y-caseHeight+(targetY-y+caseHeight)*fraction-70*Math.sin(phase*Math.PI);
+    const movingY=pickupY-caseHeight+(targetY-pickupY+caseHeight)*fraction-70*Math.sin(phase*Math.PI);
     const approaching=progress<.04;
     const clearance=approaching?30*(1-smooth(progress/.04)):
       returning?30*smooth((progress-.6)/.4):0;
     let gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
-    let gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
+    let gripY=produced>0?movingY-5-clearance:pickupY-caseHeight-35;
     const gripperWidth=caseWidth;
     let emptyPallet=null;
     if(stage.exchange&&progress>=.6){
@@ -382,13 +430,13 @@ window.STSimulation2DMachines=(function(){
         const t=smooth((progress-.94)/.06);
         const dockX=activeX+palletWidth/2,dockY=floor-5;
         gripX=dockX+(outlet+caseWidth/2-dockX)*t;
-        gripY=dockY+(y-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
+        gripY=dockY+(pickupY-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
 
       }
     }
     const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
     const reach=Math.max(
-      Math.hypot(outlet+caseWidth/2-baseX,y-caseHeight-17-shoulderY),
+      Math.hypot(outlet+caseWidth/2-baseX,pickupY-caseHeight-17-shoulderY),
       Math.hypot(x+106+3.02*caseWidth-baseX,floor-4.4*caseHeight-17-shoulderY),
       Math.hypot(rackX+palletWidth/2-baseX,rackY-17-shoulderY)
     );

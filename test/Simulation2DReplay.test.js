@@ -202,17 +202,22 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert(dialog.open);assert(dialog.querySelector('.dialog-heading'));assert(dialog.querySelector('.dialog-body'));assert(dialog.querySelector('.dialog-actions'));
     assert.equal(el('machine-style').closest('dialog'),dialog);
     assert.equal(dialog.querySelectorAll('[data-bottle-style]').length,9);
-    assert([...dialog.querySelectorAll('.simulation2d-color-picker')].every(picker=>!picker.open));
-    const labelPicker=dialog.querySelector('summary[aria-label="Label color"]').parentElement;
-    labelPicker.open=true;
-    labelPicker.querySelector('[aria-label="Pink"]').click();assert.equal(labelPicker.open,false);
+    assert([...dialog.querySelectorAll('.simulation2d-color-popup')].every(popup=>popup.hidden));
+    assert.equal(dialog.querySelector('select[aria-label="Cap shape"]'),null);
+    const labelTrigger=dialog.querySelector('.simulation2d-color-trigger[aria-label="Label color"]');labelTrigger.click();
+    const labelPicker=window.document.getElementById(labelTrigger.getAttribute('aria-controls'));
+    assert.equal(labelPicker.hidden,false);assert.equal(labelPicker.parentElement,dialog,'popup floats outside the scrolling body');
+    const liquidTrigger=dialog.querySelector('.simulation2d-color-trigger[aria-label="Liquid color"]');liquidTrigger.click();
+    assert(labelPicker.hidden,'opening another palette closes the previous one');
+    const liquidPopup=window.document.getElementById(liquidTrigger.getAttribute('aria-controls'));
+    liquidPopup.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert(liquidPopup.hidden);assert(dialog.open,'Escape closes the palette first');labelTrigger.click();
+    labelPicker.querySelector('[aria-label="Pink"]').click();assert.equal(labelPicker.hidden,true);
     assert([...dialog.querySelectorAll('.simulation2d-bottle-gallery canvas')].every(preview=>previewFills.get(preview)?.includes('#f4a0c4')),'every gallery sample includes the colored label');
     const labelShape=dialog.querySelector('select[aria-label="Label shape"]');labelShape.value='sleeve';labelShape.dispatchEvent(new window.Event('change'));
-    const capShape=dialog.querySelector('select[aria-label="Cap shape"]');capShape.value='dosing';capShape.dispatchEvent(new window.Event('change'));
     dialog.querySelector('[data-bottle-style="oval-jug"]').click();
     assert([...dialog.querySelectorAll('.simulation2d-bottle-gallery canvas')].every(preview=>previewFills.get(preview)?.includes('#f4a0c4')));
 
-    assert.equal(dialog.querySelectorAll('[aria-label="Liquid color palette"] button').length,13);
+    assert.equal(dialog.querySelectorAll('[aria-label="Liquid color palette"] button').length,14);
     dialog.querySelector('[data-bottle-style="softener"]').click();
     Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Cancel').click();
     assert.equal(records.length,beforeAppearance,'Cancel leaves saved appearance unchanged');
@@ -812,11 +817,11 @@ test('a palletizer case crosses continuously from belt exit through the machine 
   machine.residenceClock=10;
   const end=context.palletInfeed([belt,machine],items,100);
   assert.equal(end.cases[0].left,end.pickup);
-  assert.equal(end.cases[0].top,72);
+  assert.equal(end.cases[0].top,82);assert.equal(midway.top,82,'infeed stays horizontal');
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'),{window});
   const cartons=[];
-  const colors={belt:'#777',soft:'#eee',surface:'#fff',accent:'#08f',ink:'#111',caseWidth:37,caseHeight:28};
+  const colors={belt:'#777',soft:'#eee',surface:'#fff',accent:'#08f',ink:'#111',caseWidth:37,caseHeight:28,pickupY:end.startBottom};
   const canvas=new Proxy({fillRect(x,y,w,h){
     if(this.fillStyle===colors.belt&&w===37&&h===28)cartons.push([x,y]);
   }},{get:(target,key)=>target[key]??(()=>{})});
@@ -1109,11 +1114,11 @@ test('palletizer frame no longer draws a second roller track over the case infee
  const arcs=[],ctx=new Proxy({arc(...args){arcs.push(args);}},{get:(o,k)=>o[k]??(()=>{})});
  window.STSimulation2DMachines.draw(ctx,'PALLETIZER',0,0,120,100,{ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777'},1);
  assert.equal(arcs.length,0,'the roller bed belongs only to the continuous infeed drawing');
- const source=script('Simulation2D');let strokes=0;
- const context=vm.createContext({window,palletInfeed:()=>({start:10,startBottom:100,pickup:90,caseWidth:20,caseHeight:40,cases:[]})});
+ const source=script('Simulation2D');const beams=[],holes=[];
+ const context=vm.createContext({window,palletInfeed:()=>({start:10,startBottom:110,pickup:90,caseWidth:20,caseHeight:40,cases:[]})});
  vm.runInContext(source.slice(source.indexOf('  function drawPalletInfeed('),source.indexOf('  function productionHeight(')),context);
- context.drawPalletInfeed(new Proxy({stroke(){strokes++;}},{get:(o,k)=>o[k]??(()=>{})}),[],[],0,100,{belt:'#777'});
- assert.equal(strokes,1);
+ context.drawPalletInfeed(new Proxy({fillRect(...args){beams.push(args);},arc(...args){holes.push(args);}},{get:(o,k)=>o[k]??(()=>{})}),[],[],0,100,{belt:'#777'});
+ assert.deepEqual(beams,[[10,110,100,6]]);assert(holes.length>0);assert(holes.every(([,y])=>y===113),'original perforated beam is horizontal at the conveyor outlet');
 });
 
 
@@ -1146,14 +1151,17 @@ test('forks arrive raised, lower into the pallet and lift the load before revers
 });
 
 
-test('reference bottles support independent label colors and closure combinations with stage visibility',()=>{
+test('reference bottles retain their own closures and support independent label styles with stage visibility',()=>{
  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
  const colors={surface:'#fff',belt:'#333',liquid:'#0af',label:'#da2477',cap:'#cbaa21'};
- for(const type of ['ribbed','oval-jug','shower'])for(const labelShape of ['sticker','wrap','sleeve'])for(const capShape of ['screw','dosing','flip','pump']){
-   const fills=[],ctx=new Proxy({fill(){fills.push(this.fillStyle);},fillRect(){fills.push(this.fillStyle);}},{get:(o,k)=>o[k]??(()=>{})});
-   window.STSimulation2DMachines.drawBottle(ctx,0,0,50,150,{...colors,labelShape,capShape},type,0);
-   assert(!fills.includes(colors.label));assert(!fills.includes(colors.cap));
-   window.STSimulation2DMachines.drawBottle(ctx,0,0,50,150,{...colors,labelShape,capShape},type,7);
-   assert(fills.includes(colors.label),type+' '+labelShape);assert(fills.includes(colors.cap),type+' '+capShape);
+ for(const type of ['ribbed','oval-jug','shower'])for(const labelShape of ['sticker','wrap','sleeve']){
+   function frame(stage,capShape){
+     const fills=[],ops=[],ctx=new Proxy({fill(){fills.push(this.fillStyle);},fillRect(...args){fills.push(this.fillStyle);ops.push(['rect',...args]);}},{get:(o,k)=>o[k]??((...args)=>ops.push([k,...args]))});
+     window.STSimulation2DMachines.drawBottle(ctx,0,0,50,150,{...colors,labelShape,capShape},type,stage);return {fills,ops};
+   }
+   assert(!frame(0).fills.includes(colors.label));assert(!frame(0).fills.includes(colors.cap));
+   assert(frame(7).fills.includes(colors.label),type+' '+labelShape);assert(frame(7).fills.includes(colors.cap),type);
+   assert.deepEqual(frame(7).ops,frame(7,'pump').ops,'stale cap choices cannot change the fixed closure');
  }
+
 });

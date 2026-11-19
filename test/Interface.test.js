@@ -3294,15 +3294,22 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    let dialog=h.d.getElementById('simulation2d-appearance-dialog');
    assert(dialog.open);assert.equal(dialog.querySelector('h2').textContent,'Layout appearance');
    assert.equal(h.d.getElementById('simulation2d-machine-style').closest('dialog'),dialog);
-   dialog.querySelector('[data-bottle-style="shampoo"]').click();dialog.querySelector('[aria-label="Pink"]').click();
-   dialog.querySelector('[aria-label="Cap color palette"] [aria-label="Red"]').click();
-   const labelPicker=dialog.querySelector('summary[aria-label="Label color"]').parentElement;labelPicker.open=true;
+   function chooseColor(title,name){
+     const trigger=dialog.querySelector('.simulation2d-color-trigger[aria-label="'+title+'"]');trigger.click();
+     const popup=h.d.getElementById(trigger.getAttribute('aria-controls'));assert(!popup.hidden);assert.equal(h.w.getComputedStyle(popup).position,'fixed');
+     popup.querySelector('[aria-label="'+name+'"]').click();assert(popup.hidden);
+   }
+   dialog.querySelector('[data-bottle-style="shampoo"]').click();chooseColor('Liquid color','Pink');chooseColor('Cap color','Red');
+   const trigger=dialog.querySelector('.simulation2d-color-trigger[aria-label="Label color"]');trigger.click();
+   const labelPicker=h.d.getElementById(trigger.getAttribute('aria-controls'));
+   assert(!labelPicker.hidden);assert.equal(labelPicker.parentElement,dialog);
+   assert(labelPicker.querySelector('[aria-label="Custom color"]').classList.contains('theme-color-choice'));
    const custom=labelPicker.querySelector('input[type="color"]');custom.value='#abc123';custom.dispatchEvent(new h.w.Event('input'));
    const labelShape=dialog.querySelector('select[aria-label="Label shape"]');labelShape.value='sleeve';labelShape.dispatchEvent(new h.w.Event('change'));
-   const capShape=dialog.querySelector('select[aria-label="Cap shape"]');capShape.value='flip';capShape.dispatchEvent(new h.w.Event('change'));
+   assert.equal(dialog.querySelector('select[aria-label="Cap shape"]'),null);
 
-   dialog.querySelector('[aria-label="Equipment color palette"] [aria-label="Blue steel"]').click();
-   dialog.querySelector('[aria-label="Conveyor color palette"] [aria-label="Graphite"]').click();
+   chooseColor('Equipment color','Blue steel');
+   chooseColor('Conveyor color','Graphite');
    assert(dialog.classList.contains('theme-color-dialog'));assert(dialog.querySelector('.theme-color-choice .theme-color-swatch'));
    await h.click('#simulation2d-appearance-dialog .dialog-actions button:last-child');
    assert.equal(h.d.getElementById('simulation2d-appearance-dialog'),null);
@@ -3313,7 +3320,7 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.cap,'#dc2626');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.label,'#abc123');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.labelShape,'sleeve');
-   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.capShape,'flip');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.capShape,undefined);
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.equipment,'#52718a');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.conveyors,'#414b57');
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),equipment);
