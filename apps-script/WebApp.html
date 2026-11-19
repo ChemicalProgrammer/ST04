@@ -155,26 +155,16 @@
             <h2 id="simulation2d-settings-title"><button class="fold-toggle" type="button" data-subsection-toggle aria-expanded="true" aria-controls="simulation2d-settings-content">Settings</button></h2>
           </div>
           <div id="simulation2d-settings-content" class="fold-content">
-            <div class="simulation2d-options" role="group" aria-label="Simulation options">
-              <label class="simulation2d-limit"><input id="simulation2d-limit" type="number" min="0.01" step="any" value="60" aria-label="Simulation time limit in minutes" title="Simulation time limit"><span>min</span></label>
-              <label class="simulation2d-source">Source
-                <select id="simulation2d-source">
-                  <option value="independent">Independent simulation</option>
-                  <option value="representative">Representative round seed</option>
-                </select>
-              </label>
-              <label class="simulation2d-source">Equipment view
-                <select id="simulation2d-machine-style">
-                  <option value="blocks">Blocks</option>
-                  <option value="animated">Animated designs</option>
-                </select>
-              </label>
-              <label class="simulation2d-source">
-                <input id="simulation2d-dimensions" type="checkbox"> Show dimensions
-              </label>
-              <label class="simulation2d-source"><input id="simulation2d-failures" type="checkbox" checked> MTBF / MTTR failures</label>
-              <label class="simulation2d-source"><input id="simulation2d-show-events" type="checkbox" aria-controls="simulation2d-events-panel"> Show events and calendar</label>
+            <div class="simulation2d-settings-grid" role="group" aria-label="Simulation setup">
+              <label class="simulation2d-time-field"><span>Time</span><span class="simulation2d-time-input"><input id="simulation2d-limit" type="number" min="0.01" step="any" value="60" aria-label="Simulation time limit in minutes" title="Simulation time limit"><span>min</span></span></label>
+              <label>Source<select id="simulation2d-source"><option value="independent">Independent simulation</option><option value="representative">Representative round seed</option></select></label>
             </div>
+            <fieldset class="simulation2d-setting-toggles"><legend>Options</legend>
+              <label><input id="simulation2d-dimensions" type="checkbox"> Show dimensions</label>
+              <label><input id="simulation2d-failures" type="checkbox" checked> MTBF / MTTR failures</label>
+              <label><input id="simulation2d-show-events" type="checkbox" aria-controls="simulation2d-events-panel"> Show events and calendar</label>
+            </fieldset>
+            <div id="simulation2d-equipment-view-home" hidden><label class="simulation2d-dialog-field">Equipment view<select id="simulation2d-machine-style"><option value="blocks">Blocks</option><option value="animated">Animated designs</option></select></label></div>
           </div>
         </div>
         <div id="simulation2d-events-panel" class="fold-card" role="region" aria-labelledby="simulation2d-events-title" hidden>
@@ -200,8 +190,6 @@
               <button id="simulation2d-stop" type="button" class="secondary icon-button" data-icon="stop" aria-label="Stop" title="Stop"></button>
               <button id="simulation2d-reset" type="button" class="secondary icon-button" data-icon="refresh" aria-label="Reset" title="Reset"></button>
               <select id="simulation2d-speed" aria-label="Simulation speed" title="Simulation speed"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="20">20×</option><option value="50">50×</option><option value="100">100×</option><option value="200">200×</option><option value="500">500×</option><option value="1000">1000×</option><option value="2000">2000×</option><option value="5000">5000×</option></select>
-              <input id="simulation2d-zoom" type="range" min="-10" max="6" step="any" value="0" aria-label="Zoom" title="Zoom">
-              <output id="simulation2d-zoom-value" for="simulation2d-zoom">100%</output>
               <select id="simulation2d-viewports" aria-label="Number of viewports" title="Number of viewports"><option value="1">1 view</option><option value="2">2 views</option><option value="3">3 views</option><option value="4">4 views</option></select>
               <button id="simulation2d-appearance" type="button" class="secondary icon-button" data-icon="settings" title="Layout appearance" aria-label="Layout appearance" aria-haspopup="dialog" aria-controls="simulation2d-appearance-dialog"></button>
               <button id="simulation2d-fit" type="button" class="secondary icon-button" data-icon="fit" title="Fit drawing to view" aria-label="Fit drawing to view"></button>
@@ -220,6 +208,8 @@
             <div class="simulation2d-diagram">
               <canvas id="simulation2d-canvas" tabindex="0" aria-label="Side view of the line. Drag or hold the middle mouse button to pan. Scroll to zoom at the pointer. Use the Fit button to recenter."></canvas>
               <div id="simulation2d-machine-controls"></div>
+<input id="simulation2d-zoom" type="range" min="-10" max="6" step="any" value="0" aria-label="Zoom" title="Zoom">
+<output id="simulation2d-zoom-value" for="simulation2d-zoom">100%</output>
             </div>
             <div id="simulation2d-legend" class="chart-note" aria-label="Machine states">
               <span class="run">Running / discharging</span>

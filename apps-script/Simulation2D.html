@@ -41,19 +41,14 @@
 .simulation2d-limit { display:inline-flex; align-items:center; gap:2px; color:var(--ink); font-size:var(--font-secondary); white-space:nowrap; }
 #simulation2d-limit { width:7ch; min-width:7ch; padding-inline:4px; appearance:textfield; font-variant-numeric:tabular-nums; }
 #simulation2d-limit::-webkit-inner-spin-button { appearance:none; margin:0; }
-#simulation2d-zoom { width:96px; min-width:0; padding:0; accent-color:var(--accent); }
-#simulation2d-zoom-value { width:5ch; text-align:end; color:var(--ink); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; white-space:nowrap; }
 @container (max-width:450px) {
   #simulation2d-panel .fold-tools { gap:2px; }
   #simulation2d-panel .fold-tools .icon-button { width:28px; padding-inline:4px; }
-  #simulation2d-zoom { width:48px; }
-  #simulation2d-zoom-value { font-size:11px; }
   #simulation2d-speed { font-size:12px; padding-inline:4px 16px; background-size:11px; }
 }
 @container (max-width:320px) {
   #simulation2d-panel .fold-tools { gap:1px; }
   #simulation2d-panel .fold-tools .icon-button { width:23px; padding-inline:2px; }
-  #simulation2d-zoom { width:28px; }
   #simulation2d-limit { font-size:11px; padding-inline:2px; }
   .simulation2d-limit { font-size:10px; }
   #simulation2d-speed { padding-inline:2px 13px; background-position:right 2px center; background-size:10px; }
@@ -88,6 +83,19 @@
 .simulation2d-diagram[data-viewports="3"] .simulation2d-viewport:nth-child(3) { grid-column:1/-1; }
 .simulation2d-viewport-label { position:absolute; top:6px; left:8px; pointer-events:none; color:var(--muted); font-size:var(--font-caption); }
 #simulation2d-viewports { width:78px; min-width:0; padding-inline:5px 18px; }
+
+.simulation2d-settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:var(--space-3) var(--space-4); align-items:end; }
+.simulation2d-settings-grid > label,.simulation2d-dialog-field { display:grid; gap:var(--space-2); min-width:0; font-size:var(--font-secondary); }
+.simulation2d-settings-grid select,.simulation2d-dialog-field select { width:100%; min-width:0; }
+.simulation2d-time-input { display:flex; align-items:center; gap:var(--space-2); }
+#simulation2d-limit { width:100%; min-width:0; }
+.simulation2d-setting-toggles { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); gap:var(--space-3); margin:var(--space-4) 0 0; padding:var(--space-3) 0 0; border:0; border-top:1px solid var(--line); }
+.simulation2d-setting-toggles legend { padding:0 var(--space-2) 0 0; font-size:var(--font-secondary); color:var(--muted); }
+.simulation2d-setting-toggles label { display:flex; align-items:center; gap:var(--space-2); margin:0; font-size:var(--font-secondary); }
+.simulation2d-setting-toggles input { width:auto; margin:0; flex:0 0 auto; }
+.simulation2d-viewport-zoom { position:absolute; z-index:2; right:var(--space-2); bottom:var(--space-2); display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); max-width:calc(100% - 2 * var(--space-2)); box-sizing:border-box; cursor:default; }
+.simulation2d-viewport-zoom input[type=range] { width:90px; min-width:40px; max-width:100%; margin:0; padding:0; accent-color:var(--accent); }
+.simulation2d-viewport-zoom output { min-width:5ch; margin:0; padding:0; text-align:right; color:var(--muted); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
 </style>
 <script>
 window.STSimulation2D=(function(){
@@ -131,17 +139,17 @@ window.STSimulation2D=(function(){
   const liquidPalette=[['Violet','#7c3aed'],['Lavender','#b49be8'],['Blue','#2563eb'],['Aqua','#67d9ed'],['Green','#16a34a'],['Lime','#a3d635'],['Yellow','#facc15'],['Amber','#e8a23a'],['Pink','#f4a0c4'],['White','#f4f3ec'],['Teal','#14b8a6'],['Clear','#d9eef2']];
   function validAppearance(value={}){
     const color=value=>/^#[0-9a-f]{6}$/i.test(value||'')?value:null;
-    return {bottle:bottleStyles.some(([id])=>id===value.bottle)?value.bottle:'classic',liquid:color(value.liquid),equipment:color(value.equipment),conveyors:color(value.conveyors)};
+    return {bottle:bottleStyles.some(([id])=>id===value.bottle)?value.bottle:'classic',liquid:color(value.liquid),equipment:color(value.equipment),conveyors:color(value.conveyors),cap:color(value.cap)};
   }
   let appearance=validAppearance({bottle:window.STPreferences?.read('simulation2dBottleStyle')});
   function appearanceColors(){
     const style=getComputedStyle(canvas),primary=style.getPropertyValue('--accent').trim()||'#2473b5';
     const secondary=style.getPropertyValue('--secondary').trim()||'#758497';
-    return {primary,secondary,liquid:appearance.liquid||primary,equipment:appearance.equipment||secondary,conveyors:appearance.conveyors||secondary};
+    return {primary,secondary,liquid:appearance.liquid||primary,equipment:appearance.equipment||secondary,conveyors:appearance.conveyors||secondary,cap:appearance.cap||secondary};
   }
   function openAppearance(){
     if(document.getElementById('simulation2d-appearance-dialog'))return;
-    const original={...appearance},draft={...appearance};appearance=draft;
+    const original={...appearance},draft={...appearance},originalEquipmentView=machineStyle.value;appearance=draft;
     const dialog=document.createElement('dialog');dialog.id='simulation2d-appearance-dialog';dialog.className='message-dialog theme-color-dialog';
     dialog.setAttribute('aria-labelledby','simulation2d-appearance-title');
     const heading=document.createElement('header');heading.className='dialog-heading';
@@ -155,13 +163,13 @@ window.STSimulation2D=(function(){
       for(const button of gallery.children)button.setAttribute('aria-pressed',String(button.dataset.bottleStyle===draft.bottle));
       const colors=appearanceColors(),style=getComputedStyle(canvas);
       const item=(model?.line||definitions).find(item=>item.kind==='belt'&&item.unit!=='CASES');
-      const width=item?productWidth(item):45,height=item?productHeight(item):110;
+      const width=item?(productWidth(item)||45):45,height=item?(productHeight(item)||110):110;
       const scale=Math.min(58/Math.max(1,width),108/Math.max(1,height));
       for(const [preview,type] of previews){
         const context=preview.getContext('2d');if(!context)continue;
         context.clearRect(0,0,100,126);
         window.STSimulation2DMachines.drawBottle(context,(100-width*scale)/2,8,width*scale,height*scale,
-          {surface:style.getPropertyValue('--surface').trim()||'#fff',belt:colors.secondary,liquid:colors.liquid,accent:colors.primary},type,6);
+          {surface:style.getPropertyValue('--surface').trim()||'#fff',belt:colors.secondary,liquid:colors.liquid,cap:colors.cap,accent:colors.primary},type,6);
       }
       draw();
     }
@@ -171,7 +179,8 @@ window.STSimulation2D=(function(){
       const name=document.createElement('span');name.textContent=text;button.append(preview,name);previews.push([preview,value]);
       button.onclick=()=>{draft.bottle=value;refresh();};gallery.append(button);
     }
-    body.append(galleryTitle,gallery);
+    const equipmentField=machineStyle.closest('label'),equipmentHome=equipmentField.parentElement;
+    body.append(equipmentField,galleryTitle,gallery);
     const industrial=[['Astronomicon grey','#9ca4ab'],['Cold grey','#7c8794'],['Blue steel','#52718a'],['Brushed steel','#b2bbc2'],['Graphite','#414b57'],['Silver','#c5cbd1'],['Gunmetal','#566674'],['Marine grey','#6c8297'],['Titanium','#89929b'],['Deep steel','#354d65'],['Boat blues','#2473b5'],['Warm steel','#9e9991']];
     const themePalettes=window.STThemeResources?.palettes||{};
     for(const [index,id] of [[0,'astronomicon-grey'],[1,'cold-grey'],[10,'boat-house']]){
@@ -192,12 +201,12 @@ window.STSimulation2D=(function(){
       }
       color.oninput=()=>{draft[key]=color.value;sync();refresh();};sync();group.append(legend,palette,colorLabel);body.append(group);
     }
-    paletteField('liquid','Liquid color',liquidPalette);paletteField('equipment','Equipment color',industrial);paletteField('conveyors','Conveyor color',industrial);
+    paletteField('liquid','Liquid color',liquidPalette);paletteField('cap','Cap color',[['White','#f4f3ec'],['Black','#252a30'],['Blue','#2563eb'],['Red','#dc2626'],['Green','#16a34a'],['Yellow','#facc15'],['Violet','#7c3aed'],['Pink','#f4a0c4'],['Silver','#b2bbc2']]);paletteField('equipment','Equipment color',industrial);paletteField('conveyors','Conveyor color',industrial);
     const footer=document.createElement('footer');footer.className='dialog-actions';
     const cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply';footer.append(cancel,apply);
     const previous=document.activeElement;
-    function finish(save){window.removeEventListener('st:theme',refresh);appearance=validAppearance(save?draft:original);if(save){window.STPreferences?.write('simulation2dBottleStyle',appearance.bottle);checkpoint();}draw();dialog.close();dialog.remove();previous?.focus();}
+    function finish(save){equipmentHome.append(equipmentField);if(!save&&machineStyle.value!==originalEquipmentView){machineStyle.value=originalEquipmentView;machineStyle.dispatchEvent(new Event('change'));}window.removeEventListener('st:theme',refresh);appearance=validAppearance(save?draft:original);if(save){window.STPreferences?.write('simulation2dBottleStyle',appearance.bottle);checkpoint();}draw();dialog.close();dialog.remove();previous?.focus();}
     close.onclick=cancel.onclick=()=>finish(false);dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false);});apply.onclick=()=>finish(true);
     dialog.append(heading,body,footer);document.body.append(dialog);dialog.showModal();window.addEventListener('st:theme',refresh);refresh();gallery.querySelector('[aria-pressed="true"]')?.focus();
   }
@@ -214,7 +223,13 @@ window.STSimulation2D=(function(){
     const label=document.createElement('span');label.className='simulation2d-viewport-label';label.textContent=String(index+1);
     pane.append(target,label);diagram.append(pane);
     if(index===0)pane.append(controlOverlay);
-    viewports.push({canvas:target,pane,camera:{...camera},initialized:index===0});
+    const zoomBar=document.createElement('div');zoomBar.className='simulation2d-viewport-zoom';
+    const slider=index===0?el('zoom'):document.createElement('input'),zoomOutput=index===0?el('zoom-value'):document.createElement('output');
+    slider.type='range';slider.id=index===0?'simulation2d-zoom':'simulation2d-zoom-'+(index+1);slider.min='-10';slider.max='6';slider.step='any';slider.value='0';slider.setAttribute('aria-label','Zoom viewport '+(index+1));slider.title='Zoom viewport '+(index+1);
+    zoomOutput.id=index===0?'simulation2d-zoom-value':'simulation2d-zoom-value-'+(index+1);zoomOutput.setAttribute('for',slider.id);
+    zoomBar.append(slider,zoomOutput);pane.append(zoomBar);zoomBar.addEventListener('wheel',event=>event.stopPropagation());
+    slider.addEventListener('input',()=>{const value=Number(slider.value);activateViewport(index);zoom(sceneScale*2**value/camera.scale,target.clientWidth/2,target.clientHeight/2);});
+    viewports.push({canvas:target,pane,zoom:slider,zoomOutput,camera:{...camera},initialized:index===0});
     pane.addEventListener('pointerdown',()=>activateViewport(index),true);
     pane.addEventListener('focusin',()=>activateViewport(index));
   }
@@ -397,12 +412,14 @@ window.STSimulation2D=(function(){
   }
   function shiftIndex(seconds){return Math.floor((seconds+1e-7)/(shiftHours*3600));}
   function syncZoom(){
-    const slider=el('zoom'),ratio=camera.scale/sceneScale;
-    slider.value=Math.log2(ratio);
-    const percent=(ratio>=.01?Math.round(ratio*100):num(ratio*100))+'%';
-    slider.setAttribute('aria-valuetext',percent);
-    el('zoom-value').textContent=percent;
+    for(const [index,view] of viewports.entries()){
+      const ratio=(index===activeViewport?camera:view.camera).scale/sceneScale;
+      view.zoom.value=Math.log2(ratio);
+      const percent=(ratio>=.01?Math.round(ratio*100):num(ratio*100))+'%';
+      view.zoom.setAttribute('aria-valuetext',percent);view.zoomOutput.textContent=percent;
+    }
   }
+
   function machineDesign(item){
     return item.kind==='machine'&&machineStyle.value==='animated'
       ? window.STSimulation2DMachines?.dimensions(machineTypes.get(item.id)) : null;
@@ -447,11 +464,11 @@ window.STSimulation2D=(function(){
     const palletizer=line.at(-1);
     const pallets=machineTypes.get(palletizer?.id)==='PALLETIZER'&&palletizer.unit==='CASES';
     const dimensions=caseDimensions(line,line.length-1);
-    const palletWidth=3.52*dimensions.caseWidth+12;
+    const palletWidth=3*dimensions.caseWidth+12;
     const stagingWidth=100+3*palletWidth+40;
     const production=pallets?start+100+(3*palletWidth+40-cardWidth)/2:start;
     // Keep the whole production table above the tallest loaded pallet.
-    const productionY=pallets?90-4.4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
+    const productionY=pallets?90-4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
     return {start,pallets,production,productionY,right:pallets?start+stagingWidth:start+cardWidth,...dimensions};
   }
   function palletTransfer(item){
@@ -907,7 +924,7 @@ window.STSimulation2D=(function(){
     if(!marker){
       for(const product of products){
         const px=x+product.x*sceneScale;
-        if(px+bodyWidth/2>=0&&px-bodyWidth/2<=w)window.STSimulation2DMachines.drawBottle(context,px-bodyWidth/2,top,bodyWidth,bodyHeight,{surface,belt:beltColor,accent,liquid:appearance.liquid||accent},appearance.bottle,stage);
+        if(px+bodyWidth/2>=0&&px-bodyWidth/2<=w)window.STSimulation2DMachines.drawBottle(context,px-bodyWidth/2,top,bodyWidth,bodyHeight,{surface,belt:beltColor,accent,liquid:appearance.liquid||accent,cap:appearance.cap||caseColor},appearance.bottle,stage);
       }
       return;
     }
@@ -981,7 +998,7 @@ window.STSimulation2D=(function(){
         const px=x+product.x*sceneScale;
         if(visible(px))context.rect(px-capWidth/2,top,capWidth,capHeight);
       }
-      context.fillStyle=beltColor;context.fill();
+      context.fillStyle=appearance.cap||caseColor;context.fill();
     }
   }
   function draw(){
@@ -1039,7 +1056,7 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(line);
     const output=productionLayout(line,items,right);
     const transfer=output.pallets?palletTransfer(line.at(-1)):null;
-    const palletColors={ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:secondary,caseAccent:accent,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,exitX:w+140,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
+    const palletColors={ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:secondary,caseAccent:accent,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
@@ -1346,9 +1363,6 @@ window.STSimulation2D=(function(){
     }
   });
   el('fit').onclick=()=>{endDrag();fit();};
-  el('zoom').addEventListener('input',function(){
-    zoom(sceneScale*2**Number(this.value)/camera.scale,canvas.clientWidth/2,canvas.clientHeight/2);
-  });
   function zoom(factor,x,y){
     const scale=Math.max(.0001,Math.min(4,camera.scale*factor));
     const ratio=scale/camera.scale;

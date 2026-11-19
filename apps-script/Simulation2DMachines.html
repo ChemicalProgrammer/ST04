@@ -16,6 +16,9 @@ window.STSimulation2DMachines=(function(){
   function dimensions(type){
     return Object.hasOwn(designs,type)?designs[type]:null;
   }
+  function bottleNeck(type){
+    return type==='softener'?{x:30,width:29,y:0}:type==='jug'?{x:20,width:39,y:0}:type==='shampoo'?{x:27,width:46,y:0}:type==='pump'?{x:44,width:12,y:27}:{x:38,width:24,y:0};
+  }
   function drawBottle(context,x,y,width,height,colors,type='classic',stage=0){
     if(!(width>0&&height>0))return;
     const bounds=type==='softener'||type==='jug'?[3,98]:type==='pump'?[6,94]:[4,96];
@@ -56,8 +59,16 @@ window.STSimulation2DMachines=(function(){
     path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
     if(stage&1){context.fillStyle='#fff';context.fillRect(16,128,68,28);context.strokeRect(16,128,68,28);}
     if(type==='cleaner'){context.strokeStyle=colors.belt;for(let rib=0;rib<3;rib++){context.beginPath();context.moveTo(17,158+rib*9);context.lineTo(83,158+rib*9);context.stroke();}}
-    if(type==='pump'&&(stage&4)){context.fillStyle=colors.belt;context.fillRect(43,11,14,18);context.fillRect(34,3,53,10);context.fillRect(80,8,7,9);}
-    else if(stage&4){context.fillStyle=colors.belt;const capX=type==='softener'||type==='jug'?28:type==='shampoo'?25:36;context.fillRect(capX,0,type==='shampoo'?50:34,14);}
+    if(stage&4){
+      const neck=bottleNeck(type);context.fillStyle=colors.cap||colors.belt;
+      if(type==='pump'){
+        context.fillRect(neck.x-3,neck.y-4,neck.width+6,8);
+        context.fillRect(46,13,8,14);context.fillRect(38,6,42,8);context.fillRect(75,10,5,12);
+      }else{
+        context.fillRect(neck.x-2,neck.y,neck.width+4,12);
+        context.strokeStyle=colors.belt;context.lineWidth=1;context.strokeRect(neck.x-2,neck.y,neck.width+4,12);
+      }
+    }
     if(stage&8){context.fillStyle=colors.belt;context.fillRect(-5,173,110,27);}
     context.restore();
   }
@@ -69,6 +80,9 @@ window.STSimulation2DMachines=(function(){
     context.fillRect(x,y,width,height);
     context.globalAlpha=1;context.fillStyle=colors.caseAccent||colors.accent;
     context.fillRect(x+width*.39,y,width*.22,height*.4);
+    const edge=Math.min(.85,width*.035,height*.035);context.lineWidth=edge;
+    context.strokeStyle=colors.caseLine||colors.surface||'#eef2f6';
+    context.strokeRect(x+edge/2,y+edge/2,width-edge,height-edge);
     context.restore();
   }
   function draw(context,type,x,y,width,height,colors,seconds){
@@ -262,7 +276,7 @@ window.STSimulation2DMachines=(function(){
       context.fillStyle=color;context.beginPath();context.roundRect(left,top,width,height,1.5);context.fill();context.stroke();
     }
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
-    const depthX=caseWidth*.26,depthY=caseHeight*.2;
+    const depthX=0,depthY=0;
     const palletWidth=caseWidth*3+2*depthX+12,palletPitch=palletWidth+20;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.6;
@@ -271,10 +285,14 @@ window.STSimulation2DMachines=(function(){
       box(px,py,palletWidth,5,colors.palletColor||belt);
       for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,py+5,8,7,belt);
       box(px,py+12,palletWidth,4,belt);
-      const slots=Array.from({length:Math.min(36,count)},(_,i)=>i).sort((a,b)=>Math.floor(a/9)-Math.floor(b/9)||Math.floor(b%9/3)-Math.floor(a%9/3));
-      for(const i of slots){
-        const row=Math.floor(i%9/3),level=Math.floor(i/9);
-        drawCase(context,px+6+i%3*caseWidth+row*depthX,py-(level+1)*caseHeight-row*depthY,caseWidth,caseHeight,colors);
+      for(let level=0;level<4;level++)for(let column=0;column<3;column++){
+        const occupied=Math.max(0,Math.min(3,Math.ceil((Math.min(36,count)-level*9-column)/3)));
+        if(!occupied)continue;
+        const left=px+6+column*caseWidth,top=py-(level+1)*caseHeight;
+        drawCase(context,left,top,caseWidth,caseHeight,colors);
+        // Three small depth markers encode nine positions per level without overlapping cartons.
+        context.fillStyle=colors.caseAccent||accent;
+        for(let mark=0;mark<occupied;mark++)context.fillRect(left+caseWidth*(.18+mark*.23),top+caseHeight*.84,caseWidth*.12,Math.max(.7,caseHeight*.035));
       }
     }
     if(layer!=='foreground'){
@@ -386,8 +404,8 @@ window.STSimulation2DMachines=(function(){
         const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
         const t=stage.forkProgress;
         const forkX=t<.28?exit+(pickup-exit)*smooth(t/.28):
-          t<.46?pickup:pickup+(exit-pickup)*smooth((t-.46)/.54);
-        const lift=0;
+          t<.5?pickup:pickup+(exit-pickup)*smooth((t-.5)/.5);
+        const lift=t<.28?18*(1-smooth(t/.28)):10*smooth((t-.38)/.1);
         const truckX=forkX+palletWidth+8,truckY=floor+16;
         context.strokeStyle=belt;context.lineWidth=2;
         // Forks point toward the pallet so the truck reverses out to the right.
@@ -411,10 +429,10 @@ window.STSimulation2DMachines=(function(){
         drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
       }
       context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
-      context.fillText('Pallet staging · 36 spaces (3 × 3 × 4) · schematic',x+100+(3*palletPitch-20)/2,floor+32);
+      context.fillText('36 symbolic spaces · 9 per level × 4',x+100+(3*palletPitch-20)/2,floor+32);
     }
     context.restore();
   }
-  return {draw,dimensions,drawBottle,drawCase,drawPalletOutput,palletStage};
+  return {draw,dimensions,bottleNeck,drawBottle,drawCase,drawPalletOutput,palletStage};
 })();
 </script>

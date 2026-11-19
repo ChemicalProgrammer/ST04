@@ -200,6 +200,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('appearance').click();
     let dialog=window.document.getElementById('simulation2d-appearance-dialog');
     assert(dialog.open);assert(dialog.querySelector('.dialog-heading'));assert(dialog.querySelector('.dialog-body'));assert(dialog.querySelector('.dialog-actions'));
+    assert.equal(el('machine-style').closest('dialog'),dialog);
     assert.equal(dialog.querySelectorAll('[data-bottle-style]').length,6);
     assert.equal(dialog.querySelectorAll('[aria-label="Liquid color palette"] button').length,13);
     dialog.querySelector('[data-bottle-style="softener"]').click();
@@ -666,12 +667,18 @@ test('2D uses the representative seed to calculate new production and preserves 
     const timeBeforeViews=el('time').textContent,outputBeforeViews=el('output').textContent;
     const views=el('viewports');views.value='4';views.dispatchEvent(new window.Event('change'));
     assert.equal(window.document.querySelectorAll('.simulation2d-viewport:not([hidden])').length,4);
+    assert.equal(window.document.querySelectorAll('.simulation2d-viewport-zoom').length,4);
+    assert(!el('zoom').closest('.fold-tools'));
+    assert.equal(el('zoom').closest('.simulation2d-viewport').dataset.viewport,'0');
     const second=window.document.getElementById('simulation2d-canvas-2');
     const firstPosition=frameX(),position=()=>viewportText.get(second).find(([text])=>text==='belt')[1];
     const initialSecond=position();
     second.dispatchEvent(new window.WheelEvent('wheel',{deltaY:-100,clientX:160,clientY:100,bubbles:true,cancelable:true}));
     assert.notEqual(position(),initialSecond);assert.equal(frameX(),firstPosition,'zooming viewport two preserves viewport one');
     assert.equal(el('machine-controls').parentElement.dataset.viewport,'1');
+    const mainZoom=el('zoom-value').textContent;
+    const secondSlider=window.document.getElementById('simulation2d-zoom-2');secondSlider.value=String(Number(secondSlider.value)+.3);secondSlider.dispatchEvent(new window.Event('input',{bubbles:true}));
+    assert.equal(el('zoom-value').textContent,mainZoom,'each viewport owns its zoom control');
     const secondZoomed=position();
     pointer(second,'pointerdown',120,1);pointer(window,'pointermove',160,1);pointer(window,'pointerup',160,0);
     assert.notEqual(position(),secondZoomed);assert.equal(frameX(),firstPosition,'panning viewport two preserves viewport one');
@@ -760,19 +767,20 @@ test('pallets have 36 spaces in four levels and move on one common floor',()=>{
  assert.equal(stage(105,1).forkVisible,false);assert.equal(stage(106,.2).forkVisible,true);
  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
  function scene(produced,progress,extra={}){
-   const decks=[],cases=[];const ctx=new Proxy({roundRect(x,y,w,h){if(Math.abs(w-142.24)<1e-5&&h===5)decks.push([x,y]);},fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
+   const decks=[],cases=[];const ctx=new Proxy({roundRect(x,y,w,h){if(Math.abs(w-123)<1e-5&&h===5)decks.push([x,y]);},fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
    art.drawPalletOutput(ctx,200,100,180,{...colors,...extra},produced,progress,'foreground');return {decks,cases};
  }
- const full=scene(36,1);assert.equal(full.cases.length,36);
- assert.equal(new Set(full.cases.map(([x,y])=>x+','+y)).size,36);
- for(let level=0;level<4;level++){const front=190-(level+1)*28;assert.equal(full.cases.filter(([,y])=>y<=front+.001&&y>=front-11.201).length,9);}
- // Three rows of three per level are visible in a shallow depth projection.
- assert.equal(new Set(full.cases.map(([,y])=>y)).size,12);
+ const full=scene(36,1);assert.equal(full.cases.length,12);
+ assert.equal(new Set(full.cases.map(([x,y])=>x+','+y)).size,12);
+ for(let i=0;i<full.cases.length;i++)for(let j=i+1;j<full.cases.length;j++){const [ax,ay]=full.cases[i],[bx,by]=full.cases[j];assert(ax+37<=bx||bx+37<=ax||ay+28<=by||by+28<=ay,'front cartons never overlap');}
+ for(let level=0;level<4;level++){const front=190-(level+1)*28;assert.equal(full.cases.filter(([,y])=>y===front).length,3);}
+ // Three separated front faces encode the three depth rows symbolically.
+ assert.equal(new Set(full.cases.map(([,y])=>y)).size,4);
  const final=scene(108,1);assert.equal(final.decks.length,3);assert(final.decks.every(([,y])=>y===190));
  assert(final.decks.some(([x])=>Math.abs(x-300)<1e-6));
- assert(final.decks.some(([x])=>Math.abs(x-462.24)<1e-6));
- assert(final.decks.some(([x])=>Math.abs(x-624.48)<1e-6));
- const picked=scene(106,.4,{forkProgress:.5,forkGroup:2});assert(picked.decks.every(([,y])=>y===190));
+ assert(final.decks.some(([x])=>Math.abs(x-443)<1e-6));
+ assert(final.decks.some(([x])=>Math.abs(x-586)<1e-6));
+ const picked=scene(106,.4,{forkProgress:.5,forkGroup:2});assert.equal(picked.decks.filter(([,y])=>y===190).length,2);assert.equal(picked.decks.filter(([,y])=>y===180).length,1);
 });
 
 
@@ -964,7 +972,7 @@ test('production table centers above the three pallet positions and fits their f
     caseDimensions:()=>({caseWidth:37,caseHeight:28}),productionHeight:()=>80});
   vm.runInContext(source.slice(source.indexOf('  function productionLayout('),source.indexOf('  function palletTransfer(')),context);
   const layout=context.productionLayout([{id:'robot',unit:'CASES'}],[{center:100,telemetryWidth:160}],200);
-  const palletWidth=3.52*37+12;
+  const palletWidth=3*37+12;
   const center=layout.start+100+(3*palletWidth+40)/2;
   assert.equal(layout.production+127.125/2,center);
   assert(layout.productionY+80<=90-4*28-24,'table clears the highest stacked cases');
@@ -1095,4 +1103,33 @@ test('palletizer frame no longer draws a second roller track over the case infee
  vm.runInContext(source.slice(source.indexOf('  function drawPalletInfeed('),source.indexOf('  function productionHeight(')),context);
  context.drawPalletInfeed(new Proxy({stroke(){strokes++;}},{get:(o,k)=>o[k]??(()=>{})}),[],[],0,100,{belt:'#777'});
  assert.equal(strokes,1);
+});
+
+
+test('caps match the neck centers of every bottle and use the chosen cap color',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,expected={classic:50,softener:44.5,cleaner:50,shampoo:50,pump:50,jug:39.5};
+ for(const [type,center] of Object.entries(expected)){
+   const caps=[],ctx=new Proxy({fillRect(x,y,w,h){if(this.fillStyle==='#e13277')caps.push({x,y,w,h});}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawBottle(ctx,0,0,55,200,{surface:'#fff',belt:'#333',liquid:'#08f',cap:'#e13277'},type,6);
+   assert(caps.length>0);assert.equal(caps[0].x+caps[0].w/2,center,type);
+   const neck=art.bottleNeck(type);assert.equal(neck.x+neck.width/2,center);
+ }
+});
+
+test('forks arrive raised, lower into the pallet and lift the load before reversing',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,forkGroup:2};
+ function frame(progress){
+   const forks=[],decks=[];const ctx=new Proxy({roundRect(x,y,w,h){if(w===133&&h===4)forks.push([x,y]);if(w===123&&h===5)decks.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
+   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,{...colors,forkProgress:progress},106,.2,'foreground');return {fork:forks[0],decks};
+ }
+ const arriving=frame(.01),lowering=frame(.2),inserted=frame(.3),lifting=frame(.43),carrying=frame(.6);
+ assert(arriving.fork[1]<lowering.fork[1]);assert(lowering.fork[1]<inserted.fork[1]);
+ assert.equal(inserted.fork[1],198);
+ assert(lifting.fork[1]<inserted.fork[1]);assert.equal(carrying.fork[1],188);
+ assert.equal(inserted.decks.filter(([,y])=>y===190).length,3);
+ assert(lifting.decks.some(([,y])=>y<190&&y>180));
+ assert.equal(carrying.decks.filter(([,y])=>y===180).length,1);
+ assert(carrying.fork[0]>inserted.fork[0]);
 });
