@@ -313,35 +313,47 @@ window.STSimulation2D=(function(){
   function palletTransfer(item){
     const time=model?.time??0,produced=item.produced||0;
     if(palletAnimation?.model!==model||time<palletAnimation.time){
-      palletAnimation={model,time,settled:produced,started:null,duration:1};
+      palletAnimation={model,time,settled:produced,started:null,duration:1,batch:0,picked:false};
     }
     const animation=palletAnimation;
     animation.time=time;
     if(reducedMotion?.matches){
       animation.settled=produced;animation.started=null;
-      return {produced,progress:1};
+      return {produced,progress:1,batch:1,waiting:0};
     }
     // Stage motion is symbolic. Keep readable physical travel times even at high throughput;
     // production counters and the simulation's configured machine rate remain independent.
-    const cycleDuration=number=>Math.max(number%12===0?24:8,1/Math.max(.001,item.rate||.001));
+    const cycleDuration=()=>Math.max(animation.settled%12>=9?24:8,1/Math.max(.001,item.rate||.001));
+    function pick(){
+      if(!animation.picked){
+        animation.batch=Math.min(3,12-animation.settled%12,produced-animation.settled);
+        animation.picked=true;
+      }
+    }
     while(animation.started!==null&&time-animation.started+1e-8>=animation.duration){
+      pick();
       animation.started+=animation.duration;
-      animation.settled++;
+      animation.settled+=animation.batch;
+      animation.batch=0;animation.picked=false;
       if(animation.settled>=produced)animation.started=null;
-      else animation.duration=cycleDuration(animation.settled+1);
+      else animation.duration=cycleDuration();
     }
     if(animation.started===null&&produced>animation.settled){
       animation.started=time;
-      animation.duration=cycleDuration(animation.settled+1);
+      animation.duration=cycleDuration();
+      animation.batch=0;animation.picked=false;
     }
-    const result=animation.started===null?{produced,progress:1}:
-      {produced:animation.settled+1,progress:Math.min(1,Math.max(0,(time-animation.started)/animation.duration))};
+    const progress=animation.started===null?1:Math.min(1,Math.max(0,(time-animation.started)/animation.duration));
+    if(animation.started!==null&&progress>=.04)pick();
+    const batch=animation.picked?animation.batch:Math.min(3,12-animation.settled%12,produced-animation.settled);
+    const result={produced:animation.started===null?produced:animation.settled+batch,progress,
+      batch:Math.max(1,batch),waiting:Math.max(0,produced-animation.settled-(animation.picked?animation.batch:0))};
     const group=Math.floor((result.produced-1)/12),index=(result.produced-1)%12;
     if(group>=2&&index>=9){
       if(animation.forkGroup!==group&&(!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod)){
         animation.forkGroup=group;
         // Travel takes at least 18 simulation seconds, independently of robot throughput.
-        animation.forkPeriod=Math.max(18,2.3*animation.duration);
+        animation.forkPeriod=Math.max(18,2.3/Math.max(.001,item.rate||.001));
         animation.forkStarted=time;
       }
     }
@@ -351,7 +363,7 @@ window.STSimulation2D=(function(){
     }
     return result;
   }
-  function palletInfeed(line,items,y){
+  function palletInfeed(line,items,y,transfer){
     const index=line.length-1,item=line[index],layout=items[index];
     const upstream=line[index-1],entry=items[index-1];
     const {caseWidth,caseHeight}=caseDimensions(line,index);
@@ -362,10 +374,13 @@ window.STSimulation2D=(function(){
       const progress=Math.max(0,Math.min(1,1-(ready-item.residenceClock)/Math.max(step,item.residenceSeconds)));
       return {left:start+(pickup-start)*progress,top:startBottom+(y-startBottom)*progress-caseHeight};
     });
-    return {start,startBottom,pickup,caseWidth,caseHeight,cases};
+    // Processed cases remain at pickup until the visual robot actually takes them.
+    // Coincident cases intentionally share a silhouette, without growing the drawing workload.
+    if(transfer?.waiting>0)cases.push({left:pickup,top:y-caseHeight,waiting:transfer.waiting});
+    return {start,startBottom,pickup,caseWidth,caseHeight,cases,waiting:transfer?.waiting||0};
   }
-  function drawPalletInfeed(context,line,items,origin,y,colors){
-    const path=palletInfeed(line,items,y);
+  function drawPalletInfeed(context,line,items,origin,y,colors,transfer){
+    const path=palletInfeed(line,items,y,transfer);
     context.save();
     context.lineWidth=4;context.strokeStyle=colors.belt;context.lineCap='butt';
     context.beginPath();context.moveTo(origin+path.start,path.startBottom+2);
@@ -511,6 +526,7 @@ window.STSimulation2D=(function(){
         const stage=bottleStages.get(item.id)??0;
         summary.push(['Bottle stage',bottleStageNames[stage&3],'']);
         if(stage&4)summary.push(['Cap','Applied','']);
+        if(stage&8)summary.push(['Puck','Present','']);
       }
       summary.push(['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']);
     }else summary.push(['Inside',num(item.resident?.length??0)+' / '+num(item.capacityBottles/item.inputBottleFactor),item.inputUnit==='CASES'?'cases':'bottles'],
@@ -727,7 +743,7 @@ window.STSimulation2D=(function(){
     }
     const length=item.packageLength*sceneScale,height=productHeight(item);
     const cases=item.unit==='CASES',stage=bottleStages.get(item.id)??0;
-    const labeled=Boolean(stage&1),filled=Boolean(stage&2),capped=Boolean(stage&4);
+    const labeled=Boolean(stage&1),filled=Boolean(stage&2),capped=Boolean(stage&4),pucked=Boolean(stage&8);
     const marker=length*factor<2;
     const bodyWidth=marker?2/factor:length,bodyHeight=marker?Math.max(height,bodyWidth):height;
     const top=y-bodyHeight;
@@ -796,6 +812,13 @@ window.STSimulation2D=(function(){
       context.strokeStyle=beltColor;context.lineWidth=Math.min(bodyWidth*.12,.65/factor);
       context.stroke();context.lineWidth=1;
     }
+    if(pucked){
+      context.fillStyle=beltColor;
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(visible(px))context.fillRect(px-bodyWidth*.6,y-bodyHeight*.16,bodyWidth*1.2,bodyHeight*.16);
+      }
+    }
     if(capped){
       const capWidth=marker?bodyWidth:bodyWidth*.49;
       const capHeight=Math.min(bodyHeight*.25,Math.max(2.5*dy,1/factor));
@@ -838,7 +861,7 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(line);
     const output=productionLayout(line,items,right);
     const transfer=output.pallets?palletTransfer(line.at(-1)):null;
-    const palletColors={ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight,exitX:w+140,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup};
+    const palletColors={ink,soft,surface,accent,belt:beltColor,caseWidth:output.caseWidth,caseHeight:output.caseHeight,exitX:w+140,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
@@ -975,7 +998,7 @@ window.STSimulation2D=(function(){
       drawTelemetry(context,item,left,telemetryY,signal,ink,border,surface,muted,soft,colors);
     }
     if(transfer){
-      const pickup=drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,accent});
+      const pickup=drawPalletInfeed(context,line,items,origin,y,{belt:beltColor,accent},transfer);
       window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
         pickup,palletColors,transfer.produced,transfer.progress,'foreground');
     }
@@ -1204,6 +1227,8 @@ window.STSimulation2D=(function(){
     for(const item of revised){
       if(item.kind==='belt'){bottleStages.set(item.id,bottleStage);continue;}
       const type=machineTypes.get(item.id);
+      if(type==='PUCKER')bottleStage|=8;
+      if(type==='DEPUCKER')bottleStage&=~8;
       if(type==='SLEEVER')bottleStage|=1;
       if(type==='FILLER')bottleStage|=2;
       if(type==='CAPPER'||/\b(?:capper|capping|tapadora|taponadora|roscadora)\b/i.test(item.name))bottleStage|=4;

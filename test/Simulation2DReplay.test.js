@@ -371,6 +371,8 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
+    assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER'],[],'Puck'),['Present','Present']);
+    assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER']),['Empty','Empty','Filled','Filled']);
     equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     equipment[1].processData.upstream={dischargeVelocityMPerMinute:7.2};
     equipment[1].processData.accumulation={restartToFirstPackageSeconds:4};
@@ -830,7 +832,7 @@ test('palletizer wrist returns continuously to pickup across release and consecu
   close(joints(36,.999999),joints(37,0));
 });
 
-test('the five machine silhouettes have distinct moving details', () => {
+test('all configured machine types have animated drawings', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DMachines'), {window});
   const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#369',belt:'#526b82'};
@@ -849,7 +851,11 @@ test('the five machine silhouettes have distinct moving details', () => {
   assert(still.every(result=>result.drawn));
   assert.equal(new Set(still.map(result=>JSON.stringify(result.operations))).size,types.length);
   types.forEach((type,index)=>assert.notDeepEqual(trace(type,.5).operations,still[index].operations));
-  assert.equal(trace('CUSTOM',0).drawn,false);
+  for(const type of ['PUCKER','DEPUCKER','FEEDER','CUSTOM']){
+    assert(trace(type,0).drawn);
+    assert.notDeepEqual(trace(type,0).operations,trace(type,.5).operations);
+  }
+  assert.equal(trace('UNKNOWN',0).drawn,false);
 });
 
 
@@ -975,4 +981,72 @@ test('palletizer motion has minimum travel times at 1X even with a high machine 
   assert.equal(context.palletTransfer(item).produced,13);
   assert.equal(context.palletTransfer(item).progress,0);
   assert.equal(context.palletAnimation.duration,8,'normal timing resumes after the pallet exchange');
+});
+
+
+test('processed cases wait visibly at pickup and the robot takes up to three together',()=>{
+  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false},
+    step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),productHeight:()=>28,beltHalfHeight:()=>18});
+  const source=script('Simulation2D');
+  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+  const item={produced:0,rate:100,resident:[],residenceClock:0,residenceSeconds:2};
+  const line=[{kind:'belt'},item],items=[{left:0,width:200},{left:210,width:300}];
+  context.palletTransfer(item);
+  item.produced=5;
+  let transfer=context.palletTransfer(item);
+  assert.equal(transfer.waiting,5);
+  let infeed=context.palletInfeed(line,items,100,transfer);
+  assert.equal(infeed.cases.length,1,'coincident waiting cases keep a visible silhouette');
+  assert.equal(infeed.cases[0].left,infeed.pickup);
+  context.model.time=.4;transfer=context.palletTransfer(item);
+  assert.equal(transfer.batch,3);assert.equal(transfer.waiting,2);
+  item.produced=8;context.model.time=4;
+  transfer=context.palletTransfer(item);
+  assert.equal(transfer.waiting,5,'new output waits behind the current pick');
+  assert.equal(transfer.batch,3);
+  assert.equal(context.palletAnimation.settled+transfer.batch+transfer.waiting,item.produced);
+  assert.equal(context.palletInfeed(line,items,100,transfer).cases[0].waiting,5);
+  context.model.time=8.4;transfer=context.palletTransfer(item);
+  assert.equal(context.palletAnimation.settled,3);
+  assert.equal(transfer.batch,3);assert.equal(transfer.waiting,2);
+  context.model={time:0};item.produced=11;context.palletTransfer(item);
+  item.produced=20;context.palletTransfer(item);context.model.time=1;
+  transfer=context.palletTransfer(item);
+  assert.equal(transfer.batch,1,'the pick fits the remaining place on the pallet');
+  assert.equal(transfer.waiting,8);
+});
+
+test('robot arm links and gripper retain their dimensions when moving pallets and batches',()=>{
+  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const art=window.STSimulation2DMachines;
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:3};
+  let reference;
+  for(const produced of [3,12,36])for(let tick=0;tick<=100;tick++){
+    const joints={},widths=[];
+    const ctx=new Proxy({arc(x,y,r){if([10,15,17].includes(r))joints[r]=[x,y];},roundRect(x,y,w,h){if(h===4&&this.fillStyle===colors.belt)widths.push(w);}},
+      {get:(target,key)=>target[key]??(()=>{})});
+    art.drawPalletOutput(ctx,200,100,180,colors,produced,tick/100,'robot');
+    const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+    const lengths=[distance(joints[17],joints[15]),distance(joints[15],joints[10])];
+    reference??=lengths;
+    lengths.forEach((length,i)=>assert(Math.abs(length-reference[i])<1e-6,'each rigid arm keeps its length'));
+    assert(widths.includes(47),'gripper width is fixed for both cases and pallets');
+  }
+  assert.equal(art.palletStage(3,.3,0,0,3).count,0);
+  assert.equal(art.palletStage(3,.6,0,0,3).count,3);
+});
+
+
+test('a picked group stays visible throughout transfer and places every case on the pallet',()=>{
+  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:3};
+  for(const progress of [.04,.2,.599,.6,.9,1]){
+    const cases=[];
+    const ctx=new Proxy({fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},
+      {get:(target,key)=>target[key]??(()=>{})});
+    window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,3,progress,'foreground');
+    assert.equal(cases.length,3,'all three cases are either carried or placed');
+    assert(cases.flat().every(Number.isFinite));
+    if(progress>=.6)assert.deepEqual(cases.map(([,y])=>y),[162,162,162]);
+  }
 });

@@ -3,6 +3,10 @@ window.STSimulation2DMachines=(function(){
   const blower={kind:'blower',width:.76,height:1.28,floor:88};
   const designs={
     BLOWER:blower,BLOWMOLDER:blower,
+    PUCKER:{kind:'pucker',width:.82,height:1.12,floor:86},
+    DEPUCKER:{kind:'depucker',width:.84,height:1.14,floor:86},
+    FEEDER:{kind:'feeder',width:.9,height:1.18,floor:88},
+    CUSTOM:{kind:'custom',width:1,height:1,floor:86},
     FILLER:{kind:'filler',width:.98,height:1.09,floor:84,viewWidth:184},
     SLEEVER:{kind:'sleever',width:.57,height:1.04,floor:89},
     CASE_PACKER:{kind:'packer',width:1.14,height:1.03,floor:87,viewWidth:226},
@@ -76,6 +80,42 @@ window.STSimulation2DMachines=(function(){
         foot(23);foot(86);
         track();
         break;
+      case 'pucker':
+      case 'depucker': {
+        const removing=design.kind==='depucker';
+        box(18,18,84,8,belt,3);box(22,26,7,60,soft);box(91,26,7,60,soft);
+        box(28,65,65,18,soft,4);box(38,69,43,6,accent,2);
+        const angle=seconds*.8;
+        circle(60,57,25,soft);circle(60,57,17,surface);
+        for(let i=0;i<4;i++){
+          const a=angle+i*Math.PI/2,px=60+20*Math.cos(a),py=57+8*Math.sin(a);
+          box(px-5,py+8,10,5,belt,1);
+          const lift=removing?10*phase:10*(1-phase);
+          box(px-3,py-9-lift,6,17,accent,2);box(px-1.5,py-13-lift,3,5,soft,1);
+        }
+        box(52,26,16,6,accent);line(60,32,60,38+8*phase);
+        line(8,64,30,64);line(89,64,113,64);foot(20);foot(88);
+        break;
+      }
+      case 'feeder': {
+        // Hopper, elevator and rotary orienting bowl; output is an upright bottle.
+        box(9,15,35,33,soft,5);line(10,45,23,60,35,60,43,45);
+        box(25,54,12,30,belt);box(43,49,60,30,soft,7);
+        circle(73,53,25,soft);circle(73,53,19,surface);
+        for(let i=0;i<5;i++){
+          const a=seconds*.7+i*Math.PI*2/5;
+          box(70+16*Math.cos(a),49+7*Math.sin(a),6,10,accent,2);
+        }
+        box(96,56,22,6,belt);box(104+5*phase,44,5,13,accent,2);
+        foot(25);foot(88);
+        break;
+      }
+      case 'custom':
+        box(15,22,90,59,soft,5);box(22,29,57,31,surface,3);
+        box(85,31,12,22,belt,2);circle(91,37,3,accent);
+        box(28+35*phase,35,13,18,accent,3);line(26,63,81,63);
+        foot(23);foot(83);track();
+        break;
       case 'filler':
         // A raised, compact manifold and a separate cap-feed tower.
         box(25,62,132,19,soft,4);
@@ -145,7 +185,7 @@ window.STSimulation2DMachines=(function(){
     const t=Math.max(0,Math.min(1,value));
     return t*t*t*(t*(t*6-15)+10);
   }
-  function palletStage(produced,progress,forkClock,forkGroup){
+  function palletStage(produced,progress,forkClock,forkGroup,batch=1){
     const index=produced>0?(produced-1)%12:-1;
     const completed=produced>0?Math.floor((produced-1)/12):0;
     const exchange=index===11;
@@ -154,7 +194,7 @@ window.STSimulation2DMachines=(function(){
     const forkProgress=forklift?Math.max(0,Math.min(1,Number.isFinite(forkClock)?forkClock:(index+progress-9)/2.3)):0;
     return {
       index,exchange,shift,completed,
-      count:index<0?0:index+(progress>=.6?1:0),
+      count:index<0?0:index+1-batch+(progress>=.6?batch:0),
       forkProgress,forkVisible:forklift&&forkProgress<1,
       forkLoaded:forklift&&forkProgress>=.38,
       thirdRemoved:forklift&&forkProgress>=.38&&(forkGroup===undefined||forkGroup===completed)
@@ -168,7 +208,7 @@ window.STSimulation2DMachines=(function(){
     }
     const caseWidth=colors.caseWidth||27,caseHeight=colors.caseHeight||20.25;
     const palletWidth=caseWidth*3+12,palletPitch=palletWidth+20;
-    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
+    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup,colors.batch||1);
     const transferring=produced>0&&progress<.6;
     const activeX=x+100,rackX=x-85,rackY=floor+17;
     function pallet(px,py,count){
@@ -191,7 +231,8 @@ window.STSimulation2DMachines=(function(){
       if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor,12);
       if(stage.exchange&&progress>=.94)pallet(activeX,floor,0);
     }
-    const placement=Math.max(0,produced-1)%12;
+    const batch=colors.batch||1;
+    const placement=Math.max(0,produced-batch)%12;
     const targetX=x+106+placement%3*caseWidth,targetY=floor-(Math.floor(placement/3)+1)*caseHeight;
     const returning=progress>=.6;
     const phase=returning?smooth((progress-.6)/.4):smooth((progress-.04)/.56);
@@ -203,7 +244,8 @@ window.STSimulation2DMachines=(function(){
       returning?30*smooth((progress-.6)/.4):0;
     let gripX=produced>0?movingX+caseWidth/2:outlet+caseWidth/2;
     let gripY=produced>0?movingY-5-clearance:y-caseHeight-35;
-    let gripperWidth=caseWidth,emptyPallet=null;
+    const gripperWidth=caseWidth;
+    let emptyPallet=null;
     if(stage.exchange&&progress>=.6){
       const depositX=targetX+caseWidth/2,depositY=targetY-5;
       const rackGripX=rackX+palletWidth/2,rackGripY=rackY-5;
@@ -211,18 +253,18 @@ window.STSimulation2DMachines=(function(){
         const t=smooth((progress-.6)/.14);
         gripX=depositX+(rackGripX-depositX)*t;
         gripY=depositY+(rackGripY-depositY)*t-55*Math.sin(t*Math.PI);
-        gripperWidth=caseWidth+(palletWidth-caseWidth)*t;
+
       }else if(progress<.94){
         const t=smooth((progress-.74)/.2);
         const left=rackX+(activeX-rackX)*t,top=rackY+(floor-rackY)*t-60*Math.sin(t*Math.PI);
         emptyPallet={left,top};
-        gripX=left+palletWidth/2;gripY=top-5;gripperWidth=palletWidth;
+        gripX=left+palletWidth/2;gripY=top-5;
       }else{
         const t=smooth((progress-.94)/.06);
         const dockX=activeX+palletWidth/2,dockY=floor-5;
         gripX=dockX+(outlet+caseWidth/2-dockX)*t;
         gripY=dockY+(y-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
-        gripperWidth=palletWidth+(caseWidth-palletWidth)*t;
+
       }
     }
     const baseX=x+24,baseY=floor-4,shoulderY=baseY-48;
@@ -231,7 +273,8 @@ window.STSimulation2DMachines=(function(){
       Math.hypot(x+106+2.5*caseWidth-baseX,floor-4*caseHeight-17-shoulderY),
       Math.hypot(rackX+palletWidth/2-baseX,rackY-17-shoulderY)
     );
-    const upper=Math.max(125,reach*.58),forearm=Math.max(135,reach*.62);
+    // Equal, fixed links cover all pickup, stacking and pallet-rack paths, including the lift arc.
+    const upper=Math.max(160,(reach+140)*.6),forearm=upper;
     const dx=gripX-baseX,dy=gripY-12-shoulderY;
     const distance=Math.max(1,Math.hypot(dx,dy));
     const angle=Math.atan2(dy,dx)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+distance*distance-forearm*forearm)/(2*upper*distance))));
@@ -306,7 +349,13 @@ window.STSimulation2DMachines=(function(){
         }
         if(stage.forkLoaded)pallet(forkX,floor-lift,12);
       }
-      if(transferring)drawCase(context,movingX,movingY,caseWidth,caseHeight,colors);
+      if(transferring){
+        for(let i=0;i<batch;i++){
+          const column=(placement+i)%3-placement%3;
+          const level=Math.floor((placement+i)/3)-Math.floor(placement/3);
+          drawCase(context,movingX+column*caseWidth*fraction,movingY-level*caseHeight*fraction,caseWidth,caseHeight,colors);
+        }
+      }
       context.font='6.75px system-ui';context.fillStyle=ink;context.textAlign='center';
       context.fillText('Pallet staging · schematic',x+100+(3*palletPitch-20)/2,floor+32);
     }
