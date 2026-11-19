@@ -934,7 +934,7 @@ test('palletizer wrist returns continuously to pickup across release and consecu
   assert.notDeepEqual(joints(1,.95),joints(1,.99),'return motion continues to the end of the cycle');
   close(joints(1,.999999),joints(2,0));
   close(joints(0,1),joints(1,0));
-  for(const boundary of [.6,.74,.94]){
+  for(const boundary of [.6,...[6.8,9.6,13.6].map(seconds=>.6+.4*seconds/14.8)]){
     close(joints(36,boundary-.000001),joints(36,boundary+.000001));
   }
   close(joints(12,.999999),joints(13,0));
@@ -1075,10 +1075,10 @@ test('last-case placement keeps normal speed while pallet exchange retains its o
  assert.equal(context.palletAnimation.duration,8/1.2);context.model.time=4/1.2;
  assert.equal(context.palletTransfer(item).progress,.5);assert.equal(item.rate,100);
  context.model={time:0};item.produced=35;context.palletTransfer(item);item.produced=36;context.palletTransfer(item);
- assert.equal(context.palletAnimation.duration,12);context.model.time=4;
+ assert.equal(context.palletAnimation.duration,18.8);context.model.time=4;
  assert(Math.abs(context.palletTransfer(item).progress-.6)<1e-12);
- context.model.time=8;assert(Math.abs(context.palletTransfer(item).progress-.8)<1e-12);
- item.produced=37;context.model.time=12;assert.equal(context.palletTransfer(item).produced,37);
+ context.model.time=8;assert(Math.abs(context.palletTransfer(item).progress-(.6+.4*4/14.8))<1e-12);
+ item.produced=37;context.model.time=18.8;assert.equal(context.palletTransfer(item).produced,37);
  assert.equal(context.palletAnimation.duration,8/1.2);
 });
 
@@ -1388,7 +1388,7 @@ test('empty pallets sit below the first filling position and rise vertically wit
  assert.equal(stack.length,3);assert(stack.every(([x])=>x===active[0]));
  const top=Math.min(...stack.map(([,y])=>y));assert(top>active[1]+16,'there is a visible gap below the filling pallet');
  let previous=Infinity;
- for(const progress of [.74,.78,.82,.86,.9,.939999]){
+ for(const progress of [9.6,10.4,11.2,12,12.8,13.599999].map(seconds=>.6+.4*seconds/14.8)){
    const moving=decks(36,progress,'load').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
    assert(moving,'the replacement stays directly under the first position');
    assert(moving[1]<=previous,'the lift goes upward without a downward swing');previous=moving[1];
@@ -1485,4 +1485,24 @@ test('Prime ring uses the combined downstream ramp time and does not invent a se
  assert(!context.sensorRingState(finished,context.sensorRingState(state,null,0),10).fading);
  down.state='Waiting for Prime';down.awaitPrime=true;down.rampElapsed=0;const waiting=context.sensorDelayState(belt,down,'P');assert(!waiting.pending&&!waiting.active);
  down.activeRampSeconds=0;assert.equal(context.sensorDelayState(belt,down,'P').pending,false);
+});
+
+
+test('robot waits for pallet shift to finish before lowering to the empty stack',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+ const progress=seconds=>.6+.4*seconds/14.8;
+ function gripper(seconds){
+   let wrist;const ctx=new Proxy({arc(x,y,r){if(r===10)wrist=[x,y];}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawPalletOutput(ctx,200,100,180,colors,36,progress(seconds),'robot');return wrist;
+ }
+ const parked=gripper(0);
+ for(const seconds of [1,3,5,6.7]){
+   assert.deepEqual(gripper(seconds),parked,'the robot holds position throughout the pallet movement');
+   const stage=art.palletStage(36,progress(seconds));assert(stage.shift<1);assert.equal(stage.exchangeMotion.lower,0);assert.equal(stage.exchangeMotion.lift,0);
+ }
+ for(const seconds of [7,8,9]){
+   const stage=art.palletStage(36,progress(seconds));assert.equal(stage.shift,1);assert(gripper(seconds)[1]>parked[1],'lowering starts after the staging positions are settled');
+ }
+ assert.equal(art.palletStage(36,progress(10)).shift,1);
 });

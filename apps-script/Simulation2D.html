@@ -692,7 +692,8 @@ window.STSimulation2D=(function(){
       const exchange=(animation.placed+1)%36===0;
       // Box placement keeps its normal speed; only the post-deposit pallet change takes longer.
       animation.placeDuration=normal*.6;
-      animation.returnDuration=(exchange?Math.max(24,ratePeriod)/1.2:normal)*.4;
+      // Preserve the 6.8 s shift, then lower (2.8 s), lift (4 s) and return (1.2 s).
+      animation.returnDuration=exchange?Math.max(14.8,normal*.4):normal*.4;
       animation.duration=animation.placeDuration+animation.returnDuration;
     }
     function pick(){

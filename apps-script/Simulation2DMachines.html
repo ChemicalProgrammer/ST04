@@ -364,15 +364,21 @@ window.STSimulation2DMachines=(function(){
     const contact=3*smooth((t-.38)/.04),loadLift=10*smooth((t-.42)/.06);
     return {x,forkRise:t<.28?18*(1-smooth(t/.28)):contact+loadLift,loadLift};
   }
+  function palletExchangeStage(progress){
+    const elapsed=Math.max(0,Math.min(1,(progress-.6)/.4))*14.8;
+    return {elapsed,shift:smooth(elapsed/6.8),lower:smooth((elapsed-6.8)/2.8),lift:smooth((elapsed-9.6)/4),returning:smooth((elapsed-13.6)/1.2),
+      shiftComplete:elapsed>=6.8-1e-8,liftStarted:elapsed>=9.6-1e-8,placed:elapsed>=13.6-1e-8};
+  }
   function palletStage(produced,progress,forkClock,forkGroup){
     const index=produced>0?(produced-1)%36:-1;
     const completed=produced>0?Math.floor((produced-1)/36):0;
     const exchange=index===35;
-    const shift=exchange?smooth((progress-.6)/.34):0;
+    const exchangeMotion=palletExchangeStage(progress);
+    const shift=exchange?exchangeMotion.shift:0;
     const forklift=Number.isFinite(forkClock)||completed>=2&&index>=33;
     const forkProgress=forklift?Math.max(0,Number.isFinite(forkClock)?forkClock:Math.min(1,(index+progress-33)/2.3)):0;
     return {
-      index,exchange,shift,completed,
+      index,exchange,exchangeMotion,shift,completed,
       count:index<0?0:index+(progress>=.6?1:0),
       forkProgress,forkVisible:forklift&&(Number.isFinite(forkClock)||forkProgress<1),
       forkLoaded:forklift&&forkProgress>=.42,
@@ -412,13 +418,13 @@ window.STSimulation2DMachines=(function(){
       // Empty pallets wait below the first filling position, with clearance for a vertical lift.
       pallet(rackX,rackY+12,0);
       pallet(rackX,rackY+6,0);
-      if(!stage.exchange||progress<.74)pallet(rackX,rackY,0);
+      if(!stage.exchange||!stage.exchangeMotion.liftStarted)pallet(rackX,rackY,0);
     }
     if(staging){
       pallet(activeX+stage.shift*palletPitch,floor,stage.count);
       if(stage.completed>=1)pallet(activeX+(1+stage.shift)*palletPitch,floor,36);
       if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor,36);
-      if(stage.exchange&&progress>=.94)pallet(activeX,floor,0);
+      if(stage.exchange&&stage.exchangeMotion.placed)pallet(activeX,floor,0);
     }
     const placement=Math.max(0,produced-1)%36;
     const row=Math.floor(placement%9/3),level=Math.floor(placement/9);
@@ -438,18 +444,20 @@ window.STSimulation2DMachines=(function(){
     if(stage.exchange&&progress>=.6){
       const depositX=targetX+caseWidth/2,depositY=targetY-5;
       const rackGripX=rackX+palletWidth/2,rackGripY=rackY-5;
-      if(progress<.74){
-        const t=smooth((progress-.6)/.14);
+      if(!stage.exchangeMotion.shiftComplete){
+        gripX=depositX;gripY=depositY;
+      }else if(!stage.exchangeMotion.liftStarted){
+        const t=stage.exchangeMotion.lower;
         gripX=depositX+(rackGripX-depositX)*t;
         gripY=depositY+(rackGripY-depositY)*t;
 
-      }else if(progress<.94){
-        const t=smooth((progress-.74)/.2);
+      }else if(!stage.exchangeMotion.placed){
+        const t=stage.exchangeMotion.lift;
         const left=rackX,top=rackY+(floor-rackY)*t;
         emptyPallet={left,top};
         gripX=left+palletWidth/2;gripY=top-5;
       }else{
-        const t=smooth((progress-.94)/.06);
+        const t=stage.exchangeMotion.returning;
         const dockX=activeX+palletWidth/2,dockY=floor-5;
         gripX=dockX+(outlet+caseWidth/2-dockX)*t;
         gripY=dockY+(pickupY-caseHeight-35-dockY)*t;
