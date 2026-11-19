@@ -154,7 +154,7 @@ window.STSimulation2D=(function(){
     dimensionPointer=null;
     draw();queueViewSave();
   });
-  const bottleStyles=[['classic','Classic bottle'],['softener','Compact softener'],['cleaner','Multipurpose cleaner'],['shampoo','Shampoo'],['pump','Pump dispenser'],['jug','Handled jug'],['ribbed','Ribbed cleaner'],['oval-jug','Softener · 4.8 L'],['shower','Shower gel']];
+  const bottleStyles=[['classic','Classic bottle'],['softener','Compact softener'],['cleaner','Multipurpose cleaner'],['shampoo','Shampoo'],['pump','Pump dispenser'],['jug','Handled jug'],['ribbed','Ribbed cleaner'],['oval-jug','Softener'],['shower','Shower gel']];
   const liquidPalette=[['Violet','#7c3aed'],['Lavender','#b49be8'],['Blue','#2563eb'],['Aqua','#67d9ed'],['Green','#16a34a'],['Lime','#a3d635'],['Yellow','#facc15'],['Amber','#e8a23a'],['Pink','#f4a0c4'],['White','#f4f3ec'],['Teal','#14b8a6'],['Clear','#d9eef2']];
   function validAppearance(value={}){
     const color=value=>/^#[0-9a-f]{6}$/i.test(value||'')?value:null;
@@ -186,7 +186,7 @@ window.STSimulation2D=(function(){
         const context=preview.getContext('2d');if(!context)continue;
         context.clearRect(0,0,100,126);
         const aspect=type==='oval-jug'?.62:type==='shower'?.37:type==='ribbed'?.36:.45;
-        const height=Math.min(108,58/aspect),width=height*aspect;
+        const height=Math.min(108,76/aspect),width=height*aspect;
         window.STSimulation2DMachines.drawBottle(context,(100-width)/2,8,width,height,
           {surface:style.getPropertyValue('--surface').trim()||'#fff',belt:colors.secondary,liquid:colors.liquid,cap:colors.cap,label:colors.label,labelShape:draft.labelShape,accent:colors.primary},type,7);
       }

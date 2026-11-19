@@ -105,14 +105,6 @@ window.STSimulation2DMachines=(function(){
       context.restore();
     }
     path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
-    if(type==='oval-jug'){
-      // The recessed handle rim is larger than the opening and merges into the lower body.
-      context.save();path();context.clip('evenodd');context.strokeStyle=colors.belt;context.lineWidth=1.4;
-      context.beginPath();context.moveTo(64,53);context.bezierCurveTo(75,47,86,67,92,91);
-      context.bezierCurveTo(101,126,94,137,84,131);context.bezierCurveTo(72,120,60,86,64,63);context.stroke();
-      context.globalAlpha=.3;context.strokeStyle=colors.surface;
-      context.beginPath();context.moveTo(10,91);context.bezierCurveTo(2,140,10,179,21,187);context.bezierCurveTo(44,196,70,188,85,175);context.stroke();context.restore();
-    }
     if(type==='ribbed'){
       context.strokeStyle=colors.belt;context.lineWidth=1;
       for(let rib=0;rib<4;rib++){context.beginPath();context.moveTo(7,57+rib*6);context.quadraticCurveTo(50,52+rib*6,93,57+rib*6);context.stroke();}
@@ -128,18 +120,11 @@ window.STSimulation2DMachines=(function(){
         context.fillRect(neck.x-2,neck.y,neck.width+4,10);
         context.fillRect(center-4,6,8,Math.max(8,neck.y-6));context.fillRect(center-12,0,30,6);context.fillRect(center+13,4,5,8);
       }else if(type==='oval-jug'){
-        // Rear dosing cup, raised sweeping pouring lip, ribbed screw collar.
-        context.beginPath();context.moveTo(37,24);context.lineTo(38,3);
-        context.bezierCurveTo(40,0,53,0,57,3);context.lineTo(60,15);context.closePath();context.fill();context.stroke();
-        context.save();context.globalAlpha=.2;context.fillStyle=colors.surface;
-        context.beginPath();context.moveTo(45,2);context.lineTo(48,2);context.lineTo(49,18);context.lineTo(45,21);context.closePath();context.fill();context.restore();
+        // Flat outline of the dosing cup and raised pouring lip, drawn as one silhouette.
         context.beginPath();context.moveTo(33,35);context.lineTo(32,21);context.lineTo(35,24);
-        context.bezierCurveTo(44,17,56,7,66,9);context.quadraticCurveTo(68,10,66,18);
-        context.lineTo(65,35);context.closePath();context.fill();context.stroke();
-        context.beginPath();context.moveTo(35,24);context.bezierCurveTo(45,22,56,15,66,15);context.stroke();
-        context.fillRect(33,26,32,9);context.strokeRect(33,26,32,9);
-        context.save();context.globalAlpha=.35;context.strokeStyle=colors.surface;context.lineWidth=.45;
-        for(let rib=0;rib<19;rib++){const left=34+rib*1.6;context.beginPath();context.moveTo(left,27);context.lineTo(left,34);context.stroke();}context.restore();
+        context.lineTo(37,22);context.lineTo(38,3);context.bezierCurveTo(40,0,53,0,57,3);
+        context.lineTo(59,11);context.bezierCurveTo(62,9,65,8,66,9);
+        context.quadraticCurveTo(68,10,66,18);context.lineTo(65,35);context.closePath();context.fill();context.stroke();
       }else if(type==='shower'){
         // Wide asymmetric flip top: high rear lip, swept front seam, curved lower skirt.
         context.beginPath();context.moveTo(17,32);context.lineTo(20,5);
