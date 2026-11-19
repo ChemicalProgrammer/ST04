@@ -775,7 +775,7 @@ window.STSimulation2D=(function(){
     const last=items.at(-1);
     const output=productionLayout(line,items,right);
     const length=(last?Math.max(output.right,output.production+cardWidth):0)/sceneScale;
-    const top=Math.max(sceneTop(),-output.productionY+8),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,output.productionY+productionHeight(),output.pallets?138:0);
+    const top=Math.max(sceneTop(),-output.productionY+8),bottom=Math.max(sceneHalfHeight()+telemetryTopGap+telemetryCardHeight+8,output.productionY+productionHeight(),output.pallets?174:0);
     const horizontal=(canvas.clientWidth-52)/Math.max(1,length);
     const vertical=(canvas.clientHeight-36)*sceneScale/(top+bottom);
     camera.scale=Math.max(.0001,Math.min(horizontal,vertical,.32));

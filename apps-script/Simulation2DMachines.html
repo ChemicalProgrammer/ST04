@@ -391,7 +391,7 @@ window.STSimulation2DMachines=(function(){
     const pickupY=Number.isFinite(colors.pickupY)?colors.pickupY:y;
     const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
     const transferring=produced>0&&progress<.6;
-    const activeX=x+100,rackX=x-85,rackY=floor+17;
+    const activeX=x+100,rackX=activeX,rackY=floor+48;
     function pallet(px,py,count){
       box(px,py,palletWidth,5,colors.palletColor||belt);
       for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,py+5,8,7,belt);
@@ -407,7 +407,7 @@ window.STSimulation2DMachines=(function(){
       }
     }
     if(layer!=='foreground'){
-      // Empty pallets wait behind the robot, ready for the next change.
+      // Empty pallets wait below the first filling position, with clearance for a vertical lift.
       pallet(rackX,rackY+12,0);
       pallet(rackX,rackY+6,0);
       if(!stage.exchange||progress<.74)pallet(rackX,rackY,0);
@@ -439,18 +439,18 @@ window.STSimulation2DMachines=(function(){
       if(progress<.74){
         const t=smooth((progress-.6)/.14);
         gripX=depositX+(rackGripX-depositX)*t;
-        gripY=depositY+(rackGripY-depositY)*t-55*Math.sin(t*Math.PI);
+        gripY=depositY+(rackGripY-depositY)*t;
 
       }else if(progress<.94){
         const t=smooth((progress-.74)/.2);
-        const left=rackX+(activeX-rackX)*t,top=rackY+(floor-rackY)*t-60*Math.sin(t*Math.PI);
+        const left=rackX,top=rackY+(floor-rackY)*t;
         emptyPallet={left,top};
         gripX=left+palletWidth/2;gripY=top-5;
       }else{
         const t=smooth((progress-.94)/.06);
         const dockX=activeX+palletWidth/2,dockY=floor-5;
         gripX=dockX+(outlet+caseWidth/2-dockX)*t;
-        gripY=dockY+(pickupY-caseHeight-35-dockY)*t-65*Math.sin(t*Math.PI);
+        gripY=dockY+(pickupY-caseHeight-35-dockY)*t;
 
       }
     }

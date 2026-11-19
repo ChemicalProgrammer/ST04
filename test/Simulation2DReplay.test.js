@@ -1360,3 +1360,23 @@ test('animated layout uses the native machine aspect ratio and chooses the confi
  machineStyle.value='blocks';assert.equal(context.displayWidth(item),1100*.09*3.75);
  assert.equal(context.displayWidth({kind:'belt',length:2000}),180,'conveyor dimensions keep their measured scale');
 });
+
+
+test('empty pallets sit below the first filling position and rise vertically without overshooting',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+ function decks(produced,progress,layer){
+   const rectangles=[],ctx=new Proxy({roundRect(x,y,w,h){if(w===123&&h===5)rectangles.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawPalletOutput(ctx,200,100,180,colors,produced,progress,layer);return rectangles;
+ }
+ const stack=decks(1,1,'robot'),active=decks(1,1,'foreground')[0];
+ assert.equal(stack.length,3);assert(stack.every(([x])=>x===active[0]));
+ const top=Math.min(...stack.map(([,y])=>y));assert(top>active[1]+16,'there is a visible gap below the filling pallet');
+ let previous=Infinity;
+ for(const progress of [.74,.78,.82,.86,.9,.939999]){
+   const moving=decks(36,progress,'foreground').find(([x,y])=>x===active[0]&&y>=active[1]&&y<=top);
+   assert(moving,'the replacement stays directly under the first position');
+   assert(moving[1]<=previous,'the lift goes upward without a downward swing');previous=moving[1];
+ }
+ assert(previous<active[1]+.001,'the pallet arrives exactly at filling height');
+});
