@@ -686,7 +686,15 @@ window.STSimulation2D=(function(){
     }
     // Stage motion is symbolic. Keep readable physical travel times even at high throughput;
     // production counters and the simulation's configured machine rate remain independent.
-    const cycleDuration=()=>Math.max((animation.placed+1)%36===0?24:8,1/Math.max(.001,item.rate||.001))/1.2;
+    function startCycle(){
+      const ratePeriod=1/Math.max(.001,item.rate||.001);
+      const normal=Math.max(8,ratePeriod)/1.2;
+      const exchange=(animation.placed+1)%36===0;
+      // Box placement keeps its normal speed; only the post-deposit pallet change takes longer.
+      animation.placeDuration=normal*.6;
+      animation.returnDuration=(exchange?Math.max(24,ratePeriod)/1.2:normal)*.4;
+      animation.duration=animation.placeDuration+animation.returnDuration;
+    }
     function pick(){
       if(!animation.picked){
         animation.batch=produced-animation.settled;
@@ -700,14 +708,16 @@ window.STSimulation2D=(function(){
       animation.placed++;
       animation.batch=0;animation.picked=false;
       if(animation.settled>=produced)animation.started=null;
-      else animation.duration=cycleDuration();
+      else startCycle();
     }
     if(animation.started===null&&produced>animation.settled){
       animation.started=time;
-      animation.duration=cycleDuration();
+      startCycle();
       animation.batch=0;animation.picked=false;
     }
-    const progress=animation.started===null?1:Math.min(1,Math.max(0,(time-animation.started)/animation.duration));
+    const elapsed=animation.started===null?0:Math.max(0,time-animation.started);
+    const progress=animation.started===null?1:Math.min(1,elapsed<animation.placeDuration
+      ?.6*elapsed/animation.placeDuration:.6+.4*(elapsed-animation.placeDuration)/animation.returnDuration);
     if(animation.started!==null&&progress>=.04)pick();
     const result={produced:animation.placed+(animation.started===null?0:1),progress,
       batch:1,pickedCases:animation.batch,waiting:Math.max(0,produced-animation.settled-(animation.picked?animation.batch:0))};

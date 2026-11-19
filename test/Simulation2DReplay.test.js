@@ -1054,16 +1054,17 @@ test('production table centers above the three pallet positions and fits their f
 });
 
 
-test('robot and pallet changes keep the previous timing multiplied by 1.2',()=>{
+test('last-case placement keeps normal speed while pallet exchange retains its own timing',()=>{
  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
  const item={produced:0,rate:100};context.palletTransfer(item);item.produced=1;context.palletTransfer(item);
  assert.equal(context.palletAnimation.duration,8/1.2);context.model.time=4/1.2;
  assert.equal(context.palletTransfer(item).progress,.5);assert.equal(item.rate,100);
  context.model={time:0};item.produced=35;context.palletTransfer(item);item.produced=36;context.palletTransfer(item);
- assert.equal(context.palletAnimation.duration,24/1.2);context.model.time=16/1.2;
- assert(Math.abs(context.palletTransfer(item).progress-2/3)<1e-12);
- item.produced=37;context.model.time=24/1.2;assert.equal(context.palletTransfer(item).produced,37);
+ assert.equal(context.palletAnimation.duration,12);context.model.time=4;
+ assert(Math.abs(context.palletTransfer(item).progress-.6)<1e-12);
+ context.model.time=8;assert(Math.abs(context.palletTransfer(item).progress-.8)<1e-12);
+ item.produced=37;context.model.time=12;assert.equal(context.palletTransfer(item).produced,37);
  assert.equal(context.palletAnimation.duration,8/1.2);
 });
 
@@ -1408,4 +1409,32 @@ test('shorter rigid robot links still reach every layer and the lower pallet sta
    const links=[length(joints[17],joints[15]),length(joints[15],joints[10])];reference??=links;
    for(let i=0;i<2;i++){assert(links[i]<160,'both links are shorter than the previous minimum length');assert(Math.abs(links[i]-reference[i])<1e-7,'the link reaches all targets without stretching');}
  }
+});
+
+
+test('forklift departure cannot slow box placement or delay the next available robot cycle',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const source=script('Simulation2D');
+ function scenario(exitOffset){
+   const model={time:0},context=vm.createContext({window,model,palletAnimation:null,reducedMotion:{matches:false}});
+   vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function palletInfeed(')),context);
+   const route={pickupOffset:386,baselineExitOffset:789,exitOffset},item={produced:105,rate:100};
+   context.palletTransfer(item,route);item.produced=106;context.palletTransfer(item,route);
+   const frames=[];
+   for(const time of [1,3,5,7,9,11,14,17,20,23,26,29,32,35,38,41,44,47]){
+     model.time=time;item.produced=106+Math.floor(time/2);
+     const state=context.palletTransfer(item,route);frames.push({time,placed:state.produced,progress:state.progress,waiting:state.waiting});
+   }
+   return {frames,state:context.palletTransfer(item,route)};
+ }
+ const nearby=scenario(789),distant=scenario(5789);
+ assert.deepEqual(nearby.frames,distant.frames,'a long forklift route does not change the robot clock');
+ assert(distant.state.forkProgress<nearby.state.forkProgress,'forklift travel still has its own duration');
+ const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
+ vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function palletInfeed(')),context);
+ function placement(initial){
+   context.model={time:0};const item={produced:initial,rate:100};context.palletTransfer(item);item.produced++;context.palletTransfer(item);
+   context.model.time=2;return context.palletTransfer(item).progress;
+ }
+ assert.equal(placement(35),placement(34),'the last carton travels at the same speed as the preceding carton');
 });
