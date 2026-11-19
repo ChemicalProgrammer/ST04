@@ -21,7 +21,7 @@ function stubScenarioGain(h){
  };
 }
 
-async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false}={}) {
+async function setup({remember=false,fail=false,many=false,invalidSheet=false,empty=false,realScenarioServer=false,fingerprintMismatch=false,autosaveSeconds=1,uiMode='ADVANCE',flowUnit,savedAccent,savedUiMode,indexedCatalog=false,startupFault=false}={}) {
  const context={}; vm.createContext(context);vm.runInContext(read('DemoCaseFactory.gs'),context);vm.runInContext(read('GeminiService.gs'),context);
  const initial=JSON.parse(JSON.stringify(context.createDemoCaseRequest_()));
  // Generic UI fixture uses the browser defaults supplied by this test.
@@ -65,6 +65,11 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  let media;
  const dom=new JSDOM(renderAppsScript().html,{url:'https://st.test/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
+  if(startupFault==='timeout'){
+    const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms,...args)=>{if(ms===45000)w.__startupTimeout=fn;return timeout(fn,ms,...args);};
+  }
+  if(startupFault===true)w.document.addEventListener('DOMContentLoaded',()=>{w.STConfigurationEditor.init=()=>{throw new w.Error('STConfigurationEditor module could not initialize');};});
+  if(startupFault==='render'){const bootstrap=api.getBootstrap;api.getBootstrap=()=>({...bootstrap(),settings:null});}
   w.localStorage.setItem('st.ui.v1.autosaveSeconds',String(autosaveSeconds));
   if(remember)w.localStorage.setItem('st.ui.v1.remember','yes');
   if(savedAccent)w.localStorage.setItem('st.ui.v1.accent',savedAccent);
@@ -73,7 +78,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   w.confirm=()=>true;w.scrollBy=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({},{get:()=>()=>{}});
-  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);w.setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args),...(key==='previewSheetImport'?{importVersion:'sheet-import-20261019-1'}:{})});}catch(e){failure(e);}},0);})});}
+  function runner(success,failure){return new Proxy({withSuccessHandler:fn=>runner(fn,failure),withFailureHandler:fn=>runner(success,fn)},{get:(o,key)=>o[key]||((...args)=>{calls.push(key);if(startupFault==='timeout'&&key==='getBootstrap'){w.__lateBootstrap=()=>success({ok:true,data:api[key](...args)});return;}w.setTimeout(()=>{try{if(fail)throw Error('offline');if(!api[key])throw Error('Unmocked '+key);success({ok:true,data:api[key](...args),...(key==='previewSheetImport'?{importVersion:'sheet-import-20261019-1'}:{})});}catch(e){failure(e);}},0);})});}
   w.google={script:{run:runner()}};
  }});
  await new Promise(r=>dom.window.addEventListener('load',r));await settle();
@@ -3209,6 +3214,44 @@ test('UI: Capper can be selected and saved as a separate machine',async()=>{
    await h.click('#save-case');
    await waitFor(()=>h.storedCases()[0].equipment[0].type==='CAPPER');
    assert.equal(h.storedCases()[0].equipment[0].processData.machineType,'CAPPER');
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: remembered startup exposes module initialization errors instead of connecting forever',async()=>{
+ const h=await setup({remember:true,startupFault:true});
+ try{
+   assert(!h.d.documentElement.classList.contains('restoring-session'));
+   assert(h.visible('auth-panel'));assert(!h.visible('application'));
+   assert.match(h.d.getElementById('auth-status').textContent,/STConfigurationEditor module could not initialize/);
+   assert.equal(h.d.getElementById('sign-in-button').disabled,false);
+   assert.equal(h.d.getElementById('sign-in-button').textContent,'Reload page');
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+test('UI: rejected asynchronous bootstrap rendering returns to entry with an error',async()=>{
+ const h=await setup({remember:true,startupFault:'render'});
+ try{
+   assert(!h.d.documentElement.classList.contains('restoring-session'));
+   assert(h.visible('auth-panel'));assert(!h.visible('application'));
+   assert.match(h.d.getElementById('auth-status').textContent,/Workspace startup could not finish/);
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: an unanswered remembered bootstrap times out and ignores its late response',async()=>{
+ const h=await setup({remember:true,startupFault:'timeout'});
+ try{
+   assert(h.d.documentElement.classList.contains('restoring-session'));
+   h.w.__startupTimeout();
+   assert(h.visible('auth-panel'));assert(!h.visible('application'));
+   assert.match(h.d.getElementById('auth-status').textContent,/45 seconds/);
+   h.w.__lateBootstrap();await settle();
+   assert(h.visible('auth-panel'));assert(!h.visible('application'));
+   assert.match(h.d.getElementById('auth-status').textContent,/45 seconds/);
    assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });

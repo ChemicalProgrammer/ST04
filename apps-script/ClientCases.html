@@ -59,6 +59,7 @@
       }
     }
     function signIn() {
+      window.STStartup?.start();
       document.getElementById('sign-in-button').disabled = true;
       document.getElementById('auth-status').dataset.state = 'loading';
       document.getElementById('auth-status').textContent = __ST_TEXT__('client.preparing_workspace');
@@ -135,7 +136,9 @@
     function initialize() {
       cancelCaseCatalog();
       setStatus(__ST_TEXT__('client.loading_console'));
-      callServer('getBootstrap', [], renderBootstrap);
+      callServer('getBootstrap', [], function(response){
+        Promise.resolve().then(function(){return renderBootstrap(response);}).catch(function(error){window.STStartup.fail(error);});
+      });
     }
 
     async function renderBootstrap(response) {
@@ -170,6 +173,7 @@
       shell.sync();
       if(enteringWorkspace)animateSessionEntry(true);
       if(response.data.caseCatalog?.refreshRequired)refreshCaseCatalog();
+      window.STStartup?.ready();
     }
 
     async function saveWorkspace(request, done) {

@@ -105,22 +105,28 @@
         animation.cancel();
       },function(){});
     }
+    window.addEventListener('st-startup-failure',function(){
+      // Ignore a response arriving after a failed or timed-out startup.
+      state.requestEpoch+=1;state.pendingRequests=0;state.bootstrap=null;
+    });
     document.addEventListener('DOMContentLoaded', function() {
-      bindEvents();
-      STEquipmentInspector.init(state,markCaseDirty);
-      assistant.init();
-      sheetImport.init();
-      STConfigurationEditor.init(state, {
-        capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
-        apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); if(config.formatCatalog){state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:cloneJson(config.formatCatalog)};delete state.activeCase.metadata.products;} simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
-      });
-      STProducts.init(state,{navigate:function(){state.basicView='products';navigateView('products');},simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,edited:function(){markCaseDirty();},changed:function(all){invalidateActiveResult();renderEditor();markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();shell.sync();}});
-      STRealData.init(state,{changed:function(){saveGeminiHistory({draftOnly:true});}});
-      shell.init();
-      if (STPreferences.read('remember') === 'yes') {
-        document.getElementById('remember-session').checked = true;
-        signIn();
-      }
+      try{
+        bindEvents();
+        STEquipmentInspector.init(state,markCaseDirty);
+        assistant.init();
+        sheetImport.init();
+        STConfigurationEditor.init(state, {
+          capture: async function(){ await flushCase(); var editor=collectCaseEditor(),run=readRunConfiguration(); if(!editor||!run)throw Error(__ST_TEXT__('exports.setup_invalid')); return STReports.configuration(editor,Object.assign({},activePersistentSimulation(),{equipment:editor.equipment,dynamicConfig:run})); },
+          apply: function(config){ var simulation=activePersistentSimulation(); invalidateActiveResult(); if(config.formatCatalog){state.activeCase.metadata={...state.activeCase.metadata,formatCatalog:cloneJson(config.formatCatalog)};delete state.activeCase.metadata.products;} simulation.equipment=cloneJson(config.equipment); simulation.dynamicConfig=cloneJson(config.dynamicConfig); simulation.updatedAt=new Date().toISOString(); activatePersistentSimulation(simulation.id,true); state.uiView='editor'; shell.sync(); autosave.change(true); }
+        });
+        STProducts.init(state,{navigate:function(){state.basicView='products';navigateView('products');},simulation:activePersistentSimulation,locked:runControlsLocked,capture:syncEquipmentFromEditor,edited:function(){markCaseDirty();},changed:function(all){invalidateActiveResult();renderEditor();markCaseDirty();renderRunWorkspace();renderSimulationAnalysis();shell.sync();}});
+        STRealData.init(state,{changed:function(){saveGeminiHistory({draftOnly:true});}});
+        shell.init();
+        if (STPreferences.read('remember') === 'yes') {
+          document.getElementById('remember-session').checked = true;
+          signIn();
+        }else window.STStartup?.ready();
+      }catch(error){window.STStartup.fail(error);}
     });
     window.addEventListener('resize', function() { renderPlaybackFrame(); });
     document.addEventListener('click',function(event){

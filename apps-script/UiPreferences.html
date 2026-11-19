@@ -1,4 +1,40 @@
 <script>
+// Load before the application modules so a broken or incomplete deployment cannot hide errors.
+window.STStartup=(function(){
+  var active=true,timer,failure='';
+  function ready(){active=false;clearTimeout(timer);}
+  function displayFailure(){
+    if(!failure)return;
+    document.documentElement.classList.remove('restoring-session');
+    var auth=document.getElementById('auth-panel'),app=document.getElementById('application');
+    if(auth)auth.classList.remove('hidden');
+    if(app)app.classList.add('hidden');
+    var status=document.getElementById('auth-status'),button=document.getElementById('sign-in-button');
+    if(status){status.dataset.state='error';status.textContent=failure;}
+    if(button){button.disabled=false;button.textContent='Reload page';button.removeAttribute('aria-busy');}
+  }
+  function fail(error){
+    if(!active)return;
+    ready();
+    failure='Workspace startup could not finish. '+String(error?.message||error||'Unknown startup error.').slice(0,400);
+    displayFailure();
+    window.dispatchEvent(new Event('st-startup-failure'));
+  }
+  function start(){
+    active=true;failure='';clearTimeout(timer);
+    timer=setTimeout(function(){fail('The connection did not respond within 45 seconds. Reload to retry.');},45000);
+  }
+  window.addEventListener('error',function(event){if(event.message)fail(event.error||event.message);});
+  window.addEventListener('unhandledrejection',function(event){if(active)fail(event.reason);});
+  document.addEventListener('DOMContentLoaded',displayFailure);
+  document.addEventListener('click',function(event){
+    if(failure&&event.target.closest?.('#sign-in-button')){
+      event.preventDefault();event.stopImmediatePropagation();window.location.reload();
+    }
+  },true);
+  start();
+  return {start:start,ready:ready,fail:fail};
+})();
 // Browser preferences only. Google identity is ALWAYS verified by the server.
 window.STPreferences = (function() {
   var key = 'st.ui.v1.',caseProvider,caseChanged;
