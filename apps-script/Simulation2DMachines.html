@@ -17,15 +17,28 @@ window.STSimulation2DMachines=(function(){
     return Object.hasOwn(designs,type)?designs[type]:null;
   }
   function bottleNeck(type){
-    return type==='softener'?{x:30,width:29,y:0}:type==='jug'?{x:20,width:39,y:0}:type==='shampoo'?{x:27,width:46,y:0}:type==='pump'?{x:44,width:12,y:27}:{x:38,width:24,y:0};
+    return type==='oval-jug'?{x:32,width:30,y:0}:type==='shower'?{x:16,width:68,y:0}:type==='ribbed'?{x:38,width:24,y:0}:type==='softener'?{x:30,width:29,y:0}:type==='jug'?{x:20,width:39,y:0}:type==='shampoo'?{x:27,width:46,y:0}:type==='pump'?{x:44,width:12,y:27}:{x:38,width:24,y:0};
   }
   function drawBottle(context,x,y,width,height,colors,type='classic',stage=0){
     if(!(width>0&&height>0))return;
-    const bounds=type==='softener'||type==='jug'?[3,98]:type==='pump'?[6,94]:[4,96];
+    const bounds=type==='softener'||type==='jug'||type==='oval-jug'?[3,98]:type==='pump'?[6,94]:[4,96];
     context.save();context.translate(x-bounds[0]*width/(bounds[1]-bounds[0]),y);context.scale(width/(bounds[1]-bounds[0]),height/200);
     function path(){
       context.beginPath();
-      if(type==='softener'||type==='jug'){
+      if(type==='oval-jug'){
+        context.moveTo(32,0);context.lineTo(62,0);context.lineTo(64,30);
+        context.bezierCurveTo(93,44,98,85,98,128);context.bezierCurveTo(98,170,86,198,65,200);
+        context.lineTo(24,200);context.bezierCurveTo(4,194,3,170,3,135);context.bezierCurveTo(3,84,16,49,31,30);context.closePath();
+        context.moveTo(72,54);context.bezierCurveTo(84,58,92,87,88,111);context.bezierCurveTo(79,105,68,80,72,54);context.closePath();
+      }else if(type==='shower'){
+        context.moveTo(16,0);context.quadraticCurveTo(50,8,84,0);context.lineTo(85,29);
+        context.quadraticCurveTo(96,65,96,110);context.quadraticCurveTo(96,150,83,189);context.quadraticCurveTo(80,200,69,200);
+        context.lineTo(31,200);context.quadraticCurveTo(20,200,17,189);context.quadraticCurveTo(4,150,4,110);context.quadraticCurveTo(4,65,15,29);context.closePath();
+      }else if(type==='ribbed'){
+        context.moveTo(38,0);context.lineTo(62,0);context.lineTo(63,20);context.quadraticCurveTo(94,38,96,57);
+        context.lineTo(96,178);context.quadraticCurveTo(96,200,82,200);context.lineTo(18,200);
+        context.quadraticCurveTo(4,200,4,178);context.lineTo(4,57);context.quadraticCurveTo(6,38,37,20);context.closePath();
+      }else if(type==='softener'||type==='jug'){
         context.moveTo(type==='jug'?20:30,0);context.lineTo(59,0);context.lineTo(61,35);
         context.quadraticCurveTo(97,42,98,84);context.lineTo(95,184);
         context.quadraticCurveTo(92,200,78,200);context.lineTo(20,200);
@@ -57,13 +70,43 @@ window.STSimulation2DMachines=(function(){
     path();context.fillStyle=colors.surface;context.fill('evenodd');
     if(stage&2){context.save();path();context.clip('evenodd');context.fillStyle=colors.liquid||colors.accent;context.fillRect(0,65,100,135);context.restore();}
     path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
-    if(stage&1){context.fillStyle='#fff';context.fillRect(16,128,68,28);context.strokeRect(16,128,68,28);}
+    if(stage&1){
+      // All label styles follow the chosen body; the even-odd clip preserves handle openings.
+      context.save();path();context.clip('evenodd');context.fillStyle=colors.label||'#f4f3ec';context.strokeStyle=colors.belt;context.lineWidth=1;
+      const shape=colors.labelShape||'sticker';
+      if(shape==='sleeve'){context.fillRect(0,30,100,168);}
+      else if(shape==='wrap'){context.fillRect(0,type==='ribbed'?87:105,100,type==='ribbed'?88:67);context.strokeRect(0,type==='ribbed'?87:105,100,type==='ribbed'?88:67);}
+      else{
+        context.beginPath();
+        if(type==='oval-jug'||type==='softener'||type==='jug'){
+          context.moveTo(18,77);context.quadraticCurveTo(43,59,63,85);context.quadraticCurveTo(72,103,86,126);
+          context.quadraticCurveTo(87,180,57,185);context.quadraticCurveTo(16,185,13,151);context.closePath();
+        }else if(type==='shower'||type==='shampoo'){
+          context.moveTo(25,52);context.quadraticCurveTo(50,40,75,52);context.lineTo(80,166);context.quadraticCurveTo(50,185,20,166);context.closePath();
+        }else{context.moveTo(10,89);context.lineTo(90,89);context.lineTo(90,174);context.lineTo(10,174);context.closePath();}
+        context.fill();context.stroke();
+      }
+      context.restore();
+    }
+    path();context.strokeStyle=colors.belt;context.lineWidth=2;context.stroke();
+    if(type==='ribbed'){context.strokeStyle=colors.belt;for(let rib=0;rib<4;rib++){context.beginPath();context.moveTo(7,57+rib*7);context.quadraticCurveTo(50,50+rib*7,93,57+rib*7);context.stroke();}}
     if(type==='cleaner'){context.strokeStyle=colors.belt;for(let rib=0;rib<3;rib++){context.beginPath();context.moveTo(17,158+rib*9);context.lineTo(83,158+rib*9);context.stroke();}}
     if(stage&4){
       const neck=bottleNeck(type);context.fillStyle=colors.cap||colors.belt;
-      if(type==='pump'){
-        context.fillRect(neck.x-3,neck.y-4,neck.width+6,8);
-        context.fillRect(46,13,8,14);context.fillRect(38,6,42,8);context.fillRect(75,10,5,12);
+      const cap=colors.capShape&&colors.capShape!=='auto'?colors.capShape:type==='pump'?'pump':type==='oval-jug'?'dosing':type==='shower'?'flip':'screw';
+      if(cap==='pump'){
+        // Center each closure on this bottle's neck, including mixed combinations.
+        const center=neck.x+neck.width/2;
+        context.fillRect(neck.x-2,neck.y,neck.width+4,10);
+        context.fillRect(center-4,6,8,Math.max(8,neck.y-6));context.fillRect(center-12,0,30,6);context.fillRect(center+13,4,5,8);
+      }else if(cap==='dosing'||cap==='flip'){
+        context.save();context.translate(0,neck.y);
+        const left=neck.x-2,right=neck.x+neck.width+2;
+        context.beginPath();context.moveTo(left,22);context.lineTo(left,6);
+        context.quadraticCurveTo(left+neck.width*.3,cap==='dosing'?16:0,right,2);context.lineTo(right,22);context.closePath();context.fill();context.stroke();
+        context.beginPath();context.moveTo(left+2,13);context.quadraticCurveTo(left+neck.width*.4,6,right-2,6);context.stroke();
+        if(cap==='dosing'){context.beginPath();context.moveTo(left+5,12);context.lineTo(left+8,0);context.quadraticCurveTo(left+neck.width/2,0,right-7,0);context.lineTo(right-3,6);context.fill();context.stroke();}
+        context.restore();
       }else{
         context.fillRect(neck.x-2,neck.y,neck.width+4,12);
         context.strokeStyle=colors.belt;context.lineWidth=1;context.strokeRect(neck.x-2,neck.y,neck.width+4,12);

@@ -7,7 +7,6 @@
 .simulation2d-metrics dt { color:var(--muted); font-size:var(--font-secondary); }
 .simulation2d-metrics dd { margin:0; font-weight:var(--weight-semibold); font-variant-numeric:tabular-nums; }
 #simulation2d-panel > .fold-card { container-type:inline-size; }
-#simulation2d-settings { margin-bottom:var(--space-3); }
 #simulation2d-results.simulation2d-fullscreen {
   position:fixed; inset:0; z-index:1000; margin:0; max-width:none;
   border-radius:0; background:var(--surface); overflow:auto;
@@ -28,7 +27,6 @@
 .simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translateY(-50%); transform-origin:left center; white-space:nowrap; background:none; color:var(--ink); border:0; border-radius:0; padding:0; min-width:0; min-height:0; line-height:1; text-decoration:none; cursor:pointer; }
 .simulation2d-analysis-action:hover { background:none; }
 .simulation2d-analysis-action[hidden] { display:none; }
-#simulation2d-events-panel { margin-bottom:var(--space-3); }
 #simulation2d-events-panel[hidden] { display:none; }
 #simulation2d-event-editor > .fold-card { margin:0; }
 .simulation2d-options { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
@@ -63,8 +61,19 @@
 #simulation2d-legend .stop { --lamp:var(--muted); }
 
 #simulation2d-appearance-dialog { --dialog-width:880px; }
-.simulation2d-color-group { margin:var(--space-4) 0 0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
-.simulation2d-color-group input[type=color] { width:100%; height:36px; padding:3px; }
+#simulation2d-appearance-dialog .dialog-body > h3 { margin:0 0 var(--space-3); font-size:var(--font-card); }
+.simulation2d-dialog-field { margin-bottom:var(--space-4); }
+.simulation2d-appearance-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr)); gap:var(--space-3) var(--space-4); margin-top:var(--space-4); }
+.simulation2d-appearance-fields .simulation2d-dialog-field { margin:0; }
+.simulation2d-color-group { display:grid; gap:var(--space-2); min-width:0; font-size:var(--font-secondary); }
+.simulation2d-color-picker { position:relative; min-width:0; }
+.simulation2d-color-picker summary { display:flex; align-items:center; gap:var(--space-2); border:1px solid var(--line); border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); cursor:pointer; list-style:none; }
+.simulation2d-color-picker summary::-webkit-details-marker { display:none; }
+.simulation2d-color-picker summary::after { content:'▾'; margin-left:auto; }
+.simulation2d-color-picker[open] { z-index:3; }
+.simulation2d-color-popup { position:absolute; top:calc(100% + var(--space-1)); left:0; width:max(100%,280px); max-width:calc(100vw - 80px); padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow); max-height:260px; overflow:auto; box-sizing:border-box; }
+.simulation2d-color-popup label { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-top:var(--space-3); }
+.simulation2d-color-popup input[type=color] { width:56px; height:32px; padding:3px; }
 .simulation2d-bottle-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:var(--space-2); }
 .simulation2d-bottle-choice { display:grid; justify-items:center; gap:var(--space-2); background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-md); padding:var(--space-2); }
 .simulation2d-bottle-choice canvas { width:100px; height:126px; }
@@ -82,7 +91,7 @@
 .simulation2d-diagram:not([data-viewports="1"]) .simulation2d-viewport-canvas { height:clamp(240px,32vh,400px) !important; }
 .simulation2d-diagram[data-viewports="3"] .simulation2d-viewport:nth-child(3) { grid-column:1/-1; }
 .simulation2d-viewport-label { position:absolute; top:6px; left:8px; pointer-events:none; color:var(--muted); font-size:var(--font-caption); }
-#simulation2d-viewports { width:78px; min-width:0; padding-inline:5px 18px; }
+#simulation2d-viewports { width:100px; min-width:100px; padding-inline:8px 24px; white-space:nowrap; flex-shrink:0; }
 
 .simulation2d-settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:var(--space-3) var(--space-4); align-items:end; }
 .simulation2d-settings-grid > label,.simulation2d-dialog-field { display:grid; gap:var(--space-2); min-width:0; font-size:var(--font-secondary); }
@@ -93,7 +102,8 @@
 .simulation2d-setting-toggles legend { padding:0 var(--space-2) 0 0; font-size:var(--font-secondary); color:var(--muted); }
 .simulation2d-setting-toggles label { display:flex; align-items:center; gap:var(--space-2); margin:0; font-size:var(--font-secondary); }
 .simulation2d-setting-toggles input { width:auto; margin:0; flex:0 0 auto; }
-.simulation2d-viewport-zoom { position:absolute; z-index:2; right:var(--space-2); bottom:var(--space-2); display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); max-width:calc(100% - 2 * var(--space-2)); box-sizing:border-box; cursor:default; }
+.simulation2d-viewport-zoom { position:absolute; z-index:2; right:var(--space-2); bottom:var(--space-2); display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); border:0; background:transparent; opacity:.45; transition:opacity .18s ease; max-width:calc(100% - 2 * var(--space-2)); box-sizing:border-box; cursor:default; }
+.simulation2d-viewport-zoom:hover,.simulation2d-viewport-zoom:focus-within { opacity:1; }
 .simulation2d-viewport-zoom input[type=range] { width:90px; min-width:40px; max-width:100%; margin:0; padding:0; accent-color:var(--accent); }
 .simulation2d-viewport-zoom output { min-width:5ch; margin:0; padding:0; text-align:right; color:var(--muted); font-size:var(--font-secondary); font-variant-numeric:tabular-nums; }
 </style>
@@ -135,17 +145,17 @@ window.STSimulation2D=(function(){
     dimensionPointer=null;
     draw();
   });
-  const bottleStyles=[['classic','Classic bottle'],['softener','Fabric softener'],['cleaner','Multipurpose cleaner'],['shampoo','Shampoo'],['pump','Pump dispenser'],['jug','Handled jug']];
+  const bottleStyles=[['classic','Classic bottle'],['softener','Fabric softener'],['cleaner','Multipurpose cleaner'],['shampoo','Shampoo'],['pump','Pump dispenser'],['jug','Handled jug'],['ribbed','Ribbed cleaner'],['oval-jug','Oval softener jug'],['shower','Shower gel']];
   const liquidPalette=[['Violet','#7c3aed'],['Lavender','#b49be8'],['Blue','#2563eb'],['Aqua','#67d9ed'],['Green','#16a34a'],['Lime','#a3d635'],['Yellow','#facc15'],['Amber','#e8a23a'],['Pink','#f4a0c4'],['White','#f4f3ec'],['Teal','#14b8a6'],['Clear','#d9eef2']];
   function validAppearance(value={}){
     const color=value=>/^#[0-9a-f]{6}$/i.test(value||'')?value:null;
-    return {bottle:bottleStyles.some(([id])=>id===value.bottle)?value.bottle:'classic',liquid:color(value.liquid),equipment:color(value.equipment),conveyors:color(value.conveyors),cap:color(value.cap)};
+    return {bottle:bottleStyles.some(([id])=>id===value.bottle)?value.bottle:'classic',liquid:color(value.liquid),equipment:color(value.equipment),conveyors:color(value.conveyors),cap:color(value.cap),label:color(value.label),labelShape:['sticker','wrap','sleeve'].includes(value.labelShape)?value.labelShape:'sticker',capShape:['auto','screw','dosing','flip','pump'].includes(value.capShape)?value.capShape:'auto'};
   }
   let appearance=validAppearance({bottle:window.STPreferences?.read('simulation2dBottleStyle')});
   function appearanceColors(){
     const style=getComputedStyle(canvas),primary=style.getPropertyValue('--accent').trim()||'#2473b5';
     const secondary=style.getPropertyValue('--secondary').trim()||'#758497';
-    return {primary,secondary,liquid:appearance.liquid||primary,equipment:appearance.equipment||secondary,conveyors:appearance.conveyors||secondary,cap:appearance.cap||secondary};
+    return {primary,secondary,liquid:appearance.liquid||primary,equipment:appearance.equipment||secondary,conveyors:appearance.conveyors||secondary,cap:appearance.cap||secondary,label:appearance.label||'#f4f3ec'};
   }
   function openAppearance(){
     if(document.getElementById('simulation2d-appearance-dialog'))return;
@@ -158,8 +168,9 @@ window.STSimulation2D=(function(){
     const body=document.createElement('div');body.className='dialog-body';
     const gallery=document.createElement('div');gallery.className='simulation2d-bottle-gallery';gallery.setAttribute('role','group');gallery.setAttribute('aria-label','Bottle shape');
     const galleryTitle=document.createElement('h3');galleryTitle.textContent='Bottle shape';
-    const previews=[];
+    const previews=[],paletteSyncs=[];
     function refresh(){
+      for(const sync of paletteSyncs)sync();
       for(const button of gallery.children)button.setAttribute('aria-pressed',String(button.dataset.bottleStyle===draft.bottle));
       const colors=appearanceColors(),style=getComputedStyle(canvas);
       const item=(model?.line||definitions).find(item=>item.kind==='belt'&&item.unit!=='CASES');
@@ -169,7 +180,7 @@ window.STSimulation2D=(function(){
         const context=preview.getContext('2d');if(!context)continue;
         context.clearRect(0,0,100,126);
         window.STSimulation2DMachines.drawBottle(context,(100-width*scale)/2,8,width*scale,height*scale,
-          {surface:style.getPropertyValue('--surface').trim()||'#fff',belt:colors.secondary,liquid:colors.liquid,cap:colors.cap,accent:colors.primary},type,6);
+          {surface:style.getPropertyValue('--surface').trim()||'#fff',belt:colors.secondary,liquid:colors.liquid,cap:colors.cap,label:colors.label,labelShape:draft.labelShape,capShape:draft.capShape,accent:colors.primary},type,7);
       }
       draw();
     }
@@ -180,28 +191,50 @@ window.STSimulation2D=(function(){
       button.onclick=()=>{draft.bottle=value;refresh();};gallery.append(button);
     }
     const equipmentField=machineStyle.closest('label'),equipmentHome=equipmentField.parentElement;
-    body.append(equipmentField,galleryTitle,gallery);
+    const equipmentTitle=document.createElement('h3');equipmentTitle.textContent='Equipment view';
+    equipmentField.firstChild.textContent='';equipmentField.setAttribute('aria-label','Equipment view');machineStyle.setAttribute('aria-label','Equipment view');
+    body.append(equipmentTitle,equipmentField,galleryTitle,gallery);
+    function shapeField(key,titleText,choices){
+      const label=document.createElement('label');label.className='simulation2d-dialog-field';label.textContent=titleText;
+      const select=document.createElement('select');select.setAttribute('aria-label',titleText);
+      for(const [value,text] of choices){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}
+      select.value=draft[key];select.onchange=()=>{draft[key]=select.value;refresh();};label.append(select);return label;
+    }
+    const shapes=document.createElement('div');shapes.className='simulation2d-appearance-fields';
+    shapes.append(shapeField('capShape','Cap shape',[['auto','Match bottle'],['screw','Screw cap'],['dosing','Dosing cap'],['flip','Sculpted flip top'],['pump','Pump dispenser']]),shapeField('labelShape','Label shape',[['sticker','Adhesive label'],['wrap','Wraparound label'],['sleeve','Full sleeve']]));body.append(shapes);
+    const colorFields=document.createElement('div');colorFields.className='simulation2d-appearance-fields';body.append(colorFields);
     const industrial=[['Astronomicon grey','#9ca4ab'],['Cold grey','#7c8794'],['Blue steel','#52718a'],['Brushed steel','#b2bbc2'],['Graphite','#414b57'],['Silver','#c5cbd1'],['Gunmetal','#566674'],['Marine grey','#6c8297'],['Titanium','#89929b'],['Deep steel','#354d65'],['Boat blues','#2473b5'],['Warm steel','#9e9991']];
     const themePalettes=window.STThemeResources?.palettes||{};
     for(const [index,id] of [[0,'astronomicon-grey'],[1,'cold-grey'],[10,'boat-house']]){
       const palette=themePalettes[id];if(palette)industrial[index]=[industrial[index][0],palette.hex||palette.light.accent];
     }
     function paletteField(key,titleText,choices){
-      const group=document.createElement('fieldset');group.className='simulation2d-color-group';
-      const legend=document.createElement('legend');legend.textContent=titleText;
+      const group=document.createElement('div');group.className='simulation2d-color-group';
+      const label=document.createElement('span');label.textContent=titleText;
+      const picker=document.createElement('details');picker.className='simulation2d-color-picker';
+      const summary=document.createElement('summary');summary.setAttribute('aria-label',titleText);picker.append(summary);
+      const popup=document.createElement('div');popup.className='simulation2d-color-popup';
       const palette=document.createElement('div');palette.className='theme-color-grid';palette.setAttribute('role','group');palette.setAttribute('aria-label',titleText+' palette');
       const colorLabel=document.createElement('label');colorLabel.textContent='Custom color';
       const color=document.createElement('input');color.type='color';color.id='simulation2d-'+key+'-color';colorLabel.htmlFor=color.id;color.value=appearanceColors()[key];colorLabel.append(color);
-      function sync(){for(const button of palette.children)button.setAttribute('aria-pressed',String((button.dataset.color||null)===draft[key]));}
+      function sync(){
+        for(const button of palette.children)button.setAttribute('aria-pressed',String((button.dataset.color||null)===draft[key]));
+        const name=draft[key]?(choices.find(([,value])=>value===draft[key])?.[0]||'Custom color'):'Theme default';
+        const swatch=document.createElement('span');swatch.className='theme-color-swatch';swatch.style.background=appearanceColors()[key];swatch.setAttribute('aria-hidden','true');
+        const text=document.createElement('span');text.textContent=name;summary.replaceChildren(swatch,text);
+      }
+      picker.addEventListener('toggle',()=>{if(picker.open)for(const other of colorFields.querySelectorAll('details'))if(other!==picker)other.open=false;});
+      picker.addEventListener('keydown',event=>{if(event.key==='Escape'&&picker.open){event.preventDefault();event.stopPropagation();picker.open=false;summary.focus();}});
       for(const [name,value] of [['Theme default',null],...choices]){
         const button=document.createElement('button');button.type='button';button.className='theme-color-choice';button.dataset.color=value||'';button.setAttribute('aria-label',name);
-        const swatch=document.createElement('span');swatch.className='theme-color-swatch';swatch.setAttribute('aria-hidden','true');swatch.style.background=value||(key==='liquid'?'var(--accent)':'var(--secondary)');swatch.style.color=value&&parseInt(value.slice(1,3),16)+parseInt(value.slice(3,5),16)+parseInt(value.slice(5,7),16)>480?'#17202a':'#fff';swatch.innerHTML=window.STIcons.svg('check');
+        const swatch=document.createElement('span');swatch.className='theme-color-swatch';swatch.setAttribute('aria-hidden','true');swatch.style.background=value||(key==='liquid'?'var(--accent)':key==='label'?'#f4f3ec':'var(--secondary)');swatch.style.color=value&&parseInt(value.slice(1,3),16)+parseInt(value.slice(3,5),16)+parseInt(value.slice(5,7),16)>480?'#17202a':'#fff';swatch.innerHTML=window.STIcons.svg('check');
         const nameLabel=document.createElement('span');nameLabel.className='theme-color-name';nameLabel.textContent=name;button.append(swatch,nameLabel);
-        button.onclick=()=>{draft[key]=value;color.value=appearanceColors()[key];sync();refresh();};palette.append(button);
+        button.onclick=()=>{draft[key]=value;color.value=appearanceColors()[key];sync();refresh();picker.open=false;summary.focus();};palette.append(button);
       }
-      color.oninput=()=>{draft[key]=color.value;sync();refresh();};sync();group.append(legend,palette,colorLabel);body.append(group);
+      color.oninput=()=>{draft[key]=color.value;sync();refresh();};paletteSyncs.push(sync);sync();popup.append(palette,colorLabel);picker.append(popup);group.append(label,picker);colorFields.append(group);
     }
-    paletteField('liquid','Liquid color',liquidPalette);paletteField('cap','Cap color',[['White','#f4f3ec'],['Black','#252a30'],['Blue','#2563eb'],['Red','#dc2626'],['Green','#16a34a'],['Yellow','#facc15'],['Violet','#7c3aed'],['Pink','#f4a0c4'],['Silver','#b2bbc2']]);paletteField('equipment','Equipment color',industrial);paletteField('conveyors','Conveyor color',industrial);
+    paletteField('liquid','Liquid color',liquidPalette);paletteField('cap','Cap color',[['White','#f4f3ec'],['Black','#252a30'],['Blue','#2563eb'],['Red','#dc2626'],['Green','#16a34a'],['Yellow','#facc15'],['Violet','#7c3aed'],['Pink','#f4a0c4'],['Silver','#b2bbc2']]);paletteField('label','Label color',[['White','#f4f3ec'],['Black','#252a30'],...liquidPalette.filter(([name])=>name!=='White')]);paletteField('equipment','Equipment color',industrial);paletteField('conveyors','Conveyor color',industrial);
+    dialog.addEventListener('click',event=>{for(const picker of colorFields.querySelectorAll('details[open]'))if(!picker.contains(event.target))picker.open=false;});
     const footer=document.createElement('footer');footer.className='dialog-actions';
     const cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply';footer.append(cancel,apply);
@@ -924,7 +957,7 @@ window.STSimulation2D=(function(){
     if(!marker){
       for(const product of products){
         const px=x+product.x*sceneScale;
-        if(px+bodyWidth/2>=0&&px-bodyWidth/2<=w)window.STSimulation2DMachines.drawBottle(context,px-bodyWidth/2,top,bodyWidth,bodyHeight,{surface,belt:beltColor,accent,liquid:appearance.liquid||accent,cap:appearance.cap||caseColor},appearance.bottle,stage);
+        if(px+bodyWidth/2>=0&&px-bodyWidth/2<=w)window.STSimulation2DMachines.drawBottle(context,px-bodyWidth/2,top,bodyWidth,bodyHeight,{surface,belt:beltColor,accent,liquid:appearance.liquid||accent,cap:appearance.cap||caseColor,label:appearance.label||'#f4f3ec',labelShape:appearance.labelShape,capShape:appearance.capShape},appearance.bottle,stage);
       }
       return;
     }

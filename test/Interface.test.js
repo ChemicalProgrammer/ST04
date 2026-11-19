@@ -3296,6 +3296,11 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    assert.equal(h.d.getElementById('simulation2d-machine-style').closest('dialog'),dialog);
    dialog.querySelector('[data-bottle-style="shampoo"]').click();dialog.querySelector('[aria-label="Pink"]').click();
    dialog.querySelector('[aria-label="Cap color palette"] [aria-label="Red"]').click();
+   const labelPicker=dialog.querySelector('summary[aria-label="Label color"]').parentElement;labelPicker.open=true;
+   const custom=labelPicker.querySelector('input[type="color"]');custom.value='#abc123';custom.dispatchEvent(new h.w.Event('input'));
+   const labelShape=dialog.querySelector('select[aria-label="Label shape"]');labelShape.value='sleeve';labelShape.dispatchEvent(new h.w.Event('change'));
+   const capShape=dialog.querySelector('select[aria-label="Cap shape"]');capShape.value='flip';capShape.dispatchEvent(new h.w.Event('change'));
+
    dialog.querySelector('[aria-label="Equipment color palette"] [aria-label="Blue steel"]').click();
    dialog.querySelector('[aria-label="Conveyor color palette"] [aria-label="Graphite"]').click();
    assert(dialog.classList.contains('theme-color-dialog'));assert(dialog.querySelector('.theme-color-choice .theme-color-swatch'));
@@ -3306,6 +3311,9 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    await waitFor(()=>h.storedCases()[0].simulations[0].simulation2d?.appearance?.bottle==='shampoo');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.liquid,'#f4a0c4');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.cap,'#dc2626');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.label,'#abc123');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.labelShape,'sleeve');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.capShape,'flip');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.equipment,'#52718a');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.conveyors,'#414b57');
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),equipment);

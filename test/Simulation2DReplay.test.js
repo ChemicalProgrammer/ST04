@@ -132,7 +132,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const viewportText=new WeakMap(),previewFills=new WeakMap();
     Object.defineProperties(window.HTMLCanvasElement.prototype,{clientWidth:{get(){return 420;}},clientHeight:{get(){return 300;}}});
     window.HTMLCanvasElement.prototype.getContext=function(){
-      const target=this;const ctx=new Proxy({measureText:text=>({width:text.length*5}),clearRect(){viewportText.set(target,[]);previewFills.set(target,[]);},fillText(text,x,y){const rows=viewportText.get(target)||[];rows.push([text,x,y]);viewportText.set(target,rows);},fillRect(){const colors=previewFills.get(target)||[];colors.push(this.fillStyle);previewFills.set(target,colors);}},{get:(o,k)=>o[k]??(()=>{})});return ctx;
+      const target=this;const ctx=new Proxy({measureText:text=>({width:text.length*5}),clearRect(){viewportText.set(target,[]);previewFills.set(target,[]);},fillText(text,x,y){const rows=viewportText.get(target)||[];rows.push([text,x,y]);viewportText.set(target,rows);},fill(){const colors=previewFills.get(target)||[];colors.push(this.fillStyle);previewFills.set(target,colors);},fillRect(){const colors=previewFills.get(target)||[];colors.push(this.fillStyle);previewFills.set(target,colors);}},{get:(o,k)=>o[k]??(()=>{})});return ctx;
     };
     const labels=[],bottles=[];
     let lastFrameOrigin,scale,dash,start;
@@ -201,7 +201,17 @@ test('2D uses the representative seed to calculate new production and preserves 
     let dialog=window.document.getElementById('simulation2d-appearance-dialog');
     assert(dialog.open);assert(dialog.querySelector('.dialog-heading'));assert(dialog.querySelector('.dialog-body'));assert(dialog.querySelector('.dialog-actions'));
     assert.equal(el('machine-style').closest('dialog'),dialog);
-    assert.equal(dialog.querySelectorAll('[data-bottle-style]').length,6);
+    assert.equal(dialog.querySelectorAll('[data-bottle-style]').length,9);
+    assert([...dialog.querySelectorAll('.simulation2d-color-picker')].every(picker=>!picker.open));
+    const labelPicker=dialog.querySelector('summary[aria-label="Label color"]').parentElement;
+    labelPicker.open=true;
+    labelPicker.querySelector('[aria-label="Pink"]').click();assert.equal(labelPicker.open,false);
+    assert([...dialog.querySelectorAll('.simulation2d-bottle-gallery canvas')].every(preview=>previewFills.get(preview)?.includes('#f4a0c4')),'every gallery sample includes the colored label');
+    const labelShape=dialog.querySelector('select[aria-label="Label shape"]');labelShape.value='sleeve';labelShape.dispatchEvent(new window.Event('change'));
+    const capShape=dialog.querySelector('select[aria-label="Cap shape"]');capShape.value='dosing';capShape.dispatchEvent(new window.Event('change'));
+    dialog.querySelector('[data-bottle-style="oval-jug"]').click();
+    assert([...dialog.querySelectorAll('.simulation2d-bottle-gallery canvas')].every(preview=>previewFills.get(preview)?.includes('#f4a0c4')));
+
     assert.equal(dialog.querySelectorAll('[aria-label="Liquid color palette"] button').length,13);
     dialog.querySelector('[data-bottle-style="softener"]').click();
     Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Cancel').click();
@@ -1057,12 +1067,13 @@ test('bottle silhouettes are distinct and use the selected liquid only after fil
      {get:(o,k)=>o[k]??((...args)=>ops.push([k,...args]))});
    art.drawBottle(ctx,10,20,50,100,colors,type,stage);return {ops,fills};
  }
- const styles=['classic','softener','cleaner','shampoo','pump','jug'];
- assert.equal(new Set(styles.map(type=>JSON.stringify(trace(type,0).ops))).size,6);
+ const styles=['classic','softener','cleaner','shampoo','pump','jug','ribbed','oval-jug','shower'];
+ assert.equal(new Set(styles.map(type=>JSON.stringify(trace(type,0).ops))).size,9);
  for(const type of styles){
    assert(!trace(type,0).fills.some(([color])=>color===colors.liquid));
    assert(trace(type,2).fills.some(([color])=>color===colors.liquid));
-   assert(trace(type,15).ops.some(([name])=>name==='strokeRect'),'filled/labeled/capped/pucked stages remain supported');
+   assert(trace(type,15).fills.some(([,x,y,w,h])=>x===-5&&y===173&&w===110&&h===27),'puck remains supported');
+   assert(trace(type,15).ops.some(([name])=>name==='clip'),'labels follow the bottle silhouette');
  }
 });
 
@@ -1132,4 +1143,17 @@ test('forks arrive raised, lower into the pallet and lift the load before revers
  assert(lifting.decks.some(([,y])=>y<190&&y>180));
  assert.equal(carrying.decks.filter(([,y])=>y===180).length,1);
  assert(carrying.fork[0]>inserted.fork[0]);
+});
+
+
+test('reference bottles support independent label colors and closure combinations with stage visibility',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const colors={surface:'#fff',belt:'#333',liquid:'#0af',label:'#da2477',cap:'#cbaa21'};
+ for(const type of ['ribbed','oval-jug','shower'])for(const labelShape of ['sticker','wrap','sleeve'])for(const capShape of ['screw','dosing','flip','pump']){
+   const fills=[],ctx=new Proxy({fill(){fills.push(this.fillStyle);},fillRect(){fills.push(this.fillStyle);}},{get:(o,k)=>o[k]??(()=>{})});
+   window.STSimulation2DMachines.drawBottle(ctx,0,0,50,150,{...colors,labelShape,capShape},type,0);
+   assert(!fills.includes(colors.label));assert(!fills.includes(colors.cap));
+   window.STSimulation2DMachines.drawBottle(ctx,0,0,50,150,{...colors,labelShape,capShape},type,7);
+   assert(fills.includes(colors.label),type+' '+labelShape);assert(fills.includes(colors.cap),type+' '+capShape);
+ }
 });
