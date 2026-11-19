@@ -129,17 +129,26 @@ test('2D uses the representative seed to calculate new production and preserves 
   const dom=new JSDOM(panel+eventHome+analysisComponent,{runScripts:'outside-only'});
   try{
     const {window}=dom,el=id=>window.document.getElementById('simulation2d-'+id);
+    const viewportText=new WeakMap(),previewFills=new WeakMap();
+    Object.defineProperties(window.HTMLCanvasElement.prototype,{clientWidth:{get(){return 420;}},clientHeight:{get(){return 300;}}});
+    window.HTMLCanvasElement.prototype.getContext=function(){
+      const target=this;const ctx=new Proxy({measureText:text=>({width:text.length*5}),clearRect(){viewportText.set(target,[]);previewFills.set(target,[]);},fillText(text,x,y){const rows=viewportText.get(target)||[];rows.push([text,x,y]);viewportText.set(target,rows);},fillRect(){const colors=previewFills.get(target)||[];colors.push(this.fillStyle);previewFills.set(target,colors);}},{get:(o,k)=>o[k]??(()=>{})});return ctx;
+    };
     const labels=[],bottles=[];
     let lastFrameOrigin,scale,dash,start;
+    let matrix=[1,1,0,0];const matrices=[];
     const segments=[],boxes=[];
     el('panel').classList.remove('hidden');
     Object.defineProperties(el('canvas'),{clientWidth:{value:1100},clientHeight:{value:550}});
     el('canvas').getContext=()=>new Proxy({
       measureText(text){return {width:text.length*(this.font?.includes('6.75px')?2.8125:5)};},
       fillText(text,x,y){labels.push([text,this.font,x,y,this.textAlign]);},
-      quadraticCurveTo:x=>bottles.push(x),
+      quadraticCurveTo:x=>bottles.push((matrix[0]*x+matrix[2])/(scale||1)),
+      translate(x,y){matrix[2]+=matrix[0]*x;matrix[3]+=matrix[1]*y;},
+      scale(x,y){matrix[0]*=x;matrix[1]*=y;},
+      save(){matrices.push([...matrix]);},restore(){matrix=matrices.pop()||matrix;},
       rect:x=>bottles.push(x),
-      setTransform(factor){scale=factor;},
+      setTransform(factor){scale=factor;matrix=[factor,factor,0,0];},
       roundRect(x,y,width,height){boxes.push({x,y,width,height});},
       setLineDash(pattern){dash=pattern.length>0;},
       moveTo(x,y){start=[x,y];},
@@ -191,19 +200,20 @@ test('2D uses the representative seed to calculate new production and preserves 
     el('appearance').click();
     let dialog=window.document.getElementById('simulation2d-appearance-dialog');
     assert(dialog.open);assert(dialog.querySelector('.dialog-heading'));assert(dialog.querySelector('.dialog-body'));assert(dialog.querySelector('.dialog-actions'));
-    assert.equal(dialog.querySelectorAll('select option').length,6);
-    assert.equal(dialog.querySelectorAll('.simulation2d-liquid-palette button').length,12);
-    dialog.querySelector('select').value='softener';
+    assert.equal(dialog.querySelectorAll('[data-bottle-style]').length,6);
+    assert.equal(dialog.querySelectorAll('[aria-label="Liquid color palette"] button').length,13);
+    dialog.querySelector('[data-bottle-style="softener"]').click();
     Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Cancel').click();
     assert.equal(records.length,beforeAppearance,'Cancel leaves saved appearance unchanged');
     el('appearance').click();dialog=window.document.getElementById('simulation2d-appearance-dialog');
-    dialog.querySelector('select').value='softener';dialog.querySelector('[aria-label="Violet"]').click();
+    dialog.querySelector('[data-bottle-style="softener"]').click();dialog.querySelector('[aria-label="Violet"]').click();
+    assert([...dialog.querySelectorAll('.simulation2d-bottle-gallery canvas')].every(preview=>previewFills.get(preview)?.includes('#7c3aed')),'all filled gallery samples update live');
     Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Apply').click();
     assert.equal(records.at(-1).appearance.bottle,'softener');assert.equal(records.at(-1).appearance.liquid,'#7c3aed');
     assert.equal(JSON.stringify(records.at(-1).checkpoint),priorSnapshot,'appearance does not change physical state');
     el('appearance').click();dialog=window.document.getElementById('simulation2d-appearance-dialog');
-    assert.equal(dialog.querySelector('select').value,'softener');
-    dialog.querySelector('select').value='classic';Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Apply').click();
+    assert.equal(dialog.querySelector('[data-bottle-style="softener"]').getAttribute('aria-pressed'),'true');
+    dialog.querySelector('[data-bottle-style="classic"]').click();Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Apply').click();
     const saved=records.length;
     const style=el('machine-style');
     assert.equal(style.value,'blocks');
@@ -652,6 +662,22 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(tableValue('L30'),['16.62']);
     assert.deepEqual(tableValue('L58'),['1,162.84']);
     analysis.close();
+    const checkpointBeforeViews=JSON.stringify(records.at(-1)?.checkpoint);
+    const timeBeforeViews=el('time').textContent,outputBeforeViews=el('output').textContent;
+    const views=el('viewports');views.value='4';views.dispatchEvent(new window.Event('change'));
+    assert.equal(window.document.querySelectorAll('.simulation2d-viewport:not([hidden])').length,4);
+    const second=window.document.getElementById('simulation2d-canvas-2');
+    const firstPosition=frameX(),position=()=>viewportText.get(second).find(([text])=>text==='belt')[1];
+    const initialSecond=position();
+    second.dispatchEvent(new window.WheelEvent('wheel',{deltaY:-100,clientX:160,clientY:100,bubbles:true,cancelable:true}));
+    assert.notEqual(position(),initialSecond);assert.equal(frameX(),firstPosition,'zooming viewport two preserves viewport one');
+    assert.equal(el('machine-controls').parentElement.dataset.viewport,'1');
+    const secondZoomed=position();
+    pointer(second,'pointerdown',120,1);pointer(window,'pointermove',160,1);pointer(window,'pointerup',160,0);
+    assert.notEqual(position(),secondZoomed);assert.equal(frameX(),firstPosition,'panning viewport two preserves viewport one');
+    assert.equal(JSON.stringify(records.at(-1)?.checkpoint),checkpointBeforeViews,'all viewports share the unchanged simulation');
+    assert.equal(el('time').textContent,timeBeforeViews);assert.equal(el('output').textContent,outputBeforeViews);
+    for(const count of [3,2,1]){views.value=String(count);views.dispatchEvent(new window.Event('change'));assert.equal(window.document.querySelectorAll('.simulation2d-viewport:not([hidden])').length,count);}
   }finally{dom.window.close();}
 });
 
@@ -1030,4 +1056,43 @@ test('bottle silhouettes are distinct and use the selected liquid only after fil
    assert(trace(type,2).fills.some(([color])=>color===colors.liquid));
    assert(trace(type,15).ops.some(([name])=>name==='strokeRect'),'filled/labeled/capped/pucked stages remain supported');
  }
+});
+
+
+test('product and pallet drawing dimensions use measured width independently from transport length',()=>{
+ const source=script('Simulation2D');
+ const context=vm.createContext({sceneScale:.09,productHeights:{BOTTLES:200,CASES:240}});
+ vm.runInContext(source.slice(source.indexOf('  function productWidth('),source.indexOf('  function beltHalfHeight(')),context);
+ vm.runInContext(source.slice(source.indexOf('  function caseDimensions('),source.indexOf('  function productionLayout(')),context);
+ const bottle={kind:'belt',unit:'BOTTLES',packageWidth:55,packageLength:90};
+ const box={kind:'belt',unit:'CASES',packageWidth:210,packageLength:340};
+ assert.equal(context.productWidth(bottle),55*.09);assert.equal(context.productHeight(bottle),200*.09);
+ assert.equal(context.productWidth(box),210*.09);
+ assert.equal(context.caseDimensions([bottle,box,{kind:'machine'}],2).caseWidth,210*.09);
+ assert.equal(context.productWidth({...bottle,packageLength:900}),context.productWidth(bottle));
+ assert.equal(context.productWidth({...bottle,packageWidth:null}),90*.09,'legacy cases without width retain a fallback');
+});
+
+test('unset layout colors follow primary and secondary theme colors rather than previous browser colors',()=>{
+ const source=script('Simulation2D'),theme={'--accent':'#112233','--secondary':'#778899'};
+ const context=vm.createContext({window:{STPreferences:{read:()=> '#ff0000'}},canvas:{},getComputedStyle:()=>({getPropertyValue:name=>theme[name]||''})});
+ vm.runInContext(source.slice(source.indexOf('  const bottleStyles='),source.indexOf('  function openAppearance(')),context);
+ const defaults=context.validAppearance({});
+ assert.equal(defaults.liquid,null);assert.equal(defaults.equipment,null);assert.equal(defaults.conveyors,null);
+ assert.equal(context.appearanceColors().liquid,'#112233');assert.equal(context.appearanceColors().equipment,'#778899');
+ theme['--accent']='#345678';assert.equal(context.appearanceColors().liquid,'#345678');
+ vm.runInContext('appearance=validAppearance({liquid:"#123456",equipment:"#abcdef",conveyors:"#223344"})',context);
+ assert.equal(context.appearanceColors().liquid,'#123456');assert.equal(context.appearanceColors().equipment,'#abcdef');assert.equal(context.appearanceColors().conveyors,'#223344');
+});
+
+test('palletizer frame no longer draws a second roller track over the case infeed',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const arcs=[],ctx=new Proxy({arc(...args){arcs.push(args);}},{get:(o,k)=>o[k]??(()=>{})});
+ window.STSimulation2DMachines.draw(ctx,'PALLETIZER',0,0,120,100,{ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777'},1);
+ assert.equal(arcs.length,0,'the roller bed belongs only to the continuous infeed drawing');
+ const source=script('Simulation2D');let strokes=0;
+ const context=vm.createContext({window,palletInfeed:()=>({start:10,startBottom:100,pickup:90,caseWidth:20,caseHeight:40,cases:[]})});
+ vm.runInContext(source.slice(source.indexOf('  function drawPalletInfeed('),source.indexOf('  function productionHeight(')),context);
+ context.drawPalletInfeed(new Proxy({stroke(){strokes++;}},{get:(o,k)=>o[k]??(()=>{})}),[],[],0,100,{belt:'#777'});
+ assert.equal(strokes,1);
 });

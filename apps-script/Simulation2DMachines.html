@@ -18,7 +18,8 @@ window.STSimulation2DMachines=(function(){
   }
   function drawBottle(context,x,y,width,height,colors,type='classic',stage=0){
     if(!(width>0&&height>0))return;
-    context.save();context.translate(x,y);context.scale(width/100,height/200);
+    const bounds=type==='softener'||type==='jug'?[3,98]:type==='pump'?[6,94]:[4,96];
+    context.save();context.translate(x-bounds[0]*width/(bounds[1]-bounds[0]),y);context.scale(width/(bounds[1]-bounds[0]),height/200);
     function path(){
       context.beginPath();
       if(type==='softener'||type==='jug'){
@@ -62,11 +63,11 @@ window.STSimulation2DMachines=(function(){
   }
   function drawCase(context,x,y,width,height,colors){
     context.save();
-    context.fillStyle=colors.belt;
+    context.fillStyle=colors.caseColor||colors.belt;
     context.fillRect(x,y,width,height);
     context.globalAlpha=.24;context.fillStyle='#fff';
     context.fillRect(x,y,width,height);
-    context.globalAlpha=1;context.fillStyle=colors.accent;
+    context.globalAlpha=1;context.fillStyle=colors.caseAccent||colors.accent;
     context.fillRect(x+width*.39,y,width*.22,height*.4);
     context.restore();
   }
@@ -229,10 +230,7 @@ window.STSimulation2DMachines=(function(){
         box(15,15,8,72,soft);box(97,15,8,72,soft);
         line(23,22,31,15);line(89,15,97,22);
         box(47+16*phase,18,18,7,accent,2);
-        box(35,69,50,4,belt,1);
-        box(39,73,7,4,ink,1);box(74,73,7,4,ink,1);
         foot(11);foot(94);
-        track();
         break;
     }
     context.restore();
@@ -270,7 +268,7 @@ window.STSimulation2DMachines=(function(){
     const transferring=produced>0&&progress<.6;
     const activeX=x+100,rackX=x-85,rackY=floor+17;
     function pallet(px,py,count){
-      box(px,py,palletWidth,5,belt);
+      box(px,py,palletWidth,5,colors.palletColor||belt);
       for(let leg=0;leg<3;leg++)box(px+5+leg*(palletWidth-18)/2,py+5,8,7,belt);
       box(px,py+12,palletWidth,4,belt);
       const slots=Array.from({length:Math.min(36,count)},(_,i)=>i).sort((a,b)=>Math.floor(a/9)-Math.floor(b/9)||Math.floor(b%9/3)-Math.floor(a%9/3));
