@@ -84,10 +84,6 @@
 .simulation2d-splitter[hidden] { display:none; }
 .simulation2d-splitter[data-axis=x] { cursor:col-resize; }
 .simulation2d-splitter[data-axis=y] { cursor:row-resize; }
-.simulation2d-splitter::after { content:''; width:3px; height:32px; border-radius:var(--radius-pill); background:var(--muted); opacity:.5; }
-.simulation2d-splitter[data-axis=y]::after { width:32px; height:3px; }
-.simulation2d-splitter:is(:hover,:focus-visible),.simulation2d-splitter[data-dragging=true] { background:var(--accent-soft); }
-.simulation2d-splitter:is(:hover,:focus-visible)::after,.simulation2d-splitter[data-dragging=true]::after { background:var(--accent); opacity:1; }
 .simulation2d-fullscreen .simulation2d-diagram[data-viewports] { display:grid; height:auto; min-height:0; }
 
 .simulation2d-viewport { position:relative; min-width:0; border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden; }
