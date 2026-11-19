@@ -325,7 +325,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(value[3],unit[3]);
     assert.equal(value[4],'right');
     assert(parameter[2]<value[2]&&value[2]<unit[2]);
-    assert.equal(records.length,saved);
+    assert.equal(JSON.stringify(records.at(-1).checkpoint),JSON.stringify(records[saved-1].checkpoint),'view saves preserve the independent simulation while viewing a representative round');
     el('source').value='independent';
     el('source').dispatchEvent(new window.Event('change'));
     assert.equal(el('time').textContent,'1 s');
@@ -700,6 +700,40 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(JSON.stringify(records.at(-1)?.checkpoint),checkpointBeforeViews,'all viewports share the unchanged simulation');
     assert.equal(el('time').textContent,timeBeforeViews);assert.equal(el('output').textContent,outputBeforeViews);
     for(const count of [3,2,1]){views.value=String(count);views.dispatchEvent(new window.Event('change'));assert.equal(window.document.querySelectorAll('.simulation2d-viewport:not([hidden])').length,count);}
+    // Layout changes survive a full unload/reload and keep the simulation checkpoint intact.
+    const identity=['viewport-case','saved-layout'],config={seed:7,durationSeconds:25};
+    window.STSimulation2D.load(identity,equipment,null,config,null,record=>records.push(record));
+    views.value='4';views.dispatchEvent(new window.Event('change'));
+    const diagram=el('canvas').closest('.simulation2d-diagram');
+    diagram.getBoundingClientRect=()=>({left:0,top:0,width:1000,height:600});
+    const vertical=diagram.querySelector('[data-axis="x"]'),horizontal=diagram.querySelector('[data-axis="y"]');
+    assert.equal(vertical.getAttribute('role'),'separator');assert(!vertical.hidden&&!horizontal.hidden);
+    pointer(vertical,'pointerdown',500,1);pointer(window,'pointermove',700,1);pointer(window,'pointerup',700,0);
+    assert(records.at(-1).layout.split.x>.6,'drag changes the column widths');
+    horizontal.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+    assert.equal(records.at(-1).layout.split.y,.52,'keyboard changes the row heights');
+    el('dimensions').checked=true;el('dimensions').dispatchEvent(new window.Event('change'));
+    el('machine-style').value='animated';el('machine-style').dispatchEvent(new window.Event('change'));
+    el('show-events').checked=true;el('show-events').dispatchEvent(new window.Event('change'));
+    secondSlider.value='1.2';secondSlider.dispatchEvent(new window.Event('input',{bubbles:true}));
+    pointer(second,'pointerdown',120,1);pointer(window,'pointermove',160,1);pointer(window,'pointerup',160,0);
+    const stored=JSON.parse(JSON.stringify(records.at(-1)));
+    assert.equal(stored.layout.activeViewport,1);assert.equal(stored.layout.equipmentView,'animated');
+    assert(stored.layout.showDimensions&&stored.layout.showEvents);
+    window.STSimulation2D.unload();
+    Object.defineProperty(second,'clientWidth',{value:600,configurable:true});
+    window.STSimulation2D.load(identity,equipment,null,config,stored,record=>records.push(record));
+    assert.equal(views.value,'4');assert.equal(el('machine-controls').parentElement.dataset.viewport,'1');
+    assert(el('dimensions').checked&&el('show-events').checked);assert.equal(el('machine-style').value,'animated');
+    el('speed').dispatchEvent(new window.Event('change'));
+    const restored=JSON.parse(JSON.stringify(records.at(-1)));
+    assert.deepEqual(restored.layout.split,stored.layout.split);
+    assert.equal(restored.layout.cameras[1].scale,stored.layout.cameras[1].scale);
+    assert.equal(restored.layout.cameras[1].x,stored.layout.cameras[1].x+90,'screen resizing keeps the same world center');
+    assert.equal(restored.layout.cameras[0].x,stored.layout.cameras[0].x);
+    assert.equal(JSON.stringify(restored.checkpoint),JSON.stringify(stored.checkpoint));
+    vertical.dispatchEvent(new window.MouseEvent('dblclick',{bubbles:true}));
+    assert.deepEqual(JSON.parse(JSON.stringify(records.at(-1).layout.split)),{x:.5,y:.5},'double-click restores equal sizes in both directions');
   }finally{dom.window.close();}
 });
 

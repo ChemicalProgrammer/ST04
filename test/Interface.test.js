@@ -3324,6 +3324,11 @@ test('UI: layout appearance dialog saves bottle and liquid choices without chang
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.equipment,'#52718a');
    assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.conveyors,'#414b57');
    assert.equal(JSON.stringify(h.storedCases()[0].equipment),equipment);
+   const views=h.d.getElementById('simulation2d-viewports');views.value='4';views.dispatchEvent(new h.w.Event('change'));
+   const grip=h.d.querySelector('.simulation2d-splitter[data-axis="x"]');grip.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].simulations[0].simulation2d.layout?.split.x===.52);
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.viewports,4);
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.layout.cameras.length,4);
    await h.click('#simulation2d-appearance');dialog=h.d.getElementById('simulation2d-appearance-dialog');
    assert.equal(dialog.querySelector('[data-bottle-style="shampoo"]').getAttribute('aria-pressed'),'true');
    assert.equal(dialog.querySelector('[aria-label="Pink"]').getAttribute('aria-pressed'),'true');
