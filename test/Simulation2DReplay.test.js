@@ -421,12 +421,12 @@ test('2D uses the representative seed to calculate new production and preserves 
     }
     assert.deepEqual(stages(['SLEEVER','FILLER']),['Empty','Labeled','Filled + labeled']);
     assert.deepEqual(stages(['FILLER','SLEEVER']),['Empty','Filled','Filled + labeled']);
-    assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
+    assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CAPPER'],[],'Cap'),['Applied']);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
     assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER'],[],'Puck'),['Present','Present']);
-    assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER']),['Empty','Empty','Filled','Filled']);
+    assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER']),['Labeled','Labeled','Filled + labeled','Filled + labeled']);
     equipment[1].processData.geometry={lactMm:2000,lpPrimeMm:500,actualDischargeMm:100,actualCodingMm:150};
     equipment[1].processData.upstream={dischargeVelocityMPerMinute:7.2};
     equipment[1].processData.accumulation={restartToFirstPackageSeconds:4};
@@ -1198,4 +1198,29 @@ test('reference bottles retain their own closures and support independent label 
    assert.deepEqual(frame(7).ops,frame(7,'pump').ops,'stale cap choices cannot change the fixed closure');
  }
 
+});
+
+
+test('bottle presentation infers omitted preparation steps and honors explicit machines and combined functions',()=>{
+ const source=script('Simulation2D'),context=vm.createContext({});
+ vm.runInContext(source.slice(source.indexOf('  function resolveBottleStages('),source.indexOf('  const machineStyle=')),context);
+ function stages(entries){
+   const line=[{id:'in',kind:'belt'}],types=new Map();
+   entries.forEach((entry,index)=>{
+     const [type,name]=Array.isArray(entry)?entry:[entry,''];const id='machine'+index;
+     line.push({id,kind:'machine',name},{id:'out'+index,kind:'belt'});types.set(id,type);
+   });
+   return Array.from(context.resolveBottleStages(line,types).values());
+ }
+ assert.deepEqual(stages(['FILLER','CASE_PACKER']),[1,7,7],'labeled input becomes filled, labeled and capped after the filler');
+ assert.deepEqual(stages(['FILLER','CAPPER','CASE_PACKER']),[1,3,7,7],'an explicit capper keeps the filler discharge uncapped');
+ assert.deepEqual(stages(['FILLER','SLEEVER']),[0,6,7],'labels appear only after the labeler');
+ assert.deepEqual(stages(['SLEEVER','FILLER']),[0,1,7]);
+ assert.deepEqual(stages(['SLEEVER']),[6,7],'without a filler, incoming bottles are already filled');
+ assert.deepEqual(stages(['CAPPER']),[3,7]);
+ assert.deepEqual(stages(['CUSTOM','CASE_PACKER']),[7,7,7]);
+ assert.deepEqual(stages(['BLOWMOLDER','FILLER','CAPPER','SLEEVER']),[0,0,2,6,7]);
+ assert.deepEqual(stages([['FILLER','Filler / Capper'],'SLEEVER']),[0,6,7]);
+ assert.deepEqual(stages([['CUSTOM','Llenadora'],['CUSTOM','Tapadora'],['CUSTOM','Etiquetadora']]),[0,2,6,7]);
+ assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER']),[1,9,15,7],'puck handling stays independent from bottle preparation');
 });

@@ -136,6 +136,31 @@ window.STSimulation2D=(function(){
   let dimensionPointer=null;
   const verdictHitBoxes=[];
   const bottleStageNames=['Empty','Labeled','Filled','Filled + labeled'];
+  function resolveBottleStages(line,types){
+    const operations=new Map(line.filter(item=>item.kind!=='belt').map(item=>{
+      const type=types.get(item.id),name=item.name||'';
+      return [item.id,{
+        fill:type==='FILLER'||/\b(?:filler|filling|llenadora|llenado)\b/i.test(name),
+        label:type==='SLEEVER'||/\b(?:sleever|labeler|labeller|labeling|labelling|etiquetadora|etiquetado)\b/i.test(name),
+        cap:type==='CAPPER'||/\b(?:capper|capping|tapadora|taponadora|roscadora)\b/i.test(name)
+      }];
+    }));
+    const has=operation=>[...operations.values()].some(item=>item[operation]);
+    const filling=has('fill'),labeling=has('label'),capping=has('cap');
+    // Missing operations are supplied upstream; an implicit closure follows filling.
+    let stage=(labeling?0:1)|(filling?0:2)|(!capping&&!filling?4:0);
+    const stages=new Map();
+    for(const item of line){
+      if(item.kind==='belt'){stages.set(item.id,stage);continue;}
+      const type=types.get(item.id),operation=operations.get(item.id);
+      if(type==='PUCKER')stage|=8;
+      if(type==='DEPUCKER')stage&=~8;
+      if(operation.label)stage|=1;
+      if(operation.fill){stage|=2;if(!capping)stage|=4;}
+      if(operation.cap)stage|=4;
+    }
+    return stages;
+  }
   const machineStyle=el('machine-style'),reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   machineStyle.value=window.STPreferences?.read('simulation2dMachineStyle')==='animated'?'animated':'blocks';
   machineStyle.addEventListener('change',()=>{
@@ -1572,17 +1597,7 @@ window.STSimulation2D=(function(){
     if(newView){restoringView=true;window.clearTimeout(viewSaveTimer);viewSaveTimer=null;}
     const revised=prepare(equipment,format,config,formats);
     machineTypes=new Map(equipment.map(item=>[item.id,item.type==='PACEMAKER'?item.processData?.machineType:item.type]));
-    bottleStages=new Map();
-    let bottleStage=0;
-    for(const item of revised){
-      if(item.kind==='belt'){bottleStages.set(item.id,bottleStage);continue;}
-      const type=machineTypes.get(item.id);
-      if(type==='PUCKER')bottleStage|=8;
-      if(type==='DEPUCKER')bottleStage&=~8;
-      if(type==='SLEEVER')bottleStage|=1;
-      if(type==='FILLER')bottleStage|=2;
-      if(type==='CAPPER'||/\b(?:capper|capping|tapadora|taponadora|roscadora)\b/i.test(item.name))bottleStage|=4;
-    }
+    bottleStages=resolveBottleStages(revised,machineTypes);
     const geometry=window.SimulatorEngine;
     const heights=format?{BOTTLES:geometry.productPresentation(format,'BOTTLES').heightMm,
       CASES:geometry.productPresentation(format,'CASES').heightMm}:{};
