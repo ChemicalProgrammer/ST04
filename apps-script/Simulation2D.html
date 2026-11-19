@@ -23,7 +23,8 @@
 .simulation2d-machine-actions { position:absolute; display:flex; gap:2px; pointer-events:auto; transform:translate(-50%,-50%); }
 .simulation2d-machine-actions[hidden] { display:none; }
 .simulation2d-machine-actions .icon-button { width:26px; height:22px; min-width:0; min-height:0; padding:3px; }
-.simulation2d-machine-actions .icon-button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+#simulation2d-panel .icon-button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; opacity:1; }
+#simulation2d-panel .icon-button[aria-pressed="true"] svg { color:#fff; stroke:currentColor; }
 .simulation2d-analysis-action { position:absolute; pointer-events:auto; transform:translateY(-50%); transform-origin:left center; white-space:nowrap; background:none; color:var(--ink); border:0; border-radius:0; padding:0; min-width:0; min-height:0; line-height:1; text-decoration:none; cursor:pointer; }
 .simulation2d-analysis-action:hover { background:none; }
 .simulation2d-analysis-action[hidden] { display:none; }
@@ -65,6 +66,12 @@
 #simulation2d-legend .info { --lamp:var(--info); }
 #simulation2d-legend .failure { --lamp:var(--failure); }
 #simulation2d-legend .stop { --lamp:var(--muted); }
+
+.simulation2d-liquid-group { margin:var(--space-4) 0 0; padding:var(--space-3); border:1px solid var(--line); border-radius:var(--radius-md); }
+.simulation2d-liquid-palette { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--space-2); margin:var(--space-2) 0 var(--space-3); }
+.simulation2d-liquid-palette button { min-width:0; min-height:34px; border:2px solid var(--line); border-radius:var(--radius-sm); }
+.simulation2d-liquid-palette button[aria-pressed="true"] { outline:2px solid var(--accent); outline-offset:2px; }
+#simulation2d-liquid-color { width:100%; height:36px; padding:3px; }
 </style>
 <script>
 window.STSimulation2D=(function(){
@@ -103,6 +110,42 @@ window.STSimulation2D=(function(){
     dimensionPointer=null;
     draw();
   });
+  const bottleStyles=[['classic','Classic bottle'],['softener','Fabric softener'],['cleaner','Multipurpose cleaner'],['shampoo','Shampoo'],['pump','Pump dispenser'],['jug','Handled jug']];
+  const liquidPalette=[['Violet','#7c3aed'],['Lavender','#b49be8'],['Blue','#2563eb'],['Aqua','#67d9ed'],['Green','#16a34a'],['Lime','#a3d635'],['Yellow','#facc15'],['Amber','#e8a23a'],['Pink','#f4a0c4'],['White','#f4f3ec'],['Teal','#14b8a6'],['Clear','#d9eef2']];
+  function validAppearance(value={}){
+    return {bottle:bottleStyles.some(([id])=>id===value.bottle)?value.bottle:'classic',liquid:/^#[0-9a-f]{6}$/i.test(value.liquid||'')?value.liquid:'#2563eb'};
+  }
+  let appearance=validAppearance({bottle:window.STPreferences?.read('simulation2dBottleStyle'),liquid:window.STPreferences?.read('simulation2dLiquidColor')});
+  function openAppearance(){
+    if(document.getElementById('simulation2d-appearance-dialog'))return;
+    const dialog=document.createElement('dialog');dialog.id='simulation2d-appearance-dialog';dialog.className='message-dialog';
+    dialog.setAttribute('aria-labelledby','simulation2d-appearance-title');
+    const heading=document.createElement('header');heading.className='dialog-heading';
+    const title=document.createElement('h2');title.id='simulation2d-appearance-title';title.textContent='Layout appearance';
+    const close=document.createElement('button');close.type='button';close.className='ghost icon-button';close.setAttribute('aria-label','Close');close.innerHTML=window.STIcons.svg('x');heading.append(title,close);
+    const body=document.createElement('div');body.className='dialog-body';
+    const label=document.createElement('label');label.textContent='Bottle shape';label.htmlFor='simulation2d-bottle-shape';
+    const select=document.createElement('select');select.id=label.htmlFor;
+    for(const [value,text] of bottleStyles){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}
+    select.value=appearance.bottle;label.append(select);
+    const group=document.createElement('fieldset');group.className='simulation2d-liquid-group';
+    const legend=document.createElement('legend');legend.textContent='Liquid color';
+    const palette=document.createElement('div');palette.className='simulation2d-liquid-palette';palette.setAttribute('role','group');palette.setAttribute('aria-label','Liquid color palette');
+    const colorLabel=document.createElement('label');colorLabel.textContent='Custom color';colorLabel.htmlFor='simulation2d-liquid-color';
+    const color=document.createElement('input');color.type='color';color.id=colorLabel.htmlFor;color.value=appearance.liquid;colorLabel.append(color);
+    function selected(){for(const button of palette.children)button.setAttribute('aria-pressed',String(button.dataset.color.toLowerCase()===color.value.toLowerCase()));}
+    for(const [name,value] of liquidPalette){const button=document.createElement('button');button.type='button';button.dataset.color=value;button.style.background=value;button.title=name;button.setAttribute('aria-label',name);button.onclick=()=>{color.value=value;selected();};palette.append(button);}
+    color.oninput=selected;selected();group.append(legend,palette,colorLabel);body.append(label,group);
+    const footer=document.createElement('footer');footer.className='dialog-actions';
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='ghost';cancel.textContent='Cancel';
+    const apply=document.createElement('button');apply.type='button';apply.textContent='Apply';footer.append(cancel,apply);
+    const previous=document.activeElement;
+    function finish(){dialog.close();dialog.remove();previous?.focus();}
+    close.onclick=cancel.onclick=finish;dialog.addEventListener('cancel',event=>{event.preventDefault();finish();});
+    apply.onclick=()=>{appearance=validAppearance({bottle:select.value,liquid:color.value});window.STPreferences?.write('simulation2dBottleStyle',appearance.bottle);window.STPreferences?.write('simulation2dLiquidColor',appearance.liquid);draw();checkpoint();finish();};
+    dialog.append(heading,body,footer);document.body.append(dialog);dialog.showModal();select.focus();
+  }
+  el('appearance')?.addEventListener('click',openAppearance);
   let camera={scale:1,x:0,y:0,fit:true};
   function num(value){return Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'—';}
   function failuresFor(item,config){
@@ -116,7 +159,7 @@ window.STSimulation2D=(function(){
   let schedule={},scheduleError='';
   const scheduleOptions={failures:el('failures'),events:el('use-events'),calendar:el('use-calendar')};
   const scheduleSettings=()=>Object.fromEntries(Object.entries(scheduleOptions).map(([key,input])=>[key,input.checked]));
-  const machineControls=new Map(),analysisButtons=new Map();
+  const machineControls=new Map(),analysisButtons=new Map(),lastMachineActions=new Map();
   let conveyorWorksheets=new Map();
   function resolveSchedule(config){
     const engine=window.SimulatorEngine;
@@ -165,6 +208,7 @@ window.STSimulation2D=(function(){
         if(window.STIcons)button.innerHTML=window.STIcons.svg(icon);
         else button.textContent=label;
         button.onclick=()=>{
+          lastMachineActions.set(item.id,action);
           model?.control?.(item.id,action);
           status();draw();checkpoint();
         };
@@ -303,30 +347,31 @@ window.STSimulation2D=(function(){
     const palletizer=line.at(-1);
     const pallets=machineTypes.get(palletizer?.id)==='PALLETIZER'&&palletizer.unit==='CASES';
     const dimensions=caseDimensions(line,line.length-1);
-    const palletWidth=3*dimensions.caseWidth+12;
+    const palletWidth=3.52*dimensions.caseWidth+12;
     const stagingWidth=100+3*palletWidth+40;
     const production=pallets?start+100+(3*palletWidth+40-cardWidth)/2:start;
     // Keep the whole production table above the tallest loaded pallet.
-    const productionY=pallets?90-4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
+    const productionY=pallets?90-4.4*dimensions.caseHeight-Math.max(cardGap,80)-productionHeight():-40;
     return {start,pallets,production,productionY,right:pallets?start+stagingWidth:start+cardWidth,...dimensions};
   }
   function palletTransfer(item){
     const time=model?.time??0,produced=item.produced||0;
     if(palletAnimation?.model!==model||time<palletAnimation.time){
-      palletAnimation={model,time,settled:produced,started:null,duration:1,batch:0,picked:false};
+      palletAnimation={model,time,settled:produced,placed:produced,started:null,duration:1,batch:0,picked:false};
     }
     const animation=palletAnimation;
     animation.time=time;
     if(reducedMotion?.matches){
       animation.settled=produced;animation.started=null;
+      animation.placed=produced;
       return {produced,progress:1,batch:1,waiting:0};
     }
     // Stage motion is symbolic. Keep readable physical travel times even at high throughput;
     // production counters and the simulation's configured machine rate remain independent.
-    const cycleDuration=()=>Math.max(animation.settled%12>=9?24:8,1/Math.max(.001,item.rate||.001));
+    const cycleDuration=()=>Math.max((animation.placed+1)%36===0?24:8,1/Math.max(.001,item.rate||.001))/1.2;
     function pick(){
       if(!animation.picked){
-        animation.batch=Math.min(3,12-animation.settled%12,produced-animation.settled);
+        animation.batch=produced-animation.settled;
         animation.picked=true;
       }
     }
@@ -334,6 +379,7 @@ window.STSimulation2D=(function(){
       pick();
       animation.started+=animation.duration;
       animation.settled+=animation.batch;
+      animation.placed++;
       animation.batch=0;animation.picked=false;
       if(animation.settled>=produced)animation.started=null;
       else animation.duration=cycleDuration();
@@ -345,15 +391,14 @@ window.STSimulation2D=(function(){
     }
     const progress=animation.started===null?1:Math.min(1,Math.max(0,(time-animation.started)/animation.duration));
     if(animation.started!==null&&progress>=.04)pick();
-    const batch=animation.picked?animation.batch:Math.min(3,12-animation.settled%12,produced-animation.settled);
-    const result={produced:animation.started===null?produced:animation.settled+batch,progress,
-      batch:Math.max(1,batch),waiting:Math.max(0,produced-animation.settled-(animation.picked?animation.batch:0))};
-    const group=Math.floor((result.produced-1)/12),index=(result.produced-1)%12;
-    if(group>=2&&index>=9){
+    const result={produced:animation.placed+(animation.started===null?0:1),progress,
+      batch:1,pickedCases:animation.batch,waiting:Math.max(0,produced-animation.settled-(animation.picked?animation.batch:0))};
+    const group=Math.floor((result.produced-1)/36),index=(result.produced-1)%36;
+    if(group>=2&&index>=33){
       if(animation.forkGroup!==group&&(!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod)){
         animation.forkGroup=group;
-        // Travel takes at least 18 simulation seconds, independently of robot throughput.
-        animation.forkPeriod=Math.max(18,2.3/Math.max(.001,item.rate||.001));
+        // Keep the 18-second travel baseline at the requested 1.2x animation speed.
+        animation.forkPeriod=Math.max(18,2.3/Math.max(.001,item.rate||.001))/1.2;
         animation.forkStarted=time;
       }
     }
@@ -757,6 +802,13 @@ window.STSimulation2D=(function(){
       }
       return;
     }
+    if(appearance.bottle!=='classic'&&!marker){
+      for(const product of products){
+        const px=x+product.x*sceneScale;
+        if(px+bodyWidth/2>=0&&px-bodyWidth/2<=w)window.STSimulation2DMachines.drawBottle(context,px-bodyWidth/2,top,bodyWidth,bodyHeight,{surface,belt:beltColor,accent,liquid:appearance.liquid},appearance.bottle,stage);
+      }
+      return;
+    }
     const visible=px=>px+bodyWidth/2>=0&&px-bodyWidth/2<=w;
     context.beginPath();
     for(const product of products){
@@ -776,13 +828,13 @@ window.STSimulation2D=(function(){
         context.closePath();
       }
     }
-    context.fillStyle=filled?accent:surface;
+    context.fillStyle=filled?appearance.liquid:surface;
     context.save();
     if(filled&&!marker)context.globalAlpha=.4;
     context.fill();
     context.restore();
     if(!marker||!filled){
-      context.strokeStyle=filled?accent:beltColor;
+      context.strokeStyle=beltColor;
       context.lineWidth=Math.min(bodyWidth*.16,1/factor);
       context.stroke();context.lineWidth=1;
     }
@@ -800,7 +852,7 @@ window.STSimulation2D=(function(){
         context.quadraticCurveTo(r-.7*dx,y-18*dy,r-4.6*dx,y-22*dy);
         context.lineTo(r-4.6*dx,level);context.closePath();
       }
-      context.fillStyle=accent;context.fill();
+      context.fillStyle=appearance.liquid;context.fill();
     }
     if(labeled){
       context.beginPath();
@@ -889,10 +941,10 @@ window.STSimulation2D=(function(){
       group.style.left=cx+'px';group.style.top=cy+'px';
       group.style.transform='translate(-50%,-50%) scale('+Math.min(1,factor)+')';
       group.hidden=!model||cx<0||cx>screenWidth||cy<0||cy>h;
-      const activeAction=item.emergency?'EMERGENCY_STOP':
-        ['STOP','PAUSE'].includes(item.mode)?item.mode:'RUN';
+      const activeAction=lastMachineActions.get(item.id)||(item.emergency?'EMERGENCY_STOP':
+        ['STOP','PAUSE'].includes(item.mode)?item.mode:'RUN');
       for(const [action,button] of buttons){
-        if(action!=='RESET')button.setAttribute('aria-pressed',String(action===activeAction));
+        button.setAttribute('aria-pressed',String(action===activeAction));
         button.disabled=action==='RESET'?!item.emergency:action==='EMERGENCY_STOP'?!!item.emergency:
           !!item.emergency||(action==='PAUSE'&&item.mode==='PAUSE')||(action==='STOP'&&item.mode==='STOP');
       }
@@ -1041,7 +1093,7 @@ window.STSimulation2D=(function(){
   function checkpoint(){
     if(!save||defaultRun)return;
     save({
-      version:1,options:scheduleSettings(),speed:Number(el('speed').value),limitSeconds,signature,runState,
+      version:1,appearance:{...appearance},options:scheduleSettings(),speed:Number(el('speed').value),limitSeconds,signature,runState,
       shiftOutput:[...shiftOutput],checkpoint:model?.snapshot()??null
     });
   }
@@ -1093,6 +1145,9 @@ window.STSimulation2D=(function(){
     draw();
     frame=window.requestAnimationFrame(animate);
   }
+  function markPlaybackAction(action){
+    for(const name of ['play','pause','stop','reset'])el(name).setAttribute('aria-pressed',String(name===action));
+  }
   const showEvents=el('show-events'),eventsPanel=el('events-panel');
   const sharedEvents=document.getElementById('simulation-event-section');
   const eventHome=document.getElementById('simulation-event-home'),eventEditor=el('event-editor');
@@ -1116,14 +1171,15 @@ window.STSimulation2D=(function(){
   el('play').onclick=function(){
     if(!model||frame!==undefined)return;
     if(runState==='Stopped'||runState==='Completed'||model.time>=limitSeconds)reset();
+    markPlaybackAction('play');
     lastSave=performance.now();runState='Running';syncControls();
     frame=window.requestAnimationFrame(animate);
   };
-  el('stop').onclick=()=>{cancelFrame();runState='Stopped';syncControls();draw();checkpoint();};
+  el('stop').onclick=()=>{markPlaybackAction('stop');cancelFrame();runState='Stopped';syncControls();draw();checkpoint();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden){endDrag();pause();}});
-  el('pause').onclick=pause;
+  el('pause').onclick=()=>{markPlaybackAction('pause');pause();};
   el('source').onchange=()=>switchSource(el('source').value==='representative'&&Boolean(representative));
-  el('reset').onclick=()=>{reset();checkpoint();};
+  el('reset').onclick=()=>{markPlaybackAction('reset');reset();checkpoint();};
   el('speed').addEventListener('change',checkpoint);
   el('limit').addEventListener('change',function(){
     if(!this.checkValidity()||!Number.isFinite(this.valueAsNumber*60)||this.valueAsNumber<=0){
@@ -1253,6 +1309,7 @@ window.STSimulation2D=(function(){
     representative=nextRepresentative;
     if(sameCase){save=saveRecord;syncControls();draw();return;}
     cancelFrame();defaultRun=null;el('source').value='independent';
+    if(newView)appearance=validAppearance(stored?.appearance||{bottle:window.STPreferences?.read('simulation2dBottleStyle'),liquid:window.STPreferences?.read('simulation2dLiquidColor')});
     save=saveRecord;signature=nextSignature;
     key=next;seed=config.seed??1;shiftHours=hours;definitions=revised;schedule=nextSchedule;
     const savedOptions=stored?.options||{};
@@ -1271,7 +1328,7 @@ window.STSimulation2D=(function(){
     el('limit').value=limitSeconds/60;
     el('speed').value=String(stored?.speed??1);
     if(!el('speed').value)el('speed').value='1';
-    if(newView){endDrag();viewKey=nextView;camera.fit=true;}
+    if(newView){lastMachineActions.clear();markPlaybackAction(null);endDrag();viewKey=nextView;camera.fit=true;}
     reset();
     if(model&&stored?.version===1&&(stored.signature===signature||stored.signature===previousSignature&&!schedule.commands?.length&&!schedule.stops?.length)&&stored.checkpoint){
       model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint,schedule);

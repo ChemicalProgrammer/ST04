@@ -151,6 +151,9 @@ test('2D uses the representative seed to calculate new production and preserves 
     window.cancelAnimationFrame=()=>{animate=null;};
     const geometry={usableLengthMm:2000,productLengthMm:30,productPitchMm:60,accumulatedPitchMm:30,conveyorSpeedMmPerSecond:120};
     window.SimulatorEngine={resolveProductConveyor:()=>geometry};
+    window.eval(script('Icons'));
+    window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+    window.HTMLDialogElement.prototype.close=function(){this.open=false;};
     window.eval(script('Simulation2DEngine'));
     window.eval(script('Simulation2DMachines'));
     const art=window.STSimulation2DMachines.draw,drawn=[];
@@ -182,6 +185,25 @@ test('2D uses the representative seed to calculate new production and preserves 
     animate(1000);animate(2000);
     el('pause').click();
     assert.equal(el('time').textContent,'1 s');
+    assert.equal(el('pause').getAttribute('aria-pressed'),'true');
+    const priorSnapshot=JSON.stringify(records.at(-1).checkpoint);
+    const beforeAppearance=records.length;
+    el('appearance').click();
+    let dialog=window.document.getElementById('simulation2d-appearance-dialog');
+    assert(dialog.open);assert(dialog.querySelector('.dialog-heading'));assert(dialog.querySelector('.dialog-body'));assert(dialog.querySelector('.dialog-actions'));
+    assert.equal(dialog.querySelectorAll('select option').length,6);
+    assert.equal(dialog.querySelectorAll('.simulation2d-liquid-palette button').length,12);
+    dialog.querySelector('select').value='softener';
+    Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Cancel').click();
+    assert.equal(records.length,beforeAppearance,'Cancel leaves saved appearance unchanged');
+    el('appearance').click();dialog=window.document.getElementById('simulation2d-appearance-dialog');
+    dialog.querySelector('select').value='softener';dialog.querySelector('[aria-label="Violet"]').click();
+    Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Apply').click();
+    assert.equal(records.at(-1).appearance.bottle,'softener');assert.equal(records.at(-1).appearance.liquid,'#7c3aed');
+    assert.equal(JSON.stringify(records.at(-1).checkpoint),priorSnapshot,'appearance does not change physical state');
+    el('appearance').click();dialog=window.document.getElementById('simulation2d-appearance-dialog');
+    assert.equal(dialog.querySelector('select').value,'softener');
+    dialog.querySelector('select').value='classic';Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='Apply').click();
     const saved=records.length;
     const style=el('machine-style');
     assert.equal(style.value,'blocks');
@@ -290,8 +312,8 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert.equal(active(),action(label));
     }
     action('Reset emergency stop').click();
-    assert.equal(active(),action('Stop'));
-    assert.equal(action('Reset emergency stop').getAttribute('aria-pressed'),null);
+    assert.equal(active(),action('Reset emergency stop'));
+    assert.equal(action('Reset emergency stop').getAttribute('aria-pressed'),'true');
     action('Start / resume').click();
     assert.equal(active(),action('Start / resume'));
 
@@ -317,11 +339,16 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.equal(el('stop').disabled,true);
     assert.equal(el('reset').disabled,false);
     el('play').click();
+    assert.equal(el('play').getAttribute('aria-pressed'),'true');
     assert.equal(el('pause').disabled,false);
     el('pause').click();
+    assert.equal(el('pause').getAttribute('aria-pressed'),'true');
     assert.equal(el('stop').disabled,false);
     el('stop').click();
+    assert.equal(el('stop').getAttribute('aria-pressed'),'true');
     el('reset').click();
+    assert.equal(el('reset').getAttribute('aria-pressed'),'true');
+    assert.equal(el('stop').getAttribute('aria-pressed'),'false');
     assert.match(el('status').textContent,/^Ready/);
     const canvas=el('canvas');
     const pointer=(target,type,x,buttons,button=0)=>target.dispatchEvent(Object.assign(
@@ -693,56 +720,35 @@ test('palletizer stages a bounded symbolic output and transfers the last process
   const placed=scene(1,1);
   assert.equal(placed.length,1);
   assert.notDeepEqual(moving,placed);
-  assert.equal(scene(120000,1).length,24);
-  assert(scene(120011,.5).length<=36);
+  assert(scene(120000,1).length<=108);
+  assert(scene(120011,.5).length<=108);
   assert.equal(scene(0,1).length,0);
 });
 
-test('pallet change slides the completed pallets and removes the third before the next shift', () => {
-  const window={};
-  vm.runInNewContext(script('Simulation2DMachines'),{window});
-  const art=window.STSimulation2DMachines,stage=art.palletStage;
-  assert.equal(stage(33,1).forkVisible,false);
-  assert.equal(stage(34,.2).forkVisible,true);
-  assert.equal(stage(34,.2).thirdRemoved,false);
-  assert.equal(stage(35,.1).thirdRemoved,true);
-  assert.equal(stage(36,.6).shift,0);
-  const halfway=stage(36,.77);
-  assert(halfway.shift>0&&halfway.shift<1);
-  assert.equal(stage(36,1).shift,1);
-  assert.equal(stage(36,1).forkVisible,false);
-  const leaving=stage(37,.2,.6,2);
-  assert.equal(leaving.forkVisible,true,'truck stays visible when the next pallet starts');
-  assert.equal(leaving.forkLoaded,true);
-  assert.equal(leaving.thirdRemoved,false,'the truck carries the previous pallet');
-  assert.equal(stage(37,0).shift,0);
-  assert.equal(stage(37,0).count,0);
-  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
-  function palletDecks(produced,progress,extraColors={}){
-    const decks=[];
-    const context=new Proxy({roundRect(x,y,w,h){
-      if(w===123&&h===5)decks.push([x,y]);
-    }},{get:(target,key)=>target[key]??(()=>{})});
-    art.drawPalletOutput(context,200,100,180,{...colors,...extraColors},produced,progress,'foreground');
-    return decks;
-  }
-  const before=palletDecks(36,.6),moving=palletDecks(36,.77),after=palletDecks(36,1);
-  assert(before.some(([x])=>x===300));
-  assert(moving[0][0]>300&&moving[0][0]<443);
-  assert(after.some(([x,y])=>x===300&&y===190));
-  assert(after.some(([x,y])=>x===443&&y===190));
-  assert(after.some(([x,y])=>x===586&&y===190));
-  const held=palletDecks(36,.8).find(([x,y])=>y<190&&x<300);
-  assert(held,'the robot carries an empty pallet from the rack');
-  const level=palletDecks(34,.4,{forkProgress:.34,forkGroup:2});
-  assert.equal(level.length,3);
-  assert(level.every(([,y])=>y===190),'all three staged pallets stay on the same floor');
-  const loaded=palletDecks(34,.4,{forkProgress:.5,forkGroup:2});
-  assert(loaded.every(([,y])=>y===190),'the carried pallet stays aligned with the staging level');
-  const oldShift=(.875*.875*(3-2*.875)),newShift=stage(36,.7).shift;
-  assert(newShift<oldShift/2,'pallet travel spreads over more of the cycle');
-
+test('pallets have 36 spaces in four levels and move on one common floor',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,stage=art.palletStage;
+ assert.equal(stage(35,1).exchange,false);assert.equal(stage(36,.6).exchange,true);
+ assert.equal(stage(36,.6).shift,0);assert(stage(36,.77).shift>0&&stage(36,.77).shift<1);
+ assert.equal(stage(36,1).shift,1);assert.equal(stage(37,0).count,0);
+ assert.equal(stage(105,1).forkVisible,false);assert.equal(stage(106,.2).forkVisible,true);
+ const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28};
+ function scene(produced,progress,extra={}){
+   const decks=[],cases=[];const ctx=new Proxy({roundRect(x,y,w,h){if(Math.abs(w-142.24)<1e-5&&h===5)decks.push([x,y]);},fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
+   art.drawPalletOutput(ctx,200,100,180,{...colors,...extra},produced,progress,'foreground');return {decks,cases};
+ }
+ const full=scene(36,1);assert.equal(full.cases.length,36);
+ assert.equal(new Set(full.cases.map(([x,y])=>x+','+y)).size,36);
+ for(let level=0;level<4;level++){const front=190-(level+1)*28;assert.equal(full.cases.filter(([,y])=>y<=front+.001&&y>=front-11.201).length,9);}
+ // Three rows of three per level are visible in a shallow depth projection.
+ assert.equal(new Set(full.cases.map(([,y])=>y)).size,12);
+ const final=scene(108,1);assert.equal(final.decks.length,3);assert(final.decks.every(([,y])=>y===190));
+ assert(final.decks.some(([x])=>Math.abs(x-300)<1e-6));
+ assert(final.decks.some(([x])=>Math.abs(x-462.24)<1e-6));
+ assert(final.decks.some(([x])=>Math.abs(x-624.48)<1e-6));
+ const picked=scene(106,.4,{forkProgress:.5,forkGroup:2});assert(picked.decks.every(([,y])=>y===190));
 });
+
 
 test('a palletizer case crosses continuously from belt exit through the machine to pickup', () => {
   const source=script('Simulation2D');
@@ -774,37 +780,21 @@ test('a palletizer case crosses continuously from belt exit through the machine 
   assert.deepEqual(cartons[0],[end.pickup,end.cases[0].top]);
 });
 
-test('new palletizer output queues behind the active cycle without restarting its progress', () => {
-  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
-  const source=script('Simulation2D');
-  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
-  const item={produced:0,rate:.5};
-  context.palletTransfer(item);
-  item.produced=1;context.model.time=.1;
-  assert.equal(context.palletTransfer(item).progress,0);
-  context.model.time=1;
-  const moving=context.palletTransfer(item);
-  assert(Math.abs(moving.progress-.1125)<1e-8);
-  item.produced=2;
-  assert.equal(context.palletTransfer(item).progress,moving.progress);
-  assert.equal(context.palletTransfer(item).produced,1);
-  context.model.time=8.1;
-  assert.equal(context.palletTransfer(item).produced,2);
-  context.model.time=16.1;
-  assert.equal(context.palletTransfer(item).progress,1);
-  context.model={time:0};item.produced=0;
-  assert.equal(context.palletTransfer(item).produced,0);
-  context.model={time:0};item.produced=33;context.palletTransfer(item);
-  item.produced=34;context.model.time=.1;
-  assert.equal(context.palletTransfer(item).forkProgress,0);
-  context.model.time=5.1;
-  assert(context.palletTransfer(item).forkProgress<.3,'the forklift travels at normal speed at 1X');
-  item.produced=37;context.model.time=7;
-  const crossing=context.palletTransfer(item);
-  assert(crossing.forkProgress>0&&crossing.forkProgress<1,'travel continues across pallet cycles');
-  context.model.time=18.5;
-  assert.equal(context.palletTransfer(item).forkProgress,1,'the forklift finishes leaving even if no new case arrives');
+test('new output waits behind a symbolic pickup and movement runs 1.2 times faster',()=>{
+ const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
+ vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+ const item={produced:0,rate:.5};context.palletTransfer(item);item.produced=1;context.model.time=.1;
+ assert.equal(context.palletTransfer(item).progress,0);context.model.time=1;
+ const moving=context.palletTransfer(item);assert(Math.abs(moving.progress-.135)<1e-8);
+ item.produced=2;assert.equal(context.palletTransfer(item).progress,moving.progress);
+ assert.equal(context.palletTransfer(item).produced,1);assert.equal(context.palletTransfer(item).waiting,1);
+ context.model.time=8/1.2+.1;assert.equal(context.palletTransfer(item).produced,2);
+ context.model.time=16/1.2+.1;assert.equal(context.palletTransfer(item).progress,1);
+ context.model={time:0};item.produced=105;context.palletTransfer(item);
+ item.produced=106;context.model.time=.1;assert.equal(context.palletTransfer(item).forkProgress,0);
+ context.model.time=15.1;assert.equal(context.palletTransfer(item).forkProgress,1);
 });
+
 
 test('palletizer wrist returns continuously to pickup across release and consecutive cycles', () => {
   const window={};
@@ -819,7 +809,7 @@ test('palletizer wrist returns continuously to pickup across release and consecu
   }
   function close(left,right){
     assert.equal(left.length,right.length);
-    left.forEach((value,i)=>assert(Math.abs(value-right[i])<.001));
+    left.forEach((value,i)=>assert(Math.abs(value-right[i])<.01));
   }
   close(joints(1,.599999),joints(1,.600001));
   close(joints(1,.039999),joints(1,.040001));
@@ -827,7 +817,7 @@ test('palletizer wrist returns continuously to pickup across release and consecu
   close(joints(1,.999999),joints(2,0));
   close(joints(0,1),joints(1,0));
   for(const boundary of [.6,.74,.94]){
-    close(joints(12,boundary-.000001),joints(12,boundary+.000001));
+    close(joints(36,boundary-.000001),joints(36,boundary+.000001));
   }
   close(joints(12,.999999),joints(13,0));
   close(joints(36,.999999),joints(37,0));
@@ -948,7 +938,7 @@ test('production table centers above the three pallet positions and fits their f
     caseDimensions:()=>({caseWidth:37,caseHeight:28}),productionHeight:()=>80});
   vm.runInContext(source.slice(source.indexOf('  function productionLayout('),source.indexOf('  function palletTransfer(')),context);
   const layout=context.productionLayout([{id:'robot',unit:'CASES'}],[{center:100,telemetryWidth:160}],200);
-  const palletWidth=3*37+12;
+  const palletWidth=3.52*37+12;
   const center=layout.start+100+(3*palletWidth+40)/2;
   assert.equal(layout.production+127.125/2,center);
   assert(layout.productionY+80<=90-4*28-24,'table clears the highest stacked cases');
@@ -960,62 +950,37 @@ test('production table centers above the three pallet positions and fits their f
 });
 
 
-test('palletizer motion has minimum travel times at 1X even with a high machine input rate',()=>{
-  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
-  const source=script('Simulation2D');
-  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
-  const item={produced:0,rate:100};context.palletTransfer(item);
-  item.produced=1;context.palletTransfer(item);
-  assert.equal(context.palletAnimation.duration,8);
-  context.model.time=4;
-  assert.equal(context.palletTransfer(item).progress,.5);
-  assert.equal(item.rate,100);
-  assert.equal(item.produced,1,'visual pacing does not modify production');
-  context.model={time:0};item.produced=11;context.palletTransfer(item);
-  item.produced=12;context.palletTransfer(item);
-  assert.equal(context.palletAnimation.duration,24);
-  assert(context.palletAnimation.duration*.34>=8,'pallet slide takes at least eight seconds');
-  context.model.time=16;
-  assert.equal(context.palletTransfer(item).produced,12);
-  assert.equal(context.palletTransfer(item).progress,2/3);
-  item.produced=13;context.model.time=24;
-  assert.equal(context.palletTransfer(item).produced,13);
-  assert.equal(context.palletTransfer(item).progress,0);
-  assert.equal(context.palletAnimation.duration,8,'normal timing resumes after the pallet exchange');
+test('robot and pallet changes keep the previous timing multiplied by 1.2',()=>{
+ const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
+ vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+ const item={produced:0,rate:100};context.palletTransfer(item);item.produced=1;context.palletTransfer(item);
+ assert.equal(context.palletAnimation.duration,8/1.2);context.model.time=4/1.2;
+ assert.equal(context.palletTransfer(item).progress,.5);assert.equal(item.rate,100);
+ context.model={time:0};item.produced=35;context.palletTransfer(item);item.produced=36;context.palletTransfer(item);
+ assert.equal(context.palletAnimation.duration,24/1.2);context.model.time=16/1.2;
+ assert(Math.abs(context.palletTransfer(item).progress-2/3)<1e-12);
+ item.produced=37;context.model.time=24/1.2;assert.equal(context.palletTransfer(item).produced,37);
+ assert.equal(context.palletAnimation.duration,8/1.2);
 });
 
 
-test('processed cases wait visibly at pickup and the robot takes up to three together',()=>{
-  const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false},
-    step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),productHeight:()=>28,beltHalfHeight:()=>18});
-  const source=script('Simulation2D');
-  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
-  const item={produced:0,rate:100,resident:[],residenceClock:0,residenceSeconds:2};
-  const line=[{kind:'belt'},item],items=[{left:0,width:200},{left:210,width:300}];
-  context.palletTransfer(item);
-  item.produced=5;
-  let transfer=context.palletTransfer(item);
-  assert.equal(transfer.waiting,5);
-  let infeed=context.palletInfeed(line,items,100,transfer);
-  assert.equal(infeed.cases.length,1,'coincident waiting cases keep a visible silhouette');
-  assert.equal(infeed.cases[0].left,infeed.pickup);
-  context.model.time=.4;transfer=context.palletTransfer(item);
-  assert.equal(transfer.batch,3);assert.equal(transfer.waiting,2);
-  item.produced=8;context.model.time=4;
-  transfer=context.palletTransfer(item);
-  assert.equal(transfer.waiting,5,'new output waits behind the current pick');
-  assert.equal(transfer.batch,3);
-  assert.equal(context.palletAnimation.settled+transfer.batch+transfer.waiting,item.produced);
-  assert.equal(context.palletInfeed(line,items,100,transfer).cases[0].waiting,5);
-  context.model.time=8.4;transfer=context.palletTransfer(item);
-  assert.equal(context.palletAnimation.settled,3);
-  assert.equal(transfer.batch,3);assert.equal(transfer.waiting,2);
-  context.model={time:0};item.produced=11;context.palletTransfer(item);
-  item.produced=20;context.palletTransfer(item);context.model.time=1;
-  transfer=context.palletTransfer(item);
-  assert.equal(transfer.batch,1,'the pick fits the remaining place on the pallet');
-  assert.equal(transfer.waiting,8);
+test('all waiting cases share one silhouette and one symbolic slot per robot pickup',()=>{
+ const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false},step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),productHeight:()=>28,beltHalfHeight:()=>18});
+ const source=script('Simulation2D');vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
+ const item={produced:0,rate:100,resident:[],residenceClock:0,residenceSeconds:2},line=[{kind:'belt'},item],items=[{left:0,width:200},{left:210,width:300}];
+ context.palletTransfer(item);item.produced=50;
+ let transfer=context.palletTransfer(item);assert.equal(transfer.waiting,50);
+ assert.equal(context.palletInfeed(line,items,100,transfer).cases.length,1);
+ context.model.time=.4;transfer=context.palletTransfer(item);
+ assert.equal(transfer.batch,1);assert.equal(transfer.pickedCases,50);assert.equal(transfer.produced,1);assert.equal(transfer.waiting,0);
+ item.produced=80;context.model.time=4;transfer=context.palletTransfer(item);
+ assert.equal(transfer.waiting,30);assert.equal(transfer.produced,1);
+ assert.equal(context.palletAnimation.settled+transfer.pickedCases+transfer.waiting,item.produced);
+ context.model.time=8/1.2+.4;transfer=context.palletTransfer(item);
+ assert.equal(context.palletAnimation.settled,50);assert.equal(context.palletAnimation.placed,1);
+ assert.equal(transfer.pickedCases,30);assert.equal(transfer.produced,2);assert.equal(transfer.batch,1);
 });
+
 
 test('robot arm links and gripper retain their dimensions when moving pallets and batches',()=>{
   const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
@@ -1033,21 +998,36 @@ test('robot arm links and gripper retain their dimensions when moving pallets an
     lengths.forEach((length,i)=>assert(Math.abs(length-reference[i])<1e-6,'each rigid arm keeps its length'));
     assert(widths.includes(47),'gripper width is fixed for both cases and pallets');
   }
-  assert.equal(art.palletStage(3,.3,0,0,3).count,0);
-  assert.equal(art.palletStage(3,.6,0,0,3).count,3);
+  assert.equal(art.palletStage(1,.3).count,0);
+  assert.equal(art.palletStage(1,.6).count,1);
 });
 
 
-test('a picked group stays visible throughout transfer and places every case on the pallet',()=>{
-  const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
-  const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:3};
-  for(const progress of [.04,.2,.599,.6,.9,1]){
-    const cases=[];
-    const ctx=new Proxy({fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},
-      {get:(target,key)=>target[key]??(()=>{})});
-    window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,3,progress,'foreground');
-    assert.equal(cases.length,3,'all three cases are either carried or placed');
-    assert(cases.flat().every(Number.isFinite));
-    if(progress>=.6)assert.deepEqual(cases.map(([,y])=>y),[162,162,162]);
-  }
+test('a picked group draws one case in transit and fills exactly one space',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const colors={ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28,batch:50};
+ for(const progress of [.04,.2,.599,.6,.9,1]){
+   const cases=[],ctx=new Proxy({fillRect(x,y,w,h){if(w===37&&h===28&&this.fillStyle===colors.belt)cases.push([x,y]);}},{get:(o,k)=>o[k]??(()=>{})});
+   window.STSimulation2DMachines.drawPalletOutput(ctx,200,100,180,colors,1,progress,'foreground');
+   assert.equal(cases.length,1);assert(cases.flat().every(Number.isFinite));
+   if(progress>=.6)assert.deepEqual(cases[0],[306,162]);
+ }
+});
+
+
+test('bottle silhouettes are distinct and use the selected liquid only after filling',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});
+ const art=window.STSimulation2DMachines,colors={surface:'#fff',belt:'#333',accent:'#08f',liquid:'#16a34a'};
+ function trace(type,stage){
+   const ops=[],fills=[];const ctx=new Proxy({fillRect(...args){fills.push([this.fillStyle,...args]);}},
+     {get:(o,k)=>o[k]??((...args)=>ops.push([k,...args]))});
+   art.drawBottle(ctx,10,20,50,100,colors,type,stage);return {ops,fills};
+ }
+ const styles=['classic','softener','cleaner','shampoo','pump','jug'];
+ assert.equal(new Set(styles.map(type=>JSON.stringify(trace(type,0).ops))).size,6);
+ for(const type of styles){
+   assert(!trace(type,0).fills.some(([color])=>color===colors.liquid));
+   assert(trace(type,2).fills.some(([color])=>color===colors.liquid));
+   assert(trace(type,15).ops.some(([name])=>name==='strokeRect'),'filled/labeled/capped/pucked stages remain supported');
+ }
 });

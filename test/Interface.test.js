@@ -3275,3 +3275,32 @@ test('UI: a missing 2D module does not block remembered entry, numerical views o
    assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
+
+
+test('UI: layout appearance dialog saves bottle and liquid choices without changing equipment',async()=>{
+ const h=await setup({remember:true});
+ try{
+   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+   h.d.querySelector('.equipment-card').click();
+   const name=h.d.querySelector('.equipment-card')._fields.querySelector('.equipment-name');
+   name.value+=' baseline';name.dispatchEvent(new h.w.Event('input',{bubbles:true}));
+   await h.click('#save-case');await waitFor(()=>h.storedCases()[0].equipment[0].name.endsWith(' baseline'));
+   await h.click('[data-basic-view="simulation2d"]');
+   const equipment=JSON.stringify(h.storedCases()[0].equipment);
+   await h.click('#simulation2d-appearance');
+   let dialog=h.d.getElementById('simulation2d-appearance-dialog');
+   assert(dialog.open);assert.equal(dialog.querySelector('h2').textContent,'Layout appearance');
+   dialog.querySelector('select').value='shampoo';dialog.querySelector('[aria-label="Pink"]').click();
+   await h.click('#simulation2d-appearance-dialog .dialog-actions button:last-child');
+   assert.equal(h.d.getElementById('simulation2d-appearance-dialog'),null);
+   await h.click('#save-case');
+   await waitFor(()=>h.storedCases()[0].simulations[0].simulation2d?.appearance?.bottle==='shampoo');
+   assert.equal(h.storedCases()[0].simulations[0].simulation2d.appearance.liquid,'#f4a0c4');
+   assert.equal(JSON.stringify(h.storedCases()[0].equipment),equipment);
+   await h.click('#simulation2d-appearance');dialog=h.d.getElementById('simulation2d-appearance-dialog');
+   assert.equal(dialog.querySelector('select').value,'shampoo');
+   assert.equal(dialog.querySelector('[aria-label="Pink"]').getAttribute('aria-pressed'),'true');
+   await h.click('#simulation2d-appearance-dialog .dialog-actions button:first-child');
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
