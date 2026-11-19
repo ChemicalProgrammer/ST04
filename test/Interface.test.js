@@ -3197,3 +3197,18 @@ test('UI: Real data visibility is saved per case, hides both navigation entries 
   }finally{h.dom.window.close();}
  }
 });
+
+
+test('UI: Capper can be selected and saved as a separate machine',async()=>{
+ const h=await setup({remember:true});
+ try{
+   await h.click('.open-case');await h.click('[data-basic-view="equipment"]');
+   const card=h.d.querySelector('.equipment-card'),select=card._fields.querySelector('.equipment-type');
+   assert.equal(select.querySelector('option[value="CAPPER"]').textContent,'Capper');
+   select.value='CAPPER';select.dispatchEvent(new h.w.Event('change',{bubbles:true}));
+   await h.click('#save-case');
+   await waitFor(()=>h.storedCases()[0].equipment[0].type==='CAPPER');
+   assert.equal(h.storedCases()[0].equipment[0].processData.machineType,'CAPPER');
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});

@@ -7,6 +7,7 @@ window.STSimulation2DMachines=(function(){
     DEPUCKER:{kind:'depucker',width:.84,height:1.14,floor:86},
     FEEDER:{kind:'feeder',width:.9,height:1.18,floor:88},
     CUSTOM:{kind:'custom',width:1,height:1,floor:86},
+    CAPPER:{kind:'capper',width:.7,height:1.15,floor:87},
     FILLER:{kind:'filler',width:.98,height:1.09,floor:84,viewWidth:184},
     SLEEVER:{kind:'sleever',width:.57,height:1.04,floor:89},
     CASE_PACKER:{kind:'packer',width:1.14,height:1.03,floor:87,viewWidth:226},
@@ -97,6 +98,18 @@ window.STSimulation2DMachines=(function(){
         line(8,64,30,64);line(89,64,113,64);foot(20);foot(88);
         break;
       }
+      case 'capper':
+        box(20,65,82,18,soft,4);box(24,17,8,48,belt);box(91,17,8,48,belt);
+        box(21,14,80,9,soft,3);box(39,3,43,11,soft,4);
+        for(let i=0;i<4;i++)box(45+i*9,8,6,3,accent,1);
+        line(47,23,47,30,66,30,66,35);
+        const headY=29+13*phase;
+        box(57,headY,19,11,accent,3);box(61,headY+11,11,5,belt,1);
+        for(let i=0;i<3;i++)line(60+i*6,headY+3,60+i*6,headY+8);
+        box(62,55,9,10,surface,2);box(64,49,5,7,surface,1);
+        if(phase>.65)box(63,48,7,3,accent,1);
+        track();foot(22);foot(88);
+        break;
       case 'feeder': {
         // Hopper, elevator and rotary orienting bowl; output is an upright bottle.
         box(9,15,35,33,soft,5);line(10,45,23,60,35,60,43,45);

@@ -7,6 +7,7 @@ function inferSheetMachineType_(name) {
     ['DEPUCKER',/\bDE\s*PUCKER\b/],
     ['PUCKER',/\bPUCKER\b/],
     ['FILLER',/\bFILLER\b/],
+    ['CAPPER',/\b(?:CAPPER|CAPPING|TAPADORA|TAPONADORA|ROSCADORA)\b/],
     ['FEEDER',/\bFEEDER\b/],
     ['SLEEVER',/\bSLEEVER\b/],
     ['CASE_PACKER',/\bCASE\s*PACKER\b/],
@@ -15,6 +16,8 @@ function inferSheetMachineType_(name) {
   ];
   if(patterns[1][1].test(text))return 'DEPUCKER';
   var matches=patterns.filter(function(item){return item[1].test(text);});
+  // Preserve existing combined filler/capper stations as a single filling machine.
+  if(matches.length===2&&matches.some(item=>item[0]==='FILLER')&&matches.some(item=>item[0]==='CAPPER'))return 'FILLER';
   return matches.length===1?matches[0][0]:'CUSTOM';
 }
 // Fixed plant worksheet contract. Reads only; never writes to the source Sheet.
@@ -225,13 +228,13 @@ function parseEquipmentSheet_(metadataCells, rows, formats,layout,options) {
   var size=sheetContainerSize_(metadataCells[3],options?.containerUnit);metadata.containerSize=size.containerSize;metadata.containerSizeOz=size.containerSizeOz;if(size.error)issue(errors,metaCell(3),size.error);
   if(metadata.bottlesPerCase!==null&&metadata.bottlesPerCase<=0)issue(errors,metaCell(4),'Must be greater than zero when provided.');
   if(metadata.bottlesPerCase!==null&&!Number.isInteger(metadata.bottlesPerCase))issue(errors,metaCell(4),'Bottles per case must be a whole number.');
-  var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',FEEDER:'FEEDER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
+  var aliases={MACHINE:'CUSTOM',BLOWER:'BLOWER',BLOWMOLDER:'BLOWMOLDER',BLOWMOULDER:'BLOWMOLDER',CONVEYOR:'CONVEYOR',PACEMAKER:'PACEMAKER',PUCKER:'PUCKER',FILLER:'FILLER',CAPPER:'CAPPER',TAPADORA:'CAPPER',TAPONADORA:'CAPPER',ROSCADORA:'CAPPER',FEEDER:'FEEDER',DEPUCKER:'DEPUCKER',SLEEVER:'SLEEVER',CASEPACKER:'CASE_PACKER',PALLETIZER:'PALLETIZER',PALLETISER:'PALLETIZER',CUSTOM:'CUSTOM',OTHER:'CUSTOM'};
   rows.forEach(function(row,offset){
     var rowNumber=offset+(options?.start||10);
     var stopRow=options?.stopRows?.[offset]||[];
     if(row.every(missing)&&stopRow.every(missing))return;
     var rawType=missing(row[0])?'':String(row[0]).trim(),type=aliases[rawType.toUpperCase().replace(/[\s_-]+/g,'')];
-    if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pucker, Filler, Feeder, De-pucker, Sleever, Case packer, Palletizer or Other.');
+    if(!type)issue(errors,'A'+rowNumber,'Unknown equipment type. Use Blower, Blowmolder, Conveyor, Pucker, Filler, Capper, Feeder, De-pucker, Sleever, Case packer, Palletizer or Other.');
     var name=missing(row[1])?'':String(row[1]).trim();
     if(rawType.toUpperCase()==='MACHINE'){
       type=inferSheetMachineType_(name);

@@ -284,3 +284,14 @@ test('split stop pairs take precedence, preserve the original inputs and feed th
  assert(noMajor.canImport);
  assert.equal(noMajor.equipment[0].noiseProfile.reliability.mtbfMinutes,10);
 });
+
+test('Capper exports and imports as its own physical machine type',()=>{
+ const h=runtime(),request=fixture(h.c);
+ request.equipment[0].type='CAPPER';request.equipment[0].name='Capper';
+ request.equipment[0].processData.machineType='CAPPER';
+ const data=h.c.equipmentSheetData_(request.equipment,request.metadata);
+ assert.equal(data.rows[0][0],'CAPPER');
+ const parsed=h.c.parseEquipmentSheet_(data.metadata,data.rows,[],data.layout);
+ assert.equal(parsed.canImport,true,JSON.stringify(parsed.errors));
+ assert.equal(parsed.equipment[0].type,'CAPPER');
+});

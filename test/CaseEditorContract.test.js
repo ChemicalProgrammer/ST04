@@ -221,3 +221,11 @@ test('simulation chat survives Drive save and reopen with isolated histories and
  record.simulations[1].geminiHistory=[{role:'user',scope:'GENERAL',text:'Another simulation'}];record.expectedRevision=record.revision;runtime.saveCase_(record,owner);record=runtime.getCase_(made.id,owner);assert.equal(record.simulations[0].geminiHistory.length,2);assert.equal(record.simulations[1].geminiHistory[0].text,'Another simulation');assert.equal(record.simulations[1].geminiHistory[0].scope,'GENERAL');assert.equal(record.simulations[0].geminiHistory[0].scope,'CASE');
  assert.throws(()=>runtime.normalizeGeminiConversation_([{role:'system',text:'Invalid'}]),error=>error.simulatorError?.code==='INVALID_CASE');
 });
+
+test('Capper is a supported physical type and survives case persistence',()=>{
+ const runtime=createCaseRuntime();
+ const unit={id:'capper',name:'Capper',type:'CAPPER',nominalRatePerSecond:2,initialMode:'AUTO',processData:{machineType:'CAPPER',flowUnits:{input:'BOTTLES',output:'BOTTLES'}}};
+ const summary=runtime.createCase_({name:'Capping study',equipment:[unit]},owner);
+ assert.equal(runtime.getCase_(summary.id,owner).equipment[0].type,'CAPPER');
+ assert.equal(runtime.getCase_(summary.id,owner).equipment[0].processData.machineType,'CAPPER');
+});

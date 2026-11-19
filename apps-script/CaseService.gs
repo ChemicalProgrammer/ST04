@@ -360,7 +360,7 @@ function normalizeEquipmentList_(equipment) {
 }
 
 function supportedEquipmentTypes_() {
-  return ['BLOWER', 'BLOWMOLDER', 'CONVEYOR', 'PACEMAKER', 'PUCKER', 'FILLER', 'FEEDER', 'DEPUCKER', 'SLEEVER', 'CASE_PACKER', 'PALLETIZER', 'CUSTOM'];
+  return ['BLOWER', 'BLOWMOLDER', 'CONVEYOR', 'PACEMAKER', 'PUCKER', 'FILLER', 'CAPPER', 'FEEDER', 'DEPUCKER', 'SLEEVER', 'CASE_PACKER', 'PALLETIZER', 'CUSTOM'];
 }
 
 function normalizeProcessData_(processData) {

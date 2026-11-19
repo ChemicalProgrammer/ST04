@@ -133,7 +133,7 @@ test('small discharge pitch is retained and selectable as draft with physical wa
 
 test('Machine category recognizes worksheet names while preserving custom names and explicit types',()=>{
  const r=runtime(),f=fixture();
- const names={'Blowmolder':'BLOWMOLDER','Blow mouldER 1':'BLOWMOLDER','Pucker':'PUCKER','Filler/Capper':'FILLER','De-Pucker':'DEPUCKER','Sleever':'SLEEVER','Case Packer':'CASE_PACKER','Palletizer':'PALLETIZER','Custom Station':'CUSTOM','Pucker and Filler':'CUSTOM'};
+ const names={'Blowmolder':'BLOWMOLDER','Blow mouldER 1':'BLOWMOLDER','Pucker':'PUCKER','Filler/Capper':'FILLER','Capper':'CAPPER','Tapadora':'CAPPER','Capper 2':'CAPPER','De-Pucker':'DEPUCKER','Sleever':'SLEEVER','Case Packer':'CASE_PACKER','Palletizer':'PALLETIZER','Custom Station':'CUSTOM','Pucker and Filler':'CUSTOM'};
  for(const [name,type] of Object.entries(names)){
   f.rows[0][0]='Machine';f.rows[0][1]=name;
   const out=r.parseEquipmentSheet_(f.metadata,f.rows,f.formats);

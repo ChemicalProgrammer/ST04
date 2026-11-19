@@ -369,6 +369,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     assert.deepEqual(stages(['SLEEVER','FILLER']),['Empty','Labeled','Filled + labeled']);
     assert.deepEqual(stages(['FILLER','SLEEVER']),['Empty','Filled','Filled + labeled']);
     assert.deepEqual(stages(['FILLER','SLEEVER'],[],'Cap'),[]);
+    assert.deepEqual(stages(['FILLER','CAPPER'],[],'Cap'),['Applied']);
     assert.deepEqual(stages(['FILLER','SLEEVER'],['Filler / Capper'],'Cap'),['Applied','Applied']);
     assert.deepEqual(stages(['FILLER','CUSTOM'],['Filler','Tapadora'],'Cap'),['Applied']);
     assert.deepEqual(stages(['PUCKER','FILLER','DEPUCKER'],[],'Puck'),['Present','Present']);
@@ -851,7 +852,7 @@ test('all configured machine types have animated drawings', () => {
   assert(still.every(result=>result.drawn));
   assert.equal(new Set(still.map(result=>JSON.stringify(result.operations))).size,types.length);
   types.forEach((type,index)=>assert.notDeepEqual(trace(type,.5).operations,still[index].operations));
-  for(const type of ['PUCKER','DEPUCKER','FEEDER','CUSTOM']){
+  for(const type of ['PUCKER','DEPUCKER','FEEDER','CAPPER','CUSTOM']){
     assert(trace(type,0).drawn);
     assert.notDeepEqual(trace(type,0).operations,trace(type,.5).operations);
   }

@@ -750,6 +750,7 @@ var ST_TEXT_RESOURCES = {
   "client.pacemaker": "Critical machine",
   "client.pucker": "Pucker",
   "client.filler": "Filler",
+  "client.capper": "Capper",
   "client.de_pucker": "De-pucker",
   "client.sleever": "Sleever",
   "client.feeder": "Feeder",
