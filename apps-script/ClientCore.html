@@ -37,16 +37,21 @@
     var sheetImport = STSheetImport(state,{apply:applySheetImport,capture:captureSheetImport});
     var shell = STShell(state,{assistant:assistant.sync,signout:lockWorkspace,navigate:navigateView,rememberView:rememberCaseView,home:showCaseHome,save:saveActiveCase,cases:function(){renderCases(state.bootstrap?.cases||[]);},redraw:renderPlaybackFrame,preview:basicEquipmentPreview,syncSimulation2D:syncSimulation2D});
     function syncSimulation2D(visible){
+      var simulation2D=window.STSimulation2D;
+      if(!simulation2D){
+        if(visible)showError({code:'SIMULATION_2D_MODULE_MISSING',message:'Simulation 2D did not load. Update WebApp.html, Simulation2D.html, Simulation2DEngine.html and Simulation2DMachines.html together, then reload the app.'});
+        return;
+      }
       if(!visible){
-        if(state.activeCase){STSimulation2D.syncEvents(false);STSimulation2D.pause();}
-        else STSimulation2D.unload();
+        if(state.activeCase){simulation2D.syncEvents(false);simulation2D.pause();}
+        else simulation2D.unload();
         return;
       }
       var simulation=activePersistentSimulation(),format=STProducts.currentFormat();
       if(!simulation)return;
-      STSimulation2D.syncEvents(true);
+      simulation2D.syncEvents(true);
       var ownerId=state.activeCase.id,simulationId=simulation.id;
-      STSimulation2D.load([ownerId,simulationId,format?.id],state.activeCase.equipment,format,simulation.dynamicConfig,simulation.simulation2d,function(record){
+      simulation2D.load([ownerId,simulationId,format?.id],state.activeCase.equipment,format,simulation.dynamicConfig,simulation.simulation2d,function(record){
         if(state.activeCase?.id!==ownerId)return;
         var owner=state.activeCase.simulations.find(function(item){return item.id===simulationId;});
         if(!owner)return;
@@ -205,7 +210,7 @@
       document.getElementById('equipment-list').addEventListener('input', markCaseDirty);
       document.getElementById('equipment-list').addEventListener('change', markCaseDirty);
       document.getElementById('case-editor-form').addEventListener('change', markCaseDirty);
-      STSimulation2D.onEventEditorChange(function(open){
+      window.STSimulation2D?.onEventEditorChange(function(open){
         if(open)renderControlEvents();
         STRunOptions.syncEventEditor(runControlsLocked());
       });

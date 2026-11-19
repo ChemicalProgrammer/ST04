@@ -37,7 +37,7 @@
     // Gemini uses the current draft, independently of local/cloud save latency.
     function flushForServer(){return prepareCaseDraft().then(function(){return window.STCaseContext.snapshot(Object.assign({},state.activeCase,{activeSimulationId:state.activeSimulationId}));});}
     async function leaveCase(){
-      STSimulation2D.pause();
+      window.STSimulation2D?.pause();
       if(!state.activeCase||!autosave.pending())return true;
       if(automaticSaving()){await flushCase();return true;}
       var answer=await STDialog.open({title:'Unsaved case changes',message:'Save your changes before closing this case?',buttons:[{id:'cancel',label:__ST_TEXT__('view.cancel')},{id:'discard',label:'Discard changes'},{id:'save',label:'Save changes'}]});

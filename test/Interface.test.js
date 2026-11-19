@@ -68,6 +68,7 @@ async function setup({remember=false,fail=false,many=false,invalidSheet=false,em
   if(startupFault==='timeout'){
     const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms,...args)=>{if(ms===45000)w.__startupTimeout=fn;return timeout(fn,ms,...args);};
   }
+  if(startupFault==='missing2d')w.document.addEventListener('DOMContentLoaded',()=>{delete w.STSimulation2D;});
   if(startupFault===true)w.document.addEventListener('DOMContentLoaded',()=>{w.STConfigurationEditor.init=()=>{throw new w.Error('STConfigurationEditor module could not initialize');};});
   if(startupFault==='render'){const bootstrap=api.getBootstrap;api.getBootstrap=()=>({...bootstrap(),settings:null});}
   w.localStorage.setItem('st.ui.v1.autosaveSeconds',String(autosaveSeconds));
@@ -3252,6 +3253,25 @@ test('UI: an unanswered remembered bootstrap times out and ignores its late resp
    h.w.__lateBootstrap();await settle();
    assert(h.visible('auth-panel'));assert(!h.visible('application'));
    assert.match(h.d.getElementById('auth-status').textContent,/45 seconds/);
+   assert.deepEqual(h.errors,[]);
+ }finally{h.dom.window.close();}
+});
+
+
+test('UI: a missing 2D module does not block remembered entry, numerical views or signing out',async()=>{
+ const h=await setup({remember:true,startupFault:'missing2d'});
+ try{
+   assert(!h.d.documentElement.classList.contains('restoring-session'));
+   assert(h.visible('application'));assert(h.visible('cases-panel'));
+   await h.click('.open-case');
+   assert(h.visible('application'));
+   await h.click('[data-basic-view="simulation"]');
+   assert(h.visible('run-panel'));
+   await h.click('[data-basic-view="simulation2d"]');
+   assert.match(h.d.getElementById('status').textContent,/SIMULATION_2D_MODULE_MISSING/);
+   assert.match(h.d.getElementById('status').textContent,/WebApp.html, Simulation2D.html/);
+   await h.click('#cases-sign-out');
+   assert(h.visible('auth-panel'));
    assert.deepEqual(h.errors,[]);
  }finally{h.dom.window.close();}
 });
