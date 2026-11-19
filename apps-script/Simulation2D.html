@@ -817,6 +817,41 @@ window.STSimulation2D=(function(){
     if(['Stopped','Paused','Emergency stop','Planned stop'].includes(state))return {state,lamp:stateLamps.get(state)||'muted'};
     return {state,lamp:item.backupBlocked||state==='Accumulating'?'blocked':state==='Flowing'?'running':'muted'};
   }
+  const sensorVisuals=new Map();
+  let sensorFadeTimer=null,sensorVisualModel=null;
+  function sensorDelayState(belt,downstream,label){
+    if(label==='B'){
+      const active=Boolean(belt.backupBlocked),duration=Math.max(0,(active?belt.clearDelay:belt.blockDelay)||0);
+      const elapsed=Math.max(0,belt.backupElapsed||0);
+      return {active,pending:duration>0&&elapsed>0,progress:duration>0?Math.min(1,elapsed/duration):0,elapsed,duration,
+        mode:active?'clear':'blocked',name:active?'Back-up clear delay':'Back-up blocked delay'};
+    }
+    const duration=Math.max(0,downstream?.activeRampSeconds||0),elapsed=Math.max(0,downstream?.rampElapsed||0);
+    const pending=downstream?.state==='Ramp up'&&downstream.awaitPrime===false&&duration>0&&elapsed<duration;
+    const complete=downstream?.awaitPrime===false&&duration>0&&elapsed>=duration&&!['Failed','Stopped','Emergency stop','Planned stop'].includes(downstream.state);
+    return {active:complete||Boolean(belt.primeBeam),pending,progress:duration>0?Math.min(1,elapsed/duration):0,elapsed,duration,
+      mode:'prime-ramp',name:'Prime + downstream ramp-up (combined time)'};
+  }
+  function sensorRingState(state,previous,now,instant=false){
+    const interrupted=previous?.pending&&state.active===previous.active&&(!state.pending||state.mode!==previous.mode||state.progress+1e-8<previous.progress);
+    const completed=previous?.pending&&!state.pending&&(state.progress>=1||state.active!==previous.active);
+    const fadeStart=completed?undefined:interrupted?now:previous?.fadeStart,fadeFrom=completed?0:interrupted?Math.max(previous.ring,previous.progress):previous?.fadeFrom||0;
+    const remaining=instant||fadeStart===undefined?0:Math.max(0,1-(now-fadeStart)/140);
+    return {...state,fadeStart,fadeFrom,fading:remaining>0,ring:Math.max(state.pending?state.progress:0,fadeFrom*remaining*remaining)};
+  }
+  function drawSensor(context,x,y,label,belt,downstream,accent){
+    if(sensorVisualModel!==model){sensorVisualModel=model;sensorVisuals.clear();}
+    const state=sensorDelayState(belt,downstream,label),key=belt.id+':'+label;
+    const visual=sensorRingState(state,sensorVisuals.get(key),performance.now(),reducedMotion?.matches);sensorVisuals.set(key,visual);
+    const filled=visual.active&&!visual.pending&&!visual.fading;
+    context.save();context.lineWidth=1;context.strokeStyle=accent;context.fillStyle=filled?accent:'#fff';
+    context.beginPath();context.arc(x,y,8,0,Math.PI*2);context.fill();context.stroke();
+    if(visual.ring>0){context.lineWidth=2.5;context.lineCap='round';context.strokeStyle=accent;context.beginPath();context.arc(x,y,8,-Math.PI/2,-Math.PI/2+2*Math.PI*visual.ring);context.stroke();}
+    context.fillStyle=filled?'#fff':'#17202a';context.fillText(label,x,y+4);context.restore();
+    const reason=visual.pending?state.name+' · '+num(state.elapsed)+' / '+num(state.duration)+' s':
+      (label==='B'?'Back-up':'Prime')+' · '+(state.active?'Active':'Clear');
+    verdictHitBoxes.push({left:x-11,right:x+11,top:y-11,bottom:y+11,reason});
+  }
   function drawSignal(context,x,y,lamp,colors){
     const entries=Object.entries(colors),spacing=12,width=entries.length*spacing+6;
     context.fillStyle='#edf2f7';
@@ -1243,11 +1278,16 @@ window.STSimulation2D=(function(){
       verdictHitBoxes.splice(0,verdictHitBoxes.length,...hitBoxes);
       syncZoom();
     }
+    for(const value of sensorVisuals.values())if(value.fading&&performance.now()-value.fadeStart>=140){value.fading=false;value.ring=value.pending?value.progress:0;}
+    if(sensorFadeTimer===null&&[...sensorVisuals.values()].some(value=>value.fading)&&!panel.classList.contains('hidden')){
+      sensorFadeTimer=window.setTimeout(()=>{sensorFadeTimer=null;draw();},16);
+    }
   }
   function drawScene(){
     if(panel.classList.contains('hidden'))return;
     const screenWidth=canvas.clientWidth,h=canvas.clientHeight;
     if(!screenWidth||!h)return;
+    verdictHitBoxes.length=0;
     const dpr=window.devicePixelRatio||1;
     if(canvas.width!==Math.round(screenWidth*dpr)||canvas.height!==Math.round(h*dpr)){
       canvas.width=Math.round(screenWidth*dpr);canvas.height=Math.round(h*dpr);
@@ -1342,18 +1382,16 @@ window.STSimulation2D=(function(){
         const signal=beltSignal(item),signalY=sensorY-22-(closeSensors?20:0);
         drawSignal(context,x+width/2,signalY,signal.lamp,colors);
 
-        for(const [label,position,active] of [
-          ['B',backup,item.backupBlocked],
-          ['P',prime,item.primeBeam]
+        for(const [label,position] of [
+          ['B',backup],
+          ['P',prime]
         ]){
           if(!Number.isFinite(position)||position<0||position>item.length)continue;
           const sx=x+position*scale,sy=sensorY-(label==='B'&&closeSensors?20:0);
           if(sx<0||sx>w)continue;
-          context.strokeStyle=active?'#d26d31':accent;
+          context.strokeStyle=accent;
           context.beginPath();context.moveTo(sx,beltY);context.lineTo(sx,sy);context.stroke();
-          context.beginPath();context.arc(sx,sy,8,0,Math.PI*2);
-          context.fillStyle=active?'#d26d31':surface;context.fill();context.stroke();
-          context.fillStyle=active?'#fff':ink;context.fillText(label,sx,sy+4);
+          drawSensor(context,sx,sy,label,item,line[index+1],accent);
         }
         if(dimensions){
           context.save();
@@ -1411,7 +1449,6 @@ window.STSimulation2D=(function(){
         drawSignal(context,sx,top-14,signal.lamp,colors);
       }
     }
-    verdictHitBoxes.length=0;
     for(let index=0;index<line.length;index++){
       const item=line[index],{center,telemetryWidth}=items[index];
       const left=origin+center-telemetryWidth/2;
@@ -1649,7 +1686,7 @@ window.STSimulation2D=(function(){
   if(window.ResizeObserver){const observer=new ResizeObserver(()=>{if(!panel.classList.contains('hidden')&&canvas.clientWidth){if(camera.fit&&viewportCount===1)fit();else draw();}});viewports.forEach(view=>observer.observe(view.canvas));}
   setViewportCount(Number(window.STPreferences?.read('simulation2dViewports'))||1);
   window.addEventListener('st:theme',()=>draw());
-  return {pause,syncEvents,onEventEditorChange(callback){eventEditorChanged=callback;},unload(){if(viewSaveTimer!==null)checkpoint();window.clearTimeout(viewSaveTimer);viewSaveTimer=null;finishSplit();syncEvents(false);setFullscreen(false);fullscreenCamera=null;window.clearTimeout(viewSaveTimer);viewSaveTimer=null;endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
+  return {pause,syncEvents,onEventEditorChange(callback){eventEditorChanged=callback;},unload(){window.clearTimeout(sensorFadeTimer);sensorFadeTimer=null;sensorVisuals.clear();sensorVisualModel=null;if(viewSaveTimer!==null)checkpoint();window.clearTimeout(viewSaveTimer);viewSaveTimer=null;finishSplit();syncEvents(false);setFullscreen(false);fullscreenCamera=null;window.clearTimeout(viewSaveTimer);viewSaveTimer=null;endDrag();cancelFrame();save=null;key=null;viewKey=null;model=null;defaultRun=null;representative=null;},load(identity,equipment,format,config={},stored,saveRecord,source,formats=[]){
     const configuredHours=config.shiftHours??config.durationOptions?.shiftHours??config.shiftSeconds/3600;
     const hours=Number.isFinite(configuredHours)&&configuredHours>0?configuredHours:8;
     const next=JSON.stringify([identity,config.seed,hours]);

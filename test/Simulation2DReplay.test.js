@@ -1451,3 +1451,37 @@ test('forklift departure cannot slow box placement or delay the next available r
  }
  assert.equal(placement(35),placement(34),'the last carton travels at the same speed as the preceding carton');
 });
+
+
+test('sensor rings follow the actual Back-up delay timers and retract quickly on interruption',()=>{
+ const window={};vm.runInNewContext(script('Simulation2DEngine'),{window});
+ const source=script('Simulation2D'),context=vm.createContext({});
+ vm.runInContext(source.slice(source.indexOf('  function sensorDelayState('),source.indexOf('  function drawSensor(')),context);
+ const defs=[{id:'up',kind:'machine',rate:1,batch:1,startDelay:0,rampSeconds:0,failures:[]},
+   {id:'belt',kind:'belt',length:300,speed:0,packageLength:30,pitch:60,packedGap:0,prime:250,backup:150,blockDelay:.5,clearDelay:.3,responseDelay:0,residual:0},
+   {id:'down',kind:'machine',rate:1,batch:1,startDelay:0,rampSeconds:0,failures:[]}];
+ const engine=window.STSimulation2DEngine.create(defs);engine.control('up','STOP');
+ const belt=engine.line[1];belt.items=[{x:150}];engine.step(.25);
+ const blocked=context.sensorDelayState(belt,engine.line[2],'B');assert(blocked.pending);assert.equal(blocked.mode,'blocked');assert.equal(blocked.progress,.5);
+ const before=context.sensorRingState(blocked,null,0);assert.equal(before.ring,.5);
+ belt.items=[];engine.step(.01);const canceled=context.sensorDelayState(belt,engine.line[2],'B');assert.equal(canceled.pending,false);
+ const start=context.sensorRingState(canceled,before,100),middle=context.sensorRingState(canceled,start,170),end=context.sensorRingState(canceled,middle,241);
+ assert(start.fading&&middle.fading);assert(middle.ring<start.ring);assert.equal(end.ring,0);assert.equal(end.fading,false);
+ assert.equal(context.sensorRingState(canceled,before,100,true).fading,false,'reduced motion resets the arc immediately');
+ belt.items=[{x:150}];engine.step(.5);assert.equal(belt.backupBlocked,true);
+ const complete=context.sensorRingState(context.sensorDelayState(belt,engine.line[2],'B'),before,100);
+ assert(complete.active&&!complete.fading&&!complete.pending,'timer completion fills the circle without a cancellation animation');
+ belt.items=[];engine.step(.15);const clear=context.sensorDelayState(belt,engine.line[2],'B');assert(clear.pending);assert.equal(clear.mode,'clear');assert.equal(clear.progress,.5);
+ engine.step(.15);const released=context.sensorDelayState(belt,engine.line[2],'B');assert(!released.active&&!released.pending);
+});
+
+test('Prime ring uses the combined downstream ramp time and does not invent a separate sensor delay',()=>{
+ const source=script('Simulation2D'),context=vm.createContext({});
+ vm.runInContext(source.slice(source.indexOf('  function sensorDelayState('),source.indexOf('  function drawSensor(')),context);
+ const belt={primeBeam:false},down={state:'Ramp up',awaitPrime:false,activeRampSeconds:1.5,rampElapsed:.75};
+ const state=context.sensorDelayState(belt,down,'P');assert(state.pending);assert.equal(state.progress,.5);assert.match(state.name,/combined/);
+ down.rampElapsed=1.5;down.state='Running';const finished=context.sensorDelayState(belt,down,'P');assert(finished.active&&!finished.pending);
+ assert(!context.sensorRingState(finished,context.sensorRingState(state,null,0),10).fading);
+ down.state='Waiting for Prime';down.awaitPrime=true;down.rampElapsed=0;const waiting=context.sensorDelayState(belt,down,'P');assert(!waiting.pending&&!waiting.active);
+ down.activeRampSeconds=0;assert.equal(context.sensorDelayState(belt,down,'P').pending,false);
+});
