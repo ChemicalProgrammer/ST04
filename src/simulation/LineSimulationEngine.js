@@ -1,4 +1,4 @@
-import { planDiscretePackages, addDiscretePackets } from './DiscretePackageEngine.js';
+import { planDiscretePackages, addDiscretePackets, advancePackagePositions } from './DiscretePackageEngine.js';
 import { stopReliabilityProfile, selectReliabilityStop } from './StopReliability.js';
 import { applyProductProfile, productUnitFactor, productFlowUnit, productPackSize } from './ProductProfiles.js';
 import { plantCalendarSchedule, resolvePlannedStops } from './PlantCalendarSchedule.js';
@@ -84,6 +84,7 @@ export async function simulateLineAsync(input, options = {}) {
 }
 
 function createRuntime(input) {
+  if(input.run.machineResidenceEnabled)input={...input,run:{...input.run,discretePackages:true,tickSeconds:Math.min(input.run.tickSeconds,1/120)}};
   const product=input.run.productCatalog?.find(p=>p.id===(input.run.initialFormatId??input.run.initialProductId));
   const baseEquipment=input.case.equipment;
   if(product)input={...input,case:{...input.case,equipment:applyProductProfile(baseEquipment,product)}};
@@ -160,7 +161,7 @@ function createEquipmentRuntime(model, seed, reliabilityEnabled = true, reliabil
   return {
     ...model,
     nominalRatePerSecond: machineOperatingRatePerSecond(model),
-    residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0},
+    residence: isConveyorEquipment(model)||(!residenceEnabled&&model.processData?.equipment?.internalCapacityBottles==null)?null:{clock:0,inventory:0,ready:0,queue:[],head:0,intakeCredit:1},
     mode: model.initialMode,
     availabilityState: model.initialMode,
     actualRatePerSecond: 0,
@@ -369,7 +370,7 @@ function effectiveRuntimeTargetReached(runtime) {
 }
 
 function executeTicks(runtime, until = runtime.run.durationSeconds) {
-  while (runtime.virtualSecond < until && !effectiveRuntimeTargetReached(runtime)) {
+  while (runtime.virtualSecond < until-1e-8 && !effectiveRuntimeTargetReached(runtime)) {
     applyDueCommands(runtime);
     updatePlantCalendar(runtime);
     updateReliabilityFailures(runtime);
@@ -389,7 +390,8 @@ function executeTicks(runtime, until = runtime.run.durationSeconds) {
     });
     if(!runtime.summaryOnly)runtime.historyTicks++;
     advanceEquipmentControlTimers(runtime);
-    runtime.virtualSecond += runtime.run.tickSeconds;
+    runtime.tickCount=(runtime.tickCount||0)+1;
+    runtime.virtualSecond=runtime.tickCount*runtime.run.tickSeconds;
     addSampleIfDue(runtime);
   }
 }
@@ -441,10 +443,46 @@ function initializeInitialMaterialStates(runtime) {
   });
 }
 
+// Whole packages keep their physical positions, including a packed queue. Sensors and
+// entry space must observe the same geometry, rather than a fluid transit band.
+function advanceDiscreteConveyor(runtime,zone,stopped){
+  zone.discreteItems??=[];
+  const items=zone.discreteItems,tick=runtime.run.tickSeconds;
+  const previous=items.map(item=>item.x);
+  advancePackagePositions(items,zone.usableLengthMm,zone.productLengthMm,zone.accumulatedPitchMm,
+    stopped?0:zone.conveyorSpeedMmPerSecond,tick);
+  let queued=0;
+  for(const item of items){
+    const target=zone.usableLengthMm-zone.productLengthMm/2-queued*zone.accumulatedPitchMm;
+    if(item.x<target-1e-6)break;
+    queued++;
+  }
+  zone.waitingUnits=queued;
+  zone.transit=items.slice(queued);
+  for(const [index,item] of items.entries()){
+    item.units=1;item.initialUnits=1;item.entryDurationSeconds=0;
+    item.arrivesAtVirtualSecond=runtime.virtualSecond+tick+(zone.usableLengthMm-zone.productLengthMm/2-item.x)/zone.conveyorSpeedMmPerSecond;
+    for(const sensor of zone.transportPhotoeyes){
+      const position=zone[sensor.position];
+      if(previous[index]+zone.productLengthMm/2<position&&item.x+zone.productLengthMm/2>=position){
+        zone[sensor.units]++;zone[sensor.last]=runtime.virtualSecond+tick;
+      }
+    }
+  }
+  zone.physicalPrimeReady=items.length>=zone.primeTriggerWaitingUnits&&items.slice(0,zone.primeTriggerWaitingUnits).every((item,index)=>
+    item.x>=zone.usableLengthMm-zone.productLengthMm/2-index*zone.accumulatedPitchMm-1e-6);
+  updatePrimeSensorSignal(runtime,zone);
+  const beam=zone.hasBackupSensor&&items.some(item=>Math.abs(item.x-zone.backupSensorPositionMm)<=zone.productLengthMm/2+1e-6);
+  const packed=zone.accumulatedPitchMm+1e-6<zone.productPitchMm&&items.some((item,index)=>index>0&&
+    items[index-1].x-item.x<=zone.accumulatedPitchMm+1e-6&&zone.backupSensorPositionMm>=item.x&&zone.backupSensorPositionMm<=items[index-1].x);
+  updateBackupSensorSegment(runtime,zone,tick,beam||packed,runtime.virtualSecond+tick);
+}
+
 function advanceAccumulationZones(runtime) {
   runtime.zones.forEach((zone) => {
     const owner = getEquipment(runtime, zone.ownerEquipmentId);
     const conveyorStopped = zone.physicalModelEnabled && owner && (!isAvailable(owner) || isStartDelayed(owner));
+    if(runtime.run.discretePackages&&zone.physicalModelEnabled){advanceDiscreteConveyor(runtime,zone,conveyorStopped);return;}
     if (conveyorStopped) {
       zone.transit.forEach((packet) => {
         delayTransitPacket(packet, runtime.run.tickSeconds);
@@ -514,7 +552,7 @@ function updateZonePhotoeyes(runtime, zone) {
 
 function updatePrimeSensorSignal(runtime, zone) {
   if (!zone.hasPrimeSensor) return;
-  const queueCoversPrime = zone.waitingUnits + 1e-8 >= zone.primeTriggerWaitingUnits;
+  const queueCoversPrime = zone.discreteItems?zone.physicalPrimeReady:zone.waitingUnits + 1e-8 >= zone.primeTriggerWaitingUnits;
   if (queueCoversPrime) triggerPrimeSensor(runtime, zone);
   zone.primeSignalState = queueCoversPrime
     ? 'BLOCKED'
@@ -569,27 +607,27 @@ function triggerPrimeSensor(runtime, zone) {
   });
 }
 
-function updateBackupSensor(runtime, zone) {
-  if (!zone.hasBackupSensor) return;
-  const queueCoversBackup = zone.waitingUnits >= zone.backupTriggerWaitingUnits;
-  const signalState = queueCoversBackup
-    ? 'BLOCKED'
-    : isNormalPulseActive(zone.backupPulseUntilVirtualSecond, runtime.virtualSecond)
-      ? 'PULSING'
-      : 'CLEAR';
-  zone.backupSignalState = signalState;
-  recordBackupSignalDuration(zone, signalState, runtime.run.tickSeconds);
+function updateBackupSensor(runtime,zone){
+  updateBackupSensorSegment(runtime,zone,runtime.run.tickSeconds,
+    isNormalPulseActive(zone.backupPulseUntilVirtualSecond,runtime.virtualSecond),runtime.virtualSecond);
+}
 
-  // A normal stream can pulse the photoeye on every product.  Only a queue
-  // covering the sensor creates a continuously BLOCKED signal and starts the
-  // blocked-delay timer.
-  if (!zone.backupActive && signalState === 'BLOCKED') {
-    zone.backupBlockedCandidateSeconds += runtime.run.tickSeconds;
-    if (zone.backupBlockedCandidateSeconds < zone.blockedTimeDelaySeconds) return;
+function updateBackupSensorSegment(runtime, zone, seconds, occupied, atSecond) {
+  if (!zone.hasBackupSensor) return;
+  const queueCoversBackup = !zone.discreteItems&&zone.waitingUnits >= zone.backupTriggerWaitingUnits;
+  const signalState=queueCoversBackup?'BLOCKED':occupied?'PULSING':'CLEAR';
+  zone.backupSignalState = signalState;
+  recordBackupSignalDuration(zone, signalState, seconds);
+
+  // Complete packages obstruct the same physical photoeye as an accumulated queue.
+  // A long passing product must also satisfy the blocked-delay timer.
+  if (!zone.backupActive && (signalState === 'BLOCKED' || zone.discreteItems && signalState === 'PULSING')) {
+    zone.backupBlockedCandidateSeconds += seconds;
+    if (zone.backupBlockedCandidateSeconds+1e-8 < zone.blockedTimeDelaySeconds) return;
     zone.backupActive = true;
     zone.backupBlockedCandidateSeconds = 0;
     zone.backupClearCandidateSeconds = 0;
-    zone.backupTriggeredAtVirtualSecond = runtime.virtualSecond;
+    zone.backupTriggeredAtVirtualSecond = atSecond;
     zone.backupTriggerCount += 1;
     const upstream = getEquipment(runtime, zone.upstreamControlEquipmentId);
     if (upstream) {
@@ -604,7 +642,7 @@ function updateBackupSensor(runtime, zone) {
     }
     runtime.events.push({
       type: 'BACKUP_SENSOR_BLOCKED',
-      atVirtualSecond: runtime.virtualSecond,
+      atVirtualSecond: atSecond,
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
@@ -622,9 +660,9 @@ function updateBackupSensor(runtime, zone) {
 
   // The signal must stay continuously clear. A passing package restarts the
   // clear timer instead of releasing an upstream stop from one normal gap.
-  if (zone.backupActive && signalState === 'CLEAR' && zone.waitingUnits <= zone.backupRestartWaitingUnits) {
-    zone.backupClearCandidateSeconds += runtime.run.tickSeconds;
-    if (zone.backupClearCandidateSeconds < zone.clearTimeDelaySeconds) return;
+  if (zone.backupActive && signalState === 'CLEAR' && (zone.discreteItems||zone.waitingUnits<=zone.backupRestartWaitingUnits)) {
+    zone.backupClearCandidateSeconds += seconds;
+    if (zone.backupClearCandidateSeconds+1e-8 < zone.clearTimeDelaySeconds) return;
     zone.backupActive = false;
     zone.backupClearCandidateSeconds = 0;
     zone.backupBlockedCandidateSeconds = 0;
@@ -643,7 +681,7 @@ function updateBackupSensor(runtime, zone) {
     }
     runtime.events.push({
       type: 'BACKUP_SENSOR_CLEARED',
-      atVirtualSecond: runtime.virtualSecond,
+      atVirtualSecond: atSecond,
       zoneId: zone.id,
       upstreamEquipmentId: zone.upstreamControlEquipmentId,
       waitingUnits: round(zone.waitingUnits),
@@ -839,7 +877,7 @@ function processEquipment(runtime, index) {
     !(equipment.residence?.inventory>1e-8)&&runtime.zones[index-1]?.waitingUnits<=1e-8){
     rearmPrime(runtime,equipment);
   }
-  if(equipment.actualRatePerSecond>0){
+  if(['RUNNING','RAMPING_UP','BACKUP_STOPPING'].includes(equipment.availabilityState)){
     // Full productive ticks, not output/nominal equivalent time: partial flow and
     // productive ramps still consume operating time. No-flow states consume none.
     equipment.reliabilityExposureSeconds+=runtime.run.tickSeconds;
@@ -866,6 +904,14 @@ function processEquipmentFlow(runtime, index) {
     return;
   }
 
+  if(runtime.run.discretePackages&&isConveyorEquipment(equipment)&&runtime.zones[index]?.physicalModelEnabled){
+    const occupied=getZoneInventory(runtime.zones[index])>0;
+    equipment.actualRatePerSecond=0;
+    equipment.availabilityState=occupied?'RUNNING':'STARVED';
+    if(occupied){equipment.runningSeconds+=tickSeconds;equipment.runningDesignOutput+=(equipment.nominalRatePerSecond*tickSeconds);}
+    else equipment.starvedSeconds+=tickSeconds;
+    return;
+  }
   if (requiresPrime(equipment)) {
     equipment.actualRatePerSecond = 0;
     equipment.waitingForPrimeSeconds += tickSeconds;
@@ -920,7 +966,8 @@ function processEquipmentFlow(runtime, index) {
     inputAvailable=residence.ready;
     flow=Math.max(0,Math.min(requestedFlow,inputAvailable,residualDischarge?requestedFlow:downstreamSpace));
   }
-  if(runtime.run.discretePackages){
+  const completePackages=runtime.run.discretePackages||residence&&equipment.nativeOutputUnit==='cases';
+  if(completePackages){
     const transportRate=incomingZone?.physicalModelEnabled
       ? (isTransportAvailable(getEquipment(runtime,incomingZone.ownerEquipmentId))
         ? incomingZone.conveyorSpeedMmPerSecond/incomingZone.accumulatedPitchMm : 0)
@@ -932,14 +979,13 @@ function processEquipmentFlow(runtime, index) {
     flow=planned.count;
     entries=planned.entries;
   }
-  const processingPackage=runtime.run.discretePackages&&equipment.packageRemainder>0&&inputAvailable>=1&&downstreamSpace>=1;
-  recordMaterialState(equipment, requestedFlow, inputAvailable, downstreamSpace, processingPackage?Math.max(flow,requestedFlow):flow, tickSeconds, control, residualDischarge);
   const phase=control?'STOP':isRampingUp(equipment)?'RAMP':null;
   if(flow>0&&phase){
     const phaseLoss=Math.max(0,tickSeconds-requestedFlow/equipment.nominalRatePerSecond);
     if(phase==='STOP')equipment.stopTransitionRateLossSeconds+=phaseLoss;
     else equipment.rampRateLossSeconds+=phaseLoss;
   }
+  let admitted=0;
   if(residence){
     residence.ready=Math.max(0,residence.ready-flow);
     residence.inventory=Math.max(0,residence.inventory-flow);
@@ -958,12 +1004,21 @@ function processEquipmentFlow(runtime, index) {
         residence.intakeCredit=Math.max(0,residence.intakeCredit-admission*ratio);
       }
       if(admission>0){
+        admitted=admission;
         residence.inventory+=admission;
         residence.queue.push({amount:admission,due:residence.clock+residenceSeconds});
         consumeFlow(runtime,index,admission);
       }
     }
   }
+  const pending=equipment.packageRemainder||0;
+  const processingPackage=completePackages&&pending>1e-8&&pending<1-1e-8&&(residence?.inventory??inputAvailable)>=1;
+  const workingInside=residence&&(admitted>0||residence.inventory-residence.ready>1e-8);
+  const blockedPackage=completePackages&&pending>=1-1e-8&&inputAvailable>=1&&downstreamSpace<1&&flow===0;
+  const working=!blockedPackage&&(processingPackage||workingInside);
+  const stateInput=completePackages&&inputAvailable<1?0:inputAvailable;
+  recordMaterialState(equipment,requestedFlow,working?Math.max(inputAvailable,requestedFlow):stateInput,downstreamSpace,
+    working?Math.max(flow,requestedFlow):flow,tickSeconds,control,residualDischarge);
   moveFlow(runtime, index, flow, residualDischarge, requestedFlow, inputAvailable, phase, entries);
   equipment.outputCount += flow;
   if(runtime.product)equipment.productiveNativeSeconds=(equipment.productiveNativeSeconds||0)+flow/equipment.nominalRatePerSecond;
@@ -1112,6 +1167,12 @@ function safeNonNegativeDivide(numerator, denominator) {
 function getDownstreamSpace(runtime, index) {
   if (index === runtime.equipment.length - 1) return Number.POSITIVE_INFINITY;
   const zone = runtime.zones[index];
+  const next=runtime.equipment[index+1],physical=runtime.zones[index+1];
+  // The hidden machine-to-conveyor handoff is a connection, not extra storage.
+  // A machine may discharge only when the real conveyor entry can accept it.
+  if(runtime.run.discretePackages&&!zone.physicalModelEnabled&&isConveyorEquipment(next)&&physical?.physicalModelEnabled){
+    return isTransportAvailable(next)?getZoneEntrySpace(physical):0;
+  }
   return getZoneEntrySpace(zone);
 }
 
@@ -1120,6 +1181,11 @@ function consumeFlow(runtime,index,flow) {
   if (index > 0) {
     const incoming=runtime.zones[index-1];
     const consumed=flow*(runtime.equipment[index].inputPerOutput||1);
+    if(incoming.discreteItems){
+      incoming.discreteItems.splice(0,Math.round(consumed));
+      const owner=runtime.equipmentById.get(incoming.ownerEquipmentId);
+      if(owner){owner.outputCount+=consumed;owner.actualRatePerSecond+=consumed/runtime.run.tickSeconds;}
+    }
     incoming.waitingUnits=Math.max(0,incoming.waitingUnits-consumed);
     incoming.dischargedUnits=(incoming.dischargedUnits||0)+consumed;
   }
@@ -1129,7 +1195,17 @@ function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvail
   if (index === runtime.equipment.length - 1) {
     const output=flow*(runtime.equipment[index].outputBottleFactor||1);
     runtime.outputCount += output;
-    if(flow>0){
+    if(runtime.run.discretePackages){
+      const reference=runtime.product?runtime.productReferenceRate:runtime.lineReferenceRate;
+      if(['RUNNING','RAMPING_UP','BACKUP_STOPPING'].includes(runtime.equipment[index].availabilityState))runtime.lineRunSeconds+=runtime.run.tickSeconds;
+      if(reference>0){
+        runtime.lineEffectiveRuntimeSeconds+=output/reference;
+        runtime.lineRateShortfallSeconds=Math.max(0,runtime.lineRunSeconds-runtime.lineEffectiveRuntimeSeconds);
+        runtime.lineRateRecoverySeconds=Math.max(0,runtime.lineEffectiveRuntimeSeconds-runtime.lineRunSeconds);
+        runtime.lineRateShortfallOutputEquivalents=runtime.lineRateShortfallSeconds*reference;
+        runtime.lineRateRecoveryOutputEquivalents=runtime.lineRateRecoverySeconds*reference;
+      }else runtime.lineRateReferenceValid=false;
+    }else if(flow>0){
       const reference=runtime.product?runtime.productReferenceRate:runtime.lineReferenceRate;
       runtime.lineRunSeconds+=runtime.run.tickSeconds;
       if(reference>0){
@@ -1154,6 +1230,11 @@ function moveFlow(runtime, index, flow, allowOverflow, requestedFlow, inputAvail
       else runtime.lineRateReferenceValid=false;
     }
     if(runtime.product){const row=currentProductRow(runtime);row.outputNative+=flow;row.outputBottleEquivalents+=flow*runtime.equipment[index].outputBottleFactor;}
+    return;
+  }
+  const next=runtime.equipment[index+1],physical=runtime.zones[index+1];
+  if(runtime.run.discretePackages&&!isConveyorEquipment(runtime.equipment[index])&&isConveyorEquipment(next)&&physical?.physicalModelEnabled){
+    if(flow>0)addFlowToZone(runtime,physical,flow,allowOverflow,requestedFlow>0?Array.from({length:Math.floor(flow)},()=>runtime.virtualSecond+runtime.run.tickSeconds):[]);
     return;
   }
   addFlowToZone(runtime, runtime.zones[index], flow, allowOverflow, entries);
@@ -1318,6 +1399,10 @@ function getEquipment(runtime, equipmentId) {
 }
 
 function getZoneEntrySpace(zone) {
+  if(zone.discreteItems){
+    const last=zone.discreteItems.at(-1);
+    return !last||last.x-zone.productLengthMm/2+1e-6>=zone.productPitchMm?1:0;
+  }
   const transitUnits = getTransitUnits(zone);
   const inventory = zone.waitingUnits + transitUnits;
   if (!zone.physicalModelEnabled) return Math.max(0, zone.capacityUnits - inventory);
@@ -1350,7 +1435,7 @@ function addSampleIfDue(runtime) {
 function addSample(runtime) {
   if(runtime.summaryOnly)return;
   const visibleZones = runtime.zones.filter((zone) => zone.visible);
-  runtime.nextSampleAt=runtime.virtualSecond+runtime.sampleInterval;
+  runtime.nextSampleAt=(Math.floor((runtime.virtualSecond+1e-8)/runtime.sampleInterval)+1)*runtime.sampleInterval;
   runtime.samples.push({
     virtualSecond: runtime.virtualSecond,
     productId:runtime.product?.id,
@@ -1519,7 +1604,7 @@ function createResult(runtime,partial=false) {
     },
     caseId: runtime.caseId,
     unitOfFlow: runtime.unitOfFlow,
-    engineVersion: '0.18.0',
+    engineVersion: '0.19.0',
     discretePackages:runtime.run.discretePackages===true||undefined,
     products: runtime.product ? {activeProductId:runtime.product.id,timeline:runtime.productTimeline,rows:Object.values(runtime.productRows).map(row=>({...row,completeCases:row.outputUnit==='CASES'?Math.floor((row.outputNative+1e-8)):null,partialCaseEquivalent:row.outputUnit==='CASES'?Math.max(0,row.outputNative-Math.floor(row.outputNative+1e-8)):null,oeePercent:row.idealBottleOutput>0?100*row.outputBottleEquivalents/row.idealBottleOutput:0})),model:runtime.run.discretePackages?'DISCRETE_PACKAGES':'CONTINUOUS_EQUIVALENT_FLOW',changeoverPolicy:'CLEAR_OUT_REMAINING_INVENTORY',clearoutBottleEquivalents:runtime.clearoutBottleEquivalents} : undefined,
     detailCoverage:recordingCoverage(runtime),
@@ -1609,7 +1694,7 @@ function equipmentCapacityBottles(equipment) {
   return (equipment.processData?.equipment?.internalCapacityBottles??Math.max(30,equipment.inputPerOutput||1))*factor;
 }
 function estimateResidence(equipment) {
-  return equipmentCapacityBottles(equipment)/((equipment.outputBottleFactor||1)*equipment.nominalRatePerSecond);
+  return equipment.processData?.equipment?.residenceTimeSeconds??0;
 }
 function equipmentInventoryBottles(equipment) {
   return equipment.residence?round(equipment.residence.inventory*(equipment.outputBottleFactor||1)):undefined;
@@ -1810,7 +1895,7 @@ function configureProductFactors(runtime){
 function switchRuntimeProduct(runtime,id){
   const product=runtime.run.productCatalog.find(p=>p.id===id);
   const removed=materialInventory(runtime);
-  for(const e of runtime.equipment)if(e.residence)e.residence={clock:0,inventory:0,ready:0,queue:[],head:0};
+  for(const e of runtime.equipment)if(e.residence)e.residence={clock:0,inventory:0,ready:0,queue:[],head:0,intakeCredit:1};
   runtime.clearoutBottleEquivalents+=removed;currentProductRow(runtime).clearoutBottleEquivalents+=removed;
   runtime.productTimeline.at(-1).endSeconds=runtime.virtualSecond;
   const models=applyProductProfile(runtime.baseEquipment,product);

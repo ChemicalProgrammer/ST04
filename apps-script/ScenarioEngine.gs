@@ -1168,6 +1168,7 @@ function validateRequiredNonNegative(value, path, details) {
 }
 
 function validateStartProfile(equipment, path, details) {
+  validateOptionalNonNegative(equipment.processData?.equipment?.residenceTimeSeconds,path+'.processData.equipment.residenceTimeSeconds',details);
   const capacity=equipment.processData?.equipment?.internalCapacityBottles;
   if(capacity!=null&&(!Number.isSafeInteger(capacity)||capacity<1))details.push(invalid(path+'.processData.equipment.internalCapacityBottles','must be a positive whole number of incoming units (bottles or cases)'));
   validateOptionalNonNegative(equipment.startupDelaySeconds, path + '.startupDelaySeconds', details);

@@ -15,6 +15,7 @@ test('internal capacity label follows the incoming unit and preserves the saved 
  fields.querySelector('.equipment-unit').dispatchEvent(new w.Event('change'));
  assert.match(capacity.parentNode.textContent,/Internal capacity \(cases\)/);
  assert.equal(capacity.value,'24');
- const data={};assert(w.STEquipmentRoles.readCapacity(fields,data));assert.equal(data.equipment.internalCapacityBottles,24);
+ fields.querySelector('.equipment-residence-time').value='2.5';
+ const data={};assert(w.STEquipmentRoles.readCapacity(fields,data));assert.equal(data.equipment.internalCapacityBottles,24);assert.equal(data.equipment.residenceTimeSeconds,2.5);
  dom.window.close();
 });

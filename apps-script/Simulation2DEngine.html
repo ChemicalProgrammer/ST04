@@ -86,13 +86,15 @@ window.STSimulation2DEngine=(function(){
           (position===null||position>=item.x&&position<=ahead.x);
       });
     }
-    function moveBelt(belt,seconds){
-      belt.travelSeconds=(belt.travelSeconds||0)+seconds;
-      const travel=belt.speed*seconds;
-      let limit=belt.length-belt.packageLength/2;
-      for(const item of belt.items){
-        item.x=Math.min(limit,item.x+travel);
-        limit=item.x-belt.packageLength-belt.packedGap;
+    function moveBelt(belt,seconds,moving=true){
+      belt.travelSeconds=(belt.travelSeconds||0)+(moving?seconds:0);
+      const travel=moving?belt.speed*seconds:0;
+      if(window.SimulatorEngine?.advancePackagePositions){
+        window.SimulatorEngine.advancePackagePositions(belt.items,belt.length,belt.packageLength,belt.packageLength+belt.packedGap,moving?belt.speed:0,seconds);
+      }else{
+        // Standalone replay harnesses can load the 2D core without the browser engine bundle.
+        let limit=belt.length-belt.packageLength/2;
+        for(const item of belt.items){item.x=Math.min(limit,item.x+travel);limit=item.x-belt.packageLength-belt.packedGap;}
       }
       const beam=position=>position!==null&&belt.items.some(item=>Math.abs(item.x-position)<=belt.packageLength/2);
       belt.primeBeam=beam(belt.prime);
@@ -175,7 +177,7 @@ window.STSimulation2DEngine=(function(){
             Math.min(Math.floor(downstream.residual/(machine.bottlesPerUnit||1)),Math.floor(machine.resident.length/machine.batch));
         }
       }else if(machine.backupSince!==null){
-        if(machine.backupStopped)rearmPrime(machine);
+        if(machine.backupStopped){rearmPrime(machine);machine.started=0;}
         machine.backupStopped=false;
         machine.backupSince=null;
         machine.rampElapsed=0;
@@ -228,7 +230,9 @@ window.STSimulation2DEngine=(function(){
       machine.residenceClock+=seconds;
       const capacity=Math.floor(machine.capacityBottles/machine.inputBottleFactor);
       const work=seconds*factor*machine.rate;
-      machine.outletCredit+=work;
+      const ready=machine.resident[machine.batch-1]<=machine.residenceClock+epsilon;
+      machine.outletCredit=machine.resident.length>=machine.batch?machine.outletCredit+work:0;
+      const beforeOutput=machine.produced;let admitted=0;
       let blocked=false;
       if((!stopping||machine.residual>0)&&machine.outletCredit+epsilon>=1&&machine.resident[machine.batch-1]<=machine.residenceClock+epsilon){
         if(discharge(machine,downstream)){
@@ -245,14 +249,14 @@ window.STSimulation2DEngine=(function(){
             if(!first||first.x+upstream.packageLength/2<upstream.length-epsilon)break;
             upstream.items.shift();upstream.produced++;upstream.recentOutput.push(time);
           }
-          machine.resident.push(machine.residenceClock+machine.residenceSeconds);
+          machine.resident.push(machine.residenceClock+machine.residenceSeconds);admitted++;
           machine.intakeCredit=Math.max(0,machine.intakeCredit-1);
         }
         machine.intakeCredit=Math.min(1,machine.intakeCredit);
       }
       if(accelerating&&!blocked)machine.rampElapsed+=seconds;
       machine.state=blocked?'Blocked':stopping&&!machine.resident.length&&motionState!=='Ramp down'?'Back-up stop':
-        machine.resident.length||!upstream||accelerating?motionState:
+        admitted>0||machine.produced>beforeOutput||machine.resident.some(due=>due>machine.residenceClock+epsilon)||ready&&machine.outletCredit>0||accelerating||motionState==='Ramp down'?motionState:
         'Starved';
     }
     return {line,snapshot,configure,control,get time(){return time;},step(seconds){
@@ -272,7 +276,7 @@ window.STSimulation2DEngine=(function(){
       }
       activeStop=nextStop;
       time+=seconds;
-      line.forEach(item=>{if(item.kind==='belt'&&available(item))moveBelt(item,seconds);});
+      line.forEach(item=>{if(item.kind==='belt')moveBelt(item,seconds,available(item));});
       for(let index=line.length-1;index>=0;index--){
         const item=line[index];
         if(item.kind!=='machine')continue;
@@ -282,7 +286,7 @@ window.STSimulation2DEngine=(function(){
         if(category)item.durations[category]+=seconds;
         if(item.state==='Back-up stop')item.backupStopped=true;
         const upstream=line[index-1];
-        if(item.state==='Starved'&&upstream?.kind==='belt'&&
+        if(item.state==='Starved'&&!(item.resident?.length>0)&&upstream?.kind==='belt'&&
           (!upstream.items[0]||upstream.items[0].x+upstream.packageLength/2<upstream.length-epsilon)){
           rearmPrime(item);
         }

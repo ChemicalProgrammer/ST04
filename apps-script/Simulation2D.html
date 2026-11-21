@@ -531,7 +531,7 @@ window.STSimulation2D=(function(){
         const maximum=data.equipment?.maximumSpeedBpm;
         const designSpeedPerSecond=maximum>0?maximum/60:item.nominalRatePerSecond;
         const rate=Math.min(item.nominalRatePerSecond,designSpeedPerSecond);
-        const residenceSeconds=capacityBottles/(rate*bottlesPerUnit);
+        const residenceSeconds=data.equipment?.residenceTimeSeconds??0;
         return {capacityBottles,residenceSeconds,inputBottleFactor,inputUnit:data.flowUnits?.input||'BOTTLES',id:item.id,name:item.name||item.id,
           kind:'machine',unit,length:1100,rate,bottlesPerUnit,designSpeedPerSecond,
           rampSeconds:item.restartRampUpSeconds??data.downstream?.rampUpTimeSeconds??0,
@@ -621,7 +621,7 @@ window.STSimulation2D=(function(){
     return Math.max(0,...definitions.filter(item=>item.kind==='machine').map(displayHeight));
   }
   function sceneHalfHeight(){
-    return Math.max(tallestMachine()/2,0,...definitions.filter(item=>item.kind==='belt').map(beltHalfHeight));
+    return Math.max(tallestMachine()/2,0,...definitions.filter(item=>item.kind==='belt').map(item=>showDimensions.checked?productHeight(item)+beltDepth+88:beltHalfHeight(item)));
   }
   function sceneTop(){
     const half=sceneHalfHeight();
@@ -950,7 +950,7 @@ window.STSimulation2D=(function(){
       }
       summary.push(['Back-up',item.backup===null?'—':item.backupBlocked?'Active':'Clear','']);
     }else summary.push(['Inside',num(item.resident?.length??0)+' / '+num(item.capacityBottles/item.inputBottleFactor),item.inputUnit==='CASES'?'cases':'bottles'],
-      ['Est. residence',num(item.residenceSeconds),'s'],
+      ['Residence time',num(item.residenceSeconds),'s'],
       ['Repair ramp',item.rampAfterRepair?num(item.rampSeconds):'Off',item.rampAfterRepair?'s':'']);
     summary.push(['Own failures',belt?'N/A':num(item.failureCount??0),'']);
     const states=belt
@@ -1144,6 +1144,28 @@ window.STSimulation2D=(function(){
         const text=Number.isFinite(minimum)?'L min · '+num(minimum)+' mm'+(design.minimumPartial?' (partial)':''):'L min · pending';
         context.fillText(text,lact.center,rowY+(lact.inline?14:4));
       }
+    }
+    context.restore();
+  }
+  function drawConveyorUnitDimensions(context,item,center,bottom,ink,accent,surface,beltColor,caseColor,pointer){
+    const widthMm=item.packageWidth>0?item.packageWidth:item.packageLength;
+    if(!(widthMm>0)||!(item.packageLength>0))return;
+    const gapMm=Math.max(0,item.pitch-item.packageLength);
+    const width=productWidth(item),height=productHeight(item),gap=gapMm*sceneScale;
+    const left=center-(2*width+gap)/2;
+    const palette={surface,belt:beltColor,accent,liquid:appearance.liquid||accent,cap:appearance.cap||caseColor,
+      label:appearance.label||'#f4f3ec',labelShape:appearance.labelShape,caseColor:appearance.cases||caseColor,
+      caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape};
+    context.save();context.font=telemetryFont;context.textAlign='center';context.textBaseline='middle';
+    for(const x of [left,left+width+gap]){
+      if(item.unit==='CASES')window.STSimulation2DMachines.drawCase(context,x,bottom-height,width,height,palette);
+      else window.STSimulation2DMachines.drawBottle(context,x,bottom-height,width,height,palette,appearance.bottle,bottleStages.get(item.id)??0);
+    }
+    const samples=[['Width',widthMm,left,left+width,bottom+20],['Gap',gapMm,left+width,left+width+gap,bottom+48]];
+    context.strokeStyle=accent;context.fillStyle=ink;
+    for(const [label,value,start,end,y] of samples){
+      const text=label+' · '+num(value)+' mm';
+      new CanvasDimension(text,start,end,y,bottom,context.measureText(text).width).draw(context,pointer);
     }
     context.restore();
   }
@@ -1411,6 +1433,7 @@ window.STSimulation2D=(function(){
           }
           context.restore();
           drawConveyorDimensions(context,item,x,dimensionY,width,beltY,ink,accent,pointer);
+          drawConveyorUnitDimensions(context,item,x+width/2,y+half-62,ink,accent,surface,beltColor,secondary,pointer);
         }
       }else{
         const height=displayHeight(item),top=y-height/2;
@@ -1704,8 +1727,7 @@ window.STSimulation2D=(function(){
     scheduleError='';
     try{nextSchedule=resolveSchedule(config);}catch(error){scheduleError=error.message;}
     const omitZone=(key,value)=>key==='zoneId'?undefined:value;
-    const nextSignature=JSON.stringify([next,revised,nextSchedule,scheduleError],omitZone);
-    const previousSignature=JSON.stringify([next,revised],omitZone);
+    const nextSignature=JSON.stringify(['physical-flow-2',next,revised,nextSchedule,scheduleError],omitZone);
     const nextRepresentative=Number.isFinite(source?.seed)?source:null;
     const sameCase=next===key&&nextSignature===signature;
     if(sameCase&&nextRepresentative?.round===representative?.round&&nextRepresentative?.seed===representative?.seed){
@@ -1737,7 +1759,7 @@ window.STSimulation2D=(function(){
     if(!el('speed').value)el('speed').value='1';
     if(newView){lastMachineActions.clear();markPlaybackAction(null);endDrag();viewKey=nextView;viewports.forEach(view=>{view.initialized=false;});camera.fit=viewportCount===1;}
     reset();
-    if(model&&stored?.version===1&&(stored.signature===signature||stored.signature===previousSignature&&!schedule.commands?.length&&!schedule.stops?.length)&&stored.checkpoint){
+    if(model&&stored?.version===1&&(stored.signature===signature)&&stored.checkpoint){
       model=STSimulation2DEngine.create(definitions,seed,stored.checkpoint,schedule);
       configureModel();
       shiftOutput=Array.isArray(stored.shiftOutput)?[...stored.shiftOutput]:[];

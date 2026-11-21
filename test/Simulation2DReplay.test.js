@@ -187,7 +187,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const equipment=[
       {id:'upstream',type:'FILLER',nominalRatePerSecond:10,processData:{equipment:{internalCapacityBottles:1,maximumSpeedBpm:599,stopInputs:{minor:{mtbfMinutes:.001,mttrMinutes:.002}}}}},
       {id:'belt',type:'CONVEYOR',processData:{upstream:{packageWidthMm:22}}},
-      {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:999}}}
+      {id:'m',nominalRatePerSecond:4,processData:{equipment:{internalCapacityBottles:8,residenceTimeSeconds:2}}}
     ];
     window.STSimulation2D.load(['case','simulation'],equipment,null,{seed:7,durationSeconds:25},null,record=>records.push(record),source);
     el('play').click();
@@ -356,7 +356,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     loadPacker();
     assert.equal(el('play').disabled,false);
     assert.equal(createdDefinitions.at(-1).capacityBottles,36);
-    assert.equal(createdDefinitions.at(-1).residenceSeconds,.75);
+    assert.equal(createdDefinitions.at(-1).residenceSeconds,2);
     packer.processData.flowUnits={input:'BOTTLES',output:'CASES'};
     delete packer.processData.equipment.internalCapacityBottles;
     loadPacker();
@@ -480,7 +480,10 @@ test('2D uses the representative seed to calculate new production and preserves 
       assert.equal(el(control).closest('.simulation2d-options'),dimensions.closest('.simulation2d-options'));
     }
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
+    assert(!currentLabels().some(text=>text.startsWith('Width ·')||text.startsWith('Gap ·')));
     dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
+    assert(currentLabels().some(text=>text.startsWith('Width ·')));
+    assert(currentLabels().some(text=>text.startsWith('Gap ·')));
     for(const label of ['Lact','Lp','Accumulation Zone (Lba)','Lbu','Discharge','Coding','Overflow','Lrec']){
       assert(currentLabels().some(text=>text.startsWith(label+' ·')));
     }
@@ -621,6 +624,7 @@ test('2D uses the representative seed to calculate new production and preserves 
 
     dimensions.checked=false;dimensions.dispatchEvent(new window.Event('change'));
     assert(!currentLabels().some(text=>text.startsWith('Lact ·')));
+    assert(!currentLabels().some(text=>text.startsWith('Width ·')||text.startsWith('Gap ·')));
     assert(!marker('Max Run-Out point'));
     assert(!marker('Design B'));
     assert.deepEqual(['B','P'].map(sensorPosition),calculatedSensors);

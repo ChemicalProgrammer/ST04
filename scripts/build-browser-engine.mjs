@@ -109,7 +109,7 @@ async function calculateBrowserBatch(input,options={}){
 function simulationInputSignature(input){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
   const run={...input.run};if(run.reliabilityEnabled!==false)delete run.reliabilityEnabled;
-  return JSON.stringify(canonical({version:'ST_CURRENT:0.18.0/DES:0.5.0/cache:27',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
+  return JSON.stringify(canonical({version:'ST_CURRENT:0.19.0/DES:0.5.0/cache:28',unitOfFlow:input.case.unitOfFlow||'units',equipment:input.case.equipment,run:{durationSeconds:300,tickSeconds:.25,sampleEverySeconds:5,seed:1,commands:[],rounds:1,engineId:CURRENT_ENGINE_ID,...run}}));
 }
 async function simulateBrowserBatch(input,options={}){
   const signature=simulationInputSignature(input);
@@ -119,6 +119,7 @@ async function simulateBrowserBatch(input,options={}){
 }
 window.addEventListener?.('pagehide',()=>{workerPool?.close();workerPool=null;});
 window.SimulatorEngine = {
+  advancePackagePositions,
   simulateLine: function(input){if(selectedEngine(input)===SIMPY_ENGINE_ID)return {ok:false,error:{code:'ASYNC_ENGINE_REQUIRED',message:'SimPy requires simulateLineAsync.'}};return simulateLine(input);},
   simulateBatch: simulateBrowserBatch,
   replicationView:replicationView,

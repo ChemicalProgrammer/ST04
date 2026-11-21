@@ -1,0 +1,2691 @@
+{
+  "baselineRevision": "e4e303600c37856939a057939ae6dd5a4ba3e5e2",
+  "sourceHashes": {
+    "src/simulation/LineSimulationEngine.js": "db57f279ec13957f0008f29645ac82ba445ed99e9581a9c6ef5c76b6267fe261",
+    "src/simulation/DiscretePackageEngine.js": "1fe70fd0dfa65624f6c67fb4d5a6b70cf71545c20b0a0f4f3e287c0f6d224a44",
+    "src/simulation/FormatGeometryAdapter.js": "b61f7ce978798f80f3f54453813c5cf4f22f94d4e3a99736a82f7189cb2f5a34",
+    "src/simulation/ProductProfiles.js": "ba0c727e7bac3d4d3fb84102ed836b8c0b50d7097685c7d91413f3a44f22d985",
+    "apps-script/Simulation2D.html": "64276103a831ea981c2f11b33b8e097fd45b13aefd8a48e92f4ec6cc822219df",
+    "apps-script/Simulation2DEngine.html": "d0a7d549970937927c239653fa30f4079e36e1559418df59961d64bad8493a83",
+    "apps-script/ConveyorAnalysis.html": "b29758e6c1327f2af56e55664216faa500b79151d6cca69cec3013efd16e3cfa"
+  },
+  "durationSeconds": 600,
+  "requestedNumericalTickSeconds": 0.25,
+  "numericalTickSeconds": 0.008333333333333333,
+  "twoDTickSeconds": 0.008333333333333333,
+  "scope": "Physical whole-package execution of ST_CURRENT vs 2D engine; shared conveyor motion policy. Empty start; no random failures; one round; identical commands. 1% is a diagnostic threshold, not physical validation.",
+  "results": [
+    {
+      "name": "Equal rates",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 1188,
+        "outputNative": 1188,
+        "materialBalance": {
+          "inputUnits": 1200,
+          "outputUnits": 1188,
+          "inventoryUnits": 12,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1199,
+            "stateSeconds": {
+              "RUNNING": 600
+            }
+          },
+          "b": {
+            "output": 1189,
+            "stateSeconds": {
+              "STARVED": 0.508333,
+              "RUNNING": 599.491667
+            }
+          },
+          "c": {
+            "output": 1188,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 5.9,
+              "RUNNING": 594.1
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 1188,
+        "outputNative": 1188,
+        "materialBalance": {
+          "input": 1201,
+          "output": 1188,
+          "inventory": 13,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1199,
+            "inventory": 2,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 599.9999999996187,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 1189,
+            "inventory": 10,
+            "stateSeconds": {
+              "empty": 0.5000000000000007,
+              "flowing": 3.883333333333322,
+              "accumulating": 595.6166666662893
+            }
+          },
+          {
+            "id": "c",
+            "output": 1188,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 594.0999999996241,
+              "starving": 5.900000000000083,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Downstream bottleneck",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 1189,
+        "outputNative": 1189,
+        "materialBalance": {
+          "inputUnits": 1220,
+          "outputUnits": 1189,
+          "inventoryUnits": 31,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1219,
+            "stateSeconds": {
+              "RUNNING": 406.666667,
+              "BACKUP_STOP": 193.333333
+            }
+          },
+          "b": {
+            "output": 1190,
+            "stateSeconds": {
+              "STARVED": 0.341667,
+              "RUNNING": 599.658333
+            }
+          },
+          "c": {
+            "output": 1189,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 5.066667,
+              "RUNNING": 594.933333
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 1189,
+        "outputNative": 1189,
+        "materialBalance": {
+          "input": 1220,
+          "output": 1189,
+          "inventory": 31,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1219,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 406.50833333312795,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 193.49166666665502,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 1190,
+            "inventory": 29,
+            "stateSeconds": {
+              "empty": 0.33333333333333354,
+              "flowing": 3.883333333333322,
+              "accumulating": 595.7833333329559
+            }
+          },
+          {
+            "id": "c",
+            "output": 1189,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 594.9333333329566,
+              "starving": 5.066666666666708,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "V graph",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "d",
+            "name": "d",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "e",
+            "name": "e",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "d",
+          "name": "d",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "d--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "e",
+          "name": "e",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 1180,
+        "outputNative": 1180,
+        "materialBalance": {
+          "inputUnits": 1220,
+          "outputUnits": 1180,
+          "inventoryUnits": 40,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1219,
+            "stateSeconds": {
+              "RUNNING": 406.666667,
+              "BACKUP_STOP": 193.333333
+            }
+          },
+          "b": {
+            "output": 1190,
+            "stateSeconds": {
+              "STARVED": 0.341667,
+              "RUNNING": 599.658333
+            }
+          },
+          "c": {
+            "output": 1189,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 5.066667,
+              "RUNNING": 594.933333
+            }
+          },
+          "d": {
+            "output": 1180,
+            "stateSeconds": {
+              "STARVED": 5.575,
+              "RUNNING": 594.425
+            }
+          },
+          "e": {
+            "output": 1180,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 204.7,
+              "RUNNING": 394.316667,
+              "STARVED": 0.983333
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 1180,
+        "outputNative": 1180,
+        "materialBalance": {
+          "input": 1220,
+          "output": 1180,
+          "inventory": 40,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1219,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 406.50833333312795,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 193.49166666665502,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 1190,
+            "inventory": 29,
+            "stateSeconds": {
+              "empty": 0.33333333333333354,
+              "flowing": 3.883333333333322,
+              "accumulating": 595.7833333329559
+            }
+          },
+          {
+            "id": "c",
+            "output": 1189,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 594.9333333329566,
+              "starving": 5.066666666666708,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "d",
+            "output": 1180,
+            "inventory": 9,
+            "stateSeconds": {
+              "empty": 5.566666666666733,
+              "flowing": 148.43333333336267,
+              "accumulating": 445.9999999997587
+            }
+          },
+          {
+            "id": "e",
+            "output": 1180,
+            "inventory": 0,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 394.3166666664724,
+              "starving": 205.6833333333106,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Slow conveyor / blocked delay 0.5 s",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 120,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 120,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 375,
+        "outputNative": 375,
+        "materialBalance": {
+          "inputUnits": 417,
+          "outputUnits": 375,
+          "inventoryUnits": 42,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 387,
+            "stateSeconds": {
+              "RUNNING": 126.116667,
+              "BLOCKED": 195.483333,
+              "BACKUP_STOP": 278.4
+            }
+          },
+          "b": {
+            "output": 375,
+            "stateSeconds": {
+              "STARVED": 0.341667,
+              "RUNNING": 599.658333
+            }
+          },
+          "c": {
+            "output": 375,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 411.25,
+              "RUNNING": 188.125,
+              "STARVED": 0.625
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 375,
+        "outputNative": 375,
+        "materialBalance": {
+          "input": 417,
+          "output": 375,
+          "inventory": 42,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 387,
+            "inventory": 30,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 126.1166666667131,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 195.48333333331988,
+              "backupStop": 278.39999999991113,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 375,
+            "inventory": 12,
+            "stateSeconds": {
+              "empty": 0.33333333333333354,
+              "flowing": 170.33333333334275,
+              "accumulating": 429.3333333331072
+            }
+          },
+          {
+            "id": "c",
+            "output": 375,
+            "inventory": 0,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 188.12499999999324,
+              "starving": 411.87499999978974,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Capacity of one bottle",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 1
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 1
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 1,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 1,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 1188,
+        "outputNative": 1188,
+        "materialBalance": {
+          "inputUnits": 1200,
+          "outputUnits": 1188,
+          "inventoryUnits": 12,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1199,
+            "stateSeconds": {
+              "RUNNING": 600
+            }
+          },
+          "b": {
+            "output": 1189,
+            "stateSeconds": {
+              "STARVED": 0.508333,
+              "RUNNING": 599.491667
+            }
+          },
+          "c": {
+            "output": 1188,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 5.9,
+              "RUNNING": 594.1
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 1188,
+        "outputNative": 1188,
+        "materialBalance": {
+          "input": 1200,
+          "output": 1188,
+          "inventory": 12,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1199,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 599.9999999996187,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 1189,
+            "inventory": 10,
+            "stateSeconds": {
+              "empty": 0.5000000000000007,
+              "flowing": 3.883333333333322,
+              "accumulating": 595.6166666662893
+            }
+          },
+          {
+            "id": "c",
+            "output": 1188,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 594.0999999996241,
+              "starving": 5.900000000000083,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "High rate / conveyor limited",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 10,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 10,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 10,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 10,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 2978,
+        "outputNative": 2978,
+        "materialBalance": {
+          "inputUnits": 3030,
+          "outputUnits": 2978,
+          "inventoryUnits": 52,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 3000,
+            "stateSeconds": {
+              "RUNNING": 275.108333,
+              "BLOCKED": 324.891667
+            }
+          },
+          "b": {
+            "output": 2979,
+            "stateSeconds": {
+              "STARVED": 0.108333,
+              "RUNNING": 599.891667
+            }
+          },
+          "c": {
+            "output": 2978,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 227.658333,
+              "RUNNING": 322.708333,
+              "STARVED": 49.633333
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 2978,
+        "outputNative": 2978,
+        "materialBalance": {
+          "input": 3030,
+          "output": 2978,
+          "inventory": 52,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 3000,
+            "inventory": 30,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 275.10833333324746,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 324.8916666665355,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 2979,
+            "inventory": 21,
+            "stateSeconds": {
+              "empty": 0.09999999999999999,
+              "flowing": 3.883333333333322,
+              "accumulating": 596.016666666289
+            }
+          },
+          {
+            "id": "c",
+            "output": 2978,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 322.7166666665375,
+              "starving": 277.2833333332455,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Startup and Prime ramp",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2.1666666666666665,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 100
+              },
+              "upstream": {
+                "startupTimeSeconds": 1
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 3
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 1.6666666666666667,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 100
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 100,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2.1666666666666665,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2.1666666666666665,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 1,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 100,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 1.6666666666666667,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 1.6666666666666667,
+          "rampSeconds": 0,
+          "primeRampSeconds": 3,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 986,
+        "outputNative": 986,
+        "materialBalance": {
+          "inputUnits": 1015,
+          "outputUnits": 986,
+          "inventoryUnits": 29,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1014,
+            "stateSeconds": {
+              "STARTING": 48.4,
+              "RUNNING": 473.608333,
+              "BACKUP_STOP": 77.991667
+            }
+          },
+          "b": {
+            "output": 987,
+            "stateSeconds": {
+              "STARVED": 1.483333,
+              "RUNNING": 598.516667
+            }
+          },
+          "c": {
+            "output": 986,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 6.741667,
+              "RAMPING_UP": 3.008333,
+              "RUNNING": 590.25
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 986,
+        "outputNative": 986,
+        "materialBalance": {
+          "input": 1017,
+          "output": 986,
+          "inventory": 31,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1015,
+            "inventory": 2,
+            "stateSeconds": {
+              "starting": 48.399999999997895,
+              "running": 468.92499999973785,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 82.67500000001186,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 987,
+            "inventory": 28,
+            "stateSeconds": {
+              "empty": 1.4749999999999972,
+              "flowing": 3.883333333333322,
+              "accumulating": 594.6416666662902
+            }
+          },
+          {
+            "id": "c",
+            "output": 986,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 590.2749999996275,
+              "starving": 6.71666666666679,
+              "acceleration": 3.0083333333333253,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Slow conveyor / blocked delay 0.75 s",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 120,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.75,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": []
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 120,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.75,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 700,
+        "outputNative": 700,
+        "materialBalance": {
+          "inputUnits": 750,
+          "outputUnits": 700,
+          "inventoryUnits": 50,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 720,
+            "stateSeconds": {
+              "RUNNING": 234.341667,
+              "BLOCKED": 365.658333
+            }
+          },
+          "b": {
+            "output": 700,
+            "stateSeconds": {
+              "STARVED": 0.341667,
+              "RUNNING": 599.658333
+            }
+          },
+          "c": {
+            "output": 700,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 247.666667,
+              "RUNNING": 351.166667,
+              "STARVED": 1.166667
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 700,
+        "outputNative": 700,
+        "materialBalance": {
+          "input": 750,
+          "output": 700,
+          "inventory": 50,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 720,
+            "inventory": 30,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 234.34166666661787,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 365.6583333331651,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 700,
+            "inventory": 20,
+            "stateSeconds": {
+              "empty": 0.33333333333333354,
+              "flowing": 202.8333333333132,
+              "accumulating": 396.83333333313675
+            }
+          },
+          {
+            "id": "c",
+            "output": 700,
+            "inventory": 0,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 351.1666666665116,
+              "starving": 248.83333333327136,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Scheduled downstream pause 120–180 s",
+      "input": {
+        "equipment": [
+          {
+            "id": "a",
+            "name": "a",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 3,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 60,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              }
+            }
+          },
+          {
+            "id": "c",
+            "name": "c",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 2,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              }
+            }
+          }
+        ],
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": [
+            {
+              "atVirtualSecond": 120,
+              "equipmentId": "c",
+              "action": "PAUSE"
+            },
+            {
+              "atVirtualSecond": 180,
+              "equipmentId": "c",
+              "action": "RUN"
+            }
+          ]
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "a",
+          "name": "a",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 3,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 3,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 60,
+          "packageWidth": null,
+          "pitch": 100,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "c",
+          "name": "c",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 2,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 2,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 1069,
+        "outputNative": 1069,
+        "materialBalance": {
+          "inputUnits": 1101,
+          "outputUnits": 1069,
+          "inventoryUnits": 32,
+          "overflowUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "a": {
+            "output": 1100,
+            "stateSeconds": {
+              "RUNNING": 367,
+              "BACKUP_STOP": 233
+            }
+          },
+          "b": {
+            "output": 1070,
+            "stateSeconds": {
+              "STARVED": 0.341667,
+              "RUNNING": 599.658333
+            }
+          },
+          "c": {
+            "output": 1069,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 5.066667,
+              "RUNNING": 534.933333,
+              "PAUSED": 60
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 1069,
+        "outputNative": 1069,
+        "materialBalance": {
+          "input": 1102,
+          "output": 1069,
+          "inventory": 33,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "a",
+            "output": 1101,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 367.0083333331639,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 232.9916666666191,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 1070,
+            "inventory": 31,
+            "stateSeconds": {
+              "empty": 0.33333333333333354,
+              "flowing": 3.883333333333322,
+              "accumulating": 595.7833333329559
+            }
+          },
+          {
+            "id": "c",
+            "output": 1069,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 534.9333333330112,
+              "starving": 5.066666666666708,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 59.999999999997236,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    },
+    {
+      "name": "Packer 12 bottles per case",
+      "input": {
+        "equipment": [
+          {
+            "id": "source",
+            "name": "source",
+            "type": "CUSTOM",
+            "nominalRatePerSecond": 12,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              },
+              "flowUnits": {
+                "input": "BOTTLES",
+                "output": "BOTTLES"
+              }
+            }
+          },
+          {
+            "id": "b",
+            "name": "b",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 20,
+                "movingGapMm": 10,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 2000,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              },
+              "flowUnits": {
+                "input": "BOTTLES",
+                "output": "BOTTLES"
+              }
+            }
+          },
+          {
+            "id": "packer",
+            "name": "packer",
+            "type": "CASE_PACKER",
+            "nominalRatePerSecond": 1,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              },
+              "flowUnits": {
+                "input": "BOTTLES",
+                "output": "CASES"
+              }
+            }
+          },
+          {
+            "id": "boxes",
+            "name": "boxes",
+            "type": "CONVEYOR",
+            "nominalRatePerSecond": 10,
+            "initialMode": "AUTO",
+            "processData": {
+              "accumulation": {
+                "speedMode": "MANUAL",
+                "usableLengthMm": 2000,
+                "productLengthMm": 100,
+                "movingGapMm": 40,
+                "accumulatedGapMm": 0,
+                "conveyorSpeedMmPerSecond": 500,
+                "primeSensorPositionMm": 1700,
+                "backupSensorPositionMm": 300,
+                "backupRestartPositionMm": 400,
+                "blockedTimeDelaySeconds": 0.5,
+                "clearTimeDelaySeconds": 0.5,
+                "upstreamStopResponseSeconds": 0,
+                "bottlesDischargedAtStop": 0,
+                "downstreamRampUpSeconds": 0
+              },
+              "flowUnits": {
+                "input": "CASES",
+                "output": "CASES"
+              }
+            }
+          },
+          {
+            "id": "sink",
+            "name": "sink",
+            "type": "PALLETIZER",
+            "nominalRatePerSecond": 1,
+            "initialMode": "AUTO",
+            "processData": {
+              "equipment": {
+                "internalCapacityBottles": 30
+              },
+              "upstream": {
+                "startupTimeSeconds": 0
+              },
+              "downstream": {
+                "rampUpTimeSeconds": 0
+              },
+              "flowUnits": {
+                "input": "CASES",
+                "output": "CASES"
+              }
+            }
+          }
+        ],
+        "format": {
+          "id": "12",
+          "name": "12 bottles",
+          "bottlesPerCase": 12,
+          "bottleLengthMm": 20,
+          "caseLengthMm": 100
+        },
+        "run": {
+          "durationSeconds": 600,
+          "tickSeconds": 0.25,
+          "sampleEverySeconds": 60,
+          "seed": 7,
+          "machineResidenceEnabled": true,
+          "reliabilityEnabled": false,
+          "commands": [],
+          "productCatalog": [
+            {
+              "id": "12",
+              "name": "12 bottles",
+              "bottlesPerCase": 12,
+              "bottleLengthMm": 20,
+              "caseLengthMm": 100
+            }
+          ],
+          "initialProductId": "12"
+        }
+      },
+      "definitions2D": [
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "source",
+          "name": "source",
+          "kind": "machine",
+          "unit": "BOTTLES",
+          "length": 1100,
+          "rate": 12,
+          "bottlesPerUnit": 1,
+          "designSpeedPerSecond": 12,
+          "rampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        },
+        {
+          "id": "b",
+          "name": "b",
+          "kind": "belt",
+          "unit": "BOTTLES",
+          "bottlesPerUnit": 1,
+          "zoneId": "b--physical-zone",
+          "length": 2000,
+          "speed": 2000,
+          "beltWidth": null,
+          "packageLength": 20,
+          "packageWidth": null,
+          "pitch": 30,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 30,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 1,
+          "inputUnit": "BOTTLES",
+          "id": "packer",
+          "name": "packer",
+          "kind": "machine",
+          "unit": "CASES",
+          "length": 1100,
+          "rate": 1,
+          "bottlesPerUnit": 12,
+          "designSpeedPerSecond": 1,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 12
+        },
+        {
+          "id": "boxes",
+          "name": "boxes",
+          "kind": "belt",
+          "unit": "CASES",
+          "bottlesPerUnit": 12,
+          "zoneId": "boxes--physical-zone",
+          "length": 2000,
+          "speed": 500,
+          "beltWidth": null,
+          "packageLength": 100,
+          "packageWidth": null,
+          "pitch": 140,
+          "packedGap": 0,
+          "prime": 1700,
+          "backup": 300,
+          "configuredBackupRelease": 400,
+          "blockDelay": 0.5,
+          "clearDelay": 0.5,
+          "responseDelay": 0,
+          "residual": 0
+        },
+        {
+          "capacityBottles": 360,
+          "residenceSeconds": 0,
+          "inputBottleFactor": 12,
+          "inputUnit": "CASES",
+          "id": "sink",
+          "name": "sink",
+          "kind": "machine",
+          "unit": "CASES",
+          "length": 1100,
+          "rate": 1,
+          "bottlesPerUnit": 12,
+          "designSpeedPerSecond": 1,
+          "rampSeconds": 0,
+          "primeRampSeconds": 0,
+          "rampAfterRepair": false,
+          "failures": [],
+          "startDelay": 0,
+          "batch": 1
+        }
+      ],
+      "numerical": {
+        "outputBottleEquivalents": 7080,
+        "outputNative": 590,
+        "materialBalance": {
+          "inputUnits": 7200,
+          "outputUnits": 7080,
+          "inventoryUnits": 120,
+          "overflowUnits": 0,
+          "clearoutUnits": 0,
+          "residualUnits": 0
+        },
+        "equipment": {
+          "source": {
+            "output": 7199,
+            "stateSeconds": {
+              "RUNNING": 600
+            }
+          },
+          "b": {
+            "output": 7175,
+            "stateSeconds": {
+              "STARVED": 0.091667,
+              "RUNNING": 599.908333
+            }
+          },
+          "packer": {
+            "output": 596,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 2.1,
+              "RUNNING": 597,
+              "STARVED": 0.825,
+              "BLOCKED": 0.075
+            }
+          },
+          "boxes": {
+            "output": 591,
+            "stateSeconds": {
+              "STARVED": 4.025,
+              "RUNNING": 595.975
+            }
+          },
+          "sink": {
+            "output": 590,
+            "stateSeconds": {
+              "WAITING_FOR_PRIME": 9.5,
+              "RUNNING": 590.5
+            }
+          }
+        }
+      },
+      "twoD": {
+        "outputBottleEquivalents": 7080,
+        "outputNative": 590,
+        "materialBalance": {
+          "input": 7201,
+          "output": 7080,
+          "inventory": 121,
+          "residual": 0
+        },
+        "equipment": [
+          {
+            "id": "source",
+            "output": 7199,
+            "inventory": 2,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 599.9999999996187,
+              "starving": 0,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "b",
+            "output": 7175,
+            "inventory": 24,
+            "stateSeconds": {
+              "empty": 0.08333333333333333,
+              "flowing": 0.9916666666666656,
+              "accumulating": 598.9249999996197
+            }
+          },
+          {
+            "id": "packer",
+            "output": 596,
+            "inventory": 23,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 597.0833333329547,
+              "starving": 2.916666666666659,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          },
+          {
+            "id": "boxes",
+            "output": 591,
+            "inventory": 5,
+            "stateSeconds": {
+              "empty": 4.008333333333322,
+              "flowing": 121.800000000043,
+              "accumulating": 474.1916666663997
+            }
+          },
+          {
+            "id": "sink",
+            "output": 590,
+            "inventory": 1,
+            "stateSeconds": {
+              "starting": 0,
+              "running": 590.5916666662939,
+              "starving": 9.40833333333344,
+              "acceleration": 0,
+              "deceleration": 0,
+              "blocked": 0,
+              "backupStop": 0,
+              "failure": 0,
+              "paused": 0,
+              "stopped": 0,
+              "emergencyStop": 0,
+              "plannedStop": 0
+            }
+          }
+        ]
+      },
+      "differencePercent": 0,
+      "withinOnePercent": true
+    }
+  ]
+}

@@ -309,7 +309,7 @@ test('machine residence holds stock through pauses and includes it in material b
   const input=createInput();
   Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:75,sampleEverySeconds:1,
     commands:[{equipmentId:'source',atVirtualSecond:5,action:'PAUSE'},{equipmentId:'source',atVirtualSecond:10,action:'AUTO'}]});
-  input.case.equipment[0].processData.equipment={internalCapacityBottles:200};
+  input.case.equipment[0].processData.equipment={internalCapacityBottles:200,residenceTimeSeconds:25};
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const sourceAt=time=>result.samples.find(sample=>sample.virtualSecond===time).equipment[0];
@@ -321,19 +321,22 @@ test('machine residence holds stock through pauses and includes it in material b
   assert(result.samples.every(sample=>sample.equipment[0].internalInventoryBottles<=200));
 });
 
-test('ST meters residence intake and maintains output after the first bottle exits', () => {
+test('explicit residence is independent of capacity and preserves integer package headways', () => {
   const input=createInput();
   Object.assign(input.run,{machineResidenceEnabled:true,durationSeconds:55,sampleEverySeconds:1});
   input.case.equipment[0].nominalRatePerSecond=1.5;
-  input.case.equipment[0].processData.equipment={residenceTimeSeconds:999};
+  input.case.equipment[0].processData.equipment={internalCapacityBottles:35,residenceTimeSeconds:20};
+  input.case.equipment[2].nominalRatePerSecond=10;
   input.case.equipment[1].processData.accumulation.primeSensorPositionMm=100;
-  input.case.equipment[2].nominalRatePerSecond=1.5;
+  input.case.equipment[2].processData.downstream.rampUpTimeSeconds=0;
+  input.case.equipment[0].processData.downstream.rampUpTimeSeconds=0;
   const {ok,result}=simulateLine(input);
   assert.equal(ok,true);
   const output=time=>result.samples.find(frame=>frame.virtualSecond===time).equipment[0].outputCount;
   const firstAdmission=result.samples.find(frame=>frame.equipment[0].internalInventoryBottles>0);
   const firstDischarge=result.samples.find(frame=>frame.equipment[0].outputCount>0);
   assert.equal(firstDischarge.virtualSecond-firstAdmission.virtualSecond,20);
-  for(let time=31;time<=50;time++)assert.equal(output(time)-output(time-1),1.5);
+  for(let time=31;time<=50;time++)assert([1,2].includes(output(time)-output(time-1)));
+  assert(Math.abs(output(50)-output(30)-30)<=1);
   assert.equal(result.summary.materialBalance.residualUnits,0);
 });

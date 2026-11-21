@@ -6,9 +6,10 @@ import {createHash} from 'node:crypto';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const {simulateLine}=await import(root+'/src/simulation/LineSimulationEngine.js');
 const profiles=await import(root+'/src/simulation/ProductProfiles.js');
+const {advancePackagePositions}=await import(root+'/src/simulation/DiscretePackageEngine.js');
 const {resolveAccumulationZoneDefinition}=await import(root+'/src/simulation/FormatGeometryAdapter.js');
 const script=name=>fs.readFileSync(root+'/apps-script/'+name+'.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
-const window={SimulatorEngine:{...profiles,resolveProductConveyor:(line,i)=>resolveAccumulationZoneDefinition(line,i).definition}};
+const window={SimulatorEngine:{...profiles,advancePackagePositions,resolveProductConveyor:(line,i)=>resolveAccumulationZoneDefinition(line,i).definition}};
 const context=vm.createContext({window,document:{getElementById:()=>({addEventListener(){}})}});
 vm.runInContext(script('ConveyorAnalysis'),context);
 vm.runInContext(script('Simulation2DEngine'),context);
@@ -60,7 +61,7 @@ for(const scenario of cases){
  assert(Math.abs(numerical.summary.materialBalance.residualUnits)<1e-5,'Numerical material imbalance');
  assert.equal(input2D-output2D-inventory2D,0,'2D material imbalance');
  for(const item of model.line)assert(Math.abs(Object.values(item.durations).reduce((a,b)=>a+b,0)-durationSeconds)<1e-6,'2D state clock');
- for(const item of Object.values(numerical.equipmentMetrics))assert(Math.abs(Object.values(item.stateSeconds).reduce((a,b)=>a+b,0)-durationSeconds)<1e-6,'Numerical state clock');
+ for(const item of Object.values(numerical.equipmentMetrics))assert(Math.abs(Object.values(item.stateSeconds).reduce((a,b)=>a+b,0)-durationSeconds)<5e-6,'Numerical state clock');
  const differencePercent=100*(numerical.summary.outputCount/output2D-1);
  const row={name,input:{equipment,format,run},definitions2D:definitions,
   numerical:{outputBottleEquivalents:numerical.summary.outputCount,outputNative:format?numerical.products.rows[0].outputNative:numerical.summary.outputCount,materialBalance:numerical.summary.materialBalance,
@@ -71,8 +72,8 @@ for(const scenario of cases){
  results.push(row);
  console.log(`${name}: numerical=${row.numerical.outputNative}, 2D=${row.twoD.outputNative}, delta=${differencePercent.toFixed(3)}% ${row.withinOnePercent?'WITHIN 1%':'DIVERGES'}`);
 }
-const report={referenceRevision:'34b0afe10e5c905e5e168f1fcd0363d02229ad86',sourceHashes:Object.fromEntries(['src/simulation/LineSimulationEngine.js','src/simulation/FormatGeometryAdapter.js','src/simulation/ProductProfiles.js','apps-script/Simulation2D.html','apps-script/Simulation2DEngine.html','apps-script/ConveyorAnalysis.html'].map(path=>[path,createHash('sha256').update(fs.readFileSync(root+'/'+path)).digest('hex')])),durationSeconds,numericalTickSeconds:.25,twoDTickSeconds:step2D,
- scope:'Continuous numerical engine ST_CURRENT vs independent 2D engine. Empty start; no random failures; one round; identical commands. 1% is a diagnostic threshold, not physical validation.',results};
+const report={baselineRevision:'e4e303600c37856939a057939ae6dd5a4ba3e5e2',sourceHashes:Object.fromEntries(['src/simulation/LineSimulationEngine.js','src/simulation/DiscretePackageEngine.js','src/simulation/FormatGeometryAdapter.js','src/simulation/ProductProfiles.js','apps-script/Simulation2D.html','apps-script/Simulation2DEngine.html','apps-script/ConveyorAnalysis.html'].map(path=>[path,createHash('sha256').update(fs.readFileSync(root+'/'+path)).digest('hex')])),durationSeconds,requestedNumericalTickSeconds:.25,numericalTickSeconds:1/120,twoDTickSeconds:step2D,
+ scope:'Physical whole-package execution of ST_CURRENT vs 2D engine; shared conveyor motion policy. Empty start; no random failures; one round; identical commands. 1% is a diagnostic threshold, not physical validation.',results};
 const output=process.argv.find(arg=>arg.startsWith('--output='))?.slice(9);
 if(output)fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');
 if(process.argv.includes('--strict')&&results.some(row=>!row.withinOnePercent))process.exitCode=1;

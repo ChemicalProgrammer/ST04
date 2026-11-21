@@ -132,11 +132,11 @@ test('internal capacity counts incoming cases at palletizers and incoming bottle
  assert.equal(packer.internalCapacityBottles,24);
  assert.equal(packer.internalInputBottleFactor,1);
  assert.equal(packer.internalInputUnit,'bottles');
- assert.equal(packer.estimatedResidenceSeconds,1);
+ assert.equal(packer.estimatedResidenceSeconds,0);
  assert.equal(sink.internalCapacityBottles,36);
  assert.equal(sink.internalInputBottleFactor,12);
  assert.equal(sink.internalInputUnit,'cases');
- assert.equal(sink.estimatedResidenceSeconds,1.5);
+ assert.equal(sink.estimatedResidenceSeconds,0);
  for(const sample of r.samples){
    const machine=sample.equipment.find(e=>e.id==='sink');
    assert(machine.internalInventoryBottles/12<=3+1e-6);
