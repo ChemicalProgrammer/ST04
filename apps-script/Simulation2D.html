@@ -128,7 +128,7 @@ window.STSimulation2D=(function(){
   const telemetryPairWidth=telemetryWidths[0]+telemetryWidths[1]+telemetryGap;
   const telemetryGroupWidth=telemetryPairWidth+telemetryWidths[2]+telemetryGap;
   const conveyorGroupWidth=telemetryPairWidth+telemetryWidths[3]+telemetryGap;
-  const machineHeight=540*sceneScale*machineScale,beltDepth=7.5,beltInset=1.5;
+  const machineHeight=540*sceneScale*machineScale,beltDepth=7.5*.75,beltInset=1.5*.75;
   let shiftHours=8,shiftOutput=[],limitSeconds=3600,save,signature,lastSave=0;
   let seed=1,key,viewKey,definitions=[],model=null,frame,previous=0,lag=0,drag,validation='',runState='Ready',lastMetrics=-Infinity;
   let representative=null,defaultRun=null,palletAnimation=null;
@@ -621,7 +621,7 @@ window.STSimulation2D=(function(){
     return Math.max(0,...definitions.filter(item=>item.kind==='machine').map(displayHeight));
   }
   function sceneHalfHeight(){
-    return Math.max(tallestMachine()/2,0,...definitions.filter(item=>item.kind==='belt').map(item=>showDimensions.checked?productHeight(item)+beltDepth+88:beltHalfHeight(item)));
+    return Math.max(tallestMachine()/2,0,...definitions.filter(item=>item.kind==='belt').map(item=>showDimensions.checked?productHeight(item)+beltDepth+116:beltHalfHeight(item)));
   }
   function sceneTop(){
     const half=sceneHalfHeight();
@@ -670,19 +670,19 @@ window.STSimulation2D=(function(){
       const right=(view.canvas.clientWidth-position.x)*sceneScale/position.scale-output.start;
       exitOffset=Math.max(exitOffset,right+40);
     }
-    return {pickupOffset:100+2*pitch,baselineExitOffset,exitOffset};
+    return {pickupOffset:100+2*pitch,palletPitch:pitch,baselineExitOffset,exitOffset};
   }
-  function palletTransfer(item,route){
+  function palletTransfer(item,route,manual=false){
     const time=model?.time??0,produced=item.produced||0;
     if(palletAnimation?.model!==model||time<palletAnimation.time){
       palletAnimation={model,time,settled:produced,placed:produced,started:null,duration:1,batch:0,picked:false};
     }
     const animation=palletAnimation;
     animation.time=time;
+    animation.removedPallets??=[];
     if(reducedMotion?.matches){
       animation.settled=produced;animation.started=null;
       animation.placed=produced;
-      return {produced,progress:1,batch:1,waiting:0};
     }
     // Stage motion is symbolic. Keep readable physical travel times even at high throughput;
     // production counters and the simulation's configured machine rate remain independent.
@@ -731,14 +731,36 @@ window.STSimulation2D=(function(){
     const group=Math.floor((result.produced-1)/36),index=(result.produced-1)%36;
     const finished=!Number.isFinite(animation.forkStarted)||time-animation.forkStarted>=animation.forkPeriod&&
       (!route||window.STSimulation2DMachines.forkliftMotion(forkProgress(),animation.forkPickup,animation.forkExitOffset).x>=route.exitOffset);
-    if(group>=2&&index>=33&&animation.forkGroup!==group&&finished){
-      animation.forkGroup=group;
+    if(Number.isFinite(animation.forkStarted)&&forkProgress()>=.42&&Number.isInteger(animation.forkPalletId)&&!animation.removedPallets.includes(animation.forkPalletId))animation.removedPallets.push(animation.forkPalletId);
+    const stage=window.STSimulation2DMachines.palletStage(result.produced,progress,undefined,undefined,animation.removedPallets);
+    const available=stage.fullPallets;
+    if(Number.isFinite(animation.forkStarted)&&forkProgress()<.42){
+      const target=available.find(pallet=>pallet.id===animation.forkPalletId);
+      if(target)animation.forkPickup=100+target.slot*animation.forkPalletPitch;
+    }
+    if(reducedMotion?.matches){
+      if(available.length&&(manual||group>=2&&index>=33&&animation.autoForkGroup!==group)){
+        animation.removedPallets.push(available[0].id);if(!manual)animation.autoForkGroup=group;
+      }
+      result.removedPallets=[...animation.removedPallets];return result;
+    }
+    if(manual&&finished&&available.length)animation.manualForkRequested=true;
+    const automatic=group>=2&&index>=33&&animation.autoForkGroup!==group;
+    const stable=!stage.exchange||progress>=1;
+    if((animation.manualForkRequested||automatic)&&finished&&available.length&&stable){
+      const target=available[0];
+      if(!animation.manualForkRequested)animation.autoForkGroup=group;
+      animation.manualForkRequested=false;animation.forkGroup=group;animation.forkPalletId=target.id;
       const baseline=Math.max(18,2.3/Math.max(.001,item.rate||.001))/1.2;
-      const ratio=route?Math.max(1,(route.exitOffset-route.pickupOffset)/(route.baselineExitOffset-route.pickupOffset)):1;
+      const pitch=route?.palletPitch??(route? (route.pickupOffset-100)/2:143);
+      animation.forkPalletPitch=pitch;
+      const pickupOffset=100+target.slot*pitch;
+      const ratio=route?Math.max(1,(route.exitOffset-pickupOffset)/(route.baselineExitOffset-route.pickupOffset)):1;
       animation.forkApproach=baseline*.28*ratio;animation.forkHold=baseline*.22;animation.forkDepart=baseline*.5*ratio;
       animation.forkPeriod=animation.forkApproach+animation.forkHold+animation.forkDepart;
-      animation.forkPickup=route?.pickupOffset;animation.forkExitOffset=route?.exitOffset;animation.forkStarted=time;
+      animation.forkPickup=pickupOffset;animation.forkExitOffset=route?.exitOffset;animation.forkStarted=time;
     }
+    result.removedPallets=[...animation.removedPallets];result.forkPickupOffset=animation.forkPickup;
     if(Number.isFinite(animation.forkStarted)){
       result.forkProgress=forkProgress();result.forkGroup=animation.forkGroup;result.forkExitOffset=animation.forkExitOffset;
     }
@@ -1161,7 +1183,7 @@ window.STSimulation2D=(function(){
       if(item.unit==='CASES')window.STSimulation2DMachines.drawCase(context,x,bottom-height,width,height,palette);
       else window.STSimulation2DMachines.drawBottle(context,x,bottom-height,width,height,palette,appearance.bottle,bottleStages.get(item.id)??0);
     }
-    const samples=[['Width',widthMm,left,left+width,bottom+20],['Gap',gapMm,left+width,left+width+gap,bottom+48]];
+    const samples=[['Width',widthMm,left,left+width,bottom+20],['Gap',gapMm,left+width,left+width+gap,bottom+48],['Pitch',item.pitch,left+width/2,left+width/2+width+gap,bottom+76]];
     context.strokeStyle=accent;context.fillStyle=ink;
     for(const [label,value,start,end,y] of samples){
       const text=label+' · '+num(value)+' mm';
@@ -1174,12 +1196,12 @@ window.STSimulation2D=(function(){
     context.fillStyle=beltColor;context.strokeStyle=beltColor;
     strokeBox(context,x,y+beltInset,width,beltDepth);
     if(factor>=.25&&right>left){
-      context.lineWidth=3;
+      context.lineWidth=3*.75;
       context.setLineDash([20,8]);
       const phase=((item.travelSeconds??model?.time??0)*item.speed*sceneScale)%28||0;
       for(const direction of [1,-1]){
         context.lineDashOffset=left-x-5-direction*phase;
-        const track=y+(direction===1?1.5:beltDepth+1.5);
+        const track=y+(direction===1?beltInset:beltDepth+beltInset);
         context.beginPath();context.moveTo(left,track);context.lineTo(right,track);context.stroke();
       }
       context.setLineDash([]);context.lineDashOffset=0;context.lineWidth=1;
@@ -1340,7 +1362,7 @@ window.STSimulation2D=(function(){
     const {items,right}=equipmentLayout(line);
     const output=productionLayout(line,items,right);
     const transfer=output.pallets?palletTransfer(line.at(-1),forkliftRoute(output)):null;
-    const palletColors={exitX:Number.isFinite(transfer?.forkExitOffset)?origin+output.start+transfer.forkExitOffset:undefined,pickupY:transfer?palletInfeed(line,items,y).startBottom:y,ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:appearance.cases||secondary,caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,batch:transfer?.batch};
+    const palletColors={exitX:Number.isFinite(transfer?.forkExitOffset)?origin+output.start+transfer.forkExitOffset:undefined,pickupY:transfer?palletInfeed(line,items,y).startBottom:y,ink,soft:machineSoft,surface,accent:appearance.equipment||accent,belt:machineColor,caseColor:appearance.cases||secondary,caseAccent:appearance.caseLabel||accent,caseMarkShape:appearance.caseLabelShape,palletColor:secondary,caseWidth:output.caseWidth,caseHeight:output.caseHeight,forkProgress:transfer?.forkProgress,forkGroup:transfer?.forkGroup,removedPallets:transfer?.removedPallets,forkPickupX:Number.isFinite(transfer?.forkPickupOffset)?origin+output.start+transfer.forkPickupOffset:undefined,batch:transfer?.batch};
     if(transfer){
       const pickup=origin+palletInfeed(line,items,y).pickup;
       for(const plane of ['robot','staging','load'])window.STSimulation2DMachines.drawPalletOutput(context,origin+output.start,y,
@@ -1433,7 +1455,7 @@ window.STSimulation2D=(function(){
           }
           context.restore();
           drawConveyorDimensions(context,item,x,dimensionY,width,beltY,ink,accent,pointer);
-          drawConveyorUnitDimensions(context,item,x+width/2,y+half-62,ink,accent,surface,beltColor,secondary,pointer);
+          drawConveyorUnitDimensions(context,item,x+width/2,y+half-90,ink,accent,surface,beltColor,secondary,pointer);
         }
       }else{
         const height=displayHeight(item),top=y-height/2;
@@ -1646,6 +1668,12 @@ window.STSimulation2D=(function(){
   }
   fullscreenButton.onclick=()=>setFullscreen(!embeddedCamera);
   window.addEventListener('keydown',event=>{
+    if(event.key.toLowerCase()==='m'&&!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&
+      !panel.closest('.hidden,[hidden]')&&!document.querySelector('dialog[open]')&&
+      !event.target.closest?.('input,textarea,select,[contenteditable="true"]')&&model&&machineTypes.get(model.line.at(-1)?.id)==='PALLETIZER'){
+      const {items,right}=equipmentLayout(model.line),output=productionLayout(model.line,items,right);
+      palletTransfer(model.line.at(-1),forkliftRoute(output),true);event.preventDefault();draw();
+    }
     if(event.key==='Escape'&&embeddedCamera&&!document.querySelector('dialog[open]')){
       event.preventDefault();
       setFullscreen(false);

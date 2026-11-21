@@ -369,16 +369,21 @@ window.STSimulation2DMachines=(function(){
     return {elapsed,shift:smooth(elapsed/6.8),lower:smooth((elapsed-6.8)/2.8),lift:smooth((elapsed-9.6)/4),returning:smooth((elapsed-13.6)/1.2),
       shiftComplete:elapsed>=6.8-1e-8,liftStarted:elapsed>=9.6-1e-8,placed:elapsed>=13.6-1e-8};
   }
-  function palletStage(produced,progress,forkClock,forkGroup){
+  function palletStage(produced,progress,forkClock,forkGroup,removedPallets){
     const index=produced>0?(produced-1)%36:-1;
     const completed=produced>0?Math.floor((produced-1)/36):0;
     const exchange=index===35;
     const exchangeMotion=palletExchangeStage(progress);
     const shift=exchange?exchangeMotion.shift:0;
-    const forklift=Number.isFinite(forkClock)||completed>=2&&index>=33;
+    const tracked=Array.isArray(removedPallets),removed=new Set(removedPallets||[]);
+    const fullPallets=[];
+    if(completed>=2&&!removed.has(completed-2))fullPallets.push({id:completed-2,slot:2});
+    if(completed>=1&&!removed.has(completed-1))fullPallets.push({id:completed-1,slot:1+shift});
+    if(exchange&&exchangeMotion.shiftComplete&&!removed.has(completed))fullPallets.push({id:completed,slot:1});
+    const forklift=Number.isFinite(forkClock)||!tracked&&completed>=2&&index>=33;
     const forkProgress=forklift?Math.max(0,Number.isFinite(forkClock)?forkClock:Math.min(1,(index+progress-33)/2.3)):0;
     return {
-      index,exchange,exchangeMotion,shift,completed,
+      index,exchange,exchangeMotion,shift,completed,fullPallets,
       count:index<0?0:index+(progress>=.6?1:0),
       forkProgress,forkVisible:forklift&&(Number.isFinite(forkClock)||forkProgress<1),
       forkLoaded:forklift&&forkProgress>=.42,
@@ -396,7 +401,7 @@ window.STSimulation2DMachines=(function(){
     const depthX=0,depthY=0;
     const palletWidth=caseWidth*3+2*depthX+12,palletPitch=palletWidth+20;
     const pickupY=Number.isFinite(colors.pickupY)?colors.pickupY:y;
-    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup);
+    const floor=y+90,stage=palletStage(produced,progress,colors.forkProgress,colors.forkGroup,colors.removedPallets);
     const transferring=produced>0&&progress<.6;
     const staging=layer==='staging',robot=layer==='robot',load=layer==='load';
     const activeX=x+100,rackX=activeX,rackY=floor+48;
@@ -421,9 +426,9 @@ window.STSimulation2DMachines=(function(){
       if(!stage.exchange||!stage.exchangeMotion.liftStarted)pallet(rackX,rackY,0);
     }
     if(staging){
-      pallet(activeX+stage.shift*palletPitch,floor,stage.count);
-      if(stage.completed>=1)pallet(activeX+(1+stage.shift)*palletPitch,floor,36);
-      if(stage.completed>=2&&!stage.thirdRemoved)pallet(activeX+2*palletPitch,floor,36);
+      if(!(stage.count===36&&colors.removedPallets?.includes(stage.completed)))pallet(activeX+stage.shift*palletPitch,floor,stage.count);
+      if(stage.completed>=1&&!colors.removedPallets?.includes(stage.completed-1))pallet(activeX+(1+stage.shift)*palletPitch,floor,36);
+      if(stage.completed>=2&&(colors.removedPallets?!colors.removedPallets.includes(stage.completed-2):!stage.thirdRemoved))pallet(activeX+2*palletPitch,floor,36);
       if(stage.exchange&&stage.exchangeMotion.placed)pallet(activeX,floor,0);
     }
     const placement=Math.max(0,produced-1)%36;
@@ -478,7 +483,7 @@ window.STSimulation2DMachines=(function(){
     const elbowX=baseX+upper*Math.cos(angle),elbowY=shoulderY+upper*Math.sin(angle);
     if(staging){
       if(stage.forkVisible){
-        const pickup=activeX+2*palletPitch;
+        const pickup=Number.isFinite(colors.forkPickupX)?colors.forkPickupX:activeX+2*palletPitch;
         const exit=Math.max(colors.exitX||0,activeX+3*palletPitch+260);
         const t=stage.forkProgress;
         const motion=forkliftMotion(t,pickup,exit),forkX=motion.x;
@@ -489,6 +494,15 @@ window.STSimulation2DMachines=(function(){
         box(truckX-4,truckY-94,7,98,belt);
         box(truckX+8,truckY-90,5,70,belt);
         box(truckX+8,truckY-92,72,6,soft);
+        // Amber roof beacon, drawn in the same flat style as the equipment.
+        box(truckX+37,truckY-98,18,4,belt);
+        box(truckX+41,truckY-109,10,11,'#f59e0b');
+        if(Math.sin(t*Math.PI*24)>0){
+          context.strokeStyle='#f59e0b';context.lineWidth=1.5;
+          context.beginPath();
+          for(const [dx,dy] of [[-12,-6],[0,-11],[12,-6]]){context.moveTo(truckX+46+dx*.7,truckY-111+dy*.7);context.lineTo(truckX+46+dx,truckY-111+dy);}
+          context.stroke();context.strokeStyle=belt;context.lineWidth=2;
+        }
         box(truckX+75,truckY-86,5,63,belt);
         box(truckX+15,truckY-43,66,32,accent);
         box(truckX+66,truckY-49,24,38,soft);

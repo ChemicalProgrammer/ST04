@@ -9,6 +9,8 @@ function script(name) {
   return readFileSync(new URL('../apps-script/'+name+'.html', import.meta.url), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
 }
 
+function palletWindow(){const window={};vm.runInNewContext(script('Simulation2DMachines'),{window});return window;}
+
 test('independent 2D counts own failures once and accumulates starvation and ramp time', () => {
   const window={};
   vm.runInNewContext(script('Simulation2DEngine'), {window});
@@ -176,12 +178,14 @@ test('2D uses the representative seed to calculate new production and preserves 
     window.eval(script('Simulation2D'));
     const source={round:2,seed:78,durationSeconds:10,summary:{outputCount:99999}};
     const createdSeeds=[];
-    let createdDefinitions;
+    let createdDefinitions,currentModel,seedOutput=0;
     const engine=window.STSimulation2DEngine;
     window.STSimulation2DEngine={create(definitions,seed,checkpoint,schedule){
       createdSeeds.push(seed);
       createdDefinitions=definitions;
-      return engine.create(definitions,seed,checkpoint,schedule);
+      currentModel=engine.create(definitions,seed,checkpoint,schedule);
+      if(seedOutput)currentModel.line.at(-1).produced=seedOutput;
+      return currentModel;
     }};
     const records=[];
     const equipment=[
@@ -288,7 +292,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     const cards=boxes.filter(box=>box.y===telemetryY);
     assert.equal(cards.length,9);
     const silhouettes=boxes.filter(box=>box.y<telemetryY&&box.width>100&&
-      (box.height===7.5||box.height>170&&box.height<200));
+      (box.height===7.5*.75||box.height>170&&box.height<200));
     assert.equal(silhouettes.length,3);
     let firstCardIndex=0;
     for(const [index,silhouette] of silhouettes.entries()){
@@ -484,6 +488,7 @@ test('2D uses the representative seed to calculate new production and preserves 
     dimensions.checked=true;dimensions.dispatchEvent(new window.Event('change'));
     assert(currentLabels().some(text=>text.startsWith('Width ·')));
     assert(currentLabels().some(text=>text.startsWith('Gap ·')));
+    assert(currentLabels().some(text=>text.startsWith('Pitch ·')));
     for(const label of ['Lact','Lp','Accumulation Zone (Lba)','Lbu','Discharge','Coding','Overflow','Lrec']){
       assert(currentLabels().some(text=>text.startsWith(label+' ·')));
     }
@@ -772,6 +777,18 @@ test('2D uses the representative seed to calculate new production and preserves 
     const stagingIndex=layerOrder.lastIndexOf('staging'),robotIndex=layerOrder.lastIndexOf('robot'),loadIndex=layerOrder.lastIndexOf('load'),equipmentIndex=layerOrder.lastIndexOf('equipment');
     assert(robotIndex>=0&&robotIndex<stagingIndex&&stagingIndex<loadIndex&&loadIndex<equipmentIndex,'complete layout paints robot, stored pallets, carried load, then equipment');
     assert(!layerOrder.includes('foreground'),'no phase-dependent foreground pass can move the robot above the equipment');
+    // The layout shortcut is scoped to the visible layout and never steals text editing or modal keys.
+    seedOutput=37;let forkColors;
+    window.STSimulation2DMachines.drawPalletOutput=(...args)=>{forkColors=args[4];return originalPalletDraw(...args);};
+    window.STSimulation2D.load(['manual-fork','case'],palletLine,{},config,null);
+    const pressM=(target=window,options={})=>target.dispatchEvent(new window.KeyboardEvent('keydown',{key:'m',bubbles:true,cancelable:true,...options}));
+    assert.equal(forkColors.forkProgress,undefined);
+    pressM(el('limit'));assert.equal(forkColors.forkProgress,undefined);
+    const blockingDialog=window.document.createElement('dialog');blockingDialog.setAttribute('open','');window.document.body.append(blockingDialog);
+    pressM();assert.equal(forkColors.forkProgress,undefined);blockingDialog.remove();
+    el('panel').classList.add('hidden');pressM();el('panel').classList.remove('hidden');assert.equal(forkColors.forkProgress,undefined);
+    pressM(window,{repeat:true});assert.equal(forkColors.forkProgress,undefined);
+    pressM();assert.equal(forkColors.forkProgress,0,'M sends the forklift for the first complete staged pallet');
     window.STSimulation2DMachines.drawPalletOutput=originalPalletDraw;window.STSimulation2DMachines.draw=originalMachineDraw;
   }finally{dom.window.close();}
 });
@@ -903,7 +920,7 @@ test('a palletizer case crosses continuously from belt exit through the machine 
 });
 
 test('new output waits behind a symbolic pickup and movement runs 1.2 times faster',()=>{
- const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
+ const context=vm.createContext({window:palletWindow(),model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
  const item={produced:0,rate:.5};context.palletTransfer(item);item.produced=1;context.model.time=.1;
  assert.equal(context.palletTransfer(item).progress,0);context.model.time=1;
@@ -1073,7 +1090,7 @@ test('production table centers above the three pallet positions and fits their f
 
 
 test('last-case placement keeps normal speed while pallet exchange retains its own timing',()=>{
- const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
+ const context=vm.createContext({window:palletWindow(),model:{time:0},palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
  const item={produced:0,rate:100};context.palletTransfer(item);item.produced=1;context.palletTransfer(item);
  assert.equal(context.palletAnimation.duration,8/1.2);context.model.time=4/1.2;
@@ -1088,7 +1105,7 @@ test('last-case placement keeps normal speed while pallet exchange retains its o
 
 
 test('all waiting cases share one silhouette and one symbolic slot per robot pickup',()=>{
- const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false},step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),productHeight:()=>28,beltHalfHeight:()=>18});
+ const context=vm.createContext({window:palletWindow(),model:{time:0},palletAnimation:null,reducedMotion:{matches:false},step:1/120,caseDimensions:()=>({caseWidth:37,caseHeight:28}),productHeight:()=>28,beltHalfHeight:()=>18});
  const source=script('Simulation2D');vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function productionHeight(')),context);
  const item={produced:0,rate:100,resident:[],residenceClock:0,residenceSeconds:2},line=[{kind:'belt'},item],items=[{left:0,width:200},{left:210,width:300}];
  context.palletTransfer(item);item.produced=50;
@@ -1448,7 +1465,7 @@ test('forklift departure cannot slow box placement or delay the next available r
  const nearby=scenario(789),distant=scenario(5789);
  assert.deepEqual(nearby.frames,distant.frames,'a long forklift route does not change the robot clock');
  assert(distant.state.forkProgress<nearby.state.forkProgress,'forklift travel still has its own duration');
- const context=vm.createContext({model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
+ const context=vm.createContext({window:palletWindow(),model:{time:0},palletAnimation:null,reducedMotion:{matches:false}});
  vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function palletInfeed(')),context);
  function placement(initial){
    context.model={time:0};const item={produced:initial,rate:100};context.palletTransfer(item);item.produced++;context.palletTransfer(item);
@@ -1509,4 +1526,47 @@ test('robot waits for pallet shift to finish before lowering to the empty stack'
    const stage=art.palletStage(36,progress(seconds));assert.equal(stage.shift,1);assert(gripper(seconds)[1]>parked[1],'lowering starts after the staging positions are settled');
  }
  assert.equal(art.palletStage(36,progress(10)).shift,1);
+});
+
+test('manual forklift pickup accepts the first complete pallet, prevents duplicate trips and preserves automatic trips',()=>{
+ const window=palletWindow(),model={time:0};
+ const context=vm.createContext({window,model,palletAnimation:null,reducedMotion:{matches:false}}),source=script('Simulation2D');
+ vm.runInContext(source.slice(source.indexOf('  function palletTransfer('),source.indexOf('  function palletInfeed(')),context);
+ const route={pickupOffset:410,palletPitch:155,baselineExitOffset:825,exitOffset:825};
+ const item={produced:0,rate:.5};
+ assert.equal(context.palletTransfer(item,route,true).forkProgress,undefined);
+ context.palletAnimation=null;item.produced=37;context.palletTransfer(item,route);
+ const requested=context.palletTransfer(item,route,true);
+ assert.equal(requested.forkProgress,0);assert.equal(requested.forkPickupOffset,255);
+ assert.equal(context.palletAnimation.forkPalletId,0);
+ model.time=1;const busy=context.palletTransfer(item,route,true);
+ assert(busy.forkProgress>0);assert.equal(context.palletAnimation.forkStarted,0);
+ model.time=context.palletAnimation.forkApproach+context.palletAnimation.forkHold*.7;
+ const loaded=context.palletTransfer(item,route);
+ assert.deepEqual(Array.from(loaded.removedPallets),[0]);
+ assert.equal(window.STSimulation2DMachines.palletStage(37,1,undefined,undefined,loaded.removedPallets).fullPallets.length,0);
+ model.time=context.palletAnimation.forkPeriod+1;
+ context.palletTransfer(item,route,true);assert.equal(context.palletAnimation.forkStarted,0,'an empty staging position cannot be collected twice');
+ item.produced=106;Object.assign(context.palletAnimation,{placed:106,settled:106,started:null});
+ const automatic=context.palletTransfer(item,route);
+ assert.equal(automatic.forkProgress,0);assert.equal(context.palletAnimation.forkPalletId,1);
+ assert.equal(context.palletAnimation.autoForkGroup,2,'the normal third-pallet request still runs after a manual collection');
+});
+
+test('forklift has an amber beacon above its roof',()=>{
+ const art=palletWindow().STSimulation2DMachines,shapes=[];
+ const ctx=new Proxy({roundRect(x,y,w,h){shapes.push({x,y,w,h,color:this.fillStyle});}},{get:(o,k)=>o[k]??(()=>{})});
+ art.drawPalletOutput(ctx,200,100,180,{ink:'#111',soft:'#eee',surface:'#fff',accent:'#08f',belt:'#777',caseWidth:37,caseHeight:28},106,.2,'staging');
+ const beacon=shapes.find(s=>s.color==='#f59e0b');assert(beacon);assert.equal(beacon.w,10);assert.equal(beacon.h,11);
+ const roof=shapes.find(s=>s.w===72&&s.h===6);assert(roof);assert(beacon.y+beacon.h<=roof.y);
+});
+
+test('conveyor band height is fixed at 75 percent and independent of conveyor length',()=>{
+ const source=script('Simulation2D'),constants=source.match(/beltDepth=([^,;]+),beltInset=([^;]+);/),boxes=[];
+ assert(constants);
+ const context=vm.createContext({window:{},model:{time:0},sceneScale:.09,bottleStages:new Map(),appearance:{},productWidth:()=>20,productHeight:()=>30,strokeBox:(ctx,x,y,w,h)=>boxes.push({w,h})});
+ vm.runInContext('const beltDepth='+constants[1]+',beltInset='+constants[2]+';'+source.slice(source.indexOf('  function drawBelt('),source.indexOf('  function draw(){'))+';this.drawBand=drawBelt;',context);
+ const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{})});
+ for(const length of [1000,10000])context.drawBand(ctx,0,0,length*.09,{id:'belt',unit:'CASES',length,speed:100,items:[]},1,2000,'#08f','#777','#fff');
+ assert.deepEqual(boxes.map(b=>b.h),[7.5*.75,7.5*.75]);assert.equal(boxes[1].w/boxes[0].w,10);
 });

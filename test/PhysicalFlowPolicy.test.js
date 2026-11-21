@@ -50,7 +50,7 @@ test('conveyor dimension samples draw two matching units with independent width 
  const item={id:'belt',unit:'BOTTLES',packageWidth:130,packageLength:98,pitch:141};
  context.drawSample(ctx,item,100,100,'#111','#08f','#fff','#777','#999',null);
  assert.equal(draws.length,2);assert(draws.every(d=>d[0]==='bottle'&&d.at(-2)==='oval-jug'&&d.at(-1)===7));
- assert.deepEqual(dimensions.map(d=>d[0]),['Width · 130 mm','Gap · 43 mm']);
+ assert.deepEqual(dimensions.map(d=>d[0]),['Width · 130 mm','Gap · 43 mm','Pitch · 141 mm']);
  draws.length=0;dimensions.length=0;item.unit='CASES';item.pitch=98;
  context.drawSample(ctx,item,100,100,'#111','#08f','#fff','#777','#999',null);
  assert.equal(draws.length,2);assert(draws.every(d=>d[0]==='case'));assert.equal(dimensions[1][0],'Gap · 0 mm');
